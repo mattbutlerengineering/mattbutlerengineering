@@ -65,6 +65,12 @@ function makePrismaVenue(overrides: Record<string, unknown> = {}) {
       lastSeatingBuffer: 90,
       defaultReservationDuration: 90,
     },
+    depositEnabled: true,
+    depositType: "flat",
+    depositAmountCents: 2500,
+    freeCancellationHours: 24,
+    lateCancellationFeePercent: 50,
+    noShowFeePercent: 100,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -325,6 +331,131 @@ describe("venueService", () => {
           where: { slug: "test-venue", venueGroupId: "group-1" },
         })
       );
+    });
+  });
+
+  describe("getPolicyById", () => {
+    it("returns the typed policy projection for the venue", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      const result = await venueService.getPolicyById("venue-1");
+
+      expect(result).toEqual({
+        id: "venue-1",
+        slug: "test-venue",
+        currencyCode: "USD",
+        depositEnabled: true,
+        depositType: "flat",
+        depositAmountCents: 2500,
+        freeCancellationHours: 24,
+        lateCancellationFeePercent: 50,
+        noShowFeePercent: 100,
+      });
+    });
+
+    it("selects only the policy columns (no raw row leaks through the seam)", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      await venueService.getPolicyById("venue-1");
+
+      expect(prisma.venue.findUnique).toHaveBeenCalledWith({
+        where: { id: "venue-1" },
+        select: {
+          id: true,
+          slug: true,
+          currencyCode: true,
+          depositEnabled: true,
+          depositType: true,
+          depositAmountCents: true,
+          freeCancellationHours: true,
+          lateCancellationFeePercent: true,
+          noShowFeePercent: true,
+        },
+      });
+    });
+
+    it("returns null when the venue is not found", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(null as never);
+
+      expect(await venueService.getPolicyById("missing")).toBeNull();
+    });
+  });
+
+  describe("getPolicyBySlug", () => {
+    it("returns the typed policy projection by slug", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      const result = await venueService.getPolicyBySlug("test-venue");
+
+      expect(result?.depositType).toBe("flat");
+      expect(result?.depositAmountCents).toBe(2500);
+      expect(result?.freeCancellationHours).toBe(24);
+    });
+
+    it("selects only the policy columns filtered by slug", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      await venueService.getPolicyBySlug("test-venue");
+
+      expect(prisma.venue.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { slug: "test-venue" },
+          select: expect.objectContaining({ depositEnabled: true, noShowFeePercent: true }),
+        })
+      );
+    });
+
+    it("returns null when the venue is not found", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(null as never);
+
+      expect(await venueService.getPolicyBySlug("missing")).toBeNull();
+    });
+  });
+
+  describe("getPublicConfigBySlug", () => {
+    it("maps base config plus deposit policy into the public shape", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      const result = await venueService.getPublicConfigBySlug("test-venue");
+
+      expect(result).toEqual({
+        name: "Test Venue",
+        slug: "test-venue",
+        ianaTimezone: "America/Los_Angeles",
+        currencyCode: "USD",
+        operatingHours: expect.objectContaining({
+          monday: { open: "11:00", close: "22:00" },
+        }),
+        settings: {
+          defaultReservationDuration: 90,
+          maxPartySize: undefined,
+          maxAdvanceBooking: undefined,
+          slotIntervalMinutes: 15,
+        },
+        deposit: {
+          enabled: true,
+          depositType: "flat",
+          amountCents: 2500,
+          freeCancellationHours: 24,
+          lateCancellationFeePercent: 50,
+          noShowFeePercent: 100,
+        },
+      });
+    });
+
+    it("never exposes id or venueGroupId on the public config", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      const result = await venueService.getPublicConfigBySlug("test-venue");
+
+      expect(result).not.toHaveProperty("id");
+      expect(result).not.toHaveProperty("venueGroupId");
+    });
+
+    it("returns null when the venue is not found", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(null as never);
+
+      expect(await venueService.getPublicConfigBySlug("missing")).toBeNull();
     });
   });
 

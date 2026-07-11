@@ -9,7 +9,6 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
-    getRawBySlug: vi.fn().mockResolvedValue(null),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),

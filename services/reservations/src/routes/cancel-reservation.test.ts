@@ -21,7 +21,7 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
-    getRawById: vi.fn(),
+    getPolicyById: vi.fn(),
   },
 }));
 
@@ -41,7 +41,23 @@ vi.mock("jose", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import type { VenuePolicy } from "../services/venue.js";
 import { depositService } from "../services/deposit.js";
+
+function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
+  return {
+    id: "venue_1",
+    slug: "the-oak-table",
+    currencyCode: "USD",
+    depositEnabled: true,
+    depositType: "flat",
+    depositAmountCents: null,
+    freeCancellationHours: null,
+    lateCancellationFeePercent: null,
+    noShowFeePercent: null,
+    ...overrides,
+  };
+}
 
 const mockReservation = {
   id: "res_1",
@@ -364,12 +380,11 @@ describe("DELETE /public/v1/reservations/manage", () => {
       startTime: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     };
 
-    const rawVenueWithPolicy = {
-      id: "venue_1",
+    const rawVenueWithPolicy = makeVenuePolicy({
       freeCancellationHours: 24,
       lateCancellationFeePercent: 50,
       noShowFeePercent: 100,
-    };
+    });
 
     function setupCancelMocks(reservation: typeof mockReservation) {
       // middleware ownership check + route handler each call getById once
@@ -386,7 +401,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       const token = generateManageToken("res_1", "jane@example.com");
       setupCancelMocks(futureReservation);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(rawVenueWithPolicy);
       vi.mocked(depositService.refund).mockResolvedValueOnce({
         ...heldDeposit,
         status: "refunded",
@@ -407,7 +422,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       const token = generateManageToken("res_1", "jane@example.com");
       setupCancelMocks(soonReservation);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(rawVenueWithPolicy);
       vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
         ...heldDeposit,
         status: "refunded",
@@ -428,7 +443,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       const token = generateManageToken("res_1", "jane@example.com");
       setupCancelMocks(pastReservation);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(rawVenueWithPolicy);
       vi.mocked(depositService.forfeit).mockResolvedValueOnce({
         ...heldDeposit,
         status: "forfeited",
@@ -449,12 +464,13 @@ describe("DELETE /public/v1/reservations/manage", () => {
       const token = generateManageToken("res_1", "jane@example.com");
       setupCancelMocks(soonReservation);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-      vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-        id: "venue_1",
-        freeCancellationHours: null,
-        lateCancellationFeePercent: null,
-        noShowFeePercent: null,
-      } as never);
+      vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+        makeVenuePolicy({
+          freeCancellationHours: null,
+          lateCancellationFeePercent: null,
+          noShowFeePercent: null,
+        })
+      );
       vi.mocked(depositService.refund).mockResolvedValueOnce({
         ...heldDeposit,
         status: "refunded",
@@ -493,7 +509,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       vi.mocked(reservationService.getById).mockResolvedValueOnce(futureReservation as never);
       vi.mocked(reservationService.getById).mockResolvedValueOnce(futureReservation as never);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-      vi.mocked(venueService.getRawById).mockResolvedValueOnce(rawVenueWithPolicy as never);
+      vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(rawVenueWithPolicy);
       vi.mocked(depositService.refund).mockRejectedValueOnce(new Error("Stripe unavailable"));
 
       const response = await depositApp.inject({
@@ -510,12 +526,13 @@ describe("DELETE /public/v1/reservations/manage", () => {
       const token = generateManageToken("res_1", "jane@example.com");
       setupCancelMocks(pastReservation);
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-      vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-        id: "venue_1",
-        freeCancellationHours: 24,
-        lateCancellationFeePercent: 50,
-        noShowFeePercent: 50, // partial no-show — guest owed 50% back
-      } as never);
+      vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+        makeVenuePolicy({
+          freeCancellationHours: 24,
+          lateCancellationFeePercent: 50,
+          noShowFeePercent: 50, // partial no-show — guest owed 50% back
+        })
+      );
       vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
         ...heldDeposit,
         status: "partial_refunded",
@@ -549,7 +566,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(
         partialRefundedDeposit as never
       );
-      // getRawById must NOT be called — we don't re-derive the fee
+      // getPolicyById must NOT be called — we don't re-derive the fee
       vi.mocked(depositService.refundPartial).mockResolvedValueOnce({
         ...partialRefundedDeposit,
         status: "partial_refunded",
@@ -564,7 +581,7 @@ describe("DELETE /public/v1/reservations/manage", () => {
       // Must replay refundPartial with the PERSISTED refund amount, not the clock-derived one
       expect(depositService.refundPartial).toHaveBeenCalledWith("dep_1", 5000);
       // Must NOT re-derive the fee from the clock (no raw venue lookup)
-      expect(venueService.getRawById).not.toHaveBeenCalled();
+      expect(venueService.getPolicyById).not.toHaveBeenCalled();
       expect(depositService.forfeit).not.toHaveBeenCalled();
       expect(depositService.refund).not.toHaveBeenCalled();
     });

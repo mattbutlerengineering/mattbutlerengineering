@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../services/venue.js", () => ({
   venueService: {
-    getRawBySlug: vi.fn(),
+    getPolicyBySlug: vi.fn(),
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
@@ -71,6 +71,7 @@ vi.mock("../services/database.js", async () => {
 
 import { buildApp } from "../app.js";
 import { venueService } from "../services/venue.js";
+import type { VenuePolicy } from "../services/venue.js";
 import { reservationService } from "../services/reservation.js";
 import { depositService, calculateDepositAmount } from "../services/deposit.js";
 import type { Reservation } from "@mbe/types";
@@ -78,23 +79,16 @@ import type { Deposit } from "../generated/prisma/index.js";
 
 const TEST_URL = "/public/v1/venues/test-venue/deposits/payment-intent";
 
-const mockRawVenue = {
+const mockVenuePolicy: VenuePolicy = {
   id: "venue-1",
-  venueGroupId: null,
-  name: "Test Venue",
   slug: "test-venue",
-  ianaTimezone: "America/Los_Angeles",
   currencyCode: "USD",
-  operatingHours: null,
-  settings: null,
   depositEnabled: true,
-  depositType: "flat" as const,
+  depositType: "flat",
   depositAmountCents: 2500,
   freeCancellationHours: null,
   lateCancellationFeePercent: null,
   noShowFeePercent: null,
-  createdAt: new Date("2026-01-01T00:00:00.000Z"),
-  updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
 const mockReservation: Reservation = {
@@ -144,7 +138,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 404 when venue is not found", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(null);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(null);
 
     const app = await buildApp({ logger: false });
     await app.ready();
@@ -162,8 +156,8 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 422 when deposits are disabled for the venue", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce({
-      ...mockRawVenue,
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce({
+      ...mockVenuePolicy,
       depositEnabled: false,
     });
 
@@ -183,7 +177,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 404 when reservation does not belong to the venue", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     // Reservation from a different venue
     vi.mocked(reservationService.getById).mockResolvedValueOnce({
       ...mockReservation,
@@ -206,7 +200,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 404 when reservation is not found at all", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(null);
 
     const app = await buildApp({ logger: false });
@@ -251,7 +245,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 409 when a deposit already exists for the reservation (idempotency guard)", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(mockDeposit);
 
@@ -271,7 +265,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 201 with clientSecret on the happy path", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -310,7 +304,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("continues without a Stripe customer when createCustomer fails (silent swallow)", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -352,7 +346,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("attaches Stripe customer when guestEmail and guestName are provided", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -395,7 +389,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("passes an idempotency key derived from reservationId + amount to Stripe", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -429,7 +423,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     // observed. A stable `${reservationId}:customer` key lets Stripe dedupe the
     // customer create, so attempt 2 reuses the same customer instead of minting a
     // second one (which would break the PaymentIntent idempotency and 502).
-    vi.mocked(venueService.getRawBySlug).mockResolvedValue(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
     vi.mocked(calculateDepositAmount).mockReturnValue(2500);
@@ -480,7 +474,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns an ADR-008 problem-details response when createPaymentIntent throws a Stripe error", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -510,7 +504,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("returns 502 problem-details when createCustomer fails with a RETRIABLE Stripe error", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -543,7 +537,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("proceeds customer-less (201) when createCustomer fails with a NON-retriable Stripe error", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValueOnce(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(calculateDepositAmount).mockReturnValueOnce(2500);
@@ -582,7 +576,7 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   });
 
   it("retriable-fail-then-retry-succeeds yields a consistent PaymentIntent customer param (no idempotency mismatch)", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValue(mockRawVenue);
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(mockVenuePolicy);
     vi.mocked(reservationService.getById).mockResolvedValue(mockReservation);
     vi.mocked(depositService.getByReservationId).mockResolvedValue(null);
     vi.mocked(calculateDepositAmount).mockReturnValue(2500);

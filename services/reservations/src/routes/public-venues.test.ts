@@ -7,23 +7,21 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
-    getRawBySlug: vi.fn().mockResolvedValue({
-      id: "venue_1",
-      venueGroupId: "group_1",
+    getPublicConfigBySlug: vi.fn().mockResolvedValue({
       name: "The Oak Table",
       slug: "the-oak-table",
       ianaTimezone: "America/Los_Angeles",
       currencyCode: "USD",
       operatingHours: null,
-      settings: null,
-      depositEnabled: false,
-      depositType: null,
-      depositAmountCents: null,
-      freeCancellationHours: null,
-      lateCancellationFeePercent: null,
-      noShowFeePercent: null,
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      settings: {},
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
     }),
     create: vi.fn(),
     update: vi.fn(),
@@ -98,11 +96,10 @@ vi.mock("jose", () => ({
 }));
 
 import { venueService } from "../services/venue.js";
+import type { PublicVenueConfig } from "@mbe/types";
 import { PublicVenueConfigSchema } from "@mbe/types/schemas";
 
-const rawMockVenue = {
-  id: "venue_1",
-  venueGroupId: "group_1",
+const mockPublicConfig: PublicVenueConfig = {
   name: "The Oak Table",
   slug: "the-oak-table",
   ianaTimezone: "America/Los_Angeles",
@@ -121,14 +118,14 @@ const rawMockVenue = {
     maxPartySize: 12,
     maxAdvanceBooking: 30,
   },
-  depositEnabled: false,
-  depositType: null,
-  depositAmountCents: null,
-  freeCancellationHours: null,
-  lateCancellationFeePercent: null,
-  noShowFeePercent: null,
-  createdAt: new Date("2026-01-01T00:00:00.000Z"),
-  updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  deposit: {
+    enabled: false,
+    depositType: null,
+    amountCents: null,
+    freeCancellationHours: null,
+    lateCancellationFeePercent: null,
+    noShowFeePercent: null,
+  },
 };
 
 describe("GET /public/v1/venues/:slug", () => {
@@ -146,7 +143,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("returns venue info by slug without authentication", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(rawMockVenue);
+    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(mockPublicConfig);
 
     const response = await app.inject({
       method: "GET",
@@ -163,7 +160,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("returns 404 for non-existent slug", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(null);
+    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(null);
 
     const response = await app.inject({
       method: "GET",
@@ -174,7 +171,7 @@ describe("GET /public/v1/venues/:slug", () => {
   });
 
   it("does not expose venueGroupId or internal fields", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(rawMockVenue);
+    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(mockPublicConfig);
 
     const response = await app.inject({
       method: "GET",
@@ -186,9 +183,9 @@ describe("GET /public/v1/venues/:slug", () => {
     expect(body.data.id).toBeUndefined();
   });
 
-  it("fetches venue only via getRawBySlug — never calls getBySlug", async () => {
+  it("fetches the venue config only via getPublicConfigBySlug — never calls getBySlug", async () => {
     vi.mocked(venueService.getBySlug).mockClear();
-    vi.mocked(venueService.getRawBySlug).mockClear();
+    vi.mocked(venueService.getPublicConfigBySlug).mockClear();
 
     await app.inject({
       method: "GET",
@@ -196,12 +193,12 @@ describe("GET /public/v1/venues/:slug", () => {
     });
 
     expect(venueService.getBySlug).not.toHaveBeenCalled();
-    expect(venueService.getRawBySlug).toHaveBeenCalledOnce();
-    expect(venueService.getRawBySlug).toHaveBeenCalledWith("the-oak-table");
+    expect(venueService.getPublicConfigBySlug).toHaveBeenCalledOnce();
+    expect(venueService.getPublicConfigBySlug).toHaveBeenCalledWith("the-oak-table");
   });
 
   it("contract: live response validates against the shared PublicVenueConfig Zod schema", async () => {
-    vi.mocked(venueService.getRawBySlug).mockResolvedValueOnce(rawMockVenue);
+    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(mockPublicConfig);
 
     const response = await app.inject({
       method: "GET",
