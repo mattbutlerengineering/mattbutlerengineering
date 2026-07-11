@@ -3,7 +3,7 @@
  *
  * `introspectComponents()` produces the canonical ComponentMetadata model, in
  * which every prop carries a `declaredInRialto` flag (true when the prop
- * originates in the rialto components dir, false for HTML-attribute
+ * originates in the rialto package src root, false for HTML-attribute
  * bleed-through inherited from `HTMLAttributes<…>`). The manifest and registry
  * JSON artifacts describe the *real* component API, so they project away every
  * inherited HTML attribute by filtering on that flag — the same question
@@ -50,7 +50,7 @@ export interface ProjectedComponent {
 /**
  * Project the canonical model to the manifest/registry JSON shape.
  *
- * - Filters each prop to only those declared in the rialto components dir
+ * - Filters each prop to only those declared in the rialto package src root
  *   (`declaredInRialto`) — dropping inherited HTML-attribute bleed-through.
  * - Projects each surviving prop to the fields the JSON schema defines
  *   (name, type, required; optional default and description).

@@ -104,4 +104,22 @@ describe("buildManifest", () => {
     expect(iconButton).toBeDefined();
     expect(iconButton!.props.map((p) => p.name)).toContain("aria-label");
   });
+
+  it("keeps props declared outside src/components (RialtoProvider vibe/vibeOverrides/theme)", () => {
+    // Regression for #3375: RialtoProviderProps is declared in src/providers,
+    // not src/components. When the declaredInRialto boundary was scoped to
+    // src/components, these three genuine public props were misclassified as
+    // HTMLAttributes bleed-through and dropped, leaving props: []. The boundary
+    // is the whole src root, so provider-authored props must survive.
+    const components = introspectComponents(RIALTO_ROOT);
+    const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
+
+    const provider = manifest.components.find((c) => c.name === "RialtoProvider");
+    expect(provider).toBeDefined();
+    const names = provider!.props.map((p) => p.name);
+    expect(names).toEqual(expect.arrayContaining(["vibe", "vibeOverrides", "theme"]));
+    // …and its RialtoProviderProps does not extend HTMLAttributes, so these
+    // three are the ENTIRE projected API — no HTML bleed-through admitted.
+    expect(names).toEqual(["vibe", "vibeOverrides", "theme"]);
+  });
 });

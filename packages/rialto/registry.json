@@ -3062,7 +3062,26 @@
       "name": "RialtoProvider",
       "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides composed from two adapters behind one\n  interface: the active `vibe` preset and a reduced-data adapter driven by\n  `device.saveData` (tightens spacing when the user prefers reduced data)\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
       "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
+      "props": [
+        {
+          "name": "vibe",
+          "type": "VibeName | undefined",
+          "required": false,
+          "description": "Active vibe preset. Defaults to `'default'` (no overrides)."
+        },
+        {
+          "name": "vibeOverrides",
+          "type": "VibeOverrides | undefined",
+          "required": false,
+          "description": "Additional CSS custom property overrides merged on top of the vibe preset."
+        },
+        {
+          "name": "theme",
+          "type": "\"light\" | \"dark\" | \"system\" | undefined",
+          "required": false,
+          "description": "Theme mode. `'system'` follows the OS color scheme. Defaults to `'system'`."
+        }
+      ],
       "slots": [
         "children"
       ]
