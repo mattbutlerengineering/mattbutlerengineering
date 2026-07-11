@@ -320,3 +320,6 @@ export const floorPlanService = {
     }
   },
 };
+
+/** Contract for floor-plan consumers; implemented by the `floorPlanService` singleton. */
+export type FloorPlanService = typeof floorPlanService;

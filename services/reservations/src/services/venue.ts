@@ -186,6 +186,9 @@ export const venueGroupService = {
   },
 };
 
+/** Contract for venue-group consumers; implemented by the `venueGroupService` singleton. */
+export type VenueGroupService = typeof venueGroupService;
+
 export const venueService = {
   async list(
     page: number,
@@ -415,3 +418,6 @@ export const venueService = {
     }
   },
 };
+
+/** Contract for venue consumers; implemented by the `venueService` singleton. */
+export type VenueService = typeof venueService;

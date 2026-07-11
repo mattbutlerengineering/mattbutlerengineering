@@ -422,3 +422,6 @@ export const guestService = {
     });
   },
 };
+
+/** Contract for guest consumers; implemented by the `guestService` singleton. */
+export type GuestService = typeof guestService;

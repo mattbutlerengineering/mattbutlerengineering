@@ -382,3 +382,6 @@ export const availabilityService = {
   findBestTable,
   fetchConflictData,
 };
+
+/** Contract for availability consumers; implemented by the `availabilityService` singleton. */
+export type AvailabilityService = typeof availabilityService;

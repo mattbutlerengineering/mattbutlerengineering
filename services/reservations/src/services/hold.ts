@@ -214,3 +214,6 @@ export const holdService = {
     return true;
   },
 };
+
+/** Contract for hold consumers; implemented by the `holdService` singleton. */
+export type HoldService = typeof holdService;

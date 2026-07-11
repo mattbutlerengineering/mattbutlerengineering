@@ -2891,6 +2891,20 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/services/domain-services.ts">
+    <item priority="low">
+      interface DomainServices {
+        availability: AvailabilityService;
+        briefing: BriefingService;
+        deposit: DepositService;
+        floorPlan: FloorPlanService;
+        guest: GuestService;
+      }
+    </item>
+    <item priority="high">
+      export function createDefaultDomainServices(): DomainServices { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/events.ts">
     <item priority="low">
       type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing";

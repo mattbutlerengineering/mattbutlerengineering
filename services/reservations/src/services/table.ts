@@ -161,3 +161,6 @@ export const tableService = {
     }
   },
 };
+
+/** Contract for table consumers; implemented by the `tableService` singleton. */
+export type TableService = typeof tableService;

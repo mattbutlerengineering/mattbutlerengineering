@@ -44,8 +44,10 @@ import {
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
-import { reservationService } from "./services/reservation.js";
-import { venueService } from "./services/venue.js";
+import {
+  createDefaultDomainServices,
+  type DomainServices,
+} from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { prisma } from "./services/database.js";
 import { createVenueMembershipLookup } from "./services/venue-membership.js";
@@ -61,6 +63,7 @@ export interface ReservationsAppOptions extends AppOptions {
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
+  services?: Partial<DomainServices>;
 }
 
 /**
@@ -133,6 +136,25 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
   fastify.decorate("venueMembershipLookup", venueMembershipLookup);
 
+  // Domain-services composition seam (issue #3357). Routes resolve their
+  // domain services from `fastify.services` instead of importing module
+  // singletons, so tests inject fakes here rather than vi.mock-ing the import
+  // ring. The Partial merge keeps production wiring unchanged (defaults are
+  // the existing singletons) and lets a test override only the services its
+  // routes touch:
+  //
+  //   const app = await buildApp({ services: { venue: fakeVenueService } });
+  //
+  // Decorated before route registration so child route plugins can read it at
+  // plugin scope. Overrides must be actual services: an explicitly-undefined
+  // entry (e.g. `venue: cond ? fake : undefined`) typechecks but clobbers the
+  // default and fails at request time. Migrated routes: availability,
+  // briefing. Remaining routes still import singletons directly — migrate
+  // them to `fastify.services` and delete their tests' vi.mock rings as they
+  // are touched.
+  const services: DomainServices = { ...createDefaultDomainServices(), ...options.services };
+  fastify.decorate("services", services);
+
   // Register routes
   await fastify.register(healthRoutes);
   await fastify.register(registerReadinessRoutes, { prisma });
@@ -186,8 +208,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const jobWorker = createReservationJobWorker({
     redisUrl: notifierRuntime.redisUrl,
     handlers: createReservationJobHandlers({
-      getReservation: (id) => reservationService.getById(id),
-      getVenue: (id) => venueService.getById(id),
+      getReservation: (id) => services.reservation.getById(id),
+      getVenue: (id) => services.venue.getById(id),
       dispatcher: notificationPort,
       generateManageToken,
       handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -216,5 +238,6 @@ declare module "fastify" {
     postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
     venueMembershipLookup: VenueMembershipLookup;
+    services: DomainServices;
   }
 }

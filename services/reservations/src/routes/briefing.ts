@@ -3,9 +3,13 @@ import type { ProblemDetails } from "@mbe/types";
 import { createProblemDetails, briefingQueryJsonSchema } from "@mbe/types";
 import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import { venueIdFromQuery } from "./venue-access.js";
-import { briefingService, type BriefingEntry } from "../services/briefing.js";
+import type { BriefingEntry } from "../services/briefing.js";
 
 export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+  // Domain services resolved from the buildApp decoration (issue #3357) —
+  // injectable in tests via buildApp({ services: { … } }).
+  const { services } = fastify;
+
   fastify.get<{
     Querystring: { date?: string; venueId?: string };
     Reply: { data: BriefingEntry[] } | ProblemDetails;
@@ -53,7 +57,7 @@ export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
       }
 
-      const data = await briefingService.getBriefing({ date, venueId });
+      const data = await services.briefing.getBriefing({ date, venueId });
       return { data };
     }
   );

@@ -112,3 +112,6 @@ async function getBriefing(params: GetBriefingParams): Promise<BriefingEntry[]> 
 }
 
 export const briefingService = { getBriefing };
+
+/** Contract for briefing consumers; implemented by the `briefingService` singleton. */
+export type BriefingService = typeof briefingService;

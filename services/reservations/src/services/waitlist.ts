@@ -120,3 +120,6 @@ export const waitlistService = {
     }
   },
 };
+
+/** Contract for waitlist consumers; implemented by the `waitlistService` singleton. */
+export type WaitlistService = typeof waitlistService;

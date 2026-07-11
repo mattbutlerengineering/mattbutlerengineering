@@ -23,6 +23,9 @@ vi.mock("../services/venue.js", () => ({
     getBySlug: vi.fn(),
     getPolicyById: vi.fn(),
   },
+  // Referenced by the domain-services seam's default wiring (#3357); this
+  // ring predates the seam — migrate to buildApp({ services }) and delete it.
+  venueGroupService: {},
 }));
 
 vi.mock("../services/deposit.js", () => ({

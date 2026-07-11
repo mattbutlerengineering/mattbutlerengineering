@@ -1,101 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
-import { createMockReservation, createMockJWTPayload } from "../test/mocks.js";
+import type { BriefingService } from "../services/briefing.js";
+import { createMockReservation } from "../test/mocks.js";
 
-// Mock the briefing service
-vi.mock("../services/briefing.js", () => ({
-  briefingService: {
-    getBriefing: vi.fn(),
-  },
-}));
-
-// Mock all other services required by buildApp
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    listByUserId: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    createWithConflictCheck: vi.fn(),
-    createWalkIn: vi.fn(),
-    update: vi.fn(),
-    updateWithConflictCheck: vi.fn(),
-    cancel: vi.fn(),
-  },
-}));
-
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    updateStatus: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    setActive: vi.fn(),
-    updateTablePosition: vi.fn(),
-    bulkUpdateTablePositions: vi.fn(),
-    assignTableToFloorPlan: vi.fn(),
-    removeTableFromFloorPlan: vi.fn(),
-  },
-}));
-
-vi.mock("../services/database.js", async () => {
-  const { createMockDatabaseService } = await import("@mbe/database/testing");
-  return createMockDatabaseService();
-});
-
-vi.mock("jose", () => ({
-  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
-  jwtVerify: vi.fn(),
-}));
-
-import { briefingService } from "../services/briefing.js";
-import { jwtVerify } from "jose";
+// Fake injected through the buildApp domain-services seam (#3357) — no
+// vi.mock import ring, no jose mock. Auth uses the test bypass (hardcoded
+// admin identity), which requireVenueAccess admits without a membership
+// lookup; the JWT verification path itself is covered by @mbe/auth's own
+// tests.
+const briefing = {
+  getBriefing: vi.fn(),
+} satisfies BriefingService;
 
 const mockReservation = createMockReservation({ venueId: "venue-abc" });
 
@@ -120,7 +36,6 @@ const mockBriefingEntry = {
 describe("GET /api/v1/briefing", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
-  const mockJWTPayload = createMockJWTPayload();
 
   beforeEach(async () => {
     process.env = {
@@ -129,17 +44,13 @@ describe("GET /api/v1/briefing", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    vi.mocked(jwtVerify).mockResolvedValue({
-      payload: mockJWTPayload,
-      protectedHeader: { alg: "RS256" },
-    } as never);
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { briefing } });
     await app.ready();
+    vi.resetAllMocks();
   });
 
   afterEach(async () => {
     await app.close();
-    vi.clearAllMocks();
     process.env = originalEnv;
   });
 
@@ -156,7 +67,7 @@ describe("GET /api/v1/briefing", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/briefing?venueId=venue-abc",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(400);
@@ -166,19 +77,19 @@ describe("GET /api/v1/briefing", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/briefing?date=2026-06-19",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(400);
   });
 
   it("returns enriched reservations with guest data", async () => {
-    vi.mocked(briefingService.getBriefing).mockResolvedValueOnce([mockBriefingEntry]);
+    briefing.getBriefing.mockResolvedValueOnce([mockBriefingEntry]);
 
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(200);
@@ -191,12 +102,12 @@ describe("GET /api/v1/briefing", () => {
   });
 
   it("does not expose guestEmail or guestPhone in briefing response (PII)", async () => {
-    vi.mocked(briefingService.getBriefing).mockResolvedValueOnce([mockBriefingEntry]);
+    briefing.getBriefing.mockResolvedValueOnce([mockBriefingEntry]);
 
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(200);
@@ -206,27 +117,27 @@ describe("GET /api/v1/briefing", () => {
   });
 
   it("passes date and venueId to briefing service", async () => {
-    vi.mocked(briefingService.getBriefing).mockResolvedValueOnce([]);
+    briefing.getBriefing.mockResolvedValueOnce([]);
 
     await app.inject({
       method: "GET",
       url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
-    expect(briefingService.getBriefing).toHaveBeenCalledWith({
+    expect(briefing.getBriefing).toHaveBeenCalledWith({
       date: "2026-06-19",
       venueId: "venue-abc",
     });
   });
 
   it("returns empty data array when no reservations", async () => {
-    vi.mocked(briefingService.getBriefing).mockResolvedValueOnce([]);
+    briefing.getBriefing.mockResolvedValueOnce([]);
 
     const response = await app.inject({
       method: "GET",
       url: "/api/v1/briefing?date=2026-06-19&venueId=venue-abc",
-      headers: { authorization: "Bearer valid-token" },
+      headers: { "x-auth-bypass": "true" },
     });
 
     expect(response.statusCode).toBe(200);

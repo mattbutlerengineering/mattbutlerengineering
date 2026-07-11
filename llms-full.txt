@@ -6545,6 +6545,10 @@
       fastify.addSchema(TimeSlotSchema);
       fastify.addSchema(DateAvailabilitySchema);
     
+      // Domain services resolved from the buildApp decoration (issue #3357) —
+      // injectable in tests via buildApp({ services: { … } }).
+      const { services } = fastify;
+    
       // GET /:venueId - Get available time slots for a date
       fastify.get<{
         Params: { venueId: string };
@@ -6590,7 +6594,7 @@
           const { date, partySize, duration } = request.query;
     
           // Validate venue exists
-          const venue = await venueService.getById(venueId);
+          const venue = await services.venue.getById(venueId);
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
@@ -6620,7 +6624,7 @@
               );
           }
     
-          const slots = await availabilityService.generateTimeSlots(
+          const slots = await services.availability.generateTimeSlots(
             venueId,
             date,
             partySizeResult.value,
@@ -6676,7 +6680,7 @@
           const { startDate, endDate, partySize } = request.query;
     
           // Validate venue exists
-          const venue = await venueService.getById(venueId);
+          const venue = await services.venue.getById(venueId);
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
@@ -6693,7 +6697,7 @@
               .send(createProblemDetails(400, "Bad Request", partySizeResult.error));
           }
     
-          const dates = await availabilityService.getAvailableDates(
+          const dates = await services.availability.getAvailableDates(
             venueId,
             startDate,
             endDate,
@@ -6707,6 +6711,10 @@
   </file>
   <file path="services/reservations/src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
+      // Domain services resolved from the buildApp decoration (issue #3357) —
+      // injectable in tests via buildApp({ services: { … } }).
+      const { services } = fastify;
+    
       fastify.get<{
         Querystring: { date?: string; venueId?: string };
         Reply: { data: BriefingEntry[] } | ProblemDetails;
@@ -6754,7 +6762,7 @@
               .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
           }
     
-          const data = await briefingService.getBriefing({ date, venueId });
+          const data = await services.briefing.getBriefing({ date, venueId });
           return { data };
         }
       );
@@ -11583,6 +11591,38 @@
         super(`Deposit not found: ${id}`);
         this.name = "DepositNotFoundError";
       }
+    }
+  </file>
+  <file path="services/reservations/src/services/domain-services.ts">
+    export interface DomainServices {
+      availability: AvailabilityService;
+      briefing: BriefingService;
+      deposit: DepositService;
+      floorPlan: FloorPlanService;
+      guest: GuestService;
+      hold: HoldService;
+      reservation: ReservationService;
+      stripe: StripeService;
+      table: TableService;
+      venue: VenueService;
+      venueGroup: VenueGroupService;
+      waitlist: WaitlistService;
+    }
+    export function createDefaultDomainServices(): DomainServices {
+      return {
+        availability: availabilityService,
+        briefing: briefingService,
+        deposit: depositService,
+        floorPlan: floorPlanService,
+        guest: guestService,
+        hold: holdService,
+        reservation: reservationService,
+        stripe: stripeService,
+        table: tableService,
+        venue: venueService,
+        venueGroup: venueGroupService,
+        waitlist: waitlistService,
+      };
     }
   </file>
   <file path="services/reservations/src/services/events.ts">
@@ -17211,6 +17251,7 @@
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
+      services?: Partial<DomainServices>;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
@@ -17279,6 +17320,25 @@
         options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
       fastify.decorate("venueMembershipLookup", venueMembershipLookup);
     
+      // Domain-services composition seam (issue #3357). Routes resolve their
+      // domain services from `fastify.services` instead of importing module
+      // singletons, so tests inject fakes here rather than vi.mock-ing the import
+      // ring. The Partial merge keeps production wiring unchanged (defaults are
+      // the existing singletons) and lets a test override only the services its
+      // routes touch:
+      //
+      //   const app = await buildApp({ services: { venue: fakeVenueService } });
+      //
+      // Decorated before route registration so child route plugins can read it at
+      // plugin scope. Overrides must be actual services: an explicitly-undefined
+      // entry (e.g. `venue: cond ? fake : undefined`) typechecks but clobbers the
+      // default and fails at request time. Migrated routes: availability,
+      // briefing. Remaining routes still import singletons directly — migrate
+      // them to `fastify.services` and delete their tests' vi.mock rings as they
+      // are touched.
+      const services: DomainServices = { ...createDefaultDomainServices(), ...options.services };
+      fastify.decorate("services", services);
+    
       // Register routes
       await fastify.register(healthRoutes);
       await fastify.register(registerReadinessRoutes, { prisma });
@@ -17332,8 +17392,8 @@
       const jobWorker = createReservationJobWorker({
         redisUrl: notifierRuntime.redisUrl,
         handlers: createReservationJobHandlers({
-          getReservation: (id) => reservationService.getById(id),
-          getVenue: (id) => venueService.getById(id),
+          getReservation: (id) => services.reservation.getById(id),
+          getVenue: (id) => services.venue.getById(id),
           dispatcher: notificationPort,
           generateManageToken,
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),

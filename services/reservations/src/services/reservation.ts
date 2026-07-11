@@ -574,3 +574,6 @@ export const reservationService = {
     };
   },
 };
+
+/** Contract for reservation consumers; implemented by the `reservationService` singleton. */
+export type ReservationService = typeof reservationService;

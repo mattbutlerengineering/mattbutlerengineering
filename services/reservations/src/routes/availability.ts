@@ -3,8 +3,6 @@ import type { TimeSlot, DateAvailability, ApiResponse, ProblemDetails } from "@m
 import { createProblemDetails, availabilityQueryJsonSchema, availabilityDatesQueryJsonSchema } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
-import { availabilityService } from "../services/availability.js";
-import { venueService } from "../services/venue.js";
 
 // Schema for TimeSlot
 const TimeSlotSchema = {
@@ -67,6 +65,10 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(TimeSlotSchema);
   fastify.addSchema(DateAvailabilitySchema);
 
+  // Domain services resolved from the buildApp decoration (issue #3357) —
+  // injectable in tests via buildApp({ services: { … } }).
+  const { services } = fastify;
+
   // GET /:venueId - Get available time slots for a date
   fastify.get<{
     Params: { venueId: string };
@@ -112,7 +114,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       const { date, partySize, duration } = request.query;
 
       // Validate venue exists
-      const venue = await venueService.getById(venueId);
+      const venue = await services.venue.getById(venueId);
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
@@ -142,7 +144,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const slots = await availabilityService.generateTimeSlots(
+      const slots = await services.availability.generateTimeSlots(
         venueId,
         date,
         partySizeResult.value,
@@ -198,7 +200,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
       const { startDate, endDate, partySize } = request.query;
 
       // Validate venue exists
-      const venue = await venueService.getById(venueId);
+      const venue = await services.venue.getById(venueId);
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
@@ -215,7 +217,7 @@ export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
           .send(createProblemDetails(400, "Bad Request", partySizeResult.error));
       }
 
-      const dates = await availabilityService.getAvailableDates(
+      const dates = await services.availability.getAvailableDates(
         venueId,
         startDate,
         endDate,

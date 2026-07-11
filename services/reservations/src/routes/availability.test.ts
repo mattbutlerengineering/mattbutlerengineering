@@ -1,117 +1,32 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { AvailabilityService } from "../services/availability.js";
+import type { VenueService } from "../services/venue.js";
 
-// Mock the availability service
-vi.mock("../services/availability.js", () => ({
-  availabilityService: {
-    generateTimeSlots: vi.fn(),
-    getAvailableDates: vi.fn(),
-    findBestTable: vi.fn(),
-    estimateDuration: vi.fn(),
-  },
-}));
+// Fakes injected through the buildApp domain-services seam (#3357) — no
+// vi.mock import ring. `satisfies` pins each fake to the real service
+// contract, so a renamed or removed service method fails to compile here
+// instead of passing against a stale mock.
+const availability = {
+  generateTimeSlots: vi.fn(),
+  getAvailableDates: vi.fn(),
+  findBestTable: vi.fn(),
+  fetchConflictData: vi.fn(),
+} satisfies AvailabilityService;
 
-// Mock the venue service
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-// Mock the table service
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-// Mock the reservation service
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    listByUserId: vi.fn(),
-    cancel: vi.fn(),
-  },
-}));
-
-// Mock the guest service
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-
-// Mock the floor plan service
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    setActive: vi.fn(),
-    updateTablePosition: vi.fn(),
-    bulkUpdateTablePositions: vi.fn(),
-    assignTableToFloorPlan: vi.fn(),
-    removeTableFromFloorPlan: vi.fn(),
-  },
-}));
-
-// Mock the hold service
-vi.mock("../services/hold.js", () => ({
-  holdService: {
-    create: vi.fn(),
-    getById: vi.fn(),
-    release: vi.fn(),
-    convertToReservation: vi.fn(),
-    cleanupExpired: vi.fn(),
-  },
-}));
-
-// Mock the database
-vi.mock("../services/database.js", async () => {
-  const { createMockDatabaseService } = await import("@mbe/database/testing");
-  return createMockDatabaseService();
-});
-
-// Mock jose library
-vi.mock("jose", () => ({
-  createRemoteJWKSet: vi.fn(() => "mock-jwks"),
-  jwtVerify: vi.fn(),
-}));
-
-import { availabilityService } from "../services/availability.js";
-import { venueService } from "../services/venue.js";
+const venue = {
+  list: vi.fn(),
+  listForMember: vi.fn(),
+  getById: vi.fn(),
+  getBySlug: vi.fn(),
+  getPolicyById: vi.fn(),
+  getPolicyBySlug: vi.fn(),
+  getPublicConfigBySlug: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+} satisfies VenueService;
 
 const mockVenue = {
   id: "venue-123",
@@ -170,9 +85,9 @@ describe("Availability Routes", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { availability, venue } });
     await app.ready();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   afterEach(async () => {
@@ -182,8 +97,8 @@ describe("Availability Routes", () => {
 
   describe("GET /v1/availability/:venueId", () => {
     it("should return time slots for a valid request", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
-      vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce(mockTimeSlots);
+      venue.getById.mockResolvedValueOnce(mockVenue);
+      availability.generateTimeSlots.mockResolvedValueOnce(mockTimeSlots);
 
       const response = await app.inject({
         method: "GET",
@@ -194,7 +109,7 @@ describe("Availability Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data).toEqual(mockTimeSlots);
-      expect(availabilityService.generateTimeSlots).toHaveBeenCalledWith(
+      expect(availability.generateTimeSlots).toHaveBeenCalledWith(
         "venue-123",
         "2024-02-15",
         4,
@@ -203,8 +118,8 @@ describe("Availability Routes", () => {
     });
 
     it("should accept optional duration parameter", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
-      vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce(mockTimeSlots);
+      venue.getById.mockResolvedValueOnce(mockVenue);
+      availability.generateTimeSlots.mockResolvedValueOnce(mockTimeSlots);
 
       const response = await app.inject({
         method: "GET",
@@ -213,7 +128,7 @@ describe("Availability Routes", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(availabilityService.generateTimeSlots).toHaveBeenCalledWith(
+      expect(availability.generateTimeSlots).toHaveBeenCalledWith(
         "venue-123",
         "2024-02-15",
         4,
@@ -222,7 +137,7 @@ describe("Availability Routes", () => {
     });
 
     it("should return 404 for non-existent venue", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(null);
+      venue.getById.mockResolvedValueOnce(null);
 
       const response = await app.inject({
         method: "GET",
@@ -236,8 +151,6 @@ describe("Availability Routes", () => {
     });
 
     it("should return 400 for invalid date format", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
-
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/availability/venue-123?date=02-15-2024&partySize=4",
@@ -251,7 +164,7 @@ describe("Availability Routes", () => {
     });
 
     it("should return 400 for invalid party size", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
+      venue.getById.mockResolvedValueOnce(mockVenue);
 
       const response = await app.inject({
         method: "GET",
@@ -265,7 +178,7 @@ describe("Availability Routes", () => {
     });
 
     it("should return 400 for invalid duration", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
+      venue.getById.mockResolvedValueOnce(mockVenue);
 
       const response = await app.inject({
         method: "GET",
@@ -281,8 +194,8 @@ describe("Availability Routes", () => {
 
   describe("GET /v1/availability/:venueId/dates", () => {
     it("should return date availability for a valid request", async () => {
-      vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValue(mockDateAvailability);
+      venue.getById.mockResolvedValue(mockVenue);
+      availability.getAvailableDates.mockResolvedValue(mockDateAvailability);
 
       const response = await app.inject({
         method: "GET",
@@ -293,7 +206,7 @@ describe("Availability Routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data).toEqual(mockDateAvailability);
-      expect(availabilityService.getAvailableDates).toHaveBeenCalledWith(
+      expect(availability.getAvailableDates).toHaveBeenCalledWith(
         "venue-123",
         "2024-02-15",
         "2024-02-17",
@@ -302,8 +215,8 @@ describe("Availability Routes", () => {
     });
 
     it("should return 404 for non-existent venue", async () => {
-      vi.mocked(venueService.getById).mockResolvedValue(null);
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValue([]);
+      venue.getById.mockResolvedValue(null);
+      availability.getAvailableDates.mockResolvedValue([]);
 
       const response = await app.inject({
         method: "GET",
@@ -317,8 +230,8 @@ describe("Availability Routes", () => {
     });
 
     it("should return 400 for invalid date range", async () => {
-      vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValue([]);
+      venue.getById.mockResolvedValue(mockVenue);
+      availability.getAvailableDates.mockResolvedValue([]);
 
       const response = await app.inject({
         method: "GET",
@@ -332,8 +245,8 @@ describe("Availability Routes", () => {
     });
 
     it("should return 400 for invalid party size", async () => {
-      vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValue([]);
+      venue.getById.mockResolvedValue(mockVenue);
+      availability.getAvailableDates.mockResolvedValue([]);
 
       const response = await app.inject({
         method: "GET",
@@ -367,8 +280,8 @@ describe("Availability Routes", () => {
     });
 
     it("allows authenticated operator to GET /v1/availability/:venueId", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
-      vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce(mockTimeSlots);
+      venue.getById.mockResolvedValueOnce(mockVenue);
+      availability.generateTimeSlots.mockResolvedValueOnce(mockTimeSlots);
 
       const response = await app.inject({
         method: "GET",
@@ -380,8 +293,8 @@ describe("Availability Routes", () => {
     });
 
     it("allows authenticated operator to GET /v1/availability/:venueId/dates", async () => {
-      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue);
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValueOnce(mockDateAvailability);
+      venue.getById.mockResolvedValueOnce(mockVenue);
+      availability.getAvailableDates.mockResolvedValueOnce(mockDateAvailability);
 
       const response = await app.inject({
         method: "GET",
