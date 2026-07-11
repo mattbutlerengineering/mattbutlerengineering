@@ -201,6 +201,7 @@ export const REGEN_SOURCE_PREFIXES = [
   "packages/",
   "services/",
   "tools/",
+  "infrastructure/",
   "pnpm-workspace.yaml",
 ];
 
