@@ -6,7 +6,6 @@
  *  - AdapterConfig / AdapterResult shape via usage in concrete implementations
  *  - Each supported adapter's name and command/args construction
  *  - ClaudeAdapter availability logic (env-var gated)
- *  - Unknown-adapter / all-unavailable error path via FailoverRouter
  *
  * No real CLIs are spawned — child_process is mocked.
  */
@@ -28,7 +27,6 @@ import type { AgentAdapter, AdapterConfig, AdapterResult } from "../cli-adapter.
 import { GeminiCliAdapter } from "../adapters/gemini-adapter.js";
 import { OpenCodeAdapter } from "../adapters/opencode-adapter.js";
 import { ClaudeAdapter } from "../adapters/claude-adapter.js";
-import { FailoverRouter, AllAdaptersUnavailableError } from "../failover-router.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -74,16 +72,6 @@ function makeConfig(overrides: Partial<AdapterConfig> = {}): AdapterConfig {
     worktreePath: "/tmp/worktree-test",
     repoPath: "/tmp/repo",
     baseBranch: "main",
-    ...overrides,
-  };
-}
-
-function makeResult(overrides: Partial<AdapterResult> = {}): AdapterResult {
-  return {
-    success: true,
-    hasChanges: false,
-    rateLimited: false,
-    durationMs: 42,
     ...overrides,
   };
 }
@@ -317,80 +305,5 @@ describe("ClaudeAdapter — availability", () => {
     process.env["ANTHROPIC_API_KEY"] = "";
     const adapter = new ClaudeAdapter();
     expect(await adapter.isAvailable()).toBe(false);
-  });
-});
-
-// ── Unknown adapter / all-unavailable error path ──────────────────────
-
-describe("unknown adapter / all adapters unavailable — error path", () => {
-  it("FailoverRouter throws AllAdaptersUnavailableError when all adapters unavailable", async () => {
-    const unavailableAdapter: AgentAdapter = {
-      name: "unavailable-adapter",
-      isAvailable: vi.fn().mockResolvedValue(false),
-      run: vi.fn().mockResolvedValue(makeResult()),
-    };
-
-    const router = new FailoverRouter([unavailableAdapter]);
-
-    await expect(router.route(makeConfig())).rejects.toThrow(AllAdaptersUnavailableError);
-  });
-
-  it("AllAdaptersUnavailableError is an Error subclass", async () => {
-    const unavailableAdapter: AgentAdapter = {
-      name: "gone",
-      isAvailable: vi.fn().mockResolvedValue(false),
-      run: vi.fn().mockResolvedValue(makeResult()),
-    };
-
-    const router = new FailoverRouter([unavailableAdapter]);
-
-    let caught: unknown;
-    try {
-      await router.route(makeConfig());
-    } catch (err) {
-      caught = err;
-    }
-
-    expect(caught).toBeInstanceOf(Error);
-    expect(caught).toBeInstanceOf(AllAdaptersUnavailableError);
-  });
-
-  it("FailoverRouter routes to the first available adapter when multiple are configured", async () => {
-    const first: AgentAdapter = {
-      name: "first",
-      isAvailable: vi.fn().mockResolvedValue(true),
-      run: vi.fn().mockResolvedValue(makeResult({ success: true })),
-    };
-    const second: AgentAdapter = {
-      name: "second",
-      isAvailable: vi.fn().mockResolvedValue(true),
-      run: vi.fn().mockResolvedValue(makeResult({ success: true })),
-    };
-
-    const router = new FailoverRouter([first, second]);
-    await router.route(makeConfig());
-
-    // First adapter should be used; second should not be called
-    expect(first.run).toHaveBeenCalledOnce();
-    expect(second.run).not.toHaveBeenCalled();
-  });
-
-  it("FailoverRouter falls over to next adapter when first is unavailable", async () => {
-    const unavailable: AgentAdapter = {
-      name: "unavailable",
-      isAvailable: vi.fn().mockResolvedValue(false),
-      run: vi.fn(),
-    };
-    const available: AgentAdapter = {
-      name: "available",
-      isAvailable: vi.fn().mockResolvedValue(true),
-      run: vi.fn().mockResolvedValue(makeResult({ success: true })),
-    };
-
-    const router = new FailoverRouter([unavailable, available]);
-    await router.route(makeConfig());
-
-    expect(unavailable.run).not.toHaveBeenCalled();
-    expect(available.run).toHaveBeenCalledOnce();
   });
 });

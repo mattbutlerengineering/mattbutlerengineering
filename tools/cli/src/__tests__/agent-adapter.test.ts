@@ -3,8 +3,8 @@ import { Command } from "commander";
 
 // ── Mocks ───────────────────────────────────────────────────────────────
 //
-// #2973: the CLI no longer constructs adapters, RateLimitDetector, or
-// FailoverRouter itself — it resolves an AgentSessionAdapter via
+// #2973: the CLI no longer constructs adapters, RateLimitDetector, or the
+// failover cascade itself — it resolves an AgentSessionAdapter via
 // resolveSessionAdapter() and hands it to runAgentSession(). The failover
 // cascade and the full gate/publish pipeline now live entirely in
 // agent-core, so these tests assert on that seam instead of on CLI-side

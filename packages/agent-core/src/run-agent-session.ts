@@ -7,9 +7,9 @@
  * unchanged — so this is a pure seam, not a behaviour change.
  *
  * ADR-017 states CLI and API sessions run the same runSession() code path;
- * this closes that seam for the CLI's claude adapter path (gemini/opencode
- * keep dispatching via FailoverRouter/CliAdapterBase until a follow-up slice
- * routes them through this same entry point — see #2964).
+ * all backends (claude → gemini → opencode, cascaded in `auto` mode) now
+ * route through this entry point via the resolved AgentSessionAdapter — the
+ * CLI no longer constructs adapters itself (#2973, superseding #2964).
  */
 
 import type { PhaseDeps } from "./phases/index.js";

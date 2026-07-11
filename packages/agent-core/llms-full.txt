@@ -218,7 +218,7 @@
       /**
        * Spawn the CLI subprocess and detect changes WITHOUT committing them.
        * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
-       * contract used by `FailoverRouter` / `--adapter` dispatch); the Phase
+       * contract used by `--adapter` dispatch); the Phase
        * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
        * leaves the commit to `VerificationPhase`, mirroring how Claude's
        * QueryPhase never commits either (#3234).
@@ -374,59 +374,17 @@
     }
   </file>
   <file path="src/adapters/failover-session-adapter.ts">
-    export type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
-    export class FailoverSessionAdapter implements AgentSessionAdapter {
-      private readonly adapters: readonly FailoverCapableAdapter[];
-      private readonly detector: RateLimitDetector;
+    export class AllAdaptersUnavailableError extends Error {
+      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
+      readonly cooldowns: ReadonlyMap<string, number>;
     
-      constructor(adapters: readonly FailoverCapableAdapter[], detector?: RateLimitDetector) {
-        if (adapters.length === 0) {
-          throw new Error("FailoverSessionAdapter requires at least one adapter");
-        }
-        this.adapters = adapters;
-        this.detector = detector ?? new RateLimitDetector(adapters.map((a) => a.name));
-      }
-    
-      /**
-       * Run the task on the highest-priority available adapter. Priority order
-       * matches the constructor's `adapters` array. An adapter is skipped when
-       * it's cooling down, its CLI/SDK isn't available, or its result reports
-       * `failureCategory: "rate_limited"` — the router then marks it and tries
-       * the next adapter. Any other failure is returned as-is (not cascaded).
-       */
-      async runSession(
-        config: SessionConfig,
-        onEvent?: SessionEventCallback,
-        deps?: PhaseDeps,
-        signal?: AbortSignal
-      ): Promise<SessionResult> {
-        for (const adapter of this.adapters) {
-          if (!this.detector.isAvailable(adapter.name)) continue;
-    
-          const cliAvailable = await adapter.isAvailable();
-          if (!cliAvailable) continue;
-    
-          const result = await adapter.runSession(config, onEvent, deps, signal);
-    
-          if (result.failureCategory === "rate_limited") {
-            this.detector.markRateLimited(adapter.name);
-            continue;
-          }
-    
-          this.detector.markSuccess(adapter.name);
-          return result;
-        }
-    
-        const cooldowns = new Map<string, number>();
-        for (const adapter of this.adapters) {
-          const state = this.detector.getState(adapter.name);
-          if (state?.cooldownUntil !== null && state?.cooldownUntil !== undefined) {
-            cooldowns.set(adapter.name, state.cooldownUntil);
-          }
-        }
-        throw new AllAdaptersUnavailableError(cooldowns);
+      constructor(cooldowns: ReadonlyMap<string, number>) {
+        super("All agent adapters are rate-limited or unavailable");
+        this.name = "AllAdaptersUnavailableError";
+        this.cooldowns = cooldowns;
       }
     }
+    export type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
   </file>
   <file path="src/adapters/gemini-adapter.ts">
     export class GeminiCliAdapter extends CliAdapterBase {
@@ -2159,22 +2117,6 @@
       readonly toolUseId: string;
       readonly isError: boolean;
     }
-  </file>
-  <file path="src/failover-router.ts">
-    export class AllAdaptersUnavailableError extends Error {
-      /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
-      readonly cooldowns: ReadonlyMap<string, number>;
-    
-      constructor(cooldowns: ReadonlyMap<string, number>) {
-        super("All agent adapters are rate-limited or unavailable");
-        this.name = "AllAdaptersUnavailableError";
-        this.cooldowns = cooldowns;
-      }
-    }
-    export type RoutedAdapterResult = AdapterResult & {
-      /** Name of the adapter that produced this result. */
-      readonly adapter: string;
-    };
   </file>
   <file path="src/failure-memory.ts">
     export interface FailureRecord {

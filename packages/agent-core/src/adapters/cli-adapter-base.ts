@@ -106,7 +106,7 @@ export abstract class CliAdapterBase implements AgentAdapter {
   /**
    * Spawn the CLI subprocess and detect changes WITHOUT committing them.
    * `run()` builds on this and auto-commits (the raw one-shot `AgentAdapter`
-   * contract used by `FailoverRouter` / `--adapter` dispatch); the Phase
+   * contract used by `--adapter` dispatch); the Phase
    * pipeline (`run-cli-adapter-session.ts`) calls `dispatch()` directly and
    * leaves the commit to `VerificationPhase`, mirroring how Claude's
    * QueryPhase never commits either (#3234).
