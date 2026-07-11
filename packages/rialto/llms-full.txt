@@ -98,6 +98,16 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Calendar">
+  <file path="src/components/Calendar/Calendar.catalog.ts">
+    export const calendarCatalogMeta = {
+      name: "Calendar",
+      include: false,
+      description:
+        "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+    } satisfies CatalogMeta;
+  </file>
+  </section>
   <section priority="medium" role="Card">
   <file path="src/components/Card/Card.catalog.ts">
     export const cardCatalogMeta = {
@@ -191,6 +201,16 @@
       charLimits: {
         emptyMessage: 60,
       },
+    } satisfies CatalogMeta;
+  </file>
+  </section>
+  <section priority="medium" role="DatePicker">
+  <file path="src/components/DatePicker/DatePicker.catalog.ts">
+    export const datePickerCatalogMeta = {
+      name: "DatePicker",
+      include: false,
+      description:
+        "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
     } satisfies CatalogMeta;
   </file>
   </section>

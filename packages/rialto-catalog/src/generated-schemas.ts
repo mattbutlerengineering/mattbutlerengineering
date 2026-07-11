@@ -49,6 +49,11 @@ export const generatedSchemas = {
     isLoading: z.boolean().optional(),
     loadingText: z.string().optional(),
   }),
+  Calendar: z.object({
+    min: z.string().optional(),
+    max: z.string().optional(),
+    locale: z.string().optional(),
+  }),
   Card: z.object({
     variant: z.enum(["elevated", "flat", "glass"]).optional(),
     tilt: z.boolean().optional(),
@@ -90,6 +95,14 @@ export const generatedSchemas = {
     emptyMessage: z.string().max(60).optional(),
     label: z.string().optional(),
     selectionMode: z.enum(["multiple", "single"]).optional(),
+  }),
+  DatePicker: z.object({
+    min: z.string().optional(),
+    max: z.string().optional(),
+    locale: z.string().optional(),
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
   DepartureBoard: z.object({
     holdMs: z.number().optional(),

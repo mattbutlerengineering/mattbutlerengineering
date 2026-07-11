@@ -58,6 +58,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     aliases: { label: "children" },
   },
+  Calendar: {
+    name: "Calendar",
+    include: false,
+    description:
+      "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+  },
   Card: {
     name: "Card",
     description:
@@ -87,6 +93,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
     charLimits: { emptyMessage: 60 },
+  },
+  DatePicker: {
+    name: "DatePicker",
+    include: false,
+    description:
+      "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
   },
   DepartureBoard: {
     name: "DepartureBoard",

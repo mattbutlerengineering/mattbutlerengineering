@@ -173,6 +173,13 @@ export const PAGE_REGISTRY: PageEntry[] = [
     path: "/components/form",
     load: () => import("../pages/forms/FormPage").then((m) => ({ default: m.FormPage })),
   },
+  {
+    id: "date-picker",
+    label: "Date Picker",
+    category: "Forms",
+    path: "/components/date-picker",
+    load: () => import("../pages/forms/DatePickerPage").then((m) => ({ default: m.DatePickerPage })),
+  },
   // ── Data Display ────────────────────────────────────────────────────────
   {
     id: "card",
