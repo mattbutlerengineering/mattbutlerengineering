@@ -3087,11 +3087,6 @@
       export function verifyUnsubscribeToken(token: string): { valid: boolean; guestId?: string } { /* ... */ }
     </item>
   </file>
-  <file path="services/reservations/src/services/reminder.ts">
-    <item priority="high">
-      export async function findReservationsNeedingReminder() { /* ... */ }
-    </item>
-  </file>
   <file path="services/reservations/src/services/reservation-cancellation.ts">
     <item priority="low">
       interface CancelReservationDeps {
