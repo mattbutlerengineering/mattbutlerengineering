@@ -1,9 +1,14 @@
 import type { Guest } from "@mbe/types";
-import type { NotificationDispatcher, CommunicationPreference } from "@mbe/notifications";
+import type { NotificationDispatcher } from "@mbe/notifications";
+import { canContact, resolveChannel } from "./contact-policy.js";
 
 /**
  * Send a win-back message to a lapsing guest.
- * Skips guests with communicationPreference === "transactional_only".
+ *
+ * Consent is delegated to the shared contact-policy: unsubscribed guests and
+ * guests whose stored preference opts out of marketing (transactional_only)
+ * are skipped. Win-back is email-only, so sms_only guests and guests with no
+ * email on file are also skipped — a channel-capability concern, not consent.
  *
  * @returns true if message was sent, false if skipped.
  */
@@ -12,15 +17,23 @@ export async function sendWinBack(
   notificationPort: NotificationDispatcher,
   venueName: string
 ): Promise<boolean> {
-  const preference = (guest.communicationPreference ?? "email_only") as CommunicationPreference;
-
-  if (preference === "transactional_only") {
+  if (
+    !canContact(
+      {
+        unsubscribed: guest.unsubscribed ?? false,
+        communicationPreference: guest.communicationPreference,
+      },
+      "marketing"
+    )
+  ) {
     return false;
   }
 
+  const channel = resolveChannel(guest.communicationPreference);
+
   // Win-back is email-only; skip guests who opted into SMS-only
   // communication or have no email address on file.
-  if (preference === "sms_only" || !guest.email) {
+  if (channel === "sms_only" || !guest.email) {
     return false;
   }
 
@@ -30,7 +43,7 @@ export async function sendWinBack(
       guestEmail: guest.email,
       venueName,
     },
-    preference
+    channel
   );
 
   return true;

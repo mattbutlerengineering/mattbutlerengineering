@@ -553,7 +553,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               guestId: reservation.guestId ?? null,
               guestEmail: reservation.guestEmail ?? null,
               guestFirstName: reservation.guestName?.split(" ")[0] ?? null,
-              guestUnsubscribed: Boolean(reservation.guest?.unsubscribed),
+              unsubscribed: Boolean(reservation.guest?.unsubscribed),
               venueName: venue?.name ?? "",
               venuePostVisitEmailEnabled: postVisitEmailEnabled,
               visitDate: reservation.date,

@@ -6,6 +6,7 @@ import type { Reservation, Venue } from "@mbe/types";
 import type { FastifyBaseLogger } from "fastify";
 import { venueService } from "./venue.js";
 import type { NotifierRuntime, NotifierScheduler } from "./notifier-runtime.js";
+import { resolveChannel } from "./contact-policy.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -141,9 +142,9 @@ export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifie
     const venue = reservation.venueId ? await getVenue(reservation.venueId) : null;
     if (!reservation.guestEmail || !venue) return;
 
-    const preference =
-      (reservation.guest?.communicationPreference as CommunicationPreference | null) ??
-      "email_only";
+    const preference = resolveChannel(
+      reservation.guest?.communicationPreference as CommunicationPreference | null
+    );
     try {
       await notificationAdapter.sendBookingCancelled(
         {

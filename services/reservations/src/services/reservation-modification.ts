@@ -5,6 +5,7 @@ import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
 import { depositService } from "./deposit.js";
 import type { BookingNotifier } from "./booking-notifications.js";
+import { resolveChannel } from "./contact-policy.js";
 
 export interface ModifyReservationDeps {
   bookingNotifier: BookingNotifier;
@@ -124,8 +125,9 @@ async function notifyModification(
   const venue = updated.venueId ? await venueService.getById(updated.venueId) : null;
   if (!updated.guestEmail || !venue) return;
 
-  const preference =
-    (updated.guest?.communicationPreference as CommunicationPreference | null) ?? "email_only";
+  const preference = resolveChannel(
+    updated.guest?.communicationPreference as CommunicationPreference | null
+  );
   try {
     await notificationPort.sendBookingModified(
       {

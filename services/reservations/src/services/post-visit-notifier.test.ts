@@ -28,7 +28,7 @@ function makeInput(overrides: Record<string, unknown> = {}) {
     guestId: "guest-1",
     guestEmail: "jane@example.com",
     guestFirstName: "Jane",
-    guestUnsubscribed: false,
+    unsubscribed: false,
     venueName: "The Oak Table",
     venuePostVisitEmailEnabled: true,
     visitDate: "2026-06-15",
@@ -70,7 +70,7 @@ describe("createPostVisitNotifier.sendPostVisitEmail", () => {
 
   it("skips email when guest is unsubscribed", async () => {
     const notifier = createPostVisitNotifier(makeDeps());
-    await notifier.sendPostVisitEmail(makeInput({ guestUnsubscribed: true }));
+    await notifier.sendPostVisitEmail(makeInput({ unsubscribed: true }));
 
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockUpdateReservationEmailStatus).not.toHaveBeenCalled();

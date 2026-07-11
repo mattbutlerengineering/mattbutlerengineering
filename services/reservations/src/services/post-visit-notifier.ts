@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import type { ThankYouEmailInput } from "@mbe/notifications";
+import { canContact } from "./contact-policy.js";
 
 const UNSUBSCRIBE_SECRET =
   process.env.UNSUBSCRIBE_TOKEN_SECRET || "dev-unsubscribe-secret-do-not-use-in-prod";
@@ -56,7 +57,7 @@ export interface PostVisitEmailInput {
   guestId: string | null;
   guestEmail: string | null;
   guestFirstName: string | null;
-  guestUnsubscribed: boolean;
+  unsubscribed: boolean;
   venueName: string;
   venuePostVisitEmailEnabled: boolean;
   visitDate: string;
@@ -107,7 +108,7 @@ export function createPostVisitNotifier(deps: PostVisitNotifierDeps): PostVisitN
         guestId,
         guestEmail,
         guestFirstName,
-        guestUnsubscribed,
+        unsubscribed,
         venueName,
         venuePostVisitEmailEnabled,
         visitDate,
@@ -117,7 +118,8 @@ export function createPostVisitNotifier(deps: PostVisitNotifierDeps): PostVisitN
       // Gate checks — skip silently when conditions not met
       if (!venuePostVisitEmailEnabled) return;
       if (!guestEmail) return;
-      if (guestUnsubscribed) return;
+      // Marketing-class message: unsubscribed guests are gated by the policy.
+      if (!canContact({ unsubscribed }, "marketing")) return;
 
       const unsubscribeToken = guestId ? generateUnsubscribeToken(guestId) : "";
 
