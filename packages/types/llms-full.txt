@@ -107,6 +107,10 @@
       updatedAt: z.string(),
     });
   </file>
+  <file path="src/schemas/health-system.ts">
+    export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
+    export type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+  </file>
   <file path="src/schemas/json-schema.ts">
     function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> {
       const result: Record<string, unknown> = {};

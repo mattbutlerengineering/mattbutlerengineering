@@ -37,6 +37,14 @@
       export const GuestSchema: unknown;
     </item>
   </file>
+  <file path="src/schemas/health-system.ts">
+    <item priority="high">
+      export const systemHealthStatusSchema: unknown;
+    </item>
+    <item priority="low">
+      type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+    </item>
+  </file>
   <file path="src/schemas/json-schema.ts">
     <item priority="medium">
       function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }

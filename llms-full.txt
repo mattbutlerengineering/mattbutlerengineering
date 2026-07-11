@@ -10743,6 +10743,10 @@
       updatedAt: z.string(),
     });
   </file>
+  <file path="packages/types/src/schemas/health-system.ts">
+    export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
+    export type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+  </file>
   <file path="packages/types/src/schemas/json-schema.ts">
     function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> {
       const result: Record<string, unknown> = {};
@@ -14920,18 +14924,16 @@
     }
   </file>
   <file path="packages/api-client/src/health.ts">
-    export interface ServiceHealth {
-      readonly status: string;
-      readonly version?: string;
-      readonly latency?: number;
-    }
-    export interface SystemHealth {
-      readonly status: string;
-      readonly timestamp: string;
-      readonly services?: Record<string, ServiceHealth>;
-      readonly staticSites?: Record<string, { status: string }>;
-      readonly ci?: { status: string };
-      readonly deploy?: { status: string };
+    export type ServiceHealth = ServiceHealthCheck;
+    export class HealthClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Get the system-wide health snapshot (admin-only dashboard badge).
+       */
+      system(): Promise<SystemHealth> {
+        return this.client.get<SystemHealth>(SYSTEM_HEALTH_PATH, undefined, systemHealthSchema);
+      }
     }
   </file>
   <file path="packages/api-client/src/index.ts">
