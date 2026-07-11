@@ -62,6 +62,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Calendar">
+  <file path="src/components/Calendar/Calendar.catalog.ts">
+    <item priority="high">
+      export const calendarCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Card">
   <file path="src/components/Card/Card.catalog.ts">
     <item priority="high">
@@ -132,6 +139,13 @@
   <file path="src/components/DataTable/DataTable.catalog.ts">
     <item priority="high">
       export const dataTableCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="DatePicker">
+  <file path="src/components/DatePicker/DatePicker.catalog.ts">
+    <item priority="high">
+      export const datePickerCatalogMeta: unknown;
     </item>
   </file>
   </section>

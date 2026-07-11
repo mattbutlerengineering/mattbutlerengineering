@@ -28,6 +28,8 @@ const FORMS_COMPONENTS = [
   "Autocomplete",
   "InputGroup",
   "MasterOverride",
+  "Calendar",
+  "DatePicker",
 ] as const;
 
 /**

@@ -26,6 +26,7 @@ import { Badge } from "../../components/Badge/Badge";
 import { Banner } from "../../components/Banner/Banner";
 import { Breadcrumb } from "../../components/Breadcrumb/Breadcrumb";
 import { Button } from "../../components/Button/Button";
+import { Calendar } from "../../components/Calendar/Calendar";
 import { Card } from "../../components/Card/Card";
 import {
   Chalkboard,
@@ -42,6 +43,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
+import { DatePicker } from "../../components/DatePicker/DatePicker";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Dialog } from "../../components/Dialog/Dialog";
 import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledTooltip";
@@ -124,6 +126,7 @@ export type BarrelExportName =
   | "Banner"
   | "Breadcrumb"
   | "Button"
+  | "Calendar"
   | "Card"
   | "Chalkboard"
   | "ChatPanel"
@@ -135,6 +138,7 @@ export type BarrelExportName =
   | "ContextMenu"
   | "DataList"
   | "DataTable"
+  | "DatePicker"
   | "DepartureBoard"
   | "Dialog"
   | "DisabledTooltip"
@@ -206,6 +210,12 @@ const noop = () => {};
  * Keys must exactly match barrel export names.
  */
 export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
+  Calendar: {
+    element: <Calendar value="2024-06-15" onChange={noop} />,
+  },
+  DatePicker: {
+    element: <DatePicker label="Date" value={null} onChange={noop} />,
+  },
   Accordion: {
     element: (
       <Accordion

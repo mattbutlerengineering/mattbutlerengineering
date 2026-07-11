@@ -66,6 +66,10 @@
       "types": "./dist/lib/components/Button/index.d.ts",
       "import": "./dist/lib/components/Button/index.js"
     },
+    "./Calendar": {
+      "types": "./dist/lib/components/Calendar/index.d.ts",
+      "import": "./dist/lib/components/Calendar/index.js"
+    },
     "./Card": {
       "types": "./dist/lib/components/Card/index.d.ts",
       "import": "./dist/lib/components/Card/index.js"
@@ -109,6 +113,10 @@
     "./DataTable": {
       "types": "./dist/lib/components/DataTable/index.d.ts",
       "import": "./dist/lib/components/DataTable/index.js"
+    },
+    "./DatePicker": {
+      "types": "./dist/lib/components/DatePicker/index.d.ts",
+      "import": "./dist/lib/components/DatePicker/index.js"
     },
     "./DepartureBoard": {
       "types": "./dist/lib/components/DepartureBoard/index.d.ts",

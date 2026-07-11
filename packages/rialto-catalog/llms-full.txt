@@ -108,6 +108,12 @@
         slots: ["default"],
         aliases: { label: "children" },
       },
+      Calendar: {
+        name: "Calendar",
+        include: false,
+        description:
+          "Inline, locale-aware month grid for single-date selection. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid.",
+      },
       Card: {
         name: "Card",
         description:
@@ -137,6 +143,12 @@
         description:
           "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
         charLimits: { emptyMessage: 60 },
+      },
+      DatePicker: {
+        name: "DatePicker",
+        include: false,
+        description:
+          "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
       },
       DepartureBoard: {
         name: "DepartureBoard",
@@ -303,6 +315,11 @@
         isLoading: z.boolean().optional(),
         loadingText: z.string().optional(),
       }),
+      Calendar: z.object({
+        min: z.string().optional(),
+        max: z.string().optional(),
+        locale: z.string().optional(),
+      }),
       Card: z.object({
         variant: z.enum(["elevated", "flat", "glass"]).optional(),
         tilt: z.boolean().optional(),
@@ -344,6 +361,14 @@
         emptyMessage: z.string().max(60).optional(),
         label: z.string().optional(),
         selectionMode: z.enum(["multiple", "single"]).optional(),
+      }),
+      DatePicker: z.object({
+        min: z.string().optional(),
+        max: z.string().optional(),
+        locale: z.string().optional(),
+        label: z.string().optional(),
+        placeholder: z.string().optional(),
+        placement: z.enum(["bottom", "left", "right", "top"]).optional(),
       }),
       DepartureBoard: z.object({
         holdMs: z.number().optional(),
