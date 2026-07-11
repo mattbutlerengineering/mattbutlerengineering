@@ -11,4 +11,7 @@ export const selectCatalogMeta = {
   charLimits: {
     label: 40,
   },
+  propSchemas: {
+    options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+  },
 } satisfies CatalogMeta;

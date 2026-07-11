@@ -6,6 +6,9 @@
       description:
         "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
       slots: ["default"],
+      propSchemas: {
+        items: 'z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -82,6 +85,9 @@
       name: "Breadcrumb",
       description:
         "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
+      propSchemas: {
+        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -180,6 +186,9 @@
       charLimits: {
         label: 40,
       },
+      propSchemas: {
+        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -189,6 +198,9 @@
       name: "DataList",
       description:
         "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
+      propSchemas: {
+        items: 'z.array(z.object({ label: z.string(), value: z.string() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -200,6 +212,11 @@
         "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
       charLimits: {
         emptyMessage: 60,
+      },
+      propSchemas: {
+        columns:
+          'z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional(), rowHeader: z.boolean().optional() }))',
+        data: "z.array(z.record(z.string(), z.unknown()))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -220,6 +237,9 @@
       name: "DepartureBoard",
       description:
         "Split-flap departure board hero that cycles through a sequence of short headlines or value-props with a mechanical flap animation. Use as a marketing or landing-page hero. Provide phrases as the ordered list of lines; tune holdMs for how long each line stays before flipping. Respects reduced motion by showing static text.",
+      propSchemas: {
+        phrases: "z.array(z.string())",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -395,6 +415,9 @@
       description:
         "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
       slots: ["default"],
+      propSchemas: {
+        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -417,6 +440,9 @@
       charLimits: {
         label: 40,
       },
+      propSchemas: {
+        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -426,6 +452,9 @@
       name: "Sidebar",
       description:
         "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
+      propSchemas: {
+        items: 'z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })]))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -459,6 +488,11 @@
       charLimits: {
         emptyMessage: 60,
       },
+      propSchemas: {
+        columns:
+          'z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() }))',
+        data: "z.array(z.record(z.string(), z.unknown()))",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -471,6 +505,9 @@
       aliases: {
         items: "tabs",
         defaultValue: "defaultTab",
+      },
+      propSchemas: {
+        tabs: 'z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))',
       },
     } satisfies CatalogMeta;
   </file>

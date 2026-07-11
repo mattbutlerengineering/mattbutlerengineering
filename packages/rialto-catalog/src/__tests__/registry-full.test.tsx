@@ -193,14 +193,16 @@ describe("Select", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders select with empty options (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "s1",
-      elements: {
-        s1: { type: "Select", props: { label: "Empty" } },
-      },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing options (schema requires an options array)", () => {
+    // The `?? []` fallback that used to render an empty Select is gone; a spec
+    // without options now fails schema validation instead of rendering empty.
+    expect(generatedSchemas.Select.safeParse({ label: "Empty" }).success).toBe(false);
+    expect(
+      generatedSchemas.Select.safeParse({
+        label: "Country",
+        options: [{ value: "us", label: "United States" }],
+      }).success
+    ).toBe(true);
   });
 });
 
@@ -325,12 +327,18 @@ describe("Tabs", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders tabs with no props (uses empty array fallbacks)", () => {
-    const { container } = renderSpec({
-      root: "tabs1",
-      elements: { tabs1: { type: "Tabs", props: {} } },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects malformed or missing tabs (schema validation, not an empty render)", () => {
+    // Acceptance (#3354): a malformed `tabs` value fails schema validation
+    // instead of the old `?? []` fallback rendering an empty Tabs.
+    expect(generatedSchemas.Tabs.safeParse({}).success).toBe(false);
+    expect(generatedSchemas.Tabs.safeParse({ tabs: "not-an-array" }).success).toBe(false);
+    expect(generatedSchemas.Tabs.safeParse({ tabs: [{ id: 1 }] }).success).toBe(false);
+    expect(
+      generatedSchemas.Tabs.safeParse({
+        tabs: [{ id: "a", label: "A", content: "Body" }],
+        defaultTab: "a",
+      }).success
+    ).toBe(true);
   });
 });
 
@@ -375,12 +383,11 @@ describe("Breadcrumb", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders breadcrumb with no items (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "bc1",
-      elements: { bc1: { type: "Breadcrumb", props: {} } },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing items (schema requires an items array)", () => {
+    expect(generatedSchemas.Breadcrumb.safeParse({}).success).toBe(false);
+    expect(
+      generatedSchemas.Breadcrumb.safeParse({ items: [{ label: "Home", href: "/" }] }).success
+    ).toBe(true);
   });
 });
 
@@ -403,12 +410,11 @@ describe("NavigationMenu", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders navigation menu with no items (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "nav1",
-      elements: { nav1: { type: "NavigationMenu", props: {} } },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing items (schema requires an items array)", () => {
+    expect(generatedSchemas.NavigationMenu.safeParse({}).success).toBe(false);
+    expect(
+      generatedSchemas.NavigationMenu.safeParse({ items: [{ label: "Home", href: "/" }] }).success
+    ).toBe(true);
   });
 });
 
@@ -530,31 +536,23 @@ describe("Dialog", () => {
 // ── Data Display ──────────────────────────────────────────────────────────────
 
 describe("Table", () => {
-  it("renders empty table (no data, columns, or rowKey)", () => {
-    // Table with no data renders empty state — avoids rowKey function requirement
-    const { container } = renderSpec({
-      root: "tbl1",
-      elements: {
-        tbl1: {
-          type: "Table",
-          props: { density: "default", striped: false },
-        },
-      },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing columns and data (schema requires both arrays)", () => {
+    // The `?? []` fallbacks that rendered an empty table are gone; a spec
+    // missing columns/data now fails schema validation.
+    expect(generatedSchemas.Table.safeParse({ density: "default" }).success).toBe(false);
+    expect(generatedSchemas.Table.safeParse({ columns: [], data: [] }).success).toBe(true);
   });
 
-  it("renders compact striped table with no data (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "tbl1",
-      elements: {
-        tbl1: {
-          type: "Table",
-          props: { density: "compact", striped: true },
-        },
-      },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects malformed column entries", () => {
+    expect(
+      generatedSchemas.Table.safeParse({ columns: [{ header: "No key" }], data: [] }).success
+    ).toBe(false);
+    expect(
+      generatedSchemas.Table.safeParse({
+        columns: [{ key: "name", header: "Name", sortable: true }],
+        data: [{ name: "Ada" }],
+      }).success
+    ).toBe(true);
   });
 });
 
@@ -595,12 +593,11 @@ describe("DataList", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders data list with no items (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "dl1",
-      elements: { dl1: { type: "DataList", props: {} } },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing items (schema requires an items array)", () => {
+    expect(generatedSchemas.DataList.safeParse({}).success).toBe(false);
+    expect(
+      generatedSchemas.DataList.safeParse({ items: [{ label: "Status", value: "Active" }] }).success
+    ).toBe(true);
   });
 });
 
@@ -670,12 +667,13 @@ describe("Accordion", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders accordion with no items (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "ac1",
-      elements: { ac1: { type: "Accordion", props: {} } },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing items (schema requires an items array)", () => {
+    expect(generatedSchemas.Accordion.safeParse({}).success).toBe(false);
+    expect(
+      generatedSchemas.Accordion.safeParse({
+        items: [{ id: "a", title: "First", content: "Content" }],
+      }).success
+    ).toBe(true);
   });
 });
 
@@ -713,12 +711,13 @@ describe("Sidebar", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders sidebar with no items (uses fallback [])", () => {
-    const { container } = renderSpec({
-      root: "sb1",
-      elements: { sb1: { type: "Sidebar", props: {} } },
-    });
-    expect(container.firstChild).not.toBeNull();
+  it("rejects missing items (schema requires an items array)", () => {
+    expect(generatedSchemas.Sidebar.safeParse({}).success).toBe(false);
+    expect(
+      generatedSchemas.Sidebar.safeParse({
+        items: [{ id: "home", label: "Home", href: "/" }],
+      }).success
+    ).toBe(true);
   });
 });
 
@@ -926,5 +925,36 @@ describe("generated-schemas", () => {
     const invalid = generatedSchemas.Avatar.safeParse({ status: "invisible" });
     expect(valid.success).toBe(true);
     expect(invalid.success).toBe(false);
+  });
+});
+
+// ── array-of-object prop schemas (#3354) ─────────────────────────────────────
+// These props previously had NO schema (mapTypeToZod dropped `[]`/`Column<`
+// types) and were smuggled into prose descriptions while adapters compensated
+// with `?? []`. They are now declared via each component's `*.catalog.ts`
+// propSchemas so malformed AI output fails validation.
+describe("array-of-object prop schemas", () => {
+  it("Combobox requires an options array of { value, label }", () => {
+    expect(generatedSchemas.Combobox.safeParse({ label: "Fruit" }).success).toBe(false);
+    expect(generatedSchemas.Combobox.safeParse({ options: [{ value: "a" }] }).success).toBe(false);
+    expect(
+      generatedSchemas.Combobox.safeParse({ options: [{ value: "a", label: "A" }] }).success
+    ).toBe(true);
+  });
+
+  it("DataTable requires columns and data arrays", () => {
+    expect(generatedSchemas.DataTable.safeParse({ label: "Grid" }).success).toBe(false);
+    expect(
+      generatedSchemas.DataTable.safeParse({
+        columns: [{ key: "name", header: "Name", rowHeader: true }],
+        data: [{ name: "Ada" }],
+      }).success
+    ).toBe(true);
+  });
+
+  it("DepartureBoard requires a phrases string array", () => {
+    expect(generatedSchemas.DepartureBoard.safeParse({}).success).toBe(false);
+    expect(generatedSchemas.DepartureBoard.safeParse({ phrases: [1, 2] }).success).toBe(false);
+    expect(generatedSchemas.DepartureBoard.safeParse({ phrases: ["SHIP IT"] }).success).toBe(true);
   });
 });

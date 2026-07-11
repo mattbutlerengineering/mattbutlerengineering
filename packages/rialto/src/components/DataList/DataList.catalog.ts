@@ -8,4 +8,7 @@ export const dataListCatalogMeta = {
   name: "DataList",
   description:
     "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
+  propSchemas: {
+    items: 'z.array(z.object({ label: z.string(), value: z.string() }))',
+  },
 } satisfies CatalogMeta;
