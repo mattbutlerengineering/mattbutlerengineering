@@ -8,6 +8,7 @@
 import { STALENESS_THRESHOLD_MS, interpretDeployHealth } from "../deploy-health.js";
 import topologyConfig from "../routes-config.json";
 import { readKvJson } from "./kv-access.js";
+import { corsOriginFor } from "../origins.js";
 
 const HEALTH_TIMEOUT_MS = 5_000;
 
@@ -28,19 +29,6 @@ const KV_KEYS = {
     ])
   ),
 };
-
-// ── CORS helpers ──────────────────────────────────────────────────────
-
-const ALLOWED_ORIGINS = new Set([
-  "https://mattbutlerengineering.com",
-  "https://hospitality.mattbutlerengineering.com",
-  "https://gen.mattbutlerengineering.com",
-]);
-
-function corsOriginFor(request) {
-  const origin = request.headers.get("Origin");
-  return origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
-}
 
 // ── Probe helpers ─────────────────────────────────────────────────────
 

@@ -5,17 +5,7 @@
  */
 
 import depGraph from "../dep-graph.json";
-
-const ALLOWED_ORIGINS = new Set([
-  "https://mattbutlerengineering.com",
-  "https://hospitality.mattbutlerengineering.com",
-  "https://gen.mattbutlerengineering.com",
-]);
-
-function corsOriginFor(request) {
-  const origin = request.headers.get("Origin");
-  return origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
-}
+import { corsOriginFor } from "../origins.js";
 
 /**
  * Handle GET /health/deps — return the auto-generated service dependency graph.

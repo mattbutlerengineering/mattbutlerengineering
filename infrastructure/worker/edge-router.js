@@ -57,23 +57,6 @@ function isAuditRequest(request, env) {
 // import it from edge-router.js.
 export { AUTH0_ORIGIN };
 
-// ── CORS Origin Allowlist ──────────────────────────────────────────────
-// Only these production origins may receive Access-Control-Allow-Origin.
-// If a request's Origin header does not match, the header is omitted entirely.
-const ALLOWED_ORIGINS = new Set([
-  "https://mattbutlerengineering.com",
-  "https://hospitality.mattbutlerengineering.com",
-  "https://gen.mattbutlerengineering.com",
-]);
-
-/**
- * Return the request's Origin if it is in the allowlist, or null otherwise.
- */
-function corsOriginFor(request) {
-  const origin = request.headers.get("Origin");
-  return origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
-}
-
 function writeAnalytics(env, request, route, statusCode, startTime) {
   if (!env.ANALYTICS) return;
   const country = request.headers.get("CF-IPCountry") || "unknown";
