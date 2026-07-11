@@ -2,13 +2,12 @@
  * FailoverSessionAdapter — priority-cascade dispatch across full-pipeline
  * `AgentSessionAdapter`s (ADR-017's `auto` mode).
  *
- * Mirrors FailoverRouter's cascade semantics (skip unavailable/cooling-down
- * adapters, mark rate-limited results, throw when all are exhausted) but
- * operates over the SessionConfig/SessionResult seam instead of
- * AdapterConfig/AdapterResult, so every backend — including gemini and
- * opencode — runs through the same gate/publish pipeline as `claude`
- * (#2973). This replaces the CLI's own `FailoverRouter`/`RateLimitDetector`
- * construction for `--adapter auto`.
+ * Runs the cascade directly (skip unavailable/cooling-down adapters, mark
+ * rate-limited results, throw `AllAdaptersUnavailableError` when all are
+ * exhausted) over the SessionConfig/SessionResult seam, so every backend —
+ * including gemini and opencode — runs through the same gate/publish pipeline
+ * as `claude` (#2973). The CLI resolves this adapter via `resolveSessionAdapter`
+ * for `--adapter auto` instead of constructing adapters itself.
  */
 
 import type { AgentAdapter } from "../cli-adapter.js";
@@ -16,7 +15,19 @@ import type { PhaseDeps } from "../phases/index.js";
 import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
 import type { AgentSessionAdapter } from "../run-agent-session.js";
 import { RateLimitDetector } from "../rate-limit-detector.js";
-import { AllAdaptersUnavailableError } from "../failover-router.js";
+
+// ── Error ───────────────────────────────────────────────────────────
+
+export class AllAdaptersUnavailableError extends Error {
+  /** Per-adapter cooldown timestamps (ms epoch). Only includes adapters that have an active cooldown. */
+  readonly cooldowns: ReadonlyMap<string, number>;
+
+  constructor(cooldowns: ReadonlyMap<string, number>) {
+    super("All agent adapters are rate-limited or unavailable");
+    this.name = "AllAdaptersUnavailableError";
+    this.cooldowns = cooldowns;
+  }
+}
 
 /**
  * Every concrete backend adapter (Claude/Gemini/OpenCode) implements both
