@@ -269,6 +269,7 @@
   <file path="src/generated-schemas.ts">
     export const generatedSchemas = {
       Accordion: z.object({
+        items: z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() })),
         multiple: z.boolean().optional(),
         headingLevel: z.enum(["h2", "h3", "h4", "h5", "h6"]).optional(),
       }),
@@ -306,6 +307,7 @@
         action: z.string().optional(),
       }),
       Breadcrumb: z.object({
+        items: z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() })),
         maxItems: z.number().optional(),
         separator: z.string().optional(),
       }),
@@ -336,6 +338,7 @@
         description: z.string().max(80).optional(),
       }),
       Combobox: z.object({
+        options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
         label: z.string().max(40).optional(),
         hint: z.string().optional(),
         error: z.boolean().optional(),
@@ -352,10 +355,13 @@
         emptyText: z.string().optional(),
       }),
       DataList: z.object({
+        items: z.array(z.object({ label: z.string(), value: z.string() })),
         orientation: z.enum(["horizontal", "vertical"]).optional(),
         striped: z.boolean().optional(),
       }),
       DataTable: z.object({
+        columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional(), rowHeader: z.boolean().optional() })),
+        data: z.array(z.record(z.string(), z.unknown())),
         density: z.enum(["compact", "default", "spacious"]).optional(),
         striped: z.boolean().optional(),
         emptyMessage: z.string().max(60).optional(),
@@ -371,6 +377,7 @@
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
       }),
       DepartureBoard: z.object({
+        phrases: z.array(z.string()),
         holdMs: z.number().optional(),
         flipInterval: z.number().optional(),
         cascadeDelay: z.number().optional(),
@@ -424,7 +431,9 @@
         endIcon: z.string().optional(),
         showOptional: z.boolean().optional(),
       }),
-      NavigationMenu: z.object({}),
+      NavigationMenu: z.object({
+        items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
+      }),
       Odometer: z.object({
         value: z.number(),
         size: z.enum(["lg", "md", "sm"]).optional(),
@@ -432,6 +441,7 @@
         cascadeDelay: z.number().optional(),
       }),
       Select: z.object({
+        options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
         value: z.string().optional(),
         placeholder: z.string().optional(),
         label: z.string().max(40).optional(),
@@ -443,6 +453,7 @@
         disabledReason: z.string().optional(),
       }),
       Sidebar: z.object({
+        items: z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })])),
         collapsed: z.boolean().optional(),
       }),
       Stack: z.object({
@@ -453,11 +464,14 @@
         wrap: z.boolean().optional(),
       }),
       Table: z.object({
+        columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
+        data: z.array(z.record(z.string(), z.unknown())),
         density: z.enum(["compact", "default", "spacious"]).optional(),
         striped: z.boolean().optional(),
         emptyMessage: z.string().max(60).optional(),
       }),
       Tabs: z.object({
+        tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
         defaultTab: z.string().optional(),
       }),
       Text: z.object({
