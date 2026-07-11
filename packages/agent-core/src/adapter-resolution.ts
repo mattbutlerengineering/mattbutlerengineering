@@ -2,7 +2,7 @@
  * adapter-resolution — maps a CLI `--adapter` flag value to a concrete
  * `AgentSessionAdapter`. Centralizes the failover cascade order (ADR-017:
  * claude → gemini → opencode) in agent-core so the CLI no longer constructs
- * adapters, `RateLimitDetector`, or `FailoverRouter` itself (#2973).
+ * adapters, the `RateLimitDetector`, or the failover cascade itself (#2973).
  */
 
 import { ClaudeAdapter } from "./adapters/claude-adapter.js";
