@@ -53,6 +53,8 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { DepartureBoardProps } from "@mattbutlerengineering/rialto";
 import { catalog } from "./catalog.js";
+import { catalogMeta } from "./generated-catalog.js";
+import type { ReactNode } from "react";
 
 // Toast is intentionally omitted from this registry.
 // Toast uses the useToast() hook pattern (a provider, not a rendered element)
@@ -60,8 +62,61 @@ import { catalog } from "./catalog.js";
 // AI-generated specs should use the navigate/validateForm actions instead
 // of trying to render Toast directly.
 
+/* ── Alias seam ──────────────────────────────────────────────────
+ * ADR-013 moves prop aliases out of the adapters and into declarative
+ * `aliases` maps on each `*.catalog.ts`, which flow into `catalogMeta`. The
+ * helpers below are the single runtime that consumes them, so the declarative
+ * maps stay load-bearing instead of drifting into dead data. */
+
+/** Registry adapter shape: json-render invokes it with the resolved context. */
+type AdapterFn = (context: AdapterContext) => ReactNode;
+
+interface AdapterContext {
+  readonly props: unknown;
+  readonly children?: ReactNode;
+  readonly emit: (event: string) => void;
+  readonly on: (event: string) => unknown;
+}
+
+/**
+ * Apply a component's declared AI prop aliases to a props bag: for each
+ * `{ alias: canonical }` entry, copy the alias value onto the canonical prop
+ * when the canonical is absent. Adapters therefore read only canonical prop
+ * names — changing a declared alias changes real behaviour. Array `?? []`
+ * fallbacks in the adapters are not aliases and are untouched.
+ */
+function applyAliases(name: string, props: unknown): unknown {
+  const aliases = catalogMeta[name]?.aliases;
+  if (!aliases || props === null || typeof props !== "object") return props;
+  const source = props as Record<string, unknown>;
+  let next: Record<string, unknown> | undefined;
+  for (const [alias, canonical] of Object.entries(aliases)) {
+    if (source[canonical] === undefined && source[alias] !== undefined) {
+      next ??= { ...source };
+      next[canonical] = source[alias];
+    }
+  }
+  return next ?? props;
+}
+
+/**
+ * Wrap every adapter so declared aliases are normalized at the seam, before the
+ * adapter runs. Rebuilds the map structurally, preserving keys and adapters.
+ */
+function withAliasNormalization<T extends Record<string, AdapterFn>>(adapters: T): T {
+  const wrapped: Record<string, AdapterFn> = {};
+  for (const [name, adapter] of Object.entries<AdapterFn>(adapters)) {
+    wrapped[name] = (context) =>
+      adapter({ ...context, props: applyAliases(name, context.props) });
+  }
+  // The structural rebuild erases the literal's per-key types; re-assert the
+  // caller's shape so defineRegistry keeps checking each adapter against its
+  // catalog key.
+  return wrapped as unknown as T;
+}
+
 export const { registry, handlers, executeAction } = defineRegistry(catalog, {
-  components: {
+  components: withAliasNormalization({
     // ── Layout ────────────────────────────────────────────────────
     Stack: ({ props, children }: any) => (
       <Stack
@@ -110,6 +165,9 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     // ── Forms ─────────────────────────────────────────────────────
+    // The `label` alias is declared in Button.catalog.ts as an alias for the
+    // `children` slot; the seam normalizes it onto `props.children`, so the
+    // adapter falls back to `props.children` when no slot children are given.
     Button: ({ props, children, emit }: any) => (
       <Button
         variant={props.variant}
@@ -117,7 +175,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         disabled={props.disabled}
         onClick={() => emit("press")}
       >
-        {children ?? props.label}
+        {children ?? props.children}
       </Button>
     ),
 
@@ -208,13 +266,14 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     // ── Navigation ────────────────────────────────────────────────
-    // Rialto Tabs uses `tabs` (Tab[]) and `defaultTab` props.
-    // The catalog schema may use `items` / `defaultValue` for AI-friendly naming;
-    // we accept both to be resilient to AI output variation.
+    // Rialto Tabs uses `tabs` (Tab[]) and `defaultTab` props. The AI-facing
+    // `items` / `defaultValue` aliases are declared in Tabs.catalog.ts and
+    // normalized at the seam (see withAliasNormalization), so this adapter
+    // reads only the canonical props.
     Tabs: ({ props }: any) => (
       <Tabs
-        tabs={props.tabs ?? props.items ?? []}
-        defaultTab={props.defaultTab ?? props.defaultValue}
+        tabs={props.tabs ?? []}
+        defaultTab={props.defaultTab}
       />
     ),
 
@@ -328,9 +387,10 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       );
     },
 
-    // EmptyState uses `heading` prop; catalog description mentions `title` as alias.
+    // EmptyState uses `heading`; the `title` alias is declared in
+    // EmptyState.catalog.ts and normalized at the seam (see withAliasNormalization).
     EmptyState: ({ props, children }: any) => (
-      <EmptyState heading={props.heading ?? props.title} description={props.description}>
+      <EmptyState heading={props.heading} description={props.description}>
         {children}
       </EmptyState>
     ),
@@ -369,7 +429,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     Footer: ({ props, children }: any) => <Footer variant={props.variant}>{children}</Footer>,
-  },
+  }),
 
   actions: {
     validateForm: async (_params: any, _setState: any) => {
