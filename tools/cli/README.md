@@ -19,7 +19,7 @@ The `mbe` binary is available via the `bin` field in `package.json`.
 
 ```bash
 mbe agent run "Fix the login bug"       # Run agent, get PR
-  --model <model>                        # Default: claude-sonnet-4-6
+  --model <model>                        # Default: claude-sonnet-5
   --max-budget <usd>                     # Default: 1.00
   --max-turns <n>                        # Default: 50
   --no-pr                                # Skip PR creation

@@ -59,7 +59,7 @@ interface SessionConfig {
   taskDescription: string; // What the agent should do
   repoPath: string; // Absolute path to the git repo
   baseBranch: string; // Default: "main"
-  model: string; // Default: "claude-sonnet-4-6"
+  model: string; // Default: "claude-sonnet-5"
   maxTurns: number; // Default: 50
   maxBudgetUsd: number; // Default: 1.00
   allowedTools: string[]; // Default: Read, Write, Edit, Glob, Grep, Bash, NotebookEdit
@@ -113,7 +113,7 @@ Agents run in `permissionMode: "acceptEdits"` with a `canUseTool` handler.
 | Tier   | When                                                                                                                  | Model             |
 | ------ | --------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | haiku  | `chore(deps):` or `fix(security):` title patterns                                                                     | claude-haiku-4-5  |
-| sonnet | `ci-fix` label, simple features, default                                                                              | claude-sonnet-4-6 |
+| sonnet | `ci-fix` label, simple features, default                                                                              | claude-sonnet-5   |
 | opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-8   |
 
 ## Multi-CLI Adapters

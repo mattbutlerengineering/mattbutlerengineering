@@ -13,6 +13,7 @@ describe("ContextBudget", () => {
   describe("MODEL_CONTEXT_LIMITS", () => {
     it("has entries for known model patterns", () => {
       expect(MODEL_CONTEXT_LIMITS["claude-sonnet-4-6"]).toBe(200_000);
+      expect(MODEL_CONTEXT_LIMITS["claude-sonnet-5"]).toBe(1_000_000);
       expect(MODEL_CONTEXT_LIMITS["claude-opus-4-8"]).toBe(1_000_000);
       expect(MODEL_CONTEXT_LIMITS["claude-haiku-4-5-20251001"]).toBe(200_000);
     });

@@ -67,8 +67,8 @@ describe("buildOrchestratorPrompt", () => {
 
 describe("DEFAULT_ORCHESTRATOR_CONFIG", () => {
   it("has sensible defaults", () => {
-    expect(DEFAULT_ORCHESTRATOR_CONFIG.model).toBe("claude-sonnet-4-6");
-    expect(DEFAULT_ORCHESTRATOR_CONFIG.sessionModel).toBe("claude-sonnet-4-6");
+    expect(DEFAULT_ORCHESTRATOR_CONFIG.model).toBe("claude-sonnet-5");
+    expect(DEFAULT_ORCHESTRATOR_CONFIG.sessionModel).toBe("claude-sonnet-5");
     expect(DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession).toBe(1.0);
     expect(DEFAULT_ORCHESTRATOR_CONFIG.maxTurnsPerSession).toBe(50);
     expect(DEFAULT_ORCHESTRATOR_CONFIG.baseBranch).toBe("main");

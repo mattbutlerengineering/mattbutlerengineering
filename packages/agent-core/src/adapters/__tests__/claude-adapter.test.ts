@@ -138,7 +138,7 @@ describe("ClaudeAdapter", () => {
       await adapter.run(makeConfig({ model: undefined }));
 
       const sessionConfig = mockRunSession.mock.calls[0][0];
-      expect(sessionConfig.model).toBe("claude-sonnet-4-6");
+      expect(sessionConfig.model).toBe("claude-sonnet-5");
     });
 
     it("uses default maxTurns when not specified in config", async () => {

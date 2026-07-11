@@ -13,7 +13,7 @@ interface AgentSession {
   id: string;
   task: string; // Task description
   branchName: string | null; // Git branch for changes
-  model: string; // e.g., "claude-sonnet-4-6"
+  model: string; // e.g., "claude-sonnet-5"
   status: SessionStatus;
   maxTurns: number; // Conversation turn limit
   maxBudgetUsd: number; // Budget cap
@@ -144,7 +144,7 @@ Content-Type: application/json
 
 {
   "task": "Fix the login bug on the hospitality app",
-  "model": "claude-sonnet-4-6",
+  "model": "claude-sonnet-5",
   "maxBudgetUsd": 1.00,
   "maxTurns": 50,
   "createPR": true
@@ -377,7 +377,7 @@ pnpm db:migrate:status # Show migration status
 | `CORS_ORIGINS`               | No         | Comma-separated allowed origins                 |
 | `DATABASE_URL`               | Yes        | Postgres connection                             |
 | `ANTHROPIC_API_KEY`          | Yes        | Claude API key                                  |
-| `DEFAULT_MODEL`              | No         | Default model (default: claude-sonnet-4-6)      |
+| `DEFAULT_MODEL`              | No         | Default model (default: claude-sonnet-5)        |
 | `DEFAULT_MAX_TURNS`          | No         | Default max turns per session (default: 50)     |
 | `DEFAULT_MAX_BUDGET_USD`     | No         | Default budget cap per session (default: 1.00)  |
 | `MAX_CONCURRENT_SESSIONS`    | No         | Max parallel sessions (default: 5)              |

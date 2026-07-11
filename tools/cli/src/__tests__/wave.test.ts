@@ -19,6 +19,7 @@ const mockRemoveWorktree = vi.fn();
 vi.mock("@mbe/agent-core", () => ({
   createWorktree: mockCreateWorktree,
   removeWorktree: mockRemoveWorktree,
+  resolveModelId: vi.fn(() => "claude-sonnet-5"),
 }));
 
 const mockExistsSync = vi.mocked(existsSync);

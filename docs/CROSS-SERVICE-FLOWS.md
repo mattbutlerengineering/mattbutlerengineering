@@ -149,7 +149,7 @@ async function createReservation(request: CreateReservationRequest) {
 // POST /v1/sessions
 interface CreateAgentSessionRequest {
   task: string; // Task description
-  model?: string; // claude-sonnet-4-6 (default)
+  model?: string; // claude-sonnet-5 (default)
   maxBudget?: number; // USD, default 1.00
   maxTurns?: number; // default 50
   createPR?: boolean; // default true

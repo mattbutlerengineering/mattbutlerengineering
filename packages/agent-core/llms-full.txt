@@ -2204,7 +2204,7 @@
   <file path="src/model-registry.ts">
     export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
       haiku: "claude-haiku-4-5-20251001",
-      sonnet: "claude-sonnet-4-6",
+      sonnet: "claude-sonnet-5",
       opus: "claude-opus-4-8",
     };
     export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
