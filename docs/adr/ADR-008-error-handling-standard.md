@@ -13,7 +13,7 @@ Early services used ad-hoc error shapes (`{ error, message, statusCode }`). Diff
 
 ## Decision
 
-All API errors **must** conform to **RFC 7807 Problem Details for HTTP APIs** (`application/problem+json`). During the migration period, responses include both legacy fields and RFC 7807 fields for backward compatibility.
+All API errors **must** conform to **RFC 7807 Problem Details for HTTP APIs** (`application/problem+json`). The transitional dual-format envelope was retired once every consumer migrated (#3348); responses now carry RFC 7807 fields only.
 
 ### Canonical Shape
 
@@ -27,21 +27,16 @@ interface ProblemDetails {
 }
 ```
 
-### Backward-Compatible Envelope
+### Sole Shape (migration complete)
 
-The shared `createProblemDetails()` function in `@mbe/types` returns a combined object that satisfies both the legacy `ApiError` interface and RFC 7807:
+The shared `createProblemDetails()` helper in `@mbe/types` returns RFC 7807 fields only. The transitional legacy envelope (`error` / `message` / `statusCode`) was removed once every consumer migrated (#3348); `ProblemDetails` is now the single wire **and** in-memory error shape:
 
 ```typescript
 {
-  // RFC 7807
   type: "about:blank",
   title: "Not Found",
   status: 404,
   detail: "User with id '123' not found",
-  // Legacy (will be removed after migration)
-  error: "Not Found",
-  message: "User with id '123' not found",
-  statusCode: 404,
 }
 ```
 

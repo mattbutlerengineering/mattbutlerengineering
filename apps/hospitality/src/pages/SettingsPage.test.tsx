@@ -28,10 +28,10 @@ vi.mock("../hooks/useApiClient.js", () => ({
 // ApiClientError is still imported in the page
 vi.mock("@mbe/api-client", () => ({
   ApiClientError: class extends Error {
-    response: Record<string, unknown>;
-    constructor(message: string, response: Record<string, unknown> = {}) {
+    problemDetails: Record<string, unknown>;
+    constructor(message: string, problemDetails: Record<string, unknown> = {}) {
       super(message);
-      this.response = response;
+      this.problemDetails = problemDetails;
     }
   },
 }));

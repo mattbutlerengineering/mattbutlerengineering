@@ -1,5 +1,4 @@
-import type { ApiError, ProblemDetails } from "@mbe/types";
-import { ApiErrorSchema } from "@mbe/types";
+import type { ProblemDetails } from "@mbe/types";
 import { z } from "zod";
 import { retry } from "./retry.js";
 import { parseProblemDetails } from "./problem-details.js";
@@ -91,51 +90,9 @@ export class ApiClient {
     const response = await fetchWithRetry(url, fetchOptions, effectiveMaxRetries);
 
     if (!response.ok) {
-      const contentType = response.headers?.get?.("content-type") ?? "";
-      const isProblemJson = contentType.includes("application/problem+json");
       const raw = await response.json().catch(() => null);
-
       const problemDetails = parseProblemDetails(raw, response.status);
-
-      const parsed = ApiErrorSchema.safeParse(raw);
-      // If the response body validates against ApiErrorSchema, use it directly.
-      // Otherwise, build a fallback from status line defaults and layer the raw
-      // body on top so partial server responses (e.g. { message: "..." }) still
-      // propagate their fields — including overriding `detail` with any raw
-      // `message` when neither `detail` nor `message` is in the raw body.
-      let error: ApiError;
-      if (parsed.success) {
-        error = parsed.data;
-      } else {
-        const rawObj =
-          typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
-        const serverText = (rawObj.detail ?? rawObj.message ?? response.statusText) as string;
-        error = {
-          error: "Error",
-          message: serverText,
-          statusCode: response.status,
-          type: "about:blank",
-          title: "Error",
-          status: response.status,
-          detail: serverText,
-          ...rawObj,
-        };
-      }
-
-      // When the service explicitly sent application/problem+json, prefer the
-      // parsed ProblemDetails shape so callers can always use `problemDetails`.
-      if (isProblemJson) {
-        error = {
-          ...error,
-          type: problemDetails.type,
-          title: problemDetails.title,
-          status: problemDetails.status,
-          detail: problemDetails.detail,
-          instance: problemDetails.instance,
-        };
-      }
-
-      const clientError = new ApiClientError(error, method, path, problemDetails);
+      const clientError = new ApiClientError(problemDetails, method, path);
       this.config.onError?.(clientError);
       throw clientError;
     }
@@ -296,37 +253,25 @@ function categorizeStatus(code: number): ErrorCategory {
 
 export class ApiClientError extends Error {
   /**
-   * RFC 7807 ProblemDetails parsed from the response body.
-   * Always present — falls back to a synthesized shape for non-7807 responses.
+   * RFC 7807 ProblemDetails — the sole error representation.
+   * Always present: synthesized defensively for non-7807 response bodies.
    */
   readonly problemDetails: ProblemDetails;
 
   constructor(
-    public response: ApiError,
+    problemDetails: ProblemDetails,
     public method?: string,
-    public path?: string,
-    problemDetails?: ProblemDetails
+    public path?: string
   ) {
     const prefix = method && path ? `${method} ${path} failed: ` : "";
-    const status = response.status ?? response.statusCode;
-    const message = response.detail ?? response.message;
-    super(`${prefix}${status} ${message}`);
+    super(`${prefix}${problemDetails.status} ${problemDetails.detail}`);
     this.name = "ApiClientError";
-    this.problemDetails =
-      problemDetails ??
-      parseProblemDetails(
-        {
-          type: response.type,
-          title: response.title,
-          status: response.status,
-          detail: response.detail,
-        },
-        status
-      );
+    this.problemDetails = problemDetails;
   }
 
+  /** HTTP status code, derived from the ProblemDetails shape. */
   get statusCode(): number {
-    return this.response.status ?? this.response.statusCode;
+    return this.problemDetails.status;
   }
 
   /**

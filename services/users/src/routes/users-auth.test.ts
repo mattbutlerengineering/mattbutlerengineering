@@ -78,7 +78,7 @@ describe("User routes — authorization branches", () => {
 
       expect(response.statusCode).toBe(403);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Forbidden");
+      expect(body.title).toBe("Forbidden");
     });
   });
 
@@ -113,7 +113,7 @@ describe("User routes — authorization branches", () => {
 
       expect(response.statusCode).toBe(403);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Forbidden");
+      expect(body.title).toBe("Forbidden");
     });
 
     it("returns 401 when non-admin user not found in database (identity unresolvable)", async () => {

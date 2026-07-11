@@ -7,7 +7,7 @@ import type {
   CreateVenueGroupRequest,
   UpdateVenueGroupRequest,
   ApiResponse,
-  ApiError,
+  ProblemDetails,
   PaginatedResponse,
 } from "@mbe/types";
 import {
@@ -76,7 +76,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // Get venue group by ID
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<VenueGroup> | ApiError;
+    Reply: ApiResponse<VenueGroup> | ProblemDetails;
   }>(
     "/groups/:id",
     {
@@ -125,7 +125,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // Create venue group (requires auth)
   fastify.post<{
     Body: CreateVenueGroupRequest;
-    Reply: ApiResponse<VenueGroup> | ApiError;
+    Reply: ApiResponse<VenueGroup> | ProblemDetails;
   }>(
     "/groups",
     {
@@ -181,7 +181,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateVenueGroupRequest;
-    Reply: ApiResponse<VenueGroup> | ApiError;
+    Reply: ApiResponse<VenueGroup> | ProblemDetails;
   }>(
     "/groups/:id",
     {
@@ -294,7 +294,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // List venues
   fastify.get<{
     Querystring: { page?: string; limit?: string; venueGroupId?: string };
-    Reply: PaginatedResponse<Venue> | ApiError;
+    Reply: PaginatedResponse<Venue> | ProblemDetails;
   }>(
     "/",
     {
@@ -350,7 +350,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // Get venue by ID
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<Venue> | ApiError;
+    Reply: ApiResponse<Venue> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -396,7 +396,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // Get venue by slug (for public booking)
   fastify.get<{
     Params: { slug: string };
-    Reply: ApiResponse<Venue> | ApiError;
+    Reply: ApiResponse<Venue> | ProblemDetails;
   }>(
     "/by-slug/:slug",
     {
@@ -443,7 +443,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   // Create venue (requires auth)
   fastify.post<{
     Body: CreateVenueRequest;
-    Reply: ApiResponse<Venue> | ApiError;
+    Reply: ApiResponse<Venue> | ProblemDetails;
   }>(
     "/",
     {
@@ -497,7 +497,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateVenueRequest;
-    Reply: ApiResponse<Venue> | ApiError;
+    Reply: ApiResponse<Venue> | ProblemDetails;
   }>(
     "/:id",
     {

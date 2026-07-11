@@ -206,11 +206,13 @@ const profile = await api.users.me();
 ### Standard Error Response
 
 ```typescript
-interface ApiError {
-  error: string; // Error code (e.g., "NOT_FOUND")
-  message: string; // Human-readable message
-  statusCode: number;
-  details?: Record<string, unknown>;
+// RFC 7807 Problem Details (ADR-008) — the single error shape on the wire.
+interface ProblemDetails {
+  type: string; // URI identifying the error type (default: "about:blank")
+  title: string; // Short human-readable summary (e.g. "Not Found")
+  status: number; // HTTP status code
+  detail: string; // Human-readable explanation for this occurrence
+  instance?: string; // URI identifying this specific occurrence
 }
 ```
 
@@ -228,9 +230,10 @@ interface ApiError {
 
 ```json
 {
-  "error": "NOT_FOUND",
-  "message": "User with id '123' not found",
-  "statusCode": 404
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "User with id '123' not found"
 }
 ```
 

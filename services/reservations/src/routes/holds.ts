@@ -5,7 +5,7 @@ import type {
   CreateHoldRequest,
   ConfirmHoldRequest,
   ApiResponse,
-  ApiError,
+  ProblemDetails,
 } from "@mbe/types";
 import { createProblemDetails, createHoldBodyJsonSchema, confirmHoldBodyJsonSchema } from "@mbe/types";
 import { randomUUID } from "crypto";
@@ -83,7 +83,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   // POST / - Create a hold
   fastify.post<{
     Body: CreateHoldRequest;
-    Reply: ApiResponse<ReservationHold> | ApiError;
+    Reply: ApiResponse<ReservationHold> | ProblemDetails;
   }>(
     "/",
     {
@@ -143,7 +143,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /:id - Get hold status
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<ReservationHold> | ApiError;
+    Reply: ApiResponse<ReservationHold> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -186,7 +186,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   // DELETE /:id - Release a hold
   fastify.delete<{
     Params: { id: string };
-    Reply: { success: boolean } | ApiError;
+    Reply: { success: boolean } | ProblemDetails;
   }>(
     "/:id",
     {
@@ -252,7 +252,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { id: string };
     Body: ConfirmHoldRequest;
-    Reply: ApiResponse<Reservation> | ApiError;
+    Reply: ApiResponse<Reservation> | ProblemDetails;
   }>(
     "/:id/confirm",
     {

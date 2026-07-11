@@ -571,7 +571,7 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe(ERROR_CONFLICT);
+      expect(body.title).toBe(ERROR_CONFLICT);
     });
   });
 
@@ -670,7 +670,6 @@ describe("Reservation Routes", () => {
 
       expect(response.statusCode).toBe(409);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe(ERROR_CONFLICT);
       // RFC 7807 fields must survive serialization (ADR-002/ADR-008) — the
       // route's 409 schema must not strip them for pre-existing conflict
       // responses either (#3017 review).

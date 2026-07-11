@@ -28,7 +28,7 @@ import {
 } from "./guest.js";
 import { WaitlistJoinResultSchema } from "./waitlist.js";
 import { ProblemDetailsSchema } from "./api.js";
-import { PaginationSchema, ErrorResponseSchema } from "./common.js";
+import { PaginationSchema } from "./common.js";
 import {
   ListReservationsQuerySchema,
   ListMyReservationsQuerySchema,
@@ -257,8 +257,6 @@ export const createSessionBodyJsonSchema = toFastifyJsonSchema(
 
 // ── Shared schemas ────────────────────────────────────────────
 export const paginationJsonSchema = toFastifyJsonSchema("Pagination", PaginationSchema);
-
-export const errorJsonSchema = toFastifyJsonSchema("Error", ErrorResponseSchema);
 
 export const problemDetailsJsonSchema = toFastifyJsonSchema("ProblemDetails", ProblemDetailsSchema);
 

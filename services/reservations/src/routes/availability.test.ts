@@ -232,7 +232,7 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
 
     it("should return 400 for invalid date format", async () => {
@@ -247,7 +247,7 @@ describe("Availability Routes", () => {
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
       // Fastify's schema validation returns its own error message for format validation
-      expect(body.message).toContain("date");
+      expect(body.detail).toContain("date");
     });
 
     it("should return 400 for invalid party size", async () => {
@@ -261,7 +261,7 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain("Invalid party size");
+      expect(body.detail).toContain("Invalid party size");
     });
 
     it("should return 400 for invalid duration", async () => {
@@ -275,7 +275,7 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain("Invalid duration");
+      expect(body.detail).toContain("Invalid duration");
     });
   });
 
@@ -313,7 +313,7 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
-      expect(body.error).toBe("Not Found");
+      expect(body.title).toBe("Not Found");
     });
 
     it("should return 400 for invalid date range", async () => {
@@ -328,7 +328,7 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain("startDate must be before");
+      expect(body.detail).toContain("startDate must be before");
     });
 
     it("should return 400 for invalid party size", async () => {
@@ -343,7 +343,7 @@ describe("Availability Routes", () => {
 
       expect(response.statusCode).toBe(400);
       const body = JSON.parse(response.body);
-      expect(body.message).toContain("Invalid party size");
+      expect(body.detail).toContain("Invalid party size");
     });
   });
 

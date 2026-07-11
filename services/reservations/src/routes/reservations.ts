@@ -6,7 +6,7 @@ import type {
   UpdateReservationRequest,
   WalkInRequest,
   ApiResponse,
-  ApiError,
+  ProblemDetails,
   PaginatedResponse,
 } from "@mbe/types";
 import {
@@ -127,7 +127,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // Get current user's reservations (must come before /:id)
   fastify.get<{
     Querystring: { page?: string; limit?: string };
-    Reply: PaginatedResponse<Reservation> | ApiError;
+    Reply: PaginatedResponse<Reservation> | ProblemDetails;
   }>(
     "/me",
     {
@@ -171,7 +171,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // Create walk-in reservation (must be before /:id)
   fastify.post<{
     Body: WalkInRequest;
-    Reply: ApiResponse<Reservation> | ApiError;
+    Reply: ApiResponse<Reservation> | ProblemDetails;
   }>(
     "/walk-in",
     {
@@ -231,7 +231,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // Get reservation by ID
   fastify.get<{
     Params: { id: string };
-    Reply: ApiResponse<Reservation> | ApiError;
+    Reply: ApiResponse<Reservation> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -285,7 +285,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // Create reservation
   fastify.post<{
     Body: CreateReservationRequest;
-    Reply: ApiResponse<Reservation> | ApiError;
+    Reply: ApiResponse<Reservation> | ProblemDetails;
   }>(
     "/",
     {
@@ -363,7 +363,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.patch<{
     Params: { id: string };
     Body: UpdateReservationRequest;
-    Reply: ApiResponse<Reservation> | ApiError;
+    Reply: ApiResponse<Reservation> | ProblemDetails;
   }>(
     "/:id",
     {
@@ -577,7 +577,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   // Cancel reservation (DELETE)
   fastify.delete<{
     Params: { id: string };
-    Reply: ApiResponse<Reservation> | ApiError;
+    Reply: ApiResponse<Reservation> | ProblemDetails;
   }>(
     "/:id",
     {

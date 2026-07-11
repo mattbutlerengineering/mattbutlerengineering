@@ -785,7 +785,7 @@
       // github[js/missing-rate-limiting] — strict limit to prevent alert storms
       fastify.post<{
         Body: unknown;
-        Reply: { sessionId: string } | ApiError;
+        Reply: { sessionId: string } | ProblemDetails;
       }>(
         "/remediation",
         {
@@ -898,7 +898,7 @@
       // GET /v1/sessions/:id/events — SSE stream of session events
       fastify.get<{
         Params: { id: string };
-        Reply: void | ApiError;
+        Reply: void | ProblemDetails;
       }>(
         "/:id/events",
         {

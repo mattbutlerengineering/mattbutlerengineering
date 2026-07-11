@@ -89,7 +89,7 @@ try {
     error.statusCode; // 404
     error.method; // "GET"
     error.path; // "/api/v1/users/bad-id"
-    error.response; // Full ApiError object (RFC 9457)
+    error.problemDetails; // RFC 7807 ProblemDetails — the sole error shape (ADR-008)
   }
 }
 ```
