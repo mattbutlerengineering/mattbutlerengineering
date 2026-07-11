@@ -44,8 +44,7 @@ import {
 import { createNotifierRuntime } from "./services/notifier-runtime.js";
 import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
-import { reservationService } from "./services/reservation.js";
-import { venueService } from "./services/venue.js";
+import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { prisma } from "./services/database.js";
 import { createVenueMembershipLookup } from "./services/venue-membership.js";
@@ -61,6 +60,13 @@ export interface ReservationsAppOptions extends AppOptions {
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
+  /**
+   * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
+   * singletons ({@link defaultDomainServices}); tests inject fakes here instead of
+   * `vi.mock`-ing the sibling service modules. Routes resolve their services from the
+   * `fastify.services` decoration, so an override here is the single seam.
+   */
+  services?: Partial<DomainServices>;
 }
 
 /**
@@ -133,6 +139,14 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
   fastify.decorate("venueMembershipLookup", venueMembershipLookup);
 
+  // Wire the domain-service seam (issue #3357) — resolve the injectable services
+  // once (production singletons by default, test fakes via options.services) and
+  // decorate them so route plugins resolve dependencies from `fastify.services`
+  // instead of importing the sibling singleton at module scope. Decorated before
+  // route registration so child route plugins inherit it.
+  const services: DomainServices = { ...defaultDomainServices, ...options.services };
+  fastify.decorate("services", services);
+
   // Register routes
   await fastify.register(healthRoutes);
   await fastify.register(registerReadinessRoutes, { prisma });
@@ -186,8 +200,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const jobWorker = createReservationJobWorker({
     redisUrl: notifierRuntime.redisUrl,
     handlers: createReservationJobHandlers({
-      getReservation: (id) => reservationService.getById(id),
-      getVenue: (id) => venueService.getById(id),
+      getReservation: (id) => services.reservationService.getById(id),
+      getVenue: (id) => services.venueService.getById(id),
       dispatcher: notificationPort,
       generateManageToken,
       handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -216,5 +230,7 @@ declare module "fastify" {
     postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
     venueMembershipLookup: VenueMembershipLookup;
+    /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */
+    services: DomainServices;
   }
 }

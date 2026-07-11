@@ -1,93 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
 import { ReservationEventEmitter } from "../services/events.js";
+import { TableTransitionError } from "../services/table.js";
+import { jwtVerify } from "jose";
 
-// Mock the table service
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    updateStatus: vi.fn(),
-    delete: vi.fn(),
-  },
-  TableTransitionError: class TableTransitionError extends Error {
-    from: string;
-    to: string;
-    constructor(from: string, to: string) {
-      super(`Invalid table transition: cannot transition from '${from}' to '${to}'`);
-      this.name = "TableTransitionError";
-      this.from = from;
-      this.to = to;
-    }
-  },
-}));
-
-// Mock the reservation service (needed for app registration)
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    listByUserId: vi.fn(),
-    cancel: vi.fn(),
-  },
-}));
-
-// Mock the venue service (needed for app registration)
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-// Mock the guest service (needed for app registration)
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-
-// Mock the floor plan service (needed for app registration)
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    setActive: vi.fn(),
-    updateTablePosition: vi.fn(),
-    bulkUpdateTablePositions: vi.fn(),
-    assignTableToFloorPlan: vi.fn(),
-    removeTableFromFloorPlan: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #3357), so the
+// tables route no longer needs a vi.mock ring of sibling service modules to
+// register the app. Only the service this route actually calls is faked.
+const tableService = {
+  list: vi.fn(),
+  getById: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  updateStatus: vi.fn(),
+  delete: vi.fn(),
+} as unknown as DomainServices["tableService"];
 
 // Mock the database (needed for health check registration)
 vi.mock("../services/database.js", async () => {
@@ -100,9 +29,6 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn(),
 }));
-
-import { tableService } from "../services/table.js";
-import { jwtVerify } from "jose";
 
 const mockTable = {
   id: "table-123",
@@ -148,7 +74,7 @@ describe("Table Routes", () => {
     };
     stubEvents = new ReservationEventEmitter();
     vi.spyOn(stubEvents, "emitTableUpdated");
-    app = await buildApp({ logger: false, reservationEvents: stubEvents });
+    app = await buildApp({ logger: false, reservationEvents: stubEvents, services: { tableService } });
     await app.ready();
   });
 
@@ -383,7 +309,6 @@ describe("Table Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
-      const { TableTransitionError } = await import("../services/table.js");
       vi.mocked(tableService.updateStatus).mockRejectedValueOnce(
         new TableTransitionError("AVAILABLE", "DIRTY", ["OCCUPIED"])
       );

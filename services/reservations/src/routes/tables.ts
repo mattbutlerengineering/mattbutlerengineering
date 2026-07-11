@@ -16,22 +16,27 @@ import {
 } from "@mbe/types";
 import { requireAuth, requireAdmin, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import { tableService, TableTransitionError } from "../services/table.js";
+import { TableTransitionError } from "../services/table.js";
 import { venueIdFromBody } from "./venue-access.js";
 
-/**
- * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
- * to that venue. Null when the table does not exist or is unassigned (→ 403 for
- * non-admins; platform admins bypass the check).
- */
-const resolveTableVenueId: VenueIdResolver = async (request) => {
-  const params = request.params as { id?: unknown };
-  if (typeof params.id !== "string") return null;
-  const table = await tableService.getById(params.id);
-  return table?.venueId ?? null;
-};
-
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
+  // Resolve domain services from the buildApp seam (issue #3357) rather than
+  // importing the sibling singleton directly — tests inject fakes via
+  // buildApp({ services }).
+  const { tableService } = fastify.services;
+
+  /**
+   * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
+   * to that venue. Null when the table does not exist or is unassigned (→ 403 for
+   * non-admins; platform admins bypass the check).
+   */
+  const resolveTableVenueId: VenueIdResolver = async (request) => {
+    const params = request.params as { id?: unknown };
+    if (typeof params.id !== "string") return null;
+    const table = await tableService.getById(params.id);
+    return table?.venueId ?? null;
+  };
+
   // List tables
   fastify.get<{
     Querystring: { page?: string; limit?: string; activeOnly?: string };
