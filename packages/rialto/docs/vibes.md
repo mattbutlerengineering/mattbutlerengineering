@@ -1,6 +1,6 @@
 # Vibes
 
-Vibes shift Rialto's design language to match user intent. They work by overriding CSS custom properties on a container `<div>` — child components adapt automatically via the CSS cascade with zero runtime cost.
+Vibes shift Rialto's design language to match user intent. They work by overriding CSS custom properties on a container `<div>` — child components adapt automatically via the CSS cascade with zero runtime cost. The override map (`VibeOverrides`, a `Record<string, string>` of `--rialto-*` properties) is a real seam: **two adapters** feed it — a static `vibe` preset chosen by the caller, and a device-driven **reduced-data adapter** derived at runtime from `device.saveData`. Both produce the same kind of override map, so they compose through one path.
 
 ---
 
@@ -53,6 +53,40 @@ RialtoProvider (vibe="transacting")
        └─ Card reads var(--rialto-radius-soft) → gets 8px instead of 10px
        └─ Input reads var(--rialto-space-sm) → gets 10px instead of 12px
 ```
+
+---
+
+## The Reduced-Data Adapter
+
+The `vibe` preset is one adapter feeding the override map; the **reduced-data adapter** is the second. It is derived at runtime from `device.saveData` — the browser's `prefers-reduced-data: reduce` signal, detected by `useDeviceContext`. When a user turns Save-Data on, Rialto tightens the spacing scale by roughly one step, trading whitespace for density so more content fits with less scrolling and paint. Only spacing tokens shift; radii, type, and colors are left alone.
+
+| Token               | Default | Reduced-data |
+| ------------------- | ------- | ------------ |
+| `--rialto-space-sm` | 12px    | 8px          |
+| `--rialto-space-md` | 16px    | 12px         |
+| `--rialto-space-lg` | 24px    | 16px         |
+| `--rialto-space-xl` | 32px    | 24px         |
+| `--rialto-space-2xl`| 48px    | 32px         |
+| `--rialto-space-3xl`| 64px    | 48px         |
+
+This adapter is **automatic and additive**: it applies whenever `device.saveData` is `true` and is a no-op otherwise, so callers who do not use it are completely unaffected. It is exposed for direct use (e.g. tests or bespoke wiring) from the providers subpath:
+
+```tsx
+import { deriveReducedDataOverrides, reducedDataOverrides } from "rialto/providers";
+
+// reducedDataOverrides — the compact spacing map (a VibeOverrides value)
+// deriveReducedDataOverrides(device) — returns it when device.saveData is true, else {}
+```
+
+### Composition & precedence
+
+`RialtoProvider` merges both adapters plus the caller's explicit overrides into one inline `style`, in **low → high precedence** (later wins):
+
+1. **`vibe` preset** — the static design-language adapter.
+2. **reduced-data overrides** — the device-driven adapter (`device.saveData`).
+3. **explicit `vibeOverrides`** — the caller's fine-tuning, always the final say.
+
+So Save-Data tightens even a loose preset like `presenting` (step 2 wins over step 1), but a caller can still pin any single token through `vibeOverrides` (step 3 wins over step 2). When every source is empty — `default` vibe, Save-Data off, no overrides — no inline `style` is applied at all.
 
 ---
 
@@ -156,7 +190,7 @@ Any `--rialto-*` token works. The most impactful ones for vibes:
 
 ## Architecture Notes
 
-- Vibes are **build-time constant** — the preset maps are static objects, not computed
+- Two adapters feed the override map behind one `VibeOverrides` interface: the `vibe` **preset** maps are build-time constants (static objects, not computed), while the **reduced-data** adapter derives its overrides at runtime from `device.saveData`
 - The `<div>` wrapper applies overrides as inline `style` — no extra CSS files generated
 - `useUIEnvironment()` provides the active vibe name for conditional logic (rarely needed — the cascade handles most cases)
 - Vibes compose with dark mode: `data-theme` handles colors, vibes handle spacing/radii/weight

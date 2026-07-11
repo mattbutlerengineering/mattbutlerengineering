@@ -42,15 +42,13 @@
     </item>
   </file>
   <file path="src/adapters/failover-session-adapter.ts">
+    <item priority="high">
+      class AllAdaptersUnavailableError {
+        cooldowns: ReadonlyMap<string, number>;
+      }
+    </item>
     <item priority="low">
       type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
-    </item>
-    <item priority="high">
-      class FailoverSessionAdapter {
-        adapters: readonly FailoverCapableAdapter[];
-        detector: RateLimitDetector;
-        async runSession(): Promise<unknown>;
-      }
     </item>
   </file>
   <file path="src/adapters/gemini-adapter.ts">
@@ -541,17 +539,6 @@
         toolUseId: string;
         isError: boolean;
       }
-    </item>
-  </file>
-  <file path="src/failover-router.ts">
-    <item priority="high">
-      class AllAdaptersUnavailableError {
-        cooldowns: ReadonlyMap<string, number>;
-      }
-    </item>
-    <item priority="low">
-      type RoutedAdapterResult = AdapterResult & {
-        /** Name of the adapter that produced...;
     </item>
   </file>
   <file path="src/failure-memory.ts">

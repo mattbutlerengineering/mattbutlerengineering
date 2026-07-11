@@ -123,12 +123,12 @@ Supports dispatching agent tasks to Claude Code (SDK), Gemini CLI, or OpenCode C
 ### Architecture
 
 ```
-AdapterConfig (task + worktree + model)
-  → FailoverRouter (priority-cascade)
+SessionConfig (task + worktree + model)
+  → FailoverSessionAdapter (priority-cascade, ADR-017 `auto` mode)
     → RateLimitDetector (per-adapter cooldown tracking)
     → Try adapters in order: claude → gemini → opencode
-    → Skip if rate-limited or CLI not installed
-    → Return RoutedAdapterResult (includes adapter attribution)
+    → Skip if rate-limited or CLI/SDK not available
+    → Throw AllAdaptersUnavailableError when all are exhausted
 ```
 
 ### Adapters
@@ -149,7 +149,7 @@ AdapterConfig (task + worktree + model)
 | `adapters/gemini-adapter.ts`   | Subprocess dispatch to Gemini CLI                                              |
 | `adapters/opencode-adapter.ts` | Subprocess dispatch to OpenCode CLI                                            |
 | `rate-limit-detector.ts`       | Tracks consecutive failures and cooldown expiry per adapter                    |
-| `failover-router.ts`           | Priority-cascade dispatch, throws `AllAdaptersUnavailableError` when exhausted |
+| `adapters/failover-session-adapter.ts` | Priority-cascade dispatch (ADR-017 `auto`), throws `AllAdaptersUnavailableError` when exhausted |
 
 ### Usage via CLI
 
