@@ -8768,38 +8768,14 @@
         },
         async (request, reply) => {
           const { slug } = request.params;
-          const rawVenue = await venueService.getRawBySlug(slug);
+          const publicVenue = await venueService.getPublicConfigBySlug(slug);
     
-          if (!rawVenue) {
+          if (!publicVenue) {
             return reply.status(404).send({
               success: false,
               error: "Venue not found",
             } as never);
           }
-    
-          const settings = rawVenue.settings as Record<string, unknown> | null;
-    
-          const publicVenue: PublicVenueConfig = {
-            name: rawVenue.name,
-            slug: rawVenue.slug,
-            ianaTimezone: rawVenue.ianaTimezone,
-            currencyCode: rawVenue.currencyCode,
-            operatingHours: rawVenue.operatingHours as PublicVenueConfig["operatingHours"],
-            settings: {
-              defaultReservationDuration: settings?.defaultReservationDuration as number | undefined,
-              maxPartySize: settings?.maxPartySize as number | undefined,
-              maxAdvanceBooking: settings?.maxAdvanceBooking as number | undefined,
-              slotIntervalMinutes: settings?.slotIntervalMinutes as number | undefined,
-            },
-            deposit: {
-              enabled: rawVenue.depositEnabled,
-              depositType: rawVenue.depositType,
-              amountCents: rawVenue.depositAmountCents,
-              freeCancellationHours: rawVenue.freeCancellationHours,
-              lateCancellationFeePercent: rawVenue.lateCancellationFeePercent,
-              noShowFeePercent: rawVenue.noShowFeePercent,
-            },
-          };
     
           return reply.send({ data: publicVenue });
         }
@@ -12962,52 +12938,38 @@
     }
   </file>
   <file path="services/reservations/src/services/venue.ts">
-    function mapPrismaVenueGroup(group: {
+    export interface VenuePolicy {
       id: string;
-      name: string;
       slug: string;
-      settings: unknown;
-      createdAt: Date;
-    }): VenueGroup {
-      return {
-        id: group.id,
-        name: group.name,
-        slug: group.slug,
-        settings: group.settings as Record<string, unknown> | null,
-        createdAt: group.createdAt.toISOString(),
-      };
-    }
-    function mapPrismaVenue(venue: {
-      id: string;
-      venueGroupId: string | null;
-      venueGroup?: {
-        id: string;
-        name: string;
-        slug: string;
-        settings: unknown;
-        createdAt: Date;
-      } | null;
-      name: string;
-      slug: string;
-      ianaTimezone: string;
       currencyCode: string;
-      operatingHours: unknown;
-      settings: unknown;
-      createdAt: Date;
-      updatedAt: Date;
-    }): Venue {
+      depositEnabled: boolean;
+      depositType: DepositType | null;
+      depositAmountCents: number | null;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    function mapVenuePolicy(row: {
+      id: string;
+      slug: string;
+      currencyCode: string;
+      depositEnabled: boolean;
+      depositType: DepositType | null;
+      depositAmountCents: number | null;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }): VenuePolicy {
       return {
-        id: venue.id,
-        venueGroupId: venue.venueGroupId,
-        venueGroup: venue.venueGroup ? mapPrismaVenueGroup(venue.venueGroup) : undefined,
-        name: venue.name,
-        slug: venue.slug,
-        ianaTimezone: venue.ianaTimezone,
-        currencyCode: venue.currencyCode,
-        operatingHours: venue.operatingHours as Venue["operatingHours"],
-        settings: venue.settings as Venue["settings"],
-        createdAt: venue.createdAt.toISOString(),
-        updatedAt: venue.updatedAt.toISOString(),
+        id: row.id,
+        slug: row.slug,
+        currencyCode: row.currencyCode,
+        depositEnabled: row.depositEnabled,
+        depositType: row.depositType,
+        depositAmountCents: row.depositAmountCents,
+        freeCancellationHours: row.freeCancellationHours,
+        lateCancellationFeePercent: row.lateCancellationFeePercent,
+        noShowFeePercent: row.noShowFeePercent,
       };
     }
   </file>

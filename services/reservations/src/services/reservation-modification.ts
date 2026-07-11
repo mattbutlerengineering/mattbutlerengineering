@@ -82,8 +82,10 @@ export async function isPartySizeDepositBlocked(
     return false;
   }
 
-  const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
-  if (rawVenue?.depositType !== "per_person") {
+  const venuePolicy = reservation.venueId
+    ? await venueService.getPolicyById(reservation.venueId)
+    : null;
+  if (venuePolicy?.depositType !== "per_person") {
     return false;
   }
 

@@ -21,7 +21,7 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
-    getRawById: vi.fn(),
+    getPolicyById: vi.fn(),
   },
 }));
 
@@ -38,7 +38,23 @@ vi.mock("jose", () => ({
 
 import { reservationService } from "../services/reservation.js";
 import { venueService } from "../services/venue.js";
+import type { VenuePolicy } from "../services/venue.js";
 import { depositService } from "../services/deposit.js";
+
+function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
+  return {
+    id: "venue_1",
+    slug: "the-oak-table",
+    currencyCode: "USD",
+    depositEnabled: true,
+    depositType: "flat",
+    depositAmountCents: null,
+    freeCancellationHours: null,
+    lateCancellationFeePercent: null,
+    noShowFeePercent: null,
+    ...overrides,
+  };
+}
 
 const mockReservation = {
   id: "res_1",
@@ -257,9 +273,9 @@ describe("PATCH /public/v1/reservations/manage", () => {
     // middleware ownership check + route handler each call getById once
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
-    vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-      depositType: "per_person",
-    } as never);
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+      makeVenuePolicy({ depositType: "per_person" })
+    );
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "held",
     } as never);

@@ -53,7 +53,7 @@ vi.mock("../services/venue.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
-    getRawById: vi.fn(),
+    getPolicyById: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -114,7 +114,23 @@ vi.mock("jose", () => ({
 import { reservationService } from "../services/reservation.js";
 import { depositService } from "../services/deposit.js";
 import { venueService } from "../services/venue.js";
+import type { VenuePolicy } from "../services/venue.js";
 import { jwtVerify } from "jose";
+
+function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
+  return {
+    id: "venue-1",
+    slug: "test-venue",
+    currencyCode: "USD",
+    depositEnabled: true,
+    depositType: "flat",
+    depositAmountCents: null,
+    freeCancellationHours: null,
+    lateCancellationFeePercent: null,
+    noShowFeePercent: null,
+    ...overrides,
+  };
+}
 
 describe("Reservation Routes", () => {
   let app: FastifyInstance;
@@ -668,9 +684,7 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 4, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-          depositType: "per_person",
-        } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
           status: "held",
         } as never);
@@ -697,9 +711,7 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 6, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-          depositType: "per_person",
-        } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
           status: "pending",
         } as never);
@@ -726,9 +738,7 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 4, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-          depositType: "flat",
-        } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "flat" }));
         vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
           success: true,
           reservation: createMockReservation({ partySize: 6, venueId: "venue-1" }),
@@ -749,9 +759,7 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 4, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getRawById).mockResolvedValueOnce({
-          depositType: "per_person",
-        } as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
         vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
           success: true,
@@ -1603,12 +1611,11 @@ describe("Reservation Routes", () => {
   describe("PATCH & DELETE /v1/reservations/:id — cancel initiator derivation (security)", () => {
     const ownerEmail = "john@example.com"; // matches createMockReservation() default guestEmail
     const pastStartTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const feePolicyVenue = {
-      id: "venue-1",
+    const feePolicyVenue = makeVenuePolicy({
       freeCancellationHours: 24,
       lateCancellationFeePercent: 50,
       noShowFeePercent: 100,
-    };
+    });
     const heldDeposit = { id: "dep-1", status: "held" };
 
     // Past its start time with a 100%-no-show-fee venue policy: under the
@@ -1636,7 +1643,7 @@ describe("Reservation Routes", () => {
           .mockResolvedValueOnce(reservationPastNoShowBoundary())
           .mockResolvedValueOnce(reservationPastNoShowBoundary());
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-        vi.mocked(venueService.getRawById).mockResolvedValueOnce(feePolicyVenue as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(feePolicyVenue);
         vi.mocked(depositService.forfeit).mockResolvedValueOnce({
           id: "dep-1",
           status: "forfeited",
@@ -1681,7 +1688,7 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(200);
         expect(depositService.refund).toHaveBeenCalledWith("dep-1");
         expect(depositService.forfeit).not.toHaveBeenCalled();
-        expect(venueService.getRawById).not.toHaveBeenCalled();
+        expect(venueService.getPolicyById).not.toHaveBeenCalled();
       });
     });
 
@@ -1692,7 +1699,7 @@ describe("Reservation Routes", () => {
           .mockResolvedValueOnce(reservationPastNoShowBoundary())
           .mockResolvedValueOnce(reservationPastNoShowBoundary());
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(heldDeposit as never);
-        vi.mocked(venueService.getRawById).mockResolvedValueOnce(feePolicyVenue as never);
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(feePolicyVenue);
         vi.mocked(depositService.forfeit).mockResolvedValueOnce({
           id: "dep-1",
           status: "forfeited",
@@ -1734,7 +1741,7 @@ describe("Reservation Routes", () => {
         expect(response.statusCode).toBe(200);
         expect(depositService.refund).toHaveBeenCalledWith("dep-1");
         expect(depositService.forfeit).not.toHaveBeenCalled();
-        expect(venueService.getRawById).not.toHaveBeenCalled();
+        expect(venueService.getPolicyById).not.toHaveBeenCalled();
       });
     });
   });

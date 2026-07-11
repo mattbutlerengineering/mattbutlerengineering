@@ -131,15 +131,17 @@ async function resolveDeposit(
     return { ok: true, resolved: { depositId: deposit.id, stripeOp: "refund" } };
   }
 
-  const rawVenue = reservation.venueId ? await venueService.getRawById(reservation.venueId) : null;
+  const venuePolicy = reservation.venueId
+    ? await venueService.getPolicyById(reservation.venueId)
+    : null;
 
   const policy =
-    rawVenue?.freeCancellationHours != null
+    venuePolicy?.freeCancellationHours != null
       ? {
           depositAmountCents: deposit.amountCents,
-          freeCancellationHours: rawVenue.freeCancellationHours,
-          lateCancellationFeePercent: rawVenue.lateCancellationFeePercent ?? null,
-          noShowFeePercent: rawVenue.noShowFeePercent ?? null,
+          freeCancellationHours: venuePolicy.freeCancellationHours,
+          lateCancellationFeePercent: venuePolicy.lateCancellationFeePercent ?? null,
+          noShowFeePercent: venuePolicy.noShowFeePercent ?? null,
         }
       : null;
 
