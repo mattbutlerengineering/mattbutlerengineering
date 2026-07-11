@@ -70,7 +70,7 @@ Per-package commands also exist; see each package's `README.md` or `CLAUDE.md`.
 
 ## Tests
 
-The [`coverage-gate.yml`](./.github/workflows/coverage-gate.yml) workflow enforces a **60% aggregate statement coverage** floor on every PR. PRs that drop coverage below this threshold are blocked from merging. The PR comment includes a per-package breakdown so you can see exactly which package is below the line.
+The [`ci.yml`](./.github/workflows/ci.yml) `Test` job enforces a **60% aggregate statement coverage** floor on every PR (checked on the Node 22 leg). PRs that drop below this threshold fail the job and are blocked from merging via the required `CI Gate`. Per-PR coverage visibility is posted by the Codecov report; `packages/agent-core` carries a stricter 80% package-specific gate.
 
 - Bug fixes need a regression test that fails before your fix and passes after. If a regression test isn't possible, say why in the PR.
 - New features in `services/*` need at least integration tests for the new routes.

@@ -9,7 +9,17 @@
  *   - generate-exports.ts   → package.json exports map
  *   - (rialto-catalog) generate-catalog.ts → generated-schemas.ts / generated-catalog.ts
  *
- * This is the SINGLE source of truth for character limits and component shape.
+ * Character limits come from two co-located sources this module unifies into
+ * one vocabulary on the model:
+ *   - Each cataloged component's `*.catalog.ts` `charLimits` (ADR-013) is the
+ *     source for flat per-prop limits; `introspectComponents()` merges them.
+ *   - The static `characterLimits` array below holds only the residue those
+ *     flat catalog limits cannot express: path-style nested limits
+ *     (`tabs[].label`), ReactNode-slot limits (`children`), and limits on
+ *     components that have no `*.catalog.ts`.
+ * Every limit (from either source) is checked against the component's real
+ * props/slots by `assertCharacterLimitsResolve()`, so a limit for a prop that
+ * does not exist fails generation instead of silently shipping.
  * `character-limits.ts` re-exports `characterLimits` + `CharacterLimit` from here.
  */
 
@@ -28,42 +38,25 @@ export interface CharacterLimit {
 }
 
 /**
- * Static map of component → prop → max characters.
- * Used by generate-manifest.ts / generate-registry.ts to include limits in
- * emitted JSON, preventing AI-generated content from breaking layouts.
+ * Residue character limits that the flat per-prop `charLimits` in each
+ * `*.catalog.ts` cannot express. `introspectComponents()` merges these with the
+ * catalog limits into `ComponentMetadata.characterLimits`, which
+ * generate-manifest.ts / generate-registry.ts emit to keep AI-generated content
+ * from breaking layouts.
  *
- * Tiers:
- *   Short  (≤30)    — badges, labels, single-line controls
- *   Medium (31–120)  — titles, descriptions, hints
- *   Long   (121–500) — paragraphs, body text
- *   Unrestricted     — ReactNode slots (not listed here)
+ * Only three kinds of limit live here — everything else is a catalog `charLimit`:
+ *   - Path-style nested limits on array-item fields (`tabs[].label`): the flat
+ *     `Record<prop, max>` catalog shape has no key for a nested field.
+ *   - ReactNode-slot limits (`children`, `trigger`): the catalog drift check
+ *     requires every `charLimits` key to be a generated Zod field, and slots are
+ *     excluded from that schema, so slot limits cannot be catalog keys.
+ *   - Limits on components that have no co-located `*.catalog.ts`.
+ *
+ * Every entry is validated against the component's real props/slots by
+ * `assertCharacterLimitsResolve()` (a nested `root[].leaf` limit validates `root`).
  */
 export const characterLimits: CharacterLimit[] = [
-  // ── Short (≤30) ──────────────────────────────
-  {
-    component: "Badge",
-    prop: "children",
-    max: 20,
-    reason: "Inline status label; wrapping breaks layout",
-  },
-  {
-    component: "Tag",
-    prop: "children",
-    max: 30,
-    reason: "Chip label; must fit single line",
-  },
-  {
-    component: "Kbd",
-    prop: "children",
-    max: 10,
-    reason: "Keyboard shortcut text; very compact",
-  },
-  {
-    component: "Button",
-    prop: "children",
-    max: 30,
-    reason: "Button label; should be concise action verb",
-  },
+  // ── Nested array-item fields (flat catalog charLimits cannot key these) ──
   {
     component: "Tabs",
     prop: "tabs[].label",
@@ -77,10 +70,80 @@ export const characterLimits: CharacterLimit[] = [
     reason: "Breadcrumb items share horizontal space",
   },
   {
-    component: "Avatar",
-    prop: "name",
+    component: "SegmentedControl",
+    prop: "segments[].label",
+    max: 15,
+    reason: "Segments share fixed horizontal space",
+  },
+  {
+    component: "Steps",
+    prop: "steps[].label",
+    max: 20,
+    reason: "Step labels share horizontal space",
+  },
+  {
+    component: "Steps",
+    prop: "steps[].description",
+    max: 80,
+    reason: "Step description; sits below label",
+  },
+  {
+    component: "Accordion",
+    prop: "items[].title",
+    max: 60,
+    reason: "Accordion trigger label; single line",
+  },
+  {
+    component: "Timeline",
+    prop: "events[].title",
+    max: 60,
+    reason: "Event title; single line beside node",
+  },
+  {
+    component: "Timeline",
+    prop: "events[].description",
+    max: 200,
+    reason: "Event description; supporting detail",
+  },
+
+  // ── ReactNode-slot limits (slots are not catalog schema fields) ──
+  {
+    component: "Badge",
+    prop: "children",
+    max: 20,
+    reason: "Inline status label; wrapping breaks layout",
+  },
+  {
+    component: "Button",
+    prop: "children",
     max: 30,
-    reason: "Used for initials fallback; full name for alt text",
+    reason: "Button label; should be concise action verb",
+  },
+  {
+    component: "Alert",
+    prop: "children",
+    max: 500,
+    reason: "Alert body; paragraph-length contextual message",
+  },
+  {
+    component: "Collapsible",
+    prop: "trigger",
+    max: 60,
+    reason: "Collapsible trigger text; single line",
+  },
+
+  // ── Components with no co-located *.catalog.ts ──
+  {
+    component: "Tag",
+    prop: "children",
+    max: 30,
+    reason: "Chip label; must fit single line",
+  },
+  {
+    component: "Kbd",
+    prop: "children",
+    max: 10,
+    reason: "Keyboard shortcut text; very compact",
   },
   {
     component: "Stat",
@@ -101,66 +164,16 @@ export const characterLimits: CharacterLimit[] = [
     reason: "Trend delta; short numeric change",
   },
   {
-    component: "SegmentedControl",
-    prop: "segments[].label",
-    max: 15,
-    reason: "Segments share fixed horizontal space",
-  },
-  {
-    component: "Steps",
-    prop: "steps[].label",
-    max: 20,
-    reason: "Step labels share horizontal space",
-  },
-  {
-    component: "Pagination",
-    prop: "aria-label",
-    max: 30,
-    reason: "Screen reader label; concise context",
-  },
-  {
     component: "Meter",
     prop: "label",
     max: 25,
     reason: "Gauge label; sits beside or below bar",
   },
   {
-    component: "Toggle",
-    prop: "label",
-    max: 30,
-    reason: "Switch label; single line beside control",
-  },
-  {
-    component: "Checkbox",
-    prop: "label",
-    max: 30,
-    reason: "Checkbox label; single line beside control",
-  },
-  {
     component: "Radio",
     prop: "label",
     max: 30,
     reason: "Radio option label; single line beside control",
-  },
-
-  // ── Medium (31–120) ──────────────────────────
-  {
-    component: "Input",
-    prop: "label",
-    max: 40,
-    reason: "Form field label; above input",
-  },
-  {
-    component: "Input",
-    prop: "hint",
-    max: 80,
-    reason: "Helper text below input; 1-2 lines",
-  },
-  {
-    component: "Input",
-    prop: "error",
-    max: 80,
-    reason: "Error message below input; must be actionable",
   },
   {
     component: "TextArea",
@@ -173,12 +186,6 @@ export const characterLimits: CharacterLimit[] = [
     prop: "label",
     max: 40,
     reason: "Form field label; above input",
-  },
-  {
-    component: "Select",
-    prop: "label",
-    max: 40,
-    reason: "Form field label; above select trigger",
   },
   {
     component: "PinInput",
@@ -197,42 +204,6 @@ export const characterLimits: CharacterLimit[] = [
     prop: "label",
     max: 40,
     reason: "Group label (fieldset legend)",
-  },
-  {
-    component: "Toast",
-    prop: "title",
-    max: 50,
-    reason: "Toast title; must be scannable in ~4s",
-  },
-  {
-    component: "Toast",
-    prop: "description",
-    max: 120,
-    reason: "Toast body; readable before auto-dismiss",
-  },
-  {
-    component: "Alert",
-    prop: "title",
-    max: 60,
-    reason: "Alert heading; single line preferred",
-  },
-  {
-    component: "Banner",
-    prop: "title",
-    max: 60,
-    reason: "Banner heading; single line, full-width",
-  },
-  {
-    component: "Dialog",
-    prop: "title",
-    max: 60,
-    reason: "Dialog heading; fits modal header",
-  },
-  {
-    component: "Dialog",
-    prop: "description",
-    max: 120,
-    reason: "Dialog subtitle; 1-2 lines below title",
   },
   {
     component: "ConfirmDialog",
@@ -259,94 +230,24 @@ export const characterLimits: CharacterLimit[] = [
     reason: "Drawer heading; fits panel header",
   },
   {
-    component: "Card",
-    prop: "title",
-    max: 60,
-    reason: "Card heading; single line",
-  },
-  {
-    component: "Card",
-    prop: "subtitle",
-    max: 80,
-    reason: "Card subheading; 1-2 lines below title",
-  },
-  {
-    component: "EmptyState",
-    prop: "title",
-    max: 50,
-    reason: "Empty state heading; centered, short",
-  },
-  {
-    component: "Accordion",
-    prop: "items[].title",
-    max: 60,
-    reason: "Accordion trigger label; single line",
-  },
-  {
-    component: "Collapsible",
-    prop: "label",
-    max: 60,
-    reason: "Collapsible trigger text; single line",
-  },
-  {
     component: "Tooltip",
     prop: "content",
     max: 80,
     reason: "Tooltip text; brief hint, no wrapping preferred",
   },
-  {
-    component: "Divider",
-    prop: "label",
-    max: 20,
-    reason: 'Centered divider label; very short ("or", "and")',
-  },
-  {
-    component: "Checkbox",
-    prop: "description",
-    max: 80,
-    reason: "Help text below checkbox label",
-  },
-  {
-    component: "Timeline",
-    prop: "items[].title",
-    max: 60,
-    reason: "Event title; single line beside node",
-  },
-
-  // ── Long (121–500) ───────────────────────────
-  {
-    component: "Alert",
-    prop: "children",
-    max: 500,
-    reason: "Alert body; paragraph-length contextual message",
-  },
-  {
-    component: "EmptyState",
-    prop: "description",
-    max: 300,
-    reason: "Empty state body; explains what to do next",
-  },
-  {
-    component: "Timeline",
-    prop: "items[].description",
-    max: 200,
-    reason: "Event description; supporting detail",
-  },
-  {
-    component: "Steps",
-    prop: "steps[].description",
-    max: 80,
-    reason: "Step description; sits below label",
-  },
 ];
 
 /* ── Canonical metadata model ─────────────────────────── */
 
-/** Character limit entry embedded in ComponentMetadata (no component field needed). */
+/**
+ * Character limit entry embedded in ComponentMetadata (no component field needed).
+ * `reason` is present only for residue limits from the static `characterLimits`
+ * array; catalog-sourced limits (`*.catalog.ts` `charLimits`) carry no reason.
+ */
 export interface CharacterLimitInfo {
   prop: string;
   max: number;
-  reason: string;
+  reason?: string;
 }
 
 /**
@@ -396,7 +297,7 @@ export interface ComponentMetadata {
   props: PropInfo[];
   /** Prop names whose type includes ReactNode (e.g. `["children"]`). */
   slots: string[];
-  /** Character limits from the canonical `characterLimits` array. */
+  /** Merged limits: catalog `charLimits` + the static residue, sorted by prop. */
   characterLimits: CharacterLimitInfo[];
 }
 
@@ -491,13 +392,118 @@ function getComponentSubpath(
   return segment && segment !== ".." ? segment : name;
 }
 
+/* ── Catalog charLimits merge + validation ─────────────── */
+
+/** Root prop a limit resolves against: `tabs[].label` → `tabs`, `heading` → `heading`. */
+function limitRootProp(prop: string): string {
+  const bracket = prop.indexOf("[");
+  return bracket === -1 ? prop : prop.slice(0, bracket);
+}
+
+/**
+ * Statically read every `*.catalog.ts` under `componentsDir` and return a map
+ * of component `name` → its `charLimits` record. Parsed via the TS AST (not a
+ * runtime import) so introspection stays synchronous and never executes catalog
+ * modules. Discovery + name-keying mirror generate-catalog.ts.
+ */
+function loadCatalogCharLimits(componentsDir: string): Map<string, Record<string, number>> {
+  const result = new Map<string, Record<string, number>>();
+  if (!fs.existsSync(componentsDir)) return result;
+
+  const files: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith(".catalog.ts")) files.push(full);
+    }
+  };
+  walk(componentsDir);
+  files.sort(byteOrder);
+
+  for (const file of files) {
+    const sf = ts.createSourceFile(
+      file,
+      fs.readFileSync(file, "utf8"),
+      ts.ScriptTarget.Latest,
+      true
+    );
+
+    for (const stmt of sf.statements) {
+      if (!ts.isVariableStatement(stmt)) continue;
+      for (const decl of stmt.declarationList.declarations) {
+        let init = decl.initializer;
+        if (init && ts.isSatisfiesExpression(init)) init = init.expression;
+        if (!init || !ts.isObjectLiteralExpression(init)) continue;
+
+        const nameProp = init.properties.find(
+          (p): p is ts.PropertyAssignment =>
+            ts.isPropertyAssignment(p) && p.name.getText(sf) === "name"
+        );
+        if (!nameProp || !ts.isStringLiteral(nameProp.initializer)) continue;
+        const componentName = nameProp.initializer.text;
+
+        const limitsProp = init.properties.find(
+          (p): p is ts.PropertyAssignment =>
+            ts.isPropertyAssignment(p) && p.name.getText(sf) === "charLimits"
+        );
+        if (!limitsProp || !ts.isObjectLiteralExpression(limitsProp.initializer)) continue;
+
+        const limits: Record<string, number> = {};
+        for (const p of limitsProp.initializer.properties) {
+          if (!ts.isPropertyAssignment(p)) continue;
+          const key =
+            ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) ? p.name.text : undefined;
+          if (key === undefined || !ts.isNumericLiteral(p.initializer)) continue;
+          limits[key] = Number(p.initializer.text);
+        }
+        if (Object.keys(limits).length > 0) result.set(componentName, limits);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Throw if any character limit references a prop outside the component's real
+ * API. The valid set is the rialto-authored props (`declaredInRialto`) plus
+ * slots — exactly what manifest/registry publish. Inherited HTML attributes are
+ * excluded on purpose: `EmptyState.title` is the global HTML `title` attribute,
+ * not the component's heading prop, so limiting it shipped a ceiling for a prop
+ * absent from the published API. A flat limit (`heading`) must be such a prop or
+ * a slot; a nested limit (`events[].title`) validates its root array prop
+ * (`events`). This is the one check that catches the EmptyState `title`→`heading`
+ * drift.
+ */
+export function assertCharacterLimitsResolve(components: ComponentMetadata[]): void {
+  const violations: string[] = [];
+  for (const comp of components) {
+    const known = new Set<string>([
+      ...comp.props.filter((p) => p.declaredInRialto).map((p) => p.name),
+      ...comp.slots,
+    ]);
+    for (const limit of comp.characterLimits) {
+      if (!known.has(limitRootProp(limit.prop))) violations.push(`${comp.name}.${limit.prop}`);
+    }
+  }
+  if (violations.length > 0) {
+    throw new Error(
+      `Character limits reference props that do not exist: ${violations.join(", ")}. ` +
+        `Fix the *.catalog.ts charLimits or the static characterLimits residue so every ` +
+        `limit names a real prop (or the root array prop for nested limits).`
+    );
+  }
+}
+
 /* ── Core extraction ──────────────────────────────────── */
 
 function extractComponents(
   program: ts.Program,
   entryFile: string,
   rialtoComponentsDir: string,
-  rialtoSrcDir: string
+  rialtoSrcDir: string,
+  catalogCharLimits: Map<string, Record<string, number>>
 ): ComponentMetadata[] {
   const checker = program.getTypeChecker();
   const sourceFile = program.getSourceFile(entryFile);
@@ -581,10 +587,19 @@ function extractComponents(
       description = getJsDocComment(resolved);
     }
 
-    // Character limits from the canonical array
-    const compLimits = characterLimits
-      .filter((l) => l.component === name)
-      .map(({ prop, max, reason }) => ({ prop, max, reason }));
+    // Character limits: catalog charLimits (flat, per real prop) merged with the
+    // static residue (nested + slot + non-cataloged). Catalog wins on a prop
+    // conflict; the merged list is byte-sorted by prop for stable artifacts.
+    const limitsByProp = new Map<string, CharacterLimitInfo>();
+    const catalog = catalogCharLimits.get(name);
+    if (catalog) {
+      for (const [prop, max] of Object.entries(catalog)) limitsByProp.set(prop, { prop, max });
+    }
+    for (const l of characterLimits) {
+      if (l.component !== name || limitsByProp.has(l.prop)) continue;
+      limitsByProp.set(l.prop, { prop: l.prop, max: l.max, reason: l.reason });
+    }
+    const compLimits = [...limitsByProp.values()].sort((a, b) => byteOrder(a.prop, b.prop));
 
     components.push({
       name,
@@ -634,5 +649,17 @@ export function introspectComponents(rootDir: string): ComponentMetadata[] {
   const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootDir);
   const program = ts.createProgram([entryFile], parsedConfig.options);
 
-  return extractComponents(program, entryFile, rialtoComponentsDir, rialtoSrcDir);
+  const catalogCharLimits = loadCatalogCharLimits(rialtoComponentsDir);
+  const components = extractComponents(
+    program,
+    entryFile,
+    rialtoComponentsDir,
+    rialtoSrcDir,
+    catalogCharLimits
+  );
+
+  // Fail generation loudly on drift rather than shipping a limit for a prop that
+  // does not exist (the EmptyState `title`→`heading` class of bug).
+  assertCharacterLimitsResolve(components);
+  return components;
 }
