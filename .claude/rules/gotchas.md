@@ -46,9 +46,16 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 - **Local `generated-schemas.ts` modifications pollute drift-check** — if `packages/rialto-catalog/src/generated-schemas.ts` has uncommitted changes (e.g. from running the generator with different rialto dist), the drift-check test reads the modified file and fails. Fix: `git checkout -- packages/rialto-catalog/src/generated-schemas.ts` before push
 
+- **New packages with committed llms files must be added to `regen-manifest.mjs`** — every git-tracked `llms.txt`/`llms-full.txt` must have a corresponding entry in the `FAMILIES` array in `scripts/regen-manifest.mjs`. When a new package under `packages/` adds those files without a manifest entry, the CI coverage test ("every git-tracked llms.txt/llms-full.txt file has a manifest entry") fails. Add both outputs to `FAMILIES` in alphabetical order by package path before pushing.
+
+- **Rialto-web visual baselines are Linux CI runner-specific — regenerate from CI artifact, not macOS** — Playwright screenshots differ between macOS and Linux due to font-metric/glyph-advance differences. When baselines need updating, pull `*-actual.png` files from the `rialto-web-visual-diffs` CI artifact (any Linux run on the PR's base commit); never commit baselines rendered locally on macOS. Actuals are byte-identical across CI retries so any single Linux run at the same base commit is authoritative.
+
+- **Changing a shared Heading/CSS primitive's `line-height` cascades ±1px visual failures in non-adjacent sections** — at `1.2rem` (19.2 px) a 0.3-unit leading change shifts each line-box by 5.76 px; the fractional upstream layout shift changes device-pixel rounding of every section below the changed component on the visual-test harness page. Sections with no code relationship to the change can flip ±1 px. Expect 18+ failing baselines; regenerate from CI artifact after landing the CSS change. Merging a PR with its own visual CI red starts a cascading red streak on main affecting all subsequent PRs.
+
 ## Dependencies
 
 - **pnpm.overrides for CVEs: use the scoped pattern** `"pkg@<patched": "^patched"`, not `"pkg": ">=patched"` — the open range resolves to the latest satisfying version and can pull major bumps (e.g. `protobufjs@>=7.5.5` → 8.0.1)
+- **Broad js-yaml CVE range override breaks `@changesets/cli` `safeLoad`** — the `"js-yaml@<4.2.0": "^4.2.0"` override force-upgrades `read-yaml-file@1.1.0` (pulled by `@changesets/cli`) to js-yaml@4, which stubs `yaml.safeLoad` as a throw (`Function yaml.safeLoad is removed in js-yaml 4`). This crashes `changeset version` whenever a pending changeset is present. Fix: add a consumer-path override alongside the range override — `"read-yaml-file>js-yaml": "3.14.1"`. Consumer-path overrides take precedence over range overrides in pnpm 9, so `read-yaml-file` gets js-yaml@3 while all other consumers keep js-yaml@4.
 - **Zod 4 `z.record()` requires 2 args** — `z.record(z.unknown())` fails; use `z.record(z.string(), z.unknown())`. Zod 3 accepted 1 arg, Zod 4 does not
 - **AI SDK v6 API renames** — `streamText` uses `stopWhen: stepCountIs(N)` (not `maxSteps`), `tool()` uses `inputSchema` (not `parameters`), fullStream text-delta events have `.text` (not `.textDelta`), and tool-call events have `.input` (not `.args`). The old names don't exist — TypeScript will catch it but only at typecheck, not at test time
 
@@ -57,6 +64,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 - **Changesets require `GITHUB_TOKEN`**: run `GITHUB_TOKEN=$(gh auth token) pnpm version-packages` — without it, `@changesets/get-github-info` errors asking for a PAT
 - **Changesets post-version prettier step errors with `Cannot find package '@mbe/config'`** — version bump + `.changeset/*.md` consumption succeed, but `packages/rialto/CHANGELOG.md` write is **silently skipped**. Manually prepend the new version block to `CHANGELOG.md` before committing the release
 - **`pnpm release` regenerates `packages/rialto/package.json` exports map** when a new component folder was added — run `git status` after release and commit the follow-up diff. Otherwise the subpath `import from "@mattbutlerengineering/rialto/<NewComponent>"` works for registry consumers but is missing from the repo
+- **Rialto library build fails when a component imports an un-externalized workspace package** — `vite.config.lib.ts` `rollupOptions.external` lists only `react`, `react-dom`, `react/jsx-runtime`, `framer-motion`, `lucide-react`. Any rialto component that imports a workspace sub-path (e.g. `@mbe/api-client/streaming` in `ChatPanel/useChatStream.ts`) fails the Release build with `Rolldown failed to resolve import "@mbe/…"`. Fix: add the workspace package or sub-path to `rollupOptions.external` in `vite.config.lib.ts` before merging the component.
 
 ## Tooling artifacts
 
