@@ -160,12 +160,11 @@ describe("routes-config.json schema", () => {
     }
   });
 
-  it("has kvKeys for ci, deploy pipelines, and feature flags", () => {
+  it("has kvKeys for ci and deploy pipelines", () => {
     expect(typeof config.kvKeys.ci).toBe("string");
     expect(typeof config.kvKeys.deployStatic).toBe("string");
     expect(typeof config.kvKeys.deployServices).toBe("string");
     expect(typeof config.kvKeys.deployInfrastructure).toBe("string");
-    expect(typeof config.kvKeys.featureFlags).toBe("string");
   });
 
   it("has cacheClasses with hashedAssets and html policies", () => {
@@ -332,6 +331,5 @@ describe("service health paths derived from config", () => {
     expect(config.kvKeys.deployStatic).toBe("deploy/static");
     expect(config.kvKeys.deployServices).toBe("deploy/services");
     expect(config.kvKeys.deployInfrastructure).toBe("deploy/infrastructure");
-    expect(config.kvKeys.featureFlags).toBe("flags/all");
   });
 });

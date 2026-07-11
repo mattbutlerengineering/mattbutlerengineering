@@ -32,7 +32,6 @@ import { handleHealthUptime } from "./health/uptime.js";
 import { handleHealthPerformance } from "./health/performance.js";
 import { handleHealthLighthouse } from "./health/lighthouse.js";
 import { handleHealthDeps } from "./health/deps.js";
-import { readKvJson } from "./health/kv-access.js";
 
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
@@ -73,111 +72,6 @@ const ALLOWED_ORIGINS = new Set([
 function corsOriginFor(request) {
   const origin = request.headers.get("Origin");
   return origin && ALLOWED_ORIGINS.has(origin) ? origin : null;
-}
-
-/**
- * Evaluate a feature flag for a given percentage rollout.
- */
-function evaluateFlag(flag, seed) {
-  if (!flag || !flag.enabled) return false;
-  if (!flag.percentage || flag.percentage >= 100) return true;
-  if (!seed) return false;
-  const hash = hashCode(seed);
-  return hash % 100 < flag.percentage;
-}
-
-/**
- * Simple hash function for consistent percentage distribution.
- */
-function hashCode(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
-}
-
-/**
- * Get all feature flags from KV and inject into request context.
- */
-async function getFeatureFlags(env, seed) {
-  const KV_KEY_FEATURE_FLAGS = topologyConfig.kvKeys.featureFlags;
-  const flags = await readKvJson(env.HEALTH_STATE, KV_KEY_FEATURE_FLAGS);
-  if (!flags) return {};
-  const result = {};
-  for (const [name, flag] of Object.entries(flags)) {
-    result[name] = evaluateFlag(flag, seed);
-  }
-  return result;
-}
-
-async function handleFeatureFlags(request, env, url) {
-  const flagName = url.pathname.replace("/api/flags/", "");
-  const authHeader = request.headers.get("Authorization");
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const token = authHeader.slice(7);
-  if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const KV_KEY_FEATURE_FLAGS = topologyConfig.kvKeys.featureFlags;
-  const flags = (await readKvJson(env.HEALTH_STATE, KV_KEY_FEATURE_FLAGS)) || {};
-
-  if (request.method === "GET") {
-    return new Response(JSON.stringify(flags), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  if (request.method === "PUT") {
-    try {
-      const body = await request.json();
-      const updatedFlags = {
-        ...flags,
-        [flagName]: {
-          enabled: body.enabled ?? true,
-          percentage: body.percentage ?? 100,
-        },
-      };
-      await env.HEALTH_STATE.put(KV_KEY_FEATURE_FLAGS, JSON.stringify(updatedFlags));
-      return new Response(JSON.stringify({ success: true, flag: updatedFlags[flagName] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch {
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  }
-
-  if (request.method === "DELETE") {
-    const { [flagName]: _removed, ...remainingFlags } = flags;
-    await env.HEALTH_STATE.put(KV_KEY_FEATURE_FLAGS, JSON.stringify(remainingFlags));
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  return new Response(JSON.stringify({ error: "Method not allowed" }), {
-    status: 405,
-    headers: { "Content-Type": "application/json" },
-  });
 }
 
 function writeAnalytics(env, request, route, statusCode, startTime) {
@@ -240,11 +134,6 @@ export default {
       return handleHealthDeps(request);
     }
 
-    // ── Feature flags admin API ─────────────────────────────────────
-    if (url.pathname.startsWith("/api/flags/")) {
-      return handleFeatureFlags(request, env, url);
-    }
-
     // Redirect www → non-www
     if (url.hostname.startsWith("www.")) {
       const bare = url.hostname.slice(4);
@@ -288,13 +177,6 @@ export default {
       headers.set("X-Forwarded-Host", url.host);
       headers.set("X-Forwarded-For", request.headers.get("CF-Connecting-IP") ?? "");
       headers.set("X-Request-ID", requestId);
-
-      // Feature flags: get from KV, inject as header for services
-      const seed = request.headers.get("CF-Connecting-IP") ?? "";
-      const featureFlags = await getFeatureFlags(env, seed);
-      if (Object.keys(featureFlags).length > 0) {
-        headers.set("X-Feature-Flags", JSON.stringify(featureFlags));
-      }
 
       let apiResponse;
       try {

@@ -50,8 +50,7 @@
     "ci": "ci/latest",
     "deployStatic": "deploy/static",
     "deployServices": "deploy/services",
-    "deployInfrastructure": "deploy/infrastructure",
-    "featureFlags": "flags/all"
+    "deployInfrastructure": "deploy/infrastructure"
   },
   "cacheClasses": {
     "static-site": {

@@ -12,7 +12,6 @@ API_ORIGIN = "https://api.mattbutlerengineering.com"
 
 # Secrets (set via `wrangler secret put <NAME>`):
 #   HEALTH_TOKEN  — Bearer token for detailed /health/system responses
-#   ADMIN_TOKEN   — Bearer token for feature flag admin API
 #   AUDIT_TOKEN   — Token for automated site audits (bypasses rate limiting)
 
 [[services]]
