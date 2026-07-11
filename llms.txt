@@ -1194,10 +1194,11 @@
         audience: string;
         excludePaths?: string[];
         bypassTestMode?: boolean;
+        verifier?: JwtVerifier;
       }
     </item>
     <item priority="low">
-      async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) { /* ... */ }
+      type JwtVerifier = (token: string) => Promise<VerifiedJWTPayload>;
     </item>
   </file>
   </section>
