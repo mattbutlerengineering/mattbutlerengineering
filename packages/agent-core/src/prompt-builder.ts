@@ -52,6 +52,25 @@ export async function loadSourceFiles(
   return entries;
 }
 
+export async function loadLlmsFiles(
+  filePaths: readonly string[]
+): Promise<readonly SourceFileEntry[]> {
+  const entries: SourceFileEntry[] = [];
+  for (const filePath of filePaths) {
+    if (!existsSync(filePath)) {
+      entries.push({ path: filePath, content: "<!-- file not found, skipped -->" });
+      continue;
+    }
+    try {
+      const content = await readFile(filePath, "utf-8");
+      entries.push({ path: filePath, content });
+    } catch {
+      entries.push({ path: filePath, content: "<!-- read error, skipped -->" });
+    }
+  }
+  return entries;
+}
+
 function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
   if (entries.length === 0) return "";
   const blocks = entries.map((e) => `### \`${e.path}\`\n\n\`\`\`\n${e.content}\n\`\`\``);
@@ -66,21 +85,9 @@ function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
   ].join("\n");
 }
 
-function formatLlmsContext(filePaths: readonly string[]): string {
-  if (filePaths.length === 0) return "";
-  const sections = filePaths
-    .map((filePath) => {
-      if (!existsSync(filePath)) return null;
-      try {
-        const content = readFile(filePath, "utf-8");
-        return `### ${filePath}\n\n${content}\n`;
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-
-  if (sections.length === 0) return "";
+export function formatLlmsSection(entries: readonly SourceFileEntry[]): string {
+  if (entries.length === 0) return "";
+  const sections = entries.map((e) => `### ${e.path}\n\n${e.content}\n`);
   return [
     "",
     "",
@@ -201,7 +208,8 @@ export async function buildSystemPrompt(
   ].join("\n");
 
   const sourceSection = sourceFileEntries ? formatSourceFileSection(sourceFileEntries) : "";
-  const llmsSection = formatLlmsContext(relevantLlmsFiles);
+  const llmsEntries = await loadLlmsFiles(relevantLlmsFiles);
+  const llmsSection = formatLlmsSection(llmsEntries);
   const issueSection = formatIssueContext(relevantIssueContext ?? "");
   const failureSection = formatFailureContext(failureContext ?? "");
   const modelSection = formatModelConstraints(model);
