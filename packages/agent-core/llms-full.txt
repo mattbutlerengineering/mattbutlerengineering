@@ -2211,7 +2211,17 @@
   </file>
   <file path="src/gen-permissions.ts">
     export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
-      /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?|(-[a-zA-Z]*f[a-zA-Z]*\s+)?-[a-zA-Z]*r[a-zA-Z]*\s+|--recursive\s+).*\//,
+      // SECURITY FIX (issue #3410): the original pattern nested unbounded `[a-zA-Z]*`
+      // quantifiers around a required 'r'/'f' inside an optional group, e.g.
+      // `-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?`. Feeding it a long run of
+      // letters with no terminating whitespace (agent-generated bash is untrusted input —
+      // reachable via prompt injection) forced O(n^2) backtracking: 50k 'r' chars took
+      // ~7.4s, growing quadratically with input length — a real event-loop-blocking DoS.
+      // Rewritten as flat (non-nested) alternatives with bounded `{0,10}` flag-cluster
+      // quantifiers (real short-option clusters are always tiny) — verified equivalent
+      // behavior across the existing test matrix, O(n) on the same adversarial input, and
+      // confirmed safe by `safe-regex` (the library `detect-unsafe-regex` uses).
+      /\brm\s+(-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+-[a-zA-Z]{0,10}f[a-zA-Z]{0,10}\s+|-[a-zA-Z]{0,10}f[a-zA-Z]{0,10}\s+-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+|-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+|--recursive\s+).*\//,
       /\brm\s+.*\/\*/, // rm ... /*
       /\bsudo\b/, // sudo anything
       /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
