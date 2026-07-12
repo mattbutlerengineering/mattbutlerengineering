@@ -22,10 +22,17 @@ export interface ModelPricing {
   readonly cacheReadPer1MTokens?: number;
 }
 
-/** Pricing as of early 2026 — update as Anthropic changes rates. */
+/** Pricing as of July 2026 (standard, non-introductory rates) — update as Anthropic changes rates. */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   "claude-sonnet-4-6": {
     model: "claude-sonnet-4-6",
+    inputCostPer1MTokens: 3.0,
+    outputCostPer1MTokens: 15.0,
+    cacheWritePer1MTokens: 3.75,
+    cacheReadPer1MTokens: 0.3,
+  },
+  "claude-sonnet-5": {
+    model: "claude-sonnet-5",
     inputCostPer1MTokens: 3.0,
     outputCostPer1MTokens: 15.0,
     cacheWritePer1MTokens: 3.75,
@@ -38,16 +45,16 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheWritePer1MTokens: 1.0,
     cacheReadPer1MTokens: 0.08,
   },
-  "claude-opus-4-5": {
-    model: "claude-opus-4-5",
-    inputCostPer1MTokens: 15.0,
-    outputCostPer1MTokens: 75.0,
-    cacheWritePer1MTokens: 18.75,
-    cacheReadPer1MTokens: 1.5,
+  "claude-opus-4-8": {
+    model: "claude-opus-4-8",
+    inputCostPer1MTokens: 5.0,
+    outputCostPer1MTokens: 25.0,
+    cacheWritePer1MTokens: 6.25,
+    cacheReadPer1MTokens: 0.5,
   },
 } as const;
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+const DEFAULT_MODEL = "claude-sonnet-5";
 
 // ── Token estimation ──────────────────────────────────────────────────
 

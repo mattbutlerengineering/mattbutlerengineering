@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { spawn } from "node:child_process";
-import { createWorktree, removeWorktree } from "@mbe/agent-core";
+import { createWorktree, removeWorktree, resolveModelId } from "@mbe/agent-core";
 import { execSync } from "node:child_process";
 import { findMonorepoRoot } from "../monorepo-root.js";
 
@@ -22,7 +22,7 @@ export const waveCommand = new Command("wave")
   .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
   .option("--base-branch <branch>", "Base branch to branch from", "main")
   .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
-  .option("--model <model>", "Model to use for the agent", "claude-sonnet-4-6")
+  .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
   .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
   .option("--max-turns <n>", "Maximum turns per agent", "100")
   .action(async (tasks: string[], options) => {
