@@ -29,8 +29,8 @@
 
 .errorBanner {
   padding: var(--rialto-space-md);
-  background: color-mix(in srgb, var(--rialto-surface) 90%, red);
-  border: 1px solid color-mix(in srgb, var(--rialto-border) 50%, red);
+  background: var(--rialto-error-muted);
+  border: 1px solid var(--rialto-error);
   border-radius: var(--rialto-radius-default);
 }
 

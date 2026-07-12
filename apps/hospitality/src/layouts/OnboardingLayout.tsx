@@ -13,7 +13,7 @@ const TAGLINE = "Restaurant management, simplified.";
 
 /** Brand panel: product identity plus the live vertical progress rail (desktop). */
 function OnboardingBrandPanel() {
-  const { step, highestStepReached, actions } = useOnboardingWizardContext();
+  const { step, highestStepReached, isSubmitting, actions } = useOnboardingWizardContext();
   return (
     <aside className={styles.brand}>
       <Stack gap="md">
@@ -28,7 +28,7 @@ function OnboardingBrandPanel() {
         <VerticalStepRail
           currentStep={step}
           highestStepReached={highestStepReached}
-          onStepClick={actions.goToStep}
+          onStepClick={isSubmitting ? undefined : actions.goToStep}
         />
       </div>
     </aside>

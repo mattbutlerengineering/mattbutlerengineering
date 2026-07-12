@@ -53,11 +53,14 @@ export function LaunchStep({
 }: LaunchStepProps) {
   const [celebrating, setCelebrating] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmountedRef = useRef(false);
 
   // Cleanup only — cancels a pending navigate if this step unmounts (e.g. the
-  // user clicks Back) before the celebration timer fires.
+  // user clicks Back) before the celebration timer fires, and marks the
+  // component gone so an in-flight launch never schedules a stray navigate.
   useEffect(() => {
     return () => {
+      unmountedRef.current = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
@@ -65,6 +68,7 @@ export function LaunchStep({
   const handleLaunch = async () => {
     try {
       await onLaunch();
+      if (unmountedRef.current) return;
       setCelebrating(true);
       const delay = prefersReducedMotion() ? REDUCED_MOTION_CELEBRATION_MS : CELEBRATION_MS;
       timeoutRef.current = setTimeout(onCelebrationDone, delay);

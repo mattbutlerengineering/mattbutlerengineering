@@ -76,7 +76,7 @@ export function VenueOnboardingPage() {
           currentStep={step}
           totalSteps={TOTAL_STEPS}
           highestStepReached={highestStepReached}
-          onStepClick={actions.goToStep}
+          onStepClick={isSubmitting ? undefined : actions.goToStep}
         />
       </div>
 
@@ -144,7 +144,11 @@ export function VenueOnboardingPage() {
           )}
 
           <Stack direction="row" gap="md" justify="between">
-            <Button variant="secondary" onClick={actions.back} disabled={step === 1}>
+            <Button
+              variant="secondary"
+              onClick={actions.back}
+              disabled={step === 1 || isSubmitting}
+            >
               Back
             </Button>
 
