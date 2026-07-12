@@ -1,0 +1,18 @@
+{
+  "global": {
+    "lines": 60,
+    "branches": 50,
+    "functions": 60,
+    "statements": 60
+  },
+  "packages": {
+    "agent-core": {
+      "lines": 80,
+      "branches": 70,
+      "functions": 80,
+      "statements": 80
+    }
+  },
+  "note": "Coverage thresholds enforced by CI workflow. Global threshold applies to the monorepo overall. Package-specific overrides apply to individual packages.",
+  "enforcement": "The CI Gate job in `.github/workflows/ci.yml` (test job, 'Enforce repo-wide coverage threshold' step) aggregates coverage reports from all packages and fails the PR if coverage falls below these thresholds."
+}
