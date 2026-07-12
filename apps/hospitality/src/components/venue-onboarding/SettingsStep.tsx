@@ -10,7 +10,7 @@ export interface SettingsData {
 /** Default values used by the backend when no explicit value is set. */
 const DEFAULTS = {
   defaultReservationDuration: 90,
-  maxPartySize: 12,
+  maxPartySize: 8,
   advanceBookingDays: 30,
 } as const;
 
