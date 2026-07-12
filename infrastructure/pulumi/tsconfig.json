@@ -10,7 +10,9 @@
     "declaration": false,
     "declarationMap": false,
     // Pulumi resource declarations are commonly bound to (often underscore-prefixed) names for readability though never read — a side-effect-only IaC pattern.
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    // Pulumi's in-engine ts-node compile does not resolve @types the way turbo typecheck does — omitting an explicit list fails prod deploys with TS2591 on node builtins (#638; regressed by the preset adoption in #3431).
+    "types": ["node"]
   },
   "include": ["*.ts"],
   "exclude": ["node_modules"]
