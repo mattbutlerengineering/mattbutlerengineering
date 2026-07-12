@@ -3747,6 +3747,22 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/diff-parser.ts">
+    <item priority="low">
+      interface DiffFile {
+        path: string;
+        addedLines: readonly { line: number; content: string }[];
+        removedLineCount: number;
+      }
+    </item>
+    <item priority="low">
+      interface ParsedDiff {
+        files: readonly DiffFile[];
+        totalAddedLines: number;
+        totalRemovedLines: number;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/diff-reviewer.ts">
     <item priority="low">
       interface ReviewResult {

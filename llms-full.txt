@@ -13754,6 +13754,18 @@
       readonly attempts: number;
     }
   </file>
+  <file path="packages/agent-core/src/diff-parser.ts">
+    export interface DiffFile {
+      readonly path: string;
+      readonly addedLines: readonly { line: number; content: string }[];
+      readonly removedLineCount: number;
+    }
+    export interface ParsedDiff {
+      readonly files: readonly DiffFile[];
+      readonly totalAddedLines: number;
+      readonly totalRemovedLines: number;
+    }
+  </file>
   <file path="packages/agent-core/src/diff-reviewer.ts">
     export interface ReviewResult {
       readonly approved: boolean;
@@ -13828,10 +13840,7 @@
       readonly commitTitle?: string;
     }
     export type SkipReason =
-      | "empty_diff"
-      | "trivial_commit"
-      | "test_only_changes"
-      | "small_diff_tests_passed";
+      "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
   </file>
   <file path="packages/agent-core/src/event-mapper.ts">
     export interface ToolUseEvent {
