@@ -119,7 +119,7 @@
   position: absolute;
   bottom: var(--rialto-space-2xs);
   inset-inline-end: var(--rialto-space-2xs);
-  padding: var(--rialto-space-3xs) var(--rialto-space-xs);
+  padding: var(--rialto-space-2xs) var(--rialto-space-xs);
   border-radius: var(--rialto-radius-default);
   border: none;
   background: color-mix(in srgb, var(--rialto-surface) 80%, transparent);
@@ -203,7 +203,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--rialto-space-3xs);
+  gap: var(--rialto-space-2xs);
 }
 
 .label {

@@ -354,7 +354,7 @@
     var(--rialto-surface-matte) 100%
   );
   border: 1px solid var(--rialto-border-strong);
-  border-radius: var(--rialto-radius-lg);
+  border-radius: var(--rialto-radius-soft);
   box-shadow:
     var(--rialto-shadow-md),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
