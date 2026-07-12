@@ -558,21 +558,15 @@
     </item>
   </file>
   <file path="src/feedback-loop.ts">
-    <item priority="low">
-      interface FeedbackLoopParams {
-        prNumber: number;
-        branchName: string;
-        repoPath: string;
-        model: string;
-        maxRetries: number;
-      }
+    <item priority="medium">
+      function emitEvent(
+        onEvent: SessionEventCallback | undefined,
+        type: SessionEvent["type"],
+        data: SessionEvent["data"]
+      ): void { /* ... */ }
     </item>
-    <item priority="low">
-      interface FeedbackLoopResult {
-        retriesUsed: number;
-        resolved: boolean;
-        lastFingerprint: string | null;
-      }
+    <item priority="medium">
+      function delay(ms: number, signal?: AbortSignal): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="src/feedback-prompt-builder.ts">

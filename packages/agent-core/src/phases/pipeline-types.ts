@@ -14,11 +14,6 @@ import type { EvaluationResult } from "../success-evaluator.js";
 import type { GatewayVerdict } from "../post-commit-gateway.js";
 import type { TaskSignals } from "../task-signal-registry.js";
 import type { HardenedQueryConfig, HardenedQueryResult } from "../run-hardened-query.js";
-import type {
-  FeedbackLoopParams,
-  FeedbackLoopResult,
-  FeedbackLoopRunnerDeps,
-} from "../feedback-loop.js";
 import type { PrFeedbackPort } from "../pr-feedback-port.js";
 import type { SourceFileEntry, PromptBuilderConfig } from "../prompt-builder.js";
 import type { RepoIdentity } from "../worktree-manager.js";
@@ -92,6 +87,49 @@ export interface PrCreatorDeps {
     stuckPattern?: string
   ): string;
   mergeDirectly(options: MergeDirectlyOptions): Promise<string>;
+}
+
+// ── Feedback-loop contracts ─────────────────────────────────────────
+//
+// Owned here (not in feedback-loop.ts) so feedback-loop.ts can import
+// WorktreeManagerDeps without creating an import cycle. feedback-loop.ts
+// re-exports these for existing importers.
+
+export interface FeedbackLoopParams {
+  readonly prNumber: number;
+  readonly branchName: string;
+  readonly repoPath: string;
+  readonly model: string;
+  readonly maxRetries: number;
+  readonly pollIntervalMs: number;
+  readonly pollTimeoutMs: number;
+  readonly maxBudgetUsd: number;
+  readonly allowedTools: readonly string[];
+  /**
+   * External abort signal forwarded from the pipeline's cancel(). When it
+   * fires, the wait/poll delays reject and the fix-session query is
+   * short-circuited, mirroring `session-runner`'s `throwIfAborted` semantics
+   * — the rejection propagates out of `runFeedbackLoop` instead of being
+   * swallowed.
+   */
+  readonly signal?: AbortSignal;
+}
+
+export interface FeedbackLoopResult {
+  readonly retriesUsed: number;
+  readonly resolved: boolean;
+  readonly lastFingerprint: string | null;
+}
+
+/**
+ * Collaborators injected into `runFeedbackLoop`. Defaults wire the real
+ * validated worktree-manager `commitAndPush` and the `gh`-backed
+ * `PrFeedbackPort`; tests pass fakes so the loop runs without spawning any
+ * subprocess.
+ */
+export interface FeedbackLoopRunnerDeps {
+  readonly worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush" | "resolveRepoIdentity">;
+  readonly feedbackPoller: PrFeedbackPort;
 }
 
 export interface FeedbackLoopDeps {
