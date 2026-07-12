@@ -2036,6 +2036,14 @@
       readonly files: readonly DiffFile[];
       readonly totalAddedLines: number;
       readonly totalRemovedLines: number;
+      /**
+       * Raw count of lines starting with `+` or `-`, including unified-diff
+       * metadata lines (`+++`/`---` file headers). Legacy size-heuristic
+       * parity for callers gating on diff size (e.g. `evaluationSkipDecision`'s
+       * small-diff threshold) — prefer `totalAddedLines`/`totalRemovedLines`
+       * for a content-only accounting.
+       */
+      readonly totalChangedLines: number;
     }
   </file>
   <file path="src/diff-reviewer.ts">

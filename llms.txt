@@ -3760,6 +3760,7 @@
         files: readonly DiffFile[];
         totalAddedLines: number;
         totalRemovedLines: number;
+        totalChangedLines: number;
       }
     </item>
   </file>
