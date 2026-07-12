@@ -35,13 +35,33 @@ export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
  *
  * A regex can't express "any length" while staying backtrack-free once the letter
  * check is embedded inside the quantifier itself, so this splits the flag cluster
- * into tokens via `.split()`/`.indexOf()` and tests each token's contents directly
- * with `.includes()`. No nested or adjacent quantifiers exist, so there is nothing
+ * into tokens via `.split()` and tests each token's contents directly with
+ * `.includes()`. No nested or adjacent quantifiers exist, so there is nothing
  * for a regex engine to backtrack on, and no length cap on what a token can contain.
+ *
+ * Attempt 3 (the first token-based rewrite) matched `rm` only as a standalone
+ * whitespace-delimited token, missing the old regex's `\brm\b` word-boundary
+ * semantics. Security review on PR #3433 found six bypass shapes — path-prefixed
+ * (`/bin/rm -rf /x`), subshell-fused (`$(rm ...)`, `(rm ...)`), and
+ * separator-fused (`a|rm ...`, `a&&rm ...`) — plus an over-block: the flag scan
+ * ran to end-of-string, so `rm safe.txt && tar -rf a.tar dir` was denied.
+ *
+ * Current form: split the command into segments on shell separators
+ * (`;`, `|`, `&`, `(`, `)`, backtick, `$`, newline — a plain character class,
+ * no quantifier-around-alternation, so still no backtracking surface). Within
+ * each segment, `rm` matches as a bare token or a path-prefixed token ending in
+ * `/rm`, and the recursive-flag + path scan is confined to that segment's own
+ * arguments — restoring `\brm\b` parity without crossing command boundaries.
  */
 export function isRmRecursiveDelete(command: string): boolean {
-  const tokens = command.split(/\s+/);
-  const rmIndex = tokens.indexOf("rm");
+  const segments = command.split(/[;|&()`$\n]+/);
+  return segments.some(segmentIsRmRecursiveDelete);
+}
+
+/** Checks a single shell segment (no `;`/`|`/`&`/subshell separators) for `rm -r`+path. */
+function segmentIsRmRecursiveDelete(segment: string): boolean {
+  const tokens = segment.split(/\s+/);
+  const rmIndex = tokens.findIndex((token) => token === "rm" || token.endsWith("/rm"));
   if (rmIndex === -1) return false;
 
   const args = tokens.slice(rmIndex + 1);

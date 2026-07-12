@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createToolPermissionHandler, normalizeBashCommand } from "../tool-permissions.js";
-import { isBashCommandBlocked } from "../gen-permissions.js";
+import { isBashCommandBlocked, isRmRecursiveDelete } from "../gen-permissions.js";
 
 describe("createToolPermissionHandler", () => {
   const worktreePath = "/tmp/test-worktree";
@@ -103,6 +103,28 @@ describe("createToolPermissionHandler", () => {
       const flagCluster = "-" + "f".repeat(49) + "r";
       const result = await handler("Bash", { command: `rm ${flagCluster} /path` });
       expect(result.behavior).toBe("deny");
+    });
+
+    // The six bypass shapes flagged in the PR #3433 security review: the first
+    // token-based rewrite only matched a standalone whitespace-delimited "rm"
+    // token, so path-prefixed and separator-fused rm invocations slipped through.
+    it.each([
+      "/bin/rm -rf /tmp/x",
+      "/usr/bin/rm -rf /tmp/x",
+      "$(rm -rf /tmp/x)",
+      "(rm -rf /tmp/x)",
+      "echo hi|rm -rf /tmp/x",
+      "true&&rm -rf /tmp/x",
+    ])("blocks %s (bypass found in PR #3433 review: rm not whitespace-delimited)", async (command) => {
+      const result = await handler("Bash", { command });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("allows rm safe.txt && tar -rf a.tar dir (recursive flag belongs to tar, not rm)", async () => {
+      // Over-block found in PR #3433 review: the token scan crossed command
+      // boundaries, attributing tar's -rf to the earlier rm.
+      const result = await handler("Bash", { command: "rm safe.txt && tar -rf a.tar dir" });
+      expect(result.behavior).toBe("allow");
     });
 
     it("allows safe bash commands", async () => {
@@ -324,5 +346,47 @@ describe("normalizeBashCommand", () => {
     const variants = normalizeBashCommand("ls");
     const unique = new Set(variants);
     expect(variants.length).toBe(unique.size);
+  });
+});
+
+describe("isRmRecursiveDelete", () => {
+  it.each([
+    "rm -rf /",
+    "rm -fr /",
+    "rm -r -f /",
+    "rm --recursive /path",
+    "rm -fffffffffffr /path",
+    "/bin/rm -rf /tmp/x",
+    "/usr/bin/rm -rf /tmp/x",
+    "$(rm -rf /tmp/x)",
+    "(rm -rf /tmp/x)",
+    "echo hi|rm -rf /tmp/x",
+    "true&&rm -rf /tmp/x",
+  ])("detects %s", (command) => {
+    expect(isRmRecursiveDelete(command)).toBe(true);
+  });
+
+  it.each([
+    // Case gap preserved from the original `\b`-anchored regex: lowercase r only.
+    "rm -Rf /path",
+    // Substring lookalikes are not rm invocations.
+    "warm -rf /path",
+    "rm-rf /path",
+    // Long option that is not --recursive.
+    "rm --preserve-root /path",
+    // No path argument.
+    "rm -rf",
+    // Recursive flag belongs to a different command in a later segment.
+    "rm safe.txt && tar -rf a.tar dir",
+  ])("does not match %s", (command) => {
+    expect(isRmRecursiveDelete(command)).toBe(false);
+  });
+
+  it("stays linear on a 128k-char adversarial input (<10ms)", () => {
+    const adversarialInput = "rm -" + "r".repeat(128_000 - 4);
+    const start = performance.now();
+    isRmRecursiveDelete(adversarialInput);
+    const elapsedMs = performance.now() - start;
+    expect(elapsedMs).toBeLessThan(10);
   });
 });
