@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
-import type { preHandlerHookHandler, preParsingAsyncHookHandler } from "fastify";
+import type { preHandlerAsyncHookHandler, preParsingAsyncHookHandler } from "fastify";
 import { createProblemDetails } from "@mbe/types";
 
 export interface VerifiedWebhookOptions {
@@ -39,7 +39,9 @@ export function createRawBodyCaptureHook(): preParsingAsyncHookHandler {
  * captured by createRawBodyCaptureHook. Sets request.verifiedBody on success.
  * Short-circuits with 401 on failure.
  */
-export function createVerifiedBodyPreHandler(opts: VerifiedWebhookOptions): preHandlerHookHandler {
+export function createVerifiedBodyPreHandler(
+  opts: VerifiedWebhookOptions
+): preHandlerAsyncHookHandler {
   return async (request, reply) => {
     const secret = process.env[opts.secretEnv];
     if (!secret) {

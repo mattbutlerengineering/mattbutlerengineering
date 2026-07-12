@@ -28,11 +28,10 @@ export default [
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
       "react-hooks/component-hook-factories": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
       "react/prop-types": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      // Warn on console.log in production source files
-      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      // no-console (error, allow warn/error/info) and no-explicit-any (error)
+      // are inherited from the base config.
       // Module boundary enforcement — block backend-only packages and entrypoints in frontend apps
       "no-restricted-imports": [
         "error",
@@ -87,6 +86,9 @@ export default [
     files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
     rules: {
       "mbe-local/prefer-rialto-components": "off",
+      // Tests may use `any` for mock shapes without failing lint (102 existing
+      // uses measured 2026-07-12, issue #3402); production code errors via base.
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   },
 ];

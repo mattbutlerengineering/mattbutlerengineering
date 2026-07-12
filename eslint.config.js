@@ -5,8 +5,10 @@ import baseConfig from "./packages/config/eslint/base.js";
 export default [
   ...baseConfig,
   {
+    // Repo-maintenance scripts are CLIs — stdout output is their product.
+    // (scripts/ is not part of any lint gate; this keeps editor linting sane.)
+    files: ["scripts/**"],
     rules: {
-      // Allow console in Node.js service files
       "no-console": "off",
     },
   },
