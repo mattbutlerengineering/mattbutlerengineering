@@ -1639,6 +1639,14 @@
     </item>
   </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    <item priority="low">
+      interface PropDef {
+        name: string;
+        type: string;
+        default?: string;
+        description: string;
+      }
+    </item>
     <item priority="high">
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
     </item>
@@ -3230,16 +3238,15 @@
     </item>
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
-    <item priority="low">
-      interface SseConnectionConfig {
-        maxConnectionsPerIp: number;
-        connectionTimeoutMs: number;
-        maxEventBufferSize: number;
-        heartbeatIntervalMs: number;
-      }
-    </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+    <item priority="low">
+      interface SseConnectionRecord {
+        id: string;
+        ip: string;
+        connectedAt: number;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/sse-connection.ts">
@@ -3254,6 +3261,16 @@
         buffer: readonly ReservationEvent[];
         _droppedCount: unknown;
         async push(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/sse-types.ts">
+    <item priority="low">
+      interface SseConnectionConfig {
+        maxConnectionsPerIp: number;
+        connectionTimeoutMs: number;
+        maxEventBufferSize: number;
+        heartbeatIntervalMs: number;
       }
     </item>
   </file>
@@ -3799,21 +3816,15 @@
     </item>
   </file>
   <file path="packages/agent-core/src/feedback-loop.ts">
-    <item priority="low">
-      interface FeedbackLoopParams {
-        prNumber: number;
-        branchName: string;
-        repoPath: string;
-        model: string;
-        maxRetries: number;
-      }
+    <item priority="medium">
+      function emitEvent(
+        onEvent: SessionEventCallback | undefined,
+        type: SessionEvent["type"],
+        data: SessionEvent["data"]
+      ): void { /* ... */ }
     </item>
-    <item priority="low">
-      interface FeedbackLoopResult {
-        retriesUsed: number;
-        resolved: boolean;
-        lastFingerprint: string | null;
-      }
+    <item priority="medium">
+      function delay(ms: number, signal?: AbortSignal): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/feedback-prompt-builder.ts">
@@ -3873,22 +3884,27 @@
     </item>
   </file>
   <file path="packages/agent-core/src/model-registry.ts">
-    <item priority="high">
-      export const MODEL_IDS: Readonly<Record<ModelTier, string>>;
-    </item>
-    <item priority="high">
-      export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>>;
-    </item>
-  </file>
-  <file path="packages/agent-core/src/model-router.ts">
     <item priority="low">
       type ModelTier = "haiku" | "sonnet" | "opus";
     </item>
+    <item priority="high">
+      export const MODEL_IDS: Readonly<Record<ModelTier, string>>;
+    </item>
+  </file>
+  <file path="packages/agent-core/src/model-router.ts">
     <item priority="low">
       interface IssueInput {
         title: string;
         labels: string[];
         body: string;
+      }
+    </item>
+    <item priority="low">
+      interface RoutingContext {
+        remainingBudgetUsd?: number;
+        sourceFilePaths?: readonly string[];
+        pastFailureTier?: ModelTier;
+        taskSignals?: TaskSignals;
       }
     </item>
   </file>
@@ -4776,14 +4792,17 @@
   </file>
   <file path="packages/jobs/src/worker.ts">
     <item priority="low">
-      type JobHandlerMap = Partial<{
-        [K in JobType]: (payload: JobPayloadMap[K]) =...;
-    </item>
-    <item priority="low">
       interface JobWorkerConfig {
         redisUrl: string;
         queueName?: string;
         handlers: JobHandlerMap;
+      }
+    </item>
+    <item priority="high">
+      class JobWorker {
+        worker: Worker;
+        redis: Redis;
+        async close(): Promise<unknown>;
       }
     </item>
   </file>
@@ -5435,6 +5454,20 @@
         type?: string;
         properties?: Record<string, JsonSchemaProperty>;
         required?: readonly string[];
+      }
+    </item>
+  </file>
+  <file path="packages/types/src/table.ts">
+    <item priority="low">
+      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+    <item priority="low">
+      interface TableShapeMetadata {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        rotation?: number;
       }
     </item>
   </file>
