@@ -213,6 +213,27 @@ export class ApiClient {
     const response = await this.patch<{ data: T }>(path, body, envelopeSchema, override);
     return response.data;
   }
+
+  /**
+   * DELETE + unwrap `.data` from ApiResponse envelope.
+   * Use for delete endpoints that return the affected resource as `{ data: T }`
+   * (e.g. a soft-delete/cancel that hands back the updated resource).
+   * Pass a Zod schema to validate the unwrapped value at runtime.
+   */
+  async deleteOne<T>(
+    path: string,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
+    const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+    const response = await this.request<{ data: T }>(
+      path,
+      { method: "DELETE" },
+      envelopeSchema,
+      override
+    );
+    return response.data;
+  }
 }
 
 /**
