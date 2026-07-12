@@ -6408,7 +6408,7 @@
             "Creating remediation session"
           );
     
-          const result = await sessionService.triggerSession({
+          const result = await triggerSession({
             taskDescription,
             baseBranch: "main",
             onSettled: recordRemediationOutcome,
@@ -11368,35 +11368,6 @@
       return activeLogger;
     }
   </file>
-  <file path="services/agent/src/services/prisma-session-store.ts">
-    function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus {
-      return status.toUpperCase() as PrismaSessionStatus;
-    }
-    function toStoredSession(session: AgentSession): StoredSession {
-      return {
-        id: session.id,
-        status: session.status,
-        taskDescription: session.taskDescription,
-        baseBranch: session.baseBranch,
-        model: session.model,
-        maxTurns: session.maxTurns,
-        maxBudgetUsd: session.maxBudgetUsd,
-        createPr: session.maxBudgetUsd > 0,
-        userId: session.userId,
-        parentId: session.parentId,
-        branchName: session.branchName,
-        prUrl: session.prUrl,
-        prNumber: session.prNumber,
-        resultText: session.resultText,
-        costUsd: session.costUsd ?? undefined,
-        inputTokens: session.inputTokens ?? undefined,
-        outputTokens: session.outputTokens ?? undefined,
-        numTurns: session.numTurns ?? undefined,
-        durationMs: session.durationMs ?? undefined,
-        errors: session.errors,
-      };
-    }
-  </file>
   <file path="services/agent/src/services/remediation-circuit-breaker.ts">
     interface CircuitState {
       consecutiveFailures: number;
@@ -11465,12 +11436,60 @@
     export interface SessionExecutorConfig {
       /** The single gate that owns the max-concurrent-sessions policy. */
       concurrency: SessionConcurrency;
-      sessionService: typeof SessionServiceType;
+      /** Persistence seam; the Prisma-backed store in production. */
+      store: SessionLifecycleStore;
     }
     export interface SessionExecutor {
       executeSession(session: AgentSession): Promise<void>;
       cancelSession(sessionId: string): Promise<boolean>;
       getActiveSessionCount(): number;
+    }
+  </file>
+  <file path="services/agent/src/services/session-lifecycle-store.ts">
+    function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus {
+      return status.toUpperCase() as PrismaSessionStatus;
+    }
+    function toStoredSession(row: Session): StoredSession {
+      return {
+        id: row.id,
+        status: row.status.toLowerCase() as LifecycleStatus,
+        taskDescription: row.taskDescription,
+        baseBranch: row.baseBranch,
+        model: row.model,
+        maxTurns: row.maxTurns,
+        maxBudgetUsd: row.maxBudgetUsd,
+        createPr: row.createPr,
+        userId: row.userId,
+        parentId: row.parentId,
+        branchName: row.branchName,
+        prUrl: row.prUrl,
+        prNumber: row.prNumber,
+        resultText: row.resultText,
+        costUsd: row.costUsd ?? undefined,
+        inputTokens: row.inputTokens ?? undefined,
+        outputTokens: row.outputTokens ?? undefined,
+        numTurns: row.numTurns ?? undefined,
+        durationMs: row.durationMs ?? undefined,
+        errors: (row.errors as string[]) ?? [],
+        sdkSessionId: row.sdkSessionId,
+      };
+    }
+  </file>
+  <file path="services/agent/src/services/session-trigger.ts">
+    export interface TriggerSessionOptions {
+      taskDescription: string;
+      baseBranch?: string;
+      userId?: string;
+      model?: string;
+      maxTurns?: number;
+      maxBudgetUsd?: number;
+      createPr?: boolean;
+      parentId?: string;
+      onSettled?: (success: boolean) => void | Promise<void>;
+    }
+    export interface TriggerSessionResult {
+      session: AgentSession | null;
+      accepted: boolean;
     }
   </file>
   <file path="services/agent/src/services/session.ts">
@@ -11501,7 +11520,7 @@
         updatedAt: session.updatedAt.toISOString(),
       };
     }
-    function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
+    export function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
       return {
         id: event.id,
         sessionId: event.sessionId,

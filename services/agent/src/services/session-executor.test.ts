@@ -1,29 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { StoredSession } from "@mbe/agent-core";
 
-vi.mock("./database.js", () => ({
-  prisma: {
-    $queryRaw: vi.fn(),
-  },
-}));
-
-vi.mock("./session.js", () => ({
-  sessionService: {
-    getById: vi.fn(),
+// Mock the persistence seam — the executor drives the real
+// SessionLifecycleOrchestrator against this store double, so every assertion
+// here speaks the orchestrator's lowercase status vocabulary. The
+// lowercase↔UPPERCASE Prisma translation is the store's own concern, covered
+// in session-lifecycle-store.test.ts.
+vi.mock("./session-lifecycle-store.js", () => ({
+  sessionLifecycleStore: {
     create: vi.fn(),
-    updateStatus: vi.fn().mockResolvedValue(null),
-    addEvent: vi.fn().mockResolvedValue(null),
+    getById: vi.fn(),
+    updateStatus: vi.fn(),
+    addEvent: vi.fn(),
   },
 }));
 
-// Use the real SessionLifecycleOrchestrator + in-memory/prisma adapters, but
-// override `runSession` (the injected execution unit) so no SDK/git runs.
+// Use the real SessionLifecycleOrchestrator, but override `runSession` (the
+// injected execution unit) so no SDK/git runs.
 vi.mock("@mbe/agent-core", async () => {
   const actual = (await vi.importActual("@mbe/agent-core")) as Record<string, unknown>;
   return { ...actual, runSession: vi.fn() };
 });
 
 import { runSession } from "@mbe/agent-core";
-import { sessionService } from "./session.js";
+import { sessionLifecycleStore } from "./session-lifecycle-store.js";
 import {
   executeSession,
   cancelSession,
@@ -33,6 +33,27 @@ import {
 import { createSessionConcurrency } from "./session-concurrency.js";
 import type { AgentSession } from "@mbe/types";
 
+const makeStoredSession = (overrides: Partial<StoredSession> = {}): StoredSession => ({
+  id: "test-session-1",
+  status: "pending",
+  taskDescription: "Fix the login bug",
+  baseBranch: "main",
+  model: "claude-sonnet-4-6",
+  maxTurns: 50,
+  maxBudgetUsd: 1.0,
+  createPr: true,
+  userId: null,
+  parentId: null,
+  branchName: null,
+  prUrl: null,
+  prNumber: null,
+  resultText: null,
+  errors: [],
+  ...overrides,
+});
+
+// The executor's calling convention takes the route-facing AgentSession; only
+// its id is consumed (the orchestrator re-reads via the store).
 const makeSession = (overrides: Partial<AgentSession> = {}): AgentSession => ({
   id: "test-session-1",
   status: "pending",
@@ -76,11 +97,13 @@ const makeSuccessResult = () => ({
 describe("session-executor", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
-    vi.mocked(sessionService.addEvent).mockResolvedValue(null as never);
+    vi.mocked(sessionLifecycleStore.updateStatus).mockResolvedValue(null);
+    vi.mocked(sessionLifecycleStore.addEvent).mockResolvedValue(undefined);
     // The orchestrator loads the session by id before executing. Return a
     // session whose id matches the requested one (defaults otherwise).
-    vi.mocked(sessionService.getById).mockImplementation(async (id: string) => makeSession({ id }));
+    vi.mocked(sessionLifecycleStore.getById).mockImplementation(async (id: string) =>
+      makeStoredSession({ id })
+    );
   });
 
   describe("getActiveSessionCount", () => {
@@ -90,16 +113,21 @@ describe("session-executor", () => {
   });
 
   describe("executeSession", () => {
-    it("runs session successfully and updates status to SUCCEEDED", async () => {
+    it("runs session successfully and updates status to succeeded", async () => {
       const result = makeSuccessResult();
       vi.mocked(runSession).mockResolvedValueOnce(result);
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("test-session-1", "RUNNING");
-      expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:start", {
-        message: "Session execution started",
-      });
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
+        "test-session-1",
+        "running"
+      );
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
+        "test-session-1",
+        "session:start",
+        { message: "Session execution started" }
+      );
       expect(runSession).toHaveBeenCalledWith(
         expect.objectContaining({
           taskDescription: "Fix the login bug",
@@ -107,14 +135,15 @@ describe("session-executor", () => {
           maxTurns: 50,
           maxBudgetUsd: 1.0,
           baseBranch: "main",
+          createPr: true,
         }),
         expect.any(Function),
         undefined,
         expect.any(AbortSignal)
       );
-      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
         "test-session-1",
-        "SUCCEEDED",
+        "succeeded",
         expect.objectContaining({
           branchName: "agent/fix-login",
           prUrl: "https://github.com/org/repo/pull/42",
@@ -126,11 +155,9 @@ describe("session-executor", () => {
           errors: [],
           sdkSessionId: "sdk-sess-1",
         }),
-        { fromStatus: ["RUNNING"] }
+        { fromStatus: ["running"] }
       );
-      // The session:complete event carries the orchestrator's lowercase status
-      // vocabulary; the persisted session row status remains uppercase (above).
-      expect(sessionService.addEvent).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
         "test-session-1",
         "session:complete",
         expect.objectContaining({
@@ -140,7 +167,25 @@ describe("session-executor", () => {
       );
     });
 
-    it("updates status to FAILED when runSession returns failed status", async () => {
+    it("honors the stored createPr=false with a positive budget — the pipeline config takes the no-PR path", async () => {
+      vi.mocked(sessionLifecycleStore.getById).mockResolvedValueOnce(
+        makeStoredSession({ createPr: false, maxBudgetUsd: 2 })
+      );
+      vi.mocked(runSession).mockResolvedValueOnce(makeSuccessResult());
+
+      await executeSession(makeSession());
+
+      // The publish phase in @mbe/agent-core skips PR creation exactly when
+      // config.createPr is false — a positive budget must not override it.
+      expect(runSession).toHaveBeenCalledWith(
+        expect.objectContaining({ createPr: false, maxBudgetUsd: 2 }),
+        expect.any(Function),
+        undefined,
+        expect.any(AbortSignal)
+      );
+    });
+
+    it("updates status to failed when runSession returns failed status", async () => {
       const result = {
         ...makeSuccessResult(),
         status: "failed" as const,
@@ -150,13 +195,13 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
         "test-session-1",
-        "FAILED",
+        "failed",
         expect.objectContaining({
           errors: ["Budget exceeded"],
         }),
-        { fromStatus: ["RUNNING"] }
+        { fromStatus: ["running"] }
       );
     });
 
@@ -165,15 +210,17 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
         "test-session-1",
-        "FAILED",
+        "failed",
         { errors: ["SDK connection failed"] },
-        { fromStatus: ["PENDING", "RUNNING"] }
+        { fromStatus: ["pending", "running"] }
       );
-      expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:error", {
-        message: "SDK connection failed",
-      });
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
+        "test-session-1",
+        "session:error",
+        { message: "SDK connection failed" }
+      );
     });
 
     it("handles non-Error thrown values", async () => {
@@ -181,11 +228,11 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
         "test-session-1",
-        "FAILED",
+        "failed",
         { errors: ["string error"] },
-        { fromStatus: ["PENDING", "RUNNING"] }
+        { fromStatus: ["pending", "running"] }
       );
     });
 
@@ -214,7 +261,7 @@ describe("session-executor", () => {
       const sixthSession = makeSession({ id: "concurrent-5" });
       await executeSession(sixthSession);
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith("concurrent-5", "FAILED", {
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith("concurrent-5", "failed", {
         errors: [expect.stringContaining("Max concurrent sessions")],
       });
 
@@ -251,9 +298,11 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.addEvent).toHaveBeenCalledWith("test-session-1", "session:message", {
-        message: "Processing...",
-      });
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
+        "test-session-1",
+        "session:message",
+        { message: "Processing..." }
+      );
     });
 
     it("handles tool_use MappedEvents (JSON in message) with summarized input", async () => {
@@ -274,7 +323,7 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.addEvent).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
         "test-session-1",
         "session:tool_use",
         expect.objectContaining({
@@ -300,7 +349,7 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionService.addEvent).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
         "test-session-1",
         "session:assistant",
         expect.objectContaining({
@@ -310,9 +359,9 @@ describe("session-executor", () => {
     });
 
     it("does not crash when event logging fails", async () => {
-      vi.mocked(sessionService.addEvent)
+      vi.mocked(sessionLifecycleStore.addEvent)
         .mockRejectedValueOnce(new Error("DB down"))
-        .mockResolvedValue(null as never);
+        .mockResolvedValue(undefined);
 
       vi.mocked(runSession).mockImplementationOnce(async (_config, onEvent) => {
         const fn = onEvent as (event: unknown) => Promise<void>;
@@ -348,8 +397,8 @@ describe("session-executor", () => {
       // The CAS write requires the store to report the session as still
       // `running` — simulate that by resolving the (mocked) updateStatus
       // call with a session in the transitioned status.
-      vi.mocked(sessionService.updateStatus).mockResolvedValue(
-        makeSession({ id: "cancel-target", status: "cancelled" })
+      vi.mocked(sessionLifecycleStore.updateStatus).mockResolvedValue(
+        makeStoredSession({ id: "cancel-target", status: "cancelled" })
       );
 
       const session = makeSession({ id: "cancel-target" });
@@ -363,15 +412,17 @@ describe("session-executor", () => {
       const cancelled = await cancelSession("cancel-target");
       expect(cancelled).toBe(true);
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
         "cancel-target",
-        "CANCELLED",
+        "cancelled",
         { errors: ["Cancelled by user"] },
-        { fromStatus: ["RUNNING"] }
+        { fromStatus: ["running"] }
       );
-      expect(sessionService.addEvent).toHaveBeenCalledWith("cancel-target", "session:cancelled", {
-        message: "Session cancelled by user",
-      });
+      expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
+        "cancel-target",
+        "session:cancelled",
+        { message: "Session cancelled by user" }
+      );
 
       resolveRun();
       await execPromise.catch(() => {});
@@ -386,7 +437,7 @@ describe("session-executor", () => {
     it("returns an object with executeSession, cancelSession, getActiveSessionCount", () => {
       const executor = createSessionExecutor({
         concurrency: createSessionConcurrency(2),
-        sessionService,
+        store: sessionLifecycleStore,
       });
       expect(typeof executor.executeSession).toBe("function");
       expect(typeof executor.cancelSession).toBe("function");
@@ -404,11 +455,11 @@ describe("session-executor", () => {
 
       const instanceA = createSessionExecutor({
         concurrency: createSessionConcurrency(5),
-        sessionService,
+        store: sessionLifecycleStore,
       });
       const instanceB = createSessionExecutor({
         concurrency: createSessionConcurrency(5),
-        sessionService,
+        store: sessionLifecycleStore,
       });
 
       const sessionA = makeSession({ id: "iso-a" });
@@ -438,7 +489,7 @@ describe("session-executor", () => {
       // Instance with cap of 1
       const tightExecutor = createSessionExecutor({
         concurrency: createSessionConcurrency(1),
-        sessionService,
+        store: sessionLifecycleStore,
       });
 
       const first = makeSession({ id: "tight-0" });
@@ -454,9 +505,9 @@ describe("session-executor", () => {
       const second = makeSession({ id: "tight-1" });
       await tightExecutor.executeSession(second);
 
-      expect(sessionService.updateStatus).toHaveBeenCalledWith(
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
         "tight-1",
-        "FAILED",
+        "failed",
         expect.objectContaining({
           errors: [expect.stringContaining("Max concurrent sessions")],
         })
@@ -477,11 +528,11 @@ describe("session-executor", () => {
 
       const instanceA = createSessionExecutor({
         concurrency: createSessionConcurrency(5),
-        sessionService,
+        store: sessionLifecycleStore,
       });
       const instanceB = createSessionExecutor({
         concurrency: createSessionConcurrency(5),
-        sessionService,
+        store: sessionLifecycleStore,
       });
 
       const sessionA = makeSession({ id: "cross-cancel" });

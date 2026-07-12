@@ -3,8 +3,6 @@ import type { AgentSession, AgentSessionEvent, Pagination } from "@mbe/types";
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { prisma } from "./database.js";
 import { getSessionEventEmitter } from "./session-event-emitter.js";
-import { defaultConcurrency } from "./session-concurrency.js";
-import { getServiceLogger } from "./logger.js";
 
 function mapPrismaSession(session: Session): AgentSession {
   return {
@@ -34,7 +32,12 @@ function mapPrismaSession(session: Session): AgentSession {
   };
 }
 
-function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
+/**
+ * Maps a persisted event row to the wire/emitter AgentSessionEvent shape.
+ * Shared with the session lifecycle store, whose addEvent publishes on the
+ * same SSE seam.
+ */
+export function mapPrismaEvent(event: SessionEvent): AgentSessionEvent {
   return {
     id: event.id,
     sessionId: event.sessionId,
@@ -49,23 +52,6 @@ interface ListOptions {
   readonly limit: number;
   readonly status?: SessionStatus;
   readonly userId?: string;
-}
-
-export interface TriggerSessionOptions {
-  taskDescription: string;
-  baseBranch?: string;
-  userId?: string;
-  model?: string;
-  maxTurns?: number;
-  maxBudgetUsd?: number;
-  createPr?: boolean;
-  parentId?: string;
-  onSettled?: (success: boolean) => void | Promise<void>;
-}
-
-export interface TriggerSessionResult {
-  session: AgentSession | null;
-  accepted: boolean;
 }
 
 export const sessionService = {
@@ -119,39 +105,6 @@ export const sessionService = {
       },
     });
     return mapPrismaSession(session);
-  },
-
-  async triggerSession(opts: TriggerSessionOptions): Promise<TriggerSessionResult> {
-    const { executeSession } = await import("./session-executor.js");
-
-    // Early-reject through the single concurrency gate so we never create a DB
-    // row for a session that can't start. The executor performs the atomic
-    // acquire(); this check just avoids the wasted write on an obvious reject.
-    if (!defaultConcurrency.canStart()) {
-      return { session: null, accepted: false };
-    }
-
-    const wrappedTask = `<task>\n${opts.taskDescription}\n</task>`;
-
-    const session = await this.create({
-      taskDescription: wrappedTask,
-      baseBranch: opts.baseBranch,
-      userId: opts.userId,
-      model: opts.model,
-      maxTurns: opts.maxTurns,
-      maxBudgetUsd: opts.maxBudgetUsd,
-      createPr: opts.createPr,
-      parentId: opts.parentId,
-    });
-
-    executeSession(session)
-      .then(() => opts.onSettled?.(true))
-      .catch((err) => {
-        void opts.onSettled?.(false);
-        getServiceLogger().error({ sessionId: session.id, err }, "triggerSession execution failed");
-      });
-
-    return { session, accepted: true };
   },
 
   async updateStatus(
@@ -244,22 +197,6 @@ export const sessionService = {
     return prisma.session.count({
       where: { branchName, taskDescription: { contains: "[CI Retry" } },
     });
-  },
-
-  async findByStatus(status: SessionStatus): Promise<AgentSession[]> {
-    const sessions = await prisma.session.findMany({
-      where: { status },
-      orderBy: { updatedAt: "asc" },
-    });
-    return sessions.map(mapPrismaSession);
-  },
-
-  async getLastEvent(sessionId: string): Promise<AgentSessionEvent | null> {
-    const event = await prisma.sessionEvent.findFirst({
-      where: { sessionId },
-      orderBy: { createdAt: "desc" },
-    });
-    return event ? mapPrismaEvent(event) : null;
   },
 
   async addEvent(

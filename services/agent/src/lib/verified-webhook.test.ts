@@ -7,12 +7,17 @@ vi.mock("../services/session.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     create: vi.fn().mockResolvedValue({ id: "test-session" }),
-    triggerSession: vi.fn().mockResolvedValue({ session: { id: "test-session" }, accepted: true }),
     updateStatus: vi.fn(),
     delete: vi.fn(),
     addEvent: vi.fn(),
     listEvents: vi.fn(),
   },
+}));
+
+vi.mock("../services/session-trigger.js", () => ({
+  triggerSession: vi
+    .fn()
+    .mockResolvedValue({ session: { id: "test-session" }, accepted: true }),
 }));
 
 vi.mock("../services/session-executor.js", () => ({

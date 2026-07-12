@@ -11,6 +11,7 @@ import {
 import { requireAuth, hasPermission, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { sessionService } from "../services/session.js";
+import { triggerSession } from "../services/session-trigger.js";
 import { cancelSession } from "../services/session-executor.js";
 import { defaultConcurrency } from "../services/session-concurrency.js";
 
@@ -80,7 +81,7 @@ export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
       // Stamp the authenticated creator's id. Sourced exclusively from the
       // verified auth context (requireAuth preHandler) — never from the
       // client-supplied request body — so callers cannot spoof ownership.
-      const result = await sessionService.triggerSession({
+      const result = await triggerSession({
         ...request.body,
         userId: request.user?.id,
       });

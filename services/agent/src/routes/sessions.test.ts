@@ -7,12 +7,15 @@ vi.mock("../services/session.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     create: vi.fn(),
-    triggerSession: vi.fn(),
     updateStatus: vi.fn(),
     delete: vi.fn(),
     addEvent: vi.fn(),
     listEvents: vi.fn(),
   },
+}));
+
+vi.mock("../services/session-trigger.js", () => ({
+  triggerSession: vi.fn(),
 }));
 
 vi.mock("../services/session-executor.js", () => ({
@@ -27,6 +30,7 @@ vi.mock("../services/database.js", async () => {
 });
 
 import { sessionService } from "../services/session.js";
+import { triggerSession } from "../services/session-trigger.js";
 import { cancelSession } from "../services/session-executor.js";
 import { buildApp } from "../app.js";
 
@@ -71,7 +75,7 @@ describe("Session Routes", () => {
 
   describe("POST /v1/sessions", () => {
     it("creates a session and returns 201", async () => {
-      vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+      vi.mocked(triggerSession).mockResolvedValueOnce({
         session: mockSession,
         accepted: true,
       });
@@ -90,7 +94,7 @@ describe("Session Routes", () => {
     });
 
     it("stamps the authenticated user's id onto the created session", async () => {
-      vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+      vi.mocked(triggerSession).mockResolvedValueOnce({
         session: mockSession,
         accepted: true,
       });
@@ -104,7 +108,7 @@ describe("Session Routes", () => {
 
       expect(response.statusCode).toBe(201);
       // Route persists the creator's id (auth-bypass identity).
-      expect(sessionService.triggerSession).toHaveBeenCalledWith(
+      expect(triggerSession).toHaveBeenCalledWith(
         expect.objectContaining({ userId: "auth0|user-123" })
       );
       // Response serializer exposes userId.
@@ -113,7 +117,7 @@ describe("Session Routes", () => {
     });
 
     it("returns 429 when max concurrent sessions reached", async () => {
-      vi.mocked(sessionService.triggerSession).mockResolvedValueOnce({
+      vi.mocked(triggerSession).mockResolvedValueOnce({
         session: null,
         accepted: false,
       });

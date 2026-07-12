@@ -39,12 +39,15 @@ vi.mock("../services/session.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     create: vi.fn(),
-    triggerSession: vi.fn(),
     updateStatus: vi.fn(),
     delete: vi.fn(),
     addEvent: vi.fn(),
     listEvents: vi.fn(),
   },
+}));
+
+vi.mock("../services/session-trigger.js", () => ({
+  triggerSession: vi.fn(),
 }));
 
 vi.mock("../services/session-executor.js", () => ({

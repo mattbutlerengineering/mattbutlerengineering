@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { type ProblemDetails, createProblemDetails } from "@mbe/types";
-import { sessionService } from "../services/session.js";
+import { triggerSession } from "../services/session-trigger.js";
 import {
   checkCircuitBreaker,
   recordRemediationOutcome,
@@ -123,7 +123,7 @@ export const remediationRoutes: FastifyPluginAsync = async (fastify) => {
         "Creating remediation session"
       );
 
-      const result = await sessionService.triggerSession({
+      const result = await triggerSession({
         taskDescription,
         baseBranch: "main",
         onSettled: recordRemediationOutcome,
