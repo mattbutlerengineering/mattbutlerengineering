@@ -359,6 +359,18 @@
       [key: string]: unknown;
     }
   </file>
+  <file path="src/table.ts">
+    export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    export interface TableShapeMetadata {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation?: number;
+      shape: "rectangle" | "circle" | "square";
+      color?: string;
+    }
+  </file>
   <file path="src/user.ts">
     export interface UserPreferences {
       theme?: "light" | "dark" | "system";
