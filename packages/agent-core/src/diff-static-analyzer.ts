@@ -1,3 +1,5 @@
+import { parseDiff } from "./diff-parser.js";
+
 // ── Types ───────────────────────────────────────────────────────────
 
 export interface Violation {
@@ -115,11 +117,6 @@ function matchesFileGlob(filePath: string, glob: string | undefined): boolean {
   return true;
 }
 
-function parseHunkHeader(line: string): number | null {
-  const match = line.match(/^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@/);
-  return match ? parseInt(match[1], 10) : null;
-}
-
 // ── Core function ───────────────────────────────────────────────────
 
 /**
@@ -131,68 +128,30 @@ function parseHunkHeader(line: string): number | null {
 export function analyzeDiff(diff: string): StaticAnalysisResult {
   const start = performance.now();
 
-  if (!diff.trim()) {
-    return {
-      clean: true,
-      violations: [],
-      durationMs: performance.now() - start,
-    };
-  }
-
   const violations: Violation[] = [];
-  let currentFile = "";
-  let currentLine = 0;
+  const { files } = parseDiff(diff);
 
-  const lines = diff.split("\n");
-
-  for (const line of lines) {
-    // Track current file from +++ headers
-    if (line.startsWith("+++ b/")) {
-      currentFile = line.slice(6);
-      continue;
-    }
-
-    // Track line numbers from hunk headers
-    const hunkLine = parseHunkHeader(line);
-    if (hunkLine !== null) {
-      currentLine = hunkLine;
-      continue;
-    }
-
-    // Skip non-added lines and diff metadata
-    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("diff ")) {
-      continue;
-    }
-
-    if (line.startsWith("+")) {
-      const content = line.slice(1);
-
+  for (const file of files) {
+    for (const { line, content } of file.addedLines) {
       for (const rule of ANALYSIS_RULES) {
-        if (!matchesFileGlob(currentFile, rule.fileGlob)) continue;
+        if (!matchesFileGlob(file.path, rule.fileGlob)) continue;
         if (rule.pattern.test(content)) {
           violations.push({
             rule: rule.id,
-            file: currentFile,
-            line: currentLine,
+            file: file.path,
+            line,
             message: rule.message,
             severity: rule.severity,
           });
         }
       }
-
-      currentLine += 1;
-    } else if (!line.startsWith("-")) {
-      // Context lines (no prefix) still advance the line counter
-      currentLine += 1;
     }
   }
-
-  const durationMs = performance.now() - start;
 
   return {
     clean: violations.length === 0,
     violations,
-    durationMs,
+    durationMs: performance.now() - start,
   };
 }
 
