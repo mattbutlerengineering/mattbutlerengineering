@@ -13,7 +13,8 @@
     "env:init": "pnpm --filter './services/*' exec sh -c '[ -f .env ] || cp .env.example .env'",
     "db:push": "pnpm --filter './services/*' exec prisma db push",
     "db:generate": "pnpm --filter './services/*' exec prisma generate",
-    "repo-audit": "node scripts/check-circular-deps.js && node scripts/check-dep-versions.js && node scripts/check-env-sync.js && node scripts/check-service-bindings.js && node scripts/check-destructive-migrations.js && node scripts/check-dockerfile-deps.js && node scripts/check-schema-compat.js && pnpm audit --audit-level=high",
+    "repo-audit": "node scripts/check-circular-deps.js && node scripts/check-dep-versions.js && node scripts/check-env-sync.js && node scripts/check-service-bindings.js && node scripts/check-destructive-migrations.js && node scripts/check-dockerfile-deps.js && node scripts/check-schema-compat.js && pnpm check:boundaries && pnpm audit --audit-level=high",
+    "check:boundaries": "depcruise apps services packages tools --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
     "check:service-bindings": "node scripts/check-service-bindings.js",
@@ -50,6 +51,7 @@
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",
+    "dependency-cruiser": "^18.0.0",
     "esbuild": "^0.28.0",
     "@changesets/cli": "^2.31.0",
     "@lhci/cli": "^0.15.1",
