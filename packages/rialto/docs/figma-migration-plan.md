@@ -33,12 +33,12 @@ Reads all token sources and outputs a unified `figma-tokens.json` in DTCG format
 
 | Source file                  | Format                          | Status                                                       |
 | ---------------------------- | ------------------------------- | ------------------------------------------------------------ |
-| `src/tokens/colors.json`     | DTCG JSON                       | Already compatible                                           |
+| `src/tokens/colors.json`      | DTCG JSON (light theme)         | Already compatible                                           |
+| `src/tokens/colors.dark.json` | DTCG JSON (dark theme)          | Already compatible (#3361 — replaced colors.css dark-block extraction) |
 | `src/tokens/typography.json` | DTCG JSON                       | Already compatible                                           |
 | `src/tokens/spacing.json`    | DTCG JSON                       | Already compatible                                           |
 | `src/tokens/radius.css`      | CSS custom properties           | Needs extraction → DTCG                                      |
 | `src/tokens/shadows.css`     | CSS custom properties           | Needs extraction → DTCG (includes easing, duration, z-index) |
-| `src/tokens/colors.css`      | CSS `[data-theme="dark"]` block | Needs dark theme extraction                                  |
 | `src/providers/vibes.ts`     | TypeScript object               | Needs vibe override extraction                               |
 
 **Output structure** (`figma-tokens.json`):
@@ -84,14 +84,16 @@ Top-level keys become **Tokens Studio sets** → **Figma Variable modes**.
 ```json
 {
   "scripts": {
-    "figma-tokens": "tsx scripts/generate-figma-tokens.ts"
+    "generate:tokens": "pnpm exec tsx scripts/generate-colors-css.ts && pnpm exec tsx scripts/generate-figma-tokens.ts"
   }
 }
 ```
 
-### 1c. CI validation (optional)
+### 1c. CI validation — DONE (#3361)
 
-Add a check that `figma-tokens.json` is in sync with source token files — warns on PR if tokens changed but `figma-tokens.json` wasn't regenerated.
+`figma-tokens.json` and the generated `src/tokens/colors.css` are covered by the
+`rialto-color-tokens` regen family (`scripts/regen-manifest.mjs`); `pnpm regen:check`
+in CI fails the build if either drifts from the DTCG authoring sources.
 
 **Files to create:**
 
@@ -315,8 +317,9 @@ Script that reads `dist/manifest.json` and queries the Figma REST API to compare
 
 | File                             | Role                                                              |
 | -------------------------------- | ----------------------------------------------------------------- |
-| `src/tokens/colors.json`         | DTCG color tokens (light theme)                                   |
-| `src/tokens/colors.css`          | Light + dark theme CSS custom properties                          |
+| `src/tokens/colors.json`         | DTCG color tokens — light theme (authoring source)                |
+| `src/tokens/colors.dark.json`    | DTCG color tokens — dark theme (authoring source)                 |
+| `src/tokens/colors.css`          | GENERATED from the two color JSONs (`pnpm generate:tokens`)       |
 | `src/tokens/typography.json`     | DTCG font family, weight, size, line-height tokens                |
 | `src/tokens/spacing.json`        | DTCG spacing scale (4px base, 9 steps)                            |
 | `src/tokens/radius.css`          | Border radius tokens (5 values)                                   |

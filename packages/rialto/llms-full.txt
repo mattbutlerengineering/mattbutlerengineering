@@ -1178,6 +1178,18 @@
     }
   </file>
   </section>
+  <section priority="medium" role="lib">
+  <file path="scripts/lib/color-tokens.ts">
+    export interface DtcgToken {
+      readonly $value: string | number;
+      readonly $type: string;
+      readonly $description?: string;
+    }
+    export interface TokenGroup {
+      readonly [key: string]: DtcgToken | TokenGroup | string | undefined;
+    }
+  </file>
+  </section>
   <section priority="medium" role="providers">
   <file path="src/providers/reduced-data.ts">
     export const reducedDataOverrides: VibeOverrides = {
@@ -1471,6 +1483,21 @@
       }
     }
   </file>
+  <file path="scripts/generate-colors-css.ts">
+    function assertCommentSafe(text: string): string {
+      if (text.includes("*/")) {
+        throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+      }
+      return text;
+    }
+    function sectionHeader(key: string, description: string | undefined): string {
+      const title = key.charAt(0).toUpperCase() + key.slice(1);
+      const label =
+        description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+      const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
+      return `  /* ── ${label} ${fill} */`;
+    }
+  </file>
   <file path="scripts/generate-exports.ts">
     interface ExportEntry {
       types?: string;
@@ -1480,13 +1507,12 @@
     type ExportsMap = Record<string, string | ExportEntry>;
   </file>
   <file path="scripts/generate-figma-tokens.ts">
-    interface DtcgToken {
-      readonly $value: string | number;
-      readonly $type: string;
-      readonly $description?: string;
+    interface FigmaTokenSets {
+      readonly [setName: string]: TokenGroup;
     }
-    interface TokenGroup {
-      readonly [key: string]: DtcgToken | TokenGroup;
+    function readJson(filePath: string): TokenGroup {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
     }
   </file>
   <file path="scripts/generate-manifest.ts">
@@ -1602,7 +1628,9 @@
       if (typeof window === "undefined") return;
     
       try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        // Safari < 14.1 only exposes the prefixed constructor, which lib.dom types omit.
+        const legacyWindow = window as Window & { webkitAudioContext?: typeof AudioContext };
+        const AudioContextClass = window.AudioContext || legacyWindow.webkitAudioContext;
         if (!AudioContextClass) return;
     
         const audioCtx = new AudioContextClass();

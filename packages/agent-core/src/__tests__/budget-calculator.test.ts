@@ -79,11 +79,11 @@ describe("budget-calculator", () => {
     });
 
     it("returns sonnet for complex tasks", () => {
-      expect(resolveModel("architect new system")).toBe("claude-sonnet-4-6");
+      expect(resolveModel("architect new system")).toBe("claude-sonnet-5");
     });
 
     it("returns sonnet for standard tasks", () => {
-      expect(resolveModel("update logic")).toBe("claude-sonnet-4-6");
+      expect(resolveModel("update logic")).toBe("claude-sonnet-5");
     });
 
     it("returns haiku for bump tasks", () => {

@@ -4,13 +4,17 @@
  * Nav sections, route definitions, and sitemap paths are all derived
  * from this registry. Adding a new page means one edit here, not three.
  *
- * Each entry carries:
- *   id       — kebab-case, unique. Component routes use /components/{id}.
- *   label    — display name in the sidebar.
- *   category — groups entries into nav sections (order of first appearance preserved).
- *   path     — full route path (e.g. /components/button, /examples/dashboard).
- *   comingSoon? — renders with a muted "coming soon" indicator in the nav.
- *   load     — lazy dynamic import factory (preserves per-page code splitting).
+ * Raw entries only need to declare `{id, label, category, comingSoon?}` —
+ * `path` and `load` are derived by convention in `buildPageRegistry`:
+ *   - path: /components/{id}, or /examples/{id sans "example-" prefix} for
+ *     the Examples category, or /dashboard for the Dashboard category.
+ *   - load: resolved by finding the page module whose file name matches
+ *     PascalCase(label) + "Page" (or + "ExamplePage" for Examples), via
+ *     import.meta.glob — this preserves per-page code splitting and fails
+ *     at registry-build time (not click time) if no module matches.
+ *
+ * A handful of pages predate this convention (their module's file name or
+ * export doesn't match their label) and carry an explicit `load` override.
  */
 
 export interface PageEntry {
@@ -20,6 +24,16 @@ export interface PageEntry {
   path: string;
   comingSoon?: boolean;
   load: () => Promise<unknown>;
+}
+
+/** A registry entry as authored — see the module doc comment for derivation rules. */
+export interface RawPageEntry {
+  id: string;
+  label: string;
+  category: string;
+  comingSoon?: boolean;
+  /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
+  load?: () => Promise<unknown>;
 }
 
 export interface NavItem {
@@ -47,678 +61,195 @@ function validateEntry(entry: PageEntry): void {
 }
 
 // ---------------------------------------------------------------------------
-// The registry
+// Convention-based derivation of `path` and `load`
 // ---------------------------------------------------------------------------
 
-export const PAGE_REGISTRY: PageEntry[] = [
+/**
+ * All showcase page modules, keyed by import specifier. Lazy — preserves
+ * per-page code splitting. Scoped to one-or-more subdirectories of "pages"
+ * so top-level pages like OverviewPage/PrivacyPage — statically imported by
+ * routes.tsx, not part of this registry — aren't swept in.
+ */
+const PAGE_MODULES = import.meta.glob("../pages/*/**/*Page.tsx") as Record<
+  string,
+  () => Promise<Record<string, unknown>>
+>;
+
+function toPascalCase(label: string): string {
+  return label
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+}
+
+/** Derives a page module's expected named export from an entry's label + category. */
+function deriveExportName(entry: Pick<RawPageEntry, "label" | "category">): string {
+  const base = toPascalCase(entry.label);
+  return entry.category === "Examples" ? `${base}ExamplePage` : `${base}Page`;
+}
+
+/**
+ * Resolves a raw entry's `load` factory: an explicit override wins; otherwise
+ * find the page module matching the `{label}Page` convention. Throws when no
+ * module matches — a typo'd id/label fails loudly here, at registry-build
+ * time, instead of silently at click time in the browser.
+ */
+function resolveLoad(entry: RawPageEntry): () => Promise<unknown> {
+  if (entry.load) return entry.load;
+  if (entry.comingSoon) return () => Promise.resolve({});
+
+  const exportName = deriveExportName(entry);
+  const modulePath = Object.keys(PAGE_MODULES).find((key) => key.endsWith(`/${exportName}.tsx`));
+  if (!modulePath) {
+    throw new Error(
+      `PageRegistry: no page module found for "${entry.id}" (expected export "${exportName}"). ` +
+        `Add an explicit "load" to the entry if its module doesn't follow the {label}Page convention.`
+    );
+  }
+
+  const importModule = PAGE_MODULES[modulePath]!;
+  return () => importModule().then((mod) => ({ default: mod[exportName] }));
+}
+
+/** Derives a page's route path from its id + category. */
+function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
+  if (entry.category === "Dashboard") return "/dashboard";
+  if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
+  return `/components/${entry.id}`;
+}
+
+/** Builds full PageEntry objects (path + load resolved) from raw entries. */
+export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] {
+  return rawEntries.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    category: entry.category,
+    path: derivePath(entry),
+    ...(entry.comingSoon ? { comingSoon: true } : {}),
+    load: resolveLoad(entry),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// The registry (raw entries)
+// ---------------------------------------------------------------------------
+
+const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   // ── Forms ──────────────────────────────────────────────────────────────
-  {
-    id: "button",
-    label: "Button",
-    category: "Forms",
-    path: "/components/button",
-    load: () => import("../pages/forms/ButtonPage").then((m) => ({ default: m.ButtonPage })),
-  },
-  {
-    id: "icon-button",
-    label: "IconButton",
-    category: "Forms",
-    path: "/components/icon-button",
-    load: () =>
-      import("../pages/forms/IconButtonPage").then((m) => ({ default: m.IconButtonPage })),
-  },
-  {
-    id: "input",
-    label: "Input",
-    category: "Forms",
-    path: "/components/input",
-    load: () => import("../pages/forms/InputPage").then((m) => ({ default: m.InputPage })),
-  },
-  {
-    id: "textarea",
-    label: "TextArea",
-    category: "Forms",
-    path: "/components/textarea",
-    load: () => import("../pages/forms/TextAreaPage").then((m) => ({ default: m.TextAreaPage })),
-  },
-  {
-    id: "number-input",
-    label: "Number Input",
-    category: "Forms",
-    path: "/components/number-input",
-    load: () =>
-      import("../pages/forms/NumberInputPage").then((m) => ({ default: m.NumberInputPage })),
-  },
-  {
-    id: "checkbox-radio",
-    label: "Checkbox & Radio",
-    category: "Forms",
-    path: "/components/checkbox-radio",
-    load: () =>
-      import("../pages/forms/CheckboxRadioPage").then((m) => ({ default: m.CheckboxRadioPage })),
-  },
-  {
-    id: "toggle",
-    label: "Toggle",
-    category: "Forms",
-    path: "/components/toggle",
-    load: () => import("../pages/forms/TogglePage").then((m) => ({ default: m.TogglePage })),
-  },
-  {
-    id: "master-override",
-    label: "Master Override",
-    category: "Forms",
-    path: "/components/master-override",
-    load: () =>
-      import("../pages/forms/MasterOverridePage").then((m) => ({ default: m.MasterOverridePage })),
-  },
-  {
-    id: "slider",
-    label: "Slider",
-    category: "Forms",
-    path: "/components/slider",
-    load: () => import("../pages/forms/SliderPage").then((m) => ({ default: m.SliderPage })),
-  },
-  {
-    id: "select",
-    label: "Select",
-    category: "Forms",
-    path: "/components/select",
-    load: () => import("../pages/forms/SelectPage").then((m) => ({ default: m.SelectPage })),
-  },
-  {
-    id: "pin-input",
-    label: "Pin Input",
-    category: "Forms",
-    path: "/components/pin-input",
-    load: () => import("../pages/forms/PinInputPage").then((m) => ({ default: m.PinInputPage })),
-  },
-  {
-    id: "segmented-control",
-    label: "Segmented Control",
-    category: "Forms",
-    path: "/components/segmented-control",
-    load: () =>
-      import("../pages/forms/SegmentedControlPage").then((m) => ({
-        default: m.SegmentedControlPage,
-      })),
-  },
-  {
-    id: "autocomplete",
-    label: "Autocomplete",
-    category: "Forms",
-    path: "/components/autocomplete",
-    load: () =>
-      import("../pages/forms/AutocompletePage").then((m) => ({ default: m.AutocompletePage })),
-  },
-  {
-    id: "combobox",
-    label: "Combobox",
-    category: "Forms",
-    path: "/components/combobox",
-    load: () => import("../pages/forms/ComboboxPage").then((m) => ({ default: m.ComboboxPage })),
-  },
-  {
-    id: "input-group",
-    label: "Input Group",
-    category: "Forms",
-    path: "/components/input-group",
-    load: () =>
-      import("../pages/forms/InputGroupPage").then((m) => ({ default: m.InputGroupPage })),
-  },
-  {
-    id: "form",
-    label: "Form",
-    category: "Forms",
-    path: "/components/form",
-    load: () => import("../pages/forms/FormPage").then((m) => ({ default: m.FormPage })),
-  },
-  {
-    id: "date-picker",
-    label: "Date Picker",
-    category: "Forms",
-    path: "/components/date-picker",
-    load: () => import("../pages/forms/DatePickerPage").then((m) => ({ default: m.DatePickerPage })),
-  },
+  { id: "button", label: "Button", category: "Forms" },
+  { id: "icon-button", label: "IconButton", category: "Forms" },
+  { id: "input", label: "Input", category: "Forms" },
+  { id: "textarea", label: "TextArea", category: "Forms" },
+  { id: "number-input", label: "Number Input", category: "Forms" },
+  { id: "checkbox-radio", label: "Checkbox & Radio", category: "Forms" },
+  { id: "toggle", label: "Toggle", category: "Forms" },
+  { id: "master-override", label: "Master Override", category: "Forms" },
+  { id: "slider", label: "Slider", category: "Forms" },
+  { id: "select", label: "Select", category: "Forms" },
+  { id: "pin-input", label: "Pin Input", category: "Forms" },
+  { id: "segmented-control", label: "Segmented Control", category: "Forms" },
+  { id: "autocomplete", label: "Autocomplete", category: "Forms" },
+  { id: "combobox", label: "Combobox", category: "Forms" },
+  { id: "input-group", label: "Input Group", category: "Forms" },
+  { id: "form", label: "Form", category: "Forms" },
+  { id: "date-picker", label: "Date Picker", category: "Forms" },
   // ── Data Display ────────────────────────────────────────────────────────
-  {
-    id: "card",
-    label: "Card",
-    category: "Data Display",
-    path: "/components/card",
-    load: () => import("../pages/data/CardPage").then((m) => ({ default: m.CardPage })),
-  },
-  {
-    id: "table",
-    label: "Table",
-    category: "Data Display",
-    path: "/components/table",
-    load: () => import("../pages/data/TablePage").then((m) => ({ default: m.TablePage })),
-  },
-  {
-    id: "data-table",
-    label: "DataTable",
-    category: "Data Display",
-    path: "/components/data-table",
-    load: () => import("../pages/data/DataTablePage").then((m) => ({ default: m.DataTablePage })),
-  },
-  {
-    id: "badge",
-    label: "Badge",
-    category: "Data Display",
-    path: "/components/badge",
-    load: () => import("../pages/data/BadgePage").then((m) => ({ default: m.BadgePage })),
-  },
-  {
-    id: "tag",
-    label: "Tag",
-    category: "Data Display",
-    path: "/components/tag",
-    load: () => import("../pages/data/TagPage").then((m) => ({ default: m.TagPage })),
-  },
-  {
-    id: "avatar",
-    label: "Avatar",
-    category: "Data Display",
-    path: "/components/avatar",
-    load: () => import("../pages/data/AvatarPage").then((m) => ({ default: m.AvatarPage })),
-  },
-  {
-    id: "stat",
-    label: "Stat",
-    category: "Data Display",
-    path: "/components/stat",
-    load: () => import("../pages/data/StatPage").then((m) => ({ default: m.StatPage })),
-  },
-  {
-    id: "data-list",
-    label: "Data List",
-    category: "Data Display",
-    path: "/components/data-list",
-    load: () => import("../pages/data/DataListPage").then((m) => ({ default: m.DataListPage })),
-  },
-  {
-    id: "meter",
-    label: "Meter",
-    category: "Data Display",
-    path: "/components/meter",
-    load: () => import("../pages/data/MeterPage").then((m) => ({ default: m.MeterPage })),
-  },
-  {
-    id: "kbd",
-    label: "Kbd",
-    category: "Data Display",
-    path: "/components/kbd",
-    load: () => import("../pages/data/KbdPage").then((m) => ({ default: m.KbdPage })),
-  },
-  {
-    id: "flip-dot",
-    label: "Flip Dot",
-    category: "Data Display",
-    path: "/components/flip-dot",
-    load: () => import("../pages/data/FlipDotPage").then((m) => ({ default: m.FlipDotPage })),
-  },
-  {
-    id: "split-flap",
-    label: "Split Flap",
-    category: "Data Display",
-    path: "/components/split-flap",
-    load: () => import("../pages/data/SplitFlapPage").then((m) => ({ default: m.SplitFlapPage })),
-  },
-  {
-    id: "departure-board",
-    label: "Departure Board",
-    category: "Data Display",
-    path: "/components/departure-board",
-    load: () =>
-      import("../pages/data/DepartureBoardPage").then((m) => ({ default: m.DepartureBoardPage })),
-  },
-  {
-    id: "odometer",
-    label: "Odometer",
-    category: "Data Display",
-    path: "/components/odometer",
-    load: () => import("../pages/data/OdometerPage").then((m) => ({ default: m.OdometerPage })),
-  },
-  {
-    id: "chalkboard",
-    label: "Chalkboard",
-    category: "Data Display",
-    path: "/components/chalkboard",
-    load: () => import("../pages/data/ChalkboardPage").then((m) => ({ default: m.ChalkboardPage })),
-  },
-  {
-    id: "ferrofluid",
-    label: "Ferrofluid",
-    category: "Data Display",
-    path: "/components/ferrofluid",
-    load: () => import("../pages/data/FerrofluidPage").then((m) => ({ default: m.FerrofluidPage })),
-  },
-  {
-    id: "tape-chart",
-    label: "Tape Chart",
-    category: "Data Display",
-    path: "/components/tape-chart",
-    load: () => import("../pages/data/TapeChartPage").then((m) => ({ default: m.TapeChartPage })),
-  },
+  { id: "card", label: "Card", category: "Data Display" },
+  { id: "table", label: "Table", category: "Data Display" },
+  { id: "data-table", label: "DataTable", category: "Data Display" },
+  { id: "badge", label: "Badge", category: "Data Display" },
+  { id: "tag", label: "Tag", category: "Data Display" },
+  { id: "avatar", label: "Avatar", category: "Data Display" },
+  { id: "stat", label: "Stat", category: "Data Display" },
+  { id: "data-list", label: "Data List", category: "Data Display" },
+  { id: "meter", label: "Meter", category: "Data Display" },
+  { id: "kbd", label: "Kbd", category: "Data Display" },
+  { id: "flip-dot", label: "Flip Dot", category: "Data Display" },
+  { id: "split-flap", label: "Split Flap", category: "Data Display" },
+  { id: "departure-board", label: "Departure Board", category: "Data Display" },
+  { id: "odometer", label: "Odometer", category: "Data Display" },
+  { id: "chalkboard", label: "Chalkboard", category: "Data Display" },
+  { id: "ferrofluid", label: "Ferrofluid", category: "Data Display" },
+  { id: "tape-chart", label: "Tape Chart", category: "Data Display" },
   // ── Navigation ──────────────────────────────────────────────────────────
-  {
-    id: "tabs",
-    label: "Tabs",
-    category: "Navigation",
-    path: "/components/tabs",
-    load: () => import("../pages/navigation/TabsPage").then((m) => ({ default: m.TabsPage })),
-  },
-  {
-    id: "breadcrumb",
-    label: "Breadcrumb",
-    category: "Navigation",
-    path: "/components/breadcrumb",
-    load: () =>
-      import("../pages/navigation/BreadcrumbPage").then((m) => ({ default: m.BreadcrumbPage })),
-  },
-  {
-    id: "steps",
-    label: "Steps",
-    category: "Navigation",
-    path: "/components/steps",
-    load: () => import("../pages/navigation/StepsPage").then((m) => ({ default: m.StepsPage })),
-  },
-  {
-    id: "pagination",
-    label: "Pagination",
-    category: "Navigation",
-    path: "/components/pagination",
-    load: () =>
-      import("../pages/navigation/PaginationPage").then((m) => ({ default: m.PaginationPage })),
-  },
-  {
-    id: "navigation-menu",
-    label: "Navigation Menu",
-    category: "Navigation",
-    path: "/components/navigation-menu",
-    load: () =>
-      import("../pages/navigation/NavigationMenuPage").then((m) => ({
-        default: m.NavigationMenuPage,
-      })),
-  },
-  {
-    id: "tree",
-    label: "Tree",
-    category: "Navigation",
-    path: "/components/tree",
-    load: () => import("../pages/data/TreePage").then((m) => ({ default: m.TreePage })),
-  },
-  {
-    id: "sidebar",
-    label: "Sidebar",
-    category: "Navigation",
-    path: "/components/sidebar",
-    load: () => import("../pages/navigation/SidebarPage").then((m) => ({ default: m.SidebarPage })),
-  },
-  {
-    id: "navbar",
-    label: "Navbar",
-    category: "Navigation",
-    path: "/components/navbar",
-    load: () => import("../pages/navigation/NavbarPage").then((m) => ({ default: m.NavbarPage })),
-  },
+  { id: "tabs", label: "Tabs", category: "Navigation" },
+  { id: "breadcrumb", label: "Breadcrumb", category: "Navigation" },
+  { id: "steps", label: "Steps", category: "Navigation" },
+  { id: "pagination", label: "Pagination", category: "Navigation" },
+  { id: "navigation-menu", label: "Navigation Menu", category: "Navigation" },
+  { id: "tree", label: "Tree", category: "Navigation" },
+  { id: "sidebar", label: "Sidebar", category: "Navigation" },
+  { id: "navbar", label: "Navbar", category: "Navigation" },
   // ── Feedback ────────────────────────────────────────────────────────────
-  {
-    id: "toast",
-    label: "Toast",
-    category: "Feedback",
-    path: "/components/toast",
-    load: () => import("../pages/feedback/ToastPage").then((m) => ({ default: m.ToastPage })),
-  },
-  {
-    id: "alert",
-    label: "Alert",
-    category: "Feedback",
-    path: "/components/alert",
-    load: () => import("../pages/feedback/AlertPage").then((m) => ({ default: m.AlertPage })),
-  },
-  {
-    id: "banner",
-    label: "Banner",
-    category: "Feedback",
-    path: "/components/banner",
-    load: () => import("../pages/feedback/BannerPage").then((m) => ({ default: m.BannerPage })),
-  },
-  {
-    id: "progress",
-    label: "Progress",
-    category: "Feedback",
-    path: "/components/progress",
-    load: () => import("../pages/feedback/ProgressPage").then((m) => ({ default: m.ProgressPage })),
-  },
-  {
-    id: "spinner",
-    label: "Spinner",
-    category: "Feedback",
-    path: "/components/spinner",
-    load: () => import("../pages/feedback/SpinnerPage").then((m) => ({ default: m.SpinnerPage })),
-  },
-  {
-    id: "skeleton",
-    label: "Skeleton",
-    category: "Feedback",
-    path: "/components/skeleton",
-    load: () => import("../pages/feedback/SkeletonPage").then((m) => ({ default: m.SkeletonPage })),
-  },
-  {
-    id: "empty-state",
-    label: "Empty State",
-    category: "Feedback",
-    path: "/components/empty-state",
-    load: () =>
-      import("../pages/feedback/EmptyStatePage").then((m) => ({ default: m.EmptyStatePage })),
-  },
+  { id: "toast", label: "Toast", category: "Feedback" },
+  { id: "alert", label: "Alert", category: "Feedback" },
+  { id: "banner", label: "Banner", category: "Feedback" },
+  { id: "progress", label: "Progress", category: "Feedback" },
+  { id: "spinner", label: "Spinner", category: "Feedback" },
+  { id: "skeleton", label: "Skeleton", category: "Feedback" },
+  { id: "empty-state", label: "Empty State", category: "Feedback" },
   // ── Overlays ────────────────────────────────────────────────────────────
-  {
-    id: "dialog",
-    label: "Dialog",
-    category: "Overlays",
-    path: "/components/dialog",
-    load: () => import("../pages/overlays/DialogPage").then((m) => ({ default: m.DialogPage })),
-  },
-  {
-    id: "confirm-dialog",
-    label: "Confirm Dialog",
-    category: "Overlays",
-    path: "/components/confirm-dialog",
-    load: () =>
-      import("../pages/overlays/ConfirmDialogPage").then((m) => ({
-        default: m.ConfirmDialogPage,
-      })),
-  },
-  {
-    id: "drawer",
-    label: "Drawer",
-    category: "Overlays",
-    path: "/components/drawer",
-    load: () => import("../pages/overlays/DrawerPage").then((m) => ({ default: m.DrawerPage })),
-  },
-  {
-    id: "command-palette",
-    label: "Command Palette",
-    category: "Overlays",
-    path: "/components/command-palette",
-    load: () =>
-      import("../pages/overlays/CommandPalettePage").then((m) => ({
-        default: m.CommandPalettePage,
-      })),
-  },
-  {
-    id: "tooltip",
-    label: "Tooltip",
-    category: "Overlays",
-    path: "/components/tooltip",
-    load: () => import("../pages/overlays/TooltipPage").then((m) => ({ default: m.TooltipPage })),
-  },
-  {
-    id: "popover",
-    label: "Popover",
-    category: "Overlays",
-    path: "/components/popover",
-    load: () => import("../pages/overlays/PopoverPage").then((m) => ({ default: m.PopoverPage })),
-  },
-  {
-    id: "hover-card",
-    label: "Hover Card",
-    category: "Overlays",
-    path: "/components/hover-card",
-    load: () =>
-      import("../pages/overlays/HoverCardPage").then((m) => ({ default: m.HoverCardPage })),
-  },
-  {
-    id: "dropdown-menu",
-    label: "Dropdown Menu",
-    category: "Overlays",
-    path: "/components/dropdown-menu",
-    load: () =>
-      import("../pages/overlays/DropdownMenuPage").then((m) => ({
-        default: m.DropdownMenuPage,
-      })),
-  },
-  {
-    id: "context-menu",
-    label: "Context Menu",
-    category: "Overlays",
-    path: "/components/context-menu",
-    load: () =>
-      import("../pages/overlays/ContextMenuPage").then((m) => ({
-        default: m.ContextMenuPage,
-      })),
-  },
-  {
-    id: "disabled-tooltip",
-    label: "Disabled Tooltip",
-    category: "Overlays",
-    path: "/components/disabled-tooltip",
-    load: () =>
-      import("../pages/overlays/DisabledTooltipPage").then((m) => ({
-        default: m.DisabledTooltipPage,
-      })),
-  },
+  { id: "dialog", label: "Dialog", category: "Overlays" },
+  { id: "confirm-dialog", label: "Confirm Dialog", category: "Overlays" },
+  { id: "drawer", label: "Drawer", category: "Overlays" },
+  { id: "command-palette", label: "Command Palette", category: "Overlays" },
+  { id: "tooltip", label: "Tooltip", category: "Overlays" },
+  { id: "popover", label: "Popover", category: "Overlays" },
+  { id: "hover-card", label: "Hover Card", category: "Overlays" },
+  { id: "dropdown-menu", label: "Dropdown Menu", category: "Overlays" },
+  { id: "context-menu", label: "Context Menu", category: "Overlays" },
+  { id: "disabled-tooltip", label: "Disabled Tooltip", category: "Overlays" },
   // ── Layout ──────────────────────────────────────────────────────────────
-  {
-    id: "divider",
-    label: "Divider",
-    category: "Layout",
-    path: "/components/divider",
-    load: () => import("../pages/layout/DividerPage").then((m) => ({ default: m.DividerPage })),
-  },
-  {
-    id: "text",
-    label: "Text",
-    category: "Layout",
-    path: "/components/text",
-    load: () => import("../pages/layout/TextPage").then((m) => ({ default: m.TextPage })),
-  },
-  {
-    id: "stack",
-    label: "Stack",
-    category: "Layout",
-    path: "/components/stack",
-    load: () => import("../pages/layout/StackPage").then((m) => ({ default: m.StackPage })),
-  },
-  {
-    id: "collapsible",
-    label: "Collapsible",
-    category: "Layout",
-    path: "/components/collapsible",
-    load: () =>
-      import("../pages/layout/CollapsiblePage").then((m) => ({ default: m.CollapsiblePage })),
-  },
-  {
-    id: "accordion",
-    label: "Accordion",
-    category: "Layout",
-    path: "/components/accordion",
-    load: () => import("../pages/layout/AccordionPage").then((m) => ({ default: m.AccordionPage })),
-  },
-  {
-    id: "aspect-ratio",
-    label: "Aspect Ratio",
-    category: "Layout",
-    path: "/components/aspect-ratio",
-    load: () =>
-      import("../pages/layout/AspectRatioPage").then((m) => ({ default: m.AspectRatioPage })),
-  },
-  {
-    id: "split-screen-exit",
-    label: "Split Screen Exit",
-    category: "Layout",
-    path: "/components/split-screen-exit",
-    load: () =>
-      import("../pages/layout/SplitScreenExitPage").then((m) => ({
-        default: m.SplitScreenExitPage,
-      })),
-  },
-  {
-    id: "scroll-area",
-    label: "Scroll Area",
-    category: "Layout",
-    path: "/components/scroll-area",
-    load: () =>
-      import("../pages/layout/ScrollAreaPage").then((m) => ({ default: m.ScrollAreaPage })),
-  },
-  {
-    id: "timeline",
-    label: "Timeline",
-    category: "Layout",
-    path: "/components/timeline",
-    load: () => import("../pages/data/TimelinePage").then((m) => ({ default: m.TimelinePage })),
-  },
-  {
-    id: "hero",
-    label: "Hero",
-    category: "Layout",
-    path: "/components/hero",
-    load: () => import("../pages/layout/HeroPage").then((m) => ({ default: m.HeroPage })),
-  },
-  {
-    id: "footer",
-    label: "Footer",
-    category: "Layout",
-    path: "/components/footer",
-    load: () => import("../pages/layout/FooterPage").then((m) => ({ default: m.FooterPage })),
-  },
-  {
-    id: "page-header",
-    label: "Page Header",
-    category: "Layout",
-    path: "/components/page-header",
-    load: () =>
-      import("../pages/layout/PageHeaderPage").then((m) => ({ default: m.PageHeaderPage })),
-  },
+  { id: "divider", label: "Divider", category: "Layout" },
+  { id: "text", label: "Text", category: "Layout" },
+  { id: "stack", label: "Stack", category: "Layout" },
+  { id: "collapsible", label: "Collapsible", category: "Layout" },
+  { id: "accordion", label: "Accordion", category: "Layout" },
+  { id: "aspect-ratio", label: "Aspect Ratio", category: "Layout" },
+  { id: "split-screen-exit", label: "Split Screen Exit", category: "Layout" },
+  { id: "scroll-area", label: "Scroll Area", category: "Layout" },
+  { id: "timeline", label: "Timeline", category: "Layout" },
+  { id: "hero", label: "Hero", category: "Layout" },
+  { id: "footer", label: "Footer", category: "Layout" },
+  { id: "page-header", label: "Page Header", category: "Layout" },
   // ── Tokens ──────────────────────────────────────────────────────────────
-  {
-    id: "motion",
-    label: "Motion",
-    category: "Tokens",
-    path: "/components/motion",
-    load: () => import("../pages/tokens/MotionPage").then((m) => ({ default: m.MotionPage })),
-  },
-  {
-    id: "typography",
-    label: "Typography",
-    category: "Tokens",
-    path: "/components/typography",
-    load: () =>
-      import("../pages/tokens/TypographyPage").then((m) => ({ default: m.TypographyPage })),
-  },
-  {
-    id: "color",
-    label: "Color",
-    category: "Tokens",
-    path: "/components/color",
-    load: () => import("../pages/tokens/ColorPage").then((m) => ({ default: m.ColorPage })),
-  },
-  {
-    id: "spacing",
-    label: "Spacing",
-    category: "Tokens",
-    path: "/components/spacing",
-    load: () => import("../pages/tokens/SpacingPage").then((m) => ({ default: m.SpacingPage })),
-  },
-  {
-    id: "radius",
-    label: "Radius",
-    category: "Tokens",
-    path: "/components/radius",
-    load: () => import("../pages/tokens/RadiusPage").then((m) => ({ default: m.RadiusPage })),
-  },
-  {
-    id: "shadows",
-    label: "Shadows",
-    category: "Tokens",
-    path: "/components/shadows",
-    load: () => import("../pages/tokens/ShadowsPage").then((m) => ({ default: m.ShadowsPage })),
-  },
-  {
-    id: "surfaces",
-    label: "Surfaces",
-    category: "Tokens",
-    path: "/components/surfaces",
-    load: () =>
-      import("../pages/tokens/SurfacesPage").then((m) => ({ default: m.SurfacesPage })),
-  },
-  {
-    id: "icon-vocabulary",
-    label: "Icon Vocabulary",
-    category: "Tokens",
-    path: "/components/icon-vocabulary",
-    load: () =>
-      import("../pages/tokens/IconVocabularyPage").then((m) => ({
-        default: m.IconVocabularyPage,
-      })),
-  },
+  { id: "motion", label: "Motion", category: "Tokens" },
+  { id: "typography", label: "Typography", category: "Tokens" },
+  { id: "color", label: "Color", category: "Tokens" },
+  { id: "spacing", label: "Spacing", category: "Tokens" },
+  { id: "radius", label: "Radius", category: "Tokens" },
+  { id: "shadows", label: "Shadows", category: "Tokens" },
+  { id: "surfaces", label: "Surfaces", category: "Tokens" },
+  { id: "icon-vocabulary", label: "Icon Vocabulary", category: "Tokens" },
   // ── Dashboard ───────────────────────────────────────────────────────────
+  // Reuses the /demos/dashboard page component — module name doesn't match label.
   {
     id: "acmm-dashboard",
     label: "ACMM Dashboard",
     category: "Dashboard",
-    path: "/dashboard",
     load: () => import("../pages/dashboard/Dashboard").then((m) => ({ default: m.Dashboard })),
   },
   // ── Examples ────────────────────────────────────────────────────────────
-  {
-    id: "example-dashboard",
-    label: "Dashboard",
-    category: "Examples",
-    path: "/examples/dashboard",
-    load: () =>
-      import("../pages/examples/DashboardExamplePage").then((m) => ({
-        default: m.DashboardExamplePage,
-      })),
-  },
-  {
-    id: "example-settings",
-    label: "Settings",
-    category: "Examples",
-    path: "/examples/settings",
-    load: () =>
-      import("../pages/examples/SettingsExamplePage").then((m) => ({
-        default: m.SettingsExamplePage,
-      })),
-  },
-  {
-    id: "example-form",
-    label: "Form States",
-    category: "Examples",
-    path: "/examples/form",
-    load: () =>
-      import("../pages/examples/FormStatesExamplePage").then((m) => ({
-        default: m.FormStatesExamplePage,
-      })),
-  },
-  {
-    id: "example-reservations",
-    label: "Reservations List",
-    category: "Examples",
-    path: "/examples/reservations",
-    load: () =>
-      import("../pages/examples/ReservationsListExamplePage").then((m) => ({
-        default: m.ReservationsListExamplePage,
-      })),
-  },
+  { id: "example-dashboard", label: "Dashboard", category: "Examples" },
+  { id: "example-settings", label: "Settings", category: "Examples" },
+  { id: "example-form", label: "Form States", category: "Examples" },
+  { id: "example-reservations", label: "Reservations List", category: "Examples" },
+  // Module predates the "Guest Profile" label (originally "guest detail").
   {
     id: "example-guest-profile",
     label: "Guest Profile",
     category: "Examples",
-    path: "/examples/guest-profile",
     load: () =>
       import("../pages/examples/GuestDetailExamplePage").then((m) => ({
         default: m.GuestDetailExamplePage,
       })),
   },
+  // Error pages use descriptive module names, not the numeric label.
   {
     id: "example-error-403",
     label: "Error 403",
     category: "Examples",
-    path: "/examples/error-403",
     load: () =>
       import("../pages/examples/ErrorForbiddenExamplePage").then((m) => ({
         default: m.ErrorForbiddenExamplePage,
@@ -728,7 +259,6 @@ export const PAGE_REGISTRY: PageEntry[] = [
     id: "example-error-404",
     label: "Error 404",
     category: "Examples",
-    path: "/examples/error-404",
     load: () =>
       import("../pages/examples/ErrorNotFoundExamplePage").then((m) => ({
         default: m.ErrorNotFoundExamplePage,
@@ -738,53 +268,19 @@ export const PAGE_REGISTRY: PageEntry[] = [
     id: "example-error-500",
     label: "Error 500",
     category: "Examples",
-    path: "/examples/error-500",
     load: () =>
       import("../pages/examples/ErrorServerExamplePage").then((m) => ({
         default: m.ErrorServerExamplePage,
       })),
   },
-  {
-    id: "example-booking-confirmed",
-    label: "Booking Confirmed",
-    category: "Examples",
-    path: "/examples/booking-confirmed",
-    load: () =>
-      import("../pages/examples/BookingConfirmedExamplePage").then((m) => ({
-        default: m.BookingConfirmedExamplePage,
-      })),
-  },
-  {
-    id: "example-booking-failed",
-    label: "Booking Failed",
-    category: "Examples",
-    path: "/examples/booking-failed",
-    load: () =>
-      import("../pages/examples/BookingFailedExamplePage").then((m) => ({
-        default: m.BookingFailedExamplePage,
-      })),
-  },
-  {
-    id: "example-pricing-table",
-    label: "Pricing Table",
-    category: "Examples",
-    path: "/examples/pricing-table",
-    load: () =>
-      import("../pages/examples/PricingTableExamplePage").then((m) => ({
-        default: m.PricingTableExamplePage,
-      })),
-  },
-  {
-    id: "example-command-palette",
-    label: "Command Palette",
-    category: "Examples",
-    path: "/examples/command-palette",
-    load: () =>
-      import("../pages/examples/CommandPaletteExamplePage").then((m) => ({
-        default: m.CommandPaletteExamplePage,
-      })),
-  },
+  { id: "example-booking-confirmed", label: "Booking Confirmed", category: "Examples" },
+  { id: "example-booking-failed", label: "Booking Failed", category: "Examples" },
+  { id: "example-pricing-table", label: "Pricing Table", category: "Examples" },
+  { id: "example-command-palette", label: "Command Palette", category: "Examples" },
 ];
+
+/** The full registry, derived from the raw entries above. */
+export const PAGE_REGISTRY: PageEntry[] = buildPageRegistry(RAW_PAGE_ENTRIES);
 
 // ---------------------------------------------------------------------------
 // Derived nav sections

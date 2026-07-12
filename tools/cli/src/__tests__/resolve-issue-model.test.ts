@@ -42,7 +42,7 @@ describe("resolveIssueModel", () => {
 
     expect(result.source).toBe("router");
     expect(result.tier).toBe("sonnet");
-    expect(result.modelId).toBe("claude-sonnet-4-6");
+    expect(result.modelId).toBe("claude-sonnet-5");
   });
 
   it("routes a lightweight dependency bump to haiku via the router", () => {
@@ -97,7 +97,7 @@ describe("resolveEscalatedModel", () => {
     const result = resolveEscalatedModel(issueWithEscalate("sonnet"));
     expect(result).not.toBeNull();
     expect(result!.tier).toBe("sonnet");
-    expect(result!.modelId).toBe("claude-sonnet-4-6");
+    expect(result!.modelId).toBe("claude-sonnet-5");
     expect(result!.source).toBe("escalate");
   });
 
@@ -135,7 +135,7 @@ describe("buildSpendAttempts", () => {
   };
   const escalatedResult = {
     tier: "sonnet" as const,
-    modelId: "claude-sonnet-4-6",
+    modelId: "claude-sonnet-5",
     reason: "Escalated from failed run: retrying at declared escalate tier (sonnet)",
     source: "escalate" as const,
   };
@@ -160,7 +160,7 @@ describe("buildSpendAttempts", () => {
     expect(first.escalated).toBe(false);
 
     expect(second.sessionId).toBe("issue-42.attempt-2");
-    expect(second.modelId).toBe("claude-sonnet-4-6");
+    expect(second.modelId).toBe("claude-sonnet-5");
     expect(second.costUsd).toBe(0.12);
     expect(second.escalated).toBe(true);
   });

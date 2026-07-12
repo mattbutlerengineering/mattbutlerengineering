@@ -32,41 +32,42 @@
         "primary": {
           "$value": "#1a1918",
           "$type": "color",
-          "$description": "Headings, body text, primary labels"
+          "$description": "Headings, body text, primary labels (16.28:1 on surface — WCAG AAA)"
         },
         "secondary": {
           "$value": "#6b6660",
           "$type": "color",
-          "$description": "Descriptions, helper text, secondary labels"
+          "$description": "Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA)"
         },
         "tertiary": {
           "$value": "#747070",
           "$type": "color",
-          "$description": "Placeholders, disabled text, timestamps"
+          "$description": "Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum)"
         },
         "on-accent": {
           "$value": "#1a1918",
           "$type": "color",
-          "$description": "Text on accent-filled backgrounds"
+          "$description": "Text on accent-filled backgrounds (primary buttons, badges)"
         }
       },
       "border": {
         "default": {
-          "$value": "#d8d4cd",
+          "$value": "#918d87",
           "$type": "color",
-          "$description": "Default borders for cards, inputs, dividers"
+          "$description": "Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI)"
         },
         "strong": {
-          "$value": "#b8b4ad",
+          "$value": "#88837c",
           "$type": "color",
-          "$description": "Emphasized borders, active input outlines"
+          "$description": "Emphasized borders, active input outlines (3.49:1 on surface — WCAG AA UI)"
         }
       },
       "accent": {
+        "$description": "Amber gold — surgical use only",
         "default": {
           "$value": "#b0841e",
           "$type": "color",
-          "$description": "Primary buttons, focus rings, active/selected states"
+          "$description": "Primary buttons, focus rings, active/selected states only"
         },
         "hover": {
           "$value": "#c0942e",
@@ -76,12 +77,12 @@
         "muted": {
           "$value": "rgb(176 132 30 / 0.12)",
           "$type": "color",
-          "$description": "Subtle accent backgrounds"
+          "$description": "Subtle accent backgrounds (selected rows, active tabs)"
         },
         "glow": {
           "$value": "rgb(176 132 30 / 0.35)",
           "$type": "color",
-          "$description": "Focus ring outer glow"
+          "$description": "Focus ring outer glow (used in --rialto-shadow-focus)"
         }
       },
       "semantic": {
@@ -89,12 +90,12 @@
           "default": {
             "$value": "#b84a3c",
             "$type": "color",
-            "$description": "Error text, destructive button fills"
+            "$description": "Error text, destructive button fills, invalid borders"
           },
           "muted": {
             "$value": "rgb(184 74 60 / 0.1)",
             "$type": "color",
-            "$description": "Error alert backgrounds"
+            "$description": "Error alert backgrounds, error badge tints"
           }
         },
         "warning": {
@@ -118,14 +119,14 @@
           "muted": {
             "$value": "rgb(94 106 46 / 0.1)",
             "$type": "color",
-            "$description": "Success alert backgrounds"
+            "$description": "Success alert backgrounds, success badge tints"
           }
         }
       },
       "overlay": {
         "$value": "rgb(26 25 24 / 0.4)",
         "$type": "color",
-        "$description": "Modal/drawer backdrop"
+        "$description": "Modal/drawer backdrop, scrim behind overlays"
       }
     },
     "shadow": {
@@ -178,6 +179,7 @@
   },
   "rialto/dark": {
     "color": {
+      "$description": "Dark theme. Warm charcoal palette — maintains material honesty and the \"warmth over coldness\" principle. No pure black, no blue-grays. Surfaces use subtle warm undertones.",
       "surface": {
         "default": {
           "$value": "#1e1c1a",
@@ -210,7 +212,7 @@
           "$type": "color"
         },
         "tertiary": {
-          "$value": "rgb(253 252 250 / 0.50)",
+          "$value": "rgb(253 252 250 / 0.5)",
           "$type": "color"
         },
         "on-accent": {
@@ -220,15 +222,16 @@
       },
       "border": {
         "default": {
-          "$value": "rgb(255 255 255 / 0.1)",
+          "$value": "rgb(255 255 255 / 0.4)",
           "$type": "color"
         },
         "strong": {
-          "$value": "rgb(255 255 255 / 0.2)",
+          "$value": "rgb(255 255 255 / 0.6)",
           "$type": "color"
         }
       },
       "accent": {
+        "$description": "Same gold, slightly brighter for dark backgrounds",
         "default": {
           "$value": "#d4a23a",
           "$type": "color"

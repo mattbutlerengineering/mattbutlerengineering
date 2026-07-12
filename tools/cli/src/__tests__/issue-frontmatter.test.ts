@@ -173,7 +173,7 @@ describe("flagsFromOverrides", () => {
       flagsFromOverrides({ model: "sonnet", budget: 0.5, maxTurns: 30, adapter: "auto" })
     ).toEqual([
       "--model",
-      "claude-sonnet-4-6",
+      "claude-sonnet-5",
       "--max-budget",
       "0.5",
       "--max-turns",

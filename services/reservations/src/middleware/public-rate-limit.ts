@@ -1,4 +1,4 @@
-import type { preHandlerHookHandler } from "fastify";
+import type { preHandlerAsyncHookHandler } from "fastify";
 
 interface RateLimitEntry {
   count: number;
@@ -54,7 +54,7 @@ export function decrementHoldCount(ip: string): void {
 
 export { MAX_ACTIVE_HOLDS };
 
-export const publicRateLimitHook: preHandlerHookHandler = async (request, reply) => {
+export const publicRateLimitHook: preHandlerAsyncHookHandler = async (request, reply) => {
   const ip = request.ip;
   const urlParts = request.url.split("/");
   const venueIdx = urlParts.indexOf("venues");

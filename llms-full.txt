@@ -2270,14 +2270,20 @@
           };
     
           try {
-            const result = await runSession(config, (event: SessionEvent) => {
-              if (options.verbose) {
-                const timestamp = new Date(event.timestamp).toLocaleTimeString();
-                if (event.type === "session:start" || event.type === "session:result") {
-                  const data = event.data as { message: string };
-                  console.log(`[${timestamp}] ${data.message}`);
+            // Single entry point for every adapter (#2973), same seam `run.ts`
+            // uses: the failover cascade and full gate/publish pipeline live in
+            // agent-core, behind runAgentSession().
+            const result = await runAgentSession(config, {
+              adapter: resolveSessionAdapter("claude"),
+              onEvent: (event: SessionEvent) => {
+                if (options.verbose) {
+                  const timestamp = new Date(event.timestamp).toLocaleTimeString();
+                  if (event.type === "session:start" || event.type === "session:result") {
+                    const data = event.data as { message: string };
+                    console.log(`[${timestamp}] ${data.message}`);
+                  }
                 }
-              }
+              },
             });
     
             totalCost += result.costUsd;
@@ -2757,7 +2763,7 @@
       .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
       .option("--base-branch <branch>", "Base branch to branch from", "main")
       .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
-      .option("--model <model>", "Model to use for the agent", "claude-sonnet-4-6")
+      .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
       .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
       .option("--max-turns <n>", "Maximum turns per agent", "100")
       .action(async (tasks: string[], options) => {
@@ -3143,11 +3149,13 @@
       comingSoon?: boolean;
       load: () => Promise<unknown>;
     }
-    export interface NavItem {
+    export interface RawPageEntry {
       id: string;
       label: string;
-      path: string;
+      category: string;
       comingSoon?: boolean;
+      /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
+      load?: () => Promise<unknown>;
     }
   </file>
   <file path="apps/rialto-web/src/data/rialto-tokens.ts">
@@ -3537,7 +3545,7 @@
       readonly eventType = "session:evaluation" as const;
     
       shouldSkip(context: GateContext): boolean {
-        return context.evaluateSuccess === false;
+        return context.config.evaluateSuccess === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -3582,7 +3590,7 @@
       readonly eventType = "session:review" as const;
     
       shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
-        if (context.runSecurityReview === false) return true;
+        if (context.config.runSecurityReview === false) return true;
         return previousResults.some((r) => r.gateName === "static-analysis" && !r.passed);
       }
     
@@ -3616,7 +3624,7 @@
       readonly eventType = "session:verification" as const;
     
       shouldSkip(context: GateContext): boolean {
-        return context.runStaticAnalysis === false;
+        return context.config.runStaticAnalysis === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -4646,6 +4654,16 @@
       getAccessToken?: () => string | null | undefined;
       /** Injectable fetchEventSource implementation — defaults to the real one. */
       fetchEventSourceImpl?: FetchEventSourceFn;
+    }
+  </file>
+  <file path="packages/rialto/scripts/lib/color-tokens.ts">
+    export interface DtcgToken {
+      readonly $value: string | number;
+      readonly $type: string;
+      readonly $description?: string;
+    }
+    export interface TokenGroup {
+      readonly [key: string]: DtcgToken | TokenGroup | string | undefined;
     }
   </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
@@ -11228,6 +11246,21 @@
       }
     }
   </file>
+  <file path="packages/rialto/scripts/generate-colors-css.ts">
+    function assertCommentSafe(text: string): string {
+      if (text.includes("*/")) {
+        throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+      }
+      return text;
+    }
+    function sectionHeader(key: string, description: string | undefined): string {
+      const title = key.charAt(0).toUpperCase() + key.slice(1);
+      const label =
+        description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+      const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
+      return `  /* ── ${label} ${fill} */`;
+    }
+  </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
     interface ExportEntry {
       types?: string;
@@ -11237,13 +11270,12 @@
     type ExportsMap = Record<string, string | ExportEntry>;
   </file>
   <file path="packages/rialto/scripts/generate-figma-tokens.ts">
-    interface DtcgToken {
-      readonly $value: string | number;
-      readonly $type: string;
-      readonly $description?: string;
+    interface FigmaTokenSets {
+      readonly [setName: string]: TokenGroup;
     }
-    interface TokenGroup {
-      readonly [key: string]: DtcgToken | TokenGroup;
+    function readJson(filePath: string): TokenGroup {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
     }
   </file>
   <file path="packages/rialto/scripts/generate-manifest.ts">
@@ -13831,6 +13863,11 @@
     export const isDocFile = (f: string): boolean => f.endsWith(".md") || f.startsWith("docs/");
   </file>
   <file path="packages/agent-core/src/gate-runner.ts">
+    export interface PostCommitGatewayConfig {
+      evaluateSuccess?: boolean;
+      runSecurityReview?: boolean;
+      runStaticAnalysis?: boolean;
+    }
     export interface GateContext {
       /** The git diff produced by the agent's commit. */
       readonly diff: string;
@@ -13838,28 +13875,13 @@
       readonly taskDescription: string;
       /** The commit message written when the agent committed changes. */
       readonly commitMsg: string;
-      /** Whether LLM success evaluation is enabled in the session config. */
-      readonly evaluateSuccess: boolean;
-      /** Whether static diff analysis is enabled in the session config. */
-      readonly runStaticAnalysis: boolean;
-      /** Whether AI security review is enabled in the session config. */
-      readonly runSecurityReview: boolean;
-    }
-    export interface GateResult {
-      /** Whether this gate passed. Skipped gates always report passed=true. */
-      readonly passed: boolean;
-      /** The name of the gate that produced this result. */
-      readonly gateName: string;
-      /** Severity level of this gate — drives draft-PR vs normal-PR decision. */
-      readonly severity: "error" | "warning";
-      /** Human-readable details about a failure or a skip reason. */
-      readonly details?: string;
       /**
-       * Optional typed domain output produced by this gate.
-       * Callers extract domain data from the results array by gate name rather
-       * than querying mutable instance state.
+       * Per-gate enablement toggles from the session config, passed through
+       * unchanged. Gates read their own flag (e.g. `config.runStaticAnalysis`)
+       * in `shouldSkip` rather than GateContext exposing one named boolean per
+       * gate.
        */
-      readonly output?: unknown;
+      readonly config: PostCommitGatewayConfig;
     }
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
@@ -13912,7 +13934,7 @@
   <file path="packages/agent-core/src/model-registry.ts">
     export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
       haiku: "claude-haiku-4-5-20251001",
-      sonnet: "claude-sonnet-4-6",
+      sonnet: "claude-sonnet-5",
       opus: "claude-opus-4-8",
     };
     export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
@@ -14803,6 +14825,13 @@
         cacheWritePer1MTokens: 3.75,
         cacheReadPer1MTokens: 0.3,
       },
+      "claude-sonnet-5": {
+        model: "claude-sonnet-5",
+        inputCostPer1MTokens: 3.0,
+        outputCostPer1MTokens: 15.0,
+        cacheWritePer1MTokens: 3.75,
+        cacheReadPer1MTokens: 0.3,
+      },
       "claude-haiku-4-5": {
         model: "claude-haiku-4-5",
         inputCostPer1MTokens: 0.8,
@@ -14810,12 +14839,12 @@
         cacheWritePer1MTokens: 1.0,
         cacheReadPer1MTokens: 0.08,
       },
-      "claude-opus-4-5": {
-        model: "claude-opus-4-5",
-        inputCostPer1MTokens: 15.0,
-        outputCostPer1MTokens: 75.0,
-        cacheWritePer1MTokens: 18.75,
-        cacheReadPer1MTokens: 1.5,
+      "claude-opus-4-8": {
+        model: "claude-opus-4-8",
+        inputCostPer1MTokens: 5.0,
+        outputCostPer1MTokens: 25.0,
+        cacheWritePer1MTokens: 6.25,
+        cacheReadPer1MTokens: 0.5,
       },
     } as const;
   </file>
@@ -17573,7 +17602,6 @@
     });
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
-    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
     export interface AgentOverrides {
       model?: ModelTier;
       budget?: number;
@@ -17582,6 +17610,10 @@
       /** Tier to retry at when the initial run fails. One escalation max. */
       escalate?: ModelTier;
       verify?: string;
+    }
+    export interface ParseResult {
+      overrides: AgentOverrides | null;
+      warnings: string[];
     }
   </file>
   <file path="tools/cli/src/monorepo-root.ts">
@@ -18075,7 +18107,9 @@
       if (typeof window === "undefined") return;
     
       try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        // Safari < 14.1 only exposes the prefixed constructor, which lib.dom types omit.
+        const legacyWindow = window as Window & { webkitAudioContext?: typeof AudioContext };
+        const AudioContextClass = window.AudioContext || legacyWindow.webkitAudioContext;
         if (!AudioContextClass) return;
     
         const audioCtx = new AudioContextClass();

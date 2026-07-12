@@ -22,35 +22,57 @@ if ! node scripts/check-ai-antipatterns.mjs; then
   exit 1
 fi
 
-# Build CLI and its transitive deps before running regen.
-# In a bare worktree (after pnpm install with no prior build) @mbe/agent-core/dist
-# doesn't exist. Without this step, `pnpm regen` calls `mbe pack` which fails
-# with ERR_MODULE_NOT_FOUND, silently leaving llms.txt unchanged. CI then runs
-# `pnpm build && pnpm regen` in the right order, finds different content → drift.
-# Turbo caches the build so this is near-instant when CLI source is unchanged.
-echo "pre-push: building CLI for regen..."
-if ! pnpm build --filter @mbe/cli...; then
-  echo ""
-  echo "ERROR: CLI build failed — fix the TypeScript errors above before pushing."
-  echo "Emergency bypass: git push --no-verify"
-  echo ""
-  exit 1
+# Gate the expensive CLI-build + full-regen path on whether this branch's diff
+# actually touches generated-artifact sources (scripts/check-regen-needed.mjs,
+# backed by REGEN_SOURCE_PREFIXES in regen-manifest.mjs — the same gate the
+# implement-queue worker uses). Docs-only / test-only / workflow-only pushes
+# skip ~2 minutes of build + regen.
+#
+# Safety: CI's build job still runs the authoritative `pnpm regen && pnpm regen
+# --check` on every PR and main push, so a wrong "check" verdict here can only
+# delay drift detection to CI — never let it land. If the gating script itself
+# fails (missing origin/main, etc.), fail safe to the full path.
+REGEN_MODE=$(node scripts/check-regen-needed.mjs 2>/dev/null) || REGEN_MODE=full
+
+# Fail-safe direction: anything other than an explicit "check" verdict
+# (including unexpected output) takes the full path.
+if [ "$REGEN_MODE" != "check" ]; then
+  # Build CLI and its transitive deps before running regen.
+  # In a bare worktree (after pnpm install with no prior build) @mbe/agent-core/dist
+  # doesn't exist. Without this step, `pnpm regen` calls `mbe pack` which fails
+  # with ERR_MODULE_NOT_FOUND, silently leaving llms.txt unchanged. CI then runs
+  # `pnpm build && pnpm regen` in the right order, finds different content → drift.
+  # Turbo caches the build so this is near-instant when CLI source is unchanged.
+  echo "pre-push: building CLI for regen..."
+  if ! pnpm build --filter @mbe/cli...; then
+    echo ""
+    echo "ERROR: CLI build failed — fix the TypeScript errors above before pushing."
+    echo "Emergency bypass: git push --no-verify"
+    echo ""
+    exit 1
+  fi
+
+  # Run the full artifact regeneration before checking. This mirrors what CI does:
+  # `pnpm regen` (regenerate) then `pnpm regen --check` (verify the regen was
+  # a no-op vs the working tree). Running only --check on a diff that touches
+  # regen sources was the prior bug: it compared working-tree vs index, passing
+  # even when the committed artifacts were stale relative to what CI would
+  # generate from scratch.
+  echo "pre-push: regenerating generated artifacts..."
+  if ! pnpm regen; then
+    echo ""
+    echo "ERROR: artifact regeneration failed — fix the error above before pushing."
+    echo "Emergency bypass: git push --no-verify"
+    echo ""
+    exit 1
+  fi
+else
+  echo "pre-push: no generated-artifact sources changed — skipping CLI build + regen (fast path)"
 fi
 
-# Run the full artifact regeneration before checking. This mirrors what CI does:
-# `pnpm regen` (regenerate) then `pnpm regen --check` (verify the regen was
-# a no-op vs the working tree). Running only --check here was the prior bug:
-# it compared working-tree vs index, passing even when the committed artifacts
-# were stale relative to what CI would generate from scratch.
-echo "pre-push: regenerating generated artifacts..."
-if ! pnpm regen; then
-  echo ""
-  echo "ERROR: artifact regeneration failed — fix the error above before pushing."
-  echo "Emergency bypass: git push --no-verify"
-  echo ""
-  exit 1
-fi
-
+# Always run the cheap output-cleanliness check (git status of committed
+# artifacts, no regeneration): catches hand-edited or uncommitted artifact
+# files on both paths for ~0 cost.
 if ! pnpm regen --check; then
   echo ""
   echo "ERROR: generated artifacts are out of sync (stale artifact + fix command shown above)."

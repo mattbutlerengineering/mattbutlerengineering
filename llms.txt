@@ -999,11 +999,12 @@
       }
     </item>
     <item priority="low">
-      interface NavItem {
+      interface RawPageEntry {
         id: string;
         label: string;
-        path: string;
+        category: string;
         comingSoon?: boolean;
+        load?: () => Promise<unknown>;
       }
     </item>
   </file>
@@ -1794,6 +1795,20 @@
         onEvent: (type: string, payload: unknown) => void;
         onError: (error: Error) => void;
         onConnected?: () => void;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/scripts/lib/color-tokens.ts">
+    <item priority="low">
+      interface DtcgToken {
+        $value: string | number;
+        $type: string;
+        $description?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TokenGroup {
+        
       }
     </item>
   </file>
@@ -2600,6 +2615,14 @@
       function main(): void { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/scripts/generate-colors-css.ts">
+    <item priority="medium">
+      function assertCommentSafe(text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sectionHeader(key: string, description: string | undefined): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {
@@ -2614,16 +2637,12 @@
   </file>
   <file path="packages/rialto/scripts/generate-figma-tokens.ts">
     <item priority="high">
-      interface DtcgToken {
-        $value: string | number;
-        $type: string;
-        $description?: string;
-      }
-    </item>
-    <item priority="high">
-      interface TokenGroup {
+      interface FigmaTokenSets {
         
       }
+    </item>
+    <item priority="medium">
+      function readJson(filePath: string): TokenGroup { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/scripts/generate-manifest.ts">
@@ -3817,21 +3836,18 @@
   </file>
   <file path="packages/agent-core/src/gate-runner.ts">
     <item priority="low">
+      interface PostCommitGatewayConfig {
+        evaluateSuccess?: boolean;
+        runSecurityReview?: boolean;
+        runStaticAnalysis?: boolean;
+      }
+    </item>
+    <item priority="low">
       interface GateContext {
         diff: string;
         taskDescription: string;
         commitMsg: string;
-        evaluateSuccess: boolean;
-        runStaticAnalysis: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface GateResult {
-        passed: boolean;
-        gateName: string;
-        severity: "error" | "warning";
-        details?: string;
-        output?: unknown;
+        config: PostCommitGatewayConfig;
       }
     </item>
   </file>
@@ -5539,15 +5555,18 @@
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
-    </item>
-    <item priority="low">
       interface AgentOverrides {
         model?: ModelTier;
         budget?: number;
         maxTurns?: number;
         adapter?: AdapterType;
         escalate?: ModelTier;
+      }
+    </item>
+    <item priority="low">
+      interface ParseResult {
+        overrides: AgentOverrides | null;
+        warnings: string[];
       }
     </item>
   </file>

@@ -43,7 +43,7 @@ describe("calculateCost", () => {
   it("calculates cost for sonnet", () => {
     const cost = calculateCost({ inputTokens: 1_000_000, outputTokens: 0 });
     expect(cost.inputCostUsd).toBeCloseTo(3.0);
-    expect(cost.model).toBe("claude-sonnet-4-6");
+    expect(cost.model).toBe("claude-sonnet-5");
   });
 
   it("calculates output cost separately", () => {
@@ -77,7 +77,7 @@ describe("calculateCost", () => {
 
   it("falls back to sonnet for unknown model", () => {
     const cost = calculateCost({ inputTokens: 1_000_000, outputTokens: 0 }, "unknown-model");
-    expect(cost.model).toBe("claude-sonnet-4-6");
+    expect(cost.model).toBe("claude-sonnet-5");
   });
 
   it("totalCostUsd is sum of all components", () => {
@@ -97,7 +97,7 @@ describe("estimateSessionCost", () => {
   it("returns a cost breakdown", () => {
     const cost = estimateSessionCost("Fix the login bug");
     expect(cost.totalCostUsd).toBeGreaterThan(0);
-    expect(cost.model).toBe("claude-sonnet-4-6");
+    expect(cost.model).toBe("claude-sonnet-5");
   });
 
   it("respects custom turn count (more turns = more cost)", () => {
@@ -108,7 +108,7 @@ describe("estimateSessionCost", () => {
 
   it("respects custom model", () => {
     const haiku = estimateSessionCost("task", { model: "claude-haiku-4-5" });
-    const sonnet = estimateSessionCost("task", { model: "claude-sonnet-4-6" });
+    const sonnet = estimateSessionCost("task", { model: "claude-sonnet-5" });
     expect(sonnet.totalCostUsd).toBeGreaterThan(haiku.totalCostUsd);
   });
 });
@@ -194,13 +194,14 @@ describe("estimateLatency", () => {
 describe("MODEL_PRICING", () => {
   it("contains entries for all main models", () => {
     expect(MODEL_PRICING["claude-sonnet-4-6"]).toBeDefined();
+    expect(MODEL_PRICING["claude-sonnet-5"]).toBeDefined();
     expect(MODEL_PRICING["claude-haiku-4-5"]).toBeDefined();
-    expect(MODEL_PRICING["claude-opus-4-5"]).toBeDefined();
+    expect(MODEL_PRICING["claude-opus-4-8"]).toBeDefined();
   });
 
   it("opus is most expensive model", () => {
-    const sonnet = MODEL_PRICING["claude-sonnet-4-6"].inputCostPer1MTokens;
-    const opus = MODEL_PRICING["claude-opus-4-5"].inputCostPer1MTokens;
+    const sonnet = MODEL_PRICING["claude-sonnet-5"].inputCostPer1MTokens;
+    const opus = MODEL_PRICING["claude-opus-4-8"].inputCostPer1MTokens;
     const haiku = MODEL_PRICING["claude-haiku-4-5"].inputCostPer1MTokens;
     expect(opus).toBeGreaterThan(sonnet);
     expect(sonnet).toBeGreaterThan(haiku);

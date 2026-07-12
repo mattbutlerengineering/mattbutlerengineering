@@ -147,6 +147,8 @@ export const healthCommand = new Command("health")
     await run();
 
     if (options.watch) {
-      setInterval(run, 10_000);
+      setInterval(() => {
+        void run();
+      }, 10_000);
     }
   });
