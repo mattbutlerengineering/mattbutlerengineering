@@ -8,17 +8,6 @@
 
 /** Patterns that should never be executed in any agent or gen session. */
 export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
-  // SECURITY FIX (issue #3410): the original pattern nested unbounded `[a-zA-Z]*`
-  // quantifiers around a required 'r'/'f' inside an optional group, e.g.
-  // `-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?`. Feeding it a long run of
-  // letters with no terminating whitespace (agent-generated bash is untrusted input —
-  // reachable via prompt injection) forced O(n^2) backtracking: 50k 'r' chars took
-  // ~7.4s, growing quadratically with input length — a real event-loop-blocking DoS.
-  // Rewritten as flat (non-nested) alternatives with bounded `{0,10}` flag-cluster
-  // quantifiers (real short-option clusters are always tiny) — verified equivalent
-  // behavior across the existing test matrix, O(n) on the same adversarial input, and
-  // confirmed safe by `safe-regex` (the library `detect-unsafe-regex` uses).
-  /\brm\s+(-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+-[a-zA-Z]{0,10}f[a-zA-Z]{0,10}\s+|-[a-zA-Z]{0,10}f[a-zA-Z]{0,10}\s+-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+|-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+|--recursive\s+).*\//,
   /\brm\s+.*\/\*/, // rm ... /*
   /\bsudo\b/, // sudo anything
   /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
@@ -27,6 +16,44 @@ export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
   /\bnpm\s+publish\b/, // npm publish
   /\bpnpm\s+publish\b/, // pnpm publish
 ];
+
+/**
+ * Detects `rm -r`/`rm -rf`/`rm --recursive` (any flag order/combination) with a
+ * path argument. Token-based, not regex-based, by design (issue #3410):
+ *
+ * Attempt 1 nested unbounded `[a-zA-Z]*` quantifiers around a required 'r'/'f'
+ * inside an optional group, e.g. `-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?`.
+ * Untrusted agent-generated bash (reachable via prompt injection) fed a long run of
+ * letters with no terminating whitespace forced O(n^2) backtracking: 50k 'r' chars
+ * took ~7.4s — an event-loop-blocking DoS.
+ *
+ * Attempt 2 bounded the same quantifiers to `{0,10}` to kill the backtracking. That
+ * fixed the DoS and satisfied `safe-regex`, but silently capped the flag-cluster
+ * length it could detect: `rm -fffffffffffr /path` (11+ padding letters before the
+ * required 'r') slipped past undetected — a real blocklist bypass caught by security
+ * review on PR #3433.
+ *
+ * A regex can't express "any length" while staying backtrack-free once the letter
+ * check is embedded inside the quantifier itself, so this splits the flag cluster
+ * into tokens via `.split()`/`.indexOf()` and tests each token's contents directly
+ * with `.includes()`. No nested or adjacent quantifiers exist, so there is nothing
+ * for a regex engine to backtrack on, and no length cap on what a token can contain.
+ */
+export function isRmRecursiveDelete(command: string): boolean {
+  const tokens = command.split(/\s+/);
+  const rmIndex = tokens.indexOf("rm");
+  if (rmIndex === -1) return false;
+
+  const args = tokens.slice(rmIndex + 1);
+  const hasPath = args.some((arg) => arg.includes("/"));
+  if (!hasPath) return false;
+
+  return args.some((arg) => {
+    if (arg === "--recursive") return true;
+    if (arg.startsWith("--")) return false;
+    return arg.startsWith("-") && arg.length > 1 && arg.slice(1).includes("r");
+  });
+}
 
 /**
  * Structural patterns that indicate shell encoding bypass attempts.
@@ -123,6 +150,11 @@ export function isBashCommandBlocked(command: string): string | null {
       if (pattern.test(variant)) {
         return `Blocked: command matches dangerous pattern ${pattern.source}`;
       }
+    }
+
+    // Check recursive rm separately — token-based, not a RegExp (see isRmRecursiveDelete doc)
+    if (isRmRecursiveDelete(variant)) {
+      return "Blocked: command matches dangerous pattern rm -r/-rf/--recursive with a path argument";
     }
   }
 

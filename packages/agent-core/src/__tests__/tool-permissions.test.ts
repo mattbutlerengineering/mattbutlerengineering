@@ -91,6 +91,20 @@ describe("createToolPermissionHandler", () => {
       expect(elapsedMs).toBeLessThan(50);
     });
 
+    it("blocks rm -fffffffffffr / (bypass found in PR #3433 review: 11+ padding letters)", async () => {
+      // A bounded `{0,10}` quantifier (the first fix attempt) stopped matching once
+      // the flag cluster exceeded 10 letters — this is exactly such a cluster, and a
+      // functioning recursive-force delete. Must still be blocked.
+      const result = await handler("Bash", { command: "rm -fffffffffffr /path" });
+      expect(result.behavior).toBe("deny");
+    });
+
+    it("blocks rm with a 50-letter flag cluster containing r (arbitrarily long, no cap)", async () => {
+      const flagCluster = "-" + "f".repeat(49) + "r";
+      const result = await handler("Bash", { command: `rm ${flagCluster} /path` });
+      expect(result.behavior).toBe("deny");
+    });
+
     it("allows safe bash commands", async () => {
       const result = await handler("Bash", { command: "pnpm test" });
       expect(result.behavior).toBe("allow");
