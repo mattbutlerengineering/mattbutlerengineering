@@ -1,4 +1,4 @@
-import { Stack, Text, Input } from "@mattbutlerengineering/rialto";
+import { Stack, Text, Input, Button } from "@mattbutlerengineering/rialto";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {
@@ -14,11 +14,24 @@ const DEFAULTS = {
   advanceBookingDays: 30,
 } as const;
 
+/**
+ * Recommended settings for the "Use recommended settings" one-click action and
+ * the wizard's initial pre-fill (see `INITIAL_SETTINGS` in useOnboardingWizard.ts).
+ * Single source of truth — do not duplicate these values elsewhere.
+ */
+export const RECOMMENDED_SETTINGS: SettingsData = {
+  defaultReservationDuration: "90",
+  maxPartySize: "8",
+  advanceBookingDays: "30",
+};
+
 interface SettingsStepProps {
   data: SettingsData;
   errors: Partial<Record<keyof SettingsData, string>>;
   onChange: (data: SettingsData) => void;
   onValidate?: () => void;
+  /** Advances the wizard to the next step. Wired to the "Use recommended settings" action. */
+  onAdvance: () => void;
 }
 
 /** Validate settings step data. All fields are optional; only rejects invalid non-blank values. */
@@ -49,12 +62,21 @@ export function validateSettings(data: SettingsData): Partial<Record<keyof Setti
   return errors;
 }
 
-export function SettingsStep({ data, errors, onChange, onValidate }: SettingsStepProps) {
+export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: SettingsStepProps) {
+  const handleUseRecommended = () => {
+    onChange(RECOMMENDED_SETTINGS);
+    onAdvance();
+  };
+
   return (
     <div className={styles.stepContainer}>
       <Text variant="caption" color="secondary">
-        All settings are optional. Leave blank to use the defaults shown.
+        Customize how bookings work — or skip with our recommended defaults.
       </Text>
+
+      <Button variant="primary" onClick={handleUseRecommended}>
+        Use recommended settings
+      </Button>
 
       <Stack gap="md">
         <Input

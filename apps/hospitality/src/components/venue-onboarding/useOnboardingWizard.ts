@@ -6,7 +6,7 @@ import {
   validateOperatingHours,
   type OperatingHoursValidationErrors,
 } from "./OperatingHoursStep.js";
-import { validateSettings, type SettingsData } from "./SettingsStep.js";
+import { validateSettings, RECOMMENDED_SETTINGS, type SettingsData } from "./SettingsStep.js";
 
 export const TOTAL_STEPS = 5;
 
@@ -58,11 +58,10 @@ const INITIAL_LOCATION_TIME: LocationTimeData = {
 
 const INITIAL_OPERATING_HOURS: OperatingHours = {};
 
-const INITIAL_SETTINGS: SettingsData = {
-  defaultReservationDuration: "",
-  maxPartySize: "",
-  advanceBookingDays: "",
-};
+// Pre-fill the settings step with recommended values so the wizard opens
+// ready to submit — the "Use recommended settings" one-click action in
+// SettingsStep reuses this same constant as its single source of truth.
+const INITIAL_SETTINGS: SettingsData = RECOMMENDED_SETTINGS;
 
 const INITIAL_STATE: OnboardingWizardState = {
   step: 1,
