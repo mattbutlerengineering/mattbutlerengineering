@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createToolPermissionHandler, normalizeBashCommand } from "../tool-permissions.js";
+import { isBashCommandBlocked } from "../gen-permissions.js";
 
 describe("createToolPermissionHandler", () => {
   const worktreePath = "/tmp/test-worktree";
@@ -75,6 +76,19 @@ describe("createToolPermissionHandler", () => {
     it("blocks pnpm publish", async () => {
       const result = await handler("Bash", { command: "pnpm publish" });
       expect(result.behavior).toBe("deny");
+    });
+
+    it("resolves the rm-recursive check in linear time on adversarial input (ReDoS regression)", () => {
+      // safe-regex flagged the original BLOCKED_BASH_PATTERNS[0] as vulnerable: nested
+      // unbounded `[a-zA-Z]*` quantifiers around 'r'/'f' caused O(n^2) backtracking when
+      // fed a long run of letters with no terminating whitespace (agent-generated bash
+      // commands are untrusted/attacker-influenceable via prompt injection). Confirmed
+      // empirically: 16k 'r' chars took ~760ms pre-fix, growing quadratically with size.
+      const adversarialInput = "rm -" + "r".repeat(50_000);
+      const start = performance.now();
+      isBashCommandBlocked(adversarialInput);
+      const elapsedMs = performance.now() - start;
+      expect(elapsedMs).toBeLessThan(50);
     });
 
     it("allows safe bash commands", async () => {

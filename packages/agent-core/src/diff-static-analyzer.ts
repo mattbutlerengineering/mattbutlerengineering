@@ -83,6 +83,13 @@ export const ANALYSIS_RULES: readonly AnalysisRule[] = [
   },
   {
     id: "no-empty-catch",
+    // False positive: `safe-regex` flags this purely because the optional `(?:...)?`
+    // group nests quantifiers inside another repetition (AST "star height" 2), which
+    // is its blunt heuristic for catastrophic backtracking. There's no actual
+    // character-class ambiguity here (`[^)]*` inside literal parens has only one way
+    // to match), so there's nothing to backtrack over. Verified empirically: 50k-char
+    // adversarial input matches in <1ms (issue #3410 triage).
+    // eslint-disable-next-line security/detect-unsafe-regex
     pattern: /catch\s*(?:\([^)]*\))?\s*\{\s*\}/,
     message: "Empty catch block silently swallows errors — log or rethrow",
     severity: "error",

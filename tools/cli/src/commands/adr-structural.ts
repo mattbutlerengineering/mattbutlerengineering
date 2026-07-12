@@ -98,6 +98,12 @@ function checkFrontmatter(
 
   for (const pattern of patterns) {
     try {
+      // `pattern` comes from this ADR file's own `prohibited_patterns` frontmatter
+      // (repo-controlled markdown, changed only via reviewed PRs) — not external/user
+      // input. This call's sole purpose is to validate the pattern compiles; the
+      // RegExp is discarded immediately and never used to match untrusted content
+      // (issue #3410 triage).
+      // eslint-disable-next-line security/detect-non-literal-regexp
       new RegExp(pattern);
     } catch (e) {
       violations.push({
