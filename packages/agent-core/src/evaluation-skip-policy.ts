@@ -5,6 +5,8 @@
 // `success-evaluator.ts` so the gate decision and the LLM call live in
 // separate seams.
 
+import { parseDiff } from "./diff-parser.js";
+
 export interface SkipPolicyInput {
   readonly diff: string;
   /** Whether tests passed during the agent run */
@@ -14,10 +16,7 @@ export interface SkipPolicyInput {
 }
 
 export type SkipReason =
-  | "empty_diff"
-  | "trivial_commit"
-  | "test_only_changes"
-  | "small_diff_tests_passed";
+  "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
 
 export interface SkipDecision {
   readonly skip: boolean;
@@ -27,25 +26,6 @@ export interface SkipDecision {
 const TRIVIAL_TITLE_PATTERNS = [/^fix\(security\):/i, /^chore\(deps\):/i];
 const TEST_FILE_RE = /\.(test|spec)\.[jt]sx?$/;
 const SMALL_DIFF_LINE_LIMIT = 50;
-
-/** Count the number of changed lines (additions + deletions) in a diff. */
-export function countDiffLines(diff: string): number {
-  return diff.split("\n").filter((line) => line.startsWith("+") || line.startsWith("-")).length;
-}
-
-/** Extract the changed file paths from `diff --git` header lines. */
-function changedFiles(diff: string): readonly string[] {
-  return diff
-    .split("\n")
-    .filter((line) => line.startsWith("diff --git "))
-    .map((line) => {
-      // e.g. "diff --git a/src/foo.test.ts b/src/foo.test.ts"
-      // String split instead of regex to avoid ReDoS on greedy `.+`.
-      const parts = line.split(" b/");
-      return parts.length > 1 ? parts[parts.length - 1] : "";
-    })
-    .filter(Boolean);
-}
 
 /**
  * Returns the skip decision for the LLM evaluation step.
@@ -69,12 +49,12 @@ export function evaluationSkipDecision(input: SkipPolicyInput): SkipDecision {
     return { skip: true, reason: "trivial_commit" };
   }
 
-  const files = changedFiles(diff);
-  if (files.length > 0 && files.every((f) => TEST_FILE_RE.test(f))) {
+  const { files, totalChangedLines } = parseDiff(diff);
+  if (files.length > 0 && files.every((f) => TEST_FILE_RE.test(f.path))) {
     return { skip: true, reason: "test_only_changes" };
   }
 
-  if (testsPassed === true && countDiffLines(diff) < SMALL_DIFF_LINE_LIMIT) {
+  if (testsPassed === true && totalChangedLines < SMALL_DIFF_LINE_LIMIT) {
     return { skip: true, reason: "small_diff_tests_passed" };
   }
 

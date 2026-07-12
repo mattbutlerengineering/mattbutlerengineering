@@ -40,7 +40,10 @@ export { OpenCodeAdapter } from "./adapters/opencode-adapter.js";
 export { scanForRateLimitPatterns, RateLimitDetector } from "./rate-limit-detector.js";
 export { parseGeminiUsage, parseOpenCodeUsage } from "./adapters/cli-usage-parser.js";
 export type { CliUsage } from "./adapters/cli-usage-parser.js";
-export { FailoverSessionAdapter, AllAdaptersUnavailableError } from "./adapters/failover-session-adapter.js";
+export {
+  FailoverSessionAdapter,
+  AllAdaptersUnavailableError,
+} from "./adapters/failover-session-adapter.js";
 export type { FailoverCapableAdapter } from "./adapters/failover-session-adapter.js";
 export { resolveSessionAdapter } from "./adapter-resolution.js";
 export type { AdapterType } from "./adapter-resolution.js";
@@ -152,7 +155,7 @@ export type {
 } from "./success-evaluator.js";
 
 // Evaluation skip policy (pure)
-export { evaluationSkipDecision, countDiffLines } from "./evaluation-skip-policy.js";
+export { evaluationSkipDecision } from "./evaluation-skip-policy.js";
 export type { SkipPolicyInput, SkipReason, SkipDecision } from "./evaluation-skip-policy.js";
 
 // Evaluation prompt builder (pure)
@@ -327,6 +330,10 @@ export type { ChangeType, ChangeClassification, SkippablePhase } from "./change-
 // Static diff analysis (fast pre-check)
 export { analyzeDiff, formatViolations, ANALYSIS_RULES } from "./diff-static-analyzer.js";
 export type { StaticAnalysisResult, Violation, AnalysisRule } from "./diff-static-analyzer.js";
+
+// Diff parser (shared unified-diff traversal primitive)
+export { parseDiff } from "./diff-parser.js";
+export type { DiffFile, ParsedDiff } from "./diff-parser.js";
 
 // Circuit breaker (API call protection)
 export { CircuitBreaker } from "./circuit-breaker.js";
