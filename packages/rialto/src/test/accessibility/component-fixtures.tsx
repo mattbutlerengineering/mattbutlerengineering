@@ -44,7 +44,6 @@ import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
 import { DatePicker } from "../../components/DatePicker/DatePicker";
-import { DateRange } from "../../components/DateRange/DateRange";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Dialog } from "../../components/Dialog/Dialog";
 import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledTooltip";
@@ -140,7 +139,6 @@ export type BarrelExportName =
   | "DataList"
   | "DataTable"
   | "DatePicker"
-  | "DateRange"
   | "DepartureBoard"
   | "Dialog"
   | "DisabledTooltip"
@@ -217,14 +215,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
   },
   DatePicker: {
     element: <DatePicker label="Date" value={null} onChange={noop} />,
-  },
-  DateRange: {
-    element: (
-      <DateRange
-        value={{ start: new Date(2024, 5, 10), end: new Date(2024, 5, 15) }}
-        onChange={noop}
-      />
-    ),
   },
   Accordion: {
     element: (

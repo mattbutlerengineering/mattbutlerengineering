@@ -53,7 +53,6 @@ export * from "./FlipDot";
 // ── New components ──────────────────────────────
 export * from "./Calendar";
 export * from "./DatePicker";
-export * from "./DateRange";
 export * from "./AspectRatio";
 export * from "./DisabledTooltip";
 export * from "./Autocomplete";

@@ -1369,64 +1369,6 @@
       "slots": []
     },
     {
-      "name": "DateRange",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "value",
-          "type": "DateRangeValue",
-          "required": true,
-          "description": "The selected range. `end` is `null` while the second endpoint is being picked."
-        },
-        {
-          "name": "onChange",
-          "type": "(value: DateRangeValue) => void",
-          "required": true,
-          "description": "Called with the next range. Endpoints are always ordered (`start` ≤ `end`)."
-        },
-        {
-          "name": "min",
-          "type": "Date | undefined",
-          "required": false,
-          "description": "Earliest selectable date (inclusive)."
-        },
-        {
-          "name": "max",
-          "type": "Date | undefined",
-          "required": false,
-          "description": "Latest selectable date (inclusive)."
-        },
-        {
-          "name": "isDateDisabled",
-          "type": "((date: Date) => boolean) | undefined",
-          "required": false,
-          "description": "Predicate deciding whether a date is disabled. When supplied it is\nauthoritative and wins over `min`/`max`; range bounds apply only when no\npredicate is given."
-        },
-        {
-          "name": "locale",
-          "type": "string | undefined",
-          "required": false,
-          "description": "BCP-47 locale for month/weekday labels."
-        },
-        {
-          "name": "weekStartsOn",
-          "type": "0 | 1 | 2 | 3 | 4 | 5 | 6 | undefined",
-          "required": false,
-          "description": "First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday."
-        }
-      ],
-      "slots": [
-        "children"
-      ]
-    },
-    {
-      "name": "DateRangeValue",
-      "description": "A selected date range. Either endpoint may be `null` while a range is being picked.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
-    },
-    {
       "name": "DepartureBoard",
       "description": "A split-flap departure board that flips through a sequence of headlines or\nvalue-props — the signature marketing hero. It composes \n{@link \nSplitFlap \n}\n\n(no fork) for the mechanical flap animation, cycling the board through each\nphrase on a timer.\n\nRespecting `prefers-reduced-motion`, it renders the current phrase as plain\nstatic text and stops auto-advancing. In every mode the current phrase is\nexposed to assistive technology while the decorative flap glyphs are hidden.",
       "importPath": "@mattbutlerengineering/rialto",
