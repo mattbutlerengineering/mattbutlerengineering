@@ -724,16 +724,15 @@
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
-    <item priority="low">
-      interface SseConnectionConfig {
-        maxConnectionsPerIp: number;
-        connectionTimeoutMs: number;
-        maxEventBufferSize: number;
-        heartbeatIntervalMs: number;
-      }
-    </item>
     <item priority="high">
       export const DEFAULT_SSE_CONFIG: SseConnectionConfig;
+    </item>
+    <item priority="low">
+      interface SseConnectionRecord {
+        id: string;
+        ip: string;
+        connectedAt: number;
+      }
     </item>
   </file>
   <file path="src/services/sse-connection.ts">
@@ -748,6 +747,16 @@
         buffer: readonly ReservationEvent[];
         _droppedCount: unknown;
         async push(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="src/services/sse-types.ts">
+    <item priority="low">
+      interface SseConnectionConfig {
+        maxConnectionsPerIp: number;
+        connectionTimeoutMs: number;
+        maxEventBufferSize: number;
+        heartbeatIntervalMs: number;
       }
     </item>
   </file>

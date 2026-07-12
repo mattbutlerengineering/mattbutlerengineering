@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import type { OutgoingHttpHeaders } from "node:http";
-import type { SseConnectionConfig } from "./sse-connection-manager.js";
+import type { SseConnectionConfig } from "./sse-types.js";
 import type { ReservationEvent } from "./events.js";
 
 /** Minimal interface for the raw HTTP response needed by SseConnection. */
