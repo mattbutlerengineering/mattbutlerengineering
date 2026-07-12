@@ -9,7 +9,7 @@ import Stripe from "stripe";
 export class StripeOperationError extends Error {
   readonly isRetriable: boolean;
   readonly stripeType: string;
-  readonly cause: unknown;
+  override readonly cause: unknown;
 
   constructor(cause: unknown, stripeType: string, isRetriable: boolean) {
     const message = cause instanceof Error ? cause.message : String(cause);

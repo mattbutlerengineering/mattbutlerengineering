@@ -145,7 +145,7 @@ export async function withRetry<T>(
 // ── Context window exhaustion error ─────────────────────────────────
 
 export class ContextWindowExhaustedError extends Error {
-  readonly name = "ContextWindowExhaustedError" as const;
+  override readonly name = "ContextWindowExhaustedError" as const;
 
   constructor(originalMessage: string) {
     super(
