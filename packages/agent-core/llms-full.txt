@@ -2237,23 +2237,32 @@
     }
   </file>
   <file path="src/model-registry.ts">
+    export type ModelTier = "haiku" | "sonnet" | "opus";
     export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
       haiku: "claude-haiku-4-5-20251001",
       sonnet: "claude-sonnet-5",
       opus: "claude-opus-4-8",
     };
-    export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
-      opus: "sonnet",
-      sonnet: "haiku",
-      haiku: "haiku",
-    };
   </file>
   <file path="src/model-router.ts">
-    export type ModelTier = "haiku" | "sonnet" | "opus";
     export interface IssueInput {
       readonly title: string;
       readonly labels: string[];
       readonly body: string;
+    }
+    export interface RoutingContext {
+      /** Remaining session budget in USD. Used to downgrade opus when budget is tight. */
+      readonly remainingBudgetUsd?: number;
+      /** Resolved source file paths for this task. Used for file-count signals. */
+      readonly sourceFilePaths?: readonly string[];
+      /** Model tier that was used when a similar task previously failed. Used for escalation. */
+      readonly pastFailureTier?: ModelTier;
+      /**
+       * Pre-computed task signals from the shared TaskSignalRegistry. When omitted,
+       * routing computes them from the issue title/body so existing callers are
+       * unaffected. Passing this avoids re-scanning the description.
+       */
+      readonly taskSignals?: TaskSignals;
     }
   </file>
   <file path="src/observability.ts">

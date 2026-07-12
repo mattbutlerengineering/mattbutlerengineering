@@ -1,13 +1,15 @@
 import { classifyTask } from "./task-signal-registry.js";
 import type { TaskSignals } from "./task-signal-registry.js";
 import { MODEL_IDS } from "./model-registry.js";
+import type { ModelTier } from "./model-registry.js";
 import { isTestOrDocsPath } from "./file-classifier.js";
 
 export { resolveModelId, getFeedbackLoopModel } from "./model-registry.js";
 
 // ── Types ───────────────────────────────────────────────────────────
 
-export type ModelTier = "haiku" | "sonnet" | "opus";
+// Re-export for existing importers (type now owned by model-registry.ts).
+export type { ModelTier } from "./model-registry.js";
 
 export interface IssueInput {
   readonly title: string;
