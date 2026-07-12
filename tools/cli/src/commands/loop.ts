@@ -1,5 +1,11 @@
 import { Command } from "commander";
-import { runSession, DEFAULT_SESSION_CONFIG, resolveBudget, resolveModel } from "@mbe/agent-core";
+import {
+  runAgentSession,
+  resolveSessionAdapter,
+  DEFAULT_SESSION_CONFIG,
+  resolveBudget,
+  resolveModel,
+} from "@mbe/agent-core";
 import type { SessionEvent } from "@mbe/agent-core";
 
 // ── Command ───────────────────────────────────────────────────────────────
@@ -37,14 +43,20 @@ export const loopCommand = new Command("loop")
       };
 
       try {
-        const result = await runSession(config, (event: SessionEvent) => {
-          if (options.verbose) {
-            const timestamp = new Date(event.timestamp).toLocaleTimeString();
-            if (event.type === "session:start" || event.type === "session:result") {
-              const data = event.data as { message: string };
-              console.log(`[${timestamp}] ${data.message}`);
+        // Single entry point for every adapter (#2973), same seam `run.ts`
+        // uses: the failover cascade and full gate/publish pipeline live in
+        // agent-core, behind runAgentSession().
+        const result = await runAgentSession(config, {
+          adapter: resolveSessionAdapter("claude"),
+          onEvent: (event: SessionEvent) => {
+            if (options.verbose) {
+              const timestamp = new Date(event.timestamp).toLocaleTimeString();
+              if (event.type === "session:start" || event.type === "session:result") {
+                const data = event.data as { message: string };
+                console.log(`[${timestamp}] ${data.message}`);
+              }
             }
-          }
+          },
         });
 
         totalCost += result.costUsd;

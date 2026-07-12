@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Expose mock functions so we can reference them without importing @mbe/agent-core
-const mockRunSession = vi.fn();
+const mockRunAgentSession = vi.fn();
+const mockResolveSessionAdapter = vi.fn(() => ({ name: "claude" }));
 const mockResolveBudget = vi.fn().mockReturnValue({ budgetUsd: 1.0 });
 const mockResolveModel = vi.fn().mockReturnValue("claude-sonnet-4-6");
 
 vi.mock("@mbe/agent-core", () => ({
-  runSession: mockRunSession,
+  runAgentSession: mockRunAgentSession,
+  resolveSessionAdapter: mockResolveSessionAdapter,
   DEFAULT_SESSION_CONFIG: {
     taskDescription: "",
     repoPath: ".",
@@ -41,7 +43,7 @@ describe("loop command", () => {
 
   it("runs one iteration and reports completion when agent returns COMPLETE", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 2.0 });
-    mockRunSession.mockResolvedValue({
+    mockRunAgentSession.mockResolvedValue({
       status: "succeeded",
       costUsd: 0.1,
       resultText: "<promise>COMPLETE</promise>",
@@ -56,7 +58,7 @@ describe("loop command", () => {
 
   it("continues looping when no COMPLETE token is found", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 2.0 });
-    mockRunSession.mockResolvedValue({
+    mockRunAgentSession.mockResolvedValue({
       status: "succeeded",
       costUsd: 0.1,
       resultText: "Some output without completion token",
@@ -66,12 +68,12 @@ describe("loop command", () => {
 
     const output = logSpy.mock.calls.flat().join("\n");
     expect(output).toContain("Reached maximum iterations (2)");
-    expect(mockRunSession).toHaveBeenCalledTimes(2);
+    expect(mockRunAgentSession).toHaveBeenCalledTimes(2);
   });
 
   it("stops when budget is exhausted", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 0.05 });
-    mockRunSession.mockResolvedValue({
+    mockRunAgentSession.mockResolvedValue({
       status: "succeeded",
       costUsd: 0.1, // More than budget
       resultText: "No completion",
@@ -81,12 +83,12 @@ describe("loop command", () => {
 
     const output = logSpy.mock.calls.flat().join("\n");
     expect(output).toContain("Budget limit reached");
-    expect(mockRunSession).toHaveBeenCalledTimes(1);
+    expect(mockRunAgentSession).toHaveBeenCalledTimes(1);
   });
 
   it("logs error and continues when iteration fails", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 5.0 });
-    mockRunSession.mockRejectedValueOnce(new Error("iteration error")).mockResolvedValueOnce({
+    mockRunAgentSession.mockRejectedValueOnce(new Error("iteration error")).mockResolvedValueOnce({
       status: "succeeded",
       costUsd: 0.1,
       resultText: "<promise>COMPLETE</promise>",
@@ -103,7 +105,7 @@ describe("loop command", () => {
 
   it("reports failed status without stopping", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 5.0 });
-    mockRunSession.mockResolvedValue({
+    mockRunAgentSession.mockResolvedValue({
       status: "failed",
       costUsd: 0.1,
       resultText: "",
@@ -113,27 +115,26 @@ describe("loop command", () => {
 
     const output = logSpy.mock.calls.flat().join("\n");
     expect(output).toContain("Iteration failed with status");
-    expect(mockRunSession).toHaveBeenCalledTimes(2);
+    expect(mockRunAgentSession).toHaveBeenCalledTimes(2);
   });
 
   it("shows verbose events when --verbose flag is set", async () => {
     mockResolveBudget.mockReturnValue({ budgetUsd: 2.0 });
 
-    // Simulate the callback being called with events
-    mockRunSession.mockImplementation(
-      async (_config: unknown, callback: (event: unknown) => void) => {
-        if (callback) {
-          callback({
-            type: "session:start",
-            timestamp: Date.now(),
-            data: { message: "Starting session" },
-          });
-          callback({
-            type: "session:result",
-            timestamp: Date.now(),
-            data: { message: "Session complete" },
-          });
-        }
+    // Simulate the onEvent callback being invoked via the options object,
+    // matching runAgentSession's (config, { adapter, onEvent }) signature.
+    mockRunAgentSession.mockImplementation(
+      async (_config: unknown, options: { onEvent?: (event: unknown) => void }) => {
+        options.onEvent?.({
+          type: "session:start",
+          timestamp: Date.now(),
+          data: { message: "Starting session" },
+        });
+        options.onEvent?.({
+          type: "session:result",
+          timestamp: Date.now(),
+          data: { message: "Session complete" },
+        });
         return {
           status: "succeeded",
           costUsd: 0.1,
