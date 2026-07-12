@@ -49,12 +49,12 @@ export function evaluationSkipDecision(input: SkipPolicyInput): SkipDecision {
     return { skip: true, reason: "trivial_commit" };
   }
 
-  const { files, totalAddedLines, totalRemovedLines } = parseDiff(diff);
+  const { files, totalChangedLines } = parseDiff(diff);
   if (files.length > 0 && files.every((f) => TEST_FILE_RE.test(f.path))) {
     return { skip: true, reason: "test_only_changes" };
   }
 
-  if (testsPassed === true && totalAddedLines + totalRemovedLines < SMALL_DIFF_LINE_LIMIT) {
+  if (testsPassed === true && totalChangedLines < SMALL_DIFF_LINE_LIMIT) {
     return { skip: true, reason: "small_diff_tests_passed" };
   }
 

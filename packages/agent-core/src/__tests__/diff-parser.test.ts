@@ -4,12 +4,22 @@ import { parseDiff } from "../diff-parser.js";
 describe("parseDiff", () => {
   it("returns an empty ParsedDiff for an empty diff", () => {
     const result = parseDiff("");
-    expect(result).toEqual({ files: [], totalAddedLines: 0, totalRemovedLines: 0 });
+    expect(result).toEqual({
+      files: [],
+      totalAddedLines: 0,
+      totalRemovedLines: 0,
+      totalChangedLines: 0,
+    });
   });
 
   it("returns an empty ParsedDiff for a whitespace-only diff", () => {
     const result = parseDiff("   \n\t  ");
-    expect(result).toEqual({ files: [], totalAddedLines: 0, totalRemovedLines: 0 });
+    expect(result).toEqual({
+      files: [],
+      totalAddedLines: 0,
+      totalRemovedLines: 0,
+      totalChangedLines: 0,
+    });
   });
 
   it("parses a single file with a normal hunk", () => {
@@ -36,6 +46,9 @@ describe("parseDiff", () => {
     expect(result.files[0].removedLineCount).toBe(1);
     expect(result.totalAddedLines).toBe(2);
     expect(result.totalRemovedLines).toBe(1);
+    // totalChangedLines includes the `+++`/`---` header lines (2 extra),
+    // unlike totalAddedLines/totalRemovedLines — see dedicated test below.
+    expect(result.totalChangedLines).toBe(5);
   });
 
   it("parses multiple files in one diff, attributing lines to the correct file", () => {
@@ -143,5 +156,24 @@ describe("parseDiff", () => {
     const result = parseDiff(diff);
 
     expect(result.files).toEqual([]);
+  });
+
+  it("totalChangedLines counts +++/--- header lines that totalAddedLines/totalRemovedLines exclude", () => {
+    const diff = [
+      "diff --git a/src/app.ts b/src/app.ts",
+      "--- a/src/app.ts",
+      "+++ b/src/app.ts",
+      "@@ -1,1 +1,1 @@",
+      "-const x = 1;",
+      "+const x = 2;",
+    ].join("\n");
+
+    const result = parseDiff(diff);
+
+    // Content-only: 1 added + 1 removed.
+    expect(result.totalAddedLines).toBe(1);
+    expect(result.totalRemovedLines).toBe(1);
+    // Header-inclusive: same 2 content lines + the "---"/"+++" header lines.
+    expect(result.totalChangedLines).toBe(4);
   });
 });

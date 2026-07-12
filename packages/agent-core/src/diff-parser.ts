@@ -19,6 +19,14 @@ export interface ParsedDiff {
   readonly files: readonly DiffFile[];
   readonly totalAddedLines: number;
   readonly totalRemovedLines: number;
+  /**
+   * Raw count of lines starting with `+` or `-`, including unified-diff
+   * metadata lines (`+++`/`---` file headers). Legacy size-heuristic
+   * parity for callers gating on diff size (e.g. `evaluationSkipDecision`'s
+   * small-diff threshold) — prefer `totalAddedLines`/`totalRemovedLines`
+   * for a content-only accounting.
+   */
+  readonly totalChangedLines: number;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -59,7 +67,12 @@ interface FileAccumulator {
  */
 export function parseDiff(diff: string): ParsedDiff {
   if (!diff.trim()) {
-    return { files: [], totalAddedLines: 0, totalRemovedLines: 0 };
+    return {
+      files: [],
+      totalAddedLines: 0,
+      totalRemovedLines: 0,
+      totalChangedLines: 0,
+    };
   }
 
   const files: DiffFile[] = [];
@@ -67,6 +80,7 @@ export function parseDiff(diff: string): ParsedDiff {
   let currentLine = 0;
   let totalAddedLines = 0;
   let totalRemovedLines = 0;
+  let totalChangedLines = 0;
 
   const flush = () => {
     if (current) {
@@ -79,6 +93,10 @@ export function parseDiff(diff: string): ParsedDiff {
   };
 
   for (const line of diff.split("\n")) {
+    if (line.startsWith("+") || line.startsWith("-")) {
+      totalChangedLines += 1;
+    }
+
     const headerPath = parseGitHeaderPath(line);
     if (headerPath !== null) {
       flush();
@@ -112,5 +130,5 @@ export function parseDiff(diff: string): ParsedDiff {
 
   flush();
 
-  return { files, totalAddedLines, totalRemovedLines };
+  return { files, totalAddedLines, totalRemovedLines, totalChangedLines };
 }
