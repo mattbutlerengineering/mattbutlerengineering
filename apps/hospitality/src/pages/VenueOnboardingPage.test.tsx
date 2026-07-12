@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { VenueOnboardingPage } from "./VenueOnboardingPage";
+import { OnboardingWizardProvider } from "../components/venue-onboarding/OnboardingWizardContext";
 import { generateSlug } from "../components/venue-onboarding/generate-slug";
 
 // Mock dependencies
@@ -251,9 +252,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 function renderPage() {
+  // The wizard state is owned by OnboardingWizardProvider (lifted to the layout
+  // in the real app so the left rail and the form share one source of truth).
   return render(
     <MemoryRouter>
-      <VenueOnboardingPage />
+      <OnboardingWizardProvider>
+        <VenueOnboardingPage />
+      </OnboardingWizardProvider>
     </MemoryRouter>
   );
 }

@@ -11,10 +11,10 @@ import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHour
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { ConfirmationStep } from "../components/venue-onboarding/ConfirmationStep";
 import {
-  useOnboardingWizard,
   buildOnboardingPayload,
   TOTAL_STEPS,
 } from "../components/venue-onboarding/useOnboardingWizard.js";
+import { useOnboardingWizardContext } from "../components/venue-onboarding/OnboardingWizardContext.js";
 import styles from "./VenueOnboardingPage.module.css";
 
 export function VenueOnboardingPage() {
@@ -25,7 +25,7 @@ export function VenueOnboardingPage() {
   const { toast } = useToast();
 
   const { step, data, errors, highestStepReached, slugStatus, isSubmitting, submitError, actions } =
-    useOnboardingWizard();
+    useOnboardingWizardContext();
 
   // Debounced slug-uniqueness check — the actual check-and-dispatch lifecycle
   // (checking -> taken/available) lives entirely inside actions.checkSlugAvailability.
@@ -64,12 +64,16 @@ export function VenueOnboardingPage() {
 
   return (
     <div className={styles.wizardContainer}>
-      <StepIndicator
-        currentStep={step}
-        totalSteps={TOTAL_STEPS}
-        highestStepReached={highestStepReached}
-        onStepClick={actions.goToStep}
-      />
+      {/* Condensed progress indicator — mobile only; desktop uses the vertical
+          rail in the OnboardingLayout brand panel (hidden here at >= 768px). */}
+      <div className={styles.mobileProgress}>
+        <StepIndicator
+          currentStep={step}
+          totalSteps={TOTAL_STEPS}
+          highestStepReached={highestStepReached}
+          onStepClick={actions.goToStep}
+        />
+      </div>
 
       <Card>
         <Stack gap="lg">

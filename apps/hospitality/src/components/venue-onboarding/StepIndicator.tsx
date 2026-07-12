@@ -1,6 +1,7 @@
+import { ONBOARDING_STEPS } from "./onboarding-steps";
 import styles from "./venue-onboarding.module.css";
 
-const STEP_LABELS = ["Info", "Location", "Hours", "Settings", "Review"];
+const STEP_LABELS = ONBOARDING_STEPS.map((step) => step.label);
 
 interface StepIndicatorProps {
   currentStep: number;
