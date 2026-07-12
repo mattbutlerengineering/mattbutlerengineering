@@ -10,14 +10,14 @@ const tracer = trace.getTracer("@mbe/agent-core");
  * Fails (severity="error") only when the diff contains error-level violations.
  * Warning-level violations are non-blocking and surface in the result details.
  *
- * shouldSkip: returns true when runStaticAnalysis=false in the context.
+ * shouldSkip: returns true when runStaticAnalysis=false in the config.
  */
 export class StaticAnalysisGate implements QualityGate {
   readonly name = "static-analysis";
   readonly eventType = "session:verification" as const;
 
   shouldSkip(context: GateContext): boolean {
-    return context.runStaticAnalysis === false;
+    return context.config.runStaticAnalysis === false;
   }
 
   async evaluate(context: GateContext): Promise<GateResult> {

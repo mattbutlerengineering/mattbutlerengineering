@@ -36,9 +36,7 @@ function makeContext(overrides: Partial<GateContext> = {}): GateContext {
     diff: "diff --git a/src/foo.ts b/src/foo.ts\n+const x = 1;",
     taskDescription: "Fix the bug",
     commitMsg: "fix: the bug",
-    evaluateSuccess: true,
-    runStaticAnalysis: true,
-    runSecurityReview: true,
+    config: { evaluateSuccess: true, runStaticAnalysis: true, runSecurityReview: true },
     ...overrides,
   };
 }
@@ -50,14 +48,12 @@ describe("GateResult.output typed field", () => {
     const domainData = { confidence: 0.9, reasoning: "looks good" };
     const gate: QualityGate = {
       name: "typed-output-gate",
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: true,
-          gateName: "typed-output-gate",
-          severity: "error",
-          output: domainData,
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: true,
+        gateName: "typed-output-gate",
+        severity: "error",
+        output: domainData,
+      })),
     };
 
     const runner = new GateRunner([gate]);
@@ -69,13 +65,11 @@ describe("GateResult.output typed field", () => {
   it("GateResult.output is optional — gates without output still work", async () => {
     const gate: QualityGate = {
       name: "no-output-gate",
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: true,
-          gateName: "no-output-gate",
-          severity: "error",
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: true,
+        gateName: "no-output-gate",
+        severity: "error",
+      })),
     };
 
     const runner = new GateRunner([gate]);
@@ -173,14 +167,12 @@ describe("QualityGate.shouldSkip with previousResults parameter", () => {
 
     const firstGate: QualityGate = {
       name: "first",
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: false,
-          gateName: "first",
-          severity: "error",
-          details: "first gate failed",
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: false,
+        gateName: "first",
+        severity: "error",
+        details: "first gate failed",
+      })),
     };
 
     const secondGate: QualityGate = {
@@ -189,13 +181,11 @@ describe("QualityGate.shouldSkip with previousResults parameter", () => {
         capturedArgs.push({ context: ctx, previousResults: previousResults ?? [] });
         return false;
       },
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: true,
-          gateName: "second",
-          severity: "error",
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: true,
+        gateName: "second",
+        severity: "error",
+      })),
     };
 
     const runner = new GateRunner([firstGate, secondGate]);
@@ -216,13 +206,11 @@ describe("QualityGate.shouldSkip with previousResults parameter", () => {
         capturedPrevious.push(previousResults ?? []);
         return false;
       },
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: true,
-          gateName: "gate-a",
-          severity: "error",
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: true,
+        gateName: "gate-a",
+        severity: "error",
+      })),
     };
 
     const runner = new GateRunner([gate]);
@@ -234,13 +222,11 @@ describe("QualityGate.shouldSkip with previousResults parameter", () => {
   it("shouldSkip can use previousResults to skip based on prior gate failure", async () => {
     const failingFirst: QualityGate = {
       name: "failing-first",
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: false,
-          gateName: "failing-first",
-          severity: "error",
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: false,
+        gateName: "failing-first",
+        severity: "error",
+      })),
     };
 
     const conditionalGate: QualityGate = {
@@ -248,13 +234,11 @@ describe("QualityGate.shouldSkip with previousResults parameter", () => {
       shouldSkip: (_ctx, previousResults) => {
         return (previousResults ?? []).some((r) => r.gateName === "failing-first" && !r.passed);
       },
-      evaluate: vi.fn(
-        async (): Promise<GateResult> => ({
-          passed: true,
-          gateName: "conditional",
-          severity: "error",
-        })
-      ),
+      evaluate: vi.fn(async (): Promise<GateResult> => ({
+        passed: true,
+        gateName: "conditional",
+        severity: "error",
+      })),
     };
 
     const runner = new GateRunner([failingFirst, conditionalGate]);
