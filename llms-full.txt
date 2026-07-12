@@ -13977,19 +13977,8 @@
       /\bpnpm\s+publish\b/, // pnpm publish
     ];
     export function isRmRecursiveDelete(command: string): boolean {
-      const tokens = command.split(/\s+/);
-      const rmIndex = tokens.indexOf("rm");
-      if (rmIndex === -1) return false;
-    
-      const args = tokens.slice(rmIndex + 1);
-      const hasPath = args.some((arg) => arg.includes("/"));
-      if (!hasPath) return false;
-    
-      return args.some((arg) => {
-        if (arg === "--recursive") return true;
-        if (arg.startsWith("--")) return false;
-        return arg.startsWith("-") && arg.length > 1 && arg.slice(1).includes("r");
-      });
+      const segments = command.split(/[;|&()`$\n]+/);
+      return segments.some(segmentIsRmRecursiveDelete);
     }
   </file>
   <file path="packages/agent-core/src/intent-extractor.ts">
