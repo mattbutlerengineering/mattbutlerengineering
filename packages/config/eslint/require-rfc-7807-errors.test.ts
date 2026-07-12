@@ -71,6 +71,19 @@ ruleTester.run("require-rfc-7807-errors", rule, {
     {
       code: 'res.status(500).json({ type: "internal", title: "Internal Error", status: 500, detail: "boom", instance: "/api/x" });',
     },
+    // String-literal keys (`"type": "x"`) are a Literal key node with a
+    // `.value`, not a `.name`. All four required fields are present here
+    // using quoted keys, so no report.
+    {
+      code: 'reply.code(500).send({ "type": "x", "title": "y", "status": 500, "detail": "z" });',
+    },
+    // Spread properties (`...base`) have no `.key`, so we can't statically
+    // prove what fields the spread source supplies. The rule skips the
+    // required-field check entirely when a spread is present rather than
+    // false-positive on fields it can't see.
+    {
+      code: 'reply.code(500).send({ ...base, status: 500, detail: "z" });',
+    },
   ],
   invalid: [
     // Missing all four required fields.
@@ -93,23 +106,6 @@ ruleTester.run("require-rfc-7807-errors", rule, {
     {
       code: 'reply.code(400).send({ message: "bad" });',
       errors: [{ message: missingMessage("type", "title", "status", "detail") }],
-    },
-    // KNOWN BUG (documented, not fixed here — see PR description): the
-    // required-field check reads `property.key?.name`, which is populated
-    // for Identifier keys (`type: "x"`) but NOT for string-literal keys
-    // (`"type": "x"`) — a Literal key node has no `.name`. All four
-    // required fields are present here, yet every one is reported missing.
-    {
-      code: 'reply.code(500).send({ "type": "x", "title": "y", "status": 500, "detail": "z" });',
-      errors: [{ message: missingMessage("type", "title", "status", "detail") }],
-    },
-    // KNOWN BUG (documented, not fixed here — see PR description): spread
-    // properties (`...base`) have no `.key`, so fields contributed via
-    // spread are invisible to the presence check and get reported missing
-    // even when the spread source actually supplies them.
-    {
-      code: 'reply.code(500).send({ ...base, status: 500, detail: "z" });',
-      errors: [{ message: missingMessage("type", "title") }],
     },
   ],
 });
