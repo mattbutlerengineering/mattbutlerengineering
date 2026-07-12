@@ -3,11 +3,13 @@ import {
   PAGE_REGISTRY,
   buildNavSections,
   buildSitemapPaths,
+  buildPageRegistry,
   REGISTRY_NAV_SECTIONS,
   REGISTRY_SITEMAP_PATHS,
   type PageEntry,
   type NavSection,
   type NavItem,
+  type RawPageEntry,
 } from "./page-registry.js";
 
 // ---------------------------------------------------------------------------
@@ -312,6 +314,51 @@ describe("PageRegistry — load factories", () => {
         expect(entry.load(), `${entry.id}.load() should not reject`).resolves.toBeTruthy()
       )
     );
+  });
+
+  it("every non-comingSoon entry resolves a truthy default export (not undefined)", async () => {
+    const real = PAGE_REGISTRY.filter((e) => !e.comingSoon);
+    for (const entry of real) {
+      const mod = (await entry.load()) as { default?: unknown };
+      expect(mod.default, `${entry.id} load() default export is falsy`).toBeTruthy();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Convention-based loader resolution (#3360) — a typo'd id/label has no
+// backing page module and must fail loudly at registry-build time, not at
+// click time in the browser.
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — convention-based loader resolution", () => {
+  it("throws when a raw entry's label matches no page module (typo'd id)", () => {
+    const typoEntry: RawPageEntry = {
+      id: "buttonx",
+      label: "Buttonx",
+      category: "Forms",
+    };
+    expect(() => buildPageRegistry([typoEntry])).toThrow(/no page module found/i);
+  });
+
+  it("resolves a raw entry via the {label}Page convention without an explicit load", async () => {
+    const entries = buildPageRegistry([{ id: "button", label: "Button", category: "Forms" }]);
+    const mod = (await entries[0]!.load()) as { default?: unknown };
+    expect(mod.default).toBeTruthy();
+  });
+
+  it("honors an explicit load override for entries that don't follow the convention", async () => {
+    const entries = buildPageRegistry([
+      {
+        id: "acmm-dashboard",
+        label: "ACMM Dashboard",
+        category: "Dashboard",
+        load: () =>
+          import("../pages/dashboard/Dashboard.js").then((m) => ({ default: m.Dashboard })),
+      },
+    ]);
+    const mod = (await entries[0]!.load()) as { default?: unknown };
+    expect(mod.default).toBeTruthy();
   });
 });
 
