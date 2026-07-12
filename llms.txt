@@ -3817,21 +3817,18 @@
   </file>
   <file path="packages/agent-core/src/gate-runner.ts">
     <item priority="low">
+      interface PostCommitGatewayConfig {
+        evaluateSuccess?: boolean;
+        runSecurityReview?: boolean;
+        runStaticAnalysis?: boolean;
+      }
+    </item>
+    <item priority="low">
       interface GateContext {
         diff: string;
         taskDescription: string;
         commitMsg: string;
-        evaluateSuccess: boolean;
-        runStaticAnalysis: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface GateResult {
-        passed: boolean;
-        gateName: string;
-        severity: "error" | "warning";
-        details?: string;
-        output?: unknown;
+        config: PostCommitGatewayConfig;
       }
     </item>
   </file>
