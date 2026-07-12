@@ -68,6 +68,17 @@
       export const calendarCatalogMeta: unknown;
     </item>
   </file>
+  <file path="packages/rialto/src/components/Calendar/date-grid.ts">
+    <item priority="low">
+      interface CalendarMonth {
+        year: number;
+        month: number;
+      }
+    </item>
+    <item priority="medium">
+      function pad(value: number, length: number): string { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="Card">
   <file path="packages/rialto/src/components/Card/Card.catalog.ts">
@@ -164,6 +175,13 @@
   <file path="packages/rialto/src/components/DatePicker/DatePicker.catalog.ts">
     <item priority="high">
       export const datePickerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="DateRange">
+  <file path="packages/rialto/src/components/DateRange/DateRange.catalog.ts">
+    <item priority="high">
+      export const dateRangeCatalogMeta: unknown;
     </item>
   </file>
   </section>

@@ -110,6 +110,9 @@ export const generatedSchemas = {
     placeholder: z.string().optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
+  DateRange: z.object({
+    locale: z.string().optional(),
+  }),
   DepartureBoard: z.object({
     phrases: z.array(z.string()),
     holdMs: z.number().optional(),

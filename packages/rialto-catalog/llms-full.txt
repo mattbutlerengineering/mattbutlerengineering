@@ -150,6 +150,12 @@
         description:
           "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
       },
+      DateRange: {
+        name: "DateRange",
+        include: false,
+        description:
+          "Inline, locale-aware month grid for date-range selection. Controlled via value ({ start, end } Date objects, either endpoint nullable while picking) and onChange; the first activation sets the start, the second sets the end (endpoints auto-ordered, same-day allowed). Supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid with an in-progress range preview.",
+      },
       DepartureBoard: {
         name: "DepartureBoard",
         description:
@@ -375,6 +381,9 @@
         label: z.string().optional(),
         placeholder: z.string().optional(),
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+      }),
+      DateRange: z.object({
+        locale: z.string().optional(),
       }),
       DepartureBoard: z.object({
         phrases: z.array(z.string()),

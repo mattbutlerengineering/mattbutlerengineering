@@ -17,44 +17,66 @@ import {
   toIsoDate,
   weekdayLabels,
   type CalendarMonth,
-} from "./date-grid";
-import styles from "./Calendar.module.css";
+} from "../Calendar/date-grid";
+import styles from "./DateRange.module.css";
 
-// Re-export the shared ISO helpers/types consumed elsewhere (e.g. DatePicker).
-export { parseIsoDate, toIsoDate };
-export type { CalendarMonth };
+/* ── Date ⇆ ISO boundary ────────────────────────────────────────────────────
+ * The public API speaks in `Date` objects (per the API decision), while the
+ * shared grid machinery is ISO-string based. Conversions use the *local*
+ * calendar date (year/month/day), matching `localToday()` — no timezone math
+ * crosses the boundary. */
+
+function dateToIso(date: Date | null | undefined): string | null {
+  if (!date) return null;
+  return toIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isoToDate(iso: string): Date {
+  const parts = parseIsoDate(iso) ?? { year: 1970, month: 1, day: 1 };
+  return new Date(parts.year, parts.month - 1, parts.day);
+}
+
+/** A selected date range. Either endpoint may be `null` while a range is being picked. */
+export interface DateRangeValue {
+  readonly start: Date | null;
+  readonly end: Date | null;
+}
 
 /* ── Component ─────────────────────────────────────────────────────────────── */
 
-export interface CalendarProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange"> {
-  /** Currently selected date as a `yyyy-mm-dd` ISO string, or `null` when empty. */
-  value: string | null;
-  /** Called with the newly selected date (`yyyy-mm-dd`). */
-  onChange: (value: string | null) => void;
-  /** Earliest selectable date (`yyyy-mm-dd`, inclusive). */
-  min?: string;
-  /** Latest selectable date (`yyyy-mm-dd`, inclusive). */
-  max?: string;
+export interface DateRangeProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange"> {
+  /** The selected range. `end` is `null` while the second endpoint is being picked. */
+  value: DateRangeValue;
+  /** Called with the next range. Endpoints are always ordered (`start` ≤ `end`). */
+  onChange: (value: DateRangeValue) => void;
+  /** Earliest selectable date (inclusive). */
+  min?: Date;
+  /** Latest selectable date (inclusive). */
+  max?: Date;
   /**
    * Predicate deciding whether a date is disabled. When supplied it is
    * authoritative and wins over `min`/`max`; range bounds apply only when no
    * predicate is given.
    */
-  isDateDisabled?: (isoDate: string) => boolean;
+  isDateDisabled?: (date: Date) => boolean;
   /** BCP-47 locale for month/weekday labels. */
   locale?: string;
   /** First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday. */
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
 }
 
-function initialFocus(value: string | null, month: CalendarMonth, today: string): string {
-  if (value && parseIsoDate(value)) return value;
+function initialMonth(startIso: string | null, today: string): CalendarMonth {
+  return startIso ? monthOfIso(startIso) : monthOfIso(today);
+}
+
+function initialFocus(startIso: string | null, month: CalendarMonth, today: string): string {
+  if (startIso) return startIso;
   const todayMonth = monthOfIso(today);
   if (todayMonth.year === month.year && todayMonth.month === month.month) return today;
   return toIsoDate(month.year, month.month, 1);
 }
 
-export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calendar(
+export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function DateRange(
   { value, onChange, min, max, isDateDisabled, locale, weekStartsOn, className, ...rest },
   ref
 ) {
@@ -63,30 +85,38 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
   const dir = useDirection(gridRef);
   const today = localToday();
 
+  const startIso = dateToIso(value.start);
+  const endIso = dateToIso(value.end);
+  const minIso = dateToIso(min);
+  const maxIso = dateToIso(max);
+
   const weekStart = resolveWeekStart(locale, weekStartsOn);
 
-  // The visible month is derived once (lazy init) and thereafter changed only in
-  // event handlers — never synced from a `useEffect` body.
+  // Visible month is derived once (lazy init) then changed only in event
+  // handlers — never synced from a `useEffect` body (a Rialto rendering rule).
   const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>(() =>
-    value && parseIsoDate(value) ? monthOfIso(value) : monthOfIso(today)
+    initialMonth(startIso, today)
   );
   const [focusedDate, setFocusedDate] = useState<string>(() =>
-    initialFocus(value, value && parseIsoDate(value) ? monthOfIso(value) : monthOfIso(today), today)
+    initialFocus(startIso, initialMonth(startIso, today), today)
   );
+  // The hovered day drives the in-progress range preview (mouse); keyboard nav
+  // falls back to `focusedDate`.
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
   const isDisabled = useCallback(
     (iso: string): boolean => {
-      if (isDateDisabled) return isDateDisabled(iso);
-      if (min && iso < min) return true;
-      if (max && iso > max) return true;
+      if (isDateDisabled) return isDateDisabled(isoToDate(iso));
+      if (minIso && iso < minIso) return true;
+      if (maxIso && iso > maxIso) return true;
       return false;
     },
-    [isDateDisabled, min, max]
+    [isDateDisabled, minIso, maxIso]
   );
 
   // Move DOM focus onto the roving day only after a keyboard navigation — a
   // mount-guarded effect (never requestAnimationFrame, which testing-library
-  // does not await).
+  // does not await). No setState here, per the Rialto rule.
   useEffect(() => {
     if (!pendingFocusRef.current) return;
     pendingFocusRef.current = false;
@@ -98,9 +128,16 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
     (iso: string) => {
       if (isDisabled(iso)) return;
       setFocusedDate(iso);
-      onChange(iso);
+      // Fresh selection when nothing is picked yet, or a complete range exists.
+      if (!startIso || endIso) {
+        onChange({ start: isoToDate(iso), end: null });
+        return;
+      }
+      // Second endpoint — order so start ≤ end (same-day range allowed).
+      const [lo, hi] = startIso <= iso ? [startIso, iso] : [iso, startIso];
+      onChange({ start: isoToDate(lo), end: isoToDate(hi) });
     },
-    [isDisabled, onChange]
+    [isDisabled, startIso, endIso, onChange]
   );
 
   const goToMonth = useCallback(
@@ -109,7 +146,6 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
       const parts = parseIsoDate(focusedDate) ?? { year: next.year, month: next.month + 1, day: 1 };
       const day = Math.min(parts.day, daysInMonth(next.year, next.month));
       setVisibleMonth(next);
-      // Keep the roving day inside the new month without stealing DOM focus.
       setFocusedDate(toIsoDate(next.year, next.month, day));
     },
     [visibleMonth, focusedDate]
@@ -165,6 +201,21 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
   const weeks = buildWeeks(visibleMonth, weekStart);
   const label = monthLabel(visibleMonth, locale);
 
+  // Committed range (drives aria-selected), always normalised start ≤ end.
+  const committed = normaliseRange(startIso, endIso);
+  const selLo = committed?.lo ?? null;
+  const selHi = committed?.hi ?? null;
+
+  // While picking the end, preview the span from start to the hovered/focused day.
+  const inProgress = Boolean(startIso) && !endIso;
+  const previewEnd = inProgress ? (hoveredDate ?? focusedDate) : null;
+  let hlLo = selLo;
+  let hlHi = selHi;
+  if (inProgress && startIso && previewEnd && !isDisabled(previewEnd)) {
+    hlLo = startIso <= previewEnd ? startIso : previewEnd;
+    hlHi = startIso <= previewEnd ? previewEnd : startIso;
+  }
+
   return (
     <div ref={ref} className={cn(styles.calendar, className)} {...rest}>
       <div className={styles.header}>
@@ -194,8 +245,10 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
         role="grid"
         tabIndex={-1}
         aria-label={label}
+        aria-multiselectable="true"
         className={styles.monthGrid}
         onKeyDown={handleKeyDown}
+        onMouseLeave={() => setHoveredDate(null)}
       >
         <div role="row" className={styles.weekdays}>
           {weekdays.map((weekday) => (
@@ -214,7 +267,11 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
           <div role="row" key={week[0]} className={styles.week}>
             {week.map((iso) => {
               const inMonth = monthOfIso(iso).month === visibleMonth.month;
-              const selected = value === iso;
+              const selected = selLo !== null && selHi !== null && iso >= selLo && iso <= selHi;
+              const inHighlight = hlLo !== null && hlHi !== null && iso >= hlLo && iso <= hlHi;
+              const isStart = inHighlight && iso === hlLo;
+              const isEnd = inHighlight && iso === hlHi;
+              const isMid = inHighlight && !isStart && !isEnd;
               const disabled = isDisabled(iso);
               const isToday = iso === today;
               const dayNumber = parseIsoDate(iso)?.day ?? 0;
@@ -232,11 +289,14 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
                   className={cn(
                     styles.day,
                     !inMonth && styles.dayOutside,
-                    selected && styles.daySelected,
+                    isMid && styles.inRange,
+                    isStart && styles.rangeStart,
+                    isEnd && styles.rangeEnd,
                     disabled && styles.dayDisabled,
                     isToday && styles.dayToday
                   )}
                   onClick={() => selectDay(iso)}
+                  onMouseEnter={() => setHoveredDate(iso)}
                 >
                   {dayNumber}
                 </button>
@@ -249,4 +309,16 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
   );
 });
 
-Calendar.displayName = "Calendar";
+/** Normalise two optional ISO endpoints into an ordered `{ lo, hi }`, or `null`. */
+function normaliseRange(
+  startIso: string | null,
+  endIso: string | null
+): { lo: string; hi: string } | null {
+  if (startIso && endIso) {
+    return startIso <= endIso ? { lo: startIso, hi: endIso } : { lo: endIso, hi: startIso };
+  }
+  if (startIso) return { lo: startIso, hi: startIso };
+  return null;
+}
+
+DateRange.displayName = "DateRange";
