@@ -1,6 +1,5 @@
 import { JOB_TYPES } from "./job-types.js";
-import type { JobType } from "./job-types.js";
-import type { JobHandlerMap } from "./worker.js";
+import type { JobType, JobHandlerMap } from "./job-types.js";
 
 const JOB_TYPE_SET: ReadonlySet<string> = new Set(Object.values(JOB_TYPES));
 

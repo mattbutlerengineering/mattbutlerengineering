@@ -39,14 +39,17 @@
   </file>
   <file path="src/worker.ts">
     <item priority="low">
-      type JobHandlerMap = Partial<{
-        [K in JobType]: (payload: JobPayloadMap[K]) =...;
-    </item>
-    <item priority="low">
       interface JobWorkerConfig {
         redisUrl: string;
         queueName?: string;
         handlers: JobHandlerMap;
+      }
+    </item>
+    <item priority="high">
+      class JobWorker {
+        worker: Worker;
+        redis: Redis;
+        async close(): Promise<unknown>;
       }
     </item>
   </file>
