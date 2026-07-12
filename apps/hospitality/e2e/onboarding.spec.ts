@@ -94,7 +94,7 @@ test.describe("Venue onboarding wizard", () => {
     // Step 4 (Settings) — all fields optional, defaults apply.
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
-    await expect(mockedPage.getByRole("button", { name: /create venue/i })).toBeVisible();
+    await expect(mockedPage.getByRole("button", { name: /launch venue/i })).toBeVisible();
     await expect(mockedPage.getByText("Basic Information")).toBeVisible();
     await mockedPage.screenshot({
       path: "e2e/screenshots/onboarding-complete.png",

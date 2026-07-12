@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { VenueOnboardingPage } from "./VenueOnboardingPage";
 import { OnboardingWizardProvider } from "../components/venue-onboarding/OnboardingWizardContext";
@@ -285,12 +285,25 @@ describe("generateSlug", () => {
   });
 });
 
+/** Flush pending microtasks (promise resolutions in the submit -> celebrate chain). */
+async function flushMicrotasks(times = 6) {
+  await act(async () => {
+    for (let i = 0; i < times; i += 1) {
+      await Promise.resolve();
+    }
+  });
+}
+
 describe("VenueOnboardingPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreate.mockReset();
     mockRefetchVenues.mockReset().mockResolvedValue(undefined);
     mockToast.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should render step 1 (Basic Info) by default", () => {
@@ -389,9 +402,9 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByText("Venue Settings")).toBeTruthy();
     fireEvent.click(screen.getByText("Next"));
 
-    // Step 5 — review
-    expect(screen.getByText("Review & Confirm")).toBeTruthy();
-    expect(screen.getByText("Create Venue")).toBeTruthy();
+    // Step 5 — review summary + launch CTA
+    expect(screen.getByText("My Venue")).toBeTruthy();
+    expect(screen.getByText("Launch Venue")).toBeTruthy();
   });
 
   it("should show validation error on step 3 when no days are open", () => {
@@ -458,7 +471,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next")); // skip settings
 
     // Submit
-    fireEvent.click(screen.getByText("Create Venue"));
+    fireEvent.click(screen.getByText("Launch Venue"));
 
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledOnce();
@@ -471,7 +484,8 @@ describe("VenueOnboardingPage", () => {
     expect(payload.currencyCode).toBe("USD");
   });
 
-  it("should show toast and redirect to the new venue's dashboard after venue creation", async () => {
+  it("should show toast, celebrate, and then redirect to the dashboard after venue creation", async () => {
+    vi.useFakeTimers();
     mockCreate.mockResolvedValueOnce({ id: "venue-456", name: "My Venue" });
 
     renderPage();
@@ -489,18 +503,28 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
     fireEvent.click(screen.getByText("Next"));
 
-    fireEvent.click(screen.getByText("Create Venue"));
+    fireEvent.click(screen.getByText("Launch Venue"));
 
-    await waitFor(() => {
-      expect(mockRefetchVenues).toHaveBeenCalledOnce();
-    });
+    // Resolve the submit -> refetch -> toast -> celebrate chain (all mocked
+    // promises resolve immediately, but each `await` is its own microtask tick).
+    await flushMicrotasks();
 
+    expect(mockRefetchVenues).toHaveBeenCalledOnce();
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Venue created",
         variant: "success",
       })
     );
+
+    // Celebration is shown BEFORE navigating — no hard/immediate redirect.
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(screen.getByText("You're ready to take reservations")).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+
     expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
   });
 
@@ -522,7 +546,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
     fireEvent.click(screen.getByText("Next"));
 
-    fireEvent.click(screen.getByText("Create Venue"));
+    fireEvent.click(screen.getByText("Launch Venue"));
 
     await waitFor(() => {
       expect(screen.getByText("Slug already taken")).toBeTruthy();
@@ -561,7 +585,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 5 — submit
-    fireEvent.click(screen.getByText("Create Venue"));
+    fireEvent.click(screen.getByText("Launch Venue"));
 
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledOnce();
