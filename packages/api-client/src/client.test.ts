@@ -475,6 +475,17 @@ describe("ApiClient", () => {
       expect(result).toEqual({ id: "1", name: "Bob" });
     });
 
+    it("deleteOne should DELETE and unwrap .data from ApiResponse", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { id: "1", status: "CANCELLED" } }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 });
+      const result = await client.deleteOne<{ id: string; status: string }>("/api/v1/users/1");
+
+      expect(result).toEqual({ id: "1", status: "CANCELLED" });
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(options?.method).toBe("DELETE");
+    });
+
     it("unwrap helpers should throw ApiClientError on non-ok response", async () => {
       mockFetch.mockResolvedValueOnce(
         jsonResponse({ error: "Not Found", message: "Not found", statusCode: 404 }, 404)

@@ -19,7 +19,6 @@ export interface ListReservationsParams {
   guestId?: string;
 }
 
-const reservationEnvelope = z.object({ data: ReservationSchema });
 const reservationListSchema: z.ZodSchema<PaginatedResponse<Reservation>> =
   paginatedResponseSchema(ReservationSchema);
 
@@ -105,48 +104,36 @@ export class ReservationsClient {
    * Get a reservation by ID
    */
   async get(id: string): Promise<Reservation> {
-    const response = await this.client.get<{ data: Reservation }>(
+    return this.client.getOne<Reservation>(
       `${RESERVATION_BASE_PATH}/${id}`,
       undefined,
-      reservationEnvelope
+      ReservationSchema
     );
-    return response.data;
   }
 
   /**
    * Create a new reservation
    */
   async create(data: CreateReservationRequest): Promise<Reservation> {
-    const response = await this.client.post<{ data: Reservation }>(
-      RESERVATION_BASE_PATH,
-      data,
-      reservationEnvelope
-    );
-    return response.data;
+    return this.client.postOne<Reservation>(RESERVATION_BASE_PATH, data, ReservationSchema);
   }
 
   /**
    * Update a reservation
    */
   async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
-    const response = await this.client.patch<{ data: Reservation }>(
+    return this.client.patchOne<Reservation>(
       `${RESERVATION_BASE_PATH}/${id}`,
       data,
-      reservationEnvelope
+      ReservationSchema
     );
-    return response.data;
   }
 
   /**
    * Cancel a reservation
    */
   async cancel(id: string): Promise<Reservation> {
-    const response = await this.client.request<{ data: Reservation }>(
-      `${RESERVATION_BASE_PATH}/${id}`,
-      { method: "DELETE" },
-      reservationEnvelope
-    );
-    return response.data;
+    return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
   }
 
   /**
@@ -156,15 +143,14 @@ export class ReservationsClient {
     id: string,
     reason?: { cancellationReason?: string; cancellationNote?: string }
   ): Promise<Reservation> {
-    const response = await this.client.patch<{ data: Reservation }>(
+    return this.client.patchOne<Reservation>(
       `${RESERVATION_BASE_PATH}/${id}`,
       {
         status: "CANCELLED",
         ...reason,
       },
-      reservationEnvelope
+      ReservationSchema
     );
-    return response.data;
   }
 
   /**
@@ -177,12 +163,11 @@ export class ReservationsClient {
     guestName?: string;
     durationMinutes?: number;
   }): Promise<Reservation> {
-    const response = await this.client.post<{ data: Reservation }>(
+    return this.client.postOne<Reservation>(
       `${RESERVATION_BASE_PATH}/walk-in`,
       data,
-      reservationEnvelope
+      ReservationSchema
     );
-    return response.data;
   }
 
   /**

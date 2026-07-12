@@ -48,10 +48,9 @@ export class BriefingClient {
    * the given date and venue, enriched with full guest CRM data.
    */
   async list(params: GetBriefingParams): Promise<BriefingEntry[]> {
-    const response = await this.client.get<{ data: BriefingEntry[] }>(
+    return this.client.getOne<BriefingEntry[]>(
       "/api/v1/briefing",
       params as unknown as QueryParams
     );
-    return response.data;
   }
 }
