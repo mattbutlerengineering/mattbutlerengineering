@@ -3,6 +3,20 @@ import type { SessionEventType } from "./types.js";
 // ── Types ─────────────────────────────────────────────────────────────
 
 /**
+ * Per-gate enablement toggles, supplied by the session config that drives
+ * `runPostCommitGateway`. Declared once here and threaded through
+ * `GateContext.config` unchanged: each gate reads its own flag inside
+ * `shouldSkip()`, so adding a new toggle means adding one optional field to
+ * this interface — not mirroring a boolean across GateContext too, plus a
+ * context-building line in post-commit-gateway.ts.
+ */
+export interface PostCommitGatewayConfig {
+  evaluateSuccess?: boolean;
+  runSecurityReview?: boolean;
+  runStaticAnalysis?: boolean;
+}
+
+/**
  * Shared context passed to every quality gate during a run.
  */
 export interface GateContext {
@@ -12,12 +26,13 @@ export interface GateContext {
   readonly taskDescription: string;
   /** The commit message written when the agent committed changes. */
   readonly commitMsg: string;
-  /** Whether LLM success evaluation is enabled in the session config. */
-  readonly evaluateSuccess: boolean;
-  /** Whether static diff analysis is enabled in the session config. */
-  readonly runStaticAnalysis: boolean;
-  /** Whether AI security review is enabled in the session config. */
-  readonly runSecurityReview: boolean;
+  /**
+   * Per-gate enablement toggles from the session config, passed through
+   * unchanged. Gates read their own flag (e.g. `config.runStaticAnalysis`)
+   * in `shouldSkip` rather than GateContext exposing one named boolean per
+   * gate.
+   */
+  readonly config: PostCommitGatewayConfig;
 }
 
 /**

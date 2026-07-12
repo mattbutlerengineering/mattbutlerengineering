@@ -33,9 +33,7 @@ function makeContext(overrides: Partial<GateContext> = {}): GateContext {
     diff: "diff --git a/src/foo.ts b/src/foo.ts\n+const x = 1;",
     taskDescription: "Fix the bug",
     commitMsg: "fix: the bug",
-    evaluateSuccess: true,
-    runStaticAnalysis: true,
-    runSecurityReview: true,
+    config: { evaluateSuccess: true, runStaticAnalysis: true, runSecurityReview: true },
     ...overrides,
   };
 }
@@ -203,7 +201,7 @@ describe("GateRunner", () => {
     });
 
     it("passes context and previousResults to shouldSkip", async () => {
-      const ctx = makeContext({ evaluateSuccess: false });
+      const ctx = makeContext({ config: { evaluateSuccess: false } });
       const gate: QualityGate = {
         name: "ctx-skip",
         evaluate: vi.fn(async () => ({
@@ -276,9 +274,7 @@ describe("GateRunner integration with real gates", () => {
       diff: "diff --git a/src/foo.ts b/src/foo.ts\n+const x = 1;",
       taskDescription: "Fix the bug",
       commitMsg: "fix: the bug",
-      evaluateSuccess: true,
-      runStaticAnalysis: true,
-      runSecurityReview: true,
+      config: { evaluateSuccess: true, runStaticAnalysis: true, runSecurityReview: true },
       ...overrides,
     };
   }
@@ -390,7 +386,7 @@ describe("GateRunner integration with real gates", () => {
       new SecurityReviewGate(),
     ]);
 
-    await runner.run(makeRealContext({ evaluateSuccess: false }));
+    await runner.run(makeRealContext({ config: { evaluateSuccess: false } }));
 
     expect(evaluateSuccess).not.toHaveBeenCalled();
   });
@@ -406,7 +402,7 @@ describe("GateRunner integration with real gates", () => {
       new SecurityReviewGate(),
     ]);
 
-    await runner.run(makeRealContext({ runSecurityReview: false }));
+    await runner.run(makeRealContext({ config: { runSecurityReview: false } }));
 
     expect(reviewDiff).not.toHaveBeenCalled();
   });

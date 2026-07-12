@@ -17,7 +17,7 @@ export class SecurityReviewGate implements QualityGate {
   readonly eventType = "session:review" as const;
 
   shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
-    if (context.runSecurityReview === false) return true;
+    if (context.config.runSecurityReview === false) return true;
     return previousResults.some((r) => r.gateName === "static-analysis" && !r.passed);
   }
 

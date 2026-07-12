@@ -3543,7 +3543,7 @@
       readonly eventType = "session:evaluation" as const;
     
       shouldSkip(context: GateContext): boolean {
-        return context.evaluateSuccess === false;
+        return context.config.evaluateSuccess === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -3588,7 +3588,7 @@
       readonly eventType = "session:review" as const;
     
       shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
-        if (context.runSecurityReview === false) return true;
+        if (context.config.runSecurityReview === false) return true;
         return previousResults.some((r) => r.gateName === "static-analysis" && !r.passed);
       }
     
@@ -3622,7 +3622,7 @@
       readonly eventType = "session:verification" as const;
     
       shouldSkip(context: GateContext): boolean {
-        return context.runStaticAnalysis === false;
+        return context.config.runStaticAnalysis === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -13861,6 +13861,11 @@
     export const isDocFile = (f: string): boolean => f.endsWith(".md") || f.startsWith("docs/");
   </file>
   <file path="packages/agent-core/src/gate-runner.ts">
+    export interface PostCommitGatewayConfig {
+      evaluateSuccess?: boolean;
+      runSecurityReview?: boolean;
+      runStaticAnalysis?: boolean;
+    }
     export interface GateContext {
       /** The git diff produced by the agent's commit. */
       readonly diff: string;
@@ -13868,28 +13873,13 @@
       readonly taskDescription: string;
       /** The commit message written when the agent committed changes. */
       readonly commitMsg: string;
-      /** Whether LLM success evaluation is enabled in the session config. */
-      readonly evaluateSuccess: boolean;
-      /** Whether static diff analysis is enabled in the session config. */
-      readonly runStaticAnalysis: boolean;
-      /** Whether AI security review is enabled in the session config. */
-      readonly runSecurityReview: boolean;
-    }
-    export interface GateResult {
-      /** Whether this gate passed. Skipped gates always report passed=true. */
-      readonly passed: boolean;
-      /** The name of the gate that produced this result. */
-      readonly gateName: string;
-      /** Severity level of this gate — drives draft-PR vs normal-PR decision. */
-      readonly severity: "error" | "warning";
-      /** Human-readable details about a failure or a skip reason. */
-      readonly details?: string;
       /**
-       * Optional typed domain output produced by this gate.
-       * Callers extract domain data from the results array by gate name rather
-       * than querying mutable instance state.
+       * Per-gate enablement toggles from the session config, passed through
+       * unchanged. Gates read their own flag (e.g. `config.runStaticAnalysis`)
+       * in `shouldSkip` rather than GateContext exposing one named boolean per
+       * gate.
        */
-      readonly output?: unknown;
+      readonly config: PostCommitGatewayConfig;
     }
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
