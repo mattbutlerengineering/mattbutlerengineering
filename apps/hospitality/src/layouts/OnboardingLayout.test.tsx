@@ -58,9 +58,24 @@ describe("OnboardingLayout", () => {
   it("does not render dashboard navigation landmarks (sidebar, header nav, chat)", () => {
     renderLayout();
 
-    // No dashboard shell: no sidebar/header <nav>, no breadcrumb nav, no chat panel.
-    expect(screen.queryByRole("navigation")).toBeNull();
+    // No dashboard shell: no sidebar/header nav, no breadcrumb nav, no chat panel.
+    // The onboarding progress rail is the only nav landmark on this screen.
+    const navs = screen.getAllByRole("navigation");
+    expect(navs).toHaveLength(1);
+    expect(navs[0]).toHaveAccessibleName(/progress/i);
     expect(screen.queryByTestId("dashboard-layout")).toBeNull();
     expect(screen.queryByTestId("chat-panel")).toBeNull();
+  });
+
+  it("renders the vertical progress rail with all 5 steps in the brand panel", () => {
+    renderLayout();
+
+    const brand = screen.getByRole("complementary");
+    const rail = within(brand).getByRole("navigation", { name: /progress/i });
+    // Each step shows a label and a one-line description.
+    expect(within(rail).getByText("Welcome")).toBeInTheDocument();
+    expect(within(rail).getByText("Name your venue")).toBeInTheDocument();
+    expect(within(rail).getByText("Launch")).toBeInTheDocument();
+    expect(within(rail).getByText("Review & go live")).toBeInTheDocument();
   });
 });

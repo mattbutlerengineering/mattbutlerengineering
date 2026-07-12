@@ -18269,6 +18269,21 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/onboarding-steps.ts">
+    export interface OnboardingStep {
+      /** Short step name shown as the rail heading. */
+      label: string;
+      /** One-line description of what the step captures. */
+      description: string;
+    }
+    export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
+      { label: "Welcome", description: "Name your venue" },
+      { label: "Location", description: "Timezone & currency" },
+      { label: "Hours", description: "When you're open" },
+      { label: "Settings", description: "Reservation defaults" },
+      { label: "Launch", description: "Review & go live" },
+    ];
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/useOnboardingWizard.ts">
     export const TOTAL_STEPS = 5;
     export interface OnboardingWizardData {

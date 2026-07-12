@@ -2,6 +2,14 @@
   max-width: 40rem;
 }
 
+/* The vertical rail in the brand panel is the desktop progress view; hide the
+   condensed horizontal indicator there to avoid a duplicate. */
+@media (min-width: 768px) {
+  .mobileProgress {
+    display: none;
+  }
+}
+
 .errorBanner {
   padding: var(--rialto-space-md);
   background: color-mix(in srgb, var(--rialto-surface) 90%, red);

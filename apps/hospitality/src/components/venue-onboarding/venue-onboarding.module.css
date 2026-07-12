@@ -234,3 +234,120 @@
   color: var(--rialto-error);
   font-size: var(--rialto-text-sm);
 }
+
+/* ── Vertical progress rail (desktop brand panel) ──────────────
+ * Hidden below 768px, where the condensed horizontal StepIndicator takes over
+ * above the form instead.
+ */
+.rail {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .rail {
+    display: block;
+  }
+}
+
+.railList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.railStep {
+  border-radius: var(--rialto-radius-default);
+}
+
+.railTrigger {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rialto-space-sm);
+  width: 100%;
+  padding: var(--rialto-space-sm);
+  border: none;
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  font: inherit;
+}
+
+button.railTrigger {
+  cursor: pointer;
+}
+
+button.railTrigger:hover {
+  background: var(--rialto-surface-elevated);
+}
+
+button.railTrigger:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.railMarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: var(--rialto-radius-round);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.railBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-3xs);
+  min-width: 0;
+}
+
+.railLabel {
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.railDescription {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+/* Active: highlighted marker + primary label. */
+.railStepActive .railMarker {
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+}
+
+/* Completed: filled but muted marker with a checkmark. */
+.railStepCompleted .railMarker {
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  opacity: 0.7;
+}
+
+/* Reachable-but-not-current: outlined marker inviting navigation. */
+.railStepReachable .railMarker {
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
+  border: 1px solid var(--rialto-border-strong);
+}
+
+/* Future: muted marker and description. */
+.railStepPending .railMarker {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
+}
+
+.railStepPending .railLabel {
+  color: var(--rialto-text-secondary);
+}

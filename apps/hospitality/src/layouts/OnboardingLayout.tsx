@@ -1,17 +1,50 @@
 import { Outlet } from "react-router-dom";
 import { Heading, Text, Stack } from "@mattbutlerengineering/rialto";
 import { VenueProvider } from "../contexts/VenueContext.js";
+import {
+  OnboardingWizardProvider,
+  useOnboardingWizardContext,
+} from "../components/venue-onboarding/OnboardingWizardContext.js";
+import { VerticalStepRail } from "../components/venue-onboarding/VerticalStepRail.js";
 import styles from "./OnboardingLayout.module.css";
 
 const PRODUCT_NAME = "Hospitality";
 const TAGLINE = "Restaurant management, simplified.";
 
+/** Brand panel: product identity plus the live vertical progress rail (desktop). */
+function OnboardingBrandPanel() {
+  const { step, highestStepReached, actions } = useOnboardingWizardContext();
+  return (
+    <aside className={styles.brand}>
+      <Stack gap="md">
+        <Heading level={1} color="primary">
+          {PRODUCT_NAME}
+        </Heading>
+        <Text variant="body" color="secondary">
+          {TAGLINE}
+        </Text>
+      </Stack>
+      <div className={styles.stepContext}>
+        <VerticalStepRail
+          currentStep={step}
+          highestStepReached={highestStepReached}
+          onStepClick={actions.goToStep}
+        />
+      </div>
+    </aside>
+  );
+}
+
 /**
  * Full-viewport split-panel shell for the venue-onboarding flow.
  *
- * Left: a static brand panel (product name + tagline, plus a reserved slot for
- * per-step context to be enriched by a later slice of #3275). Right: the wizard
- * content, rendered through an `<Outlet />`.
+ * Left: a brand panel (product name + tagline) that also hosts the always-visible
+ * vertical progress rail on desktop. Right: the wizard content, rendered through
+ * an `<Outlet />`.
+ *
+ * The onboarding wizard state is owned here (via `OnboardingWizardProvider`) so
+ * the left rail and the `<Outlet />`-rendered step form share one source of truth
+ * for the current step; the reducer itself (`useOnboardingWizard`) is unchanged.
  *
  * Wraps children in `VenueProvider` because the onboarding wizard calls
  * `useVenue()` / `refetchVenues()` (and `useVenueReadiness()` indirectly). Unlike
@@ -21,24 +54,14 @@ const TAGLINE = "Restaurant management, simplified.";
 export function OnboardingLayout() {
   return (
     <VenueProvider>
-      <div className={styles.layout}>
-        <aside className={styles.brand}>
-          <Stack gap="md">
-            <Heading level={1} color="primary">
-              {PRODUCT_NAME}
-            </Heading>
-            <Text variant="body" color="secondary">
-              {TAGLINE}
-            </Text>
-          </Stack>
-          {/* Reserved for per-step context (illustration/copy) — filled by a later slice of #3275. */}
-          <div className={styles.stepContext} aria-hidden="true" />
-        </aside>
-
-        <main className={styles.content}>
-          <Outlet />
-        </main>
-      </div>
+      <OnboardingWizardProvider>
+        <div className={styles.layout}>
+          <OnboardingBrandPanel />
+          <main className={styles.content}>
+            <Outlet />
+          </main>
+        </div>
+      </OnboardingWizardProvider>
     </VenueProvider>
   );
 }
