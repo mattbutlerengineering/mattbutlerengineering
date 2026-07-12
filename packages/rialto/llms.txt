@@ -563,6 +563,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="lib">
+  <file path="scripts/lib/color-tokens.ts">
+    <item priority="low">
+      interface DtcgToken {
+        $value: string | number;
+        $type: string;
+        $description?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TokenGroup {
+        
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="providers">
   <file path="src/providers/reduced-data.ts">
     <item priority="high">
@@ -649,6 +665,14 @@
       function main(): void { /* ... */ }
     </item>
   </file>
+  <file path="scripts/generate-colors-css.ts">
+    <item priority="medium">
+      function assertCommentSafe(text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sectionHeader(key: string, description: string | undefined): string { /* ... */ }
+    </item>
+  </file>
   <file path="scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {
@@ -663,16 +687,12 @@
   </file>
   <file path="scripts/generate-figma-tokens.ts">
     <item priority="high">
-      interface DtcgToken {
-        $value: string | number;
-        $type: string;
-        $description?: string;
-      }
-    </item>
-    <item priority="high">
-      interface TokenGroup {
+      interface FigmaTokenSets {
         
       }
+    </item>
+    <item priority="medium">
+      function readJson(filePath: string): TokenGroup { /* ... */ }
     </item>
   </file>
   <file path="scripts/generate-manifest.ts">

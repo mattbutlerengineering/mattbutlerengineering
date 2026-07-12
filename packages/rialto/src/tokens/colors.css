@@ -1,5 +1,12 @@
+/*
+ * GENERATED FILE — DO NOT EDIT.
+ * Authoring sources: src/tokens/colors.json (light), src/tokens/colors.dark.json (dark).
+ * Regenerate: pnpm --filter @mattbutlerengineering/rialto generate:tokens
+ * Drift-checked by `pnpm regen:check` (rialto-color-tokens family).
+ */
+
 :root {
-  /* ── Surfaces ─────────────────────────────── */
+  /* ── Surface ──────────────────────────────────── */
   /* Page backgrounds, default component backgrounds */
   --rialto-surface: #f8f6f3;
   /* Cards, popovers, elevated containers */
@@ -11,7 +18,7 @@
   /* Heavy separators, decorative dark accents */
   --rialto-surface-deep: #a8a49d;
 
-  /* ── Text ──────────────────────────────────── */
+  /* ── Text ─────────────────────────────────────── */
   /* Headings, body text, primary labels (16.28:1 on surface — WCAG AAA) */
   --rialto-text-primary: #1a1918;
   /* Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA) */
@@ -21,13 +28,13 @@
   /* Text on accent-filled backgrounds (primary buttons, badges) */
   --rialto-text-on-accent: #1a1918;
 
-  /* ── Borders ───────────────────────────────── */
+  /* ── Border ───────────────────────────────────── */
   /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */
   --rialto-border: #918d87;
   /* Emphasized borders, active input outlines (3.49:1 on surface — WCAG AA UI) */
   --rialto-border-strong: #88837c;
 
-  /* ── Accent (amber gold — surgical use only) ─ */
+  /* ── Accent (Amber gold — surgical use only) ──── */
   /* Primary buttons, focus rings, active/selected states only */
   --rialto-accent: #b0841e;
   /* Primary button hover state */
@@ -37,7 +44,7 @@
   /* Focus ring outer glow (used in --rialto-shadow-focus) */
   --rialto-accent-glow: rgb(176 132 30 / 0.35);
 
-  /* ── Semantic ──────────────────────────────── */
+  /* ── Semantic ─────────────────────────────────── */
   /* Error text, destructive button fills, invalid borders */
   --rialto-error: #b84a3c;
   /* Error alert backgrounds, error badge tints */
@@ -51,40 +58,40 @@
   /* Success alert backgrounds, success badge tints */
   --rialto-success-muted: rgb(94 106 46 / 0.1);
 
-  /* ── Overlay ───────────────────────────────── */
+  /* ── Overlay ──────────────────────────────────── */
   /* Modal/drawer backdrop, scrim behind overlays */
   --rialto-overlay: rgb(26 25 24 / 0.4);
 }
 
 /* ── Dark Theme ──────────────────────────────── */
-/* Warm charcoal palette — maintains material honesty
-   and "warmth over coldness" principle. No pure black,
-   no blue-grays. Surfaces use subtle warm undertones. */
+/* Dark theme. Warm charcoal palette — maintains material honesty
+   and the "warmth over coldness" principle. No pure black, no
+   blue-grays. Surfaces use subtle warm undertones. */
 [data-theme="dark"] {
-  /* ── Surfaces ─────────────────────────────── */
+  /* ── Surface ──────────────────────────────────── */
   --rialto-surface: #1e1c1a;
   --rialto-surface-elevated: #2a2725;
   --rialto-surface-recessed: #141312;
   --rialto-surface-matte: #3a3633;
   --rialto-surface-deep: #4a4643;
 
-  /* ── Text ──────────────────────────────────── */
+  /* ── Text ─────────────────────────────────────── */
   --rialto-text-primary: rgb(253 252 250 / 0.92);
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
   --rialto-text-tertiary: rgb(253 252 250 / 0.5);
   --rialto-text-on-accent: #1a1918;
 
-  /* ── Borders ───────────────────────────────── */
+  /* ── Border ───────────────────────────────────── */
   --rialto-border: rgb(255 255 255 / 0.4);
   --rialto-border-strong: rgb(255 255 255 / 0.6);
 
-  /* ── Accent (same gold, slightly brighter for dark bg) */
+  /* ── Accent (Same gold, slightly brighter for dark backgrounds) ─ */
   --rialto-accent: #d4a23a;
   --rialto-accent-hover: #e0b04a;
   --rialto-accent-muted: rgb(212 162 58 / 0.15);
   --rialto-accent-glow: rgb(212 162 58 / 0.4);
 
-  /* ── Semantic ──────────────────────────────── */
+  /* ── Semantic ─────────────────────────────────── */
   --rialto-error: #e06050;
   --rialto-error-muted: rgb(224 96 80 / 0.15);
   --rialto-warning: #d4a030;
@@ -92,7 +99,7 @@
   --rialto-success: #9aaa4c;
   --rialto-success-muted: rgb(154 170 76 / 0.15);
 
-  /* ── Overlay ───────────────────────────────── */
+  /* ── Overlay ──────────────────────────────────── */
   --rialto-overlay: rgb(0 0 0 / 0.6);
 
   color-scheme: dark;

@@ -1,0 +1,110 @@
+{
+  "color": {
+    "$description": "Dark theme. Warm charcoal palette — maintains material honesty and the \"warmth over coldness\" principle. No pure black, no blue-grays. Surfaces use subtle warm undertones.",
+    "surface": {
+      "default": {
+        "$value": "#1e1c1a",
+        "$type": "color"
+      },
+      "elevated": {
+        "$value": "#2a2725",
+        "$type": "color"
+      },
+      "recessed": {
+        "$value": "#141312",
+        "$type": "color"
+      },
+      "matte": {
+        "$value": "#3a3633",
+        "$type": "color"
+      },
+      "deep": {
+        "$value": "#4a4643",
+        "$type": "color"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "rgb(253 252 250 / 0.92)",
+        "$type": "color"
+      },
+      "secondary": {
+        "$value": "rgb(253 252 250 / 0.6)",
+        "$type": "color"
+      },
+      "tertiary": {
+        "$value": "rgb(253 252 250 / 0.5)",
+        "$type": "color"
+      },
+      "on-accent": {
+        "$value": "#1a1918",
+        "$type": "color"
+      }
+    },
+    "border": {
+      "default": {
+        "$value": "rgb(255 255 255 / 0.4)",
+        "$type": "color"
+      },
+      "strong": {
+        "$value": "rgb(255 255 255 / 0.6)",
+        "$type": "color"
+      }
+    },
+    "accent": {
+      "$description": "Same gold, slightly brighter for dark backgrounds",
+      "default": {
+        "$value": "#d4a23a",
+        "$type": "color"
+      },
+      "hover": {
+        "$value": "#e0b04a",
+        "$type": "color"
+      },
+      "muted": {
+        "$value": "rgb(212 162 58 / 0.15)",
+        "$type": "color"
+      },
+      "glow": {
+        "$value": "rgb(212 162 58 / 0.4)",
+        "$type": "color"
+      }
+    },
+    "semantic": {
+      "error": {
+        "default": {
+          "$value": "#e06050",
+          "$type": "color"
+        },
+        "muted": {
+          "$value": "rgb(224 96 80 / 0.15)",
+          "$type": "color"
+        }
+      },
+      "warning": {
+        "default": {
+          "$value": "#d4a030",
+          "$type": "color"
+        },
+        "muted": {
+          "$value": "rgb(212 160 48 / 0.15)",
+          "$type": "color"
+        }
+      },
+      "success": {
+        "default": {
+          "$value": "#9aaa4c",
+          "$type": "color"
+        },
+        "muted": {
+          "$value": "rgb(154 170 76 / 0.15)",
+          "$type": "color"
+        }
+      }
+    },
+    "overlay": {
+      "$value": "rgb(0 0 0 / 0.6)",
+      "$type": "color"
+    }
+  }
+}

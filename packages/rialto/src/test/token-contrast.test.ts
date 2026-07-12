@@ -4,6 +4,11 @@
  * axe-core cannot resolve CSS custom property contrast values in jsdom,
  * so this test is the ONLY reliable way to verify contrast compliance in CI.
  *
+ * Both themes are read from the DTCG authoring sources (colors.json,
+ * colors.dark.json). src/tokens/colors.css is GENERATED from those same
+ * files (scripts/generate-colors-css.ts) and drift-checked by `pnpm
+ * regen:check`, so asserting on the JSON asserts on the shipped values.
+ *
  * Thresholds:
  *   - Text on surface: 4.5:1 (WCAG AA normal text)
  *   - UI controls on surface: 3:1 (WCAG AA UI components / graphical objects)
@@ -11,21 +16,7 @@
 
 import { describe, it, expect } from "vitest";
 import colors from "../tokens/colors.json";
-
-// Dark theme values from colors.css — keep in sync manually
-const DARK = {
-  surface: "#1e1c1a",
-  surfaceElevated: "#2a2725",
-  textPrimaryOpacity: 0.92,
-  textSecondaryOpacity: 0.6,
-  textTertiaryOpacity: 0.5,
-  textOnBase: "#fdfcfa", // base before alpha blend
-  accent: "#d4a23a",
-  textOnAccent: "#1a1918",
-  error: "#e06050",
-  warning: "#d4a030",
-  success: "#9aaa4c",
-};
+import darkColors from "../tokens/colors.dark.json";
 
 // ── Pure utility functions ────────────────────────────────────────────────────
 
@@ -76,6 +67,36 @@ function blendAlpha(fgHex: string, bgHex: string, alpha: number): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+/**
+ * Parse a DTCG color $value into a base hex color plus alpha.
+ * Accepts `#rrggbb` and the `rgb(R G B / A)` form used by translucent tokens.
+ */
+function parseColor(value: string): { hex: string; alpha: number } {
+  if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+    return { hex: value, alpha: 1 };
+  }
+  const rgb = /^rgb\((\d+) (\d+) (\d+) \/ (0?\.\d+|[01](?:\.0+)?)\)$/.exec(value);
+  if (rgb) {
+    const [, r, g, b, a] = rgb;
+    const channels = [r, g, b].map(Number);
+    if (channels.some((c) => c > 255)) {
+      throw new Error(`RGB channel out of range in color token value: ${value}`);
+    }
+    const hex = `#${channels.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+    return { hex, alpha: Number(a) };
+  }
+  throw new Error(`Unrecognized color token value: ${value}`);
+}
+
+/**
+ * Resolve a possibly-translucent foreground token to the opaque color the
+ * user actually sees over `bgHex`.
+ */
+function resolveOn(value: string, bgHex: string): string {
+  const { hex, alpha } = parseColor(value);
+  return alpha >= 1 ? hex : blendAlpha(hex, bgHex, alpha);
+}
+
 // ── Token extraction helpers ──────────────────────────────────────────────────
 
 const surface = colors.color.surface.default.$value;
@@ -94,6 +115,39 @@ const borderStrong = colors.color.border.strong.$value;
 const error = colors.color.semantic.error.default.$value;
 const warning = colors.color.semantic.warning.default.$value;
 const success = colors.color.semantic.success.default.$value;
+
+const dark = {
+  surface: darkColors.color.surface.default.$value,
+  surfaceElevated: darkColors.color.surface.elevated.$value,
+  textPrimary: darkColors.color.text.primary.$value,
+  textSecondary: darkColors.color.text.secondary.$value,
+  textTertiary: darkColors.color.text.tertiary.$value,
+  textOnAccent: darkColors.color["text"]["on-accent"].$value,
+  accent: darkColors.color.accent.default.$value,
+  error: darkColors.color.semantic.error.default.$value,
+  warning: darkColors.color.semantic.warning.default.$value,
+  success: darkColors.color.semantic.success.default.$value,
+  border: darkColors.color.border.default.$value,
+  borderStrong: darkColors.color.border.strong.$value,
+};
+
+// ── Structural parity ─────────────────────────────────────────────────────────
+
+/** Collect every DTCG leaf path (`a.b.c`) in a token tree. */
+function tokenPaths(node: unknown, prefix = ""): string[] {
+  if (typeof node !== "object" || node === null) return [];
+  if ("$value" in node) return [prefix];
+  const entries: Array<[string, unknown]> = Object.entries(node);
+  return entries
+    .filter(([key]) => !key.startsWith("$"))
+    .flatMap(([key, child]) => tokenPaths(child, prefix ? `${prefix}.${key}` : key));
+}
+
+describe("Theme parity", () => {
+  it("colors.dark.json declares exactly the token paths of colors.json", () => {
+    expect(tokenPaths(darkColors).sort()).toEqual(tokenPaths(colors).sort());
+  });
+});
 
 // ── Light Theme Tests ─────────────────────────────────────────────────────────
 
@@ -161,56 +215,67 @@ describe("Light theme — border UI controls on surface (3:1 minimum)", () => {
 
 describe("Dark theme — text on surface (4.5:1 minimum)", () => {
   it("text-primary (blended) on dark surface", () => {
-    const blended = blendAlpha(DARK.textOnBase, DARK.surface, DARK.textPrimaryOpacity);
-    expect(contrastRatio(blended, DARK.surface)).toBeGreaterThanOrEqual(4.5);
+    const blended = resolveOn(dark.textPrimary, dark.surface);
+    expect(contrastRatio(blended, dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("text-primary (blended) on dark surface-elevated", () => {
-    const blended = blendAlpha(DARK.textOnBase, DARK.surfaceElevated, DARK.textPrimaryOpacity);
-    expect(contrastRatio(blended, DARK.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+    const blended = resolveOn(dark.textPrimary, dark.surfaceElevated);
+    expect(contrastRatio(blended, dark.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("text-secondary (blended) on dark surface", () => {
-    const blended = blendAlpha(DARK.textOnBase, DARK.surface, DARK.textSecondaryOpacity);
-    expect(contrastRatio(blended, DARK.surface)).toBeGreaterThanOrEqual(4.5);
+    const blended = resolveOn(dark.textSecondary, dark.surface);
+    expect(contrastRatio(blended, dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("text-secondary (blended) on dark surface-elevated", () => {
-    const blended = blendAlpha(DARK.textOnBase, DARK.surfaceElevated, DARK.textSecondaryOpacity);
-    expect(contrastRatio(blended, DARK.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+    const blended = resolveOn(dark.textSecondary, dark.surfaceElevated);
+    expect(contrastRatio(blended, dark.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("text-tertiary (blended) on dark surface", () => {
-    const blended = blendAlpha(DARK.textOnBase, DARK.surface, DARK.textTertiaryOpacity);
-    expect(contrastRatio(blended, DARK.surface)).toBeGreaterThanOrEqual(4.5);
+    const blended = resolveOn(dark.textTertiary, dark.surface);
+    expect(contrastRatio(blended, dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("text-tertiary (blended) on dark surface-elevated", () => {
-    const blended = blendAlpha(DARK.textOnBase, DARK.surfaceElevated, DARK.textTertiaryOpacity);
-    expect(contrastRatio(blended, DARK.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+    const blended = resolveOn(dark.textTertiary, dark.surfaceElevated);
+    expect(contrastRatio(blended, dark.surfaceElevated)).toBeGreaterThanOrEqual(4.5);
   });
 });
 
 describe("Dark theme — accent text and UI controls", () => {
   it("accent as UI control on dark surface (3:1 minimum)", () => {
-    expect(contrastRatio(DARK.accent, DARK.surface)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(resolveOn(dark.accent, dark.surface), dark.surface)).toBeGreaterThanOrEqual(3);
   });
 
   it("text-on-accent on dark accent (4.5:1 minimum)", () => {
-    expect(contrastRatio(DARK.textOnAccent, DARK.accent)).toBeGreaterThanOrEqual(4.5);
+    const accentHex = parseColor(dark.accent).hex;
+    expect(contrastRatio(resolveOn(dark.textOnAccent, accentHex), accentHex)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("border (blended) as UI control on dark surface (3:1 minimum)", () => {
+    expect(contrastRatio(resolveOn(dark.border, dark.surface), dark.surface)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("border-strong (blended) as UI control on dark surface (3:1 minimum)", () => {
+    expect(
+      contrastRatio(resolveOn(dark.borderStrong, dark.surface), dark.surface)
+    ).toBeGreaterThanOrEqual(3);
   });
 });
 
 describe("Dark theme — semantic text on dark surface (4.5:1 minimum)", () => {
   it("error on dark surface", () => {
-    expect(contrastRatio(DARK.error, DARK.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(resolveOn(dark.error, dark.surface), dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("warning on dark surface", () => {
-    expect(contrastRatio(DARK.warning, DARK.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(resolveOn(dark.warning, dark.surface), dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("success on dark surface", () => {
-    expect(contrastRatio(DARK.success, DARK.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(resolveOn(dark.success, dark.surface), dark.surface)).toBeGreaterThanOrEqual(4.5);
   });
 });
