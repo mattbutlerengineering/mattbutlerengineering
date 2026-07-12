@@ -121,6 +121,7 @@ export function VenueOnboardingPage() {
                 errors={errors.settings}
                 onChange={(settings) => actions.setStepData("settings", settings)}
                 onValidate={actions.validateStep}
+                onAdvance={actions.next}
               />
             </>
           )}
