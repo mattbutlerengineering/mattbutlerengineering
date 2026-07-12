@@ -9,7 +9,7 @@ import { BasicInfoStep, isValidSlug } from "../components/venue-onboarding/Basic
 import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
 import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
-import { ConfirmationStep } from "../components/venue-onboarding/ConfirmationStep";
+import { LaunchStep } from "../components/venue-onboarding/LaunchStep";
 import {
   buildOnboardingPayload,
   TOTAL_STEPS,
@@ -42,24 +42,29 @@ export function VenueOnboardingPage() {
     return () => clearTimeout(timer);
   }, [data.basicInfo.slug, accessToken, api, actions]);
 
-  const handleSubmit = async () => {
+  // Called by LaunchStep's Launch button. Errors propagate so LaunchStep
+  // knows not to celebrate — submitError is already populated on the wizard
+  // by actions.submit() for display.
+  const handleLaunch = async () => {
     const createPromise = accessToken
       ? api.venues.create(buildOnboardingPayload(data))
       : Promise.reject(new Error("You must be signed in to create a venue"));
 
-    try {
-      await actions.submit(createPromise);
-      await refetchVenues();
-      toast({
-        title: "Venue created",
-        description: `"${data.basicInfo.name.trim()}" is ready — finish setup to start taking reservations`,
-        variant: "success",
-        duration: 5000,
-      });
-      navigate("/dashboard", { replace: true });
-    } catch {
-      // submitError is already populated on the wizard by actions.submit()
-    }
+    await actions.submit(createPromise);
+    await refetchVenues();
+    toast({
+      title: "Venue created",
+      description: `"${data.basicInfo.name.trim()}" is ready — finish setup to start taking reservations`,
+      variant: "success",
+      duration: 5000,
+    });
+  };
+
+  // Called by LaunchStep once its brief success celebration finishes —
+  // client-side navigation only, so the SPA transitions straight into
+  // DashboardLayout with no hard reload.
+  const handleCelebrationDone = () => {
+    navigate("/dashboard", { replace: true });
   };
 
   return (
@@ -126,23 +131,16 @@ export function VenueOnboardingPage() {
           )}
 
           {step === 5 && (
-            <>
-              <Text variant="label">Review & Confirm</Text>
-              <ConfirmationStep
-                basicInfo={data.basicInfo}
-                locationTime={data.locationTime}
-                operatingHours={data.operatingHours}
-                settings={data.settings}
-              />
-            </>
-          )}
-
-          {submitError && (
-            <div className={styles.errorBanner} role="alert">
-              <Text variant="body" color="error">
-                {submitError}
-              </Text>
-            </div>
+            <LaunchStep
+              basicInfo={data.basicInfo}
+              locationTime={data.locationTime}
+              operatingHours={data.operatingHours}
+              settings={data.settings}
+              isSubmitting={isSubmitting}
+              submitError={submitError}
+              onLaunch={handleLaunch}
+              onCelebrationDone={handleCelebrationDone}
+            />
           )}
 
           <Stack direction="row" gap="md" justify="between">
@@ -150,13 +148,9 @@ export function VenueOnboardingPage() {
               Back
             </Button>
 
-            {step < TOTAL_STEPS ? (
+            {step < TOTAL_STEPS && (
               <Button variant="primary" onClick={actions.next}>
                 Next
-              </Button>
-            ) : (
-              <Button variant="primary" onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Venue"}
               </Button>
             )}
           </Stack>
