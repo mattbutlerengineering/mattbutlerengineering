@@ -15,18 +15,11 @@
 
 import * as fs from "fs";
 import * as path from "path";
-
-/* ── Types ───────────────────────────────────── */
-
-interface DtcgToken {
-  readonly $value: string | number;
-  readonly $type: string;
-  readonly $description?: string;
-}
-
-interface TokenGroup {
-  readonly [key: string]: DtcgToken | TokenGroup;
-}
+import {
+  assertTokenParity,
+  type DtcgToken,
+  type TokenGroup,
+} from "./lib/color-tokens.js";
 
 interface FigmaTokenSets {
   readonly [setName: string]: TokenGroup;
@@ -329,58 +322,6 @@ function categoryToType(category: string): string {
 }
 
 /**
- * Read dark theme color overrides from colors.css.
- * Builds a DTCG structure matching the shape of colors.json but with dark values.
- */
-function readDarkColorTokens(tokensDir: string): TokenGroup {
-  const css = fs.readFileSync(path.join(tokensDir, "colors.css"), "utf-8");
-  const darkBlock = extractCssBlock(css, '[data-theme="dark"]');
-  const props = parseCssProperties(darkBlock);
-
-  // Map CSS property names to the JSON structure paths used in colors.json
-  const cssToJsonPath: Record<string, readonly string[]> = {
-    "--rialto-surface": ["surface", "default"],
-    "--rialto-surface-elevated": ["surface", "elevated"],
-    "--rialto-surface-recessed": ["surface", "recessed"],
-    "--rialto-surface-matte": ["surface", "matte"],
-    "--rialto-surface-deep": ["surface", "deep"],
-    "--rialto-text-primary": ["text", "primary"],
-    "--rialto-text-secondary": ["text", "secondary"],
-    "--rialto-text-tertiary": ["text", "tertiary"],
-    "--rialto-text-on-accent": ["text", "on-accent"],
-    "--rialto-border": ["border", "default"],
-    "--rialto-border-strong": ["border", "strong"],
-    "--rialto-accent": ["accent", "default"],
-    "--rialto-accent-hover": ["accent", "hover"],
-    "--rialto-accent-muted": ["accent", "muted"],
-    "--rialto-accent-glow": ["accent", "glow"],
-    "--rialto-error": ["semantic", "error", "default"],
-    "--rialto-error-muted": ["semantic", "error", "muted"],
-    "--rialto-warning": ["semantic", "warning", "default"],
-    "--rialto-warning-muted": ["semantic", "warning", "muted"],
-    "--rialto-success": ["semantic", "success", "default"],
-    "--rialto-success-muted": ["semantic", "success", "muted"],
-    "--rialto-overlay": ["overlay"],
-  };
-
-  let darkColors: TokenGroup = {};
-
-  for (const prop of props) {
-    const jsonPath = cssToJsonPath[prop.name];
-    if (!jsonPath) continue;
-
-    const token: DtcgToken = {
-      $value: prop.value,
-      $type: "color",
-    };
-
-    darkColors = setNestedValue(darkColors, jsonPath, token);
-  }
-
-  return { color: darkColors };
-}
-
-/**
  * Read vibe override tokens from vibes.ts.
  * Maps CSS custom property overrides to DTCG token paths.
  */
@@ -469,13 +410,14 @@ function main() {
 
   // 1. Read DTCG JSON sources (already in correct format)
   const colorsLight = readJson(path.join(tokensDir, "colors.json"));
+  const colorsDark = readJson(path.join(tokensDir, "colors.dark.json"));
+  assertTokenParity(colorsLight, colorsDark);
   const typography = readJson(path.join(tokensDir, "typography.json"));
   const spacing = readJson(path.join(tokensDir, "spacing.json"));
 
   // 2. Parse CSS-only tokens
   const radius = readRadiusTokens(tokensDir);
   const shadows = readShadowTokens(tokensDir);
-  const darkColors = readDarkColorTokens(tokensDir);
 
   // 3. Parse vibe overrides
   const vibes = readVibeOverrides(providersDir);
@@ -488,7 +430,7 @@ function main() {
       ...shadows.light,
     },
     "rialto/dark": {
-      ...darkColors,
+      ...colorsDark,
       ...shadows.dark,
     },
 

@@ -1,35 +1,14 @@
-import { z } from "zod";
+import { systemHealthSchema } from "@mbe/types";
+import type { SystemHealth, ServiceHealthCheck } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
-export interface ServiceHealth {
-  readonly status: string;
-  readonly version?: string;
-  readonly latency?: number;
-}
-
-export interface SystemHealth {
-  readonly status: string;
-  readonly timestamp: string;
-  readonly services?: Record<string, ServiceHealth>;
-  readonly staticSites?: Record<string, { status: string }>;
-  readonly ci?: { status: string };
-  readonly deploy?: { status: string };
-}
-
-const serviceHealthSchema = z.object({
-  status: z.string(),
-  version: z.string().optional(),
-  latency: z.number().optional(),
-});
-
-const systemHealthSchema: z.ZodSchema<SystemHealth> = z.object({
-  status: z.string(),
-  timestamp: z.string(),
-  services: z.record(z.string(), serviceHealthSchema).optional(),
-  staticSites: z.record(z.string(), z.object({ status: z.string() })).optional(),
-  ci: z.object({ status: z.string() }).optional(),
-  deploy: z.object({ status: z.string() }).optional(),
-});
+/**
+ * Re-exported from `@mbe/types`, the single owner of the `/health/system`
+ * contract. `ServiceHealth` is the per-service probe result carried under
+ * `subsystems.services.checks`.
+ */
+export type { SystemHealth };
+export type ServiceHealth = ServiceHealthCheck;
 
 const SYSTEM_HEALTH_PATH = "/api/health/system";
 

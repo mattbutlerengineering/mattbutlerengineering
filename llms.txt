@@ -999,11 +999,12 @@
       }
     </item>
     <item priority="low">
-      interface NavItem {
+      interface RawPageEntry {
         id: string;
         label: string;
-        path: string;
+        category: string;
         comingSoon?: boolean;
+        load?: () => Promise<unknown>;
       }
     </item>
   </file>
@@ -1797,6 +1798,20 @@
       }
     </item>
   </file>
+  <file path="packages/rialto/scripts/lib/color-tokens.ts">
+    <item priority="low">
+      interface DtcgToken {
+        $value: string | number;
+        $type: string;
+        $description?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TokenGroup {
+        
+      }
+    </item>
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     <item priority="low">
       interface VerifiedWebhookOptions {
@@ -2456,6 +2471,14 @@
       export const GuestSchema: unknown;
     </item>
   </file>
+  <file path="packages/types/src/schemas/health-system.ts">
+    <item priority="high">
+      export const systemHealthStatusSchema: unknown;
+    </item>
+    <item priority="low">
+      type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/json-schema.ts">
     <item priority="medium">
       function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
@@ -2592,6 +2615,14 @@
       function main(): void { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/scripts/generate-colors-css.ts">
+    <item priority="medium">
+      function assertCommentSafe(text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sectionHeader(key: string, description: string | undefined): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
     <item priority="high">
       interface ExportEntry {
@@ -2606,16 +2637,12 @@
   </file>
   <file path="packages/rialto/scripts/generate-figma-tokens.ts">
     <item priority="high">
-      interface DtcgToken {
-        $value: string | number;
-        $type: string;
-        $description?: string;
-      }
-    </item>
-    <item priority="high">
-      interface TokenGroup {
+      interface FigmaTokenSets {
         
       }
+    </item>
+    <item priority="medium">
+      function readJson(filePath: string): TokenGroup { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/scripts/generate-manifest.ts">
@@ -2906,6 +2933,20 @@
       class DepositNotFoundError {
         
       }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/domain-services.ts">
+    <item priority="low">
+      interface DomainServices {
+        availabilityService: typeof availabilityService;
+        venueService: typeof venueService;
+        tableService: typeof tableService;
+        reservationService: typeof reservationService;
+        guestService: typeof guestService;
+      }
+    </item>
+    <item priority="high">
+      export const defaultDomainServices: DomainServices;
     </item>
   </file>
   <file path="services/reservations/src/services/events.ts">
@@ -3812,21 +3853,18 @@
   </file>
   <file path="packages/agent-core/src/gate-runner.ts">
     <item priority="low">
+      interface PostCommitGatewayConfig {
+        evaluateSuccess?: boolean;
+        runSecurityReview?: boolean;
+        runStaticAnalysis?: boolean;
+      }
+    </item>
+    <item priority="low">
       interface GateContext {
         diff: string;
         taskDescription: string;
         commitMsg: string;
-        evaluateSuccess: boolean;
-        runStaticAnalysis: boolean;
-      }
-    </item>
-    <item priority="low">
-      interface GateResult {
-        passed: boolean;
-        gateName: string;
-        severity: "error" | "warning";
-        details?: string;
-        output?: unknown;
+        config: PostCommitGatewayConfig;
       }
     </item>
   </file>
@@ -4459,19 +4497,11 @@
   </file>
   <file path="packages/api-client/src/health.ts">
     <item priority="low">
-      interface ServiceHealth {
-        status: string;
-        version?: string;
-        latency?: number;
-      }
+      type ServiceHealth = ServiceHealthCheck;
     </item>
-    <item priority="low">
-      interface SystemHealth {
-        status: string;
-        timestamp: string;
-        services?: Record<string, ServiceHealth>;
-        staticSites?: Record<string, { status: string }>;
-        ci?: { status: string };
+    <item priority="high">
+      class HealthClient {
+        async system(): Promise<unknown>;
       }
     </item>
   </file>
@@ -5542,15 +5572,18 @@
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
-    </item>
-    <item priority="low">
       interface AgentOverrides {
         model?: ModelTier;
         budget?: number;
         maxTurns?: number;
         adapter?: AdapterType;
         escalate?: ModelTier;
+      }
+    </item>
+    <item priority="low">
+      interface ParseResult {
+        overrides: AgentOverrides | null;
+        warnings: string[];
       }
     </item>
   </file>

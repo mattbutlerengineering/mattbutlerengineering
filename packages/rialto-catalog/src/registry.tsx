@@ -9,11 +9,15 @@
  * - Does NOT import Zod
  * - Ships to the browser alongside React
  *
- * Note on prop types: `defineRegistry` receives each component function as a
- * `ComponentFn<C, K>` where props are typed as the Zod output type for that
- * component. Because the catalog's generics are complex, we accept `any` typed
- * context parameters — runtime safety is provided by the Zod schemas in the
- * catalog (validated at generation time), not by TypeScript here.
+ * Prop validation runs at the registry seam: `withSchemaValidation` (below)
+ * runs each element's alias-normalized props through the matching generated Zod
+ * schema (`generatedSchemas`) via `safeParse` before the adapter is invoked. On
+ * failure it renders a subtle, accessible inline fallback instead of calling the
+ * adapter, so one malformed or incomplete element degrades on its own rather
+ * than dereferencing a missing prop and throwing (which would blank the whole
+ * preview). Adapters therefore accept `any`/narrowly-cast props and can trust
+ * the shape once they run — the runtime guarantee comes from the seam, not from
+ * TypeScript.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -54,6 +58,7 @@ import {
 import type { DepartureBoardProps } from "@mattbutlerengineering/rialto";
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
+import { generatedSchemas } from "./generated-schemas.js";
 import type { ReactNode } from "react";
 
 // Toast is intentionally omitted from this registry.
@@ -82,8 +87,10 @@ interface AdapterContext {
  * Apply a component's declared AI prop aliases to a props bag: for each
  * `{ alias: canonical }` entry, copy the alias value onto the canonical prop
  * when the canonical is absent. Adapters therefore read only canonical prop
- * names — changing a declared alias changes real behaviour. Array `?? []`
- * fallbacks in the adapters are not aliases and are untouched.
+ * names — changing a declared alias changes real behaviour. Array-of-object
+ * props are validated at the seam by `withSchemaValidation` against the generated
+ * Zod schema, so a malformed element renders a fallback instead of reaching an
+ * adapter — which is why the adapters no longer need `?? []` fallbacks.
  */
 function applyAliases(name: string, props: unknown): unknown {
   const aliases = catalogMeta[name]?.aliases;
@@ -115,8 +122,56 @@ function withAliasNormalization<T extends Record<string, AdapterFn>>(adapters: T
   return wrapped as unknown as T;
 }
 
+/**
+ * Subtle, accessible placeholder rendered at the seam when an element's
+ * normalized props fail schema validation. Keeping the failure here isolates it
+ * to the single element instead of letting an adapter dereference a missing
+ * array prop and throw — which would otherwise blank the whole preview.
+ */
+function SeamFallback({ name }: { name: string }): ReactNode {
+  return (
+    <span
+      role="note"
+      data-rialto-seam-fallback={name}
+      style={{
+        color: "var(--rialto-text-tertiary)",
+        fontSize: "var(--rialto-text-xs)",
+      }}
+    >
+      Component could not be displayed
+    </span>
+  );
+}
+
+/**
+ * Wrap every adapter so its alias-normalized props are validated against the
+ * matching generated Zod schema before the adapter runs. On success the adapter
+ * is invoked unchanged; on failure a per-element {@link SeamFallback} is rendered
+ * instead, so a malformed or incomplete element degrades on its own rather than
+ * throwing. Components without a generated schema pass through unchanged.
+ *
+ * Compose as `withAliasNormalization(withSchemaValidation(...))` so props are
+ * alias-normalized first, then validated, then handed to the adapter.
+ */
+function withSchemaValidation<T extends Record<string, AdapterFn>>(adapters: T): T {
+  const wrapped: Record<string, AdapterFn> = {};
+  for (const [name, adapter] of Object.entries<AdapterFn>(adapters)) {
+    const schema = generatedSchemas[name as keyof typeof generatedSchemas];
+    if (!schema) {
+      wrapped[name] = adapter;
+      continue;
+    }
+    wrapped[name] = (context) =>
+      schema.safeParse(context.props).success ? adapter(context) : <SeamFallback name={name} />;
+  }
+  // The structural rebuild erases the literal's per-key types; re-assert the
+  // caller's shape so defineRegistry keeps checking each adapter against its
+  // catalog key.
+  return wrapped as unknown as T;
+}
+
 export const { registry, handlers, executeAction } = defineRegistry(catalog, {
-  components: withAliasNormalization({
+  components: withAliasNormalization(withSchemaValidation({
     // ── Layout ────────────────────────────────────────────────────
     Stack: ({ props, children }: any) => (
       <Stack
@@ -179,10 +234,11 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       </Button>
     ),
 
-    // IconButton is a labelled, icon-only Button. Its props are validated by
-    // the generated Zod schema before this renderer runs (see file header),
-    // so the shape is guaranteed; the cast narrows the untyped props bag
-    // (mirrors the Odometer renderer, avoiding an `any` here).
+    // IconButton is a labelled, icon-only Button. The registry seam
+    // (`withSchemaValidation`) validates its props against the generated Zod
+    // schema before this adapter runs, so the shape is guaranteed here; the cast
+    // narrows the untyped props bag (mirrors the Odometer renderer, avoiding an
+    // `any` here).
     IconButton: ({ props, emit }: { props: unknown; emit: (event: string) => void }) => {
       const p = props as {
         icon?: string;
@@ -214,20 +270,20 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     Select: ({ props, emit }: any) => (
       <Select
         label={props.label}
-        options={props.options ?? []}
+        options={props.options}
         placeholder={props.placeholder}
         value={props.value}
         onChange={() => emit("change")}
       />
     ),
 
-    // Combobox mirrors Select but adds multi-select. Props are validated by the
-    // generated Zod schema before this renderer runs (see file header); the cast
-    // narrows the untyped props bag (mirrors IconButton, avoiding an `any`).
+    // Combobox mirrors Select but adds multi-select. The registry seam
+    // (`withSchemaValidation`) validates its props before this adapter runs; the
+    // cast narrows the untyped props bag (mirrors IconButton, avoiding an `any`).
     Combobox: ({ props, emit }: { props: unknown; emit: (event: string) => void }) => {
       const p = props as {
         label?: string;
-        options?: { value: string; label: string; disabled?: boolean }[];
+        options: { value: string; label: string; disabled?: boolean }[];
         placeholder?: string;
         value?: string;
         multiple?: boolean;
@@ -235,7 +291,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       return (
         <Combobox
           label={p.label}
-          options={p.options ?? []}
+          options={p.options}
           placeholder={p.placeholder}
           value={p.value}
           multiple={p.multiple}
@@ -272,16 +328,16 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     // reads only the canonical props.
     Tabs: ({ props }: any) => (
       <Tabs
-        tabs={props.tabs ?? []}
+        tabs={props.tabs}
         defaultTab={props.defaultTab}
       />
     ),
 
     Breadcrumb: ({ props }: any) => (
-      <Breadcrumb items={props.items ?? []} maxItems={props.maxItems} />
+      <Breadcrumb items={props.items} maxItems={props.maxItems} />
     ),
 
-    NavigationMenu: ({ props }: any) => <NavigationMenu items={props.items ?? []} />,
+    NavigationMenu: ({ props }: any) => <NavigationMenu items={props.items} />,
 
     // ── Feedback ──────────────────────────────────────────────────
     Alert: ({ props, children, emit }: any) => (
@@ -321,20 +377,20 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     // ── Data Display ──────────────────────────────────────────────
     Table: ({ props }: any) => (
       <Table
-        columns={props.columns ?? []}
-        data={props.data ?? []}
+        columns={props.columns}
+        data={props.data}
         rowKey={props.rowKey}
         density={props.density}
         striped={props.striped}
       />
     ),
 
-    // DataTable mirrors Table but adds sorting + selection. Props are validated by
-    // the generated Zod schema before this renderer runs (see file header); the
+    // DataTable mirrors Table but adds sorting + selection. The registry seam
+    // (`withSchemaValidation`) validates its props before this adapter runs; the
     // cast narrows the untyped props bag (mirrors IconButton, avoiding an `any`).
     DataTable: ({ props }: { props: unknown }) => {
       const p = props as {
-        columns?: {
+        columns: {
           key: string;
           header: string;
           sortable?: boolean;
@@ -342,7 +398,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           width?: string;
           rowHeader?: boolean;
         }[];
-        data?: Record<string, unknown>[];
+        data: Record<string, unknown>[];
         rowKey?: (row: Record<string, unknown>) => string | number;
         density?: "compact" | "default" | "spacious";
         striped?: boolean;
@@ -352,8 +408,8 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       };
       return (
         <DataTable
-          columns={p.columns ?? []}
-          data={p.data ?? []}
+          columns={p.columns}
+          data={p.data}
           rowKey={p.rowKey ?? ((row) => String(row.id ?? ""))}
           density={p.density}
           striped={p.striped}
@@ -365,12 +421,13 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     },
 
     DataList: ({ props }: any) => (
-      <DataList items={props.items ?? []} orientation={props.orientation} striped={props.striped} />
+      <DataList items={props.items} orientation={props.orientation} striped={props.striped} />
     ),
 
     Odometer: ({ props }: { props: unknown }) => {
-      // The catalog's generated Zod schema validates Odometer props before this
-      // renderer runs (see file header), so the shape is guaranteed here.
+      // The registry seam (`withSchemaValidation`) validates Odometer props
+      // against the generated Zod schema before this adapter runs, so the shape
+      // is guaranteed here.
       const p = props as {
         value: number;
         size?: "sm" | "md" | "lg";
@@ -396,20 +453,27 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     Accordion: ({ props }: any) => (
-      <Accordion items={props.items ?? []} multiple={props.multiple} />
+      <Accordion items={props.items} multiple={props.multiple} />
     ),
 
-    // DepartureBoard cycles a string[] of phrases. `phrases` is an array, which
-    // the schema generator omits from the Zod schema, so it is read defensively
-    // from the untyped props bag alongside the typed timing/appearance fields.
+    // DepartureBoard cycles a string[] of phrases. The `phrases` array shape is
+    // declared in DepartureBoard.catalog.ts propSchemas; the registry seam
+    // (`withSchemaValidation`) validates it against the generated Zod schema
+    // before this adapter runs; the cast narrows the untyped props bag (mirrors
+    // the Odometer renderer).
     DepartureBoard: ({ props }: { props: unknown }) => {
-      const p = (props ?? {}) as Partial<DepartureBoardProps>;
-      const phrases = Array.isArray(p.phrases)
-        ? p.phrases.filter((x): x is string => typeof x === "string")
-        : [];
+      const p = props as {
+        phrases: string[];
+        holdMs?: number;
+        flipInterval?: number;
+        cascadeDelay?: number;
+        charset?: DepartureBoardProps["charset"];
+        size?: DepartureBoardProps["size"];
+        length?: number;
+      };
       return (
         <DepartureBoard
-          phrases={phrases}
+          phrases={p.phrases}
           holdMs={p.holdMs}
           flipInterval={p.flipInterval}
           cascadeDelay={p.cascadeDelay}
@@ -421,7 +485,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     },
 
     // ── App Shell ─────────────────────────────────────────────────
-    Sidebar: ({ props }: any) => <Sidebar items={props.items ?? []} collapsed={props.collapsed} />,
+    Sidebar: ({ props }: any) => <Sidebar items={props.items} collapsed={props.collapsed} />,
 
     // AppBar uses named slots `logo` and `actions` instead of children.
     AppBar: ({ props }: any) => (
@@ -429,7 +493,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
     ),
 
     Footer: ({ props, children }: any) => <Footer variant={props.variant}>{children}</Footer>,
-  }),
+  })),
 
   actions: {
     validateForm: async (_params: any, _setState: any) => {

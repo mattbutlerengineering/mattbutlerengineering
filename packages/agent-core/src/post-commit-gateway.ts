@@ -3,7 +3,7 @@ import { runVerification } from "./worktree-manager.js";
 import { storeVerificationLog, emitEvent } from "./utils.js";
 import { isTrivialDepBump } from "./dep-bump-merger.js";
 import { GateRunner } from "./gate-runner.js";
-import type { GateContext } from "./gate-runner.js";
+import type { GateContext, PostCommitGatewayConfig } from "./gate-runner.js";
 import { StaticAnalysisGate } from "./gates/static-analysis-gate.js";
 import { LlmEvaluationGate } from "./gates/llm-evaluation-gate.js";
 import { SecurityReviewGate } from "./gates/security-review-gate.js";
@@ -31,11 +31,7 @@ export interface GatewayVerdict {
   evaluation?: EvaluationResult;
 }
 
-export interface PostCommitGatewayConfig {
-  evaluateSuccess?: boolean;
-  runSecurityReview?: boolean;
-  runStaticAnalysis?: boolean;
-}
+export type { PostCommitGatewayConfig } from "./gate-runner.js";
 
 export interface PostCommitGatewayInput {
   worktreePath: string;
@@ -121,14 +117,10 @@ export async function runPostCommitGateway(
   // ── Step 2: Quality gates via GateRunner ─────────────────────────────────
   // SecurityReviewGate skips when static analysis failed — expressed via
   // shouldSkip(context, previousResults), no mutable closures needed.
-  const gateContext: GateContext = {
-    diff,
-    taskDescription,
-    commitMsg,
-    evaluateSuccess: config.evaluateSuccess !== false,
-    runStaticAnalysis: config.runStaticAnalysis !== false,
-    runSecurityReview: config.runSecurityReview !== false,
-  };
+  // `config` flows through to GateContext as-is: each gate reads its own
+  // toggle off `context.config` in shouldSkip(), so this object literal
+  // never needs a new line when a gate adds a new toggle.
+  const gateContext: GateContext = { diff, taskDescription, commitMsg, config };
 
   const gates = [new StaticAnalysisGate(), new LlmEvaluationGate(), new SecurityReviewGate()];
   const runner = new GateRunner(gates);

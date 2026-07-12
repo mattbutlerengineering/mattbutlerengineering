@@ -3,8 +3,6 @@ import type { TimeSlot, DateAvailability, ApiResponse, ProblemDetails } from "@m
 import { createProblemDetails, availabilityQueryJsonSchema, availabilityDatesQueryJsonSchema } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
-import { availabilityService } from "../services/availability.js";
-import { venueService } from "../services/venue.js";
 
 // Schema for TimeSlot
 const TimeSlotSchema = {
@@ -63,6 +61,11 @@ const DateAvailabilitySchema = {
 } as const;
 
 export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
+  // Resolve domain services from the buildApp seam (issue #3357) rather than
+  // importing the sibling singletons directly — tests inject fakes via
+  // buildApp({ services }).
+  const { availabilityService, venueService } = fastify.services;
+
   // Register schemas
   fastify.addSchema(TimeSlotSchema);
   fastify.addSchema(DateAvailabilitySchema);

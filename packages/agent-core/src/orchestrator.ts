@@ -221,12 +221,13 @@ function extractSessionIds(obj: unknown): string[] {
 
 export async function runOrchestrator(
   config: OrchestratorConfig,
-  onEvent?: (event: { type: string; message: string }) => void
+  onEvent?: (event: { type: string; message: string }) => void | Promise<void>
 ): Promise<OrchestratorResult> {
   const startTime = Date.now();
 
   const emit = (type: string, message: string) => {
-    if (onEvent) onEvent({ type, message });
+    // Events are fire-and-forget: async callbacks are tolerated but never awaited.
+    if (onEvent) void onEvent({ type, message });
   };
 
   emit("orchestrator:start", `Decomposing task: ${config.taskDescription}`);

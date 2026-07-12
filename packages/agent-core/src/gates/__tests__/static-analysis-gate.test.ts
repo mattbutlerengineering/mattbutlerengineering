@@ -15,9 +15,7 @@ function makeContext(diff: string): GateContext {
     diff,
     taskDescription: "Fix the bug",
     commitMsg: "fix: the bug",
-    evaluateSuccess: true,
-    runStaticAnalysis: true,
-    runSecurityReview: true,
+    config: { evaluateSuccess: true, runStaticAnalysis: true, runSecurityReview: true },
   };
 }
 

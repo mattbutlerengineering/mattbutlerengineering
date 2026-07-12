@@ -1,102 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
+import type { DomainServices } from "../services/domain-services.js";
 
-// Mock the availability service
-vi.mock("../services/availability.js", () => ({
-  availabilityService: {
-    generateTimeSlots: vi.fn(),
-    getAvailableDates: vi.fn(),
-    findBestTable: vi.fn(),
-    estimateDuration: vi.fn(),
-  },
-}));
+// Domain services are injected via buildApp({ services }) (issue #3357), so the
+// availability route no longer needs a vi.mock ring of sibling service modules to
+// register the app. Only the two services this route actually calls are faked.
+const availabilityService = {
+  generateTimeSlots: vi.fn(),
+  getAvailableDates: vi.fn(),
+  findBestTable: vi.fn(),
+  estimateDuration: vi.fn(),
+} as unknown as DomainServices["availabilityService"];
 
-// Mock the venue service
-vi.mock("../services/venue.js", () => ({
-  venueService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-  venueGroupService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getBySlug: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-// Mock the table service
-vi.mock("../services/table.js", () => ({
-  tableService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
-
-// Mock the reservation service
-vi.mock("../services/reservation.js", () => ({
-  reservationService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    listByUserId: vi.fn(),
-    cancel: vi.fn(),
-  },
-}));
-
-// Mock the guest service
-vi.mock("../services/guest.js", () => ({
-  guestService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    search: vi.fn(),
-    findOrCreate: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    getSegments: vi.fn(),
-  },
-}));
-
-// Mock the floor plan service
-vi.mock("../services/floor-plan.js", () => ({
-  floorPlanService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    getActiveByVenueId: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    setActive: vi.fn(),
-    updateTablePosition: vi.fn(),
-    bulkUpdateTablePositions: vi.fn(),
-    assignTableToFloorPlan: vi.fn(),
-    removeTableFromFloorPlan: vi.fn(),
-  },
-}));
-
-// Mock the hold service
-vi.mock("../services/hold.js", () => ({
-  holdService: {
-    create: vi.fn(),
-    getById: vi.fn(),
-    release: vi.fn(),
-    convertToReservation: vi.fn(),
-    cleanupExpired: vi.fn(),
-  },
-}));
+const venueService = {
+  getById: vi.fn(),
+} as unknown as DomainServices["venueService"];
 
 // Mock the database
 vi.mock("../services/database.js", async () => {
@@ -109,9 +28,6 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => "mock-jwks"),
   jwtVerify: vi.fn(),
 }));
-
-import { availabilityService } from "../services/availability.js";
-import { venueService } from "../services/venue.js";
 
 const mockVenue = {
   id: "venue-123",
@@ -170,7 +86,7 @@ describe("Availability Routes", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, services: { availabilityService, venueService } });
     await app.ready();
     vi.clearAllMocks();
   });

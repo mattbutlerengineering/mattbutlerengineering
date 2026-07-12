@@ -8,6 +8,9 @@ export default [
     // backend services (Fastify); that guard does not apply to the CLI tool.
     rules: {
       "no-restricted-imports": "off",
+      // CLI stdout output is the product — console.log is the interface here.
+      // (Surface extension approved in #3402 audit; base bans bare console.log.)
+      "no-console": "off",
     },
   },
 ];

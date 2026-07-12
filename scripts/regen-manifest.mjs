@@ -162,6 +162,24 @@ export const FAMILIES = [
     outputs: ["packages/rialto-catalog/src/generated-schemas.ts"],
   },
   {
+    id: "rialto-color-tokens",
+    label: "packages/rialto colors.css + figma-tokens.json",
+    command: "pnpm --filter @mattbutlerengineering/rialto generate:tokens",
+    outputs: [
+      "packages/rialto/src/tokens/colors.css",
+      "packages/rialto/figma-tokens.json",
+    ],
+    // Hook-scoped regen (PostToolUse): a token-source edit regenerates just
+    // this family, mirroring the dep-graph/llms ergonomics.
+    changedBy(path) {
+      return /(^|\/)packages\/rialto\/(src\/tokens\/colors(\.dark)?\.json|scripts\/(generate-colors-css|generate-figma-tokens)\.ts|scripts\/lib\/color-tokens\.ts)$/.test(
+        path
+      )
+        ? { command: this.command, outputs: this.outputs }
+        : null;
+    },
+  },
+  {
     id: "dep-graph-md",
     label: "docs/architecture/dependency-graph.md",
     command: "pnpm graph",
@@ -203,6 +221,7 @@ export const REGEN_SOURCE_PREFIXES = [
   "packages/",
   "services/",
   "tools/",
+  "infrastructure/",
   "pnpm-workspace.yaml",
 ];
 

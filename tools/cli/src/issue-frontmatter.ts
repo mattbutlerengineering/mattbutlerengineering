@@ -7,9 +7,7 @@
  * always fall back to the model router.
  */
 import { load } from "js-yaml";
-import { resolveModelId, type ModelTier } from "@mbe/agent-core";
-
-export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
+import { resolveModelId, type ModelTier, type AdapterType } from "@mbe/agent-core";
 
 export interface AgentOverrides {
   model?: ModelTier;

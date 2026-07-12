@@ -83,32 +83,30 @@ export function SystemHealthBadge() {
           </Badge>
         </div>
 
-        {health.services && (
-          <div className={styles.section}>
+        <div className={styles.section}>
+          <div className={styles.row}>
+            <StatusDot status={health.subsystems.services.status} />
             <Text className={styles.sectionLabel}>Services</Text>
-            {Object.entries(health.services).map(([name, svc]) => (
+          </div>
+          {health.subsystems.services.checks &&
+            Object.entries(health.subsystems.services.checks).map(([name, svc]) => (
               <div key={name} className={styles.row}>
                 <StatusDot status={svc.status} />
                 <Text className={styles.name}>{name}</Text>
                 {svc.latency != null && <Text className={styles.meta}>{svc.latency}ms</Text>}
               </div>
             ))}
-          </div>
-        )}
+        </div>
 
-        {health.ci && (
-          <div className={styles.row}>
-            <StatusDot status={health.ci.status} />
-            <Text className={styles.name}>CI</Text>
-          </div>
-        )}
+        <div className={styles.row}>
+          <StatusDot status={health.subsystems.ci.status} />
+          <Text className={styles.name}>CI</Text>
+        </div>
 
-        {health.deploy && (
-          <div className={styles.row}>
-            <StatusDot status={health.deploy.status} />
-            <Text className={styles.name}>Deploys</Text>
-          </div>
-        )}
+        <div className={styles.row}>
+          <StatusDot status={health.subsystems.deploys.status} />
+          <Text className={styles.name}>Deploys</Text>
+        </div>
 
         <div className={styles.footer}>
           <Text className={styles.meta}>

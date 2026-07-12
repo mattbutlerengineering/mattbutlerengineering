@@ -61,7 +61,7 @@ The CLI dispatches a Claude Code session in an isolated git worktree.
 
 ```bash
 mbe agent run "Fix the login bug"        # default: sonnet, $1.00, 50 turns
-  --model claude-sonnet-4-6              # model override
+  --model claude-sonnet-5                # model override
   --max-budget 1.50                      # USD budget cap
   --max-turns 50                         # turn limit
   --no-pr                                # skip PR creation

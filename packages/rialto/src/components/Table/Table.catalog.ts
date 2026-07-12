@@ -11,4 +11,9 @@ export const tableCatalogMeta = {
   charLimits: {
     emptyMessage: 60,
   },
+  propSchemas: {
+    columns:
+      'z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() }))',
+    data: "z.array(z.record(z.string(), z.unknown()))",
+  },
 } satisfies CatalogMeta;

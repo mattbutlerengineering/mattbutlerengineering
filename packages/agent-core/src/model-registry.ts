@@ -7,7 +7,7 @@ import type { ModelTier } from "./model-router.js";
 
 export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
   haiku: "claude-haiku-4-5-20251001",
-  sonnet: "claude-sonnet-4-6",
+  sonnet: "claude-sonnet-5",
   opus: "claude-opus-4-8",
 };
 

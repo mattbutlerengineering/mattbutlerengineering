@@ -306,15 +306,18 @@
   </file>
   <file path="src/issue-frontmatter.ts">
     <item priority="low">
-      type AdapterType = "auto" | "claude" | "gemini" | "opencode";
-    </item>
-    <item priority="low">
       interface AgentOverrides {
         model?: ModelTier;
         budget?: number;
         maxTurns?: number;
         adapter?: AdapterType;
         escalate?: ModelTier;
+      }
+    </item>
+    <item priority="low">
+      interface ParseResult {
+        overrides: AgentOverrides | null;
+        warnings: string[];
       }
     </item>
   </file>

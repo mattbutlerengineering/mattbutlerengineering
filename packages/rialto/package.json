@@ -375,6 +375,7 @@
     "manifest": "pnpm exec tsx scripts/generate-manifest.ts",
     "exports": "pnpm exec tsx scripts/generate-exports.ts",
     "exports:check": "pnpm exec tsx scripts/generate-exports.ts --check",
+    "generate:tokens": "pnpm exec tsx scripts/generate-colors-css.ts && pnpm exec tsx scripts/generate-figma-tokens.ts",
     "build:registry": "pnpm exec tsx scripts/generate-all.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

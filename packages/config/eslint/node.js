@@ -4,7 +4,6 @@ export default [
   ...baseConfig,
   {
     rules: {
-      "no-console": "off",
       // Module boundary enforcement — block frontend-only packages and entrypoints in backend services
       "no-restricted-imports": [
         "error",
@@ -77,6 +76,26 @@ export default [
           ],
         },
       ],
+    },
+  },
+  // Type-checked promise safety for backend production code. Fastify swallows
+  // unawaited promises in handlers/hooks, so floating/misused promises fail
+  // silently at runtime. `projectService` discovers each package's tsconfig;
+  // test files are excluded because packages/agent-core excludes *.test.ts from
+  // its tsconfig (projectService hard-errors on files outside a project).
+  // Measured 2026-07-12 (issue #3402): 6 violations across all node-tier
+  // consumers, no lint wall-time increase vs. the non-type-checked baseline.
+  {
+    files: ["**/src/**/*.ts"],
+    ignores: ["**/*.test.ts", "**/*.spec.ts", "**/generated/**"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
     },
   },
 ];

@@ -42,7 +42,7 @@ src/
 ```bash
 mbe agent run "Fix the login bug"    # Create worktree, run Claude, get PR
   --adapter <type>                   # auto, claude, gemini, opencode (default: claude)
-  --model <model>                    # default: claude-sonnet-4-6
+  --model <model>                    # default: claude-sonnet-5
   --max-budget <usd>                 # default: 1.00
   --max-turns <n>                    # default: 50
   --no-pr                            # skip PR, keep worktree

@@ -21,7 +21,7 @@ export class LlmEvaluationGate implements QualityGate {
   readonly eventType = "session:evaluation" as const;
 
   shouldSkip(context: GateContext): boolean {
-    return context.evaluateSuccess === false;
+    return context.config.evaluateSuccess === false;
   }
 
   async evaluate(context: GateContext): Promise<GateResult> {

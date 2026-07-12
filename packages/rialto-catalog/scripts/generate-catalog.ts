@@ -1,4 +1,3 @@
-#!/usr/bin/env npx tsx
 /**
  * Rialto Catalog Generator (single CatalogSource pass)
  *
@@ -92,7 +91,7 @@ function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean 
  *
  * @param maxLen - Character limit for this prop, from the component's meta.
  */
-function mapTypeToZod(
+export function mapTypeToZod(
   typeStr: string,
   isOptional: boolean,
   maxLen: number | undefined
@@ -211,6 +210,16 @@ export function buildComponentSchemas(
       // Only include props declared in rialto source
       if (!prop.declaredInRialto) continue;
 
+      // An explicit prop schema from the meta wins over the inferred mapping.
+      // This is how array-of-object data props (Tabs.tabs, Select.options,
+      // Table.columns/data, ...) get a schema at all — mapTypeToZod returns
+      // null for `[]`/`Column<`/function types and would otherwise skip them.
+      const explicit = meta.propSchemas?.[prop.name];
+      if (explicit !== undefined) {
+        propSchemas.push({ propName: prop.name, zodExpr: explicit });
+        continue;
+      }
+
       const isOptional = !prop.required;
       const maxLen = meta.charLimits?.[prop.name];
       const zodExpr = mapTypeToZod(prop.resolvedType, isOptional, maxLen);
@@ -218,6 +227,19 @@ export function buildComponentSchemas(
       if (zodExpr === null) continue;
 
       propSchemas.push({ propName: prop.name, zodExpr });
+    }
+
+    // Fold in any declared prop schemas whose prop the introspected interface
+    // did not surface (defensive: keeps a declared shape even if the canonical
+    // model omits the prop). A stale declaration surfaces as an extra field
+    // rather than being silently dropped.
+    if (meta.propSchemas) {
+      const present = new Set(propSchemas.map((p) => p.propName));
+      for (const [propName, zodExpr] of Object.entries(meta.propSchemas)) {
+        if (!present.has(propName)) {
+          propSchemas.push({ propName, zodExpr });
+        }
+      }
     }
 
     result.set(name, propSchemas);
@@ -391,7 +413,16 @@ async function main() {
   console.log(`Components: ${Array.from(metas.keys()).sort().join(", ")}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run the generator when this file is the entry point (e.g.
+// `tsx scripts/generate-catalog.ts`). Guarded so unit tests can import
+// `mapTypeToZod` without triggering a full generation pass.
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

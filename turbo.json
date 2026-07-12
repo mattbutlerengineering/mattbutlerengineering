@@ -5,7 +5,6 @@
   },
   "globalDependencies": [
     "pnpm-lock.yaml",
-    "tsconfig.base.json",
     "eslint.config.js",
     "packages/config/**"
   ],
@@ -25,7 +24,7 @@
       "outputs": ["storybook-static/**"]
     },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "db:generate"],
       "inputs": [
         "src/**",
         "!src/**/*.test.ts",
@@ -45,23 +44,23 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "db:generate"],
       "inputs": [
         "src/**",
         "package.json",
         "eslint.config.js",
-        "../../eslint.config.js",
+        "$TURBO_ROOT$/eslint.config.js",
         "tsconfig*.json"
       ],
       "outputs": []
     },
     "typecheck": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "package.json", "tsconfig*.json", "../../packages/config/typescript/**"],
+      "dependsOn": ["^build", "db:generate"],
+      "inputs": ["src/**", "package.json", "tsconfig*.json", "$TURBO_ROOT$/packages/config/typescript/**"],
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "db:generate"],
       "inputs": ["src/**", "package.json", "vitest.config.ts"]
     },
     "test:coverage": {

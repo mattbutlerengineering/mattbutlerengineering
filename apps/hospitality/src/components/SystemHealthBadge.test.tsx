@@ -4,6 +4,7 @@ import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { useAuth } from "@mbe/auth/react";
 import { useApiClient } from "../hooks/useApiClient.js";
 import type { AuthUser, JWTPayload } from "@mbe/auth";
+import type { SystemHealth } from "@mbe/api-client";
 import React from "react";
 
 vi.mock("@mbe/auth/react", () => ({
@@ -83,6 +84,26 @@ function makeApiClient(systemFn = vi.fn(), rawGet = vi.fn()): ApiClientReturnTyp
   } as unknown as ApiClientReturnType;
 }
 
+/**
+ * Coarse (unauthenticated) `/health/system` snapshot: subsystem rollups only,
+ * no per-service `checks` and no `migrations`. Mirrors the contract fixtures in
+ * packages/api-client/src/health.test.ts.
+ */
+function makeCoarseHealth(overrides: Partial<SystemHealth> = {}): SystemHealth {
+  return {
+    status: "healthy",
+    timestamp: "2026-01-15T12:00:00Z",
+    requestId: "req-coarse",
+    subsystems: {
+      services: { status: "healthy" },
+      static_sites: { status: "healthy" },
+      ci: { status: "healthy" },
+      deploys: { status: "healthy" },
+    },
+    ...overrides,
+  };
+}
+
 describe("SystemHealthBadge", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -121,10 +142,7 @@ describe("SystemHealthBadge", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const systemFn = vi.fn().mockResolvedValue({
-      status: "healthy",
-      timestamp: "2026-01-15T12:00:00Z",
-    });
+    const systemFn = vi.fn().mockResolvedValue(makeCoarseHealth());
     const rawGet = vi.fn();
     vi.mocked(useApiClient).mockReturnValue(makeApiClient(systemFn, rawGet));
 
@@ -146,15 +164,22 @@ describe("SystemHealthBadge", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const healthData = {
+    const healthData: SystemHealth = {
       status: "healthy",
       timestamp: "2026-01-15T12:00:00Z",
-      services: {
-        "users-api": { status: "healthy", latency: 42 },
-        "reservations-api": { status: "degraded", latency: 150 },
+      requestId: "req-detailed",
+      subsystems: {
+        services: {
+          status: "degraded",
+          checks: {
+            "users-api": { status: "ok", latency: 42 },
+            "reservations-api": { status: "error", latency: 150 },
+          },
+        },
+        static_sites: { status: "healthy" },
+        ci: { status: "healthy" },
+        deploys: { status: "healthy" },
       },
-      ci: { status: "healthy" },
-      deploy: { status: "healthy" },
     };
 
     const mockGet = vi.fn().mockResolvedValue(healthData);
@@ -212,15 +237,21 @@ describe("SystemHealthBadge", () => {
     expect(screen.queryByTestId("popover")).toBeNull();
   });
 
-  it("renders without services/ci/deploy sections when absent", async () => {
+  it("renders subsystem rollups for a coarse response without per-service detail", async () => {
     vi.mocked(useAuth).mockReturnValue(
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const healthData = {
-      status: "healthy",
-      timestamp: "2026-01-15T12:00:00Z",
-    };
+    // Coarse response: rollup `status` per subsystem, no `checks` / latency.
+    const healthData = makeCoarseHealth({
+      status: "degraded",
+      subsystems: {
+        services: { status: "healthy" },
+        static_sites: { status: "degraded" },
+        ci: { status: "stale" },
+        deploys: { status: "healthy" },
+      },
+    });
 
     const mockGet = vi.fn().mockResolvedValue(healthData);
     vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
@@ -233,8 +264,13 @@ describe("SystemHealthBadge", () => {
       expect(screen.getByTestId("popover")).toBeDefined();
     });
 
-    expect(screen.queryByText("CI")).toBeNull();
-    expect(screen.queryByText("Deploys")).toBeNull();
+    // Overall + subsystem rollups still render from the nested contract.
+    expect(screen.getByText("degraded")).toBeDefined();
+    expect(screen.getByText("Services")).toBeDefined();
+    expect(screen.getByText("CI")).toBeDefined();
+    expect(screen.getByText("Deploys")).toBeDefined();
+    // No per-service breakdown without `checks`.
+    expect(screen.queryByText("42ms")).toBeNull();
   });
 });
 
@@ -253,10 +289,7 @@ describe("SystemHealthBadge — polling", () => {
       makeAuthResult({ user: makeAuthUser({ raw: makeJWTPayload({ permissions: ["admin"] }) }) })
     );
 
-    const mockGet = vi.fn().mockResolvedValue({
-      status: "healthy",
-      timestamp: "2026-01-15T12:00:00Z",
-    });
+    const mockGet = vi.fn().mockResolvedValue(makeCoarseHealth());
     vi.mocked(useApiClient).mockReturnValue(makeApiClient(mockGet));
 
     await act(async () => {

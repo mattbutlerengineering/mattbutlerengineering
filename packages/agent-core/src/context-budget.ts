@@ -70,6 +70,7 @@ const FALLBACK_CONTEXT_LIMIT = 200_000;
 export const MODEL_CONTEXT_LIMITS: Readonly<Record<string, number>> = {
   "claude-haiku-4-5-20251001": 200_000,
   "claude-sonnet-4-6": 200_000,
+  "claude-sonnet-5": 1_000_000,
   "claude-opus-4-8": 1_000_000,
 };
 

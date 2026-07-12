@@ -212,7 +212,7 @@ describe("routeModelWithReason", () => {
 describe("resolveModelId", () => {
   const cases: Array<[ModelTier, string]> = [
     ["haiku", "claude-haiku-4-5-20251001"],
-    ["sonnet", "claude-sonnet-4-6"],
+    ["sonnet", "claude-sonnet-5"],
     ["opus", "claude-opus-4-8"],
   ];
 
@@ -439,11 +439,11 @@ describe("RoutingContext — budget-aware downgrade", () => {
 
 describe("getFeedbackLoopModel", () => {
   it("downgrades opus parent to sonnet", () => {
-    expect(getFeedbackLoopModel("claude-opus-4-8")).toBe("claude-sonnet-4-6");
+    expect(getFeedbackLoopModel("claude-opus-4-8")).toBe("claude-sonnet-5");
   });
 
   it("downgrades sonnet parent to haiku", () => {
-    expect(getFeedbackLoopModel("claude-sonnet-4-6")).toBe("claude-haiku-4-5-20251001");
+    expect(getFeedbackLoopModel("claude-sonnet-5")).toBe("claude-haiku-4-5-20251001");
   });
 
   it("keeps haiku at haiku (floor)", () => {

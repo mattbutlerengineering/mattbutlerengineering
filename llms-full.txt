@@ -6,6 +6,9 @@
       description:
         "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
       slots: ["default"],
+      propSchemas: {
+        items: 'z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -82,6 +85,9 @@
       name: "Breadcrumb",
       description:
         "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
+      propSchemas: {
+        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -180,6 +186,9 @@
       charLimits: {
         label: 40,
       },
+      propSchemas: {
+        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -203,6 +212,9 @@
       name: "DataList",
       description:
         "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
+      propSchemas: {
+        items: 'z.array(z.object({ label: z.string(), value: z.string() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -214,6 +226,11 @@
         "Sortable, selectable data grid built on a native table with grid ARIA. Use for interactive tabular data that needs column sorting (asc/desc/none) or row selection. Provide columns (key, header, sortable, rowHeader) and data arrays plus rowKey. Set selectionMode to single or multiple to add accessible selection checkboxes and a select-all. Prefer plain Table for read-only presentational tables.",
       charLimits: {
         emptyMessage: 60,
+      },
+      propSchemas: {
+        columns:
+          'z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional(), rowHeader: z.boolean().optional() }))',
+        data: "z.array(z.record(z.string(), z.unknown()))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -234,6 +251,9 @@
       name: "DepartureBoard",
       description:
         "Split-flap departure board hero that cycles through a sequence of short headlines or value-props with a mechanical flap animation. Use as a marketing or landing-page hero. Provide phrases as the ordered list of lines; tune holdMs for how long each line stays before flipping. Respects reduced motion by showing static text.",
+      propSchemas: {
+        phrases: "z.array(z.string())",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -409,6 +429,9 @@
       description:
         "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
       slots: ["default"],
+      propSchemas: {
+        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -431,6 +454,9 @@
       charLimits: {
         label: 40,
       },
+      propSchemas: {
+        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -440,6 +466,9 @@
       name: "Sidebar",
       description:
         "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
+      propSchemas: {
+        items: 'z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })]))',
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -473,6 +502,11 @@
       charLimits: {
         emptyMessage: 60,
       },
+      propSchemas: {
+        columns:
+          'z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() }))',
+        data: "z.array(z.record(z.string(), z.unknown()))",
+      },
     } satisfies CatalogMeta;
   </file>
   </section>
@@ -485,6 +519,9 @@
       aliases: {
         items: "tabs",
         defaultValue: "defaultTab",
+      },
+      propSchemas: {
+        tabs: 'z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))',
       },
     } satisfies CatalogMeta;
   </file>
@@ -2233,14 +2270,20 @@
           };
     
           try {
-            const result = await runSession(config, (event: SessionEvent) => {
-              if (options.verbose) {
-                const timestamp = new Date(event.timestamp).toLocaleTimeString();
-                if (event.type === "session:start" || event.type === "session:result") {
-                  const data = event.data as { message: string };
-                  console.log(`[${timestamp}] ${data.message}`);
+            // Single entry point for every adapter (#2973), same seam `run.ts`
+            // uses: the failover cascade and full gate/publish pipeline live in
+            // agent-core, behind runAgentSession().
+            const result = await runAgentSession(config, {
+              adapter: resolveSessionAdapter("claude"),
+              onEvent: (event: SessionEvent) => {
+                if (options.verbose) {
+                  const timestamp = new Date(event.timestamp).toLocaleTimeString();
+                  if (event.type === "session:start" || event.type === "session:result") {
+                    const data = event.data as { message: string };
+                    console.log(`[${timestamp}] ${data.message}`);
+                  }
                 }
-              }
+              },
             });
     
             totalCost += result.costUsd;
@@ -2720,7 +2763,7 @@
       .option("--max-parallel <number>", "Maximum parallel sub-agents", "3")
       .option("--base-branch <branch>", "Base branch to branch from", "main")
       .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
-      .option("--model <model>", "Model to use for the agent", "claude-sonnet-4-6")
+      .option("--model <model>", "Model to use for the agent", resolveModelId("sonnet"))
       .option("--max-budget <usd>", "Maximum budget per agent in USD", "2")
       .option("--max-turns <n>", "Maximum turns per agent", "100")
       .action(async (tasks: string[], options) => {
@@ -3106,11 +3149,13 @@
       comingSoon?: boolean;
       load: () => Promise<unknown>;
     }
-    export interface NavItem {
+    export interface RawPageEntry {
       id: string;
       label: string;
-      path: string;
+      category: string;
       comingSoon?: boolean;
+      /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
+      load?: () => Promise<unknown>;
     }
   </file>
   <file path="apps/rialto-web/src/data/rialto-tokens.ts">
@@ -3500,7 +3545,7 @@
       readonly eventType = "session:evaluation" as const;
     
       shouldSkip(context: GateContext): boolean {
-        return context.evaluateSuccess === false;
+        return context.config.evaluateSuccess === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -3545,7 +3590,7 @@
       readonly eventType = "session:review" as const;
     
       shouldSkip(context: GateContext, previousResults: readonly GateResult[]): boolean {
-        if (context.runSecurityReview === false) return true;
+        if (context.config.runSecurityReview === false) return true;
         return previousResults.some((r) => r.gateName === "static-analysis" && !r.passed);
       }
     
@@ -3579,7 +3624,7 @@
       readonly eventType = "session:verification" as const;
     
       shouldSkip(context: GateContext): boolean {
-        return context.runStaticAnalysis === false;
+        return context.config.runStaticAnalysis === false;
       }
     
       async evaluate(context: GateContext): Promise<GateResult> {
@@ -4609,6 +4654,16 @@
       getAccessToken?: () => string | null | undefined;
       /** Injectable fetchEventSource implementation — defaults to the real one. */
       fetchEventSourceImpl?: FetchEventSourceFn;
+    }
+  </file>
+  <file path="packages/rialto/scripts/lib/color-tokens.ts">
+    export interface DtcgToken {
+      readonly $value: string | number;
+      readonly $type: string;
+      readonly $description?: string;
+    }
+    export interface TokenGroup {
+      readonly [key: string]: DtcgToken | TokenGroup | string | undefined;
     }
   </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
@@ -6541,6 +6596,11 @@
   </file>
   <file path="services/reservations/src/routes/availability.ts">
     export const availabilityRoutes: FastifyPluginAsync = async (fastify) => {
+      // Resolve domain services from the buildApp seam (issue #3357) rather than
+      // importing the sibling singletons directly — tests inject fakes via
+      // buildApp({ services }).
+      const { availabilityService, venueService } = fastify.services;
+    
       // Register schemas
       fastify.addSchema(TimeSlotSchema);
       fastify.addSchema(DateAvailabilitySchema);
@@ -9404,6 +9464,23 @@
   </file>
   <file path="services/reservations/src/routes/tables.ts">
     export const tableRoutes: FastifyPluginAsync = async (fastify) => {
+      // Resolve domain services from the buildApp seam (issue #3357) rather than
+      // importing the sibling singleton directly — tests inject fakes via
+      // buildApp({ services }).
+      const { tableService } = fastify.services;
+    
+      /**
+       * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
+       * to that venue. Null when the table does not exist or is unassigned (→ 403 for
+       * non-admins; platform admins bypass the check).
+       */
+      const resolveTableVenueId: VenueIdResolver = async (request) => {
+        const params = request.params as { id?: unknown };
+        if (typeof params.id !== "string") return null;
+        const table = await tableService.getById(params.id);
+        return table?.venueId ?? null;
+      };
+    
       // List tables
       fastify.get<{
         Querystring: { page?: string; limit?: string; activeOnly?: string };
@@ -10743,6 +10820,10 @@
       updatedAt: z.string(),
     });
   </file>
+  <file path="packages/types/src/schemas/health-system.ts">
+    export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
+    export type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+  </file>
   <file path="packages/types/src/schemas/json-schema.ts">
     function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> {
       const result: Record<string, unknown> = {};
@@ -11165,6 +11246,21 @@
       }
     }
   </file>
+  <file path="packages/rialto/scripts/generate-colors-css.ts">
+    function assertCommentSafe(text: string): string {
+      if (text.includes("*/")) {
+        throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+      }
+      return text;
+    }
+    function sectionHeader(key: string, description: string | undefined): string {
+      const title = key.charAt(0).toUpperCase() + key.slice(1);
+      const label =
+        description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+      const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
+      return `  /* ── ${label} ${fill} */`;
+    }
+  </file>
   <file path="packages/rialto/scripts/generate-exports.ts">
     interface ExportEntry {
       types?: string;
@@ -11174,13 +11270,12 @@
     type ExportsMap = Record<string, string | ExportEntry>;
   </file>
   <file path="packages/rialto/scripts/generate-figma-tokens.ts">
-    interface DtcgToken {
-      readonly $value: string | number;
-      readonly $type: string;
-      readonly $description?: string;
+    interface FigmaTokenSets {
+      readonly [setName: string]: TokenGroup;
     }
-    interface TokenGroup {
-      readonly [key: string]: DtcgToken | TokenGroup;
+    function readJson(filePath: string): TokenGroup {
+      const content = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
     }
   </file>
   <file path="packages/rialto/scripts/generate-manifest.ts">
@@ -11603,6 +11698,32 @@
         this.name = "DepositNotFoundError";
       }
     }
+  </file>
+  <file path="services/reservations/src/services/domain-services.ts">
+    export interface DomainServices {
+      availabilityService: typeof availabilityService;
+      venueService: typeof venueService;
+      tableService: typeof tableService;
+      reservationService: typeof reservationService;
+      guestService: typeof guestService;
+      floorPlanService: typeof floorPlanService;
+      holdService: typeof holdService;
+      depositService: typeof depositService;
+      waitlistService: typeof waitlistService;
+      briefingService: typeof briefingService;
+    }
+    export const defaultDomainServices: DomainServices = {
+      availabilityService,
+      venueService,
+      tableService,
+      reservationService,
+      guestService,
+      floorPlanService,
+      holdService,
+      depositService,
+      waitlistService,
+      briefingService,
+    };
   </file>
   <file path="services/reservations/src/services/events.ts">
     export type ReservationEventType =
@@ -13761,6 +13882,11 @@
     export const isDocFile = (f: string): boolean => f.endsWith(".md") || f.startsWith("docs/");
   </file>
   <file path="packages/agent-core/src/gate-runner.ts">
+    export interface PostCommitGatewayConfig {
+      evaluateSuccess?: boolean;
+      runSecurityReview?: boolean;
+      runStaticAnalysis?: boolean;
+    }
     export interface GateContext {
       /** The git diff produced by the agent's commit. */
       readonly diff: string;
@@ -13768,28 +13894,13 @@
       readonly taskDescription: string;
       /** The commit message written when the agent committed changes. */
       readonly commitMsg: string;
-      /** Whether LLM success evaluation is enabled in the session config. */
-      readonly evaluateSuccess: boolean;
-      /** Whether static diff analysis is enabled in the session config. */
-      readonly runStaticAnalysis: boolean;
-      /** Whether AI security review is enabled in the session config. */
-      readonly runSecurityReview: boolean;
-    }
-    export interface GateResult {
-      /** Whether this gate passed. Skipped gates always report passed=true. */
-      readonly passed: boolean;
-      /** The name of the gate that produced this result. */
-      readonly gateName: string;
-      /** Severity level of this gate — drives draft-PR vs normal-PR decision. */
-      readonly severity: "error" | "warning";
-      /** Human-readable details about a failure or a skip reason. */
-      readonly details?: string;
       /**
-       * Optional typed domain output produced by this gate.
-       * Callers extract domain data from the results array by gate name rather
-       * than querying mutable instance state.
+       * Per-gate enablement toggles from the session config, passed through
+       * unchanged. Gates read their own flag (e.g. `config.runStaticAnalysis`)
+       * in `shouldSkip` rather than GateContext exposing one named boolean per
+       * gate.
        */
-      readonly output?: unknown;
+      readonly config: PostCommitGatewayConfig;
     }
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
@@ -13842,7 +13953,7 @@
   <file path="packages/agent-core/src/model-registry.ts">
     export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
       haiku: "claude-haiku-4-5-20251001",
-      sonnet: "claude-sonnet-4-6",
+      sonnet: "claude-sonnet-5",
       opus: "claude-opus-4-8",
     };
     export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
@@ -14733,6 +14844,13 @@
         cacheWritePer1MTokens: 3.75,
         cacheReadPer1MTokens: 0.3,
       },
+      "claude-sonnet-5": {
+        model: "claude-sonnet-5",
+        inputCostPer1MTokens: 3.0,
+        outputCostPer1MTokens: 15.0,
+        cacheWritePer1MTokens: 3.75,
+        cacheReadPer1MTokens: 0.3,
+      },
       "claude-haiku-4-5": {
         model: "claude-haiku-4-5",
         inputCostPer1MTokens: 0.8,
@@ -14740,12 +14858,12 @@
         cacheWritePer1MTokens: 1.0,
         cacheReadPer1MTokens: 0.08,
       },
-      "claude-opus-4-5": {
-        model: "claude-opus-4-5",
-        inputCostPer1MTokens: 15.0,
-        outputCostPer1MTokens: 75.0,
-        cacheWritePer1MTokens: 18.75,
-        cacheReadPer1MTokens: 1.5,
+      "claude-opus-4-8": {
+        model: "claude-opus-4-8",
+        inputCostPer1MTokens: 5.0,
+        outputCostPer1MTokens: 25.0,
+        cacheWritePer1MTokens: 6.25,
+        cacheReadPer1MTokens: 0.5,
       },
     } as const;
   </file>
@@ -14939,18 +15057,16 @@
     }
   </file>
   <file path="packages/api-client/src/health.ts">
-    export interface ServiceHealth {
-      readonly status: string;
-      readonly version?: string;
-      readonly latency?: number;
-    }
-    export interface SystemHealth {
-      readonly status: string;
-      readonly timestamp: string;
-      readonly services?: Record<string, ServiceHealth>;
-      readonly staticSites?: Record<string, { status: string }>;
-      readonly ci?: { status: string };
-      readonly deploy?: { status: string };
+    export type ServiceHealth = ServiceHealthCheck;
+    export class HealthClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Get the system-wide health snapshot (admin-only dashboard badge).
+       */
+      system(): Promise<SystemHealth> {
+        return this.client.get<SystemHealth>(SYSTEM_HEALTH_PATH, undefined, systemHealthSchema);
+      }
     }
   </file>
   <file path="packages/api-client/src/index.ts">
@@ -16394,6 +16510,7 @@
   <file path="packages/rialto-catalog/src/generated-schemas.ts">
     export const generatedSchemas = {
       Accordion: z.object({
+        items: z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() })),
         multiple: z.boolean().optional(),
         headingLevel: z.enum(["h2", "h3", "h4", "h5", "h6"]).optional(),
       }),
@@ -16431,6 +16548,7 @@
         action: z.string().optional(),
       }),
       Breadcrumb: z.object({
+        items: z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() })),
         maxItems: z.number().optional(),
         separator: z.string().optional(),
       }),
@@ -16461,6 +16579,7 @@
         description: z.string().max(80).optional(),
       }),
       Combobox: z.object({
+        options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
         label: z.string().max(40).optional(),
         hint: z.string().optional(),
         error: z.boolean().optional(),
@@ -16477,10 +16596,13 @@
         emptyText: z.string().optional(),
       }),
       DataList: z.object({
+        items: z.array(z.object({ label: z.string(), value: z.string() })),
         orientation: z.enum(["horizontal", "vertical"]).optional(),
         striped: z.boolean().optional(),
       }),
       DataTable: z.object({
+        columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional(), rowHeader: z.boolean().optional() })),
+        data: z.array(z.record(z.string(), z.unknown())),
         density: z.enum(["compact", "default", "spacious"]).optional(),
         striped: z.boolean().optional(),
         emptyMessage: z.string().max(60).optional(),
@@ -16496,6 +16618,7 @@
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
       }),
       DepartureBoard: z.object({
+        phrases: z.array(z.string()),
         holdMs: z.number().optional(),
         flipInterval: z.number().optional(),
         cascadeDelay: z.number().optional(),
@@ -16549,7 +16672,9 @@
         endIcon: z.string().optional(),
         showOptional: z.boolean().optional(),
       }),
-      NavigationMenu: z.object({}),
+      NavigationMenu: z.object({
+        items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
+      }),
       Odometer: z.object({
         value: z.number(),
         size: z.enum(["lg", "md", "sm"]).optional(),
@@ -16557,6 +16682,7 @@
         cascadeDelay: z.number().optional(),
       }),
       Select: z.object({
+        options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
         value: z.string().optional(),
         placeholder: z.string().optional(),
         label: z.string().max(40).optional(),
@@ -16568,6 +16694,7 @@
         disabledReason: z.string().optional(),
       }),
       Sidebar: z.object({
+        items: z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })])),
         collapsed: z.boolean().optional(),
       }),
       Stack: z.object({
@@ -16578,11 +16705,14 @@
         wrap: z.boolean().optional(),
       }),
       Table: z.object({
+        columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
+        data: z.array(z.record(z.string(), z.unknown())),
         density: z.enum(["compact", "default", "spacious"]).optional(),
         striped: z.boolean().optional(),
         emptyMessage: z.string().max(60).optional(),
       }),
       Tabs: z.object({
+        tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
         defaultTab: z.string().optional(),
       }),
       Text: z.object({
@@ -17230,6 +17360,13 @@
       reservationEvents?: ReservationEventEmitter;
       waitlistNotifier?: WaitlistNotifier;
       venueMembershipLookup?: VenueMembershipLookup;
+      /**
+       * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
+       * singletons ({@link defaultDomainServices}); tests inject fakes here instead of
+       * `vi.mock`-ing the sibling service modules. Routes resolve their services from the
+       * `fastify.services` decoration, so an override here is the single seam.
+       */
+      services?: Partial<DomainServices>;
     }
     export async function buildApp(options: ReservationsAppOptions = {}): Promise<FastifyInstance> {
       // Validate Stripe secrets at startup — warns (does not throw) if missing so an
@@ -17298,6 +17435,14 @@
         options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
       fastify.decorate("venueMembershipLookup", venueMembershipLookup);
     
+      // Wire the domain-service seam (issue #3357) — resolve the injectable services
+      // once (production singletons by default, test fakes via options.services) and
+      // decorate them so route plugins resolve dependencies from `fastify.services`
+      // instead of importing the sibling singleton at module scope. Decorated before
+      // route registration so child route plugins inherit it.
+      const services: DomainServices = { ...defaultDomainServices, ...options.services };
+      fastify.decorate("services", services);
+    
       // Register routes
       await fastify.register(healthRoutes);
       await fastify.register(registerReadinessRoutes, { prisma });
@@ -17351,8 +17496,8 @@
       const jobWorker = createReservationJobWorker({
         redisUrl: notifierRuntime.redisUrl,
         handlers: createReservationJobHandlers({
-          getReservation: (id) => reservationService.getById(id),
-          getVenue: (id) => venueService.getById(id),
+          getReservation: (id) => services.reservationService.getById(id),
+          getVenue: (id) => services.venueService.getById(id),
           dispatcher: notificationPort,
           generateManageToken,
           handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -17476,7 +17621,6 @@
     });
   </file>
   <file path="tools/cli/src/issue-frontmatter.ts">
-    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
     export interface AgentOverrides {
       model?: ModelTier;
       budget?: number;
@@ -17485,6 +17629,10 @@
       /** Tier to retry at when the initial run fails. One escalation max. */
       escalate?: ModelTier;
       verify?: string;
+    }
+    export interface ParseResult {
+      overrides: AgentOverrides | null;
+      warnings: string[];
     }
   </file>
   <file path="tools/cli/src/monorepo-root.ts">
@@ -17978,7 +18126,9 @@
       if (typeof window === "undefined") return;
     
       try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        // Safari < 14.1 only exposes the prefixed constructor, which lib.dom types omit.
+        const legacyWindow = window as Window & { webkitAudioContext?: typeof AudioContext };
+        const AudioContextClass = window.AudioContext || legacyWindow.webkitAudioContext;
         if (!AudioContextClass) return;
     
         const audioCtx = new AudioContextClass();

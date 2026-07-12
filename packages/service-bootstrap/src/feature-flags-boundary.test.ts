@@ -14,6 +14,7 @@ const THIS_FILE = join(__dirname, "feature-flags-boundary.test.ts");
 
 const SKIP_DIRS = new Set([
   "node_modules",
+  ".claude",
   ".git",
   "dist",
   "build",
