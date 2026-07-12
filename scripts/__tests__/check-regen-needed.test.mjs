@@ -43,6 +43,10 @@ describe("needsFullRegen", () => {
     expect(needsFullRegen(["apps/hospitality/src/components/BookingWidget.tsx"])).toBe(true);
   });
 
+  it("returns true for a non-test source file in infrastructure/ (packed llms target)", () => {
+    expect(needsFullRegen(["infrastructure/pulumi/index.ts"])).toBe(true);
+  });
+
   it("returns true for a non-test source file in services/", () => {
     expect(needsFullRegen(["services/users/src/routes/users.ts"])).toBe(true);
   });
