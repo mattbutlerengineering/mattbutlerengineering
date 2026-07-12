@@ -99,6 +99,16 @@
     }
   </file>
   </section>
+  <section priority="medium" role="examples">
+  <file path="src/pages/examples/booking-wizard.ts">
+    export type WizardStepId = "dates" | "room" | "guest" | "payment" | "confirmation";
+    export interface WizardStepDef {
+      id: WizardStepId;
+      label: string;
+      description: string;
+    }
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-props-from-manifest.ts">
     export interface PropDef {

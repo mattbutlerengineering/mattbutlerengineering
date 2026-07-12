@@ -1166,6 +1166,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="examples">
+  <file path="apps/rialto-web/src/pages/examples/booking-wizard.ts">
+    <item priority="low">
+      type WizardStepId = "dates" | "room" | "guest" | "payment" | "confirmation";
+    </item>
+    <item priority="low">
+      interface WizardStepDef {
+        id: WizardStepId;
+        label: string;
+        description: string;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="fastify">
   <file path="packages/auth/src/fastify/authz.ts">
     <item priority="high">

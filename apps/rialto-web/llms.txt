@@ -90,6 +90,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="examples">
+  <file path="src/pages/examples/booking-wizard.ts">
+    <item priority="low">
+      type WizardStepId = "dates" | "room" | "guest" | "payment" | "confirmation";
+    </item>
+    <item priority="low">
+      interface WizardStepDef {
+        id: WizardStepId;
+        label: string;
+        description: string;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-props-from-manifest.ts">
     <item priority="low">
