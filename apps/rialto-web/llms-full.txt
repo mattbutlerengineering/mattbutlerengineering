@@ -44,11 +44,13 @@
       comingSoon?: boolean;
       load: () => Promise<unknown>;
     }
-    export interface NavItem {
+    export interface RawPageEntry {
       id: string;
       label: string;
-      path: string;
+      category: string;
       comingSoon?: boolean;
+      /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
+      load?: () => Promise<unknown>;
     }
   </file>
   <file path="src/data/rialto-tokens.ts">

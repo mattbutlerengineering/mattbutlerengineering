@@ -45,11 +45,12 @@
       }
     </item>
     <item priority="low">
-      interface NavItem {
+      interface RawPageEntry {
         id: string;
         label: string;
-        path: string;
+        category: string;
         comingSoon?: boolean;
+        load?: () => Promise<unknown>;
       }
     </item>
   </file>
