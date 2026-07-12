@@ -1,4 +1,4 @@
-import type { ModelTier } from "./model-router.js";
+export type ModelTier = "haiku" | "sonnet" | "opus";
 
 // ── Canonical model ID table ─────────────────────────────────────────
 //

@@ -5160,22 +5160,17 @@
     }
   </file>
   <file path="src/services/sse-connection-manager.ts">
-    export interface SseConnectionConfig {
-      /** Maximum concurrent SSE connections per IP address. */
-      readonly maxConnectionsPerIp: number;
-      /** Maximum connection lifetime in milliseconds. */
-      readonly connectionTimeoutMs: number;
-      /** Maximum queued events per connection before dropping oldest. */
-      readonly maxEventBufferSize: number;
-      /** Heartbeat interval in milliseconds. */
-      readonly heartbeatIntervalMs: number;
-    }
     export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
       maxConnectionsPerIp: 10,
       connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
       maxEventBufferSize: 100,
       heartbeatIntervalMs: 30_000, // 30 seconds
     });
+    export interface SseConnectionRecord {
+      readonly id: string;
+      readonly ip: string;
+      readonly connectedAt: number;
+    }
   </file>
   <file path="src/services/sse-connection.ts">
     export interface ReplyRaw {
@@ -5214,6 +5209,18 @@
       get droppedCount(): number {
         return this._droppedCount;
       }
+    }
+  </file>
+  <file path="src/services/sse-types.ts">
+    export interface SseConnectionConfig {
+      /** Maximum concurrent SSE connections per IP address. */
+      readonly maxConnectionsPerIp: number;
+      /** Maximum connection lifetime in milliseconds. */
+      readonly connectionTimeoutMs: number;
+      /** Maximum queued events per connection before dropping oldest. */
+      readonly maxEventBufferSize: number;
+      /** Heartbeat interval in milliseconds. */
+      readonly heartbeatIntervalMs: number;
     }
   </file>
   <file path="src/services/state-machine.ts">

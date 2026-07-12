@@ -1,4 +1,7 @@
-import type { Table } from "./reservation.js";
+import type { Table, TableShapeMetadata } from "./table.js";
+
+// Re-export for existing importers (type now owned by table.ts).
+export type { TableShapeMetadata } from "./table.js";
 
 export interface FloorPlan {
   id: string;
@@ -17,16 +20,6 @@ export interface FloorPlanLayout {
   backgroundImage?: string;
   gridSize?: number;
   showGrid?: boolean;
-}
-
-export interface TableShapeMetadata {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation?: number;
-  shape: "rectangle" | "circle" | "square";
-  color?: string;
 }
 
 export interface CreateFloorPlanRequest {

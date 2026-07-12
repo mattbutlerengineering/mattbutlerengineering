@@ -212,6 +212,20 @@
       }
     </item>
   </file>
+  <file path="src/table.ts">
+    <item priority="low">
+      type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    </item>
+    <item priority="low">
+      interface TableShapeMetadata {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        rotation?: number;
+      }
+    </item>
+  </file>
   <file path="src/user.ts">
     <item priority="low">
       interface UserPreferences {

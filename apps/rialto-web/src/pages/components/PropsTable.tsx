@@ -1,13 +1,9 @@
 import { Table, Text } from "@mattbutlerengineering/rialto";
 import { usePropsFromManifest } from "../../hooks/use-props-from-manifest.js";
+import type { PropDef } from "../../hooks/use-props-from-manifest.js";
 
-export interface PropDef {
-  name: string;
-  type: string;
-  default?: string;
-  description: string;
-  [key: string]: unknown;
-}
+// Re-export for existing importers (type now owned by use-props-from-manifest.ts).
+export type { PropDef } from "../../hooks/use-props-from-manifest.js";
 
 type PropsTableProps =
   | { component: string; props?: never }

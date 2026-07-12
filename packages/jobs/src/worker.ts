@@ -1,12 +1,11 @@
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { DEFAULT_QUEUE_NAME } from "./job-types.js";
-import type { JobType, JobPayloadMap } from "./job-types.js";
+import type { JobHandlerMap } from "./job-types.js";
 import { dispatchJob } from "./dispatch-job.js";
 
-export type JobHandlerMap = Partial<{
-  [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
-}>;
+// Re-export for existing importers (type now owned by job-types.ts).
+export type { JobHandlerMap } from "./job-types.js";
 
 export interface JobWorkerConfig {
   redisUrl: string;

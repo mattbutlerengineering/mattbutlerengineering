@@ -4236,6 +4236,13 @@
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
+    export interface PropDef {
+      name: string;
+      type: string;
+      default?: string;
+      description: string;
+      [key: string]: unknown;
+    }
     export function usePropsFromManifest(componentName: string): PropDef[] {
       const entry = manifest.components.find((c) => c.name === componentName);
       if (!entry) return [];
@@ -12540,22 +12547,17 @@
     }
   </file>
   <file path="services/reservations/src/services/sse-connection-manager.ts">
-    export interface SseConnectionConfig {
-      /** Maximum concurrent SSE connections per IP address. */
-      readonly maxConnectionsPerIp: number;
-      /** Maximum connection lifetime in milliseconds. */
-      readonly connectionTimeoutMs: number;
-      /** Maximum queued events per connection before dropping oldest. */
-      readonly maxEventBufferSize: number;
-      /** Heartbeat interval in milliseconds. */
-      readonly heartbeatIntervalMs: number;
-    }
     export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({
       maxConnectionsPerIp: 10,
       connectionTimeoutMs: 30 * 60 * 1000, // 30 minutes
       maxEventBufferSize: 100,
       heartbeatIntervalMs: 30_000, // 30 seconds
     });
+    export interface SseConnectionRecord {
+      readonly id: string;
+      readonly ip: string;
+      readonly connectedAt: number;
+    }
   </file>
   <file path="services/reservations/src/services/sse-connection.ts">
     export interface ReplyRaw {
@@ -12594,6 +12596,18 @@
       get droppedCount(): number {
         return this._droppedCount;
       }
+    }
+  </file>
+  <file path="services/reservations/src/services/sse-types.ts">
+    export interface SseConnectionConfig {
+      /** Maximum concurrent SSE connections per IP address. */
+      readonly maxConnectionsPerIp: number;
+      /** Maximum connection lifetime in milliseconds. */
+      readonly connectionTimeoutMs: number;
+      /** Maximum queued events per connection before dropping oldest. */
+      readonly maxEventBufferSize: number;
+      /** Heartbeat interval in milliseconds. */
+      readonly heartbeatIntervalMs: number;
     }
   </file>
   <file path="services/reservations/src/services/state-machine.ts">
@@ -13845,29 +13859,32 @@
     }
   </file>
   <file path="packages/agent-core/src/feedback-loop.ts">
-    export interface FeedbackLoopParams {
-      readonly prNumber: number;
-      readonly branchName: string;
-      readonly repoPath: string;
-      readonly model: string;
-      readonly maxRetries: number;
-      readonly pollIntervalMs: number;
-      readonly pollTimeoutMs: number;
-      readonly maxBudgetUsd: number;
-      readonly allowedTools: readonly string[];
-      /**
-       * External abort signal forwarded from the pipeline's cancel(). When it
-       * fires, the wait/poll delays reject and the fix-session query is
-       * short-circuited, mirroring `session-runner`'s `throwIfAborted` semantics
-       * — the rejection propagates out of `runFeedbackLoop` instead of being
-       * swallowed.
-       */
-      readonly signal?: AbortSignal;
+    function emitEvent(
+      onEvent: SessionEventCallback | undefined,
+      type: SessionEvent["type"],
+      data: SessionEvent["data"]
+    ): void {
+      if (!onEvent) return;
+      onEvent({
+        type,
+        timestamp: new Date().toISOString(),
+        data,
+      });
     }
-    export interface FeedbackLoopResult {
-      readonly retriesUsed: number;
-      readonly resolved: boolean;
-      readonly lastFingerprint: string | null;
+    function delay(ms: number, signal?: AbortSignal): Promise<void> {
+      signal?.throwIfAborted();
+    
+      return new Promise((resolve, reject) => {
+        const onAbort = (): void => {
+          clearTimeout(timer);
+          reject(signal?.reason ?? new DOMException("Delay aborted", "AbortError"));
+        };
+        const timer = setTimeout(() => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        }, ms);
+        signal?.addEventListener("abort", onAbort, { once: true });
+      });
     }
   </file>
   <file path="packages/agent-core/src/feedback-prompt-builder.ts">
@@ -13951,23 +13968,32 @@
     }
   </file>
   <file path="packages/agent-core/src/model-registry.ts">
+    export type ModelTier = "haiku" | "sonnet" | "opus";
     export const MODEL_IDS: Readonly<Record<ModelTier, string>> = {
       haiku: "claude-haiku-4-5-20251001",
       sonnet: "claude-sonnet-5",
       opus: "claude-opus-4-8",
     };
-    export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>> = {
-      opus: "sonnet",
-      sonnet: "haiku",
-      haiku: "haiku",
-    };
   </file>
   <file path="packages/agent-core/src/model-router.ts">
-    export type ModelTier = "haiku" | "sonnet" | "opus";
     export interface IssueInput {
       readonly title: string;
       readonly labels: string[];
       readonly body: string;
+    }
+    export interface RoutingContext {
+      /** Remaining session budget in USD. Used to downgrade opus when budget is tight. */
+      readonly remainingBudgetUsd?: number;
+      /** Resolved source file paths for this task. Used for file-count signals. */
+      readonly sourceFilePaths?: readonly string[];
+      /** Model tier that was used when a similar task previously failed. Used for escalation. */
+      readonly pastFailureTier?: ModelTier;
+      /**
+       * Pre-computed task signals from the shared TaskSignalRegistry. When omitted,
+       * routing computes them from the issue title/body so existing callers are
+       * unaffected. Passing this avoids re-scanning the description.
+       */
+      readonly taskSignals?: TaskSignals;
     }
   </file>
   <file path="packages/agent-core/src/observability.ts">
@@ -15837,13 +15863,40 @@
     }
   </file>
   <file path="packages/jobs/src/worker.ts">
-    export type JobHandlerMap = Partial<{
-      [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
-    }>;
     export interface JobWorkerConfig {
       redisUrl: string;
       queueName?: string;
       handlers: JobHandlerMap;
+    }
+    export class JobWorker {
+      private readonly worker: Worker;
+      private readonly redis: Redis;
+    
+      constructor(config: JobWorkerConfig) {
+        this.redis = new Redis(config.redisUrl, {
+          maxRetriesPerRequest: null,
+          // Defer the connection to the first command so constructing a JobWorker
+          // is side-effect-free. Without this, ioredis connects eagerly and (with
+          // maxRetriesPerRequest: null) retries forever, so merely building app
+          // wiring opens a background ECONNREFUSED loop in tests/CI where no Redis
+          // is present.
+          lazyConnect: true,
+        });
+    
+        this.worker = new Worker(
+          config.queueName ?? DEFAULT_QUEUE_NAME,
+          (job) => dispatchJob(config.handlers, job),
+          { connection: this.redis }
+        );
+      }
+    
+      /**
+       * Gracefully close the worker and Redis connection.
+       */
+      async close(): Promise<void> {
+        await this.worker.close();
+        await this.redis.quit();
+      }
     }
   </file>
   <file path="packages/mcp-server/src/command-builder.ts">
@@ -17270,6 +17323,18 @@
       properties?: Record<string, JsonSchemaProperty>;
       required?: readonly string[];
       [key: string]: unknown;
+    }
+  </file>
+  <file path="packages/types/src/table.ts">
+    export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
+    export interface TableShapeMetadata {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation?: number;
+      shape: "rectangle" | "circle" | "square";
+      color?: string;
     }
   </file>
   <file path="packages/types/src/user.ts">

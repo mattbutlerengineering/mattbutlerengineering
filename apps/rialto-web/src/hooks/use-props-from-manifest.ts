@@ -1,5 +1,17 @@
 import manifest from "@mattbutlerengineering/rialto/manifest";
-import type { PropDef } from "../pages/components/PropsTable.js";
+
+/**
+ * Prop metadata row rendered by PropsTable.
+ * Owned here (not in PropsTable.tsx) so the hook and the component don't
+ * import each other (breaks the import cycle); PropsTable re-exports it.
+ */
+export interface PropDef {
+  name: string;
+  type: string;
+  default?: string;
+  description: string;
+  [key: string]: unknown;
+}
 
 /**
  * Look up prop metadata for a component from the compiled rialto manifest.

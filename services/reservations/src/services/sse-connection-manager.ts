@@ -11,18 +11,10 @@
 
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { SseConnection } from "./sse-connection.js";
+import type { SseConnectionConfig } from "./sse-types.js";
 
-/** Configuration for SSE resource limits. */
-export interface SseConnectionConfig {
-  /** Maximum concurrent SSE connections per IP address. */
-  readonly maxConnectionsPerIp: number;
-  /** Maximum connection lifetime in milliseconds. */
-  readonly connectionTimeoutMs: number;
-  /** Maximum queued events per connection before dropping oldest. */
-  readonly maxEventBufferSize: number;
-  /** Heartbeat interval in milliseconds. */
-  readonly heartbeatIntervalMs: number;
-}
+// Re-export for existing importers (type now owned by sse-types.ts).
+export type { SseConnectionConfig } from "./sse-types.js";
 
 /** Default configuration values. */
 export const DEFAULT_SSE_CONFIG: SseConnectionConfig = Object.freeze({

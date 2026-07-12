@@ -1,3 +1,8 @@
+import type { Table, TableStatus, TableShapeMetadata } from "./table.js";
+
+// Re-export for existing importers (types now owned by table.ts).
+export type { Table, TableStatus } from "./table.js";
+
 export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
 
 export type DepositStatus =
@@ -24,8 +29,6 @@ export interface Deposit {
   updatedAt: string;
 }
 
-export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
-
 /**
  * Valid table state-machine transitions.
  * Source of truth: services/reservations/src/services/table-state-machine.ts
@@ -41,26 +44,6 @@ export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
 export type Occasion = "birthday" | "anniversary" | "business" | "date_night" | "other" | "none";
 
 export type SeatingPreference = "booth" | "patio" | "bar" | "window" | "quiet" | "no_preference";
-
-import type { TableShapeMetadata } from "./floor-plan.js";
-
-export interface Table {
-  id: string;
-  name: string;
-  tableNumber: string | null;
-  capacity: number;
-  minCovers: number;
-  maxCovers: number | null;
-  location: string | null;
-  isActive: boolean;
-  priority: number;
-  status: TableStatus;
-  venueId: string | null;
-  floorPlanId: string | null;
-  shapeMetadata: TableShapeMetadata | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface Reservation {
   id: string;

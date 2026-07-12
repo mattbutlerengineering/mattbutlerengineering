@@ -16,7 +16,7 @@ export const JOB_TYPES = {
 
 export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
 
-// JobHandlerMap (worker.ts) is `Partial<{ [K in JobType]: ... }>`, not an
+// JobHandlerMap (below) is `Partial<{ [K in JobType]: ... }>`, not an
 // exhaustive mapped type. Adding a new entry to JOB_TYPES does NOT require
 // every service's handler factory to add a stub for it — a service registers
 // handlers only for the job types it actually processes. dispatchJob throws
@@ -67,3 +67,7 @@ export type JobPayloadMap = {
   [JOB_TYPES.LAPSED_GUEST_SCAN]: LapsedGuestScanPayload;
   [JOB_TYPES.WAITLIST_EXPIRY]: WaitlistExpiryPayload;
 };
+
+export type JobHandlerMap = Partial<{
+  [K in JobType]: (payload: JobPayloadMap[K]) => Promise<void>;
+}>;
