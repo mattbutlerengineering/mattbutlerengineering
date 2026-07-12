@@ -1,14 +1,16 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@mbe/config/typescript/node",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    // Sources sit at the package root (no src/), so any accidental non-`--noEmit` tsc run stays out of the working dir.
     "outDir": "./dist",
-    "types": ["node"]
+    // No "type": "module" in package.json (CJS entry point) — NodeNext treats these *.ts files as CommonJS, which cannot use ESM import/export syntax verbatim.
+    "verbatimModuleSyntax": false,
+    // Leaf Pulumi program, not a library — nothing imports its .d.ts output (declarationMap requires declaration: true).
+    "declaration": false,
+    "declarationMap": false,
+    // Pulumi resource declarations are commonly bound to (often underscore-prefixed) names for readability though never read — a side-effect-only IaC pattern.
+    "noUnusedLocals": false
   },
   "include": ["*.ts"],
   "exclude": ["node_modules"]
