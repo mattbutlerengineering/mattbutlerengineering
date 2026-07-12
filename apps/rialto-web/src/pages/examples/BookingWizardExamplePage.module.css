@@ -1,0 +1,114 @@
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xl);
+  max-width: 720px;
+}
+
+.panel {
+  padding: var(--rialto-space-xl);
+}
+
+/* ── Dates ───────────────────────────────────── */
+
+.dateGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+@media (max-width: 30rem) {
+  .dateGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fieldError {
+  display: block;
+  margin-block-start: var(--rialto-space-xs);
+  color: var(--rialto-error);
+}
+
+/* ── Rooms ───────────────────────────────────── */
+
+.roomGrid {
+  display: grid;
+  gap: var(--rialto-space-md);
+}
+
+.roomCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-lg);
+  text-align: start;
+  background: var(--rialto-surface);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  cursor: pointer;
+  transition:
+    border-color var(--rialto-duration-fast) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.roomCard:hover {
+  border-color: var(--rialto-border-strong);
+}
+
+.roomCard:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.roomCard[data-selected="true"] {
+  border-color: var(--rialto-accent);
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.roomName {
+  color: var(--rialto-text-primary);
+}
+
+.roomPrice {
+  margin-block-start: var(--rialto-space-xs);
+  color: var(--rialto-text-secondary);
+}
+
+/* ── Guest / payment fields ──────────────────── */
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+@media (max-width: 30rem) {
+  .fieldGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Summary / confirmation ──────────────────── */
+
+.summary {
+  padding: var(--rialto-space-lg);
+}
+
+.summaryTitle {
+  margin-block-end: var(--rialto-space-md);
+  color: var(--rialto-text-primary);
+}
+
+.statusRegion {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Actions ─────────────────────────────────── */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--rialto-space-md);
+}

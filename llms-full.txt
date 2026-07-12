@@ -3486,6 +3486,16 @@
     export type TaskCategory = (typeof TASK_CATEGORIES)[number];
   </file>
   </section>
+  <section priority="medium" role="examples">
+  <file path="apps/rialto-web/src/pages/examples/booking-wizard.ts">
+    export type WizardStepId = "dates" | "room" | "guest" | "payment" | "confirmation";
+    export interface WizardStepDef {
+      id: WizardStepId;
+      label: string;
+      description: string;
+    }
+  </file>
+  </section>
   <section priority="medium" role="fastify">
   <file path="packages/auth/src/fastify/authz.ts">
     export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
