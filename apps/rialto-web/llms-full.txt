@@ -101,6 +101,13 @@
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-props-from-manifest.ts">
+    export interface PropDef {
+      name: string;
+      type: string;
+      default?: string;
+      description: string;
+      [key: string]: unknown;
+    }
     export function usePropsFromManifest(componentName: string): PropDef[] {
       const entry = manifest.components.find((c) => c.name === componentName);
       if (!entry) return [];

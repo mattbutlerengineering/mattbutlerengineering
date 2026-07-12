@@ -92,6 +92,14 @@
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-props-from-manifest.ts">
+    <item priority="low">
+      interface PropDef {
+        name: string;
+        type: string;
+        default?: string;
+        description: string;
+      }
+    </item>
     <item priority="high">
       export function usePropsFromManifest(componentName: string): PropDef[] { /* ... */ }
     </item>
