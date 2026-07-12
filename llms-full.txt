@@ -13968,17 +13968,6 @@
   </file>
   <file path="packages/agent-core/src/gen-permissions.ts">
     export const BLOCKED_BASH_PATTERNS: readonly RegExp[] = [
-      // SECURITY FIX (issue #3410): the original pattern nested unbounded `[a-zA-Z]*`
-      // quantifiers around a required 'r'/'f' inside an optional group, e.g.
-      // `-[a-zA-Z]*r[a-zA-Z]*\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?`. Feeding it a long run of
-      // letters with no terminating whitespace (agent-generated bash is untrusted input —
-      // reachable via prompt injection) forced O(n^2) backtracking: 50k 'r' chars took
-      // ~7.4s, growing quadratically with input length — a real event-loop-blocking DoS.
-      // Rewritten as flat (non-nested) alternatives with bounded `{0,10}` flag-cluster
-      // quantifiers (real short-option clusters are always tiny) — verified equivalent
-      // behavior across the existing test matrix, O(n) on the same adversarial input, and
-      // confirmed safe by `safe-regex` (the library `detect-unsafe-regex` uses).
-      /\brm\s+(-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+-[a-zA-Z]{0,10}f[a-zA-Z]{0,10}\s+|-[a-zA-Z]{0,10}f[a-zA-Z]{0,10}\s+-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+|-[a-zA-Z]{0,10}r[a-zA-Z]{0,10}\s+|--recursive\s+).*\//,
       /\brm\s+.*\/\*/, // rm ... /*
       /\bsudo\b/, // sudo anything
       /\bcurl\b.*\|\s*\bbash\b/, // curl | bash (pipe to shell)
@@ -13987,32 +13976,21 @@
       /\bnpm\s+publish\b/, // npm publish
       /\bpnpm\s+publish\b/, // pnpm publish
     ];
-    export const ENCODING_BYPASS_PATTERNS: readonly RegExp[] = [
-      // base64 decode piped to shell
-      /\bbase64\s+(-d|--decode)\b.*\|\s*(sh|bash|zsh|eval)\b/,
-      /\bbase64\s+(-d|--decode)\b.*\$\(/,
+    export function isRmRecursiveDelete(command: string): boolean {
+      const tokens = command.split(/\s+/);
+      const rmIndex = tokens.indexOf("rm");
+      if (rmIndex === -1) return false;
     
-      // printf/echo with hex (\x..) or octal (\0..) piped to shell
-      /\b(printf|echo\s+-e)\b.*\\x[0-9a-fA-F]{2}.*\|\s*(sh|bash|zsh|eval)\b/,
-      /\b(printf|echo\s+-e)\b.*\\0[0-7]{1,3}.*\|\s*(sh|bash|zsh|eval)\b/,
+      const args = tokens.slice(rmIndex + 1);
+      const hasPath = args.some((arg) => arg.includes("/"));
+      if (!hasPath) return false;
     
-      // $'\x..' ANSI-C quoting with hex/octal piped to shell
-      /\$'[^']*\\x[0-9a-fA-F]{2}[^']*'.*\|\s*(sh|bash|zsh|eval)\b/,
-      /\$'[^']*\\0[0-7]{1,3}[^']*'.*\|\s*(sh|bash|zsh|eval)\b/,
-    
-      // eval of variable expansion or subshell (eval "$cmd", eval $(…))
-      /\beval\s+("|'|\$[({])/,
-    
-      // command substitution piped to shell: $(...) | sh
-      /\$\([^)]+\)\s*\|\s*(sh|bash|zsh|eval)\b/,
-    
-      // generic pipe to shell execution (covers many encoding tricks)
-      /\|\s*(sh|bash|zsh)\b/,
-    
-      // variable-based command execution: cmd="rm"; $cmd ...
-      /\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?\s+-[a-zA-Z]*r[a-zA-Z]*f/,
-      /\$\{?[a-zA-Z_][a-zA-Z0-9_]*\}?\s+-rf\b/,
-    ];
+      return args.some((arg) => {
+        if (arg === "--recursive") return true;
+        if (arg.startsWith("--")) return false;
+        return arg.startsWith("-") && arg.length > 1 && arg.slice(1).includes("r");
+      });
+    }
   </file>
   <file path="packages/agent-core/src/intent-extractor.ts">
     interface ContentBlock {
