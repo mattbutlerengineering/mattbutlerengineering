@@ -760,14 +760,20 @@
           };
     
           try {
-            const result = await runSession(config, (event: SessionEvent) => {
-              if (options.verbose) {
-                const timestamp = new Date(event.timestamp).toLocaleTimeString();
-                if (event.type === "session:start" || event.type === "session:result") {
-                  const data = event.data as { message: string };
-                  console.log(`[${timestamp}] ${data.message}`);
+            // Single entry point for every adapter (#2973), same seam `run.ts`
+            // uses: the failover cascade and full gate/publish pipeline live in
+            // agent-core, behind runAgentSession().
+            const result = await runAgentSession(config, {
+              adapter: resolveSessionAdapter("claude"),
+              onEvent: (event: SessionEvent) => {
+                if (options.verbose) {
+                  const timestamp = new Date(event.timestamp).toLocaleTimeString();
+                  if (event.type === "session:start" || event.type === "session:result") {
+                    const data = event.data as { message: string };
+                    console.log(`[${timestamp}] ${data.message}`);
+                  }
                 }
-              }
+              },
             });
     
             totalCost += result.costUsd;
@@ -1433,7 +1439,6 @@
     });
   </file>
   <file path="src/issue-frontmatter.ts">
-    export type AdapterType = "auto" | "claude" | "gemini" | "opencode";
     export interface AgentOverrides {
       model?: ModelTier;
       budget?: number;
@@ -1442,6 +1447,10 @@
       /** Tier to retry at when the initial run fails. One escalation max. */
       escalate?: ModelTier;
       verify?: string;
+    }
+    export interface ParseResult {
+      overrides: AgentOverrides | null;
+      warnings: string[];
     }
   </file>
   <file path="src/monorepo-root.ts">
