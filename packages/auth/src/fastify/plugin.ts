@@ -192,14 +192,29 @@ async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptio
     // 4. Rate limit verification (defense-in-depth)
     // github[js/missing-rate-limiting] — restrictive limit for crypto-intensive verification
     if (fastify.hasDecorator("rateLimit")) {
+      // hasDecorator("rateLimit") is the runtime proof the decorator exists; the
+      // cast supplies its shape because @mbe/auth does not depend on
+      // @fastify/rate-limit, so its module augmentation is not in scope.
+      const rateLimitedFastify = fastify as unknown as {
+        rateLimit: (opts: {
+          max: number;
+          timeWindow: string;
+          keyGenerator: (req: FastifyRequest) => string;
+        }) => Promise<void>;
+      };
       try {
-        await (fastify as any).rateLimit({
+        await rateLimitedFastify.rateLimit({
           max: 10,
           timeWindow: "1 minute",
           keyGenerator: (req: FastifyRequest) => req.ip,
         });
-      } catch (error: any) {
-        if (error.statusCode === 429) {
+      } catch (error) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "statusCode" in error &&
+          error.statusCode === 429
+        ) {
           return reply
             .code(429)
             .send(

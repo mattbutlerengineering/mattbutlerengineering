@@ -21,7 +21,9 @@ export function playClickSound(): void {
   if (typeof window === "undefined") return;
 
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    // Safari < 14.1 only exposes the prefixed constructor, which lib.dom types omit.
+    const legacyWindow = window as Window & { webkitAudioContext?: typeof AudioContext };
+    const AudioContextClass = window.AudioContext || legacyWindow.webkitAudioContext;
     if (!AudioContextClass) return;
 
     const audioCtx = new AudioContextClass();

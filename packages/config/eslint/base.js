@@ -54,6 +54,24 @@ const nodeFloorRestrictedProperties = [
       "Group entries with `reduce` into a `Map` instead."
     ),
   },
+  {
+    object: "fs",
+    property: "glob",
+    message: nodeFloorMessage(
+      "fs.glob",
+      22,
+      "Use `fs.readdirSync(dir, { recursive: true })` with a filter, or an existing userland glob dependency instead."
+    ),
+  },
+  {
+    object: "fs",
+    property: "globSync",
+    message: nodeFloorMessage(
+      "fs.globSync",
+      22,
+      "Use `fs.readdirSync(dir, { recursive: true })` with a filter, or an existing userland glob dependency instead."
+    ),
+  },
 ];
 
 export default tseslint.config(
@@ -72,6 +90,14 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
       "mbe-local/no-tailwind-classes": "error",
       "mbe-local/require-rfc-7807-errors": "error",
+      // Immutability-first convention (AGENTS.md): never mutate function arguments.
+      "no-param-reassign": "error",
+      // Repo convention: no console.log in production code — use the observability
+      // package. warn/error/info stay allowed for operational logging. CLI packages
+      // (tools/cli) and repo scripts opt out in their own configs: flat-config file
+      // globs resolve relative to each consumer's config, so a shared "tools/**"
+      // exemption can never match from inside the tools package itself.
+      "no-console": ["error", { allow: ["warn", "error", "info"] }],
       // Ban Node-21/22-only APIs unsupported on the Node 20 floor (see comment above).
       "no-restricted-properties": ["error", ...nodeFloorRestrictedProperties],
     },

@@ -97,7 +97,7 @@ export function createSanitizedStream(
       controller.enqueue(escapeHtml(value));
     },
     cancel() {
-      reader.cancel();
+      return reader.cancel();
     },
   });
 }

@@ -147,7 +147,7 @@ export const sessionService = {
     executeSession(session)
       .then(() => opts.onSettled?.(true))
       .catch((err) => {
-        opts.onSettled?.(false);
+        void opts.onSettled?.(false);
         getServiceLogger().error({ sessionId: session.id, err }, "triggerSession execution failed");
       });
 
