@@ -417,7 +417,7 @@
     "@vitest/browser-playwright": "^4.1.10",
     "@vitest/coverage-v8": "catalog:",
     "axe-core": "^4.12.1",
-    "eslint-plugin-storybook": "^10.4.6",
+    "eslint-plugin-storybook": "^10.5.0",
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
     "lucide-react": "catalog:",
