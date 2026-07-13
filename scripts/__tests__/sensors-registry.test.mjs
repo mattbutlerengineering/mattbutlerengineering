@@ -632,10 +632,7 @@ describe("sensors-registry", () => {
       const repoRoot = resolve(__dirname, "..", "..");
       const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
-        const result = resolveRunChangedPaths(
-          "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-          repoRoot
-        );
+        const result = resolveRunChangedPaths("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", repoRoot);
         expect(result).toBeNull();
         const spewed = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
         expect(spewed).not.toContain("bad object");

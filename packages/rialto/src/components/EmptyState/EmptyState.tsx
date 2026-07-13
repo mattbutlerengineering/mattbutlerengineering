@@ -55,7 +55,17 @@ export interface EmptyStateProps extends HTMLAttributes<HTMLDivElement> {
 
 /* ── Component ──────────────────────────────── */
 export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function EmptyState(
-  { icon, heading, headingLevel = 2, description, action, variant = "flat", size = "md", className = "", ...rest },
+  {
+    icon,
+    heading,
+    headingLevel = 2,
+    description,
+    action,
+    variant = "flat",
+    size = "md",
+    className = "",
+    ...rest
+  },
   ref
 ) {
   const resolvedIcon = icon === undefined ? DefaultIcon : icon;

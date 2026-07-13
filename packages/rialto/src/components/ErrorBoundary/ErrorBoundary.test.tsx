@@ -70,7 +70,9 @@ describe("ErrorBoundary", () => {
         <ThrowingChild shouldThrow />
       </ErrorBoundary>
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Something went wrong" })
+    ).toBeInTheDocument();
   });
 
   it("renders the fallback heading at the level given by headingLevel", () => {
@@ -79,7 +81,9 @@ describe("ErrorBoundary", () => {
         <ThrowingChild shouldThrow />
       </ErrorBoundary>
     );
-    expect(screen.getByRole("heading", { level: 2, name: "Something went wrong" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Something went wrong" })
+    ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
   });
 

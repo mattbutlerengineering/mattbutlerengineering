@@ -34,15 +34,16 @@ const HEADER_FILL = 43;
  */
 function assertCommentSafe(text: string): string {
   if (text.includes("*/")) {
-    throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+    throw new Error(
+      `Token description contains "*/", which would break the generated CSS: ${text}`
+    );
   }
   return text;
 }
 
 function sectionHeader(key: string, description: string | undefined): string {
   const title = key.charAt(0).toUpperCase() + key.slice(1);
-  const label =
-    description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+  const label = description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
   const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
   return `  /* ── ${label} ${fill} */`;
 }
@@ -94,7 +95,9 @@ function renderBlock(selector: string, fileRoot: TokenGroup, trailer?: string): 
       for (const { path: tokenPath, token } of entries) {
         const varName = cssVarName(tokenPath);
         if (seen.has(varName)) {
-          throw new Error(`Duplicate CSS variable ${varName} (from token path ${tokenPath.join(".")})`);
+          throw new Error(
+            `Duplicate CSS variable ${varName} (from token path ${tokenPath.join(".")})`
+          );
         }
         seen.add(varName);
         if (token.$description !== undefined) {
@@ -146,7 +149,9 @@ function main(): void {
   fs.writeFileSync(outPath, parts.join("\n"));
 
   const tokenCount = walkTokens(light).length;
-  console.info(`Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`);
+  console.info(
+    `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`
+  );
 }
 
 main();

@@ -24,12 +24,18 @@ const DARK: Record<string, string> = {
 
 function stubComputedTokens(): void {
   const real = window.getComputedStyle.bind(window);
-  vi.spyOn(window, "getComputedStyle").mockImplementation(((el: Element, pseudo?: string | null) => {
+  vi.spyOn(window, "getComputedStyle").mockImplementation(((
+    el: Element,
+    pseudo?: string | null
+  ) => {
     const base = real(el, pseudo ?? undefined);
     if (el !== document.documentElement) return base;
     const theme = document.documentElement.getAttribute("data-theme") ?? "light";
     const map = theme === "dark" ? DARK : LIGHT;
-    return { ...base, getPropertyValue: (name: string) => map[name] ?? base.getPropertyValue(name) } as CSSStyleDeclaration;
+    return {
+      ...base,
+      getPropertyValue: (name: string) => map[name] ?? base.getPropertyValue(name),
+    } as CSSStyleDeclaration;
   }) as typeof window.getComputedStyle);
 }
 

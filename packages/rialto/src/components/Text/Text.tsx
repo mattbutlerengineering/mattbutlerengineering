@@ -7,14 +7,7 @@ import styles from "./Text.module.css";
 
 type TextVariant = "body" | "caption" | "detail" | "label" | "display";
 type TextColor =
-  | "primary"
-  | "secondary"
-  | "tertiary"
-  | "accent"
-  | "success"
-  | "warning"
-  | "error"
-  | "on-accent";
+  "primary" | "secondary" | "tertiary" | "accent" | "success" | "warning" | "error" | "on-accent";
 type TextAlign = "left" | "center" | "right";
 
 /**

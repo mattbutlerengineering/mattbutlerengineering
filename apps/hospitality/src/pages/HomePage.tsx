@@ -39,11 +39,7 @@ export function HomePage() {
 
       {error && <ErrorRetryBanner error={error.message} onRetry={handleRetry} />}
 
-      {isLoading ? (
-        <StatsLoading />
-      ) : (
-        <StatRow stats={stats} />
-      )}
+      {isLoading ? <StatsLoading /> : <StatRow stats={stats} />}
 
       <div className={styles.actionsRow}>
         <Button variant="secondary" size="sm" onClick={() => navigate("/timeline")}>

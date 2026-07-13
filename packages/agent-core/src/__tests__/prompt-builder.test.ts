@@ -262,9 +262,7 @@ describe("formatLlmsSection", () => {
 describe("loadLlmsFiles", () => {
   it("awaits readFile and returns entries for existing files", async () => {
     vi.mocked(existsSync).mockReturnValue(true);
-    vi.mocked(readFile)
-      .mockResolvedValueOnce("types llms")
-      .mockResolvedValueOnce("auth llms");
+    vi.mocked(readFile).mockResolvedValueOnce("types llms").mockResolvedValueOnce("auth llms");
 
     const entries = await loadLlmsFiles(["packages/types/llms.txt", "packages/auth/llms.txt"]);
     expect(entries).toEqual([

@@ -15,11 +15,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import {
-  assertTokenParity,
-  type DtcgToken,
-  type TokenGroup,
-} from "./lib/color-tokens.js";
+import { assertTokenParity, type DtcgToken, type TokenGroup } from "./lib/color-tokens.js";
 
 interface FigmaTokenSets {
   readonly [setName: string]: TokenGroup;
@@ -454,9 +450,9 @@ function main() {
   // Report stats
   const setNames = Object.keys(tokenSets);
   const totalTokens = setNames.reduce((sum, name) => sum + countTokens(tokenSets[name]), 0);
-  console.log(`Generated figma-tokens.json: ${totalTokens} tokens across ${setNames.length} sets`);
+  console.info(`Generated figma-tokens.json: ${totalTokens} tokens across ${setNames.length} sets`);
   for (const name of setNames) {
-    console.log(`  ${name}: ${countTokens(tokenSets[name])} tokens`);
+    console.info(`  ${name}: ${countTokens(tokenSets[name])} tokens`);
   }
 }
 

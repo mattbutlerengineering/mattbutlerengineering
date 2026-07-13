@@ -39,55 +39,61 @@ export const ListMyReservationsQuerySchema = z.object({
   limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
 });
 
-export const WalkInBodySchema = z.object({
-  partySize: z.number().int().min(1).describe("Number of guests"),
-  tableId: z.string().describe("ID of the table to seat guests at"),
-  venueId: z.string().describe("ID of the venue"),
-  guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
-  durationMinutes: z
-    .number()
-    .int()
-    .min(1)
-    .describe("Expected duration in minutes (defaults to 90)")
-    .optional(),
-  occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
-  seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
-}).describe("Walk-in reservation payload");
+export const WalkInBodySchema = z
+  .object({
+    partySize: z.number().int().min(1).describe("Number of guests"),
+    tableId: z.string().describe("ID of the table to seat guests at"),
+    venueId: z.string().describe("ID of the venue"),
+    guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
+    durationMinutes: z
+      .number()
+      .int()
+      .min(1)
+      .describe("Expected duration in minutes (defaults to 90)")
+      .optional(),
+    occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+    seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+  })
+  .describe("Walk-in reservation payload");
 
-export const CreateReservationBodySchema = z.object({
-  date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
-  startTime: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
-  endTime: z.iso.datetime({ offset: true }).describe("End time (ISO 8601)"),
-  partySize: z.number().int().min(1).describe("Number of guests"),
-  tableId: z.string().describe("ID of the table to reserve"),
-  notes: z.string().describe("Special requests or notes").optional(),
-  guestName: z.string().describe("Guest name (for unauthenticated reservations)").optional(),
-  guestEmail: z.email().describe("Guest email (for unauthenticated reservations)").optional(),
-  guestPhone: z.string().describe("Guest phone number").optional(),
-  venueId: z.string().describe("ID of the venue for this reservation").optional(),
-  occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
-  seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
-}).describe("Reservation creation payload");
+export const CreateReservationBodySchema = z
+  .object({
+    date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
+    startTime: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+    endTime: z.iso.datetime({ offset: true }).describe("End time (ISO 8601)"),
+    partySize: z.number().int().min(1).describe("Number of guests"),
+    tableId: z.string().describe("ID of the table to reserve"),
+    notes: z.string().describe("Special requests or notes").optional(),
+    guestName: z.string().describe("Guest name (for unauthenticated reservations)").optional(),
+    guestEmail: z.email().describe("Guest email (for unauthenticated reservations)").optional(),
+    guestPhone: z.string().describe("Guest phone number").optional(),
+    venueId: z.string().describe("ID of the venue for this reservation").optional(),
+    occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+    seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+  })
+  .describe("Reservation creation payload");
 
-export const UpdateReservationBodySchema = z.object({
-  date: z.iso.date().describe("New reservation date").optional(),
-  startTime: z.iso.datetime({ offset: true }).describe("New start time").optional(),
-  endTime: z.iso.datetime({ offset: true }).describe("New end time").optional(),
-  partySize: z.number().int().min(1).describe("New party size").optional(),
-  tableId: z.string().describe("New table ID").optional(),
-  status: ReservationStatusSchema.describe("New status").optional(),
-  notes: z.string().describe("Updated notes").optional(),
-  cancellationReason: z
-    .string()
-    .describe("Reason for cancellation (used when status is CANCELLED)")
-    .optional(),
-  cancellationNote: z
-    .string()
-    .describe("Additional cancellation notes (used when status is CANCELLED)")
-    .optional(),
-  occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
-  seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
-}).describe("Fields to update");
+export const UpdateReservationBodySchema = z
+  .object({
+    date: z.iso.date().describe("New reservation date").optional(),
+    startTime: z.iso.datetime({ offset: true }).describe("New start time").optional(),
+    endTime: z.iso.datetime({ offset: true }).describe("New end time").optional(),
+    partySize: z.number().int().min(1).describe("New party size").optional(),
+    tableId: z.string().describe("New table ID").optional(),
+    status: ReservationStatusSchema.describe("New status").optional(),
+    notes: z.string().describe("Updated notes").optional(),
+    cancellationReason: z
+      .string()
+      .describe("Reason for cancellation (used when status is CANCELLED)")
+      .optional(),
+    cancellationNote: z
+      .string()
+      .describe("Additional cancellation notes (used when status is CANCELLED)")
+      .optional(),
+    occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+    seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+  })
+  .describe("Fields to update");
 
 // ── Availability (routes/availability.ts) ─────────────────────
 export const AvailabilityQuerySchema = z.object({
@@ -228,9 +234,7 @@ export const CreateHoldBodySchema = z.object({
   partySize: z.number().int().min(1).max(20).describe("Number of guests"),
   tableId: z
     .string()
-    .describe(
-      "Optional specific table to hold. If not provided, best available table is assigned."
-    )
+    .describe("Optional specific table to hold. If not provided, best available table is assigned.")
     .optional(),
   holdDurationMinutes: z
     .number()
@@ -260,32 +264,35 @@ export const CreateDepositBodySchema = z.object({
 export const ListTablesQuerySchema = z.object({
   page: z.string().default("1").describe("Page number (1-indexed)"),
   limit: z.string().default("10").describe("Number of tables per page (max 100)"),
-  activeOnly: z
-    .enum(["true", "false"])
-    .default("false")
-    .describe("Filter to only active tables"),
+  activeOnly: z.enum(["true", "false"]).default("false").describe("Filter to only active tables"),
 });
 
-export const CreateTableBodySchema = z.object({
-  name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
-  capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
-  location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
-  venueId: z.string().describe("ID of the venue this table belongs to").optional(),
-}).describe("Table creation payload");
+export const CreateTableBodySchema = z
+  .object({
+    name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
+    capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
+    location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
+    venueId: z.string().describe("ID of the venue this table belongs to").optional(),
+  })
+  .describe("Table creation payload");
 
-export const UpdateTableBodySchema = z.object({
-  name: z.string().describe("New table name").optional(),
-  capacity: z.number().int().min(1).describe("New capacity").optional(),
-  location: z.string().describe("New location description").optional(),
-  isActive: z
-    .boolean()
-    .describe("Whether the table is active and available for reservations")
-    .optional(),
-}).describe("Fields to update");
+export const UpdateTableBodySchema = z
+  .object({
+    name: z.string().describe("New table name").optional(),
+    capacity: z.number().int().min(1).describe("New capacity").optional(),
+    location: z.string().describe("New location description").optional(),
+    isActive: z
+      .boolean()
+      .describe("Whether the table is active and available for reservations")
+      .optional(),
+  })
+  .describe("Fields to update");
 
-export const UpdateTableStatusBodySchema = z.object({
-  status: TableStatusSchema.describe("New table status"),
-}).describe("Table status update payload");
+export const UpdateTableStatusBodySchema = z
+  .object({
+    status: TableStatusSchema.describe("New table status"),
+  })
+  .describe("Table status update payload");
 
 // ── Venues (routes/venues.ts) ─────────────────────────────────
 export const ListVenueGroupsQuerySchema = z.object({
@@ -293,17 +300,21 @@ export const ListVenueGroupsQuerySchema = z.object({
   limit: z.string().default("10").describe("Number of groups per page (max 100)"),
 });
 
-export const CreateVenueGroupBodySchema = z.object({
-  name: z.string().describe("Venue group name"),
-  slug: z.string().describe("URL-friendly identifier (must be unique)"),
-  settings: JsonObjectSchema.describe("Shared settings for all venues in the group").optional(),
-}).describe("Venue group creation payload");
+export const CreateVenueGroupBodySchema = z
+  .object({
+    name: z.string().describe("Venue group name"),
+    slug: z.string().describe("URL-friendly identifier (must be unique)"),
+    settings: JsonObjectSchema.describe("Shared settings for all venues in the group").optional(),
+  })
+  .describe("Venue group creation payload");
 
-export const UpdateVenueGroupBodySchema = z.object({
-  name: z.string().optional(),
-  slug: z.string().optional(),
-  settings: JsonObjectSchema.optional(),
-}).describe("Fields to update");
+export const UpdateVenueGroupBodySchema = z
+  .object({
+    name: z.string().optional(),
+    slug: z.string().optional(),
+    settings: JsonObjectSchema.optional(),
+  })
+  .describe("Fields to update");
 
 export const ListVenuesQuerySchema = z.object({
   page: z.string().default("1").describe("Page number (1-indexed)"),
@@ -311,15 +322,17 @@ export const ListVenuesQuerySchema = z.object({
   venueGroupId: z.string().describe("Filter venues by venue group ID").optional(),
 });
 
-export const CreateVenueBodySchema = z.object({
-  venueGroupId: z.string().describe("ID of the venue group this venue belongs to").optional(),
-  name: z.string().describe("Venue name"),
-  slug: z.string().describe("URL-friendly identifier for public booking URLs (must be unique)"),
-  ianaTimezone: z.string().describe("IANA timezone identifier (e.g., 'America/Los_Angeles')"),
-  currencyCode: z.string().default("USD").describe("ISO 4217 currency code"),
-  operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
-  settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
-}).describe("Venue creation payload");
+export const CreateVenueBodySchema = z
+  .object({
+    venueGroupId: z.string().describe("ID of the venue group this venue belongs to").optional(),
+    name: z.string().describe("Venue name"),
+    slug: z.string().describe("URL-friendly identifier for public booking URLs (must be unique)"),
+    ianaTimezone: z.string().describe("IANA timezone identifier (e.g., 'America/Los_Angeles')"),
+    currencyCode: z.string().default("USD").describe("ISO 4217 currency code"),
+    operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
+    settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
+  })
+  .describe("Venue creation payload");
 
 export const UpdateVenueBodySchema = z
   .object({

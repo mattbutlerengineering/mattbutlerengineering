@@ -14,15 +14,15 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
 
 ## Routine catalog
 
-| Routine                  | Cadence (PT)        | Cron (UTC)   | Output                | Purpose                                                    |
-| ------------------------ | ------------------- | ------------ | --------------------- | ---------------------------------------------------------- |
-| `mbe-deep-audit`         | Mon 9:23am          | `23 16 * * 1`| issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
-| `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + issue-worker               |
-| `mbe-learning-loop`      | Daily 11:00am       | —            | issues                | Sensor report → verify past fixes → triage regressions     |
-| `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | issue-worker + CI monitor                                  |
-| `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | issue-worker + progress-tracker + optimize-implement-queue |
-| `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5` | 1 PR + `ready` issues | Codebase improvement survey → implement the best change    |
-| `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *` | 1 PR + `ready` issues | Claude Code config + docs/automation health                |
+| Routine                  | Cadence (PT)        | Cron (UTC)    | Output                | Purpose                                                                                                        |
+| ------------------------ | ------------------- | ------------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `mbe-deep-audit`         | Mon 9:23am          | `23 16 * * 1` | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
+| `mbe-morning`            | Daily 9:03am        | —             | issues / PRs          | Light site audit + ACMM audit + issue-worker                                                                   |
+| `mbe-learning-loop`      | Daily 11:00am       | —             | issues                | Sensor report → verify past fixes → triage regressions                                                         |
+| `mbe-midday`             | Daily 1:07pm        | —             | PRs                   | issue-worker + CI monitor                                                                                      |
+| `mbe-evening`            | Daily 5:11pm        | —             | PRs / metrics         | issue-worker + progress-tracker + optimize-implement-queue                                                     |
+| `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5`  | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
+| `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *`  | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies

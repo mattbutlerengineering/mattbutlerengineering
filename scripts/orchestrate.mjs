@@ -386,8 +386,22 @@ async function main() {
   const withTelemetry = args.includes("--telemetry");
 
   const gh = createGhClient({ timeoutMs: 30_000 });
-  const ready = gh.issue.list(["--label", "ready", "--state", "open", "--json", READY_ISSUE_FIELDS]);
-  const inProgress = gh.issue.list(["--label", "in-progress", "--state", "open", "--json", "number"]);
+  const ready = gh.issue.list([
+    "--label",
+    "ready",
+    "--state",
+    "open",
+    "--json",
+    READY_ISSUE_FIELDS,
+  ]);
+  const inProgress = gh.issue.list([
+    "--label",
+    "in-progress",
+    "--state",
+    "open",
+    "--json",
+    "number",
+  ]);
 
   const tasks = ready.map(issueToTask);
   const activeWorkers = inProgress.length;

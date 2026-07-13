@@ -41,10 +41,7 @@ const ADMIN: NavSection = {
 
 /* ── Setup nav sections ─────────────────────── */
 
-function buildSetupSections(
-  readiness: VenueReadiness,
-  isAdmin: boolean
-): readonly NavSection[] {
+function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] {
   const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
 
   const STEP_LABELS: Record<SetupStep, string> = {

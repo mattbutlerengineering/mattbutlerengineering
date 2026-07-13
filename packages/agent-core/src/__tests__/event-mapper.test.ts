@@ -192,8 +192,7 @@ describe("mapSdkMessage", () => {
       const events = mapSdkMessage(msg, 3);
 
       const turnEvent = events.find((e) => e.type === "session:turn_metrics") as
-        | TurnMetricsEvent
-        | undefined;
+        TurnMetricsEvent | undefined;
 
       expect(turnEvent).toBeDefined();
       expect(turnEvent!.turnIndex).toBe(3);
@@ -224,8 +223,7 @@ describe("mapSdkMessage", () => {
 
       expect(events.some((e) => e.type === "session:tool_use")).toBe(true);
       const turnEvent = events.find((e) => e.type === "session:turn_metrics") as
-        | TurnMetricsEvent
-        | undefined;
+        TurnMetricsEvent | undefined;
 
       expect(turnEvent).toBeDefined();
       expect(turnEvent!.turnIndex).toBe(2);
@@ -237,8 +235,7 @@ describe("mapSdkMessage", () => {
 
       const events = mapSdkMessage(msg);
       const turnEvent = events.find((e) => e.type === "session:turn_metrics") as
-        | TurnMetricsEvent
-        | undefined;
+        TurnMetricsEvent | undefined;
 
       expect(turnEvent).toBeDefined();
       expect(turnEvent!.turnIndex).toBe(0);

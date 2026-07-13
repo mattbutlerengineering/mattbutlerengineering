@@ -119,10 +119,7 @@ describe("session-executor", () => {
 
       await executeSession(makeSession());
 
-      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith(
-        "test-session-1",
-        "running"
-      );
+      expect(sessionLifecycleStore.updateStatus).toHaveBeenCalledWith("test-session-1", "running");
       expect(sessionLifecycleStore.addEvent).toHaveBeenCalledWith(
         "test-session-1",
         "session:start",

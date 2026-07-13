@@ -8,10 +8,7 @@ import type { Spec } from "@json-render/react";
  *
  * Pure (no React, no side effects) so it can be unit-tested in isolation.
  */
-export function createRefinementPrompt(
-  currentSpec: Spec,
-  userInstruction: string,
-): string {
+export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string {
   return (
     `Here is an existing UI spec generated from Rialto components. ` +
     `Please modify it according to the user's instruction. ` +

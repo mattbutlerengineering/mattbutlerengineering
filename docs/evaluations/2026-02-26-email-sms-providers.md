@@ -435,21 +435,23 @@ For a solo developer launching a reservation platform, email covers the critical
 5. **$20/mo Pro plan is affordable** — when volume exceeds the free tier, the jump to 50,000 emails/month at $20/mo is reasonable.
 
 **Risks and mitigations:**
-| Risk | Mitigation |
-|------|------------|
+
+| Risk                             | Mitigation                                                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Young company (founded 2022)** | $21.5M funding, Series A, 147% headcount growth. Healthy signals. If Resend fails, email sending is a standard REST API — migration to any provider is 1-2 hours of work. |
-| **2 req/s rate limit** | Batch API supports 100 emails/request. At 2 req/s × 100 emails = 200 emails/sec, far beyond this project's needs. |
-| **No dedicated IP on free/Pro** | Shared IP deliverability is good for transactional email at low volume. Dedicated IP is rarely needed below 100K emails/month. |
-| **Deliverability not #1** | Good, not Postmark-level. For reservation confirmations, shared IP reputation is adequate. Monitor bounce/complaint rates. |
+| **2 req/s rate limit**           | Batch API supports 100 emails/request. At 2 req/s × 100 emails = 200 emails/sec, far beyond this project's needs.                                                         |
+| **No dedicated IP on free/Pro**  | Shared IP deliverability is good for transactional email at low volume. Dedicated IP is rarely needed below 100K emails/month.                                            |
+| **Deliverability not #1**        | Good, not Postmark-level. For reservation confirmations, shared IP reputation is adequate. Monitor bounce/complaint rates.                                                |
 
 **Implementation plan:**
-| Step | Action | Effort |
-|------|--------|--------|
-| 1 | Create Resend account, verify `mattbutlerengineering.com` domain (SPF/DKIM/DMARC) | 30 min |
-| 2 | Create `@mbe/email-templates` package with React Email components | 2-4 hours |
-| 3 | Integrate Resend SDK into reservations service for confirmation/reminder emails | 2-4 hours |
-| 4 | Configure Auth0 custom email provider Action to use Resend API | 1-2 hours |
-| 5 | Add Resend webhook handling for bounce/complaint tracking | 1-2 hours |
+
+| Step | Action                                                                            | Effort    |
+| ---- | --------------------------------------------------------------------------------- | --------- |
+| 1    | Create Resend account, verify `mattbutlerengineering.com` domain (SPF/DKIM/DMARC) | 30 min    |
+| 2    | Create `@mbe/email-templates` package with React Email components                 | 2-4 hours |
+| 3    | Integrate Resend SDK into reservations service for confirmation/reminder emails   | 2-4 hours |
+| 4    | Configure Auth0 custom email provider Action to use Resend API                    | 1-2 hours |
+| 5    | Add Resend webhook handling for bounce/complaint tracking                         | 1-2 hours |
 
 ### #2 Postmark — Best Alternative (Deliverability-First)
 

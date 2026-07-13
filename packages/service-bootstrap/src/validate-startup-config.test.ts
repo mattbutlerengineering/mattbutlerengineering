@@ -45,9 +45,9 @@ describe("validateStartupConfig", () => {
   });
 
   it("throws when AUTH_AUTHORITY does not parse as a URL", () => {
-    expect(() =>
-      validateStartupConfig({ AUTH_AUTHORITY: "dev-tenant.us.auth0.com" })
-    ).toThrow(/AUTH_AUTHORITY/);
+    expect(() => validateStartupConfig({ AUTH_AUTHORITY: "dev-tenant.us.auth0.com" })).toThrow(
+      /AUTH_AUTHORITY/
+    );
   });
 
   it("throws when AUTH_AUTHORITY is whitespace only", () => {
@@ -55,9 +55,9 @@ describe("validateStartupConfig", () => {
   });
 
   it("throws when AUTH_AUTHORITY uses a non-http(s) scheme", () => {
-    expect(() =>
-      validateStartupConfig({ AUTH_AUTHORITY: "ftp://tenant.us.auth0.com" })
-    ).toThrow(/AUTH_AUTHORITY/);
+    expect(() => validateStartupConfig({ AUTH_AUTHORITY: "ftp://tenant.us.auth0.com" })).toThrow(
+      /AUTH_AUTHORITY/
+    );
   });
 
   it("names the offending variable but never leaks the raw value (logs shape only)", () => {

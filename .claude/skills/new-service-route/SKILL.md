@@ -46,12 +46,8 @@ fastify.post<{
         properties: { name: { type: "string" } },
       },
       response: {
-        201: {
-          /* FloorPlan */
-        },
-        404: {
-          /* ApiError */
-        },
+        201: {/* FloorPlan */},
+        404: {/* ApiError */},
       },
     },
   },

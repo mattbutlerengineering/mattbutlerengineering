@@ -213,7 +213,10 @@ export function DataTablePage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Role", value: "role=grid on the table; row / columnheader / rowheader / gridcell on cells" },
+            {
+              label: "Role",
+              value: "role=grid on the table; row / columnheader / rowheader / gridcell on cells",
+            },
             {
               label: "Sort",
               value: "aria-sort=ascending|descending|none on the active/sortable columnheader",
@@ -229,11 +232,13 @@ export function DataTablePage() {
             },
             {
               label: "Keyboard",
-              value: "Sortable headers are buttons (Enter/Space to sort); checkboxes toggle with Space",
+              value:
+                "Sortable headers are buttons (Enter/Space to sort); checkboxes toggle with Space",
             },
             {
               label: "Controllability",
-              value: "Sort (sort/onSortChange) and selection (selectedKeys/onSelectionChange) are controllable, with defaultSort/defaultSelectedKeys for uncontrolled use",
+              value:
+                "Sort (sort/onSortChange) and selection (selectedKeys/onSelectionChange) are controllable, with defaultSort/defaultSelectedKeys for uncontrolled use",
             },
           ]}
         />

@@ -32,12 +32,9 @@ describe("shared base ESLint config — Node-20 API floor guardrail", () => {
 
   it("passes the Node-20-safe new Promise(...) equivalent", async () => {
     const messages = await lintForNodeFloor(
-      [
-        "let resolve;",
-        "const promise = new Promise((res) => {",
-        "  resolve = res;",
-        "});",
-      ].join("\n") + "\n"
+      ["let resolve;", "const promise = new Promise((res) => {", "  resolve = res;", "});"].join(
+        "\n"
+      ) + "\n"
     );
 
     expect(messages).toEqual([]);

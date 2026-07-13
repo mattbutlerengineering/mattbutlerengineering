@@ -395,9 +395,7 @@ describe("GuestDetailExamplePage — tabs", () => {
 
     const panel = activePanel();
     const upcoming = within(panel).getByRole("table", { name: "Upcoming reservations" });
-    expect(within(upcoming).getAllByTestId("data-row").length).toBe(
-      UPCOMING_RESERVATIONS.length
-    );
+    expect(within(upcoming).getAllByTestId("data-row").length).toBe(UPCOMING_RESERVATIONS.length);
     const timeline = within(panel).getByRole("list", { name: "Timeline" });
     expect(within(timeline).getAllByRole("listitem").length).toBe(ACTIVITY.length);
     expect(within(timeline).getByText(ACTIVITY[0]!.title)).toBeInTheDocument();

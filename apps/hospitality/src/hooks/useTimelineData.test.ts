@@ -319,7 +319,11 @@ describe("useTimelineData", () => {
 
       await expect(
         act(async () => {
-          await result.current.cancelReservation("r1", { reason: "no_show", note: "", quote: null });
+          await result.current.cancelReservation("r1", {
+            reason: "no_show",
+            note: "",
+            quote: null,
+          });
         })
       ).rejects.toThrow("Cancel failed");
     });

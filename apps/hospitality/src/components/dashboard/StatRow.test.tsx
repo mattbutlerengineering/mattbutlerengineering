@@ -52,9 +52,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </div>
     );
   },
-  Text: ({ children, className }: TextMockProps) => (
-    <span className={className}>{children}</span>
-  ),
+  Text: ({ children, className }: TextMockProps) => <span className={className}>{children}</span>,
 }));
 
 const STATS: DashboardStats = {

@@ -58,9 +58,7 @@ export function isTestBypass(
   bypassTestMode: boolean
 ): boolean {
   return (
-    process.env.NODE_ENV === "test" &&
-    bypassTestMode &&
-    request.headers["x-auth-bypass"] === "true"
+    process.env.NODE_ENV === "test" && bypassTestMode && request.headers["x-auth-bypass"] === "true"
   );
 }
 

@@ -279,7 +279,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get tonight's service briefing",
             operationId: "getServiceBriefing",
@@ -690,7 +693,10 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/clone",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Clone floor plan",
             description: "Creates a copy of the floor plan and all its tables.",
@@ -718,7 +724,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Update floor plan",
             params: {
@@ -742,7 +751,10 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/activate",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Set floor plan as active",
             description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -771,7 +783,10 @@
       }>(
         "/tables/positions",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+          ],
           schema: {
             summary: "Bulk update table positions",
             description: "Updates the position and metadata for multiple tables in a floor plan.",
@@ -795,7 +810,10 @@
       }>(
         "/tables/:tableId/assign",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+          ],
           schema: {
             summary: "Assign table to floor plan",
             params: {
@@ -823,7 +841,10 @@
       fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ProblemDetails }>(
         "/tables/:tableId/remove",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
+          ],
           schema: {
             summary: "Remove table from floor plan",
             params: {
@@ -846,7 +867,10 @@
       fastify.delete<{ Params: { id: string }; Reply: void | ProblemDetails }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Delete floor plan",
             params: {
@@ -876,7 +900,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List guests for a venue",
             operationId: "listGuests",
@@ -913,7 +940,10 @@
       }>(
         "/search",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Search guests",
             operationId: "searchGuests",
@@ -953,7 +983,10 @@
       }>(
         "/segments",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get guest segments",
             operationId: "getGuestSegments",
@@ -992,7 +1025,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Get guest by ID",
             operationId: "getGuestById",
@@ -1128,7 +1164,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Update a guest",
             operationId: "updateGuest",
@@ -1168,7 +1207,10 @@
       }>(
         "/:id/notes",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Add a staff note to a guest",
             operationId: "addGuestNote",
@@ -1231,7 +1273,10 @@
       }>(
         "/lapsing",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get lapsing guests",
             operationId: "getLapsingGuests",
@@ -1287,7 +1332,10 @@
       }>(
         "/:id/win-back",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Send win-back message",
             operationId: "sendGuestWinBack",
@@ -1338,7 +1386,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Delete a guest",
             operationId: "deleteGuest",
@@ -3028,7 +3079,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Get table by ID",
             operationId: "getTableById",
@@ -3137,7 +3191,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Update a table",
             operationId: "updateTable",
@@ -3198,7 +3255,10 @@
       }>(
         "/:id/status",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Update table status",
             operationId: "updateTableStatus",
@@ -3271,7 +3331,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Delete a table",
             operationId: "deleteTable",
@@ -3799,7 +3862,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+          ],
           schema: {
             summary: "Update a venue",
             operationId: "updateVenue",
@@ -3963,7 +4029,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
@@ -3992,7 +4061,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Get waitlist entry",
             operationId: "getWaitlistEntry",
@@ -4028,7 +4100,10 @@
       }>(
         "/:id/notify",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Notify guest table is ready",
             operationId: "notifyWaitlistEntry",
@@ -4071,7 +4146,10 @@
       }>(
         "/:id/seat",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Mark guest as seated",
             operationId: "seatWaitlistEntry",
@@ -4107,7 +4185,10 @@
       }>(
         "/:id/cancel",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Cancel waitlist entry",
             operationId: "cancelWaitlistEntry",
@@ -4143,7 +4224,10 @@
       }>(
         "/:id/expire",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Mark waitlist entry as expired",
             operationId: "expireWaitlistEntry",
@@ -4203,8 +4287,7 @@
   <section priority="medium" role="services">
   <file path="src/services/assert-bookable.ts">
     export type BookableError =
-      | { code: "CONFLICT"; message: string }
-      | { code: "PACING_EXCEEDED"; message: string };
+      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
@@ -4268,11 +4351,7 @@
   </file>
   <file path="src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      | "NOT_FOUND"
-      | "EXPIRED"
-      | "SESSION_MISMATCH"
-      | "CONFLICT"
-      | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     export interface ConfirmHoldInput {
       holdId: string;
       sessionId?: string;
@@ -5427,9 +5506,7 @@
     };
   </file>
   <file path="src/services/venue-membership.ts">
-    export function createVenueMembershipLookup(
-      client: PrismaClient = prisma
-    ): VenueMembershipLookup {
+    export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup {
       return async (userSub: string, venueId: string): Promise<boolean> => {
         const count = await client.venueMembership.count({ where: { userSub, venueId } });
         return count > 0;

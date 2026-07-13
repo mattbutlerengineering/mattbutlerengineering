@@ -510,9 +510,13 @@ describe("venueService", () => {
         createdAt: NOW,
         updatedAt: NOW,
       });
-      vi.mocked(prisma.$transaction).mockImplementationOnce((async (fn: (tx: TxLike) => Promise<unknown>) =>
-        fn({ venue: { create: venueCreate }, venueMembership: { create: membershipCreate } })
-      ) as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: membershipCreate },
+        })) as never);
 
       const result = await venueService.create(
         { name: "Test Venue", slug: "test-venue", ianaTimezone: "America/Los_Angeles" },

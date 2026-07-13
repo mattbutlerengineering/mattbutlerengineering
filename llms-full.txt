@@ -7,7 +7,8 @@
         "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
       slots: ["default"],
       propSchemas: {
-        items: 'z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))',
+        items:
+          "z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -86,7 +87,8 @@
       description:
         "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
       propSchemas: {
-        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() }))',
+        items:
+          "z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -196,7 +198,8 @@
         label: 40,
       },
       propSchemas: {
-        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+        options:
+          "z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -222,7 +225,7 @@
       description:
         "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
       propSchemas: {
-        items: 'z.array(z.object({ label: z.string(), value: z.string() }))',
+        items: "z.array(z.object({ label: z.string(), value: z.string() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -336,11 +339,7 @@
   </file>
   <file path="packages/rialto/src/components/FlipDot/use-flip-dot-animation.ts">
     export type FlipDotAnimationMode =
-      | "typewriter"
-      | "scroll-left"
-      | "scroll-right"
-      | "blink"
-      | "frames";
+      "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
     export interface UseFlipDotAnimationOptions {
       /** Text to render (used by typewriter, scroll, blink modes). */
       text?: string;
@@ -449,7 +448,8 @@
         "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
       slots: ["default"],
       propSchemas: {
-        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() }))',
+        items:
+          "z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -474,7 +474,8 @@
         label: 40,
       },
       propSchemas: {
-        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+        options:
+          "z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -486,7 +487,8 @@
       description:
         "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
       propSchemas: {
-        items: 'z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })]))',
+        items:
+          "z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })]))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -540,7 +542,7 @@
         defaultValue: "defaultTab",
       },
       propSchemas: {
-        tabs: 'z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))',
+        tabs: "z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -603,12 +605,7 @@
   </file>
   <file path="packages/rialto/src/components/TapeChart/types.ts">
     export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
+      "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
     export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
   </file>
   <file path="packages/rialto/src/components/TapeChart/useTapeChartI18n.ts">
@@ -3519,9 +3516,7 @@
   <file path="packages/auth/src/fastify/authz.ts">
     export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
       if (!hasPermission(request.user, "admin")) {
-        reply
-          .code(403)
-          .send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
+        reply.code(403).send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
       }
     }
     export type VenueIdResolver = (
@@ -4787,10 +4782,7 @@
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
-    export function createRefinementPrompt(
-      currentSpec: Spec,
-      userInstruction: string,
-    ): string {
+    export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string {
       return (
         `Here is an existing UI spec generated from Rialto components. ` +
         `Please modify it according to the user's instruction. ` +
@@ -5751,7 +5743,7 @@
       } catch {
         const tokensDir = join(
           dirname(require.resolve("@mattbutlerengineering/rialto/package.json")),
-          "src/tokens",
+          "src/tokens"
         );
         const css = readdirSync(tokensDir)
           .filter((file) => file.endsWith(".css"))
@@ -6809,7 +6801,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get tonight's service briefing",
             operationId: "getServiceBriefing",
@@ -7220,7 +7215,10 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/clone",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Clone floor plan",
             description: "Creates a copy of the floor plan and all its tables.",
@@ -7248,7 +7246,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Update floor plan",
             params: {
@@ -7272,7 +7273,10 @@
       fastify.post<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
         "/:id/activate",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Set floor plan as active",
             description: "Activates this floor plan and deactivates all others for the same venue.",
@@ -7301,7 +7305,10 @@
       }>(
         "/tables/positions",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+          ],
           schema: {
             summary: "Bulk update table positions",
             description: "Updates the position and metadata for multiple tables in a floor plan.",
@@ -7325,7 +7332,10 @@
       }>(
         "/tables/:tableId/assign",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+          ],
           schema: {
             summary: "Assign table to floor plan",
             params: {
@@ -7353,7 +7363,10 @@
       fastify.post<{ Params: { tableId: string }; Reply: { data: Table } | ProblemDetails }>(
         "/tables/:tableId/remove",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
+          ],
           schema: {
             summary: "Remove table from floor plan",
             params: {
@@ -7376,7 +7389,10 @@
       fastify.delete<{ Params: { id: string }; Reply: void | ProblemDetails }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+          ],
           schema: {
             summary: "Delete floor plan",
             params: {
@@ -7406,7 +7422,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List guests for a venue",
             operationId: "listGuests",
@@ -7443,7 +7462,10 @@
       }>(
         "/search",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Search guests",
             operationId: "searchGuests",
@@ -7483,7 +7505,10 @@
       }>(
         "/segments",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get guest segments",
             operationId: "getGuestSegments",
@@ -7522,7 +7547,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Get guest by ID",
             operationId: "getGuestById",
@@ -7658,7 +7686,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Update a guest",
             operationId: "updateGuest",
@@ -7698,7 +7729,10 @@
       }>(
         "/:id/notes",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Add a staff note to a guest",
             operationId: "addGuestNote",
@@ -7761,7 +7795,10 @@
       }>(
         "/lapsing",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "Get lapsing guests",
             operationId: "getLapsingGuests",
@@ -7817,7 +7854,10 @@
       }>(
         "/:id/win-back",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Send win-back message",
             operationId: "sendGuestWinBack",
@@ -7868,7 +7908,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveGuestVenueId),
+          ],
           schema: {
             summary: "Delete a guest",
             operationId: "deleteGuest",
@@ -9558,7 +9601,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Get table by ID",
             operationId: "getTableById",
@@ -9667,7 +9713,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Update a table",
             operationId: "updateTable",
@@ -9728,7 +9777,10 @@
       }>(
         "/:id/status",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Update table status",
             operationId: "updateTableStatus",
@@ -9801,7 +9853,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+          ],
           schema: {
             summary: "Delete a table",
             operationId: "deleteTable",
@@ -10329,7 +10384,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+          ],
           schema: {
             summary: "Update a venue",
             operationId: "updateVenue",
@@ -10493,7 +10551,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List waitlist entries",
             operationId: "listWaitlistEntries",
@@ -10522,7 +10583,10 @@
       }>(
         "/:id",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Get waitlist entry",
             operationId: "getWaitlistEntry",
@@ -10558,7 +10622,10 @@
       }>(
         "/:id/notify",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Notify guest table is ready",
             operationId: "notifyWaitlistEntry",
@@ -10601,7 +10668,10 @@
       }>(
         "/:id/seat",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Mark guest as seated",
             operationId: "seatWaitlistEntry",
@@ -10637,7 +10707,10 @@
       }>(
         "/:id/cancel",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Cancel waitlist entry",
             operationId: "cancelWaitlistEntry",
@@ -10673,7 +10746,10 @@
       }>(
         "/:id/expire",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, resolveWaitlistVenueId),
+          ],
           schema: {
             summary: "Mark waitlist entry as expired",
             operationId: "expireWaitlistEntry",
@@ -11285,14 +11361,15 @@
   <file path="packages/rialto/scripts/generate-colors-css.ts">
     function assertCommentSafe(text: string): string {
       if (text.includes("*/")) {
-        throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+        throw new Error(
+          `Token description contains "*/", which would break the generated CSS: ${text}`
+        );
       }
       return text;
     }
     function sectionHeader(key: string, description: string | undefined): string {
       const title = key.charAt(0).toUpperCase() + key.slice(1);
-      const label =
-        description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+      const label = description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
       const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
       return `  /* ── ${label} ${fill} */`;
     }
@@ -11619,8 +11696,7 @@
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     export type BookableError =
-      | { code: "CONFLICT"; message: string }
-      | { code: "PACING_EXCEEDED"; message: string };
+      { code: "CONFLICT"; message: string } | { code: "PACING_EXCEEDED"; message: string };
     export interface AssertBookableOptions {
       /** Table being checked for conflict. */
       tableId: string;
@@ -11684,11 +11760,7 @@
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
     type ConfirmHoldErrorCode =
-      | "NOT_FOUND"
-      | "EXPIRED"
-      | "SESSION_MISMATCH"
-      | "CONFLICT"
-      | "PACING_EXCEEDED";
+      "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
     export interface ConfirmHoldInput {
       holdId: string;
       sessionId?: string;
@@ -12843,9 +12915,7 @@
     };
   </file>
   <file path="services/reservations/src/services/venue-membership.ts">
-    export function createVenueMembershipLookup(
-      client: PrismaClient = prisma
-    ): VenueMembershipLookup {
+    export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup {
       return async (userSub: string, venueId: string): Promise<boolean> => {
         const count = await client.venueMembership.count({ where: { userSub, venueId } });
         return count > 0;
@@ -13674,14 +13744,7 @@
   </file>
   <file path="packages/agent-core/src/change-type-classifier.ts">
     export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
+      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="packages/agent-core/src/circuit-breaker.ts">
@@ -17356,12 +17419,7 @@
   <file path="packages/types/src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type DepositStatus =
-      | "pending"
-      | "held"
-      | "applied"
-      | "refunded"
-      | "partial_refunded"
-      | "forfeited";
+      "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
   </file>
   <file path="packages/types/src/schema-compat.ts">
     interface JsonSchemaProperty {
@@ -18053,9 +18111,7 @@
     function assertValidService(service: string): string {
       const normalized = service.trim().toLowerCase();
       if (!ALLOWED_SERVICES.includes(normalized)) {
-        throw new Error(
-          `Invalid service "${service}". Must be one of: ${ALLOWED_SERVICES.join(", ")}`
-        );
+        throw new Error(`Invalid service "${service}". Must be one of: ${ALLOWED_SERVICES.join(", ")}`);
       }
       return normalized;
     }

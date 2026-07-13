@@ -297,7 +297,10 @@ describe("GuestDetailsForm", () => {
         await Promise.resolve();
       });
 
-      expect(mockApi.publicVenue.recognizeGuest).toHaveBeenCalledWith("the-grill", "jane@example.com");
+      expect(mockApi.publicVenue.recognizeGuest).toHaveBeenCalledWith(
+        "the-grill",
+        "jane@example.com"
+      );
     });
 
     it("shows welcome banner when guest is recognized (phone field stays empty)", async () => {

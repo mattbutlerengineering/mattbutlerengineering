@@ -98,11 +98,7 @@ export function formatGotchaEntry(title, description) {
 }
 
 export function logInstructionChange(entry, opts = {}) {
-  append(
-    "instruction-changes",
-    { date: new Date().toISOString().split("T")[0], ...entry },
-    opts
-  );
+  append("instruction-changes", { date: new Date().toISOString().split("T")[0], ...entry }, opts);
 }
 
 /* ── Main ────────────────────────────────────────────── */

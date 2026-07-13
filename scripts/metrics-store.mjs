@@ -80,9 +80,7 @@ export const METRICS = {
 function entryFor(name) {
   const entry = METRICS[name];
   if (!entry) {
-    throw new Error(
-      `Unknown metric "${name}" — add it to the metrics-store registry (METRICS).`
-    );
+    throw new Error(`Unknown metric "${name}" — add it to the metrics-store registry (METRICS).`);
   }
   return entry;
 }

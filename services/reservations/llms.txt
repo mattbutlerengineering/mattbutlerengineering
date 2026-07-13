@@ -821,9 +821,7 @@
   </file>
   <file path="src/services/venue-membership.ts">
     <item priority="high">
-      export function createVenueMembershipLookup(
-        client: PrismaClient = prisma
-      ): VenueMembershipLookup { /* ... */ }
+      export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
     </item>
   </file>
   <file path="src/services/venue.ts">

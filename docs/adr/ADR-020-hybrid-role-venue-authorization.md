@@ -24,7 +24,7 @@ locally.
 
 Two authorization models were viable:
 
-- **Auth0 custom claims only** — role *and* venue membership carried in the JWT.
+- **Auth0 custom claims only** — role _and_ venue membership carried in the JWT.
   Stateless, but venue grants cannot be revoked without re-issuing the token: a
   removed staffer keeps access until their token expires — a stale-access hole,
   and precisely the PII exposure this work closes.
@@ -41,7 +41,7 @@ land in `@mbe/auth/fastify`:
 
 - **Which claim carries the role:** the Auth0 **`permissions`** RBAC claim on
   the access token (the array already populated by Auth0's RBAC add-on and read
-  by `hasPermission`). Reusing this claim keeps a *single* admin notion across
+  by `hasPermission`). Reusing this claim keeps a _single_ admin notion across
   `requireAdmin`, `requireOwnershipOrAdmin`, and the test bypass — no second
   convention.
 - **Valid operator role values:** `admin` (platform administrator) and `staff`

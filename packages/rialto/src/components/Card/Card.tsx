@@ -33,7 +33,16 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   (
-    { variant = "elevated", tilt = false, title, headingLevel = 3, subtitle, className, children, ...props },
+    {
+      variant = "elevated",
+      tilt = false,
+      title,
+      headingLevel = 3,
+      subtitle,
+      className,
+      children,
+      ...props
+    },
     forwardedRef
   ) => {
     const tiltEnabled = tilt && variant !== "glass";

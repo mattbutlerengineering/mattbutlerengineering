@@ -55,8 +55,7 @@ async function getBriefing(params: GetBriefingParams): Promise<BriefingEntry[]> 
             }> | null) ?? [],
           tags: r.guest.tags as string[] | null,
           communicationPreference: r.guest.communicationPreference as
-            | Guest["communicationPreference"]
-            | null,
+            Guest["communicationPreference"] | null,
         }
       : null;
 

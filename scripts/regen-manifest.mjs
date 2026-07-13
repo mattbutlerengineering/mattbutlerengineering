@@ -165,10 +165,7 @@ export const FAMILIES = [
     id: "rialto-color-tokens",
     label: "packages/rialto colors.css + figma-tokens.json",
     command: "pnpm --filter @mattbutlerengineering/rialto generate:tokens",
-    outputs: [
-      "packages/rialto/src/tokens/colors.css",
-      "packages/rialto/figma-tokens.json",
-    ],
+    outputs: ["packages/rialto/src/tokens/colors.css", "packages/rialto/figma-tokens.json"],
     // Hook-scoped regen (PostToolUse): a token-source edit regenerates just
     // this family, mirroring the dep-graph/llms ergonomics.
     changedBy(path) {

@@ -660,9 +660,7 @@ export const SENSORS = [
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
       // head SHA not in the local object store — see resolveRunChangedPaths.
-      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) =>
-        resolveRunChangedPaths(sha, root)
-      );
+      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) => resolveRunChangedPaths(sha, root));
       if (unresolved > 0) {
         console.warn(
           `[e2eStability] ${unresolved} CI run head SHA(s) not in the local git object store ` +

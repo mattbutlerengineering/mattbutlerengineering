@@ -24,12 +24,18 @@ const DARK: Record<string, string> = {
 
 function stubComputedTokens(): void {
   const real = window.getComputedStyle.bind(window);
-  vi.spyOn(window, "getComputedStyle").mockImplementation(((el: Element, pseudo?: string | null) => {
+  vi.spyOn(window, "getComputedStyle").mockImplementation(((
+    el: Element,
+    pseudo?: string | null
+  ) => {
     const base = real(el, pseudo ?? undefined);
     if (el !== document.documentElement) return base;
     const theme = document.documentElement.getAttribute("data-theme") ?? "light";
     const map = theme === "dark" ? DARK : LIGHT;
-    return { ...base, getPropertyValue: (name: string) => map[name] ?? base.getPropertyValue(name) } as CSSStyleDeclaration;
+    return {
+      ...base,
+      getPropertyValue: (name: string) => map[name] ?? base.getPropertyValue(name),
+    } as CSSStyleDeclaration;
   }) as typeof window.getComputedStyle);
 }
 
@@ -59,7 +65,9 @@ describe("ColorPage", () => {
 
   it("labels swatches with their token name and usage guidance", () => {
     render(<ColorPage />);
-    const surface = COLOR_GROUPS.flatMap((g) => g.tokens).find((t) => t.name === "--rialto-surface");
+    const surface = COLOR_GROUPS.flatMap((g) => g.tokens).find(
+      (t) => t.name === "--rialto-surface"
+    );
     expect(surface).toBeDefined();
     expect(screen.getByText("--rialto-surface")).toBeInTheDocument();
     expect(screen.getByText(surface!.usage)).toBeInTheDocument();

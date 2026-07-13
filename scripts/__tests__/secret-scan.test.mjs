@@ -12,7 +12,11 @@ const STRIPE_SK = "sk_live_" + "0123456789abcdefABCDEFgh";
 const STRIPE_PK = "pk_live_" + "0123456789abcdefABCDEFgh";
 const AWS_AKIA = "AKIA" + "ABCDEFGHIJKLMNOP";
 const JWT =
-  "eyJ" + "hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" + ".eyJ" + "zdWIiOiIxMjM0NTY3ODkwIn0" + ".dGVzdHNpZ25hdHVyZQ";
+  "eyJ" +
+  "hbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" +
+  ".eyJ" +
+  "zdWIiOiIxMjM0NTY3ODkwIn0" +
+  ".dGVzdHNpZ25hdHVyZQ";
 const PEM = "-----BEGIN RSA PRIVATE KEY-----";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -65,7 +69,9 @@ describe("scanForSecrets", () => {
   });
 
   it("ignores allowlisted paths: .example files", () => {
-    expect(scanForSecrets(`STRIPE_KEY=${STRIPE_SK}`, "services/x/.env.example").matched).toBe(false);
+    expect(scanForSecrets(`STRIPE_KEY=${STRIPE_SK}`, "services/x/.env.example").matched).toBe(
+      false
+    );
   });
 
   it("ignores allowlisted paths: test fixtures and __tests__", () => {
@@ -135,7 +141,10 @@ describe("secret-scan hook wrapper", () => {
       tool_name: "MultiEdit",
       tool_input: {
         file_path: "src/k.ts",
-        edits: [{ old_string: "a", new_string: "b" }, { old_string: "c", new_string: PEM }],
+        edits: [
+          { old_string: "a", new_string: "b" },
+          { old_string: "c", new_string: PEM },
+        ],
       },
     });
     expect(res.status).toBe(2);

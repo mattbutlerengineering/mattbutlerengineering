@@ -1,10 +1,4 @@
-import React, {
-  forwardRef,
-  isValidElement,
-  useCallback,
-  useState,
-  type ReactNode,
-} from "react";
+import React, { forwardRef, isValidElement, useCallback, useState, type ReactNode } from "react";
 import { cn } from "../../utils/class-composer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import styles from "./DataTable.module.css";
@@ -223,12 +217,25 @@ interface HeaderCellProps {
   onSort: () => void;
 }
 
-function HeaderCell({ header, sortable, align, width, active, direction, onSort }: HeaderCellProps) {
+function HeaderCell({
+  header,
+  sortable,
+  align,
+  width,
+  active,
+  direction,
+  onSort,
+}: HeaderCellProps) {
   return (
     <th
       scope="col"
       role="columnheader"
-      className={cn(styles.th, alignClassFor(align), sortable && styles.sortable, active && styles.sortActive)}
+      className={cn(
+        styles.th,
+        alignClassFor(align),
+        sortable && styles.sortable,
+        active && styles.sortActive
+      )}
       style={width ? { width } : undefined}
       aria-sort={ariaSortFor(sortable, active, direction)}
     >

@@ -68,12 +68,7 @@ export const GROUP_GUESTS = "Guests";
 export const GROUP_ROOMS = "Rooms";
 
 /** Ordered group list handed to the palette — recents lead, then each type. */
-export const SEARCH_GROUPS = [
-  GROUP_RECENT,
-  GROUP_RESERVATIONS,
-  GROUP_GUESTS,
-  GROUP_ROOMS,
-];
+export const SEARCH_GROUPS = [GROUP_RECENT, GROUP_RESERVATIONS, GROUP_GUESTS, GROUP_ROOMS];
 
 /* ── Derived catalog ─────────────────────────── */
 
@@ -113,7 +108,7 @@ export const RECENT_LIMIT = 5;
 export function recordRecent(
   recent: readonly string[],
   id: string,
-  limit: number = RECENT_LIMIT,
+  limit: number = RECENT_LIMIT
 ): string[] {
   return [id, ...recent.filter((existing) => existing !== id)].slice(0, limit);
 }
@@ -127,7 +122,7 @@ export function recordRecent(
 export function buildCommandItems(
   catalog: readonly SearchEntry[],
   recent: readonly string[],
-  onSelect: (entry: SearchEntry) => void,
+  onSelect: (entry: SearchEntry) => void
 ): CommandItem[] {
   const recentItems: CommandItem[] = recent
     .map((id) => catalog.find((entry) => entry.id === id))
@@ -209,7 +204,7 @@ export function CommandPaletteExamplePage() {
 
   const items = useMemo(
     () => buildCommandItems(SEARCH_CATALOG, recent, handleSelect),
-    [recent, handleSelect],
+    [recent, handleSelect]
   );
 
   return (

@@ -395,9 +395,7 @@ describe("ReservationsClient.manageReservation", () => {
   });
 
   it("accepts a null venue", async () => {
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse({ data: { ...managedPayload, venue: null } })
-    );
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ...managedPayload, venue: null } }));
 
     const result = await makeClient().manageReservation("tok");
     expect(result.venue).toBeNull();
@@ -405,7 +403,12 @@ describe("ReservationsClient.manageReservation", () => {
 
   it("throws ApiValidationError on a malformed reservation status", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ data: { ...managedPayload, reservation: { ...managedPayload.reservation, status: "BOGUS" } } })
+      jsonResponse({
+        data: {
+          ...managedPayload,
+          reservation: { ...managedPayload.reservation, status: "BOGUS" },
+        },
+      })
     );
 
     await expect(makeClient().manageReservation("tok")).rejects.toBeInstanceOf(ApiValidationError);

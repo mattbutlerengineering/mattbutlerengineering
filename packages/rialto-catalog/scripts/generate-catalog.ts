@@ -301,7 +301,9 @@ function formatGeneratedSchemas(
     } else {
       lines.push(`  ${componentName}: z.object({`);
       for (const { propName, zodExpr } of props) {
-        lines.push(`    ${/^[A-Za-z_$][\w$]*$/.test(propName) ? propName : JSON.stringify(propName)}: ${zodExpr},`);
+        lines.push(
+          `    ${/^[A-Za-z_$][\w$]*$/.test(propName) ? propName : JSON.stringify(propName)}: ${zodExpr},`
+        );
       }
       lines.push(`  }),`);
     }
@@ -407,18 +409,17 @@ async function main() {
   fs.mkdirSync(path.dirname(catalogOut), { recursive: true });
   fs.writeFileSync(catalogOut, formatGeneratedCatalog(metas), "utf-8");
 
-  console.log(
+  console.info(
     `Generated catalog: ${metas.size} components → ${path.relative(packageRoot, schemasOut)}, ${path.relative(packageRoot, catalogOut)}`
   );
-  console.log(`Components: ${Array.from(metas.keys()).sort().join(", ")}`);
+  console.info(`Components: ${Array.from(metas.keys()).sort().join(", ")}`);
 }
 
 // Only run the generator when this file is the entry point (e.g.
 // `tsx scripts/generate-catalog.ts`). Guarded so unit tests can import
 // `mapTypeToZod` without triggering a full generation pass.
 const invokedDirectly =
-  process.argv[1] !== undefined &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (invokedDirectly) {
   main().catch((err) => {

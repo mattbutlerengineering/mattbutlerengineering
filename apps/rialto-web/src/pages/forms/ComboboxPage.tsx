@@ -46,11 +46,7 @@ function ComboboxPlayground() {
   const [value, setValue] = useState("");
   const [values, setValues] = useState<string[]>(["apple", "cherry"]);
 
-  const summary = multiple
-    ? values.length > 0
-      ? values.join(", ")
-      : "none"
-    : value || "none";
+  const summary = multiple ? (values.length > 0 ? values.join(", ") : "none") : value || "none";
 
   return (
     <Stack gap="lg">
@@ -92,9 +88,7 @@ function AsyncCombobox() {
   // so the loading row is visible; otherwise we filter the demo set locally.
   const results = useMemo(
     () =>
-      loading
-        ? []
-        : CIRCUITS.filter((c) => c.label.toLowerCase().includes(query.toLowerCase())),
+      loading ? [] : CIRCUITS.filter((c) => c.label.toLowerCase().includes(query.toLowerCase())),
     [loading, query]
   );
 
@@ -207,12 +201,7 @@ export function ComboboxPage() {
             <Text variant="caption" color="secondary">
               Choose the circuits to include in the weekend schedule.
             </Text>
-            <Combobox
-              label="Circuits"
-              options={CIRCUITS}
-              multiple
-              placeholder="Add circuits…"
-            />
+            <Combobox label="Circuits" options={CIRCUITS} multiple placeholder="Add circuits…" />
           </Stack>
         </Card>
       </Section>

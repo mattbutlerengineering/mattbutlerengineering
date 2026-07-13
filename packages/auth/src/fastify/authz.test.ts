@@ -41,11 +41,9 @@ function buildTestApp(lookupMembership: VenueMembershipLookup) {
       audience: "https://api.example.com",
     });
 
-    fastify.get(
-      "/admin-only",
-      { preHandler: [requireAuth, requireAdmin] },
-      async () => ({ ok: true })
-    );
+    fastify.get("/admin-only", { preHandler: [requireAuth, requireAdmin] }, async () => ({
+      ok: true,
+    }));
 
     fastify.get<{ Querystring: { venueId?: string } }>(
       "/venue-scoped",

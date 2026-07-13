@@ -110,11 +110,11 @@ Agents run in `permissionMode: "acceptEdits"` with a `canUseTool` handler.
 
 `routeModel(issue)` selects tier based on issue metadata (first match wins):
 
-| Tier   | When                                                                                                                  | Model             |
-| ------ | --------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| haiku  | `chore(deps):` or `fix(security):` title patterns                                                                     | claude-haiku-4-5  |
-| sonnet | `ci-fix` label, simple features, default                                                                              | claude-sonnet-5   |
-| opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-8   |
+| Tier   | When                                                                                                                  | Model            |
+| ------ | --------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| haiku  | `chore(deps):` or `fix(security):` title patterns                                                                     | claude-haiku-4-5 |
+| sonnet | `ci-fix` label, simple features, default                                                                              | claude-sonnet-5  |
+| opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-8  |
 
 ## Multi-CLI Adapters
 
@@ -141,14 +141,14 @@ SessionConfig (task + worktree + model)
 
 ### Key Modules
 
-| Module                         | Responsibility                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------ |
-| `cli-adapter.ts`               | `AgentAdapter` interface, `AdapterConfig`, `AdapterResult` types               |
-| `adapters/cli-adapter-base.ts` | Shared template-method base class for subprocess-based CLI adapters            |
-| `adapters/claude-adapter.ts`   | Wraps `runSession()` as an adapter                                             |
-| `adapters/gemini-adapter.ts`   | Subprocess dispatch to Gemini CLI                                              |
-| `adapters/opencode-adapter.ts` | Subprocess dispatch to OpenCode CLI                                            |
-| `rate-limit-detector.ts`       | Tracks consecutive failures and cooldown expiry per adapter                    |
+| Module                                 | Responsibility                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `cli-adapter.ts`                       | `AgentAdapter` interface, `AdapterConfig`, `AdapterResult` types                                |
+| `adapters/cli-adapter-base.ts`         | Shared template-method base class for subprocess-based CLI adapters                             |
+| `adapters/claude-adapter.ts`           | Wraps `runSession()` as an adapter                                                              |
+| `adapters/gemini-adapter.ts`           | Subprocess dispatch to Gemini CLI                                                               |
+| `adapters/opencode-adapter.ts`         | Subprocess dispatch to OpenCode CLI                                                             |
+| `rate-limit-detector.ts`               | Tracks consecutive failures and cooldown expiry per adapter                                     |
 | `adapters/failover-session-adapter.ts` | Priority-cascade dispatch (ADR-017 `auto`), throws `AllAdaptersUnavailableError` when exhausted |
 
 ### Usage via CLI

@@ -13,6 +13,6 @@ export const tabsCatalogMeta = {
     defaultValue: "defaultTab",
   },
   propSchemas: {
-    tabs: 'z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))',
+    tabs: "z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))",
   },
 } satisfies CatalogMeta;

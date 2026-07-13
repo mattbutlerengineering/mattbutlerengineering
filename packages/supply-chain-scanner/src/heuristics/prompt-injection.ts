@@ -14,7 +14,8 @@ const RULES: readonly Rule[] = [
     severity: "high",
   },
   {
-    pattern: /\bdisregard\b[^.\n]{0,20}\b(your|the|any|all)\b[^.\n]{0,20}\bsystem\b[^.\n]{0,20}\bprompt\b/i,
+    pattern:
+      /\bdisregard\b[^.\n]{0,20}\b(your|the|any|all)\b[^.\n]{0,20}\bsystem\b[^.\n]{0,20}\bprompt\b/i,
     category: "prompt-injection",
     severity: "high",
   },

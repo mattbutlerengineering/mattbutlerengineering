@@ -55,7 +55,9 @@ vi.mock("@mattbutlerengineering/rialto", () => {
 describe("BookingConfirmedExamplePage", () => {
   it("renders the showcase header with page name and description", () => {
     render(<BookingConfirmedExamplePage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Booking Confirmed" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Booking Confirmed" })
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Success result page with a reservation summary and next-step CTAs")
     ).toBeInTheDocument();

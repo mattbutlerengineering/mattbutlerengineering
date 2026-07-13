@@ -1889,10 +1889,7 @@
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
     <item priority="high">
-      export function createRefinementPrompt(
-        currentSpec: Spec,
-        userInstruction: string,
-      ): string { /* ... */ }
+      export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/gen/src/pages/usePlaygroundSession.ts">
@@ -3384,9 +3381,7 @@
   </file>
   <file path="services/reservations/src/services/venue-membership.ts">
     <item priority="high">
-      export function createVenueMembershipLookup(
-        client: PrismaClient = prisma
-      ): VenueMembershipLookup { /* ... */ }
+      export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">

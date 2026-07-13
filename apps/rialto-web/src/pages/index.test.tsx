@@ -144,9 +144,7 @@ describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: /browse by category/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: /getting started/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /getting started/i })).toBeInTheDocument();
   });
 
   it("renders a primary conversion CTA", () => {

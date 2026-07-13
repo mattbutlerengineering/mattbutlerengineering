@@ -26,8 +26,7 @@ export interface LapsedGuestMonitorCallbackConfig {
 }
 
 export type LapsedGuestMonitorConfig =
-  | LapsedGuestMonitorPrismaConfig
-  | LapsedGuestMonitorCallbackConfig;
+  LapsedGuestMonitorPrismaConfig | LapsedGuestMonitorCallbackConfig;
 
 export interface LapsedGuestMonitor {
   start(log: FastifyBaseLogger): void;

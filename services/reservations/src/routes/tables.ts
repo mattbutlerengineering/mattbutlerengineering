@@ -14,7 +14,12 @@ import {
   updateTableBodyJsonSchema,
   updateTableStatusBodyJsonSchema,
 } from "@mbe/types";
-import { requireAuth, requireAdmin, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import {
+  requireAuth,
+  requireAdmin,
+  requireVenueAccess,
+  type VenueIdResolver,
+} from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
 import { venueIdFromBody } from "./venue-access.js";
@@ -78,7 +83,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+      ],
       schema: {
         summary: "Get table by ID",
         operationId: "getTableById",
@@ -187,7 +195,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+      ],
       schema: {
         summary: "Update a table",
         operationId: "updateTable",
@@ -248,7 +259,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/status",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+      ],
       schema: {
         summary: "Update table status",
         operationId: "updateTableStatus",
@@ -321,7 +335,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, resolveTableVenueId),
+      ],
       schema: {
         summary: "Delete a table",
         operationId: "deleteTable",

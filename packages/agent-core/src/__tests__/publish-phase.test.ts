@@ -259,7 +259,9 @@ describe("PublishPhase", () => {
   });
 
   it("does NOT direct-merge when the gateway says merge-direct but the session failed", async () => {
-    vi.mocked(deps.prCreator.mergeDirectly).mockResolvedValue("https://github.com/repo/pull/merged");
+    vi.mocked(deps.prCreator.mergeDirectly).mockResolvedValue(
+      "https://github.com/repo/pull/merged"
+    );
 
     const { result, output } = await phase.run(
       makeInput({

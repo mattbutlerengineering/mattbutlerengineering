@@ -31,15 +31,15 @@ Reads all token sources and outputs a unified `figma-tokens.json` in DTCG format
 
 **Input sources:**
 
-| Source file                  | Format                          | Status                                                       |
-| ---------------------------- | ------------------------------- | ------------------------------------------------------------ |
-| `src/tokens/colors.json`      | DTCG JSON (light theme)         | Already compatible                                           |
-| `src/tokens/colors.dark.json` | DTCG JSON (dark theme)          | Already compatible (#3361 — replaced colors.css dark-block extraction) |
-| `src/tokens/typography.json` | DTCG JSON                       | Already compatible                                           |
-| `src/tokens/spacing.json`    | DTCG JSON                       | Already compatible                                           |
-| `src/tokens/radius.css`      | CSS custom properties           | Needs extraction → DTCG                                      |
-| `src/tokens/shadows.css`     | CSS custom properties           | Needs extraction → DTCG (includes easing, duration, z-index) |
-| `src/providers/vibes.ts`     | TypeScript object               | Needs vibe override extraction                               |
+| Source file                   | Format                  | Status                                                                 |
+| ----------------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| `src/tokens/colors.json`      | DTCG JSON (light theme) | Already compatible                                                     |
+| `src/tokens/colors.dark.json` | DTCG JSON (dark theme)  | Already compatible (#3361 — replaced colors.css dark-block extraction) |
+| `src/tokens/typography.json`  | DTCG JSON               | Already compatible                                                     |
+| `src/tokens/spacing.json`     | DTCG JSON               | Already compatible                                                     |
+| `src/tokens/radius.css`       | CSS custom properties   | Needs extraction → DTCG                                                |
+| `src/tokens/shadows.css`      | CSS custom properties   | Needs extraction → DTCG (includes easing, duration, z-index)           |
+| `src/providers/vibes.ts`      | TypeScript object       | Needs vibe override extraction                                         |
 
 **Output structure** (`figma-tokens.json`):
 

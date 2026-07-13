@@ -223,5 +223,4 @@ describe("HomePage", () => {
     // Verify buttons are clickable (no errors thrown)
     expect(screen.getByText("New Walk-In")).toBeDefined();
   });
-
 });

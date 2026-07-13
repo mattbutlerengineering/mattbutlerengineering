@@ -180,7 +180,15 @@ describe("assertCharacterLimitsResolve", () => {
       exportIdentifier: "EmptyState",
       importPath: "@mattbutlerengineering/rialto",
       subpath: "EmptyState",
-      props: [{ name: "heading", type: "string", resolvedType: "string", required: false, declaredInRialto: true }],
+      props: [
+        {
+          name: "heading",
+          type: "string",
+          resolvedType: "string",
+          required: false,
+          declaredInRialto: true,
+        },
+      ],
       slots: ["children"],
       // `title` is not a real prop of EmptyState — the exact historical drift.
       characterLimits: [{ prop: "title", max: 50 }],
@@ -194,7 +202,15 @@ describe("assertCharacterLimitsResolve", () => {
       exportIdentifier: "Timeline",
       importPath: "@mattbutlerengineering/rialto",
       subpath: "Timeline",
-      props: [{ name: "events", type: "TimelineEvent[]", resolvedType: "TimelineEvent[]", required: true, declaredInRialto: true }],
+      props: [
+        {
+          name: "events",
+          type: "TimelineEvent[]",
+          resolvedType: "TimelineEvent[]",
+          required: true,
+          declaredInRialto: true,
+        },
+      ],
       slots: ["children"],
       characterLimits: [
         { prop: "events[].title", max: 60 },

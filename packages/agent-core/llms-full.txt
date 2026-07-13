@@ -1917,14 +1917,7 @@
   </file>
   <file path="src/change-type-classifier.ts">
     export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
+      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="src/circuit-breaker.ts">

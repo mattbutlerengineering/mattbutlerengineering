@@ -2,12 +2,7 @@ import { Card, DepartureBoard, Stack, Text } from "@mattbutlerengineering/rialto
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 
-const HERO_PHRASES = [
-  "MAKE IT REAL",
-  "SHIP THE FUTURE",
-  "BUILD BOLDLY",
-  "DESIGN WITH INTENT",
-];
+const HERO_PHRASES = ["MAKE IT REAL", "SHIP THE FUTURE", "BUILD BOLDLY", "DESIGN WITH INTENT"];
 
 const VALUE_PROPS = ["FAST BY DEFAULT", "TYPED END TO END", "ACCESSIBLE FIRST"];
 
