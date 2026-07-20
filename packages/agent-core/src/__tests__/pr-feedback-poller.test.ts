@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  fetchUnresolvedComments,
-  fetchCIFailures,
-  pollForFeedback,
-} from "../pr-feedback-poller.js";
+import { createFeedbackPoller } from "../pr-feedback-poller.js";
 import type { PrFeedbackPort } from "../pr-feedback-port.js";
 
 /** Fake PrFeedbackPort for tests — no `gh` binary, no child_process mocking. */
@@ -18,8 +14,16 @@ function createFakePort(overrides: Partial<PrFeedbackPort> = {}): PrFeedbackPort
   };
 }
 
-describe("fetchUnresolvedComments", () => {
-  it("extracts unresolved review threads via the injected port", async () => {
+describe("createFeedbackPoller().poll()", () => {
+  it("returns null when there is no feedback at all", async () => {
+    const poller = createFeedbackPoller("owner", "repo", "/repo", createFakePort());
+
+    const result = await poller.poll(42, "");
+
+    expect(result).toBeNull();
+  });
+
+  it("returns feedback with unresolved review comments only", async () => {
     const port = createFakePort({
       fetchReviewThreads: async () => ({
         reviewDecision: "CHANGES_REQUESTED",
@@ -50,104 +54,64 @@ describe("fetchUnresolvedComments", () => {
         ],
       }),
     });
+    const poller = createFeedbackPoller("owner", "repo", "/repo", port);
 
-    const result = await fetchUnresolvedComments("owner", "repo", 42, "/repo", port);
+    const result = await poller.poll(42, "");
 
-    expect(result.comments).toHaveLength(1);
-    expect(result.comments[0].threadId).toBe("thread-1");
-    expect(result.comments[0].body).toBe("Fix this");
-    expect(result.reviewDecision).toBe("CHANGES_REQUESTED");
+    expect(result).not.toBeNull();
+    expect(result!.context.reviewComments).toHaveLength(1);
+    expect(result!.context.reviewComments[0].threadId).toBe("thread-1");
+    expect(result!.context.reviewComments[0].body).toBe("Fix this");
+    expect(result!.context.reviewDecision).toBe("CHANGES_REQUESTED");
+    expect(result!.context.ciFailures).toHaveLength(0);
+    expect(result!.fingerprint).toBe("thread-1");
   });
 
-  it("returns empty on port error", async () => {
-    const port = createFakePort({
-      fetchReviewThreads: async () => {
-        throw new Error("gh not found");
-      },
-    });
-
-    const result = await fetchUnresolvedComments("owner", "repo", 42, "/repo", port);
-
-    expect(result.comments).toHaveLength(0);
-    expect(result.reviewDecision).toBe("UNKNOWN");
-  });
-});
-
-describe("fetchCIFailures", () => {
-  it("returns empty when all checks pass", async () => {
-    const port = createFakePort({
-      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "success" }],
-    });
-
-    const failures = await fetchCIFailures(42, "/repo", 100, port);
-
-    expect(failures).toHaveLength(0);
-  });
-
-  it("returns failures with log snippets", async () => {
+  it("returns feedback with CI failures only, including a log snippet", async () => {
     const port = createFakePort({
       fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "failure" }],
       fetchFailedRunId: async () => 123,
       fetchRunLogs: async () => "FAIL tests/app.test.ts\nExpected: 200\nReceived: 500",
     });
+    const poller = createFeedbackPoller("owner", "repo", "/repo", port);
 
-    const failures = await fetchCIFailures(42, "/repo", 100, port);
+    const result = await poller.poll(42, "");
 
-    expect(failures).toHaveLength(1);
-    expect(failures[0].checkName).toBe("test");
-    expect(failures[0].logSnippet).toContain("Expected: 200");
+    expect(result).not.toBeNull();
+    expect(result!.context.reviewComments).toHaveLength(0);
+    expect(result!.context.ciFailures).toHaveLength(1);
+    expect(result!.context.ciFailures[0].checkName).toBe("test");
+    expect(result!.context.ciFailures[0].logSnippet).toContain("Expected: 200");
   });
 
-  it("falls back to a placeholder snippet when log retrieval fails", async () => {
-    const port = createFakePort({
-      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "failure" }],
-      fetchFailedRunId: async () => {
-        throw new Error("no runs");
-      },
-    });
-
-    const failures = await fetchCIFailures(42, "/repo", 100, port);
-
-    expect(failures).toHaveLength(1);
-    expect(failures[0].logSnippet).toBe("(Could not fetch CI logs)");
-  });
-});
-
-describe("pollForFeedback", () => {
-  it("returns null when no new feedback", async () => {
-    const port = createFakePort();
-
-    const result = await pollForFeedback("owner", "repo", 42, "/repo", "", port);
-
-    expect(result).toBeNull();
-  });
-
-  it("returns feedback when new comments appear", async () => {
+  it("returns feedback with both unresolved comments and CI failures", async () => {
     const port = createFakePort({
       fetchReviewThreads: async () => ({
         reviewDecision: "CHANGES_REQUESTED",
         threads: [
           {
-            id: "thread-new",
+            id: "thread-1",
             isResolved: false,
             comments: {
               nodes: [
-                { body: "New comment", path: "src/app.ts", line: 5, author: { login: "reviewer" } },
+                { body: "Fix this", path: "src/app.ts", line: 10, author: { login: "reviewer" } },
               ],
             },
           },
         ],
       }),
+      fetchChecks: async () => [{ name: "lint", state: "completed", conclusion: "failure" }],
     });
+    const poller = createFeedbackPoller("owner", "repo", "/repo", port);
 
-    const result = await pollForFeedback("owner", "repo", 42, "/repo", "old-fingerprint", port);
+    const result = await poller.poll(42, "");
 
     expect(result).not.toBeNull();
     expect(result!.context.reviewComments).toHaveLength(1);
-    expect(result!.fingerprint).toBe("thread-new");
+    expect(result!.context.ciFailures).toHaveLength(1);
   });
 
-  it("returns null when fingerprint unchanged and no CI failures", async () => {
+  it("returns null when fingerprint is unchanged and no CI failures", async () => {
     const port = createFakePort({
       fetchReviewThreads: async () => ({
         reviewDecision: "CHANGES_REQUESTED",
@@ -169,9 +133,57 @@ describe("pollForFeedback", () => {
         ],
       }),
     });
+    const poller = createFeedbackPoller("owner", "repo", "/repo", port);
 
-    const result = await pollForFeedback("owner", "repo", 42, "/repo", "thread-1", port);
+    const result = await poller.poll(42, "thread-1");
 
     expect(result).toBeNull();
+  });
+
+  it("returns fresh feedback again even with an unchanged fingerprint when CI failures are present", async () => {
+    const port = createFakePort({
+      fetchReviewThreads: async () => ({
+        reviewDecision: "CHANGES_REQUESTED",
+        threads: [
+          {
+            id: "thread-1",
+            isResolved: false,
+            comments: {
+              nodes: [
+                {
+                  body: "Still broken",
+                  path: "src/app.ts",
+                  line: 5,
+                  author: { login: "reviewer" },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "failure" }],
+    });
+    const poller = createFeedbackPoller("owner", "repo", "/repo", port);
+
+    const result = await poller.poll(42, "thread-1");
+
+    expect(result).not.toBeNull();
+    expect(result!.context.ciFailures).toHaveLength(1);
+  });
+
+  it("falls back to UNKNOWN review decision and empty comments on port error", async () => {
+    const port = createFakePort({
+      fetchReviewThreads: async () => {
+        throw new Error("gh not found");
+      },
+      fetchChecks: async () => [{ name: "test", state: "completed", conclusion: "failure" }],
+    });
+    const poller = createFeedbackPoller("owner", "repo", "/repo", port);
+
+    const result = await poller.poll(42, "");
+
+    expect(result).not.toBeNull();
+    expect(result!.context.reviewComments).toHaveLength(0);
+    expect(result!.context.reviewDecision).toBe("UNKNOWN");
   });
 });

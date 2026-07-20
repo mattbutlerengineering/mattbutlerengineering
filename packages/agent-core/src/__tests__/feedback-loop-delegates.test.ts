@@ -18,8 +18,10 @@ vi.mock("../run-hardened-query.js", () => ({
   runHardenedQuery: vi.fn(),
 }));
 
+const mockPoll = vi.fn();
+
 vi.mock("../pr-feedback-poller.js", () => ({
-  pollForFeedback: vi.fn(),
+  createFeedbackPoller: vi.fn(() => ({ poll: mockPoll })),
 }));
 
 vi.mock("../feedback-prompt-builder.js", () => ({
@@ -29,7 +31,6 @@ vi.mock("../feedback-prompt-builder.js", () => ({
 // ── Imports (after mocks) ────────────────────────────────────────────
 
 import { runHardenedQuery } from "../run-hardened-query.js";
-import { pollForFeedback } from "../pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "../feedback-prompt-builder.js";
 import { runFeedbackLoop } from "../feedback-loop.js";
 import type { FeedbackLoopParams, FeedbackLoopRunnerDeps } from "../feedback-loop.js";
@@ -126,9 +127,7 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
   });
 
   it("delegates fix session to runHardenedQuery — not a bare query() call", async () => {
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      .mockResolvedValue(null);
+    mockPoll.mockResolvedValueOnce(createMockPollResult()).mockResolvedValue(null);
 
     await runFeedbackLoop(BASE_PARAMS, makeDeps());
 
@@ -152,9 +151,7 @@ describe("runFeedbackLoop — runHardenedQuery delegation", () => {
       makeStuckResult("No SDK activity for 300s — session appears hung")
     );
 
-    vi.mocked(pollForFeedback)
-      .mockResolvedValueOnce(createMockPollResult())
-      .mockResolvedValue(null);
+    mockPoll.mockResolvedValueOnce(createMockPollResult()).mockResolvedValue(null);
 
     // The feedback loop must NOT hang — it receives the stuck result and moves on
     const result = await runFeedbackLoop(BASE_PARAMS, makeDeps());
