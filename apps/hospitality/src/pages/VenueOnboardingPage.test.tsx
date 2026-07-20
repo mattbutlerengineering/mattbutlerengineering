@@ -306,9 +306,9 @@ describe("VenueOnboardingPage", () => {
     vi.useRealTimers();
   });
 
-  it("should render step 1 (Basic Info) by default", () => {
+  it("should render step 1 (Welcome + Basic Info) by default", () => {
     renderPage();
-    expect(screen.getByText("Basic Information")).toBeTruthy();
+    expect(screen.getByText(/give your venue a home/i)).toBeTruthy();
     expect(screen.getByText("Venue Name")).toBeTruthy();
     expect(screen.getByText("Slug")).toBeTruthy();
   });
@@ -353,7 +353,7 @@ describe("VenueOnboardingPage", () => {
 
     // Go back
     fireEvent.click(screen.getByText("Back"));
-    expect(screen.getByText("Basic Information")).toBeTruthy();
+    expect(screen.getByText(/give your venue a home/i)).toBeTruthy();
   });
 
   it("should disable Back button on step 1", () => {
