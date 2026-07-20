@@ -1,9 +1,21 @@
+import security from "eslint-plugin-security";
 import baseConfig from "./base.js";
 
 export default [
   ...baseConfig,
   {
+    plugins: { security },
     rules: {
+      // Curated subset of eslint-plugin-security (issue #3410). The full `recommended`
+      // preset was measured at 404 hits, dominated by `detect-object-injection` noise
+      // (321 hits, explicit non-goal — high false-positive rate by reputation and by
+      // inspection). Only the three high-signal rules below are wired; every hit in the
+      // node tier was triaged and either fixed (a genuine ReDoS) or suppressed inline
+      // with a justification comment (false positives from `safe-regex`'s blunt
+      // "star height" heuristic, or repo-controlled/PR-reviewed pattern sources).
+      "security/detect-unsafe-regex": "error",
+      "security/detect-non-literal-regexp": "error",
+      "security/detect-possible-timing-attacks": "error",
       // Module boundary enforcement — block frontend-only packages and entrypoints in backend services
       "no-restricted-imports": [
         "error",

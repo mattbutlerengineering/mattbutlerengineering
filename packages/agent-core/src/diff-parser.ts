@@ -47,6 +47,12 @@ function parseGitHeaderPath(line: string): string | null {
 }
 
 function parseHunkHeader(line: string): number | null {
+  // False positive: `safe-regex` flags this purely because the optional `(?:,\d+)?`
+  // groups nest a repetition inside a repetition (AST "star height" 2), its blunt
+  // heuristic for catastrophic backtracking — but `\d+` has no ambiguity to backtrack
+  // over. Verified empirically: 50k-char adversarial input (digits with no closing
+  // `@@`) matches in <1ms (issue #3410 triage).
+  // eslint-disable-next-line security/detect-unsafe-regex
   const match = line.match(/^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@/);
   return match ? parseInt(match[1], 10) : null;
 }
