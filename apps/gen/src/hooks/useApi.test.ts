@@ -14,13 +14,27 @@ vi.mock("@mbe/api-client", () => ({
   }),
 }));
 
+/** Builds a fully-typed `useAuth()` return value with only `accessToken` varied. */
+function mockAuthState(accessToken: string | null): ReturnType<typeof useAuth> {
+  return {
+    isLoading: false,
+    isAuthenticated: accessToken !== null,
+    user: null,
+    accessToken,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    signInSilent: vi.fn(),
+    error: undefined,
+  };
+}
+
 describe("useApi", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("constructs an ApiClient with a getAccessToken callback returning the current token", () => {
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "test-token-123" } as any);
+    vi.mocked(useAuth).mockReturnValue(mockAuthState("test-token-123"));
 
     renderHook(() => useApi());
 
@@ -34,7 +48,7 @@ describe("useApi", () => {
   });
 
   it("returns null from getAccessToken when unauthenticated (public route)", () => {
-    vi.mocked(useAuth).mockReturnValue({ accessToken: null } as any);
+    vi.mocked(useAuth).mockReturnValue(mockAuthState(null));
 
     renderHook(() => useApi());
 
@@ -45,7 +59,7 @@ describe("useApi", () => {
   });
 
   it("memoizes the client across renders with the same token", () => {
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "stable-token" } as any);
+    vi.mocked(useAuth).mockReturnValue(mockAuthState("stable-token"));
 
     const { result, rerender } = renderHook(() => useApi());
     const firstClient = result.current;
@@ -55,12 +69,12 @@ describe("useApi", () => {
   });
 
   it("creates a new client when the access token changes", () => {
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token-1" } as any);
+    vi.mocked(useAuth).mockReturnValue(mockAuthState("token-1"));
 
     const { result, rerender } = renderHook(() => useApi());
     const firstClient = result.current;
 
-    vi.mocked(useAuth).mockReturnValue({ accessToken: "token-2" } as any);
+    vi.mocked(useAuth).mockReturnValue(mockAuthState("token-2"));
     rerender();
 
     expect(result.current).not.toBe(firstClient);

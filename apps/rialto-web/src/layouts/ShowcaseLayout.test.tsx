@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
 import { ThemeContext } from "../ThemeContext.js";
 import { ShowcaseLayout } from "./ShowcaseLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  GlobalNav: ({ onThemeToggle }: any) => (
+  GlobalNav: ({ onThemeToggle }: { onThemeToggle?: () => void }) => (
     <nav data-testid="global-nav">
       <button onClick={onThemeToggle} data-testid="theme-toggle">
         toggle
@@ -13,9 +14,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </nav>
   ),
   PageHeader: () => <header data-testid="page-header" />,
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Stack: ({ children }: any) => <div data-testid="stack">{children}</div>,
-  Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
+  Container: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="container">{children}</div>
+  ),
+  Stack: ({ children }: { children?: ReactNode }) => <div data-testid="stack">{children}</div>,
+  Button: ({ children, onClick }: { children?: ReactNode; onClick?: () => void }) => (
+    <button onClick={onClick}>{children}</button>
+  ),
   Icon: () => <span data-testid="icon" />,
   Footer: () => <footer data-testid="footer" />,
 }));

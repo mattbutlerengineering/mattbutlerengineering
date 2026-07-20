@@ -6,9 +6,9 @@ import { OverviewPage } from "./OverviewPage.js";
 import { DemoLayout, FloatingControls } from "../layouts/DemoLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Button: ({ children }: any) => <button>{children}</button>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  Heading: ({ children }: any) => <h2>{children}</h2>,
+  Button: ({ children }: { children?: ReactNode }) => <button>{children}</button>,
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Heading: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
   Hero: ({
     title,
     subtitle,
@@ -27,10 +27,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {actions}
     </section>
   ),
-  Stack: ({ children }: any) => <div>{children}</div>,
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: () => <footer data-testid="footer" />,
-  PageHeader: ({ title, description }: any) => (
+  PageHeader: ({ title, description }: { title?: ReactNode; description?: ReactNode }) => (
     <header data-testid="page-header">
       {title}
       {description}
@@ -53,19 +53,21 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
-  Badge: ({ children }: any) => <span>{children}</span>,
+  Badge: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   Icon: () => <div />,
-  Table: ({ children }: any) => <table>{children}</table>,
-  Stat: ({ label, value }: any) => (
+  Table: ({ children }: { children?: ReactNode }) => <table>{children}</table>,
+  Stat: ({ label, value }: { label?: ReactNode; value?: ReactNode }) => (
     <div data-testid="stat">
       {label} {value}
     </div>
   ),
   Banner: () => <div data-testid="banner" />,
-  Dialog: ({ children }: any) => <div data-testid="dialog">{children}</div>,
+  Dialog: ({ children }: { children?: ReactNode }) => <div data-testid="dialog">{children}</div>,
   Toggle: () => <input type="checkbox" data-testid="toggle" />,
   Divider: () => <hr data-testid="divider" />,
-  RialtoProvider: ({ children }: any) => <div data-testid="rialto-provider">{children}</div>,
+  RialtoProvider: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="rialto-provider">{children}</div>
+  ),
   useThemeState: () => ({ preference: "system", setTheme: vi.fn(), resolved: "light" }),
   resolveTheme: vi.fn((t) => t),
 }));
@@ -144,9 +146,7 @@ describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: /browse by category/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: /getting started/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: /getting started/i })).toBeInTheDocument();
   });
 
   it("renders a primary conversion CTA", () => {
