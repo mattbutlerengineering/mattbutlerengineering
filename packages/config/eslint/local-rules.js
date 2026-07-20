@@ -60,14 +60,20 @@ export default {
                 if (isErrorStatus(parent.arguments[0])) {
                   const payload = node.arguments[0];
                   if (payload && payload.type === "ObjectExpression") {
-                    const keys = payload.properties.map((p) => p.key?.name);
-                    const required = ["type", "title", "status", "detail"];
-                    const missing = required.filter((k) => !keys.includes(k));
-                    if (missing.length > 0) {
-                      context.report({
-                        node: payload,
-                        message: `Error response is missing RFC 7807 fields: ${missing.join(", ")}`,
-                      });
+                    // A spread (`...base`) can't be statically resolved, so
+                    // we can't prove any field is actually missing — skip
+                    // the check rather than false-positive on it.
+                    const hasSpread = payload.properties.some((p) => p.type === "SpreadElement");
+                    if (!hasSpread) {
+                      const keys = payload.properties.map((p) => p.key?.name ?? p.key?.value);
+                      const required = ["type", "title", "status", "detail"];
+                      const missing = required.filter((k) => !keys.includes(k));
+                      if (missing.length > 0) {
+                        context.report({
+                          node: payload,
+                          message: `Error response is missing RFC 7807 fields: ${missing.join(", ")}`,
+                        });
+                      }
                     }
                   }
                 }
