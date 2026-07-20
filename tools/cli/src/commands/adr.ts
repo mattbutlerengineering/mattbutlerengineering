@@ -115,6 +115,12 @@ export const checkAdrCommand = new Command("check-adr")
           for (const pattern of adr.prohibited_patterns!) {
             let regex: RegExp;
             try {
+              // `pattern` comes from this ADR's own `prohibited_patterns` frontmatter
+              // (repo-controlled markdown, changed only via reviewed PRs), not
+              // external/user input — same trust boundary as any local lint-config
+              // pattern. Structural validation (`adr-structural.ts`) already confirms
+              // the pattern compiles before this command runs (issue #3410 triage).
+              // eslint-disable-next-line security/detect-non-literal-regexp
               regex = new RegExp(pattern, "g");
             } catch {
               // Already reported as a structural "regex-uncompilable" violation.

@@ -3948,7 +3948,7 @@
       export const BLOCKED_BASH_PATTERNS: readonly RegExp[];
     </item>
     <item priority="high">
-      export const ENCODING_BYPASS_PATTERNS: readonly RegExp[];
+      export function isRmRecursiveDelete(command: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/intent-extractor.ts">
