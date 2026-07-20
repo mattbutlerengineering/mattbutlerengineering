@@ -1,20 +1,35 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
 import { CookieBanner, CookiePreferencesDialog } from "./CookieConsent.js";
 
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children }: any) => <div>{children}</div>,
+    div: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   },
-  AnimatePresence: ({ children }: any) => <div>{children}</div>,
+  AnimatePresence: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   useReducedMotion: () => false,
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Banner: ({ action }: any) => <div data-testid="banner">{action}</div>,
-  Button: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
-  Dialog: ({ open, onClose, title, footer, children }: any) =>
+  Banner: ({ action }: { action?: ReactNode }) => <div data-testid="banner">{action}</div>,
+  Button: ({ children, onClick }: { children?: ReactNode; onClick?: () => void }) => (
+    <button onClick={onClick}>{children}</button>
+  ),
+  Dialog: ({
+    open,
+    onClose,
+    title,
+    footer,
+    children,
+  }: {
+    open?: boolean;
+    onClose?: () => void;
+    title?: ReactNode;
+    footer?: ReactNode;
+    children?: ReactNode;
+  }) =>
     open ? (
       <div data-testid="dialog">
         <h2>{title}</h2>
@@ -23,14 +38,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         <div>{footer}</div>
       </div>
     ) : null,
-  Text: ({ children }: any) => <span>{children}</span>,
-  Stack: ({ children }: any) => <div>{children}</div>,
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Divider: () => <hr />,
-  Toggle: ({ checked, onCheckedChange }: any) => (
+  Toggle: ({
+    checked,
+    onCheckedChange,
+  }: {
+    checked?: boolean;
+    onCheckedChange?: (next: boolean) => void;
+  }) => (
     <input
       type="checkbox"
       checked={checked}
-      onChange={() => onCheckedChange(!checked)}
+      onChange={() => onCheckedChange?.(!checked)}
       data-testid="toggle"
     />
   ),

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import Fastify from "fastify";
-import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 
 // Use vi.hoisted for proper ESM mock hoisting
 const mockJwtVerify = vi.hoisted(() => vi.fn());
@@ -47,7 +47,7 @@ function buildTestApp(
       {
         preHandler: [requireAuth, requireOwnershipOrAdmin(resolveOwner, resolveCurrentId, options)],
       },
-      async (request: any) => {
+      async (request: FastifyRequest) => {
         return { authorization: request.authorization };
       }
     );

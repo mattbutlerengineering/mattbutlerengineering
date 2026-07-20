@@ -7,7 +7,7 @@ vi.mock("framer-motion", async () => {
     ...actual,
     useReducedMotion: () => false,
     useMotionValue: (initial: number) => ({ set: vi.fn(), get: () => initial }),
-    useSpring: (source: any) => source,
+    useSpring: (source: unknown) => source,
   };
 });
 
@@ -30,7 +30,7 @@ describe("useTilt", () => {
     const { ref, onMouseMove, onMouseLeave } = result.current;
     expect(() => {
       ref(null);
-      onMouseMove({} as any);
+      onMouseMove({} as React.MouseEvent);
       onMouseLeave();
     }).not.toThrow();
   });

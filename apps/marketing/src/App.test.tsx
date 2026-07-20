@@ -1,13 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import type { ReactNode } from "react";
 import { App } from "./App.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  RialtoProvider: ({ children }: any) => <div data-testid="rialto-provider">{children}</div>,
+  RialtoProvider: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="rialto-provider">{children}</div>
+  ),
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: () => <footer data-testid="footer" />,
-  Text: ({ children }: any) => <span data-testid="text">{children}</span>,
+  Text: ({ children }: { children?: ReactNode }) => <span data-testid="text">{children}</span>,
 }));
 
 describe("App", () => {

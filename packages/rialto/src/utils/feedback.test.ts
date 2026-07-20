@@ -31,10 +31,34 @@ describe("triggerHapticFeedback", () => {
   });
 });
 
+interface MockOscillatorNode {
+  type: string;
+  frequency: { setValueAtTime: ReturnType<typeof vi.fn> };
+  connect: ReturnType<typeof vi.fn>;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+}
+
+interface MockGainNode {
+  gain: {
+    setValueAtTime: ReturnType<typeof vi.fn>;
+    exponentialRampToValueAtTime: ReturnType<typeof vi.fn>;
+  };
+  connect: ReturnType<typeof vi.fn>;
+}
+
+interface MockAudioContext {
+  currentTime: number;
+  destination: Record<string, never>;
+  createOscillator: ReturnType<typeof vi.fn>;
+  createGain: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+}
+
 describe("playClickSound", () => {
-  let mockOsc: Record<string, any>;
-  let mockGain: Record<string, any>;
-  let mockCtx: Record<string, any>;
+  let mockOsc: MockOscillatorNode;
+  let mockGain: MockGainNode;
+  let mockCtx: MockAudioContext;
   let origAC: typeof window.AudioContext | undefined;
 
   beforeEach(() => {
@@ -60,7 +84,7 @@ describe("playClickSound", () => {
       close: vi.fn(() => Promise.resolve()),
     };
 
-    const MockAC = function (this: any) {
+    const MockAC = function () {
       return mockCtx;
     } as unknown as typeof AudioContext;
     Object.defineProperty(window, "AudioContext", {
@@ -111,7 +135,7 @@ describe("playClickSound", () => {
   });
 
   it("swallows constructor errors", () => {
-    const BadAC = function (this: any) {
+    const BadAC = function () {
       throw new Error("not allowed");
     } as unknown as typeof AudioContext;
     Object.defineProperty(window, "AudioContext", {

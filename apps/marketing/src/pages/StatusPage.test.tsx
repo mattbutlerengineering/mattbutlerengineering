@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { StatusPage } from "./StatusPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Heading: ({ children }: any) => <h1>{children}</h1>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  Button: ({ children }: any) => <button>{children}</button>,
-  Card: ({ children }: any) => <div>{children}</div>,
-  Badge: ({ children }: any) => <span>{children}</span>,
+  Heading: ({ children }: { children?: ReactNode }) => <h1>{children}</h1>,
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Button: ({ children }: { children?: ReactNode }) => <button>{children}</button>,
+  Card: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Badge: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   Skeleton: () => <div data-testid="skeleton" />,
   Icon: () => <div />,
   Spinner: () => <div data-testid="spinner" />,
