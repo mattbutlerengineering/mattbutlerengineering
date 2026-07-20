@@ -1,5 +1,5 @@
 import { ghPrFeedbackPort } from "./pr-feedback-port.js";
-import { pollForFeedback } from "./pr-feedback-poller.js";
+import { createFeedbackPoller } from "./pr-feedback-poller.js";
 import { buildReviewFixPrompt } from "./feedback-prompt-builder.js";
 import { runHardenedQuery } from "./run-hardened-query.js";
 import { commitAndPush, resolveRepoIdentity } from "./worktree-manager.js";
@@ -69,8 +69,8 @@ export async function runFeedbackLoop(
   onEvent?: SessionEventCallback
 ): Promise<FeedbackLoopResult> {
   const { signal } = config;
-  const { feedbackPoller } = deps;
   const { owner, repo } = await deps.worktreeManager.resolveRepoIdentity(config.repoPath);
+  const poller = createFeedbackPoller(owner, repo, config.repoPath, deps.feedbackPoller);
 
   let lastFingerprint = "";
   let retriesUsed = 0;
@@ -87,26 +87,12 @@ export async function runFeedbackLoop(
 
     // Poll for feedback with timeout
     const pollStart = Date.now();
-    let feedback = await pollForFeedback(
-      owner,
-      repo,
-      config.prNumber,
-      config.repoPath,
-      lastFingerprint,
-      feedbackPoller
-    );
+    let feedback = await poller.poll(config.prNumber, lastFingerprint);
 
     // If no feedback yet, keep polling until timeout
     while (!feedback && Date.now() - pollStart < config.pollTimeoutMs) {
       await delay(config.pollIntervalMs, signal);
-      feedback = await pollForFeedback(
-        owner,
-        repo,
-        config.prNumber,
-        config.repoPath,
-        lastFingerprint,
-        feedbackPoller
-      );
+      feedback = await poller.poll(config.prNumber, lastFingerprint);
     }
 
     // No feedback found — PR is clean
@@ -163,14 +149,7 @@ export async function runFeedbackLoop(
   }
 
   // Exhausted retries — check one more time if resolved
-  const finalFeedback = await pollForFeedback(
-    owner,
-    repo,
-    config.prNumber,
-    config.repoPath,
-    lastFingerprint,
-    feedbackPoller
-  );
+  const finalFeedback = await poller.poll(config.prNumber, lastFingerprint);
 
   const resolved = finalFeedback === null;
 

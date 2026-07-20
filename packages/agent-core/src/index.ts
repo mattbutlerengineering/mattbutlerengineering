@@ -194,12 +194,13 @@ export type {
 } from "./deploy-verifier.js";
 
 // PR feedback loop
-export { pollForFeedback, fetchUnresolvedComments, fetchCIFailures } from "./pr-feedback-poller.js";
+export { createFeedbackPoller } from "./pr-feedback-poller.js";
 export type {
   ReviewComment,
   CIFailure,
   FeedbackContext,
   PollResult,
+  FeedbackPoller,
 } from "./pr-feedback-poller.js";
 
 // PR feedback port (injectable gh seam — supply a custom port to runFeedbackLoop / PhaseDeps)
