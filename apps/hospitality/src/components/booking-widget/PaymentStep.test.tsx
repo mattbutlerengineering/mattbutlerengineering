@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
 import { PaymentStep } from "./PaymentStep.js";
+import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import type { DepositConfig } from "@mbe/types";
 
 // Mock Stripe
@@ -64,7 +65,7 @@ const mockApi = {
 
 describe("PaymentStep", () => {
   const defaultProps = {
-    api: mockApi as any,
+    api: mockApi as unknown as BookingWidgetApiClient,
     depositConfig: mockDepositConfig,
     partySize: 2,
     reservationId: "res-123",
@@ -155,10 +156,10 @@ describe("PaymentStep", () => {
     const { useStripe, useElements } = await import("@stripe/react-stripe-js");
     vi.mocked(useStripe).mockReturnValue({
       confirmCardPayment: vi.fn().mockResolvedValue({ error: { message: "Card declined" } }),
-    } as any);
+    } as unknown as ReturnType<typeof useStripe>);
     vi.mocked(useElements).mockReturnValue({
       getElement: vi.fn().mockReturnValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useElements>);
 
     mockApi.publicVenue.depositIntent.mockResolvedValue({
       clientSecret: "pi_secret_test",
@@ -182,10 +183,10 @@ describe("PaymentStep", () => {
       confirmCardPayment: vi.fn().mockResolvedValue({
         paymentIntent: { id: "pi_test_123", status: "requires_capture" },
       }),
-    } as any);
+    } as unknown as ReturnType<typeof useStripe>);
     vi.mocked(useElements).mockReturnValue({
       getElement: vi.fn().mockReturnValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useElements>);
 
     mockApi.publicVenue.depositIntent.mockResolvedValue({
       clientSecret: "pi_secret_test",

@@ -26,27 +26,38 @@ vi.mock("@stripe/stripe-js", () => ({
   loadStripe: vi.fn().mockResolvedValue(null),
 }));
 
+type MockInputProps = React.InputHTMLAttributes<HTMLInputElement> & { label?: string };
+type MockTextAreaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string };
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Steps: ({ currentStep, steps }: any) => (
+  Steps: ({ currentStep, steps }: { currentStep: number; steps?: Array<{ label: string }> }) => (
     <div data-testid="steps" data-current={currentStep}>
       {steps?.[currentStep]?.label}
     </div>
   ),
-  Text: ({ children }: any) => <div>{children}</div>,
-  Button: ({ children, onClick, disabled }: any) => (
+  Text: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Button: ({
+    children,
+    onClick,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+  }) => (
     <button onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
-  Card: ({ children }: any) => <div>{children}</div>,
-  Heading: ({ children }: any) => <h2>{children}</h2>,
-  Stack: ({ children }: any) => <div>{children}</div>,
-  Badge: ({ children }: any) => <span>{children}</span>,
+  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Heading: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Badge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: any) => <div>{children}</div>,
-  Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  EmptyState: ({ heading }: any) => <div>{heading}</div>,
-  Input: (props: any) => {
+  SkeletonGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
+  EmptyState: ({ heading }: { heading: React.ReactNode }) => <div>{heading}</div>,
+  Input: (props: MockInputProps) => {
     const id = props.id || props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
     return (
       <div>
@@ -54,18 +65,28 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
         <input
           id={id}
           {...props}
-          onChange={(e) => props.onChange?.({ target: { value: e.target.value } } as any)}
+          onChange={(e) =>
+            props.onChange?.({
+              target: { value: e.target.value },
+            } as unknown as React.ChangeEvent<HTMLInputElement>)
+          }
         />
       </div>
     );
   },
-  Label: ({ children }: any) => <label>{children}</label>,
-  TextArea: (props: any) => {
+  Label: ({ children }: { children: React.ReactNode }) => <label>{children}</label>,
+  TextArea: (props: MockTextAreaProps) => {
     const id = props.id || props.label?.replace(/\s+/g, "-").toLowerCase() || "textarea";
     return (
       <div>
         <label htmlFor={id}>{props.label}</label>
-        <textarea id={id} {...props} onChange={(e) => props.onChange?.(e.target.value)} />
+        <textarea
+          id={id}
+          {...props}
+          onChange={(e) =>
+            props.onChange?.(e.target.value as unknown as React.ChangeEvent<HTMLTextAreaElement>)
+          }
+        />
       </div>
     );
   },
@@ -92,7 +113,9 @@ describe("BookingWidget", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(usePublicApiClient).mockReturnValue(mockApi as any);
+    vi.mocked(usePublicApiClient).mockReturnValue(
+      mockApi as unknown as ReturnType<typeof usePublicApiClient>
+    );
   });
 
   const renderWidget = () => render(<BookingWidget venueId="v1" />);

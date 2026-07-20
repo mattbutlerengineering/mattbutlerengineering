@@ -29,7 +29,7 @@ describe("useThemeState", () => {
       preference: "system",
       setTheme: mockSetTheme,
       resolved: "light",
-    } as any);
+    } as unknown as ReturnType<typeof useSharedThemeState>);
 
     const { result } = renderHook(() => useThemeState());
     expect(result.current.theme).toBe("system");
