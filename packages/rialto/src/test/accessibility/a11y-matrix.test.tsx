@@ -104,6 +104,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Text",
   "TextArea",
   "ThemeToggle",
+  "TimePicker",
   "Timeline",
   "Toast",
   "Toggle",

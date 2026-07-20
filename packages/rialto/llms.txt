@@ -407,6 +407,21 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="TimePicker">
+  <file path="src/components/TimePicker/TimePicker.catalog.ts">
+    <item priority="high">
+      export const timePickerCatalogMeta: unknown;
+    </item>
+  </file>
+  <file path="src/components/TimePicker/time-grid.ts">
+    <item priority="high">
+      export function parseTime(value: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toTimeString(totalMinutes: number): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="Toast">
   <file path="src/components/Toast/Toast.catalog.ts">
     <item priority="high">

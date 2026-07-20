@@ -155,6 +155,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "form", label: "Form", category: "Forms" },
   { id: "date-picker", label: "Date Picker", category: "Forms" },
   { id: "date-range", label: "Date Range", category: "Forms" },
+  { id: "time-picker", label: "Time Picker", category: "Forms" },
   // ── Data Display ────────────────────────────────────────────────────────
   { id: "card", label: "Card", category: "Data Display" },
   { id: "table", label: "Table", category: "Data Display" },
