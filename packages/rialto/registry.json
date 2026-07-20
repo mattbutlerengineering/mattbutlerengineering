@@ -4309,6 +4309,85 @@
       "slots": []
     },
     {
+      "name": "TimePicker",
+      "description": "A time field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining a listbox of interval slots. Controlled via a 24h `HH:mm` string —\nno `Date` objects cross the public boundary. Selecting a time (or pressing\nEscape) closes the popover and returns focus to the trigger.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "value",
+          "type": "string | null",
+          "required": true,
+          "description": "Selected time as a 24h `HH:mm` string, or `null` when empty."
+        },
+        {
+          "name": "onChange",
+          "type": "(value: string | null) => void",
+          "required": true,
+          "description": "Called with the newly selected time (`HH:mm`)."
+        },
+        {
+          "name": "step",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Interval between slots, in minutes. Defaults to 15."
+        },
+        {
+          "name": "min",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Earliest selectable time (`HH:mm`, inclusive)."
+        },
+        {
+          "name": "max",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Latest selectable time (`HH:mm`, inclusive)."
+        },
+        {
+          "name": "isTimeDisabled",
+          "type": "((time: string) => boolean) | undefined",
+          "required": false,
+          "description": "Predicate deciding whether a time is disabled. When supplied it is\nauthoritative and wins over `min`/`max`."
+        },
+        {
+          "name": "locale",
+          "type": "string | undefined",
+          "required": false,
+          "description": "BCP-47 locale for the formatted trigger value and slot labels."
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Label rendered above the trigger input."
+        },
+        {
+          "name": "placeholder",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Placeholder shown on the trigger input when no time is selected."
+        },
+        {
+          "name": "placement",
+          "type": "Placement | undefined",
+          "required": false,
+          "description": "Popover placement relative to the trigger."
+        },
+        {
+          "name": "id",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Trigger input id (associates the label)."
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "Timeline",
       "description": "A vertical event sequence with status-colored nodes and a connecting track line.\nUse for activity logs, process steps, or any ordered event history.",
       "importPath": "@mattbutlerengineering/rialto",

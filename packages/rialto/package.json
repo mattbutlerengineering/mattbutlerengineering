@@ -330,6 +330,10 @@
       "types": "./dist/lib/components/ThemeToggle/index.d.ts",
       "import": "./dist/lib/components/ThemeToggle/index.js"
     },
+    "./TimePicker": {
+      "types": "./dist/lib/components/TimePicker/index.d.ts",
+      "import": "./dist/lib/components/TimePicker/index.js"
+    },
     "./Timeline": {
       "types": "./dist/lib/components/Timeline/index.d.ts",
       "import": "./dist/lib/components/Timeline/index.js"

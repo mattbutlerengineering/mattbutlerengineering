@@ -218,6 +218,15 @@ export const generatedSchemas = {
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
   }),
+  TimePicker: z.object({
+    step: z.number().optional(),
+    min: z.string().optional(),
+    max: z.string().optional(),
+    locale: z.string().optional(),
+    label: z.string().optional(),
+    placeholder: z.string().optional(),
+    placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+  }),
   Toast: z.object({
     title: z.string().max(50),
     description: z.string().max(120).optional(),

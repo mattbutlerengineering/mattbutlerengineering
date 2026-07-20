@@ -54,6 +54,7 @@ export * from "./FlipDot";
 export * from "./Calendar";
 export * from "./DatePicker";
 export * from "./DateRange";
+export * from "./TimePicker";
 export * from "./AspectRatio";
 export * from "./DisabledTooltip";
 export * from "./Autocomplete";

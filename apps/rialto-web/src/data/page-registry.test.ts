@@ -36,6 +36,7 @@ vi.mock("../pages/forms/ComboboxPage.js", () => ({ ComboboxPage: () => null }));
 vi.mock("../pages/forms/InputGroupPage.js", () => ({ InputGroupPage: () => null }));
 vi.mock("../pages/forms/DatePickerPage.js", () => ({ DatePickerPage: () => null }));
 vi.mock("../pages/forms/DateRangePage.js", () => ({ DateRangePage: () => null }));
+vi.mock("../pages/forms/TimePickerPage.js", () => ({ TimePickerPage: () => null }));
 vi.mock("../pages/data/CardPage.js", () => ({ CardPage: () => null }));
 vi.mock("../pages/data/TablePage.js", () => ({ TablePage: () => null }));
 vi.mock("../pages/data/DataTablePage.js", () => ({ DataTablePage: () => null }));

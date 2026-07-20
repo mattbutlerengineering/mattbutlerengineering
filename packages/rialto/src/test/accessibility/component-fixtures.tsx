@@ -97,6 +97,7 @@ import { TapeChart } from "../../components/TapeChart/TapeChart";
 import { Text } from "../../components/Text/Text";
 import { TextArea } from "../../components/TextArea/TextArea";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
+import { TimePicker } from "../../components/TimePicker/TimePicker";
 import { Timeline } from "../../components/Timeline/Timeline";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
@@ -194,6 +195,7 @@ export type BarrelExportName =
   | "Text"
   | "TextArea"
   | "ThemeToggle"
+  | "TimePicker"
   | "Timeline"
   | "Toast"
   | "Toggle"
@@ -739,6 +741,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   ThemeToggle: {
     element: <ThemeToggle theme="light" onToggle={noop} />,
+  },
+
+  TimePicker: {
+    element: <TimePicker label="Time" value={null} onChange={noop} />,
   },
 
   Timeline: {
