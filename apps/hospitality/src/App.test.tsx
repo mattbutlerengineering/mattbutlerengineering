@@ -43,7 +43,7 @@ describe("App", () => {
   };
 
   it("renders loading page when auth is loading", () => {
-    vi.mocked(useAuth).mockReturnValue({ isLoading: true } as any);
+    vi.mocked(useAuth).mockReturnValue({ isLoading: true } as ReturnType<typeof useAuth>);
     renderApp();
     expect(screen.getByTestId("loading-page")).toBeDefined();
   });
@@ -52,7 +52,7 @@ describe("App", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       error: new Error("Auth Failed"),
-    } as any);
+    } as ReturnType<typeof useAuth>);
     renderApp();
     expect(screen.getByText("Authentication Error")).toBeDefined();
     expect(screen.getByText("Auth Failed")).toBeDefined();
@@ -63,7 +63,7 @@ describe("App", () => {
       isLoading: false,
       isAuthenticated: false,
       signIn: vi.fn(),
-    } as any);
+    } as ReturnType<typeof useAuth>);
     renderApp();
     expect(screen.getByText("Sign In")).toBeDefined();
     expect(screen.getByText("Hospitality")).toBeDefined();
@@ -73,7 +73,7 @@ describe("App", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       isAuthenticated: true,
-    } as any);
+    } as ReturnType<typeof useAuth>);
     // Outlet is harder to test directly here, but we can verify UnauthenticatedShell is NOT rendered
     const { container } = renderApp();
     expect(container.querySelector("footer")).toBeNull();
@@ -83,7 +83,7 @@ describe("App", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       isAuthenticated: true,
-    } as any);
+    } as ReturnType<typeof useAuth>);
     renderApp();
     const wrapper = screen.getByTestId("auth-layout");
     expect(wrapper).toBeDefined();

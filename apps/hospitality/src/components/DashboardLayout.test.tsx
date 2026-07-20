@@ -82,7 +82,7 @@ describe("DashboardLayout", () => {
     vi.mocked(useAuth).mockReturnValue({
       signOut: vi.fn(),
       accessToken: "test-token",
-    } as any);
+    } as ReturnType<typeof useAuth>);
   });
 
   const renderLayout = (initialPath = "/") => {
@@ -124,10 +124,10 @@ describe("DashboardLayout", () => {
   it("redirects to onboarding when no venue exists", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "no-venue",
-      isLoading: false,
       completedSteps: [],
       nextStep: "hours",
-    } as any);
+      progress: 0,
+    });
     renderLayout("/timeline");
     expect(screen.getByText("Onboarding Content")).toBeDefined();
   });
@@ -135,10 +135,10 @@ describe("DashboardLayout", () => {
   it("redirects operational pages to setup when status is setup", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "setup",
-      isLoading: false,
       completedSteps: [],
       nextStep: "hours",
-    } as any);
+      progress: 33,
+    });
     renderLayout("/timeline");
     expect(screen.getByText("Setup Content")).toBeDefined();
   });
@@ -161,10 +161,10 @@ describe("DashboardLayout", () => {
   it("allows operational pages when status is operational", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      isLoading: false,
       completedSteps: ["hours", "tables", "publish"],
       nextStep: null,
-    } as any);
+      progress: 100,
+    });
     renderLayout("/timeline");
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
@@ -172,10 +172,10 @@ describe("DashboardLayout", () => {
   it("renders breadcrumbs and sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      isLoading: false,
       completedSteps: ["hours", "tables", "publish"],
       nextStep: null,
-    } as any);
+      progress: 100,
+    });
     renderLayout("/timeline");
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // Breadcrumb shows "Home" on the timeline route; sidebar shows "Timeline" nav item
@@ -185,10 +185,10 @@ describe("DashboardLayout", () => {
   it("has no Copilot nav item in sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      isLoading: false,
       completedSteps: ["hours", "tables", "publish"],
       nextStep: null,
-    } as any);
+      progress: 100,
+    });
     renderLayout("/timeline");
     expect(screen.queryByText("Copilot")).not.toBeInTheDocument();
   });
@@ -197,10 +197,10 @@ describe("DashboardLayout", () => {
     beforeEach(() => {
       vi.mocked(useVenueReadiness).mockReturnValue({
         status: "operational",
-        isLoading: false,
         completedSteps: ["hours", "tables", "publish"],
         nextStep: null,
-      } as any);
+        progress: 100,
+      });
     });
 
     it("shows Home as current page on the timeline route", () => {
@@ -259,10 +259,10 @@ describe("DashboardLayout", () => {
   it("chat wrapper has z-index style to clear the navbar stacking context", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      isLoading: false,
       completedSteps: ["hours", "tables", "publish"],
       nextStep: null,
-    } as any);
+      progress: 100,
+    });
     renderLayout("/");
 
     const chatNav = screen.getByText("Chat");
@@ -277,10 +277,10 @@ describe("DashboardLayout", () => {
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
-      isLoading: false,
       completedSteps: ["hours", "tables", "publish"],
       nextStep: null,
-    } as any);
+      progress: 100,
+    });
     renderLayout("/");
 
     const chatNav = screen.getByText("Chat");

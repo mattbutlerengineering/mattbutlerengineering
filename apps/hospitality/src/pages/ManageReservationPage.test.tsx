@@ -10,9 +10,9 @@ vi.mock("react-router-dom", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Stack: ({ children }: any) => <div>{children}</div>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  Card: ({ children }: any) => <div data-testid="card">{children}</div>,
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
 }));
 
 // ApiClient uses fetch internally. Stub it so we control responses and can

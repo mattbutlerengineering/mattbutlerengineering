@@ -16,7 +16,7 @@ vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../hooks/useReservations.js", () => ({ useReservations: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title, description }: any) => (
+  PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
       <span>{description}</span>
@@ -25,30 +25,75 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error }: any) => <div data-testid="error-banner">{error}</div>,
+  ErrorRetryBanner: ({ error }: { error: string }) => <div data-testid="error-banner">{error}</div>,
 }));
 
 vi.mock("../components/crm/GuestCard.js", () => ({
-  GuestCard: ({ guestId }: any) => <div data-testid="guest-card" data-guest-id={guestId} />,
+  GuestCard: ({ guestId }: { guestId: string | null | undefined }) => (
+    <div data-testid="guest-card" data-guest-id={guestId} />
+  ),
 }));
 
 const mockToast = vi.fn();
 
+interface MockInputProps {
+  label?: string;
+  type?: React.InputHTMLAttributes<HTMLInputElement>["type"];
+  value?: string;
+  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  error?: boolean;
+  hint?: string;
+}
+
+interface MockSelectProps {
+  label?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  options?: Array<{ value: string; label: string }>;
+}
+
+interface MockTextAreaProps {
+  value?: string;
+  onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
+}
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: any) => <div data-testid="alert">{children}</div>,
-  Badge: ({ children }: any) => <span data-testid="badge">{children}</span>,
-  Button: ({ children, onClick, disabled, type }: any) => (
+  Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
+  Badge: ({ children }: { children: React.ReactNode }) => (
+    <span data-testid="badge">{children}</span>
+  ),
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    type,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    type?: "button" | "submit" | "reset";
+  }) => (
     <button type={type} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
-  Card: ({ children, title }: any) => (
+  Card: ({ children, title }: { children?: React.ReactNode; title?: React.ReactNode }) => (
     <div data-testid="card">
       {title}
       {children}
     </div>
   ),
-  Checkbox: ({ label, checked, onCheckedChange }: any) => (
+  Checkbox: ({
+    label,
+    checked,
+    onCheckedChange,
+  }: {
+    label?: string;
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+  }) => (
     <label>
       <input
         type="checkbox"
@@ -59,7 +104,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {label}
     </label>
   ),
-  Dialog: ({ children, open, title, footer }: any) =>
+  Dialog: ({
+    children,
+    open,
+    title,
+    footer,
+  }: {
+    children?: React.ReactNode;
+    open?: boolean;
+    title?: React.ReactNode;
+    footer?: React.ReactNode;
+  }) =>
     open ? (
       <div data-testid="dialog">
         <h1>{title}</h1>
@@ -68,20 +123,34 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </div>
     ) : null,
   Divider: () => <hr />,
-  Drawer: ({ children, open, footer }: any) =>
+  Drawer: ({
+    children,
+    open,
+    footer,
+  }: {
+    children?: React.ReactNode;
+    open?: boolean;
+    footer?: React.ReactNode;
+  }) =>
     open ? (
       <div data-testid="drawer">
         {children}
         {footer}
       </div>
     ) : null,
-  EmptyState: ({ heading, description }: any) => (
+  EmptyState: ({
+    heading,
+    description,
+  }: {
+    heading?: React.ReactNode;
+    description?: React.ReactNode;
+  }) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
     </div>
   ),
-  Input: (props: any) => {
+  Input: (props: MockInputProps) => {
     const id = props.label?.replace(/\s+/g, "-").toLowerCase() || "input";
     return (
       <div>
@@ -98,13 +167,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </div>
     );
   },
-  Select: (props: any) => (
+  Select: (props: MockSelectProps) => (
     <select
       data-testid={`select-${props.label}`}
       value={props.value}
       onChange={(e) => props.onChange?.(e.target.value)}
     >
-      {props.options?.map((o: any) => (
+      {props.options?.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
@@ -112,17 +181,19 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </select>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
-  Stack: ({ children }: any) => <div>{children}</div>,
-  Stat: ({ label, value }: any) => (
+  SkeletonGroup: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="skeleton-group">{children}</div>
+  ),
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Stat: ({ label, value }: { label: React.ReactNode; value: React.ReactNode }) => (
     <div data-testid="stat">
       <span>{label}</span>
       <span>{value}</span>
     </div>
   ),
-  Tag: ({ children }: any) => <span data-testid="tag">{children}</span>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  TextArea: (props: any) => (
+  Tag: ({ children }: { children: React.ReactNode }) => <span data-testid="tag">{children}</span>,
+  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  TextArea: (props: MockTextAreaProps) => (
     <textarea data-testid="textarea" value={props.value} onChange={(e) => props.onChange?.(e)} />
   ),
   useToast: () => ({ toast: mockToast }),

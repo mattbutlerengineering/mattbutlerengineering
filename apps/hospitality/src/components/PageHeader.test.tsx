@@ -4,7 +4,15 @@ import React from "react";
 import { PageHeader } from "./PageHeader.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children, ...props }: any) => (
+  Text: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    as?: string;
+    variant?: string;
+    color?: string;
+  }) => (
     <div
       data-testid="text"
       data-as={props.as}
@@ -14,7 +22,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
-  Stack: ({ children }: any) => <div data-testid="stack">{children}</div>,
+  Stack: ({ children }: { children: React.ReactNode }) => <div data-testid="stack">{children}</div>,
 }));
 
 describe("PageHeader", () => {
