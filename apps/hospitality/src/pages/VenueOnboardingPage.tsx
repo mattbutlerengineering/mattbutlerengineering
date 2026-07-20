@@ -5,7 +5,8 @@ import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rial
 import { useVenue } from "../contexts/VenueContext.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator";
-import { BasicInfoStep, isValidSlug } from "../components/venue-onboarding/BasicInfoStep";
+import { isValidSlug } from "../components/venue-onboarding/BasicInfoStep";
+import { WelcomeStep } from "../components/venue-onboarding/WelcomeStep";
 import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
 import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
@@ -83,21 +84,21 @@ export function VenueOnboardingPage() {
       <Card>
         <Stack gap="lg">
           {step === 1 && (
-            <>
-              <Text variant="label">Basic Information</Text>
-              <BasicInfoStep
-                data={data.basicInfo}
-                errors={errors.basicInfo}
-                onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
-                onValidate={actions.validateStep}
-                slugStatus={slugStatus}
-              />
-            </>
+            <WelcomeStep
+              data={data.basicInfo}
+              errors={errors.basicInfo}
+              onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
+              onValidate={actions.validateStep}
+              slugStatus={slugStatus}
+            />
           )}
 
           {step === 2 && (
             <>
               <Text variant="label">Location & Time</Text>
+              <Text variant="caption" color="secondary">
+                So we show the right time and currency.
+              </Text>
               <LocationTimeStep
                 data={data.locationTime}
                 errors={errors.locationTime}
@@ -110,6 +111,9 @@ export function VenueOnboardingPage() {
           {step === 3 && (
             <>
               <Text variant="label">Operating Hours</Text>
+              <Text variant="caption" color="secondary">
+                So guests know when you&apos;re open.
+              </Text>
               <OperatingHoursStep
                 data={data.operatingHours}
                 errors={errors.operatingHours ?? undefined}
@@ -121,6 +125,9 @@ export function VenueOnboardingPage() {
           {step === 4 && (
             <>
               <Text variant="label">Venue Settings</Text>
+              <Text variant="caption" color="secondary">
+                Customize how bookings work — or use our recommended defaults.
+              </Text>
               <SettingsStep
                 data={data.settings}
                 errors={errors.settings}
