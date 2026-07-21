@@ -138,7 +138,7 @@ export const tableService = {
     }
     const current = await prisma.table.findUnique({ where: { id } });
     if (!current) return null;
-    transitionTable(current.status as TableStatus, status as TableStatus);
+    transitionTable(current.status, status as TableStatus);
     try {
       const table = await prisma.table.update({
         where: { id },

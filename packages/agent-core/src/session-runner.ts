@@ -156,7 +156,7 @@ export async function runSession(
           }
 
           const finalResultWithCleanup =
-            cleanupErrors.length > 0 ? { ...pendingResult!, cleanupErrors } : pendingResult!;
+            cleanupErrors.length > 0 ? { ...pendingResult, cleanupErrors } : pendingResult;
 
           // Record spend through the single seam so the token-cost sensors,
           // progress-tracker, and learning-loop have accurate, single-sourced

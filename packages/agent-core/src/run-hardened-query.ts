@@ -22,7 +22,6 @@ import type { StuckPattern, StuckDetectorConfig } from "./stuck-detector.js";
 import { createContextBudget } from "./context-budget.js";
 import type { ContextMetrics } from "./context-budget.js";
 import { mapSdkMessage } from "./event-mapper.js";
-import type { TurnMetricsEvent } from "./event-mapper.js";
 import { sanitizeStreamChunk } from "./sanitize-output.js";
 import { ContextWindowExhaustedError } from "./retry.js";
 import { CircuitBreaker, CircuitState } from "./circuit-breaker.js";
@@ -310,7 +309,7 @@ export async function runHardenedQuery(
             });
 
             if (mapped.type === "session:turn_metrics") {
-              const tm = mapped as TurnMetricsEvent;
+              const tm = mapped;
               rawTurnMetrics.push({
                 turnIndex: tm.turnIndex,
                 startedAt: new Date().toISOString(),
@@ -390,7 +389,7 @@ export async function runHardenedQuery(
           }
 
           if (message.type === "result") {
-            innerResult = message as SDKResultMessage;
+            innerResult = message;
             continue;
           }
 

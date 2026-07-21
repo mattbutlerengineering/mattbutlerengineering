@@ -5888,7 +5888,7 @@
           execute: async ({ venueId, date, status }) => {
             log.info({ venueId, date, status }, "list_today_reservations tool called");
             try {
-              const queryDate = date ?? new Date().toISOString().split("T")[0]!;
+              const queryDate = date ?? new Date().toISOString().split("T")[0];
               const result = await api.reservations.list({
                 venueId,
                 date: queryDate,
@@ -6152,7 +6152,7 @@
                 );
             }
     
-            const parsed = parseResult.data as z.infer<TSchema>;
+            const parsed = parseResult.data;
             const { messages } = parsed as {
               messages: Array<{ role: "user" | "assistant"; content: string }>;
             };
@@ -8619,7 +8619,7 @@
               title: "Unauthorized",
               status: 401,
               detail: "Pass the hold's session ID via the x-session-id header to release it.",
-            } as never);
+            });
           }
     
           const released = await holdService.release(holdId, sessionId);
@@ -12031,7 +12031,7 @@
             phone: data.phone,
             name: data.name,
             ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
-              ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
+              ? { dietaryRestrictions: data.dietaryRestrictions }
               : {}),
           },
         });
@@ -12046,9 +12046,9 @@
             phone: data.phone,
             name: data.name,
             notes: data.notes,
-            tags: data.tags as Prisma.InputJsonValue | undefined,
+            tags: data.tags,
             ...(data.dietaryRestrictions !== undefined
-              ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
+              ? { dietaryRestrictions: data.dietaryRestrictions }
               : {}),
           },
         });
@@ -12065,9 +12065,7 @@
           if (data.tags !== undefined) updateData.tags = data.tags as Prisma.InputJsonValue;
           if (data.dietaryRestrictions !== undefined) {
             updateData.dietaryRestrictions =
-              data.dietaryRestrictions === null
-                ? Prisma.DbNull
-                : (data.dietaryRestrictions as Prisma.InputJsonValue);
+              data.dietaryRestrictions === null ? Prisma.DbNull : data.dietaryRestrictions;
           }
     
           const guest = await prisma.guest.update({ where: { id }, data: updateData });
@@ -12845,7 +12843,7 @@
         }
         const current = await prisma.table.findUnique({ where: { id } });
         if (!current) return null;
-        transitionTable(current.status as TableStatus, status as TableStatus);
+        transitionTable(current.status, status as TableStatus);
         try {
           const table = await prisma.table.update({
             where: { id },

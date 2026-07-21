@@ -14,7 +14,7 @@ import type {
 /** Default projector: store the event type with its data verbatim. */
 const passthroughProjector: EventProjector = (event: SessionEvent) => ({
   type: event.type,
-  data: event.data as Record<string, unknown>,
+  data: event.data,
 });
 
 /** Default logger: agent-core is a library, so this is the last resort. */

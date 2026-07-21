@@ -291,7 +291,7 @@ export const reservationService = {
         });
         if (!existing) return null;
         // Throws ReservationTransitionError on invalid transition.
-        transitionReservation(existing.status as ReservationStatus, data.status);
+        transitionReservation(existing.status, data.status);
 
         // The status CAS plus write. Shared by both branches below so the
         // NO_SHOW guest-counter bump can be run against the same client

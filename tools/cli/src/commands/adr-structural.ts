@@ -46,7 +46,7 @@ function checkFrontmatter(
 
   let data: AdrFields;
   try {
-    data = (load(match[1]) ?? {}) as AdrFields;
+    data = load(match[1]) ?? {};
   } catch (e) {
     violations.push({
       file,

@@ -124,15 +124,13 @@ export const healthCommand = new Command("health")
       const result = await healthRun({});
 
       if (result.kind === "error") {
-        console.error(
-          `\x1b[31mError:\x1b[0m ${(result as Extract<typeof result, { kind: "error" }>).message}`
-        );
+        console.error(`\x1b[31mError:\x1b[0m ${result.message}`);
         if (!options.watch) process.exit(1);
         return;
       }
 
       if (result.kind === "json") {
-        const data = (result as Extract<typeof result, { kind: "json" }>).data as SystemHealth;
+        const data = result.data as SystemHealth;
         if (options.json) {
           console.log(JSON.stringify(data, null, 2));
         } else {
