@@ -3729,13 +3729,15 @@
       const secrets = applyRules(file.relPath, file.content, SECRET_RULES);
       const findings: Finding[] = [...outbound, ...secrets];
     
-      if (outbound.length > 0 && secrets.length > 0) {
+      const firstOutbound = outbound[0];
+      const firstSecret = secrets[0];
+      if (firstOutbound && firstSecret) {
         findings.push({
           category: "data-exfiltration",
           severity: "high",
           file: file.relPath,
-          line: outbound[0].line,
-          evidence: `outbound call (line ${outbound[0].line}) combined with secret read (line ${secrets[0].line})`,
+          line: firstOutbound.line,
+          evidence: `outbound call (line ${firstOutbound.line}) combined with secret read (line ${firstSecret.line})`,
         });
       }
     
@@ -3753,14 +3755,14 @@
     
       if (isProseFile(file.relPath)) {
         const lines = file.content.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          if (BASE64_BLOB.test(lines[i])) {
+        for (const [i, line] of lines.entries()) {
+          if (BASE64_BLOB.test(line)) {
             findings.push({
               category: "prompt-injection",
               severity: "med",
               file: file.relPath,
               line: i + 1,
-              evidence: `base64-like blob (${lines[i].trim().length} chars) embedded in prose`,
+              evidence: `base64-like blob (${line.trim().length} chars) embedded in prose`,
             });
           }
         }
@@ -13544,7 +13546,7 @@
         zoneAges.set(zone, avgAge);
       }
     
-      let stalest: Zone = ZONES[0];
+      let stalest: Zone = ZONES[0] ?? "marketing";
       let maxAge = -1;
     
       for (const [zone, age] of zoneAges) {
@@ -13582,7 +13584,7 @@
           "rialto-web": "rialto",
           gen: "gen",
         };
-        const zone = zoneMap[appMatch[1]];
+        const zone = zoneMap[appMatch[1] ?? ""];
         return zone ? [zone] : null;
       }
     
@@ -13593,7 +13595,7 @@
           reservations: "api:reservations",
           agent: "api:agent",
         };
-        const zone = zoneMap[svcMatch[1]];
+        const zone = zoneMap[svcMatch[1] ?? ""];
         return zone ? [zone] : null;
       }
     
@@ -13699,14 +13701,7 @@
   </file>
   <file path="packages/agent-core/src/change-type-classifier.ts">
     export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
+      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="packages/agent-core/src/circuit-breaker.ts">
@@ -13787,7 +13782,7 @@
         if (!line.startsWith("diff --git ")) continue;
         // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
         const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
-        if (match) {
+        if (match?.[1]) {
           files.push(match[1]);
         }
       }
@@ -13859,13 +13854,13 @@
       let startIdx = -1;
       let charOffset = 0;
     
-      for (let i = 0; i < lines.length; i++) {
-        if (headingPattern.test(lines[i])) {
+      for (const line of lines) {
+        if (headingPattern.test(line)) {
           // Start capturing from the line after the heading
-          startIdx = charOffset + lines[i].length + 1; // +1 for the \n
+          startIdx = charOffset + line.length + 1; // +1 for the \n
           break;
         }
-        charOffset += lines[i].length + 1;
+        charOffset += line.length + 1;
       }
     
       if (startIdx === -1 || startIdx >= text.length) return null;
@@ -17108,8 +17103,7 @@
     export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
       const findings: Finding[] = [];
       const lines = content.split(/\r?\n/);
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+      for (const [i, line] of lines.entries()) {
         for (const rule of rules) {
           if (rule.pattern.test(line)) {
             findings.push({

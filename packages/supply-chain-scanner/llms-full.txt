@@ -6,13 +6,15 @@
       const secrets = applyRules(file.relPath, file.content, SECRET_RULES);
       const findings: Finding[] = [...outbound, ...secrets];
     
-      if (outbound.length > 0 && secrets.length > 0) {
+      const firstOutbound = outbound[0];
+      const firstSecret = secrets[0];
+      if (firstOutbound && firstSecret) {
         findings.push({
           category: "data-exfiltration",
           severity: "high",
           file: file.relPath,
-          line: outbound[0].line,
-          evidence: `outbound call (line ${outbound[0].line}) combined with secret read (line ${secrets[0].line})`,
+          line: firstOutbound.line,
+          evidence: `outbound call (line ${firstOutbound.line}) combined with secret read (line ${firstSecret.line})`,
         });
       }
     
@@ -30,14 +32,14 @@
     
       if (isProseFile(file.relPath)) {
         const lines = file.content.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          if (BASE64_BLOB.test(lines[i])) {
+        for (const [i, line] of lines.entries()) {
+          if (BASE64_BLOB.test(line)) {
             findings.push({
               category: "prompt-injection",
               severity: "med",
               file: file.relPath,
               line: i + 1,
-              evidence: `base64-like blob (${lines[i].trim().length} chars) embedded in prose`,
+              evidence: `base64-like blob (${line.trim().length} chars) embedded in prose`,
             });
           }
         }
@@ -86,8 +88,7 @@
     export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
       const findings: Finding[] = [];
       const lines = content.split(/\r?\n/);
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+      for (const [i, line] of lines.entries()) {
         for (const rule of rules) {
           if (rule.pattern.test(line)) {
             findings.push({

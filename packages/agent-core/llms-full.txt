@@ -1762,7 +1762,7 @@
         zoneAges.set(zone, avgAge);
       }
     
-      let stalest: Zone = ZONES[0];
+      let stalest: Zone = ZONES[0] ?? "marketing";
       let maxAge = -1;
     
       for (const [zone, age] of zoneAges) {
@@ -1800,7 +1800,7 @@
           "rialto-web": "rialto",
           gen: "gen",
         };
-        const zone = zoneMap[appMatch[1]];
+        const zone = zoneMap[appMatch[1] ?? ""];
         return zone ? [zone] : null;
       }
     
@@ -1811,7 +1811,7 @@
           reservations: "api:reservations",
           agent: "api:agent",
         };
-        const zone = zoneMap[svcMatch[1]];
+        const zone = zoneMap[svcMatch[1] ?? ""];
         return zone ? [zone] : null;
       }
     
@@ -1917,14 +1917,7 @@
   </file>
   <file path="src/change-type-classifier.ts">
     export type ChangeType =
-      | "dependency"
-      | "docs"
-      | "config"
-      | "test"
-      | "infrastructure"
-      | "frontend"
-      | "backend"
-      | "mixed";
+      "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
     export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
   </file>
   <file path="src/circuit-breaker.ts">
@@ -2005,7 +1998,7 @@
         if (!line.startsWith("diff --git ")) continue;
         // e.g. "diff --git a/some/path/package.json b/some/path/package.json"
         const match = line.match(/^diff --git a\/\S+ b\/(\S+)$/);
-        if (match) {
+        if (match?.[1]) {
           files.push(match[1]);
         }
       }
@@ -2077,13 +2070,13 @@
       let startIdx = -1;
       let charOffset = 0;
     
-      for (let i = 0; i < lines.length; i++) {
-        if (headingPattern.test(lines[i])) {
+      for (const line of lines) {
+        if (headingPattern.test(line)) {
           // Start capturing from the line after the heading
-          startIdx = charOffset + lines[i].length + 1; // +1 for the \n
+          startIdx = charOffset + line.length + 1; // +1 for the \n
           break;
         }
-        charOffset += lines[i].length + 1;
+        charOffset += line.length + 1;
       }
     
       if (startIdx === -1 || startIdx >= text.length) return null;
