@@ -29,10 +29,8 @@ describe("pulumiStackOutputs", () => {
     const result = await pulumiStackOutputs(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
-    const [entry] = mcpContent;
-    if (!entry) throw new Error("expected at least one content entry");
-    expect(entry.type).toBe("text");
-    expect(entry.text).toBe(outputs);
+    expect(mcpContent[0].type).toBe("text");
+    expect(mcpContent[0].text).toBe(outputs);
   });
 
   it("returns error JSON when pulumi command fails", async () => {

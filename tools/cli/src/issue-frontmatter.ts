@@ -46,12 +46,9 @@ export function parseAgentFrontmatter(issueBody: string): ParseResult {
   const warnings: string[] =
     matches.length > 1 ? [`multiple agent blocks found; using the first of ${matches.length}`] : [];
 
-  const [firstMatch] = matches;
-  if (!firstMatch) return { overrides: null, warnings };
-
   let raw: unknown;
   try {
-    raw = load(firstMatch[1] ?? "");
+    raw = load(matches[0][1]);
   } catch (err) {
     return {
       overrides: null,

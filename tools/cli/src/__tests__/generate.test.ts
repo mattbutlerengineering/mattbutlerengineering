@@ -11,13 +11,6 @@ const mockExistsSync = vi.mocked(existsSync);
 const mockMkdirSync = vi.mocked(mkdirSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 
-/** Returns the data argument of the first writeFileSync call, or throws if none. */
-function firstWrittenContent(): string {
-  const firstCall = mockWriteFileSync.mock.calls[0];
-  if (!firstCall) throw new Error("expected writeFileSync to have been called");
-  return String(firstCall[1]);
-}
-
 // Throw on process.exit so that execution actually stops after an error
 class ExitError extends Error {
   constructor(public code: number) {
@@ -145,7 +138,6 @@ describe("generate command", () => {
 
       expect(mockMkdirSync).toHaveBeenCalled();
       const firstCall = mockMkdirSync.mock.calls[0];
-      if (!firstCall) throw new Error("expected mkdirSync to have been called");
       expect(firstCall[1]).toEqual({ recursive: true });
     });
   });
@@ -187,7 +179,7 @@ describe("generate command", () => {
       await runGenerate(["route", "Bookings", "--service", "reservations"]);
 
       expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
-      const content = firstWrittenContent();
+      const content = String(mockWriteFileSync.mock.calls[0][1]);
       expect(content).toContain("BookingsRoutes");
       expect(content).toContain("FastifyInstance");
 
@@ -224,7 +216,7 @@ describe("generate command", () => {
 
       await runGenerate(["route", "UserProfile", "--service", "users"]);
 
-      const content = firstWrittenContent();
+      const content = String(mockWriteFileSync.mock.calls[0][1]);
       // The slug replaces camelCase separations with the regex — check it has a path
       expect(content).toMatch(/fastify\.get\("\/[a-z-]+"/);
     });

@@ -13,7 +13,6 @@ async function lintForNodeFloor(code: string): Promise<string[]> {
     overrideConfig: baseConfig,
   });
   const [result] = await eslint.lintText(code, { filePath: "sample.ts" });
-  if (!result) throw new Error("eslint.lintText returned no results");
   return result.messages
     .filter((message) => message.ruleId === "no-restricted-properties")
     .map((message) => message.message);
@@ -33,9 +32,12 @@ describe("shared base ESLint config — Node-20 API floor guardrail", () => {
 
   it("passes the Node-20-safe new Promise(...) equivalent", async () => {
     const messages = await lintForNodeFloor(
-      ["let resolve;", "const promise = new Promise((res) => {", "  resolve = res;", "});"].join(
-        "\n"
-      ) + "\n"
+      [
+        "let resolve;",
+        "const promise = new Promise((res) => {",
+        "  resolve = res;",
+        "});",
+      ].join("\n") + "\n"
     );
 
     expect(messages).toEqual([]);

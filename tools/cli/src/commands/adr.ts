@@ -21,7 +21,7 @@ function parseADR(filePath: string): ADRFrontmatter | null {
   if (!match) return null;
 
   try {
-    return load(match[1] ?? "") as ADRFrontmatter;
+    return load(match[1]) as ADRFrontmatter;
   } catch (e) {
     console.error(`Error parsing ADR at ${filePath}:`, e);
     return null;

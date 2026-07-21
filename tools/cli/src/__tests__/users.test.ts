@@ -43,9 +43,7 @@ describe("users command", () => {
   describe("users list", () => {
     async function runUsersList(args: string[] = []): Promise<void> {
       const { usersCommand } = await import("../commands/users.js");
-      const [listSubcommand] = usersCommand.commands;
-      if (!listSubcommand) throw new Error("expected users list subcommand");
-      await listSubcommand.parseAsync(args, { from: "user" });
+      await usersCommand.commands[0].parseAsync(args, { from: "user" });
     }
 
     it("exits when not authenticated", async () => {
@@ -112,9 +110,7 @@ describe("users command", () => {
   describe("users get", () => {
     async function runUsersGet(id: string): Promise<void> {
       const { usersCommand } = await import("../commands/users.js");
-      const [, getSubcommand] = usersCommand.commands;
-      if (!getSubcommand) throw new Error("expected users get subcommand");
-      await getSubcommand.parseAsync([id], { from: "user" });
+      await usersCommand.commands[1].parseAsync([id], { from: "user" });
     }
 
     it("exits when not authenticated", async () => {

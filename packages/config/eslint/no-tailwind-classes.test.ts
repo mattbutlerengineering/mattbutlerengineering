@@ -2,7 +2,6 @@ import { RuleTester } from "eslint";
 import localRules from "./local-rules.js";
 
 const rule = localRules.rules["no-tailwind-classes"];
-if (!rule) throw new Error("no-tailwind-classes rule not found");
 
 const ruleTester = new RuleTester({
   languageOptions: {

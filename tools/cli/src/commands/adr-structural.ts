@@ -46,7 +46,7 @@ function checkFrontmatter(
 
   let data: AdrFields;
   try {
-    data = load(match[1] ?? "") ?? {};
+    data = load(match[1]) ?? {};
   } catch (e) {
     violations.push({
       file,
@@ -165,7 +165,6 @@ function parseReadmeIndex(readmeContent: string): Map<string, number> {
   const counts = new Map<string, number>();
   for (const match of readmeContent.matchAll(README_ROW_PATTERN)) {
     const target = match[2];
-    if (target === undefined) continue;
     counts.set(target, (counts.get(target) ?? 0) + 1);
   }
   return counts;

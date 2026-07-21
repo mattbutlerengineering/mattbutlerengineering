@@ -167,7 +167,6 @@ export const auditPerfCommand = new Command("audit-perf")
     // Auto-plan generation
     if (options.autoPlan && improvements.length > 0) {
       const top = improvements[0];
-      if (!top) return;
       const quickDir = join(root, ".planning/quick");
       const planPath = join(quickDir, "AUTO-PERF-OPTIMIZATION.md");
 

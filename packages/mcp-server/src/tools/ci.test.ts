@@ -14,9 +14,7 @@ describe("ciRunStatus", () => {
     expect(typeof result).toBe("string");
     const parsed = JSON.parse(result) as typeof runs;
     expect(parsed).toHaveLength(2);
-    const [first] = parsed;
-    if (!first) throw new Error("expected at least one run");
-    expect(first.conclusion).toBe("success");
+    expect(parsed[0].conclusion).toBe("success");
   });
 
   it("result can be used as MCP text content", async () => {
@@ -25,10 +23,8 @@ describe("ciRunStatus", () => {
     const result = await ciRunStatus(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
-    const [entry] = mcpContent;
-    if (!entry) throw new Error("expected at least one content entry");
-    expect(entry.type).toBe("text");
-    expect(typeof entry.text).toBe("string");
+    expect(mcpContent[0].type).toBe("text");
+    expect(typeof mcpContent[0].text).toBe("string");
   });
 
   it("returns error JSON when runner returns error envelope", async () => {
@@ -66,9 +62,7 @@ describe("ciRunStatus", () => {
     const result = await ciRunStatus(run);
     const parsed = JSON.parse(result) as typeof runs;
 
-    const [first] = parsed;
-    if (!first) throw new Error("expected at least one run");
-    expect(first.status).toBe("queued");
-    expect(first.workflowName).toBe("Test");
+    expect(parsed[0].status).toBe("queued");
+    expect(parsed[0].workflowName).toBe("Test");
   });
 });

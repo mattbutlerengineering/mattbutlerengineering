@@ -54,9 +54,7 @@ describe("stats extended commands", () => {
       ]);
 
       expect(mockAppendFileSync).toHaveBeenCalledOnce();
-      const firstCall = mockAppendFileSync.mock.calls[0];
-      if (!firstCall) throw new Error("expected appendFileSync to have been called");
-      const [filePath, content] = firstCall;
+      const [filePath, content] = mockAppendFileSync.mock.calls[0];
       expect(String(filePath)).toContain("agent-perf.jsonl");
       const record = JSON.parse(String(content).trim());
       expect(record.sessionId).toBe("session-123");
@@ -98,9 +96,7 @@ describe("stats extended commands", () => {
         "v1.5",
       ]);
 
-      const firstCall = mockAppendFileSync.mock.calls[0];
-      if (!firstCall) throw new Error("expected appendFileSync to have been called");
-      const [, content] = firstCall;
+      const [, content] = mockAppendFileSync.mock.calls[0];
       const record = JSON.parse(String(content).trim());
       expect(record.milestone).toBe("v1.5");
     });

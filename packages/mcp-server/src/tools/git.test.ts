@@ -123,9 +123,7 @@ describe("gitWorkflowStatus", () => {
     const result = await gitWorkflowStatus(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
-    const [entry] = mcpContent;
-    if (!entry) throw new Error("expected at least one content entry");
-    expect(entry.type).toBe("text");
-    expect(typeof entry.text).toBe("string");
+    expect(mcpContent[0].type).toBe("text");
+    expect(typeof mcpContent[0].text).toBe("string");
   });
 });

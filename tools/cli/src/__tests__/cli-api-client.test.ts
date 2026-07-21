@@ -51,9 +51,7 @@ describe("createCliApiClient", () => {
 
     createCliApiClient();
 
-    const [firstCall] = MockApiClient.mock.calls;
-    if (!firstCall) throw new Error("expected ApiClient to have been constructed");
-    const [config] = firstCall;
+    const config = MockApiClient.mock.calls[0][0];
     const token = await config.getAccessToken?.();
     expect(token).toBe("test-token");
   });
@@ -63,9 +61,7 @@ describe("createCliApiClient", () => {
 
     createCliApiClient();
 
-    const [firstCall] = MockApiClient.mock.calls;
-    if (!firstCall) throw new Error("expected ApiClient to have been constructed");
-    const [config] = firstCall;
+    const config = MockApiClient.mock.calls[0][0];
     const token = await config.getAccessToken?.();
     expect(token).toBeNull();
   });
@@ -105,9 +101,7 @@ describe("createAgentApiClient", () => {
   it("does not pass a token callback (agent API is unauthenticated)", () => {
     createAgentApiClient();
 
-    const [firstCall] = MockApiClient.mock.calls;
-    if (!firstCall) throw new Error("expected ApiClient to have been constructed");
-    const [config] = firstCall;
+    const config = MockApiClient.mock.calls[0][0];
     expect(config.getAccessToken).toBeUndefined();
   });
 

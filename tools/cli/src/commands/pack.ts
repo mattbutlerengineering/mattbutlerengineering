@@ -142,9 +142,9 @@ function detectPriority(statement: Node): "high" | "medium" | "low" {
 function getSectionName(file: string): string {
   const parts = file.replace(/\\/g, "/").split("/");
   if (parts.length >= 2) {
-    return parts[parts.length - 2] ?? "";
+    return parts[parts.length - 2];
   }
-  return parts[0] ?? "";
+  return parts[0];
 }
 
 async function packDirectory(
@@ -331,8 +331,10 @@ export const packChangedCommand = new Command("pack-changed")
         // Only care about .ts changes in relevant root dirs
         if (!file.endsWith(".ts")) continue;
 
-        const [baseDir, pkgName] = file.split("/");
-        if (baseDir !== undefined && pkgName !== undefined) {
+        const parts = file.split("/");
+        if (parts.length >= 2) {
+          const baseDir = parts[0]; // apps, services, packages
+          const pkgName = parts[1];
           if (["apps", "services", "packages"].includes(baseDir)) {
             packagesToPack.add(`${baseDir}/${pkgName}`);
           }

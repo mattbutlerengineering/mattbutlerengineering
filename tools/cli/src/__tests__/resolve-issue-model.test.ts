@@ -143,12 +143,10 @@ describe("buildSpendAttempts", () => {
   it("returns one attempt entry for a run with no escalation", () => {
     const attempts = buildSpendAttempts("issue-42", initialResult, 0.05);
     expect(attempts).toHaveLength(1);
-    const [first] = attempts;
-    if (!first) throw new Error("expected one attempt entry");
-    expect(first.sessionId).toBe("issue-42.attempt-1");
-    expect(first.modelId).toBe("claude-haiku-4-5-20251001");
-    expect(first.costUsd).toBe(0.05);
-    expect(first.escalated).toBe(false);
+    expect(attempts[0].sessionId).toBe("issue-42.attempt-1");
+    expect(attempts[0].modelId).toBe("claude-haiku-4-5-20251001");
+    expect(attempts[0].costUsd).toBe(0.05);
+    expect(attempts[0].escalated).toBe(false);
   });
 
   it("returns two distinct attempt entries when escalation occurred", () => {
@@ -156,7 +154,6 @@ describe("buildSpendAttempts", () => {
     expect(attempts).toHaveLength(2);
 
     const [first, second] = attempts;
-    if (!first || !second) throw new Error("expected two attempt entries");
     expect(first.sessionId).toBe("issue-42.attempt-1");
     expect(first.modelId).toBe("claude-haiku-4-5-20251001");
     expect(first.costUsd).toBe(0.05);
@@ -176,9 +173,7 @@ describe("buildSpendAttempts", () => {
 
   it("attempt entries include the source from the model result", () => {
     const attempts = buildSpendAttempts("issue-42", initialResult, 0.05, escalatedResult, 0.12);
-    const [first, second] = attempts;
-    if (!first || !second) throw new Error("expected two attempt entries");
-    expect(first.source).toBe("router");
-    expect(second.source).toBe("escalate");
+    expect(attempts[0].source).toBe("router");
+    expect(attempts[1].source).toBe("escalate");
   });
 });

@@ -2,7 +2,6 @@ import { RuleTester } from "eslint";
 import localRules from "./local-rules.js";
 
 const rule = localRules.rules["require-rfc-7807-errors"];
-if (!rule) throw new Error("require-rfc-7807-errors rule not found");
 
 const ruleTester = new RuleTester({
   languageOptions: {
