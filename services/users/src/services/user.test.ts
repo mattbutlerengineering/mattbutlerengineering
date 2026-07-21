@@ -128,8 +128,10 @@ describe("userService", () => {
 
       const result = await userService.list(1, 10);
 
-      expect(result.data[0].createdAt).toBe("2026-01-25T00:00:00.000Z");
-      expect(result.data[0].updatedAt).toBe("2026-01-25T00:00:00.000Z");
+      const [user] = result.data;
+      if (!user) throw new Error("expected a user in the result");
+      expect(user.createdAt).toBe("2026-01-25T00:00:00.000Z");
+      expect(user.updatedAt).toBe("2026-01-25T00:00:00.000Z");
     });
 
     it("returns single-page pagination when total equals limit", async () => {
@@ -353,7 +355,7 @@ describe("userService", () => {
 
       await userService.update("user-1", { name: "Only Name" });
 
-      const callData = vi.mocked(prisma.user.update).mock.calls[0][0].data;
+      const callData = vi.mocked(prisma.user.update).mock.calls[0]?.[0].data;
       expect(callData).toHaveProperty("name", "Only Name");
       expect(callData).not.toHaveProperty("picture");
     });
@@ -363,7 +365,7 @@ describe("userService", () => {
 
       await userService.update("user-1", { picture: "https://example.com/new.jpg" });
 
-      const callData = vi.mocked(prisma.user.update).mock.calls[0][0].data;
+      const callData = vi.mocked(prisma.user.update).mock.calls[0]?.[0].data;
       expect(callData).not.toHaveProperty("name");
       expect(callData).toHaveProperty("picture", "https://example.com/new.jpg");
     });

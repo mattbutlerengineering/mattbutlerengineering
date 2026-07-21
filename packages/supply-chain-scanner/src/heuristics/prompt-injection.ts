@@ -14,7 +14,8 @@ const RULES: readonly Rule[] = [
     severity: "high",
   },
   {
-    pattern: /\bdisregard\b[^.\n]{0,20}\b(your|the|any|all)\b[^.\n]{0,20}\bsystem\b[^.\n]{0,20}\bprompt\b/i,
+    pattern:
+      /\bdisregard\b[^.\n]{0,20}\b(your|the|any|all)\b[^.\n]{0,20}\bsystem\b[^.\n]{0,20}\bprompt\b/i,
     category: "prompt-injection",
     severity: "high",
   },
@@ -40,14 +41,14 @@ export function detectPromptInjection(file: SourceFile): Finding[] {
 
   if (isProseFile(file.relPath)) {
     const lines = file.content.split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
-      if (BASE64_BLOB.test(lines[i])) {
+    for (const [i, line] of lines.entries()) {
+      if (BASE64_BLOB.test(line)) {
         findings.push({
           category: "prompt-injection",
           severity: "med",
           file: file.relPath,
           line: i + 1,
-          evidence: `base64-like blob (${lines[i].trim().length} chars) embedded in prose`,
+          evidence: `base64-like blob (${line.trim().length} chars) embedded in prose`,
         });
       }
     }

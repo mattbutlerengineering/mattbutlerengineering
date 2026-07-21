@@ -70,13 +70,13 @@ export function SetupPage() {
           let stepClass: string;
           if (isCompleted) {
             statusLabel = "Completed";
-            stepClass = styles.stepCompleted;
+            stepClass = styles.stepCompleted ?? "";
           } else if (isCurrent) {
             statusLabel = "Current step";
-            stepClass = styles.stepCurrent;
+            stepClass = styles.stepCurrent ?? "";
           } else {
             statusLabel = "Not yet available";
-            stepClass = styles.stepLocked;
+            stepClass = styles.stepLocked ?? "";
           }
 
           return (

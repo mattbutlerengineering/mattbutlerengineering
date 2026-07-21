@@ -133,7 +133,7 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
 
         {guest?.staffNotes && guest.staffNotes.length > 0 && (
           <Text variant="caption" color="secondary" className={styles.notes}>
-            {guest.staffNotes[0].text}
+            {guest.staffNotes[0]?.text}
           </Text>
         )}
       </div>

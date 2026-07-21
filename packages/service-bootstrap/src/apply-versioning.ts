@@ -47,7 +47,7 @@ export function applyVersioning(
       ? config!.successorVersion
       : (() => {
           const match = currentVersion.match(/^v(\d+)$/);
-          return match ? `v${parseInt(match[1], 10) + 1}` : undefined;
+          return match?.[1] ? `v${parseInt(match[1], 10) + 1}` : undefined;
         })();
 
   const sunsetDate = computeSunsetDate(sunsetMonthsFromNow);

@@ -47,7 +47,7 @@ describe("useGenStream", () => {
     });
 
     expect(mockStreamNDJSON).toHaveBeenCalledOnce();
-    const callArgs = mockStreamNDJSON.mock.calls[0][0];
+    const callArgs = mockStreamNDJSON.mock.calls[0]?.[0];
     expect(callArgs.url).toBe("/api/gen");
     expect(callArgs.body).toEqual({ prompt: "Hello world", context: undefined });
     expect(callArgs.headers).toEqual({
@@ -85,7 +85,7 @@ describe("useGenStream", () => {
     });
 
     expect(onComplete).toHaveBeenCalledOnce();
-    const [spec, rawLines] = onComplete.mock.calls[0];
+    const [spec, rawLines] = onComplete.mock.calls[0] ?? [];
     expect(spec).not.toBeNull();
     expect(rawLines).toHaveLength(1);
   });

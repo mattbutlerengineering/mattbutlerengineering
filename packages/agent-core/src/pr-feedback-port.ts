@@ -128,7 +128,7 @@ export const ghPrFeedbackPort: PrFeedbackPort = {
       { cwd: repoPath, timeout: GH_TIMEOUT_MS }
     );
     const runs = JSON.parse(stdout) as readonly { databaseId: number }[];
-    return runs.length > 0 ? runs[0].databaseId : null;
+    return runs[0]?.databaseId ?? null;
   },
 
   async fetchRunLogs(runId, repoPath) {

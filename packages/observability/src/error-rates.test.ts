@@ -25,10 +25,12 @@ describe("createErrorRateTracker", () => {
 
     const snap = tracker.snapshot();
     expect(snap.endpoints).toHaveLength(1);
-    expect(snap.endpoints[0].endpoint).toBe("/api/v1/users");
-    expect(snap.endpoints[0].total).toBe(1);
-    expect(snap.endpoints[0].errors).toBe(0);
-    expect(snap.endpoints[0].rate).toBe(0);
+    const [entry] = snap.endpoints;
+    if (!entry) throw new Error("expected an endpoint entry");
+    expect(entry.endpoint).toBe("/api/v1/users");
+    expect(entry.total).toBe(1);
+    expect(entry.errors).toBe(0);
+    expect(entry.rate).toBe(0);
   });
 
   it("records an error request (4xx/5xx) with isError=true", () => {
@@ -37,9 +39,11 @@ describe("createErrorRateTracker", () => {
     tracker.record("/api/v1/reservations", 500);
 
     const snap = tracker.snapshot();
-    expect(snap.endpoints[0].errors).toBe(1);
-    expect(snap.endpoints[0].total).toBe(1);
-    expect(snap.endpoints[0].rate).toBe(1);
+    const [entry] = snap.endpoints;
+    if (!entry) throw new Error("expected an endpoint entry");
+    expect(entry.errors).toBe(1);
+    expect(entry.total).toBe(1);
+    expect(entry.rate).toBe(1);
   });
 
   it("treats status >= 400 as an error", () => {
@@ -76,9 +80,11 @@ describe("createErrorRateTracker", () => {
     tracker.record("/api/v1/tables", 500);
 
     const snap = tracker.snapshot();
-    expect(snap.endpoints[0].rate).toBe(0.5);
-    expect(snap.endpoints[0].total).toBe(4);
-    expect(snap.endpoints[0].errors).toBe(2);
+    const [entry] = snap.endpoints;
+    if (!entry) throw new Error("expected an endpoint entry");
+    expect(entry.rate).toBe(0.5);
+    expect(entry.total).toBe(4);
+    expect(entry.errors).toBe(2);
   });
 
   it("rounds error rate to 3 decimal places", () => {
@@ -90,7 +96,9 @@ describe("createErrorRateTracker", () => {
     tracker.record("/api/v1/users", 200);
 
     const snap = tracker.snapshot();
-    expect(snap.endpoints[0].rate).toBe(0.333);
+    const [entry] = snap.endpoints;
+    if (!entry) throw new Error("expected an endpoint entry");
+    expect(entry.rate).toBe(0.333);
   });
 
   it("tracks multiple endpoints independently", () => {
@@ -194,8 +202,10 @@ describe("createErrorRateTracker", () => {
     const snap = tracker.snapshot();
     // Only the recent success should remain
     expect(snap.endpoints).toHaveLength(1);
-    expect(snap.endpoints[0].total).toBe(1);
-    expect(snap.endpoints[0].errors).toBe(0);
+    const [entry] = snap.endpoints;
+    if (!entry) throw new Error("expected an endpoint entry");
+    expect(entry.total).toBe(1);
+    expect(entry.errors).toBe(0);
   });
 
   it("sorts endpoints by error rate descending", () => {
@@ -215,9 +225,12 @@ describe("createErrorRateTracker", () => {
     tracker.record("/api/v1/health", 200);
 
     const snap = tracker.snapshot();
-    const rates = snap.endpoints.map((e) => e.rate);
-    expect(rates[0]).toBeGreaterThanOrEqual(rates[1]);
-    expect(rates[1]).toBeGreaterThanOrEqual(rates[2]);
+    const [rate0, rate1, rate2] = snap.endpoints.map((e) => e.rate);
+    if (rate0 === undefined || rate1 === undefined || rate2 === undefined) {
+      throw new Error("expected three rate values");
+    }
+    expect(rate0).toBeGreaterThanOrEqual(rate1);
+    expect(rate1).toBeGreaterThanOrEqual(rate2);
   });
 });
 

@@ -17,10 +17,10 @@ function formatTime(time: string): string {
   }
   // Fallback for plain HH:mm strings
   const [hours, minutes] = time.split(":");
-  const h = parseInt(hours, 10);
+  const h = parseInt(hours ?? "0", 10);
   const suffix = h >= 12 ? "pm" : "am";
   const display = h > 12 ? h - 12 : h === 0 ? 12 : h;
-  return `${display}:${minutes}${suffix}`;
+  return `${display}:${minutes ?? "00"}${suffix}`;
 }
 
 interface ReservationListProps {
@@ -56,7 +56,7 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
       <ul className={styles.reservationList}>
         {sorted.map((r) => (
           <li key={r.id} className={styles.reservationItem}>
-            <span className={styles.reservationTime}>{formatTime(r.startTime)}</span>
+            <Text className={styles.reservationTime}>{formatTime(r.startTime)}</Text>
             <div className={styles.reservationDetails}>
               <div className={styles.reservationGuest}>{r.guestName ?? "Walk-in"}</div>
               <div className={styles.reservationMeta}>Party of {r.partySize}</div>

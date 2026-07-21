@@ -192,7 +192,7 @@ export function TimelineGrid({
                     onTableStatusChange
                       ? () => {
                           const [nextStatus] = TABLE_VALID_TRANSITIONS[table.status];
-                          onTableStatusChange(table.id, nextStatus);
+                          if (nextStatus) onTableStatusChange(table.id, nextStatus);
                         }
                       : undefined
                   }

@@ -18,13 +18,13 @@ function extractMarkdownSection(text: string, headingPattern: RegExp): string | 
   let startIdx = -1;
   let charOffset = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    if (headingPattern.test(lines[i])) {
+  for (const line of lines) {
+    if (headingPattern.test(line)) {
       // Start capturing from the line after the heading
-      startIdx = charOffset + lines[i].length + 1; // +1 for the \n
+      startIdx = charOffset + line.length + 1; // +1 for the \n
       break;
     }
-    charOffset += lines[i].length + 1;
+    charOffset += line.length + 1;
   }
 
   if (startIdx === -1 || startIdx >= text.length) return null;
@@ -72,7 +72,7 @@ export function extractExpectedFiles(taskDescription: string): readonly string[]
     .split("\n")
     .map((line) => {
       const match = line.match(/`([^`]+\.\w+)`/);
-      return match ? match[1] : "";
+      return match?.[1] ?? "";
     })
     .filter(Boolean);
 }

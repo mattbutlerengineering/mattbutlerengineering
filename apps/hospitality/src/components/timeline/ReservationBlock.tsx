@@ -12,11 +12,11 @@ export interface ReservationBlockProps {
 }
 
 const STATUS_CLASS: Record<ReservationStatus, string> = {
-  PENDING: styles.statusPending,
-  CONFIRMED: styles.statusConfirmed,
-  CANCELLED: styles.statusCancelled,
-  COMPLETED: styles.statusCompleted,
-  NO_SHOW: styles.statusNoShow,
+  PENDING: styles.statusPending ?? "",
+  CONFIRMED: styles.statusConfirmed ?? "",
+  CANCELLED: styles.statusCancelled ?? "",
+  COMPLETED: styles.statusCompleted ?? "",
+  NO_SHOW: styles.statusNoShow ?? "",
 };
 
 export function ReservationBlock({

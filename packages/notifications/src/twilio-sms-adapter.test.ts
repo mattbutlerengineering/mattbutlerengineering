@@ -62,6 +62,17 @@ describe("TwilioSmsAdapter", () => {
     expect(call.body.length).toBeLessThanOrEqual(160);
   });
 
+  it("sendBookingReminder rejects a date string missing a segment", async () => {
+    const adapter = new TwilioSmsAdapter({
+      client: mockTwilioClient as never,
+      fromNumber: "+15559876543",
+    });
+
+    await expect(
+      adapter.sendBookingReminder({ ...defaultSmsInput, date: "2026-06" })
+    ).rejects.toThrow("Invalid date string: 2026-06");
+  });
+
   it("sendBookingReminder includes manage link", async () => {
     const adapter = new TwilioSmsAdapter({
       client: mockTwilioClient as never,

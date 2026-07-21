@@ -43,7 +43,7 @@ const GIT_HEADER_PREFIX = "diff --git ";
 function parseGitHeaderPath(line: string): string | null {
   if (!line.startsWith(GIT_HEADER_PREFIX)) return null;
   const parts = line.split(" b/");
-  return parts.length > 1 ? parts[parts.length - 1] : null;
+  return parts.length > 1 ? (parts[parts.length - 1] ?? null) : null;
 }
 
 function parseHunkHeader(line: string): number | null {
@@ -54,7 +54,7 @@ function parseHunkHeader(line: string): number | null {
   // `@@`) matches in <1ms (issue #3410 triage).
   // eslint-disable-next-line security/detect-unsafe-regex
   const match = line.match(/^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@/);
-  return match ? parseInt(match[1], 10) : null;
+  return match?.[1] ? parseInt(match[1], 10) : null;
 }
 
 interface FileAccumulator {

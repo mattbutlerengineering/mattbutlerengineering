@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "@mbe/config/typescript/base",
   "compilerOptions": {
+    "noUncheckedIndexedAccess": true,
     "noEmit": true,
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM"],

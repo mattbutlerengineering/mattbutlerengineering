@@ -375,8 +375,9 @@ export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfi
         const isError = isErrorObservation(message);
 
         // Track error observations
-        if (isError && actionFingerprints.length > 0) {
-          errorActions.push(actionFingerprints[actionFingerprints.length - 1]);
+        const lastActionFingerprint = actionFingerprints[actionFingerprints.length - 1];
+        if (isError && lastActionFingerprint) {
+          errorActions.push(lastActionFingerprint);
         } else {
           // Reset consecutive error tracking on non-error observation
           errorActions.length = 0;

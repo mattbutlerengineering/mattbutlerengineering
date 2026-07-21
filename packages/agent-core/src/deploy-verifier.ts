@@ -203,7 +203,7 @@ export async function getCloudflareWorkerVersion(workerName: string): Promise<st
       "--json",
     ]);
     const versions = JSON.parse(stdout) as readonly { id: string }[];
-    return versions.length > 0 ? versions[0].id : null;
+    return versions[0]?.id ?? null;
   } catch {
     return null;
   }

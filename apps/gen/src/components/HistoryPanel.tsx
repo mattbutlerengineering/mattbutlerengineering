@@ -118,8 +118,9 @@ export function HistoryPanel({
         }
         case "Enter": {
           e.preventDefault();
-          if (focusedIndex >= 0 && focusedIndex < count) {
-            onSelect(filteredEntries[focusedIndex].id);
+          const entry = filteredEntries[focusedIndex];
+          if (focusedIndex >= 0 && focusedIndex < count && entry) {
+            onSelect(entry.id);
           }
           break;
         }
@@ -151,10 +152,9 @@ export function HistoryPanel({
     [onFilterChange]
   );
 
+  const focusedEntry = filteredEntries[focusedIndex];
   const focusedEntryId =
-    focusedIndex >= 0 && focusedIndex < filteredEntries.length
-      ? `history-item-${filteredEntries[focusedIndex].id}`
-      : undefined;
+    focusedIndex >= 0 && focusedEntry ? `history-item-${focusedEntry.id}` : undefined;
 
   return (
     <aside className={styles.panel}>

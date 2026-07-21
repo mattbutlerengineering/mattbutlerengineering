@@ -35,9 +35,11 @@ export function useTimelineKeyboard({
           e.preventDefault();
           if (focusedId !== null) {
             const nextIdx = Math.min(currentIndex + 1, entries.length - 1);
-            setFocusedId(entries[nextIdx].reservationId);
+            const next = entries[nextIdx];
+            if (next) setFocusedId(next.reservationId);
           } else {
-            setFocusedId(entries[0].reservationId);
+            const first = entries[0];
+            if (first) setFocusedId(first.reservationId);
           }
           break;
 
@@ -45,9 +47,11 @@ export function useTimelineKeyboard({
           e.preventDefault();
           if (focusedId !== null) {
             const prevIdx = Math.max(currentIndex - 1, 0);
-            setFocusedId(entries[prevIdx].reservationId);
+            const prev = entries[prevIdx];
+            if (prev) setFocusedId(prev.reservationId);
           } else {
-            setFocusedId(entries[entries.length - 1].reservationId);
+            const last = entries[entries.length - 1];
+            if (last) setFocusedId(last.reservationId);
           }
           break;
 
@@ -55,11 +59,12 @@ export function useTimelineKeyboard({
           e.preventDefault();
           if (focusedId !== null) {
             const current = entries[currentIndex];
-            const nextRowEntries = entries.filter(
-              (entry) => entry.tableIndex === current.tableIndex + 1
-            );
-            if (nextRowEntries.length > 0) {
-              setFocusedId(nextRowEntries[0].reservationId);
+            if (current) {
+              const nextRowEntries = entries.filter(
+                (entry) => entry.tableIndex === current.tableIndex + 1
+              );
+              const nextRowFirst = nextRowEntries[0];
+              if (nextRowFirst) setFocusedId(nextRowFirst.reservationId);
             }
           }
           break;
@@ -68,13 +73,12 @@ export function useTimelineKeyboard({
           e.preventDefault();
           if (focusedId !== null) {
             const current = entries[currentIndex];
-            if (current.tableIndex > 0) {
+            if (current && current.tableIndex > 0) {
               const prevRowEntries = entries.filter(
                 (entry) => entry.tableIndex === current.tableIndex - 1
               );
-              if (prevRowEntries.length > 0) {
-                setFocusedId(prevRowEntries[prevRowEntries.length - 1].reservationId);
-              }
+              const prevRowLast = prevRowEntries[prevRowEntries.length - 1];
+              if (prevRowLast) setFocusedId(prevRowLast.reservationId);
             }
           }
           break;

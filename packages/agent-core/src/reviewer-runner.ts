@@ -207,7 +207,7 @@ export function selectRetryAction(
   }
 
   const idx = Math.min(retryCount, policy.actions.length - 1);
-  return policy.actions[idx];
+  return policy.actions[idx] ?? "skip";
 }
 
 // ── runReviewer ──────────────────────────────────────────────────────────────

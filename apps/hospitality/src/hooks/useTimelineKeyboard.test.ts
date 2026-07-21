@@ -157,6 +157,25 @@ describe("useTimelineKeyboard", () => {
       );
       expect(result.current.focusedId).toBe("res-3");
     });
+
+    it("does not throw when the focused reservation is no longer in entries", () => {
+      const { result, rerender } = renderHook(
+        ({ entries: e }: { entries: TimelineReservationEntry[] }) =>
+          useTimelineKeyboard({ entries: e }),
+        { initialProps: { entries } }
+      );
+      act(() => result.current.setFocusedId("res-1"));
+      // Entries changed underneath a stale focusedId (e.g. reservation removed).
+      rerender({ entries: [makeEntry("res-9", 0)] });
+      expect(() =>
+        act(() =>
+          result.current.handleKeyDown({
+            key: "ArrowDown",
+            preventDefault: vi.fn(),
+          } as unknown as React.KeyboardEvent)
+        )
+      ).not.toThrow();
+    });
   });
 
   describe("ArrowUp", () => {

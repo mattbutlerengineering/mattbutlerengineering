@@ -59,33 +59,33 @@ describe("initSentry (react)", () => {
 
   it("passes dsn to Sentry.init", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].dsn).toBe("https://key@sentry.io/456");
+    expect(mockSentryInit.mock.calls[0]?.[0].dsn).toBe("https://key@sentry.io/456");
   });
 
   it("passes environment from NODE_ENV to Sentry.init", () => {
     process.env.NODE_ENV = "production";
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].environment).toBe("production");
+    expect(mockSentryInit.mock.calls[0]?.[0].environment).toBe("production");
   });
 
   it("defaults environment to 'development' when NODE_ENV not set", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].environment).toBe("development");
+    expect(mockSentryInit.mock.calls[0]?.[0].environment).toBe("development");
   });
 
   it("sets replaysSessionSampleRate to 0", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].replaysSessionSampleRate).toBe(0);
+    expect(mockSentryInit.mock.calls[0]?.[0].replaysSessionSampleRate).toBe(0);
   });
 
   it("sets replaysOnErrorSampleRate to 0", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].replaysOnErrorSampleRate).toBe(0);
+    expect(mockSentryInit.mock.calls[0]?.[0].replaysOnErrorSampleRate).toBe(0);
   });
 
   it("passes empty integrations array", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].integrations).toEqual([]);
+    expect(mockSentryInit.mock.calls[0]?.[0].integrations).toEqual([]);
   });
 
   it("calls Sentry.setTag with app name after init", () => {
@@ -101,13 +101,13 @@ describe("initSentry (react)", () => {
   it("uses SENTRY_ENVIRONMENT when set", () => {
     process.env.SENTRY_ENVIRONMENT = "staging";
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].environment).toBe("staging");
+    expect(mockSentryInit.mock.calls[0]?.[0].environment).toBe("staging");
   });
 
   it("uses SENTRY_RELEASE when set", () => {
     process.env.SENTRY_RELEASE = "v2.0.0";
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
-    expect(mockSentryInit.mock.calls[0][0].release).toBe("v2.0.0");
+    expect(mockSentryInit.mock.calls[0]?.[0].release).toBe("v2.0.0");
   });
 });
 

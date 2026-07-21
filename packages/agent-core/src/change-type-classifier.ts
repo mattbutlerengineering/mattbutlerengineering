@@ -10,14 +10,7 @@
 // ── Types ───────────────────────────────────────────────────────────
 
 export type ChangeType =
-  | "dependency"
-  | "docs"
-  | "config"
-  | "test"
-  | "infrastructure"
-  | "frontend"
-  | "backend"
-  | "mixed";
+  "dependency" | "docs" | "config" | "test" | "infrastructure" | "frontend" | "backend" | "mixed";
 
 export type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
 
@@ -123,7 +116,7 @@ export function classifyChanges(files: readonly string[]): ChangeClassification 
 
   // If all files match a single type, use that type's skip phases
   if (matchedTypes.size === 1) {
-    const type = [...matchedTypes][0];
+    const type = [...matchedTypes][0] ?? "mixed";
     const rule = CLASSIFICATION_RULES.find((r) => r.type === type);
     const skipPhases = rule?.skipPhases ?? [];
 

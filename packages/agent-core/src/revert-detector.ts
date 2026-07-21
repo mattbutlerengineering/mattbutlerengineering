@@ -40,15 +40,13 @@ export async function detectRecentReverts(
       }
     );
 
-    const commits = stdout
-      .trim()
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => {
-        const [sha, ...rest] = line.split(" ");
-        const oneline = rest.join(" ");
-        return { sha, oneline };
-      });
+    const commits: { sha: string; oneline: string }[] = [];
+    for (const line of stdout.trim().split("\n")) {
+      if (!line.trim()) continue;
+      const [sha, ...rest] = line.split(" ");
+      if (!sha) continue;
+      commits.push({ sha, oneline: rest.join(" ") });
+    }
 
     const detailed: RevertCommit[] = [];
     for (const commit of commits) {
@@ -63,7 +61,7 @@ export async function detectRecentReverts(
 
       // Extract reverted PR number from message
       const prMatch = message.match(/#(\d+)/);
-      const prNumber = prMatch ? parseInt(prMatch[1], 10) : undefined;
+      const prNumber = prMatch?.[1] ? parseInt(prMatch[1], 10) : undefined;
 
       // Extract reverted commit SHA
       const revertedMatch = message.match(/This reverts commit (\w+)/);
@@ -105,7 +103,7 @@ export function isPrAiAuthor(prBody: string): boolean {
  */
 export function extractPrNumberFromMessage(message: string): number | undefined {
   const match = message.match(/#(\d+)/);
-  return match ? parseInt(match[1], 10) : undefined;
+  return match?.[1] ? parseInt(match[1], 10) : undefined;
 }
 
 /**
