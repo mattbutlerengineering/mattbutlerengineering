@@ -47,7 +47,7 @@ const projectEvent: EventProjector = (event: SessionEvent) => {
       // Not JSON — fall through to plain message storage.
     }
   }
-  return { type: event.type, data: event.data as Record<string, unknown> };
+  return { type: event.type, data: event.data };
 };
 
 // ── Factory ───────────────────────────────────────────────────────────

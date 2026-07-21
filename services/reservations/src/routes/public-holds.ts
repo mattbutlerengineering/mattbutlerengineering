@@ -102,7 +102,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
           title: "Unauthorized",
           status: 401,
           detail: "Pass the hold's session ID via the x-session-id header to release it.",
-        } as never);
+        });
       }
 
       const released = await holdService.release(holdId, sessionId);

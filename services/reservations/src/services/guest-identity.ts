@@ -74,7 +74,7 @@ export function buildGuestUpdateData(
         merged.length > existingDietary.length ||
         merged.some((r) => !existingDietary.includes(r)));
     if (hasNewRestrictions) {
-      updateData.dietaryRestrictions = merged as Prisma.InputJsonValue;
+      updateData.dietaryRestrictions = merged;
     }
   }
 

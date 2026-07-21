@@ -66,15 +66,15 @@ async function getBriefing(params: GetBriefingParams): Promise<BriefingEntry[]> 
       startTime: r.startTime.toISOString(),
       endTime: r.endTime.toISOString(),
       partySize: r.partySize,
-      status: r.status as Reservation["status"],
+      status: r.status,
       notes: r.notes,
       cancellationReason: r.cancellationReason,
       cancellationNote: r.cancellationNote,
       guestName: r.guestName,
       guestId: r.guestId,
       userId: r.userId,
-      occasion: r.occasion as Reservation["occasion"],
-      seatingPreference: r.seatingPreference as Reservation["seatingPreference"],
+      occasion: r.occasion,
+      seatingPreference: r.seatingPreference,
       tableId: r.tableId,
       table: r.table
         ? {
@@ -87,11 +87,7 @@ async function getBriefing(params: GetBriefingParams): Promise<BriefingEntry[]> 
             location: r.table.location,
             isActive: r.table.isActive,
             priority: r.table.priority,
-            status: r.table.status as Reservation["table"] extends infer T
-              ? T extends { status: infer S }
-                ? S
-                : never
-              : never,
+            status: r.table.status,
             venueId: r.table.venueId,
             floorPlanId: r.table.floorPlanId,
             shapeMetadata: r.table.shapeMetadata as Reservation["table"] extends infer T

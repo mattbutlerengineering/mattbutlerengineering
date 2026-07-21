@@ -160,7 +160,7 @@ export const guestService = {
         phone: data.phone,
         name: data.name,
         ...(data.dietaryRestrictions && data.dietaryRestrictions.length > 0
-          ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
+          ? { dietaryRestrictions: data.dietaryRestrictions }
           : {}),
       },
     });
@@ -175,9 +175,9 @@ export const guestService = {
         phone: data.phone,
         name: data.name,
         notes: data.notes,
-        tags: data.tags as Prisma.InputJsonValue | undefined,
+        tags: data.tags,
         ...(data.dietaryRestrictions !== undefined
-          ? { dietaryRestrictions: data.dietaryRestrictions as Prisma.InputJsonValue }
+          ? { dietaryRestrictions: data.dietaryRestrictions }
           : {}),
       },
     });
@@ -194,9 +194,7 @@ export const guestService = {
       if (data.tags !== undefined) updateData.tags = data.tags as Prisma.InputJsonValue;
       if (data.dietaryRestrictions !== undefined) {
         updateData.dietaryRestrictions =
-          data.dietaryRestrictions === null
-            ? Prisma.DbNull
-            : (data.dietaryRestrictions as Prisma.InputJsonValue);
+          data.dietaryRestrictions === null ? Prisma.DbNull : data.dietaryRestrictions;
       }
 
       const guest = await prisma.guest.update({ where: { id }, data: updateData });

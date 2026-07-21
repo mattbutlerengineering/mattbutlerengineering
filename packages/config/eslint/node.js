@@ -108,6 +108,10 @@ export default [
     rules: {
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
+      // Autofixable — flags `as X` / `!` / `<X>` assertions that don't narrow
+      // the type. Measured 2026-07-20 (issue #3411): ~190 hits on the
+      // reservations service alone, all resolved via `eslint --fix`.
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
     },
   },
 ];
