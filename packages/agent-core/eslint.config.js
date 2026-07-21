@@ -28,4 +28,18 @@ export default [
       ],
     },
   },
+  // agent-core's tsconfig.json excludes *.test.ts (kept out of the production
+  // `tsc` build/typecheck — see tsconfig.json), so the shared node-tier
+  // promise-rule block's `projectService: true` can't discover a project for
+  // test files. tsconfig.eslint.json (lint-only, includes tests) plugs that
+  // gap for just this package via classic `project` mode (issue #3412).
+  {
+    files: ["**/src/**/*.test.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: ["./tsconfig.eslint.json"],
+      },
+    },
+  },
 ];

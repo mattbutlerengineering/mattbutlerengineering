@@ -90,13 +90,35 @@ export default [
       ],
     },
   },
-  // Type-checked promise safety for backend production code. Fastify swallows
-  // unawaited promises in handlers/hooks, so floating/misused promises fail
-  // silently at runtime. `projectService` discovers each package's tsconfig;
-  // test files are excluded because packages/agent-core excludes *.test.ts from
-  // its tsconfig (projectService hard-errors on files outside a project).
+  // Type-checked promise safety, backend production code + node-tier tests.
+  // Fastify swallows unawaited promises in handlers/hooks, so floating/misused
+  // promises fail silently at runtime; an unawaited promise in a test is
+  // usually a real bug too (an assertion that never runs). `projectService`
+  // discovers each package's tsconfig — every node-tier consumer's tsconfig
+  // *except* agent-core's already includes tests, so this covers all of them
+  // directly (issue #3412; originally src-only per #3402). agent-core's
+  // tsconfig.json excludes *.test.ts (kept out of its `tsc` build/typecheck)
+  // — its own eslint.config.js layers a package-specific override that
+  // redirects its test files to a lint-only tsconfig.eslint.json instead.
   // Measured 2026-07-12 (issue #3402): 6 violations across all node-tier
   // consumers, no lint wall-time increase vs. the non-type-checked baseline.
+  {
+    files: ["**/src/**/*.ts"],
+    ignores: ["**/generated/**"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+    },
+  },
+  // Type-checked, autofixable — flags `as X` / `!` / `<X>` assertions that
+  // don't narrow the type. Kept src-only (unlike the promise rules above):
+  // measured 2026-07-20 (issue #3411) against production code only; widening
+  // to node-tier tests is a separate, unmeasured change.
   {
     files: ["**/src/**/*.ts"],
     ignores: ["**/*.test.ts", "**/*.spec.ts", "**/generated/**"],
@@ -106,11 +128,6 @@ export default [
       },
     },
     rules: {
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-misused-promises": "error",
-      // Autofixable — flags `as X` / `!` / `<X>` assertions that don't narrow
-      // the type. Measured 2026-07-20 (issue #3411): ~190 hits on the
-      // reservations service alone, all resolved via `eslint --fix`.
       "@typescript-eslint/no-unnecessary-type-assertion": "error",
     },
   },
