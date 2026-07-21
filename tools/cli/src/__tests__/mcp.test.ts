@@ -18,7 +18,9 @@ function makeFakeProcess(closeCode: number = 0): Partial<ChildProcess> {
   const proc = {
     on(event: string, cb: (...args: unknown[]) => void) {
       if (event === "close") {
-        Promise.resolve().then(() => cb(closeCode));
+        // Fire-and-forget: defers the "close" callback to the next microtask
+        // to simulate async process exit; the sync `.on()` contract can't await it.
+        void Promise.resolve().then(() => cb(closeCode));
       }
       return proc;
     },

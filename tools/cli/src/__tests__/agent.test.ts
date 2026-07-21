@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { Mock } from "vitest";
 
 // Mock @mbe/agent-core at the top level (hoisted by vitest).
 // The package's dist/ is not compiled in this worktree, so a static import
@@ -276,7 +277,8 @@ describe("agent command", () => {
     });
 
     it("prints verbose agent events when --verbose flag is set", async () => {
-      vi.mocked(core.runAgentSession as ReturnType<typeof vi.fn>).mockImplementation(
+      const mockedRunAgentSession: Mock = core.runAgentSession as Mock;
+      mockedRunAgentSession.mockImplementation(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async (_config: unknown, options: { onEvent: (e: any) => void }) => {
           const { onEvent } = options;
