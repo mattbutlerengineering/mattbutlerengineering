@@ -312,7 +312,9 @@ async function handleIssueCommentEvent(
     return;
   }
 
-  const taskInstruction = match[1].trim();
+  const instructionMatch = match[1];
+  if (!instructionMatch) return;
+  const taskInstruction = instructionMatch.trim();
 
   const taskDescription =
     `PR #${event.issue.number}: ${event.issue.title}\n\n` +

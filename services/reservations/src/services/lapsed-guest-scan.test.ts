@@ -56,9 +56,11 @@ describe("runLapsedGuestScan", () => {
 
     const result = await runLapsedGuestScan("venue-1", deps);
     expect(result).toHaveLength(1);
-    expect(result[0].guestId).toBe("guest-1");
-    expect(result[0].name).toBe("Jane Doe");
-    expect(result[0].daysOverdue).toBeGreaterThan(0);
+    const [lapsingGuest] = result;
+    if (!lapsingGuest) throw new Error("expected a lapsing guest");
+    expect(lapsingGuest.guestId).toBe("guest-1");
+    expect(lapsingGuest.name).toBe("Jane Doe");
+    expect(lapsingGuest.daysOverdue).toBeGreaterThan(0);
     expect(deps.emitLapsingGuests).toHaveBeenCalledWith("venue-1", result);
   });
 
@@ -76,7 +78,9 @@ describe("runLapsedGuestScan", () => {
 
     const result = await runLapsedGuestScan("venue-1", deps);
     expect(result).toHaveLength(1);
-    expect(result[0].communicationPreference).toBe("transactional_only");
+    const [lapsingGuest] = result;
+    if (!lapsingGuest) throw new Error("expected a lapsing guest");
+    expect(lapsingGuest.communicationPreference).toBe("transactional_only");
   });
 
   it("handles multiple guests with mixed lapse status", async () => {
@@ -101,6 +105,8 @@ describe("runLapsedGuestScan", () => {
 
     const result = await runLapsedGuestScan("venue-1", deps);
     expect(result).toHaveLength(1);
-    expect(result[0].guestId).toBe("guest-1");
+    const [lapsingGuest] = result;
+    if (!lapsingGuest) throw new Error("expected a lapsing guest");
+    expect(lapsingGuest.guestId).toBe("guest-1");
   });
 });

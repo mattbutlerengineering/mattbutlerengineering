@@ -26,7 +26,9 @@ const DAY_NAMES = [
 ] as const;
 
 function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null {
-  const schedule = operatingHours[DAY_NAMES[dayIndex]];
+  const dayName = DAY_NAMES[dayIndex];
+  if (!dayName) return null;
+  const schedule = operatingHours[dayName];
   if (!schedule || schedule.closed) return null;
   return schedule;
 }
@@ -185,6 +187,7 @@ export function checkPacingForSlot(
   if (!pacingRules || pacingRules.length === 0) return true;
 
   const rule = pacingRules[0];
+  if (!rule) return true;
   const windowMinutes =
     rule.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
   const windowEnd = new Date(startTime.getTime() + windowMinutes * 60 * 1000);

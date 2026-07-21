@@ -11678,6 +11678,9 @@
     }
     function parseTimeToMinutes(time: string): number {
       const [hours, minutes] = time.split(":").map(Number);
+      if (hours === undefined || minutes === undefined) {
+        throw new Error(`Invalid time format: ${time}`);
+      }
       return hours * 60 + minutes;
     }
   </file>
@@ -11852,7 +11855,8 @@
   </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
     function extractFirstName(fullName: string): string {
-      return fullName.split(" ")[0];
+      const [first] = fullName.split(" ");
+      return first ?? fullName;
     }
     function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean {
       if (guest.notes && guest.notes.trim().length > 0) {
@@ -12354,11 +12358,18 @@
       // Average gap between consecutive visits
       let totalGap = 0;
       for (let i = 1; i < sorted.length; i++) {
-        totalGap += sorted[i] - sorted[i - 1];
+        const current = sorted[i];
+        const previous = sorted[i - 1];
+        if (current === undefined || previous === undefined) continue;
+        totalGap += current - previous;
       }
       const avgFrequencyDays = totalGap / (sorted.length - 1) / DAY_MS;
     
-      const daysSinceLastVisit = (Date.now() - sorted[sorted.length - 1]) / DAY_MS;
+      const lastVisit = sorted[sorted.length - 1];
+      if (lastVisit === undefined) {
+        return { avgFrequencyDays, daysSinceLastVisit: 0, isLapsing: false };
+      }
+      const daysSinceLastVisit = (Date.now() - lastVisit) / DAY_MS;
     
       const isLapsing = daysSinceLastVisit > avgFrequencyDays * 2;
     
@@ -12595,7 +12606,9 @@
   <file path="services/reservations/src/services/slot-rules.ts">
     export const DEFAULT_SLOT_INTERVAL = 15;
     function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null {
-      const schedule = operatingHours[DAY_NAMES[dayIndex]];
+      const dayName = DAY_NAMES[dayIndex];
+      if (!dayName) return null;
+      const schedule = operatingHours[dayName];
       if (!schedule || schedule.closed) return null;
       return schedule;
     }

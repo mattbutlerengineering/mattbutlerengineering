@@ -147,7 +147,9 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
     expect(deps.getVenue).toHaveBeenCalledWith("venue_1");
     expect(deps.generateManageToken).toHaveBeenCalledWith("res_1", "jane@example.com");
     expect(deps.dispatcher.sendBookingReminder).toHaveBeenCalledOnce();
-    const [input, preference] = deps.dispatcher.sendBookingReminder.mock.calls[0];
+    const reminderCall = deps.dispatcher.sendBookingReminder.mock.calls[0];
+    if (!reminderCall) throw new Error("expected a sendBookingReminder call");
+    const [input, preference] = reminderCall;
     expect(input).toMatchObject({
       reservationId: "res_1",
       guestEmail: "jane@example.com",
@@ -275,7 +277,9 @@ describe("reservations JobWorker wiring — schedule → dequeue → deliver", (
 
     await bus.processor!({ name: JOB_TYPES.BOOKING_REMINDER, data: reminderPayload });
 
-    const [, preference] = deps.dispatcher.sendBookingReminder.mock.calls[0];
+    const reminderCall = deps.dispatcher.sendBookingReminder.mock.calls[0];
+    if (!reminderCall) throw new Error("expected a sendBookingReminder call");
+    const [, preference] = reminderCall;
     expect(preference).toBe("email_only");
   });
 

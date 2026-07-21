@@ -450,7 +450,8 @@ describe("confirmHold", () => {
 
       expect(emitHoldConfirmed).toHaveBeenCalledTimes(1);
       // Verify the reservation object passed to the event has the right shape
-      const emittedReservation = vi.mocked(emitHoldConfirmed).mock.calls[0][0];
+      const emittedReservation = vi.mocked(emitHoldConfirmed).mock.calls[0]?.[0];
+      if (!emittedReservation) throw new Error("expected an emitHoldConfirmed call");
       expect(emittedReservation).toMatchObject({
         id: "res-1",
         status: "CONFIRMED",

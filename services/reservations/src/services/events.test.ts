@@ -158,7 +158,9 @@ describe("ReservationEventEmitter", () => {
 
       reservationEvents.offChange(listener);
       expect(received).toHaveLength(1);
-      expect(received[0].type).toBe("reservation:created");
+      const [event] = received;
+      if (!event) throw new Error("expected a received event");
+      expect(event.type).toBe("reservation:created");
     });
 
     it("returns true when at least one listener is registered", () => {

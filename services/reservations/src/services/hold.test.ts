@@ -447,7 +447,8 @@ describe("holdService", () => {
         "session-abc"
       );
 
-      const createArg = createMock.mock.calls[0][0];
+      const createArg = createMock.mock.calls[0]?.[0];
+      if (!createArg) throw new Error("expected a create call");
       const expiresAt = createArg.data.expiresAt as Date;
       // 5 minutes from NOW
       expect(expiresAt.getTime() - NOW.getTime()).toBe(5 * 60 * 1000);
@@ -487,7 +488,8 @@ describe("holdService", () => {
         "session-abc"
       );
 
-      const createArg = createMock.mock.calls[0][0];
+      const createArg = createMock.mock.calls[0]?.[0];
+      if (!createArg) throw new Error("expected a create call");
       const expiresAt = createArg.data.expiresAt as Date;
       expect(expiresAt.getTime() - NOW.getTime()).toBe(7 * 60 * 1000);
     });
@@ -526,7 +528,8 @@ describe("holdService", () => {
         "session-abc"
       );
 
-      const createArg = createMock.mock.calls[0][0];
+      const createArg = createMock.mock.calls[0]?.[0];
+      if (!createArg) throw new Error("expected a create call");
       const expiresAt = createArg.data.expiresAt as Date;
       expect(expiresAt.getTime() - NOW.getTime()).toBe(10 * 60 * 1000);
     });

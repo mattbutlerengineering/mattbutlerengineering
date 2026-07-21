@@ -56,10 +56,12 @@ describe("guestService", () => {
       const result = await guestService.list("venue-1", 1, 10);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].name).toBe("Jane Doe");
-      expect(result.data[0].lifetimeSpend).toBe("450.00");
-      expect(result.data[0].lastVisit).toBe(LAST_VISIT.toISOString());
-      expect(result.data[0].tags).toEqual(["vip", "regular"]);
+      const [guest] = result.data;
+      if (!guest) throw new Error("expected a guest");
+      expect(guest.name).toBe("Jane Doe");
+      expect(guest.lifetimeSpend).toBe("450.00");
+      expect(guest.lastVisit).toBe(LAST_VISIT.toISOString());
+      expect(guest.tags).toEqual(["vip", "regular"]);
       expect(result.pagination.total).toBe(1);
     });
 
@@ -71,7 +73,9 @@ describe("guestService", () => {
 
       const result = await guestService.list("venue-1", 1, 10);
 
-      expect(result.data[0].noShowCount).toBe(2);
+      const [guest] = result.data;
+      if (!guest) throw new Error("expected a guest");
+      expect(guest.noShowCount).toBe(2);
       // No reservation sub-queries should be fired
       expect((prisma as unknown as Record<string, unknown>).reservation).toBeUndefined();
     });
@@ -84,8 +88,10 @@ describe("guestService", () => {
 
       const result = await guestService.list("venue-1", 1, 10);
 
-      expect(result.data[0].lifetimeSpend).toBeNull();
-      expect(result.data[0].lastVisit).toBeNull();
+      const [guest] = result.data;
+      if (!guest) throw new Error("expected a guest");
+      expect(guest.lifetimeSpend).toBeNull();
+      expect(guest.lastVisit).toBeNull();
     });
   });
 
@@ -370,10 +376,9 @@ describe("guestService", () => {
 
       await guestService.recordVisit("guest-1", visitDate);
 
-      const callData = vi.mocked(prisma.guest.update).mock.calls[0][0].data as Record<
-        string,
-        unknown
-      >;
+      const updateCall = vi.mocked(prisma.guest.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a guest.update call");
+      const callData = updateCall.data as Record<string, unknown>;
       expect(callData).not.toHaveProperty("lifetimeSpend");
     });
 
@@ -395,9 +400,9 @@ describe("guestService", () => {
       });
 
       expect(result.data).toHaveLength(1);
-      const findManyCall = vi.mocked(prisma.guest.findMany).mock.calls[0][0] as {
-        where: { AND?: unknown[] };
-      };
+      const findManyCall = vi.mocked(prisma.guest.findMany).mock.calls[0]?.[0] as
+        { where: { AND?: unknown[] } } | undefined;
+      if (!findManyCall) throw new Error("expected a guest.findMany call");
       expect(findManyCall.where.AND).toBeDefined();
     });
 
@@ -428,9 +433,9 @@ describe("guestService", () => {
         hasNotVisitedInDays: 30,
       });
 
-      const findManyCall = vi.mocked(prisma.guest.findMany).mock.calls[0][0] as {
-        where: { AND?: unknown[] };
-      };
+      const findManyCall = vi.mocked(prisma.guest.findMany).mock.calls[0]?.[0] as
+        { where: { AND?: unknown[] } } | undefined;
+      if (!findManyCall) throw new Error("expected a guest.findMany call");
       expect(findManyCall.where.AND).toBeDefined();
     });
 
@@ -484,8 +489,10 @@ describe("guestService", () => {
         "Lapsed",
         "New",
       ]);
-      expect(segments[0].count).toBe(100);
-      expect(segments[1].count).toBe(10);
+      const [allGuests, vip] = segments;
+      if (!allGuests || !vip) throw new Error("expected at least two segments");
+      expect(allGuests.count).toBe(100);
+      expect(vip.count).toBe(10);
     });
 
     it("all segment count queries include venueId for index utilisation", async () => {
@@ -509,8 +516,11 @@ describe("guestService", () => {
 
       const calls = vi.mocked(prisma.guest.count).mock.calls;
       // VIP = index 1, New = index 5
-      const vipCall = calls[1][0] as { where: { venueId: string; visitCount: { gte: number } } };
-      const newCall = calls[5][0] as { where: { venueId: string; visitCount: number } };
+      const vipCall = calls[1]?.[0] as
+        { where: { venueId: string; visitCount: { gte: number } } } | undefined;
+      const newCall = calls[5]?.[0] as
+        { where: { venueId: string; visitCount: number } } | undefined;
+      if (!vipCall || !newCall) throw new Error("expected VIP and New segment count calls");
       expect(vipCall.where.visitCount).toEqual({ gte: 5 });
       expect(newCall.where.visitCount).toBe(0);
     });

@@ -55,7 +55,9 @@ describe("sendWinBack", () => {
 
     await sendWinBack(guest, port, "Riverside Grill");
 
-    const [payload] = (port.sendWinBack as ReturnType<typeof vi.fn>).mock.calls[0];
+    const sendWinBackCall = (port.sendWinBack as ReturnType<typeof vi.fn>).mock.calls[0];
+    if (!sendWinBackCall) throw new Error("expected a sendWinBack call");
+    const [payload] = sendWinBackCall;
     expect(payload.venueName).not.toBe("your favourite restaurant");
   });
 

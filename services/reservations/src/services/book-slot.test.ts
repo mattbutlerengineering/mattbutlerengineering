@@ -86,7 +86,9 @@ describe("bookSlot", () => {
     if (result.ok) expect(result.value).toBe("WRITTEN");
     // Lock acquired with the table-keyed advisory-lock SQL.
     expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
-    const sql = vi.mocked(tx.$executeRaw).mock.calls[0][0] as { sql: string; values: unknown[] };
+    const sql = vi.mocked(tx.$executeRaw).mock.calls[0]?.[0] as
+      { sql: string; values: unknown[] } | undefined;
+    if (!sql) throw new Error("expected an $executeRaw call");
     expect(sql.sql).toContain("pg_advisory_xact_lock");
     expect(sql.values).toContain("table-1");
     expect(intent.write).toHaveBeenCalledTimes(1);
@@ -157,9 +159,10 @@ describe("bookSlot", () => {
 
     await bookSlot(baseIntent());
 
-    const { where } = vi.mocked(tx.reservation.findFirst).mock.calls[0][0] as {
-      where: { startTime: unknown; endTime: unknown; status: unknown };
-    };
+    const reservationFindFirstCall = vi.mocked(tx.reservation.findFirst).mock.calls[0]?.[0] as
+      { where: { startTime: unknown; endTime: unknown; status: unknown } } | undefined;
+    if (!reservationFindFirstCall) throw new Error("expected a reservation.findFirst call");
+    const { where } = reservationFindFirstCall;
     // Not hardcoded expected values — read live from slot-rules.js, so a
     // future change to the declaration (or a regression back to a
     // hand-rolled literal in bookSlot) is caught here.
@@ -179,9 +182,10 @@ describe("bookSlot", () => {
 
       await bookSlot(baseIntent({ checkHoldConflict: true }));
 
-      const { where } = vi.mocked(tx.reservationHold.findFirst).mock.calls[0][0] as {
-        where: { startTime: unknown; endTime: unknown; expiresAt: unknown };
-      };
+      const holdFindFirstCall = vi.mocked(tx.reservationHold.findFirst).mock.calls[0]?.[0] as
+        { where: { startTime: unknown; endTime: unknown; expiresAt: unknown } } | undefined;
+      if (!holdFindFirstCall) throw new Error("expected a reservationHold.findFirst call");
+      const { where } = holdFindFirstCall;
       const expectedWindow = overlapWindow(START, END);
       expect(where.startTime).toEqual(expectedWindow.startTime);
       expect(where.endTime).toEqual(expectedWindow.endTime);
