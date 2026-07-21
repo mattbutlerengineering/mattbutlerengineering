@@ -1,4 +1,3 @@
- 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -79,7 +78,7 @@ describe("LoginLanding", () => {
     render(<LoginLanding />);
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
-    expect(h1s[0].textContent?.toLowerCase()).toContain("gen");
+    expect(h1s[0]?.textContent?.toLowerCase()).toContain("gen");
   });
 
   it("explains what Gen does (generative UI from a prompt/spec)", () => {

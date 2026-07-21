@@ -168,6 +168,7 @@ describe("AcmmPage", () => {
     await waitFor(() => screen.getByText("rialto"));
 
     const toggleBtn = screen.getAllByRole("button")[0];
+    if (!toggleBtn) throw new Error("expected a toggle button");
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
@@ -182,6 +183,7 @@ describe("AcmmPage", () => {
     await waitFor(() => screen.getByText("rialto"));
 
     const toggleBtn = screen.getAllByRole("button")[0];
+    if (!toggleBtn) throw new Error("expected a toggle button");
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
@@ -195,6 +197,7 @@ describe("AcmmPage", () => {
     await waitFor(() => screen.getByText("rialto"));
 
     const toggleBtn = screen.getAllByRole("button")[0];
+    if (!toggleBtn) throw new Error("expected a toggle button");
     fireEvent.click(toggleBtn);
     await waitFor(() => screen.getByText(/prereq-test-suite/));
 

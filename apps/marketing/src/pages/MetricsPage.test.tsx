@@ -222,8 +222,8 @@ describe("MetricsPage", () => {
     await waitFor(() => {
       const dateTexts = screen.getAllByText(/2026-0[45]-01/);
       expect(dateTexts.length).toBe(2);
-      expect(dateTexts[0].textContent).toBe("2026-05-01");
-      expect(dateTexts[1].textContent).toBe("2026-04-01");
+      expect(dateTexts[0]?.textContent).toBe("2026-05-01");
+      expect(dateTexts[1]?.textContent).toBe("2026-04-01");
     });
   });
 

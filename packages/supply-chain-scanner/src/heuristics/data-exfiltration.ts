@@ -59,13 +59,15 @@ export function detectDataExfiltration(file: SourceFile): Finding[] {
   const secrets = applyRules(file.relPath, file.content, SECRET_RULES);
   const findings: Finding[] = [...outbound, ...secrets];
 
-  if (outbound.length > 0 && secrets.length > 0) {
+  const firstOutbound = outbound[0];
+  const firstSecret = secrets[0];
+  if (firstOutbound && firstSecret) {
     findings.push({
       category: "data-exfiltration",
       severity: "high",
       file: file.relPath,
-      line: outbound[0].line,
-      evidence: `outbound call (line ${outbound[0].line}) combined with secret read (line ${secrets[0].line})`,
+      line: firstOutbound.line,
+      evidence: `outbound call (line ${firstOutbound.line}) combined with secret read (line ${firstSecret.line})`,
     });
   }
 

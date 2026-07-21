@@ -46,13 +46,14 @@ export function highlightEmbedCode(code: string): ReactNode[] {
 
       // Strings (single or double quoted)
       const stringMatch = remaining.match(/^('[^']*'|"[^"]*")/);
-      if (stringMatch) {
+      const matchedString = stringMatch?.[1];
+      if (matchedString) {
         parts.push(
           <span key={keyIndex++} className={styles.syntaxString}>
-            {stringMatch[1]}
+            {matchedString}
           </span>
         );
-        remaining = remaining.slice(stringMatch[1].length);
+        remaining = remaining.slice(matchedString.length);
         continue;
       }
 

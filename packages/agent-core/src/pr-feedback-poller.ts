@@ -55,18 +55,19 @@ async function fetchUnresolvedComments(
       repoPath
     );
 
-    const comments: ReviewComment[] = threads
-      .filter((t) => !t.isResolved && t.comments.nodes.length > 0)
-      .map((t) => {
-        const comment = t.comments.nodes[0];
-        return {
-          threadId: t.id,
-          author: comment.author.login,
-          body: comment.body,
-          path: comment.path,
-          line: comment.line,
-        };
+    const comments: ReviewComment[] = [];
+    for (const t of threads) {
+      if (t.isResolved) continue;
+      const comment = t.comments.nodes[0];
+      if (!comment) continue;
+      comments.push({
+        threadId: t.id,
+        author: comment.author.login,
+        body: comment.body,
+        path: comment.path,
+        line: comment.line,
       });
+    }
 
     return {
       comments,

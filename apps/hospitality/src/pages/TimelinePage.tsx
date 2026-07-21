@@ -47,15 +47,15 @@ function useIsMobile(): boolean {
 function getStatusBadgeClass(status: Reservation["status"]): string {
   switch (status) {
     case "CONFIRMED":
-      return styles.statusConfirmed;
+      return styles.statusConfirmed ?? "";
     case "PENDING":
-      return styles.statusPending;
+      return styles.statusPending ?? "";
     case "COMPLETED":
-      return styles.statusCompleted;
+      return styles.statusCompleted ?? "";
     case "CANCELLED":
-      return styles.statusCancelled;
+      return styles.statusCancelled ?? "";
     default:
-      return styles.statusNoShow;
+      return styles.statusNoShow ?? "";
   }
 }
 

@@ -26,7 +26,7 @@ export function findStalestZone(inventory: AuditInventory): Zone {
     zoneAges.set(zone, avgAge);
   }
 
-  let stalest: Zone = ZONES[0];
+  let stalest: Zone = ZONES[0] ?? "marketing";
   let maxAge = -1;
 
   for (const [zone, age] of zoneAges) {

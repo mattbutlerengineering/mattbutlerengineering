@@ -41,7 +41,7 @@ describe("useApi", () => {
     expect(ApiClient).toHaveBeenCalledWith(
       expect.objectContaining({ baseUrl: "", getAccessToken: expect.any(Function) })
     );
-    const callArgs = vi.mocked(ApiClient).mock.calls[0][0] as {
+    const callArgs = vi.mocked(ApiClient).mock.calls[0]?.[0] as {
       getAccessToken: () => string | null;
     };
     expect(callArgs.getAccessToken()).toBe("test-token-123");
@@ -52,7 +52,7 @@ describe("useApi", () => {
 
     renderHook(() => useApi());
 
-    const callArgs = vi.mocked(ApiClient).mock.calls[0][0] as {
+    const callArgs = vi.mocked(ApiClient).mock.calls[0]?.[0] as {
       getAccessToken: () => string | null;
     };
     expect(callArgs.getAccessToken()).toBeNull();

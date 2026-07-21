@@ -34,6 +34,9 @@ const DEFAULT_RETRY_DELAY_MS = 1000;
 function formatDate(dateStr: string): string {
   // dateStr is "YYYY-MM-DD" format
   const [year, month, day] = dateStr.split("-").map(Number);
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`Invalid date string: ${dateStr}`);
+  }
   const date = new Date(year, month - 1, day);
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }

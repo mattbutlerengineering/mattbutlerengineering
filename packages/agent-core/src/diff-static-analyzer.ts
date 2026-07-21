@@ -111,7 +111,7 @@ function matchesFileGlob(filePath: string, glob: string | undefined): boolean {
 
   // Extract extensions from glob like "*.{ts,tsx,js,jsx}" or "*.css"
   const braceMatch = glob.match(/^\*\.\{([^}]+)\}$/);
-  if (braceMatch) {
+  if (braceMatch?.[1]) {
     const extensions = braceMatch[1].split(",");
     return extensions.some((ext) => filePath.endsWith(`.${ext}`));
   }

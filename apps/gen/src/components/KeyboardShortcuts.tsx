@@ -113,18 +113,21 @@ export function KeyboardShortcuts({ open, onClose }: KeyboardShortcutsProps) {
             <div key={section.title}>
               <h3 className={styles.sectionTitle}>{section.title}</h3>
               <div className={styles.shortcutList}>
-                {section.items.map((item) => (
-                  <div key={item.label} className={styles.row}>
-                    <span className={styles.label}>{item.label}</span>
-                    <span className={styles.keys}>
-                      {item.keys.length === 1 ? (
-                        <Kbd>{item.keys[0]}</Kbd>
-                      ) : (
-                        <Shortcut keys={item.keys} />
-                      )}
-                    </span>
-                  </div>
-                ))}
+                {section.items.map((item) => {
+                  const firstKey = item.keys[0];
+                  return (
+                    <div key={item.label} className={styles.row}>
+                      <span className={styles.label}>{item.label}</span>
+                      <span className={styles.keys}>
+                        {item.keys.length === 1 && firstKey ? (
+                          <Kbd>{firstKey}</Kbd>
+                        ) : (
+                          <Shortcut keys={item.keys} />
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}

@@ -108,7 +108,7 @@ describe("initSentry (node)", () => {
     initSentry({ serviceName: "my-service" });
 
     expect(mockSentryInit).toHaveBeenCalledTimes(1);
-    const callArg = mockSentryInit.mock.calls[0][0];
+    const callArg = mockSentryInit.mock.calls[0]?.[0];
     expect(callArg.dsn).toBe("https://key@sentry.io/123");
     expect(callArg.serverName).toBe("my-service");
     expect(callArg.environment).toBe("production");
@@ -267,7 +267,7 @@ describe("sentryFastifyPlugin", () => {
 
       expect(reply.status).toHaveBeenCalledWith(500);
       // The actual message should be obscured for 5xx
-      const sentPayload = reply.send.mock.calls[0][0];
+      const sentPayload = reply.send.mock.calls[0]?.[0];
       expect(sentPayload.detail).toBe("Internal Server Error");
     });
 
@@ -289,7 +289,7 @@ describe("sentryFastifyPlugin", () => {
       errorHandler(error, request, reply);
 
       expect(reply.status).toHaveBeenCalledWith(404);
-      const sentPayload = reply.send.mock.calls[0][0];
+      const sentPayload = reply.send.mock.calls[0]?.[0];
       expect(sentPayload.detail).toBe("Resource not found");
     });
 
@@ -316,6 +316,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       const fakeScope = {
         setTag: vi.fn(),
@@ -338,6 +339,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       const request = buildFakeRequest();
       const reply = { ...buildFakeReply(500), __sentryErrorCaptured: true };
@@ -351,6 +353,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       const fakeScope = {
         setTag: vi.fn(),
@@ -372,6 +375,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       const fakeScope = {
         setTag: vi.fn(),
@@ -392,6 +396,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       const fakeScope = {
         setTag: vi.fn(),
@@ -412,6 +417,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       for (const code of [400, 401, 403, 404]) {
         mockWithScope.mockClear();
@@ -429,6 +435,7 @@ describe("sentryFastifyPlugin", () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
       const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
 
       const request = buildFakeRequest();
       const reply = buildFakeReply(200);

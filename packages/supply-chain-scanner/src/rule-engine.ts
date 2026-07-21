@@ -16,8 +16,7 @@ const MAX_EVIDENCE = 120;
 export function applyRules(file: string, content: string, rules: readonly Rule[]): Finding[] {
   const findings: Finding[] = [];
   const lines = content.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const [i, line] of lines.entries()) {
     for (const rule of rules) {
       if (rule.pattern.test(line)) {
         findings.push({

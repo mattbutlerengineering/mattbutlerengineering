@@ -14,7 +14,7 @@ function fileToZones(filePath: string): readonly Zone[] | "all" | null {
       "rialto-web": "rialto",
       gen: "gen",
     };
-    const zone = zoneMap[appMatch[1]];
+    const zone = zoneMap[appMatch[1] ?? ""];
     return zone ? [zone] : null;
   }
 
@@ -25,7 +25,7 @@ function fileToZones(filePath: string): readonly Zone[] | "all" | null {
       reservations: "api:reservations",
       agent: "api:agent",
     };
-    const zone = zoneMap[svcMatch[1]];
+    const zone = zoneMap[svcMatch[1] ?? ""];
     return zone ? [zone] : null;
   }
 

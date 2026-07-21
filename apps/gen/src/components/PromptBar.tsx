@@ -100,8 +100,11 @@ export function PromptBar({
       if (e.key === "ArrowUp" && value === "" && history.length > 0) {
         e.preventDefault();
         const nextIndex = historyIndex === -1 ? history.length - 1 : Math.max(0, historyIndex - 1);
-        setHistoryIndex(nextIndex);
-        setValue(history[nextIndex]);
+        const nextValue = history[nextIndex];
+        if (nextValue !== undefined) {
+          setHistoryIndex(nextIndex);
+          setValue(nextValue);
+        }
         return;
       }
 
@@ -112,8 +115,11 @@ export function PromptBar({
           setValue("");
         } else {
           const nextIndex = historyIndex + 1;
-          setHistoryIndex(nextIndex);
-          setValue(history[nextIndex]);
+          const nextValue = history[nextIndex];
+          if (nextValue !== undefined) {
+            setHistoryIndex(nextIndex);
+            setValue(nextValue);
+          }
         }
       }
     },

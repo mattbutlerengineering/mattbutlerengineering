@@ -125,7 +125,7 @@ describe("initTelemetry", () => {
     initTelemetry({ serviceName: "test-service" });
 
     expect(LangfuseSpanProcessor).toHaveBeenCalledTimes(1);
-    const sdkCall = vi.mocked(NodeSDK).mock.calls[0][0];
+    const sdkCall = vi.mocked(NodeSDK).mock.calls[0]?.[0];
     expect(sdkCall?.spanProcessors).toBeDefined();
     expect(sdkCall?.spanProcessors).toHaveLength(1);
   });

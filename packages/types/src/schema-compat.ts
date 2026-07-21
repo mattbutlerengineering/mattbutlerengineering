@@ -90,6 +90,7 @@ export function compareSchema(
     if (!(prop in currProps)) continue;
     const baseDef = baseProps[prop];
     const currDef = currProps[prop];
+    if (!baseDef || !currDef) continue;
 
     // Type change
     if (baseDef.type && currDef.type && baseDef.type !== currDef.type) {

@@ -71,7 +71,7 @@ export function VenueProvider({ children }: VenueProviderProps) {
     if (chosenVenueId && venues.some((v) => v.id === chosenVenueId)) {
       return chosenVenueId;
     }
-    return venues.length > 0 ? venues[0].id : null;
+    return venues[0]?.id ?? null;
   }, [chosenVenueId, venues]);
 
   // Persist the reconciled selection (e.g. the first-venue fallback) so a reload

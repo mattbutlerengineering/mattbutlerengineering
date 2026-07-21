@@ -96,7 +96,8 @@ function createErrorRateTracker() {
 
 function normalizeRoute(request: FastifyRequest): string {
   // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
-  const routeUrl = (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0];
+  const routeUrl =
+    (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0] ?? request.url;
   return routeUrl;
 }
 

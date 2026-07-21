@@ -31,14 +31,14 @@ export function resolveSourceFiles(taskDescription: string): readonly string[] {
 
   // Extract explicit file paths
   for (const match of taskDescription.matchAll(FILE_PATH_PATTERN)) {
-    files.add(match[1]);
+    if (match[1]) files.add(match[1]);
   }
 
   // Extract directory references and add key files
   for (const match of taskDescription.matchAll(DIRECTORY_PATTERN)) {
     const dir = match[1];
     // If a service or app directory is mentioned, add its CLAUDE.md
-    if (dir.startsWith("services/") || dir.startsWith("apps/")) {
+    if (dir && (dir.startsWith("services/") || dir.startsWith("apps/"))) {
       files.add(`${dir}CLAUDE.md`);
     }
   }
