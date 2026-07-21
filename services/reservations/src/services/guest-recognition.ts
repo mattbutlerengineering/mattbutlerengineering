@@ -10,7 +10,8 @@ const UNRECOGNIZED: GuestRecognition = {
 };
 
 function extractFirstName(fullName: string): string {
-  return fullName.split(" ")[0];
+  const [first] = fullName.split(" ");
+  return first ?? fullName;
 }
 
 function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean {

@@ -146,7 +146,8 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     await new Promise((r) => setTimeout(r, 10));
     monitor.stop();
 
-    const call = (prisma.guest.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    const call = (prisma.guest.findMany as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    if (!call) throw new Error("expected a guest.findMany call");
     expect(call.select).toMatchObject({
       id: true,
       name: true,

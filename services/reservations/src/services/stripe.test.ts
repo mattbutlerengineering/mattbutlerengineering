@@ -111,7 +111,9 @@ describe("StripeService", () => {
         reservationId: "res-456",
       });
 
-      const callArgs = mockPaymentIntents.create.mock.calls[0][0] as Record<string, unknown>;
+      const callArgs = mockPaymentIntents.create.mock.calls[0]?.[0] as
+        Record<string, unknown> | undefined;
+      if (!callArgs) throw new Error("expected a PaymentIntent create call");
       expect(callArgs.customer).toBeUndefined();
       expect(result.id).toBe("pi_test_456");
     });

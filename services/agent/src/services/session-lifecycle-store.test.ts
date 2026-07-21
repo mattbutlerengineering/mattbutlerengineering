@@ -173,7 +173,9 @@ describe("sessionLifecycleStore", () => {
 
       await sessionLifecycleStore.updateStatus("s-1", "running");
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toHaveProperty("startedAt");
       expect(callData).not.toHaveProperty("completedAt");
     });
@@ -185,7 +187,9 @@ describe("sessionLifecycleStore", () => {
 
       await sessionLifecycleStore.updateStatus("s-1", "failed", { errors: ["boom"] });
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toHaveProperty("completedAt");
       expect(callData).toMatchObject({ errors: ["boom"] });
     });

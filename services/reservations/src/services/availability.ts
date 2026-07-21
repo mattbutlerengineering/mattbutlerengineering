@@ -48,6 +48,9 @@ interface VenueWithSettings {
 
 function parseTimeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
+  if (hours === undefined || minutes === undefined) {
+    throw new Error(`Invalid time format: ${time}`);
+  }
   return hours * 60 + minutes;
 }
 

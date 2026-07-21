@@ -216,6 +216,7 @@ export function createMockClaudeClient(options: MockClientOptions = {}): MockCla
     if (mode === "replay" && fixtures.length > 0) {
       // Cycle through fixtures
       const sequence = fixtures[fixtureIndex % fixtures.length];
+      if (!sequence) throw new Error("expected a fixture sequence");
       fixtureIndex += 1;
 
       for (const message of sequence) {

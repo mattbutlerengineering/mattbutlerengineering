@@ -98,6 +98,7 @@ export interface CostBreakdown {
  */
 export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown {
   const pricing = MODEL_PRICING[model] ?? MODEL_PRICING[DEFAULT_MODEL];
+  if (!pricing) throw new Error(`No pricing found for model "${model}" or default model`);
 
   const inputCostUsd = (usage.inputTokens / 1_000_000) * pricing.inputCostPer1MTokens;
   const outputCostUsd = (usage.outputTokens / 1_000_000) * pricing.outputCostPer1MTokens;

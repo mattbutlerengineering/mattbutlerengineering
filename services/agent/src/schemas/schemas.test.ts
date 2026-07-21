@@ -46,13 +46,15 @@ describe("Agent service schemas", () => {
   describe("CreateSessionBodySchema taskDescription limits", () => {
     const schemaObj = CreateSessionBodySchema as Record<string, unknown>;
     const props = schemaObj.properties as Record<string, Record<string, unknown>>;
+    const taskDescription = props.taskDescription;
+    if (!taskDescription) throw new Error("expected a taskDescription property schema");
 
     it("enforces minLength of 1", () => {
-      expect(props.taskDescription.minLength).toBe(1);
+      expect(taskDescription.minLength).toBe(1);
     });
 
     it("enforces maxLength of 10000", () => {
-      expect(props.taskDescription.maxLength).toBe(10_000);
+      expect(taskDescription.maxLength).toBe(10_000);
     });
   });
 });

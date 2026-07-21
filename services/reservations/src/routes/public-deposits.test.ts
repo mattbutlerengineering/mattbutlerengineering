@@ -298,7 +298,8 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(body.data.currency).toBe("usd");
 
     // The PaymentIntent id is written in the single create — no second link write.
-    const createCall = vi.mocked(depositService.create).mock.calls[0][0];
+    const createCall = vi.mocked(depositService.create).mock.calls[0]?.[0];
+    if (!createCall) throw new Error("expected a create call");
     expect(createCall.stripePaymentIntentId).toBe("pi_test_abc");
     await app.close();
   });
@@ -338,9 +339,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(body.data.clientSecret).toBe("pi_test_xyz_secret");
 
     // PaymentIntent was created without a customer
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as {
-      customer?: string;
-    };
+    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
+      { customer?: string } | undefined;
+    if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
     expect(piCreateCall.customer).toBeUndefined();
     await app.close();
   });
@@ -378,11 +379,14 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(response.statusCode).toBe(201);
 
     // PaymentIntent was created with the customer ID
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as { customer?: string };
+    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
+      { customer?: string } | undefined;
+    if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
     expect(piCreateCall.customer).toBe("cus_abc");
 
     // The customer id is written atomically in the single deposit create.
-    const createCall = vi.mocked(depositService.create).mock.calls[0][0];
+    const createCall = vi.mocked(depositService.create).mock.calls[0]?.[0];
+    if (!createCall) throw new Error("expected a create call");
     expect(createCall.stripeCustomerId).toBe("cus_abc");
     expect(createCall.stripePaymentIntentId).toBe("pi_test_cus");
     await app.close();
@@ -410,9 +414,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     });
 
     expect(response.statusCode).toBe(201);
-    const requestOptions = mockPaymentIntents.create.mock.calls[0][1] as {
-      idempotencyKey?: string;
-    };
+    const requestOptions = mockPaymentIntents.create.mock.calls[0]?.[1] as
+      { idempotencyKey?: string } | undefined;
+    if (!requestOptions) throw new Error("expected PaymentIntent create request options");
     expect(requestOptions.idempotencyKey).toBe("res-1:paymentIntent:2500");
     await app.close();
   });
@@ -459,10 +463,15 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(second.statusCode).toBe(201);
 
     // Both attempts sent the SAME stable customer idempotency key.
-    const firstKey = (mockCustomers.create.mock.calls[0][1] as { idempotencyKey?: string })
-      .idempotencyKey;
-    const secondKey = (mockCustomers.create.mock.calls[1][1] as { idempotencyKey?: string })
-      .idempotencyKey;
+    const firstOptions = mockCustomers.create.mock.calls[0]?.[1] as
+      { idempotencyKey?: string } | undefined;
+    const secondOptions = mockCustomers.create.mock.calls[1]?.[1] as
+      { idempotencyKey?: string } | undefined;
+    if (!firstOptions || !secondOptions) {
+      throw new Error("expected two customer create calls");
+    }
+    const firstKey = firstOptions.idempotencyKey;
+    const secondKey = secondOptions.idempotencyKey;
     expect(firstKey).toBe("res-1:customer");
     expect(secondKey).toBe("res-1:customer");
 
@@ -570,7 +579,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     const body = response.json<{ data: { clientSecret: string } }>();
     expect(body.data.clientSecret).toBe("pi_test_noncust_secret");
     // PaymentIntent minted without a customer — the intentional graceful path.
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as { customer?: string };
+    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
+      { customer?: string } | undefined;
+    if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
     expect(piCreateCall.customer).toBeUndefined();
     await app.close();
   });
@@ -618,7 +629,9 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     // The PaymentIntent was created exactly once (only on the successful retry)
     // and carried the customer — no earlier customer-less PI under the same key.
     expect(mockPaymentIntents.create).toHaveBeenCalledTimes(1);
-    const piCreateCall = mockPaymentIntents.create.mock.calls[0][0] as { customer?: string };
+    const piCreateCall = mockPaymentIntents.create.mock.calls[0]?.[0] as
+      { customer?: string } | undefined;
+    if (!piCreateCall) throw new Error("expected a PaymentIntent create call");
     expect(piCreateCall.customer).toBe("cus_retry");
     await app.close();
   });

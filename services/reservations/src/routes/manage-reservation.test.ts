@@ -156,8 +156,12 @@ describe("GET /public/v1/reservations/manage — rate limiting", () => {
 
     // First 10 return 401 (invalid token), 11th should be rate limited
     for (let i = 0; i < 10; i++) {
-      expect(responses[i].statusCode).toBe(401);
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(401);
     }
-    expect(responses[10].statusCode).toBe(429);
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
   });
 });

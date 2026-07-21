@@ -218,10 +218,12 @@ describe("availabilityService.generateTimeSlots", () => {
     const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
 
     const availableSlot = slots.find((s) => s.available);
-    expect(availableSlot).toBeDefined();
-    expect(availableSlot!.tables).toBeDefined();
-    expect(availableSlot!.tables!).toHaveLength(1);
-    expect(availableSlot!.tables![0].id).toBe("table-1");
+    if (!availableSlot) throw new Error("expected an available slot");
+    expect(availableSlot.tables).toBeDefined();
+    expect(availableSlot.tables).toHaveLength(1);
+    const [firstTable] = availableSlot.tables ?? [];
+    if (!firstTable) throw new Error("expected at least one table");
+    expect(firstTable.id).toBe("table-1");
   });
 
   it("respects pacing rules when configured", async () => {
@@ -254,6 +256,7 @@ describe("availabilityService.generateTimeSlots", () => {
     // The 11:00 slot should be unavailable because pacing limit (4) would be exceeded
     // with existing 4 covers + new party of 2 = 6 > 4
     const elevenOClock = slots[0];
+    if (!elevenOClock) throw new Error("expected at least one slot");
     expect(elevenOClock.available).toBe(false);
   });
 });
@@ -300,14 +303,14 @@ describe("availabilityService.getAvailableDates", () => {
 
     await availabilityService.getAvailableDates(VENUE_ID, "2026-05-04", "2026-05-04", 2);
 
-    const reservationWhere = vi.mocked(prisma.reservation.findMany).mock.calls[0][0] as {
-      where: { status: unknown };
-    };
+    const reservationWhere = vi.mocked(prisma.reservation.findMany).mock.calls[0]?.[0] as
+      { where: { status: unknown } } | undefined;
+    if (!reservationWhere) throw new Error("expected a reservation.findMany call");
     expect(reservationWhere.where.status).toEqual({ notIn: [...NOT_BOOKED_STATUSES] });
 
-    const holdWhere = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
-      where: { expiresAt: { gt: Date } };
-    };
+    const holdWhere = vi.mocked(prisma.reservationHold.findMany).mock.calls[0]?.[0] as
+      { where: { expiresAt: { gt: Date } } } | undefined;
+    if (!holdWhere) throw new Error("expected a reservationHold.findMany call");
     expect(holdWhere.where.expiresAt).toEqual(activeHoldWindow(holdWhere.where.expiresAt.gt));
   });
 
@@ -354,8 +357,10 @@ describe("availabilityService.getAvailableDates", () => {
       2
     );
 
-    expect(dates[0].hasAvailability).toBe(true);
-    expect(dates[0].slotCount).toBeGreaterThan(0);
+    const [firstDate] = dates;
+    if (!firstDate) throw new Error("expected at least one date");
+    expect(firstDate.hasAvailability).toBe(true);
+    expect(firstDate.slotCount).toBeGreaterThan(0);
   });
 
   it("correctly buckets reservations and holds by date across a multi-day range", async () => {
@@ -613,9 +618,9 @@ describe("fetchConflictData", () => {
 
     await fetchConflictData(VENUE_ID, "2026-05-05");
 
-    const holdCall = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
-      where: { venueId: string; expiresAt: { gt: Date } };
-    };
+    const holdCall = vi.mocked(prisma.reservationHold.findMany).mock.calls[0]?.[0] as
+      { where: { venueId: string; expiresAt: { gt: Date } } } | undefined;
+    if (!holdCall) throw new Error("expected a reservationHold.findMany call");
     expect(holdCall.where.venueId).toBe(VENUE_ID);
     expect(holdCall.where.expiresAt.gt).toBeInstanceOf(Date);
   });
@@ -626,14 +631,14 @@ describe("fetchConflictData", () => {
 
     await fetchConflictData(VENUE_ID, "2026-05-05");
 
-    const reservationWhere = vi.mocked(prisma.reservation.findMany).mock.calls[0][0] as {
-      where: { status: unknown };
-    };
+    const reservationWhere = vi.mocked(prisma.reservation.findMany).mock.calls[0]?.[0] as
+      { where: { status: unknown } } | undefined;
+    if (!reservationWhere) throw new Error("expected a reservation.findMany call");
     expect(reservationWhere.where.status).toEqual({ notIn: [...NOT_BOOKED_STATUSES] });
 
-    const holdWhere = vi.mocked(prisma.reservationHold.findMany).mock.calls[0][0] as {
-      where: { expiresAt: { gt: Date } };
-    };
+    const holdWhere = vi.mocked(prisma.reservationHold.findMany).mock.calls[0]?.[0] as
+      { where: { expiresAt: { gt: Date } } } | undefined;
+    if (!holdWhere) throw new Error("expected a reservationHold.findMany call");
     expect(holdWhere.where.expiresAt).toEqual(activeHoldWindow(holdWhere.where.expiresAt.gt));
   });
 });

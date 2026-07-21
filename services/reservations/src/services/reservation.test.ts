@@ -150,11 +150,13 @@ describe("reservationService", () => {
       });
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("res-1");
-      expect(result.data[0].status).toBe("PENDING");
-      expect(typeof result.data[0].startTime).toBe("string");
-      expect(typeof result.data[0].date).toBe("string");
-      expect(result.data[0].table?.id).toBe("table-1");
+      const [reservation] = result.data;
+      if (!reservation) throw new Error("expected a reservation");
+      expect(reservation.id).toBe("res-1");
+      expect(reservation.status).toBe("PENDING");
+      expect(typeof reservation.startTime).toBe("string");
+      expect(typeof reservation.date).toBe("string");
+      expect(reservation.table?.id).toBe("table-1");
       expect(result.pagination.total).toBe(1);
     });
 
@@ -856,7 +858,8 @@ describe("reservationService", () => {
         date: "2026-05-06",
       });
 
-      const opts = vi.mocked(assertBookable).mock.calls[0][0];
+      const opts = vi.mocked(assertBookable).mock.calls[0]?.[0];
+      if (!opts) throw new Error("expected an assertBookable call");
       expect(opts.reservations.some((r) => r.id === "res-1")).toBe(false);
     });
   });

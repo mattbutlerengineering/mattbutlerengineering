@@ -97,9 +97,11 @@ describe("venueGroupService", () => {
       const result = await venueGroupService.list(1, 10);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("group-1");
-      expect(result.data[0].slug).toBe("test-group");
-      expect(typeof result.data[0].createdAt).toBe("string");
+      const [group] = result.data;
+      if (!group) throw new Error("expected a venue group");
+      expect(group.id).toBe("group-1");
+      expect(group.slug).toBe("test-group");
+      expect(typeof group.createdAt).toBe("string");
       expect(result.pagination.total).toBe(1);
     });
 
@@ -224,10 +226,12 @@ describe("venueService", () => {
       const result = await venueService.list(1, 10);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("venue-1");
-      expect(result.data[0].venueGroup?.name).toBe("Test Group");
-      expect(result.data[0].ianaTimezone).toBe("America/Los_Angeles");
-      expect(typeof result.data[0].createdAt).toBe("string");
+      const [venue] = result.data;
+      if (!venue) throw new Error("expected a venue");
+      expect(venue.id).toBe("venue-1");
+      expect(venue.venueGroup?.name).toBe("Test Group");
+      expect(venue.ianaTimezone).toBe("America/Los_Angeles");
+      expect(typeof venue.createdAt).toBe("string");
     });
 
     it("filters by venueGroupId when provided", async () => {
@@ -264,7 +268,9 @@ describe("venueService", () => {
       const result = await venueService.listForMember("auth0|user-1", 1, 10);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("venue-1");
+      const [venue] = result.data;
+      if (!venue) throw new Error("expected a venue");
+      expect(venue.id).toBe("venue-1");
       expect(prisma.venue.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { memberships: { some: { userSub: "auth0|user-1" } } },
@@ -510,9 +516,13 @@ describe("venueService", () => {
         createdAt: NOW,
         updatedAt: NOW,
       });
-      vi.mocked(prisma.$transaction).mockImplementationOnce((async (fn: (tx: TxLike) => Promise<unknown>) =>
-        fn({ venue: { create: venueCreate }, venueMembership: { create: membershipCreate } })
-      ) as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: membershipCreate },
+        })) as never);
 
       const result = await venueService.create(
         { name: "Test Venue", slug: "test-venue", ianaTimezone: "America/Los_Angeles" },

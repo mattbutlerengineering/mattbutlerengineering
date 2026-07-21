@@ -83,10 +83,12 @@ describe("floorPlanService", () => {
       const result = await floorPlanService.list(1, 10);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("fp-1");
-      expect(result.data[0].tables).toHaveLength(1);
-      expect(result.data[0].layoutJson).toEqual({ width: 800, height: 600 });
-      expect(typeof result.data[0].createdAt).toBe("string");
+      const [floorPlan] = result.data;
+      if (!floorPlan) throw new Error("expected a floor plan");
+      expect(floorPlan.id).toBe("fp-1");
+      expect(floorPlan.tables).toHaveLength(1);
+      expect(floorPlan.layoutJson).toEqual({ width: 800, height: 600 });
+      expect(typeof floorPlan.createdAt).toBe("string");
     });
 
     it("filters by venueId when provided", async () => {

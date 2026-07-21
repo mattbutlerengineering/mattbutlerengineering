@@ -23,7 +23,9 @@ describe("gen-stream", () => {
     it("handles an empty conversation (system message only)", () => {
       const out = buildGenMessages("SYS", []);
       expect(out).toHaveLength(1);
-      expect(out[0].role).toBe("system");
+      const [systemMessage] = out;
+      if (!systemMessage) throw new Error("expected a system message");
+      expect(systemMessage.role).toBe("system");
     });
   });
 
@@ -44,7 +46,9 @@ describe("gen-stream", () => {
       });
 
       expect(log.info).toHaveBeenCalledOnce();
-      const [fields, label] = log.info.mock.calls[0];
+      const infoCall = log.info.mock.calls[0];
+      if (!infoCall) throw new Error("expected a log.info call");
+      const [fields, label] = infoCall;
       expect(label).toBe("gen-agent cost log");
       expect(fields).toMatchObject({
         userId: "u1",
@@ -64,7 +68,9 @@ describe("gen-stream", () => {
         label: "gen-chat cost log",
       });
 
-      const [fields] = log.info.mock.calls[0];
+      const infoCall = log.info.mock.calls[0];
+      if (!infoCall) throw new Error("expected a log.info call");
+      const [fields] = infoCall;
       expect(fields.cacheReadInputTokens).toBe(0);
       expect(fields.cacheCreationInputTokens).toBe(0);
     });

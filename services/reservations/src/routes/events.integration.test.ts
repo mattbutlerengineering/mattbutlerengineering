@@ -71,8 +71,9 @@ describe("SSE Event Stream Integration", () => {
 
     // Extract and parse the data line
     const dataMatch = body.match(/event: connected\ndata: (.+)\n/);
-    expect(dataMatch).toBeTruthy();
-    const parsed = JSON.parse(dataMatch![1]);
+    const dataLine = dataMatch?.[1];
+    if (!dataLine) throw new Error("expected a matched data line");
+    const parsed = JSON.parse(dataLine);
     expect(parsed.message).toBe("Connected to event stream");
   });
 

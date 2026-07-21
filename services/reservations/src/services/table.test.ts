@@ -56,8 +56,10 @@ describe("tableService", () => {
       const result = await tableService.list(1, 10);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("table-1");
-      expect(result.data[0].createdAt).toBe(NOW.toISOString());
+      const [table] = result.data;
+      if (!table) throw new Error("expected a table");
+      expect(table.id).toBe("table-1");
+      expect(table.createdAt).toBe(NOW.toISOString());
       expect(result.pagination).toEqual({
         page: 1,
         limit: 10,

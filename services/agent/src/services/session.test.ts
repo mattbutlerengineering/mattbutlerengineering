@@ -98,7 +98,9 @@ describe("sessionService", () => {
         orderBy: { createdAt: "desc" },
       });
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].id).toBe("sess-1");
+      const [session] = result.data;
+      if (!session) throw new Error("expected a session");
+      expect(session.id).toBe("sess-1");
       expect(result.pagination).toEqual({
         page: 1,
         limit: 10,
@@ -143,8 +145,10 @@ describe("sessionService", () => {
 
       const result = await sessionService.list({ page: 1, limit: 10 });
 
-      expect(result.data[0].createdAt).toBe("2026-03-01T12:00:00.000Z");
-      expect(result.data[0].updatedAt).toBe("2026-03-01T12:00:00.000Z");
+      const [session] = result.data;
+      if (!session) throw new Error("expected a session");
+      expect(session.createdAt).toBe("2026-03-01T12:00:00.000Z");
+      expect(session.updatedAt).toBe("2026-03-01T12:00:00.000Z");
     });
 
     it("maps status to lowercase", async () => {
@@ -154,7 +158,9 @@ describe("sessionService", () => {
       vi.mocked(prisma.session.count).mockResolvedValueOnce(1);
 
       const result = await sessionService.list({ page: 1, limit: 10 });
-      expect(result.data[0].status).toBe("running");
+      const [session] = result.data;
+      if (!session) throw new Error("expected a session");
+      expect(session.status).toBe("running");
     });
 
     it("defaults null errors to empty array", async () => {
@@ -164,7 +170,9 @@ describe("sessionService", () => {
       vi.mocked(prisma.session.count).mockResolvedValueOnce(1);
 
       const result = await sessionService.list({ page: 1, limit: 10 });
-      expect(result.data[0].errors).toEqual([]);
+      const [session] = result.data;
+      if (!session) throw new Error("expected a session");
+      expect(session.errors).toEqual([]);
     });
   });
 
@@ -254,7 +262,9 @@ describe("sessionService", () => {
 
       const result = await sessionService.updateStatus("sess-1", "RUNNING");
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toHaveProperty("startedAt");
       expect(result).not.toBeNull();
     });
@@ -266,7 +276,9 @@ describe("sessionService", () => {
 
       await sessionService.updateStatus("sess-1", "SUCCEEDED");
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toHaveProperty("completedAt");
     });
 
@@ -277,7 +289,9 @@ describe("sessionService", () => {
 
       await sessionService.updateStatus("sess-1", "FAILED");
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toHaveProperty("completedAt");
     });
 
@@ -288,7 +302,9 @@ describe("sessionService", () => {
 
       await sessionService.updateStatus("sess-1", "CANCELLED");
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toHaveProperty("completedAt");
     });
 
@@ -311,7 +327,9 @@ describe("sessionService", () => {
         sdkSessionId: "sdk-123",
       });
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).toMatchObject({
         status: "SUCCEEDED",
         branchName: "agent/fix-auth",
@@ -352,7 +370,9 @@ describe("sessionService", () => {
 
       await sessionService.updateStatus("sess-1", "PENDING");
 
-      const callData = vi.mocked(prisma.session.update).mock.calls[0][0].data;
+      const updateCall = vi.mocked(prisma.session.update).mock.calls[0]?.[0];
+      if (!updateCall) throw new Error("expected a session.update call");
+      const callData = updateCall.data;
       expect(callData).not.toHaveProperty("startedAt");
       expect(callData).not.toHaveProperty("completedAt");
     });
@@ -503,7 +523,9 @@ describe("sessionService", () => {
       vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce([makePrismaEvent()]);
 
       const result = await sessionService.listEvents("sess-1");
-      expect(result[0].createdAt).toBe("2026-03-01T12:00:00.000Z");
+      const [event] = result;
+      if (!event) throw new Error("expected an event");
+      expect(event.createdAt).toBe("2026-03-01T12:00:00.000Z");
     });
   });
 

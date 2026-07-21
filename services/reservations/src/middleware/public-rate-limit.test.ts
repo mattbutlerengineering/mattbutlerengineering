@@ -43,6 +43,7 @@ describe("publicRateLimitPlugin", () => {
     }
 
     const lastResponse = responses[responses.length - 1];
+    if (!lastResponse) throw new Error("expected at least one response");
     expect(lastResponse.statusCode).toBe(429);
     expect(lastResponse.headers["retry-after"]).toBeDefined();
     const body = lastResponse.json();

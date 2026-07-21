@@ -115,6 +115,7 @@ describe("briefingService", () => {
 
       expect(result).toHaveLength(1);
       const entry = result[0];
+      if (!entry) throw new Error("expected a briefing entry");
 
       expect(entry.id).toBe("res-1");
       expect(entry.guestName).toBe("Jane Doe");
@@ -186,7 +187,9 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].guest!.tags).toContain("vip");
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.guest!.tags).toContain("vip");
     });
 
     it("includes special occasion (anniversary) in briefing", async () => {
@@ -203,7 +206,9 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].occasion).toBe("anniversary");
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.occasion).toBe("anniversary");
     });
 
     it("includes other special occasions (birthday, business, etc.)", async () => {
@@ -224,7 +229,9 @@ describe("briefingService", () => {
           venueId: "venue-1",
         });
 
-        expect(result[0].occasion).toBe(occasion);
+        const [entry] = result;
+        if (!entry) throw new Error("expected a briefing entry");
+        expect(entry.occasion).toBe(occasion);
       }
     });
 
@@ -241,7 +248,9 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].guest).toBeNull();
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.guest).toBeNull();
     });
 
     it("handles null guest fields (name, notes, etc.) gracefully", async () => {
@@ -264,11 +273,13 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].guest).not.toBeNull();
-      expect(result[0].guest!.notes).toBeNull();
-      expect(result[0].guest!.dietaryRestrictions).toBeNull();
-      expect(result[0].guest!.tags).toBeNull();
-      expect(result[0].guest!.lastVisit).toBeNull();
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.guest).not.toBeNull();
+      expect(entry.guest!.notes).toBeNull();
+      expect(entry.guest!.dietaryRestrictions).toBeNull();
+      expect(entry.guest!.tags).toBeNull();
+      expect(entry.guest!.lastVisit).toBeNull();
     });
 
     it("handles empty staffNotes array", async () => {
@@ -287,7 +298,9 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].guest!.staffNotes).toEqual([]);
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.guest!.staffNotes).toEqual([]);
     });
 
     it("includes staffNotes in guest briefing", async () => {
@@ -311,7 +324,9 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].guest!.staffNotes).toEqual(staffNotes);
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.guest!.staffNotes).toEqual(staffNotes);
     });
 
     it("excludes guestEmail and guestPhone from briefing entry", async () => {
@@ -356,8 +371,10 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].id).toBe("res-1");
-      expect(result[1].id).toBe("res-2");
+      const [first, second] = result;
+      if (!first || !second) throw new Error("expected two briefing entries");
+      expect(first.id).toBe("res-1");
+      expect(second.id).toBe("res-2");
     });
 
     it("includes multiple reservations with mixed guest states", async () => {
@@ -401,10 +418,14 @@ describe("briefingService", () => {
       });
 
       expect(result).toHaveLength(3);
-      expect(result[0].guest!.tags).toContain("vip");
-      expect(result[0].occasion).toBe("anniversary");
-      expect(result[1].guest!.tags).toBeNull();
-      expect(result[2].guest).toBeNull();
+      const [entryOne, entryTwo, entryThree] = result;
+      if (!entryOne || !entryTwo || !entryThree) {
+        throw new Error("expected three briefing entries");
+      }
+      expect(entryOne.guest!.tags).toContain("vip");
+      expect(entryOne.occasion).toBe("anniversary");
+      expect(entryTwo.guest!.tags).toBeNull();
+      expect(entryThree.guest).toBeNull();
     });
 
     it("includes table information in briefing entry", async () => {
@@ -437,11 +458,13 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].table).toBeDefined();
-      expect(result[0].table!.id).toBe("table-5");
-      expect(result[0].table!.name).toBe("Table 5");
-      expect(result[0].table!.capacity).toBe(8);
-      expect(result[0].table!.location).toBe("patio");
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.table).toBeDefined();
+      expect(entry.table!.id).toBe("table-5");
+      expect(entry.table!.name).toBe("Table 5");
+      expect(entry.table!.capacity).toBe(8);
+      expect(entry.table!.location).toBe("patio");
     });
 
     it("includes guest communication preference in briefing", async () => {
@@ -460,7 +483,9 @@ describe("briefingService", () => {
         venueId: "venue-1",
       });
 
-      expect(result[0].guest!.communicationPreference).toBe("email_only");
+      const [entry] = result;
+      if (!entry) throw new Error("expected a briefing entry");
+      expect(entry.guest!.communicationPreference).toBe("email_only");
     });
 
     it("converts dates to ISO strings", async () => {
@@ -480,6 +505,7 @@ describe("briefingService", () => {
       });
 
       const entry = result[0];
+      if (!entry) throw new Error("expected a briefing entry");
       expect(entry.date).toBe(TARGET_DATE_OBJ.toISOString());
       expect(entry.startTime).toBe(START_TIME.toISOString());
       expect(entry.endTime).toBe(END_TIME.toISOString());

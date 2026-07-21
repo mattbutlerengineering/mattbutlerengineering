@@ -27,11 +27,18 @@ export function detectLapse(visitDates: string[]): LapseResult {
   // Average gap between consecutive visits
   let totalGap = 0;
   for (let i = 1; i < sorted.length; i++) {
-    totalGap += sorted[i] - sorted[i - 1];
+    const current = sorted[i];
+    const previous = sorted[i - 1];
+    if (current === undefined || previous === undefined) continue;
+    totalGap += current - previous;
   }
   const avgFrequencyDays = totalGap / (sorted.length - 1) / DAY_MS;
 
-  const daysSinceLastVisit = (Date.now() - sorted[sorted.length - 1]) / DAY_MS;
+  const lastVisit = sorted[sorted.length - 1];
+  if (lastVisit === undefined) {
+    return { avgFrequencyDays, daysSinceLastVisit: 0, isLapsing: false };
+  }
+  const daysSinceLastVisit = (Date.now() - lastVisit) / DAY_MS;
 
   const isLapsing = daysSinceLastVisit > avgFrequencyDays * 2;
 

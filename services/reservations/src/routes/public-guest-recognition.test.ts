@@ -255,10 +255,14 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
 
     // First 10 should succeed
     for (let i = 0; i < 10; i++) {
-      expect(responses[i].statusCode).toBe(200);
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(200);
     }
     // 11th should be rate limited (429)
-    expect(responses[10].statusCode).toBe(429);
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
   });
 
   it("contract: live response validates against the shared GuestRecognition Zod schema", async () => {
