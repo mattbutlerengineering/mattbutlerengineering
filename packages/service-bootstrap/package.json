@@ -20,14 +20,14 @@
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.1.0",
-    "@fastify/swagger": "^9.8.1",
+    "@fastify/swagger": "^9.8.0",
     "@fastify/swagger-ui": "^6.1.0",
     "@mbe/auth": "workspace:*",
     "@mbe/database": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
-    "@scalar/fastify-api-reference": "^1.62.9",
+    "@scalar/fastify-api-reference": "^1.62.5",
     "fastify": "catalog:",
     "fastify-plugin": "^6.0.0"
   },
