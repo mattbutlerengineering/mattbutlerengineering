@@ -14,6 +14,13 @@ vi.mock("node:child_process", () => ({
 const mockExistsSync = vi.mocked(existsSync);
 const mockSpawn = vi.mocked(spawn);
 
+/** Returns the argv array passed to the first spawn() call, or throws if none. */
+function firstSpawnArgs(): string[] {
+  const firstCall = mockSpawn.mock.calls[0];
+  if (!firstCall) throw new Error("expected spawn to have been called");
+  return firstCall[1] as string[];
+}
+
 function makeFakeProcess(closeCode: number = 0): Partial<ChildProcess> {
   const proc = {
     on(event: string, cb: (...args: unknown[]) => void) {
@@ -58,7 +65,7 @@ describe("visual command", () => {
       expect.any(Object)
     );
 
-    const args = mockSpawn.mock.calls[0][1] as string[];
+    const args = firstSpawnArgs();
     expect(args).not.toContain("-g");
     expect(args).not.toContain("--update-snapshots");
   });
@@ -66,7 +73,7 @@ describe("visual command", () => {
   it("adds -g filter when a filter argument is provided", async () => {
     await runVisual(["button"]);
 
-    const args = mockSpawn.mock.calls[0][1] as string[];
+    const args = firstSpawnArgs();
     expect(args).toContain("-g");
     expect(args).toContain("button");
   });
@@ -74,7 +81,7 @@ describe("visual command", () => {
   it("adds --update-snapshots when -u flag is passed", async () => {
     await runVisual(["-u"]);
 
-    const args = mockSpawn.mock.calls[0][1] as string[];
+    const args = firstSpawnArgs();
     expect(args).toContain("--update-snapshots");
   });
 

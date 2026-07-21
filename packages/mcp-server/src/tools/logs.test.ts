@@ -107,8 +107,10 @@ describe("checkLogs", () => {
     const result = await checkLogs();
     const mcpContent = [{ type: "text" as const, text: result }];
 
-    expect(mcpContent[0].type).toBe("text");
-    expect(typeof mcpContent[0].text).toBe("string");
+    const [entry] = mcpContent;
+    if (!entry) throw new Error("expected at least one content entry");
+    expect(entry.type).toBe("text");
+    expect(typeof entry.text).toBe("string");
   });
 
   it("rejects a path-traversal service name", async () => {

@@ -14,9 +14,11 @@ describe("deployStatus", () => {
 
     expect(Array.isArray(parsed.apps)).toBe(true);
     expect(parsed.apps).toHaveLength(2);
-    expect(parsed.apps[0].id).toBe("abc123");
-    expect(parsed.apps[0].name).toBe("my-app");
-    expect(parsed.apps[0].activePhase).toBe("ACTIVE");
+    const [first] = parsed.apps;
+    if (!first) throw new Error("expected at least one app");
+    expect(first.id).toBe("abc123");
+    expect(first.name).toBe("my-app");
+    expect(first.activePhase).toBe("ACTIVE");
   });
 
   it("returns empty apps array when doctl output is empty", async () => {
@@ -36,7 +38,9 @@ describe("deployStatus", () => {
       apps: Array<{ inProgressPhase: string }>;
     };
 
-    expect(parsed.apps[0].inProgressPhase).toBe("none");
+    const [first] = parsed.apps;
+    if (!first) throw new Error("expected at least one app");
+    expect(first.inProgressPhase).toBe("none");
   });
 
   it("returns error JSON when runner returns error envelope", async () => {
@@ -73,7 +77,9 @@ describe("deployStatus", () => {
     const result = await deployStatus(run);
     const mcpContent = [{ type: "text" as const, text: result }];
 
-    expect(mcpContent[0].type).toBe("text");
-    expect(typeof mcpContent[0].text).toBe("string");
+    const [entry] = mcpContent;
+    if (!entry) throw new Error("expected at least one content entry");
+    expect(entry.type).toBe("text");
+    expect(typeof entry.text).toBe("string");
   });
 });

@@ -87,10 +87,12 @@ describe("serviceHealthCheck", () => {
 
     const result = await serviceHealthCheck();
     const parsed = JSON.parse(result) as Array<{ status: string }>;
+    const [first, second, third] = parsed;
+    if (!first || !second || !third) throw new Error("expected three health entries");
 
-    expect(parsed[0].status).toBe("healthy");
-    expect(parsed[1].status).toBe("unreachable");
-    expect(parsed[2].status).toBe("unhealthy");
+    expect(first.status).toBe("healthy");
+    expect(second.status).toBe("unreachable");
+    expect(third.status).toBe("unhealthy");
   });
 
   it("result is a valid MCP text content string", async () => {
@@ -99,8 +101,10 @@ describe("serviceHealthCheck", () => {
     const result = await serviceHealthCheck();
     const mcpContent = [{ type: "text" as const, text: result }];
 
-    expect(mcpContent[0].type).toBe("text");
-    expect(typeof mcpContent[0].text).toBe("string");
+    const [entry] = mcpContent;
+    if (!entry) throw new Error("expected at least one content entry");
+    expect(entry.type).toBe("text");
+    expect(typeof entry.text).toBe("string");
     expect(() => JSON.parse(result)).not.toThrow();
   });
 });

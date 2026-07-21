@@ -102,10 +102,11 @@ describe("agent run – spend-recording seam", () => {
     });
 
     const { agentCommand } = await import("../commands/agent.js");
-    await agentCommand.commands[0].parseAsync(
-      ["Fix the logging bug", "--model", "claude-sonnet-4-6"],
-      { from: "user" }
-    );
+    const [runSubcommand] = agentCommand.commands;
+    if (!runSubcommand) throw new Error("expected agent run subcommand");
+    await runSubcommand.parseAsync(["Fix the logging bug", "--model", "claude-sonnet-4-6"], {
+      from: "user",
+    });
 
     expect(exitSpy).toHaveBeenCalledWith(0);
 
@@ -131,7 +132,9 @@ describe("agent run – spend-recording seam", () => {
     });
 
     const { agentCommand } = await import("../commands/agent.js");
-    await agentCommand.commands[0].parseAsync(["Bad task"], { from: "user" });
+    const [runSubcommand] = agentCommand.commands;
+    if (!runSubcommand) throw new Error("expected agent run subcommand");
+    await runSubcommand.parseAsync(["Bad task"], { from: "user" });
 
     expect(exitSpy).toHaveBeenCalledWith(1);
 

@@ -1,7 +1,6 @@
 {
   "extends": "@mbe/config/typescript/react",
   "compilerOptions": {
-    "noUncheckedIndexedAccess": true,
     "outDir": "dist",
     "rootDir": "..",
     "paths": {

@@ -26,7 +26,7 @@ function detectNextPort(appsDir: string): number {
       if (existsSync(viteConfigPath)) {
         const content = readFileSync(viteConfigPath, "utf8");
         const match = /port:\s*(\d+)/.exec(content);
-        if (match) {
+        if (match?.[1]) {
           usedPorts.add(parseInt(match[1], 10));
         }
       }
