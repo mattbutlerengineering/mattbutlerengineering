@@ -143,7 +143,7 @@ export async function evaluateSuccess(
     let result: SDKResultMessage | null = null;
     for await (const message of conversation) {
       if (message.type === "result") {
-        result = message as SDKResultMessage;
+        result = message;
       }
     }
 

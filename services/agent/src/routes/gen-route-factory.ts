@@ -72,7 +72,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
             );
         }
 
-        const parsed = parseResult.data as z.infer<TSchema>;
+        const parsed = parseResult.data;
         const { messages } = parsed as {
           messages: Array<{ role: "user" | "assistant"; content: string }>;
         };

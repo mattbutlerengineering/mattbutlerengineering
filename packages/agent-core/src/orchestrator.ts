@@ -288,7 +288,7 @@ export async function runOrchestrator(
 
     for await (const message of conversation) {
       if (message.type === "result") {
-        resultMessage = message as SDKResultMessage;
+        resultMessage = message;
       }
 
       // Track created session IDs from any message containing sessionId

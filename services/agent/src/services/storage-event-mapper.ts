@@ -71,6 +71,6 @@ export function mapForStorage(event: MappedEvent): { type: string; data: Record<
   // session:turn_metrics — pass through all fields
   return {
     type: event.type,
-    data: { ...event } as Record<string, unknown>,
+    data: { ...event },
   };
 }

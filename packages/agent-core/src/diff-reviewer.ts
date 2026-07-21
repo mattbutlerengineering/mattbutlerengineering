@@ -144,7 +144,7 @@ export async function reviewDiff(
     let result: SDKResultMessage | null = null;
     for await (const message of conversation) {
       if (message.type === "result") {
-        result = message as SDKResultMessage;
+        result = message;
       }
     }
 

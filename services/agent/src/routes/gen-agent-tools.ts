@@ -103,7 +103,7 @@ export function createAgentTools(log: FastifyBaseLogger, api: ApiClient): ToolSe
       execute: async ({ venueId, date, status }) => {
         log.info({ venueId, date, status }, "list_today_reservations tool called");
         try {
-          const queryDate = date ?? new Date().toISOString().split("T")[0]!;
+          const queryDate = date ?? new Date().toISOString().split("T")[0];
           const result = await api.reservations.list({
             venueId,
             date: queryDate,
