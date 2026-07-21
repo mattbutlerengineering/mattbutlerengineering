@@ -132,6 +132,7 @@ function loadCostBaseline(logFile: string): number | null {
       .filter(Boolean);
     if (lines.length === 0) return null;
     const last = lines[lines.length - 1];
+    if (last === undefined) return null;
     const parsed = JSON.parse(last) as { aggregate?: { meanCostUsd?: unknown } };
     const cost = parsed?.aggregate?.meanCostUsd;
     return typeof cost === "number" ? cost : null;

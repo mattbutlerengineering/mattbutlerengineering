@@ -342,7 +342,7 @@
       if (!match) return null;
     
       try {
-        return load(match[1]) as ADRFrontmatter;
+        return load(match[1] ?? "") as ADRFrontmatter;
       } catch (e) {
         console.error(`Error parsing ADR at ${filePath}:`, e);
         return null;
@@ -848,7 +848,7 @@
           if (existsSync(viteConfigPath)) {
             const content = readFileSync(viteConfigPath, "utf8");
             const match = /port:\s*(\d+)/.exec(content);
-            if (match) {
+            if (match?.[1]) {
               usedPorts.add(parseInt(match[1], 10));
             }
           }

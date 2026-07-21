@@ -182,7 +182,9 @@ describe("agent command", () => {
       await agentCommand.parseAsync(["run", "Fix the login bug"], { from: "user" });
 
       expect(core.runAgentSession).toHaveBeenCalledOnce();
-      const callConfig = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const [firstCall] = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls;
+      if (!firstCall) throw new Error("expected runAgentSession to have been called");
+      const [callConfig] = firstCall;
       expect(callConfig.taskDescription).toBe("Fix the login bug");
 
       const allOutput = logSpy.mock.calls.flat().join("\n");
@@ -244,7 +246,9 @@ describe("agent command", () => {
       await agentCommand.parseAsync(["run", "Simple fix"], { from: "user" });
 
       expect(core.runAgentSession).toHaveBeenCalledOnce();
-      const config = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const [firstCall] = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls;
+      if (!firstCall) throw new Error("expected runAgentSession to have been called");
+      const [config] = firstCall;
       expect(config.maxBudgetUsd).toBe(1.0);
       expect(config.maxTurns).toBe(50);
     });
@@ -272,7 +276,9 @@ describe("agent command", () => {
         from: "user",
       });
 
-      const config = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      const [firstCall] = (core.runAgentSession as ReturnType<typeof vi.fn>).mock.calls;
+      if (!firstCall) throw new Error("expected runAgentSession to have been called");
+      const [config] = firstCall;
       expect(config.model).toBe("claude-sonnet-4-6");
     });
 
@@ -977,7 +983,9 @@ describe("agent run – invalid adapter and non-default option branches", () => 
 
   it("exits with error when adapter is invalid", async () => {
     const { agentCommand } = await import("../commands/agent.js");
-    await agentCommand.commands[0].parseAsync(["fix the bug", "--adapter", "invalid-adapter"], {
+    const [runSubcommand] = agentCommand.commands;
+    if (!runSubcommand) throw new Error("expected agent run subcommand");
+    await runSubcommand.parseAsync(["fix the bug", "--adapter", "invalid-adapter"], {
       from: "user",
     });
 
@@ -1002,12 +1010,15 @@ describe("agent run – invalid adapter and non-default option branches", () => 
     });
 
     const { agentCommand } = await import("../commands/agent.js");
-    await agentCommand.commands[0].parseAsync(["fix the bug", "--model", "claude-opus-4-6"], {
+    const [runSubcommand] = agentCommand.commands;
+    if (!runSubcommand) throw new Error("expected agent run subcommand");
+    await runSubcommand.parseAsync(["fix the bug", "--model", "claude-opus-4-6"], {
       from: "user",
     });
 
     expect(runAgentSession).toHaveBeenCalled();
     const callArgs = vi.mocked(runAgentSession).mock.calls[0];
+    if (!callArgs) throw new Error("expected runAgentSession to have been called");
     expect(callArgs[0]).toMatchObject({ model: "claude-opus-4-6" });
   });
 
@@ -1027,12 +1038,15 @@ describe("agent run – invalid adapter and non-default option branches", () => 
     });
 
     const { agentCommand } = await import("../commands/agent.js");
-    await agentCommand.commands[0].parseAsync(["fix the bug", "--max-budget", "5"], {
+    const [runSubcommand] = agentCommand.commands;
+    if (!runSubcommand) throw new Error("expected agent run subcommand");
+    await runSubcommand.parseAsync(["fix the bug", "--max-budget", "5"], {
       from: "user",
     });
 
     expect(runAgentSession).toHaveBeenCalled();
     const callArgs = vi.mocked(runAgentSession).mock.calls[0];
+    if (!callArgs) throw new Error("expected runAgentSession to have been called");
     expect(callArgs[0]).toMatchObject({ maxBudgetUsd: 5 });
   });
 
@@ -1052,12 +1066,15 @@ describe("agent run – invalid adapter and non-default option branches", () => 
     });
 
     const { agentCommand } = await import("../commands/agent.js");
-    await agentCommand.commands[0].parseAsync(["fix the bug", "--max-turns", "25"], {
+    const [runSubcommand] = agentCommand.commands;
+    if (!runSubcommand) throw new Error("expected agent run subcommand");
+    await runSubcommand.parseAsync(["fix the bug", "--max-turns", "25"], {
       from: "user",
     });
 
     expect(runAgentSession).toHaveBeenCalled();
     const callArgs = vi.mocked(runAgentSession).mock.calls[0];
+    if (!callArgs) throw new Error("expected runAgentSession to have been called");
     expect(callArgs[0]).toMatchObject({ maxTurns: 25 });
   });
 });

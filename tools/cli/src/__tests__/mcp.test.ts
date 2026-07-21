@@ -45,7 +45,9 @@ describe("mcp command", () => {
 
   async function runMcpStart(): Promise<void> {
     const { mcpCommand } = await import("../commands/mcp.js");
-    await mcpCommand.commands[0].parseAsync([], { from: "user" });
+    const [startSubcommand] = mcpCommand.commands;
+    if (!startSubcommand) throw new Error("expected mcp start subcommand");
+    await startSubcommand.parseAsync([], { from: "user" });
   }
 
   it("exits with error when mcp-server package directory does not exist", async () => {
