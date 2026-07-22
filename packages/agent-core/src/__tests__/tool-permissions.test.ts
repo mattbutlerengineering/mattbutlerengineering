@@ -2,6 +2,28 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createToolPermissionHandler, normalizeBashCommand } from "../tool-permissions.js";
 import { isBashCommandBlocked, isRmRecursiveDelete } from "../gen-permissions.js";
 
+/**
+ * Runs `fn` `runs` times and returns the fastest (minimum) elapsed ms.
+ *
+ * Used by the ReDoS-guard timing assertions below (issue #3468) to make them
+ * jitter-immune: for a deterministic, CPU-bound algorithm, scheduler preemption
+ * and GC pauses can only ever *add* time to a run, never subtract it, so the
+ * minimum across a few runs is the closest available estimate of true algorithmic
+ * cost. Callers compare this against a same-shaped, smaller-input baseline rather
+ * than an absolute wall-clock bound, so the assertion is independent of how fast
+ * or loaded the runner happens to be.
+ */
+function bestOfTimingMs(fn: () => void, runs = 5): number {
+  let best = Infinity;
+  for (let i = 0; i < runs; i++) {
+    const start = performance.now();
+    fn();
+    const elapsed = performance.now() - start;
+    if (elapsed < best) best = elapsed;
+  }
+  return best;
+}
+
 describe("createToolPermissionHandler", () => {
   const worktreePath = "/tmp/test-worktree";
   let handler: ReturnType<typeof createToolPermissionHandler>;
@@ -84,11 +106,26 @@ describe("createToolPermissionHandler", () => {
       // fed a long run of letters with no terminating whitespace (agent-generated bash
       // commands are untrusted/attacker-influenceable via prompt injection). Confirmed
       // empirically: 16k 'r' chars took ~760ms pre-fix, growing quadratically with size.
+      //
+      // Relative-scaling assertion (issue #3468): a fixed `<50ms` absolute wall-clock
+      // bound flakes under CI runner load even though the implementation is genuinely
+      // linear. Instead, compare the 50k-char run against a 1k-char baseline of the
+      // same shape — this is immune to absolute runner speed. Linear scaling implies
+      // ~50x the baseline time; the 6x*scale + floor headroom below absorbs realistic
+      // jitter while a reintroduced O(n^2) backtracking bug (which would scale another
+      // ~50x on top, i.e. ~2500x baseline) still trips it by orders of magnitude.
+      const baselineInput = "rm -" + "r".repeat(1_000);
       const adversarialInput = "rm -" + "r".repeat(50_000);
-      const start = performance.now();
+      const scaleFactor = adversarialInput.length / baselineInput.length;
+
+      // Warm up once so first-call JIT compilation doesn't skew the baseline measurement.
+      isBashCommandBlocked(baselineInput);
       isBashCommandBlocked(adversarialInput);
-      const elapsedMs = performance.now() - start;
-      expect(elapsedMs).toBeLessThan(50);
+
+      const baselineMs = bestOfTimingMs(() => isBashCommandBlocked(baselineInput));
+      const adversarialMs = bestOfTimingMs(() => isBashCommandBlocked(adversarialInput));
+
+      expect(adversarialMs).toBeLessThan(baselineMs * scaleFactor * 6 + 5);
     });
 
     it("blocks rm -fffffffffffr / (bypass found in PR #3433 review: 11+ padding letters)", async () => {
@@ -115,10 +152,13 @@ describe("createToolPermissionHandler", () => {
       "(rm -rf /tmp/x)",
       "echo hi|rm -rf /tmp/x",
       "true&&rm -rf /tmp/x",
-    ])("blocks %s (bypass found in PR #3433 review: rm not whitespace-delimited)", async (command) => {
-      const result = await handler("Bash", { command });
-      expect(result.behavior).toBe("deny");
-    });
+    ])(
+      "blocks %s (bypass found in PR #3433 review: rm not whitespace-delimited)",
+      async (command) => {
+        const result = await handler("Bash", { command });
+        expect(result.behavior).toBe("deny");
+      }
+    );
 
     it("allows rm safe.txt && tar -rf a.tar dir (recursive flag belongs to tar, not rm)", async () => {
       // Over-block found in PR #3433 review: the token scan crossed command
@@ -382,11 +422,28 @@ describe("isRmRecursiveDelete", () => {
     expect(isRmRecursiveDelete(command)).toBe(false);
   });
 
-  it("stays linear on a 128k-char adversarial input (<10ms)", () => {
+  it("stays linear on a 128k-char adversarial input", () => {
+    // Relative-scaling assertion (issue #3468): the original fixed `<10ms` absolute
+    // wall-clock bound flaked at ~21ms on a loaded shared CI runner even though
+    // `isRmRecursiveDelete` is genuinely O(n) (see the doc comment above the
+    // implementation — token split + `.includes()`, no nested/backtracking-prone
+    // regex quantifiers). Comparing the 128k-char run against a 1k-char baseline of
+    // the same shape makes the guard immune to absolute runner speed: linear scaling
+    // implies ~128x the baseline time, and the 6x*scale + floor headroom below
+    // absorbs realistic jitter while a reintroduced super-linear regression (which
+    // would scale another ~128x on top, i.e. ~16,384x baseline) still trips it by
+    // orders of magnitude.
+    const baselineInput = "rm -" + "r".repeat(1_000 - 4);
     const adversarialInput = "rm -" + "r".repeat(128_000 - 4);
-    const start = performance.now();
+    const scaleFactor = adversarialInput.length / baselineInput.length;
+
+    // Warm up once so first-call JIT compilation doesn't skew the baseline measurement.
+    isRmRecursiveDelete(baselineInput);
     isRmRecursiveDelete(adversarialInput);
-    const elapsedMs = performance.now() - start;
-    expect(elapsedMs).toBeLessThan(10);
+
+    const baselineMs = bestOfTimingMs(() => isRmRecursiveDelete(baselineInput));
+    const adversarialMs = bestOfTimingMs(() => isRmRecursiveDelete(adversarialInput));
+
+    expect(adversarialMs).toBeLessThan(baselineMs * scaleFactor * 6 + 5);
   });
 });
