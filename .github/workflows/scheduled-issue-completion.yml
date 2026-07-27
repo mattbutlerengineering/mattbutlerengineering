@@ -1,0 +1,209 @@
+name: Scheduled Issue Completion
+
+# Every 12 hours, advance the autonomous issue pipeline by exactly one step:
+#
+#   1. `complete` — if any open issue is labeled `ready`, complete ONE end-to-end
+#      via the implement-queue skill (TDD, gates, PR, review gate, auto-merge).
+#   2. `promote`  — else, if a promotable backlog exists, triage it and label the
+#      strongest 1-3 candidates `ready` (no implementation).
+#   3. `audit`    — else (nothing actionable), audit how the pipeline can be
+#      improved and file 2-4 concrete `ready` improvement issues to feed the queue.
+#
+# The runtime mechanism mirrors .github/workflows/claude.yml: a single
+# `pnpm exec mbe agent run "<prompt>"` invocation. The skill/prompt drives the
+# work; this workflow only decides the mode and reports the outcome.
+#
+# TOKEN NOTE: PRs opened with the default GITHUB_TOKEN do NOT trigger other
+# workflows (GitHub loop-prevention), so a `complete`-mode PR may not start CI /
+# auto-merge on its own. If your setup requires agent-authored PRs to run CI,
+# replace `secrets.GITHUB_TOKEN` below with a PAT or GitHub App token that has
+# `repo` + `workflow` scope.
+
+on:
+  schedule:
+    # 00:00 and 12:00 UTC — every 12 hours.
+    - cron: "0 0,12 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Force a mode (auto = decide from queue state)"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - complete
+          - promote
+          - audit
+      max_budget:
+        description: "Max USD budget for the agent session (complete mode)"
+        required: false
+        default: "4.00"
+        type: string
+
+# One routine at a time (the implement-queue skill requires a single session);
+# never cancel a mid-flight completion.
+concurrency:
+  group: scheduled-issue-completion
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  routine:
+    name: Advance the issue queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # `mbe` is `tools/cli/dist/index.js` — build it (and its deps) so the CLI
+      # and the pre-flight `node tools/cli/dist/index.js issue transition` work.
+      - name: Build CLI
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Determine mode
+        id: mode
+        env:
+          FORCED_MODE: ${{ github.event.inputs.mode || 'auto' }}
+        run: |
+          MODE="$FORCED_MODE"
+          if [ -z "$MODE" ] || [ "$MODE" = "auto" ]; then
+            READY=$(gh issue list --state open --label ready --json number --jq 'length')
+            # Promotable = open issue with none of the lifecycle/blocked labels.
+            # shellcheck disable=SC2016  # $l is a jq binding, not a shell var
+            PROMOTABLE=$(gh issue list --state open --limit 100 --json number,labels \
+              --jq '[.[] | select((.labels | map(.name)) as $l
+                     | (($l | index("ready")) | not)
+                     and (($l | index("in-progress")) | not)
+                     and (($l | index("has-pr")) | not)
+                     and (($l | index("needs-review")) | not)
+                     and (($l | index("blocked")) | not))] | length')
+            if [ "$READY" -gt 0 ]; then
+              MODE=complete
+            elif [ "$PROMOTABLE" -gt 0 ]; then
+              MODE=promote
+            else
+              MODE=audit
+            fi
+            echo "ready=$READY promotable=$PROMOTABLE resolved-mode=$MODE"
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Compose prompt
+        id: prompt
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+          INPUT_BUDGET: ${{ github.event.inputs.max_budget || '4.00' }}
+        run: |
+          case "$MODE" in
+            complete)
+              BUDGET="$INPUT_BUDGET"
+              cat > /tmp/agent-prompt.txt <<'PROMPT_EOF'
+          You are the scheduled implement-queue runner (every 12 hours). Read and follow the skill at .claude/skills/implement-queue/SKILL.md exactly.
+
+          Goal: COMPLETE exactly ONE `ready` issue end-to-end this run. Do not start a second issue.
+
+          - Run Phase 0 pre-flight, including the green-main policy: if main's CI is red, fixing it IS this iteration.
+          - Priority order: security > ci-fix > feature > audit; oldest first within a tier.
+          - Claim it (mbe issue transition <N> --to in-progress), implement test-first in an isolated worktree, run the affected-package gates (lint, typecheck, test), and open a PR with `Closes #<N>` whose base ref is `main`.
+          - Run the worker->train boundary review gate, then enqueue auto-merge (gh pr merge --auto --squash --delete-branch) once CI is green and the review passes.
+          - Skip repo-wide formatters/linters and full-suite runs beyond the skill's required gates.
+          - If no issue can be completed (e.g. all blocked), stop cleanly and say why.
+
+          Report: issue claimed, PR created/enqueued, and any failures.
+          PROMPT_EOF
+              ;;
+            promote)
+              BUDGET="1.50"
+              cat > /tmp/agent-prompt.txt <<'PROMPT_EOF'
+          You are the scheduled issue-readiness triager (every 12 hours). No open issue is currently labeled `ready`, so make the best backlog candidates ready.
+
+          Steps:
+          1. List open issues NOT labeled ready/in-progress/has-pr/needs-review/blocked: `gh issue list --state open --json number,title,labels,body --limit 50`.
+          2. For each, judge whether it is well-specified (clear problem + scope + acceptance criteria), independently actionable, and unblocked (no open `Depends on: #N`).
+          3. Label the 1-3 strongest candidates `ready`: `gh issue edit <N> --add-label ready`. Prefer security > ci-fix > feature > audit, then oldest.
+          4. For a promising but under-specified issue, do NOT label it ready — add a short comment listing exactly what is missing.
+          5. Do NOT implement anything.
+
+          If NO open issue is genuinely promotable, do nothing and say so (the next run falls through to a process audit).
+
+          Report which issues you made ready (and why) and which you commented on.
+          PROMPT_EOF
+              ;;
+            audit)
+              BUDGET="2.00"
+              cat > /tmp/agent-prompt.txt <<'PROMPT_EOF'
+          You are the scheduled process-improvement auditor (every 12 hours). There are no `ready` and no promotable backlog issues, so audit how this repository's autonomous issue pipeline can be improved and file concrete issues to feed the queue.
+
+          Investigate (read-only) for HIGH-VALUE, well-scoped improvements, e.g.:
+          - The implement-queue skill and scripts (.claude/skills/implement-queue/) and the merge-train / green-main flow.
+          - CI reliability and flakiness; recurring `ci-fix` / auto-health false positives (check recently closed issues: `gh issue list --state closed --limit 50`).
+          - Test-coverage or observability gaps in frequently-changed subsystems.
+          - Recurring failure patterns (revert-rca logs, health monitoring, dependency-audit drift).
+
+          Then create 2-4 SPECIFIC issues. Each MUST have: a clear problem statement, a proposed change, and testable acceptance criteria. Dedupe against existing open issues first (`gh issue list --search "<keywords>"`). Label each `audit` and `ready` (add `meta-improvement` for tooling/process ones) so the next scheduled run picks them up. Do NOT open more than 4 issues and do NOT implement any of them.
+
+          Report the issues you created with numbers and titles.
+          PROMPT_EOF
+              ;;
+            *)
+              echo "::error::Unknown mode '$MODE'"
+              exit 1
+              ;;
+          esac
+          echo "budget=$BUDGET" >> "$GITHUB_OUTPUT"
+          echo "Composed prompt for mode=$MODE budget=$BUDGET"
+
+      - name: Run agent
+        id: agent
+        env:
+          BUDGET: ${{ steps.prompt.outputs.budget }}
+          MODE: ${{ steps.mode.outputs.mode }}
+        run: |
+          echo "Running agent in '$MODE' mode with budget \$$BUDGET"
+          if pnpm exec mbe agent run "$(cat /tmp/agent-prompt.txt)" \
+               --max-budget "$BUDGET" \
+               --adapter auto; then
+            echo "outcome=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "outcome=failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+          BUDGET: ${{ steps.prompt.outputs.budget }}
+          OUTCOME: ${{ steps.agent.outputs.outcome || 'cancelled' }}
+        run: |
+          {
+            echo "## Scheduled Issue Completion"
+            echo
+            echo "- **Mode**: \`$MODE\`"
+            echo "- **Budget**: \$$BUDGET"
+            echo "- **Outcome**: \`$OUTCOME\`"
+            echo "- **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
