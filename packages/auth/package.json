@@ -48,7 +48,7 @@
   "dependencies": {
     "@mbe/types": "workspace:^",
     "fastify-plugin": "^6.0.0",
-    "jose": "^6.2.3",
+    "jose": "^6.2.4",
     "oidc-client-ts": "^3.5.0",
     "react-oidc-context": "^3.3.1"
   },
