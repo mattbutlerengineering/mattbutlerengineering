@@ -20,26 +20,29 @@ export const DEPLOY_HEALTH_CONCLUSIONS = {
 };
 
 /**
- * Records older than this are treated as stale regardless of conclusion.
- * 72 hours — deploy workflows are change-driven, not daily.
+ * Age beyond which a per-service migration record is treated as stale
+ * (used by the migration-health check in health/system.js). 72 hours —
+ * migrations are change-driven, not daily. Deploy and CI health are
+ * classified by their last-run conclusion rather than age; see
+ * interpretDeployHealth.
  */
 export const STALENESS_THRESHOLD_MS = 72 * 60 * 60 * 1_000;
 
 /**
- * Interpret a single deploy KV record.
+ * Interpret a single deploy KV record into a health status.
+ *
+ * A definitive last-run conclusion determines health regardless of the
+ * record's age: a change-driven deploy pipeline whose last run SUCCEEDED is
+ * healthy even after days idle (nothing new needed deploying — not a fault).
+ * Failures and rollbacks map to unhealthy immediately; a missing record is
+ * `stale` (this pipeline has never been observed running).
  *
  * @param {object|null|undefined} kvData - Raw JSON from KV (or null if missing).
- * @param {number} now - Current timestamp in ms (Date.now()).
  * @returns {{ status: "healthy"|"unhealthy"|"stale", last_run: object|null }}
  */
-export function interpretDeployHealth(kvData, now) {
+export function interpretDeployHealth(kvData) {
   if (!kvData) {
     return { status: "stale", last_run: null };
-  }
-
-  const age = now - new Date(kvData.updated_at).getTime();
-  if (age > STALENESS_THRESHOLD_MS) {
-    return { status: "stale", last_run: kvData };
   }
 
   if (kvData.conclusion === DEPLOY_HEALTH_CONCLUSIONS.SUCCESS) {

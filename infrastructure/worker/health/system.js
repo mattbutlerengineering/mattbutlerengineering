@@ -89,14 +89,12 @@ function subsystemStatus(checks) {
 }
 
 /**
- * Determine CI health from KV data.
+ * Determine CI health from KV data. A successful last run is healthy
+ * regardless of age — a quiet period with no new pushes is not a CI fault;
+ * a non-success is unhealthy; a missing record is stale.
  */
-function ciStatus(kvData, now) {
+function ciStatus(kvData) {
   if (!kvData) return { status: "stale", last_run: null };
-  const age = now - new Date(kvData.updated_at).getTime();
-  if (age > STALENESS_THRESHOLD_MS) {
-    return { status: "stale", last_run: kvData };
-  }
   return {
     status: kvData.conclusion === "success" ? "healthy" : "unhealthy",
     last_run: kvData,
@@ -106,11 +104,11 @@ function ciStatus(kvData, now) {
 /**
  * Determine deploy health from KV data for all three pipelines.
  */
-function deployStatus(pipelines, now) {
+function deployStatus(pipelines) {
   let errorCount = 0;
   let staleCount = 0;
   for (const [, data] of Object.entries(pipelines)) {
-    const { status } = interpretDeployHealth(data, now);
+    const { status } = interpretDeployHealth(data);
     if (status === "stale") staleCount++;
     else if (status === "unhealthy") errorCount++;
   }
@@ -239,11 +237,12 @@ async function handleHealthSystem(request, env, requestId) {
 
   const services = { status: subsystemStatus(serviceChecks), checks: serviceChecks };
   const staticSites = { status: subsystemStatus(staticChecks), checks: staticChecks };
-  const ci = ciStatus(kvResults[0], now);
-  const deploys = deployStatus(
-    { static: kvResults[1], services: kvResults[2], infrastructure: kvResults[3] },
-    now
-  );
+  const ci = ciStatus(kvResults[0]);
+  const deploys = deployStatus({
+    static: kvResults[1],
+    services: kvResults[2],
+    infrastructure: kvResults[3],
+  });
 
   // Build migrations map from services array (after the 4 fixed KV keys)
   const migrationData = Object.fromEntries(
