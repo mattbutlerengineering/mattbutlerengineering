@@ -19,10 +19,8 @@ import {
 // ── Mock deploy-health.js dependency ─────────────────────────────────
 vi.mock("../deploy-health.js", () => ({
   STALENESS_THRESHOLD_MS: 60 * 60 * 1000,
-  interpretDeployHealth: (data, now) => {
+  interpretDeployHealth: (data) => {
     if (!data) return { status: "stale" };
-    const age = now - new Date(data.updated_at).getTime();
-    if (age > 60 * 60 * 1000) return { status: "stale" };
     if (data.conclusion === "success") return { status: "healthy" };
     // cancelled is the DO+Pulumi race artifact — treat as stale, not unhealthy
     if (data.conclusion === "cancelled") return { status: "stale" };
@@ -100,7 +98,7 @@ describe("ciStatus", () => {
   const now = Date.now();
 
   it("returns stale when kvData is null", () => {
-    const result = ciStatus(null, now);
+    const result = ciStatus(null);
     expect(result.status).toBe("stale");
     expect(result.last_run).toBeNull();
   });
@@ -110,7 +108,7 @@ describe("ciStatus", () => {
       conclusion: "success",
       updated_at: new Date(now - 1000).toISOString(),
     };
-    const result = ciStatus(kvData, now);
+    const result = ciStatus(kvData);
     expect(result.status).toBe("healthy");
     expect(result.last_run).toBe(kvData);
   });
@@ -120,17 +118,17 @@ describe("ciStatus", () => {
       conclusion: "failure",
       updated_at: new Date(now - 1000).toISOString(),
     };
-    const result = ciStatus(kvData, now);
+    const result = ciStatus(kvData);
     expect(result.status).toBe("unhealthy");
   });
 
-  it("returns stale for an old run", () => {
+  it("returns healthy for an old successful run (quiet period, not a CI fault)", () => {
     const kvData = {
       conclusion: "success",
       updated_at: new Date(now - 25 * 60 * 60 * 1000).toISOString(),
     };
-    const result = ciStatus(kvData, now);
-    expect(result.status).toBe("stale");
+    const result = ciStatus(kvData);
+    expect(result.status).toBe("healthy");
   });
 });
 
@@ -147,26 +145,29 @@ describe("deployStatus", () => {
   };
 
   it("returns healthy when all pipelines are healthy", () => {
-    const result = deployStatus(
-      { static: recentSuccess, services: recentSuccess, infrastructure: recentSuccess },
-      now
-    );
+    const result = deployStatus({
+      static: recentSuccess,
+      services: recentSuccess,
+      infrastructure: recentSuccess,
+    });
     expect(result.status).toBe("healthy");
   });
 
   it("returns unhealthy when at least one pipeline is unhealthy", () => {
-    const result = deployStatus(
-      { static: recentSuccess, services: recentFailure, infrastructure: recentSuccess },
-      now
-    );
+    const result = deployStatus({
+      static: recentSuccess,
+      services: recentFailure,
+      infrastructure: recentSuccess,
+    });
     expect(result.status).toBe("unhealthy");
   });
 
   it("returns degraded when pipelines are stale but not failed", () => {
-    const result = deployStatus(
-      { static: null, services: recentSuccess, infrastructure: recentSuccess },
-      now
-    );
+    const result = deployStatus({
+      static: null,
+      services: recentSuccess,
+      infrastructure: recentSuccess,
+    });
     expect(result.status).toBe("degraded");
   });
 
@@ -175,10 +176,11 @@ describe("deployStatus", () => {
       conclusion: "cancelled",
       updated_at: new Date(now - 1000).toISOString(),
     };
-    const result = deployStatus(
-      { static: recentSuccess, services: recentCancelled, infrastructure: recentSuccess },
-      now
-    );
+    const result = deployStatus({
+      static: recentSuccess,
+      services: recentCancelled,
+      infrastructure: recentSuccess,
+    });
     expect(result.status).toBe("degraded");
   });
 });
@@ -363,6 +365,33 @@ describe("handleHealthSystem", () => {
     const body = await response.json();
     expect(body.subsystems.services).toHaveProperty("checks");
     expect(body.subsystems).toHaveProperty("migrations");
+
+    globalThis.fetch = undefined;
+  });
+
+  it("reports healthy when CI and all deploy records are old but successful (quiet repo — regression for #3473)", async () => {
+    globalThis.fetch = vi.fn(
+      async () => new Response(JSON.stringify({ status: "ok" }), { status: 200 })
+    );
+    // Every record succeeded but is far older than the staleness window — the
+    // repo has simply been quiet (no pushes/deploys). A change-driven pipeline
+    // with nothing new to ship is healthy, not degraded.
+    const oldSuccess = () => ({
+      conclusion: "success",
+      updated_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    const env = makeEnv({
+      "ci/status": oldSuccess(),
+      "deploy/static": oldSuccess(),
+      "deploy/services": oldSuccess(),
+      "deploy/infrastructure": oldSuccess(),
+    });
+    const request = new Request("https://example.com/health/system");
+    const response = await handleHealthSystem(request, env, "req-quiet");
+    const body = await response.json();
+    expect(body.subsystems.ci.status).toBe("healthy");
+    expect(body.subsystems.deploys.status).toBe("healthy");
+    expect(body.status).toBe("healthy");
 
     globalThis.fetch = undefined;
   });
