@@ -41,43 +41,40 @@ describe("STALENESS_THRESHOLD_MS", () => {
 
 describe("interpretDeployHealth — null / missing data", () => {
   it("returns stale when kvData is null", () => {
-    const result = interpretDeployHealth(null, NOW);
+    const result = interpretDeployHealth(null);
     expect(result.status).toBe("stale");
     expect(result.last_run).toBeNull();
   });
 
   it("returns stale when kvData is undefined", () => {
-    const result = interpretDeployHealth(undefined, NOW);
+    const result = interpretDeployHealth(undefined);
     expect(result.status).toBe("stale");
   });
 });
 
-describe("interpretDeployHealth — staleness boundary", () => {
-  it("returns stale when record is older than 72h", () => {
+describe("interpretDeployHealth — success is age-independent", () => {
+  it("returns healthy for a successful record older than 72h (a quiet, change-driven pipeline is not a fault)", () => {
     const old = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.SUCCESS, STALENESS_THRESHOLD_MS + 1);
-    const result = interpretDeployHealth(old, NOW);
-    expect(result.status).toBe("stale");
+    const result = interpretDeployHealth(old);
+    expect(result.status).toBe("healthy");
     expect(result.last_run).toEqual(old);
   });
 
-  it("returns healthy when record is exactly at 72h boundary (not stale)", () => {
-    // Exactly at threshold — not yet stale
-    const atBoundary = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.SUCCESS, STALENESS_THRESHOLD_MS);
-    const result = interpretDeployHealth(atBoundary, NOW);
-    expect(result.status).toBe("healthy");
+  it("returns healthy for a very old successful record (weeks idle)", () => {
+    const ancient = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.SUCCESS, 30 * 24 * 60 * 60 * 1_000);
+    expect(interpretDeployHealth(ancient).status).toBe("healthy");
   });
 
-  it("returns healthy when record is just under 72h", () => {
+  it("returns healthy for a recent successful record", () => {
     const fresh = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.SUCCESS, STALENESS_THRESHOLD_MS - 1);
-    const result = interpretDeployHealth(fresh, NOW);
-    expect(result.status).toBe("healthy");
+    expect(interpretDeployHealth(fresh).status).toBe("healthy");
   });
 });
 
 describe("interpretDeployHealth — success round-trip", () => {
   it("classifies success conclusion as healthy", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.SUCCESS);
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("healthy");
     expect(result.last_run).toEqual(record);
   });
@@ -86,7 +83,7 @@ describe("interpretDeployHealth — success round-trip", () => {
 describe("interpretDeployHealth — failure round-trip", () => {
   it("classifies failure conclusion as unhealthy", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.FAILURE);
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("unhealthy");
     expect(result.last_run).toEqual(record);
   });
@@ -95,7 +92,7 @@ describe("interpretDeployHealth — failure round-trip", () => {
 describe("interpretDeployHealth — rolled_back round-trip", () => {
   it("classifies rolled_back conclusion as unhealthy", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.ROLLED_BACK);
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("unhealthy");
     expect(result.last_run).toEqual(record);
   });
@@ -104,20 +101,20 @@ describe("interpretDeployHealth — rolled_back round-trip", () => {
 describe("interpretDeployHealth — cancelled round-trip", () => {
   it("classifies cancelled conclusion as stale (DO+Pulumi race artifact, not a real failure)", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.CANCELLED);
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("stale");
     expect(result.last_run).toEqual(record);
   });
 
   it("still classifies failure as unhealthy (regression guard)", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.FAILURE);
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("unhealthy");
   });
 
   it("still classifies rolled_back as unhealthy (regression guard)", () => {
     const record = makeRecord(DEPLOY_HEALTH_CONCLUSIONS.ROLLED_BACK);
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("unhealthy");
   });
 });
@@ -127,7 +124,7 @@ describe("interpretDeployHealth — last_run passthrough", () => {
     const conclusions = Object.values(DEPLOY_HEALTH_CONCLUSIONS);
     for (const conclusion of conclusions) {
       const record = makeRecord(conclusion);
-      const result = interpretDeployHealth(record, NOW);
+      const result = interpretDeployHealth(record);
       expect(result.last_run).toEqual(record);
     }
   });
@@ -139,7 +136,7 @@ describe("interpretDeployHealth — last_run passthrough", () => {
       updated_at: new Date().toISOString(),
       apps_deployed: { marketing: "true", hospitality: "false", rialto: "true" },
     };
-    const result = interpretDeployHealth(record, NOW);
+    const result = interpretDeployHealth(record);
     expect(result.status).toBe("healthy");
     expect(result.last_run.apps_deployed).toEqual(record.apps_deployed);
   });
