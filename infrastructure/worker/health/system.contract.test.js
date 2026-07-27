@@ -19,10 +19,8 @@ import { handleHealthSystem } from "./system.js";
 // against a deterministic topology.
 vi.mock("../deploy-health.js", () => ({
   STALENESS_THRESHOLD_MS: 60 * 60 * 1000,
-  interpretDeployHealth: (data, now) => {
+  interpretDeployHealth: (data) => {
     if (!data) return { status: "stale" };
-    const age = now - new Date(data.updated_at).getTime();
-    if (age > 60 * 60 * 1000) return { status: "stale" };
     if (data.conclusion === "success") return { status: "healthy" };
     if (data.conclusion === "cancelled") return { status: "stale" };
     return { status: "unhealthy" };
