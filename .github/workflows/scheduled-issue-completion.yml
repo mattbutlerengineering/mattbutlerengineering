@@ -182,8 +182,18 @@ jobs:
           BUDGET: ${{ steps.prompt.outputs.budget }}
           MODE: ${{ steps.mode.outputs.mode }}
         run: |
+          # The agent needs an LLM provider key. If none is configured, skip
+          # gracefully (do NOT fail the scheduled run / redden main) — the
+          # routine activates automatically once the secret is set.
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::warning::ANTHROPIC_API_KEY is not configured — skipping the agent run. Set it (e.g. \`gh secret set ANTHROPIC_API_KEY --body <key>\`) to activate the routine."
+            echo "outcome=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "Running agent in '$MODE' mode with budget \$$BUDGET"
-          if pnpm exec mbe agent run "$(cat /tmp/agent-prompt.txt)" \
+          # `mbe` = tools/cli/dist/index.js — the workspace bin is not on PATH in
+          # CI, so invoke the built entrypoint directly (built above).
+          if node tools/cli/dist/index.js agent run "$(cat /tmp/agent-prompt.txt)" \
                --max-budget "$BUDGET" \
                --adapter auto; then
             echo "outcome=success" >> "$GITHUB_OUTPUT"
