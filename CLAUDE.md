@@ -5,7 +5,7 @@
 
 ## Communication
 
-Always use caveman mode (full intensity) for all responses. Invoke `/caveman` at session start. Code, commits, and PRs use normal formatting. Disable only when user says "stop caveman" or "normal mode".
+Always use caveman mode (full intensity) for all responses — ultra-compressed, dropping filler, articles, and pleasantries while keeping full technical accuracy. Code, commits, and PRs use normal formatting. Disable only when user says "stop caveman" or "normal mode".
 
 ## Core reference
 
@@ -79,19 +79,7 @@ Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claud
 | `/new-e2e-test`      | Scaffold Playwright E2E test matching existing fixtures and auth patterns                       |
 | `/new-service-route` | Scaffold Fastify route with validation, auth, ADR-002 error envelope, SSE (reservations), tests |
 
-**General Engineering** (`.claude/skills/`)
-
-| Skill                            | Purpose                                                                                                                                                                                                         |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/caveman`                       | Ultra-compressed communication mode, cuts token usage ~75% by dropping filler, articles, and pleasantries while keeping full technical accuracy                                                                 |
-| `/diagnose`                      | Disciplined diagnosis loop for hard bugs and performance regressions: reproduce → minimise → hypothesise → instrument → fix → regression-test                                                                   |
-| `/grill-with-docs`               | Grilling session that challenges plan against existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise (supersedes the former `grill-me` stub) |
-| `/improve`                       | Survey codebase as senior advisor and produce prioritized, self-contained implementation plans for other agents to execute (read-only, never implements)                                                        |
-| `/improve-codebase-architecture` | Find deepening opportunities in a codebase, informed by domain language and architectural decisions, to improve testability and AI-navigability                                                                 |
-| `/tdd`                           | Test-driven development with red-green-refactor loop, emphasizing behavior verification through public interfaces                                                                                               |
-| `/to-issues`                     | Break a plan, spec, or PRD into independently-grabbable issues using tracer-bullet vertical slices                                                                                                              |
-| `/triage`                        | Triage issues through a state machine driven by triage roles for incoming bugs, feature requests, and issue workflow management                                                                                 |
-| `/write-a-skill`                 | Create new agent skills with proper structure, progressive disclosure, and bundled resources                                                                                                                    |
+**User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and now live only as user-level installs (`~/.claude/skills/`) — don't expect them to resolve in-repo.
 
 ## mbe CLI Commands
 
