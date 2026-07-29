@@ -284,7 +284,7 @@ button.railTrigger:focus-visible {
 .railBody {
   display: flex;
   flex-direction: column;
-  gap: var(--rialto-space-3xs);
+  gap: var(--rialto-space-2xs);
   min-width: 0;
 }
 
