@@ -74,33 +74,17 @@ export function BookingWidget({
   audience = "guest",
   onSetHours,
 }: BookingWidgetProps) {
-  const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow();
-
   // API client - no auth token for public booking
   const api = usePublicApiClient({ baseUrl: apiBaseUrl });
 
-  // Fetch available time slots
-  const fetchSlots = useCallback(async () => {
-    if (!data.selectedDate) return [];
-    const response = await api.availability.getTimeSlots({
-      venueId,
-      date: data.selectedDate,
-      partySize: data.partySize,
-    });
-    return response.filter((slot) => slot.available);
-  }, [api, venueId, data.selectedDate, data.partySize]);
-
-  // Release a hold by ID
-  const releaseHold = useCallback(
-    async (holdId: string) => {
-      try {
-        await api.holds.release(holdId);
-      } catch {
-        // Ignore — hold expires anyway
-      }
-    },
-    [api]
-  );
+  // useBookingFlow owns the availability + Hold effects (slot fetch, Hold
+  // create/confirm/release, hold-expiry timer) behind this seam — the widget
+  // below is render-by-state + action-forwarding only for those concerns.
+  const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow({
+    api,
+    venueId,
+    holdDurationMinutes,
+  });
 
   // Fetch venue deposit config when venueSlug is provided
   useEffect(() => {
@@ -137,46 +121,9 @@ export function BookingWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueSlug, api]);
 
-  // Hold expiry timer — captured hold in closure; effect restarts on every hold change
-  useEffect(() => {
-    if (!data.hold) return;
-    const capturedHold = data.hold;
-
-    const interval = setInterval(() => {
-      if (new Date() >= new Date(capturedHold.expiresAt)) {
-        actions.expireHold();
-        // Reload slots after expiry
-        fetchSlots()
-          .then((slots) => actions.setSlots(slots))
-          .catch(() => actions.setSlotsError("Failed to reload availability"));
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [data.hold, fetchSlots]);
-
-  // Navigation handlers
-  const handleFindTimes = useCallback(() => {
-    actions.goToTimeSlot(fetchSlots);
-  }, [actions, fetchSlots]);
-
-  const handleSelectSlot = useCallback(
-    (slot: Parameters<typeof actions.selectSlotAndHold>[0]) => {
-      if (!data.selectedDate) return;
-      const holdPromise = api.holds
-        .create({
-          venueId,
-          date: data.selectedDate,
-          time: slot.time,
-          partySize: data.partySize,
-          holdDurationMinutes,
-        })
-        .then((res) => res.hold);
-      actions.selectSlotAndHold(slot, holdPromise);
-    },
-    [actions, api, venueId, data.selectedDate, data.partySize, holdDurationMinutes]
-  );
-
+  // Guest-risk lookup — stays here (not the hook) per issue #3486 scope: the
+  // Guest-risk → deposit-required gate is deliberately out of scope for this
+  // seam and moves in a follow-up.
   const fetchGuestRisk = useCallback(
     async (email?: string, phone?: string): Promise<boolean> => {
       if (!venueSlug || (!email && !phone)) return false;
@@ -192,14 +139,6 @@ export function BookingWidget({
 
   const handleConfirmReservation = useCallback(
     async (details: GuestDetails) => {
-      if (!data.hold) return;
-      const reservationPromise = api.holds.confirm(data.hold.id, {
-        guestName: details.name,
-        guestEmail: details.email || undefined,
-        guestPhone: details.phone || undefined,
-        notes: details.notes || undefined,
-      });
-
       // Only check guest risk when it could actually change the verdict
       // (guestRiskMatters — the shared deposit-verdict module's own gating)
       // — avoids an unnecessary lookup, and avoids sending guest PII
@@ -215,22 +154,10 @@ export function BookingWidget({
         guestIsRisky,
       });
 
-      actions.confirmReservation(reservationPromise, depositConfig);
+      await actions.confirmReservation(details, depositConfig);
     },
-    [actions, api, data.hold, data.depositConfig, venueSlug, stripePublishableKey, fetchGuestRisk]
+    [actions, data.depositConfig, venueSlug, stripePublishableKey, fetchGuestRisk]
   );
-
-  const handleGoToDateParty = useCallback(() => {
-    actions.goToDateParty(releaseHold);
-  }, [actions, releaseHold]);
-
-  const handleGoToTimeSlot = useCallback(() => {
-    actions.goToTimeSlot(fetchSlots, releaseHold);
-  }, [actions, fetchSlots, releaseHold]);
-
-  const handleNewBooking = useCallback(() => {
-    actions.resetFlow();
-  }, [actions]);
 
   // stepKeys/currentStepIndex come from useBookingFlow — the single source
   // of truth for the deposit decision (resolved once, at confirm, via the
@@ -273,7 +200,7 @@ export function BookingWidget({
           onDateChange={actions.setSelectedDate}
           onEndDateChange={enableDateRange ? actions.setSelectedEndDate : undefined}
           onPartySizeChange={actions.setPartySize}
-          onNext={handleFindTimes}
+          onNext={actions.goToTimeSlot}
           maxPartySize={maxPartySize}
           enableDateRange={enableDateRange}
           minDate={minDate}
@@ -287,8 +214,8 @@ export function BookingWidget({
           selectedSlot={data.selectedSlot}
           isLoading={data.slotsLoading || data.holdLoading}
           error={data.slotsError || data.holdError}
-          onSelectSlot={handleSelectSlot}
-          onBack={handleGoToDateParty}
+          onSelectSlot={actions.selectSlotAndHold}
+          onBack={actions.goToDateParty}
           date={data.selectedDate}
           partySize={data.partySize}
           onJoinWaitlist={venueSlug ? actions.goToWaitlistJoin : undefined}
@@ -308,7 +235,7 @@ export function BookingWidget({
           isLoading={data.confirmLoading}
           error={data.confirmError}
           onSubmit={handleConfirmReservation}
-          onBack={handleGoToTimeSlot}
+          onBack={actions.goToTimeSlot}
           venueSlug={venueSlug}
           api={api}
         />
@@ -346,7 +273,7 @@ export function BookingWidget({
             data.depositRequired ? data.depositConfig : null,
             data.partySize
           )}
-          onNewBooking={handleNewBooking}
+          onNewBooking={actions.resetFlow}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}
         />
@@ -361,7 +288,7 @@ export function BookingWidget({
           venueId={venueId}
           api={api}
           onJoined={actions.handleWaitlistJoined}
-          onBack={handleGoToTimeSlot}
+          onBack={actions.goToTimeSlot}
         />
       )}
 
@@ -369,7 +296,7 @@ export function BookingWidget({
         <WaitlistConfirmationView
           position={data.waitlistResult.position}
           estimatedWaitMinutes={data.waitlistResult.estimatedWaitMinutes}
-          onNewBooking={handleNewBooking}
+          onNewBooking={actions.resetFlow}
         />
       )}
     </div>
