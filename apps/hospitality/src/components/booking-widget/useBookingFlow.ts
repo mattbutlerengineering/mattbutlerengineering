@@ -2,7 +2,11 @@ import { useReducer, useCallback, useEffect } from "react";
 import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import type { GuestDetails } from "./GuestDetailsForm.js";
-import { provisionalDepositRequired } from "./effectiveDepositPolicy.js";
+import {
+  provisionalDepositRequired,
+  effectiveDepositPolicy,
+  guestRiskMatters,
+} from "./effectiveDepositPolicy.js";
 
 export type BookingStep =
   | "date-party"
@@ -283,7 +287,7 @@ export interface BookingFlowActions {
   setSlots: (slots: TimeSlot[]) => void;
   setSlotsError: (error: string) => void;
   selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
-  confirmReservation: (details: GuestDetails, depositConfig: DepositConfig | null) => Promise<void>;
+  confirmReservation: (details: GuestDetails) => Promise<void>;
   handleDepositSuccess: (paymentIntentId: string) => void;
   goBackToGuestDetails: () => void;
   resetFlow: () => void;
@@ -306,12 +310,18 @@ export interface UseBookingFlowDeps {
   /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
   api: BookingWidgetApiClient;
   venueId: string;
+  /** Slug backing the public venue-config + guest-risk endpoints; omit to skip deposit config and risk gating entirely. */
+  venueSlug?: string;
+  /** Present when the venue's Stripe integration is configured; required (with venueSlug) for a deposit to ever be required. */
+  stripePublishableKey?: string;
   holdDurationMinutes?: number;
 }
 
 export function useBookingFlow({
   api,
   venueId,
+  venueSlug,
+  stripePublishableKey,
   holdDurationMinutes = 10,
 }: UseBookingFlowDeps): BookingFlowResult {
   const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
@@ -352,6 +362,56 @@ export function useBookingFlow({
     },
     [api]
   );
+
+  // Guest-risk lookup — owned here (not the component) so the risk-gated
+  // deposit override is exercisable headlessly through this hook alone.
+  const fetchGuestRisk = useCallback(
+    async (email?: string, phone?: string): Promise<boolean> => {
+      if (!venueSlug || (!email && !phone)) return false;
+      try {
+        const result = await api.publicVenue.guestRisk(venueSlug, email ? { email } : { phone });
+        return result.requiresDeposit;
+      } catch {
+        return false;
+      }
+    },
+    [api, venueSlug]
+  );
+
+  // Fetch the venue's public deposit config once, when venueSlug is present.
+  // Owned here (not the component) so it's exercisable headlessly.
+  useEffect(() => {
+    if (!venueSlug) return;
+
+    const fetchDepositConfig = async () => {
+      try {
+        const venueConfig = await api.venues.getPublicConfig(venueSlug);
+        // Gate on whether a deposit was ever configured (amountCents
+        // present), not on the venue's general `.enabled` flag — a venue
+        // that configured then disabled its general policy must still
+        // surface its deposit terms so the risky-guest override in
+        // effectiveDepositPolicy can apply them. A venue that never
+        // configured a deposit at all (amountCents null) leaves
+        // depositConfig null, same as before.
+        if (venueConfig.deposit.amountCents != null) {
+          const config: DepositConfig = {
+            enabled: venueConfig.deposit.enabled,
+            depositType: venueConfig.deposit.depositType ?? "flat",
+            amountCents: venueConfig.deposit.amountCents,
+            currency: venueConfig.currencyCode.toLowerCase(),
+            freeCancellationHours: venueConfig.deposit.freeCancellationHours,
+            lateCancellationFeePercent: venueConfig.deposit.lateCancellationFeePercent,
+            noShowFeePercent: venueConfig.deposit.noShowFeePercent,
+          };
+          dispatch({ type: "SET_DEPOSIT_CONFIG", config });
+        }
+      } catch {
+        // Non-fatal — proceed without deposit
+      }
+    };
+
+    fetchDepositConfig();
+  }, [venueSlug, api]);
 
   const goToTimeSlot = useCallback(() => {
     const holdId = flowState.data.hold?.id;
@@ -405,8 +465,28 @@ export function useBookingFlow({
   );
 
   const confirmReservation = useCallback(
-    async (details: GuestDetails, depositConfig: DepositConfig | null): Promise<void> => {
+    async (details: GuestDetails): Promise<void> => {
       if (!flowState.data.hold) return;
+
+      // Only check guest risk when it could actually change the verdict
+      // (guestRiskMatters — the shared deposit-verdict module's own gating)
+      // — avoids an unnecessary lookup, and avoids sending guest PII
+      // (email/phone) when there's no deposit flow to gate.
+      const guestIsRisky = guestRiskMatters(
+        flowState.data.depositConfig,
+        venueSlug,
+        stripePublishableKey
+      )
+        ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
+        : false;
+
+      const depositConfig = effectiveDepositPolicy({
+        depositConfig: flowState.data.depositConfig,
+        venueSlug,
+        stripePublishableKey,
+        guestIsRisky,
+      });
+
       dispatch({ type: "CONFIRM_START" });
       try {
         const reservation = await api.holds.confirm(flowState.data.hold.id, {
@@ -430,7 +510,14 @@ export function useBookingFlow({
         dispatch({ type: "CONFIRM_ERROR", error: msg });
       }
     },
-    [api, flowState.data.hold]
+    [
+      api,
+      flowState.data.hold,
+      flowState.data.depositConfig,
+      venueSlug,
+      stripePublishableKey,
+      fetchGuestRisk,
+    ]
   );
 
   const handleDepositSuccess = useCallback((paymentIntentId: string) => {
