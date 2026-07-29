@@ -14,6 +14,16 @@ Daily skill that measures implement-queue efficiency, logs trends, and files `re
 | ----------- | -------------------------------------------------------- |
 | `--dry-run` | Print what would happen; write nothing to disk or GitHub |
 
+## Step 0: Reconcile Telemetry Outcomes
+
+Fill the outcome fields (`merged`, `ci_first_pass`, `rework_cycles`, `merged_at`) that workers cannot know at write time — the sensor's precise-cost path only activates when rows are reconciled:
+
+```bash
+node scripts/reconcile-queue-telemetry.mjs
+```
+
+Idempotent and capped at 50 GitHub lookups; safe to run every day.
+
 ## Step 1: Collect the Queue-Efficiency Sensor
 
 Run the sensor-report to collect the `queueEfficiency` sub-report:
@@ -136,6 +146,19 @@ nohup mbe agent run "Run eval suite to diagnose queue efficiency regression — 
 ```
 
 **CRITICAL:** Do NOT run `mbe agent eval` synchronously. The daily slot must complete in under 5 minutes. Eval can take 20–60 minutes. Fire it as a background process or file a separate GitHub issue with label `ready,eval`.
+
+## Step 6: Persist Metrics (always, unless --dry-run)
+
+`metrics/process-metrics.jsonl`, `metrics/queue-telemetry.jsonl`, and `.claude/improvement-loop/log.md` are **tracked files** — cloud routines run in ephemeral checkouts, so appends that aren't committed are lost with the checkout.
+
+After Steps 0-3, check for a diff and open a metrics PR:
+
+```bash
+git diff --stat -- metrics/process-metrics.jsonl metrics/queue-telemetry.jsonl .claude/improvement-loop/log.md
+```
+
+- **No diff** → skip this step entirely.
+- **Diff** → branch, commit ONLY those three paths (never `git add -A`), push, and open a PR titled `chore(metrics): optimize-implement-queue <YYYY-MM-DD>` labeled `has-pr`. Metrics-only diffs hit the low-risk fast path and merge-queue auto-merges on green CI.
 
 ## Phase-2 Seam: Auto-Tuning (NOT YET BUILT)
 

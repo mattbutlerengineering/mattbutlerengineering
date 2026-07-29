@@ -125,6 +125,8 @@ Append a dated entry to `.claude/improvement-loop/log.md`:
 
 Print a summary to stdout.
 
+`.claude/improvement-loop/log.md` is a **tracked file** (merge=union) — cloud routines run in ephemeral checkouts, so an uncommitted append is lost with the checkout. If the log (or any tracked `metrics/*` file this run touched) has a diff, commit ONLY those paths on a branch and open a PR titled `chore(metrics): learning-loop <YYYY-MM-DD>` labeled `has-pr` (metrics-only diffs auto-merge via the low-risk fast path). Skip when there is no diff.
+
 ## Sensor Label Map
 
 | Sensor     | Issue Label | What It Checks               |

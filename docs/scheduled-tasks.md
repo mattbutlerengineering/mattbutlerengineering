@@ -17,10 +17,10 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
 | Routine                  | Cadence (PT)        | Cron (UTC)   | Output                | Purpose                                                    |
 | ------------------------ | ------------------- | ------------ | --------------------- | ---------------------------------------------------------- |
 | `mbe-deep-audit`         | Mon 9:23am          | `23 16 * * 1`| issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
-| `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + issue-worker               |
+| `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + `/ideate` (cycle-check + ideation) |
 | `mbe-learning-loop`      | Daily 11:00am       | —            | issues                | Sensor report → verify past fixes → triage regressions     |
-| `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | issue-worker + CI monitor                                  |
-| `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | issue-worker + progress-tracker + optimize-implement-queue |
+| `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                 |
+| `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue |
 | `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5` | 1 PR + `ready` issues | Codebase improvement survey → implement the best change    |
 | `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *` | 1 PR + `ready` issues | Claude Code config + docs/automation health                |
 
@@ -37,6 +37,67 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
 > their exact prompts live there. The two improvement routines below were created
 > via `/schedule` and their prompts are reproduced here so they can be reviewed and
 > version-controlled.
+
+## Ideation loop (`/ideate`, folded into `mbe-morning`)
+
+The autonomous feature-ideation cycle: batches of 4-5 `feature-proposal` issues
+grounded in `PRODUCT.md` + repo-committed signals, a ~72h human veto window,
+then automatic decomposition into the implement-queue. Batches are strictly
+sequential — no new ideation until the previous batch is fully implemented.
+Full mechanics: `.claude/skills/ideate/SKILL.md`.
+
+**Append this to the end of the `mbe-morning` prompt** (replacing its
+issue-worker step):
+
+```text
+Then run /ideate. It first advances the ideation cycle (vetoes honored,
+proposals past the ~72h window decomposed via /decompose, finished tracking
+issues closed, stale children deferred). Only if the previous batch is fully
+complete does it generate a new batch of 4-5 feature-proposal issues grounded
+in PRODUCT.md and repo-committed signals. Never fetch live site URLs. Never
+label a proposal 'ready'. If /ideate created a new batch this run, report the
+batch URL and stop; otherwise finish as usual.
+```
+
+### Ideation label glossary
+
+| Label              | Meaning                                                        |
+| ------------------ | -------------------------------------------------------------- |
+| `feature-proposal` | Proposal in veto window — close it (or add `vetoed`) to reject |
+| `ideation-batch`   | Tracking issue for one batch; its task-list is the cycle state |
+| `vetoed`           | Human-rejected — permanent dedup memory, never re-proposed     |
+| `deferred`         | Excluded from batch completion (stuck child / failed decompose)|
+
+### Lifecycle
+
+`/ideate` files 4-5 proposals + one batch issue → Matt vetoes freely for ~3
+days (zero action = consent) → un-vetoed proposals decompose into
+`feature`+`ready` children → cloud + local implement-queue drains them → when
+every proposal is vetoed, deferred, or shipped, the batch closes with a
+scorecard and the next batch is generated automatically.
+
+## Cloud drain (`/implement-queue` in `mbe-midday` / `mbe-evening`)
+
+The midday and evening routines run the full implement-queue (parallel TDD
+worktree agents + auto-merge train) instead of the serial `/issue-worker`, so
+the backlog drains ~6-9 issues/day without Matt's laptop.
+
+**Replace the issue-worker step in both `mbe-midday` and `mbe-evening`
+prompts with:**
+
+```text
+Instead of /issue-worker, run /implement-queue for one iteration with a batch
+of at most 3 independent ready issues (Phase 0 pre-flight through Phase 4).
+First step in every worktree: pnpm install --frozen-lockfile. Respect the
+circuit breaker; stop after one iteration. Before finishing, if
+metrics/queue-telemetry.jsonl has uncommitted appended rows, commit only that
+path on a branch and open a PR titled "chore(metrics): queue telemetry <date>"
+labeled has-pr.
+```
+
+If cloud worktree agents prove unreliable (validation run pending), fall back
+to a single worker without worktree isolation in cloud and keep the local
+`/loop 30m /implement-queue` as the heavy drain.
 
 ## `mbe-weekly-improve`
 
@@ -93,10 +154,15 @@ new weekday schedule slot** (see Plan budget below).
   with zero context, so the instruction must live in the prompt itself):
 
   ```text
-  Finally, run /optimize-implement-queue. Append the queue-efficiency trend point
-  and a dated log entry. If it flags a regression, file de-duplicated `ready`
-  issues and trigger `mbe agent eval` asynchronously (never block this run on
-  eval). Do not auto-merge or auto-edit any skill prompts.
+  Finally, run /optimize-implement-queue. Start with its Step 0
+  (node scripts/reconcile-queue-telemetry.mjs). Append the queue-efficiency
+  trend point and a dated log entry. If it flags a regression, file
+  de-duplicated `ready` issues and trigger `mbe agent eval` asynchronously
+  (never block this run on eval). Do not auto-merge or auto-edit any skill
+  prompts. Finish with its Step 6: if metrics/process-metrics.jsonl,
+  metrics/queue-telemetry.jsonl, or .claude/improvement-loop/log.md changed,
+  commit only those paths on a branch and open a PR titled
+  "chore(metrics): optimize-implement-queue <date>" labeled has-pr.
   ```
 
 > **[HITL] — Matt must wire this in the claude.ai UI.** RemoteTriggers are
@@ -105,8 +171,17 @@ new weekday schedule slot** (see Plan budget below).
 >
 > - [ ] Open the `mbe-evening` routine at https://claude.ai/code/routines
 > - [ ] Append the `/optimize-implement-queue` instruction block above to its prompt
+>       (2026-07 revision: includes Step 0 reconcile + Step 6 metrics-persist PR)
 > - [ ] Add the weekly `mbe agent eval` checkpoint to the `mbe-weekly-improve` prompt
 > - [ ] Confirm the evening run still completes within its budget after the addition
+> - [ ] **Ideation loop (2026-07-28):** append the `/ideate` block above to
+>       `mbe-morning` (replacing its issue-worker step)
+> - [ ] **Cloud drain (2026-07-28):** replace the issue-worker step in
+>       `mbe-midday` AND `mbe-evening` with the `/implement-queue` block above
+> - [ ] Manually `run` `mbe-morning` once to validate `/ideate` files batch 1,
+>       and `mbe-midday` once to validate cloud `/implement-queue` (worktrees +
+>       pnpm install) — check that the daily `chore(acmm)` PR reappears too
+>       (they stopped after 2026-07-10; the run log will show why)
 
 ## Plan budget (Max 5x)
 
