@@ -120,6 +120,13 @@ const CRITERIA = [
         "cypress.config.js",
         "e2e/",
         "tests/e2e/",
+        // Monorepo layouts keep E2E configs per-app, not at the root — without
+        // these literals a fresh checkout scores not-found (regressed L6→L5).
+        "tests/smoke/playwright.config.ts",
+        "apps/hospitality/playwright.config.ts",
+        "apps/gen/playwright.config.ts",
+        "apps/marketing/playwright.config.ts",
+        "apps/rialto-web/playwright.config.ts",
       ],
     },
   },

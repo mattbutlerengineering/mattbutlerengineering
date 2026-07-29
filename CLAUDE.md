@@ -59,6 +59,7 @@ Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claud
 
 | Skill               | Purpose                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/ideate`           | Autonomous feature ideation: advance the batch cycle (vetoes → decompose → completion sweep), then propose 4-5 charter-grounded features when the batch is done   |
 | `/implement-queue`  | Drain ready backlog: claim batch → parallel TDD worktree agents → PRs → serial merge train                                                                        |
 | `/site-audit`       | Crawl live site with Playwright + Lighthouse, create issues                                                                                                       |
 | `/issue-worker`     | Pick up ready issues, implement via `mbe agent run`, create PRs                                                                                                   |

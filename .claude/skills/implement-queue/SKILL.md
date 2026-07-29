@@ -151,7 +151,8 @@ appendTelemetryRow({
 
 - Write only schema fields — unknown keys (e.g. API keys, tokens) cause the writer to throw before any disk write.
 - The row is idempotent per `(issue_number, pr_number)` — safe to retry on transient errors.
-- Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; the `queueEfficiency` sensor reconciles them from GitHub in its next run.
+- Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; `scripts/reconcile-queue-telemetry.mjs` (run by `/optimize-implement-queue` Step 0) fills them from GitHub later.
+- `metrics/queue-telemetry.jsonl` is a **tracked file** (merge=union) — rows appended in ephemeral checkouts must be committed before the session ends (see Phase 4).
 - `cost_usd`, when provided, lets `collect-queue-efficiency.mjs` use precise per-issue cost instead of the coarse ccusage-daily ÷ issues estimate.
 
 ### Worker→train boundary (per PR, after CI green)
@@ -268,6 +269,7 @@ If CI fails on the updated branch: one fix attempt in the main session (small fi
 - **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
 - More `ready` issues and time/budget remain → back to Phase 0.
 - **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
+- **Persist telemetry before stopping:** if `metrics/queue-telemetry.jsonl` has uncommitted appended rows (`git diff --stat -- metrics/queue-telemetry.jsonl`), commit ONLY that path on a branch and open a PR titled `chore(metrics): queue telemetry <YYYY-MM-DD>` labeled `has-pr` (auto-merges via the low-risk fast path). Ephemeral cloud checkouts lose uncommitted rows forever.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
 Recurring use: `/loop 30m /implement-queue`.
