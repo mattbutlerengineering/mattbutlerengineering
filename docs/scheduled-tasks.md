@@ -44,7 +44,8 @@ The autonomous feature-ideation cycle: batches of 4-5 `feature-proposal` issues
 grounded in `PRODUCT.md` + repo-committed signals, a ~72h human veto window,
 then automatic decomposition into the implement-queue. Batches are strictly
 sequential — no new ideation until the previous batch is fully implemented.
-Full mechanics: `.claude/skills/ideate/SKILL.md`.
+Full mechanics: `.claude/skills/ideate/SKILL.md`. Operator guide
+(what Matt does vs. what runs itself): [`ideation-loop.md`](./ideation-loop.md).
 
 **Append this to the end of the `mbe-morning` prompt** (replacing its
 issue-worker step):
