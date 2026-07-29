@@ -1,5 +1,7 @@
-import { useReducer, useCallback } from "react";
+import { useReducer, useCallback, useEffect } from "react";
 import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
+import type { BookingWidgetApiClient } from "./PaymentStep.js";
+import type { GuestDetails } from "./GuestDetailsForm.js";
 import { provisionalDepositRequired } from "./effectiveDepositPolicy.js";
 
 export type BookingStep =
@@ -276,21 +278,14 @@ export interface BookingFlowActions {
   setSelectedDate: (date: string | null) => void;
   setSelectedEndDate: (date: string | null) => void;
   setPartySize: (size: number) => void;
-  goToTimeSlot: (
-    fetchSlots?: () => Promise<TimeSlot[]>,
-    releaseHold?: (holdId: string) => Promise<void>
-  ) => void;
-  goToDateParty: (releaseHold?: (holdId: string) => Promise<void>) => void;
+  goToTimeSlot: () => void;
+  goToDateParty: () => void;
   setSlots: (slots: TimeSlot[]) => void;
   setSlotsError: (error: string) => void;
-  selectSlotAndHold: (slot: TimeSlot, holdPromise: Promise<ReservationHold>) => Promise<void>;
-  confirmReservation: (
-    reservationPromise: Promise<Reservation>,
-    depositConfig: DepositConfig | null
-  ) => Promise<void>;
+  selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
+  confirmReservation: (details: GuestDetails, depositConfig: DepositConfig | null) => Promise<void>;
   handleDepositSuccess: (paymentIntentId: string) => void;
   goBackToGuestDetails: () => void;
-  expireHold: () => void;
   resetFlow: () => void;
   setDepositConfig: (config: DepositConfig | null) => void;
   goToWaitlistJoin: () => void;
@@ -307,7 +302,18 @@ export interface BookingFlowResult {
   currentStepIndex: number;
 }
 
-export function useBookingFlow(): BookingFlowResult {
+export interface UseBookingFlowDeps {
+  /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
+  api: BookingWidgetApiClient;
+  venueId: string;
+  holdDurationMinutes?: number;
+}
+
+export function useBookingFlow({
+  api,
+  venueId,
+  holdDurationMinutes = 10,
+}: UseBookingFlowDeps): BookingFlowResult {
   const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
 
   const setSelectedDate = useCallback((date: string | null) => {
@@ -322,39 +328,52 @@ export function useBookingFlow(): BookingFlowResult {
     dispatch({ type: "SET_PARTY_SIZE", size });
   }, []);
 
-  const goToTimeSlot = useCallback(
-    (fetchSlots?: () => Promise<TimeSlot[]>, releaseHold?: (holdId: string) => Promise<void>) => {
-      const holdId = flowState.data.hold?.id;
-      if (holdId && releaseHold) {
-        releaseHold(holdId).catch(() => {
-          // Ignore — hold expires anyway
-        });
-      }
-      dispatch({ type: "GO_TO_TIME_SLOT" });
-      if (fetchSlots) {
-        fetchSlots()
-          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
-          .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : "Failed to load availability";
-            dispatch({ type: "SET_SLOTS_ERROR", error: msg });
-          });
+  // Fetch available time slots for the currently selected date/party size.
+  // Owned here (not the component) so it can be driven headlessly and reused
+  // by both goToTimeSlot and the hold-expiry timer below.
+  const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
+    if (!flowState.data.selectedDate) return [];
+    const response = await api.availability.getTimeSlots({
+      venueId,
+      date: flowState.data.selectedDate,
+      partySize: flowState.data.partySize,
+    });
+    return response.filter((slot) => slot.available);
+  }, [api, venueId, flowState.data.selectedDate, flowState.data.partySize]);
+
+  // Release a hold by ID — errors are ignored, the hold expires anyway.
+  const releaseHold = useCallback(
+    async (holdId: string) => {
+      try {
+        await api.holds.release(holdId);
+      } catch {
+        // Ignore — hold expires anyway
       }
     },
-    [flowState.data.hold]
+    [api]
   );
 
-  const goToDateParty = useCallback(
-    (releaseHold?: (holdId: string) => Promise<void>) => {
-      const holdId = flowState.data.hold?.id;
-      if (holdId && releaseHold) {
-        releaseHold(holdId).catch(() => {
-          // Ignore — hold expires anyway
-        });
-      }
-      dispatch({ type: "GO_TO_DATE_PARTY" });
-    },
-    [flowState.data.hold]
-  );
+  const goToTimeSlot = useCallback(() => {
+    const holdId = flowState.data.hold?.id;
+    if (holdId) {
+      releaseHold(holdId);
+    }
+    dispatch({ type: "GO_TO_TIME_SLOT" });
+    fetchSlots()
+      .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : "Failed to load availability";
+        dispatch({ type: "SET_SLOTS_ERROR", error: msg });
+      });
+  }, [flowState.data.hold, releaseHold, fetchSlots]);
+
+  const goToDateParty = useCallback(() => {
+    const holdId = flowState.data.hold?.id;
+    if (holdId) {
+      releaseHold(holdId);
+    }
+    dispatch({ type: "GO_TO_DATE_PARTY" });
+  }, [flowState.data.hold, releaseHold]);
 
   const setSlots = useCallback((slots: TimeSlot[]) => {
     dispatch({ type: "SET_SLOTS", slots });
@@ -365,27 +384,37 @@ export function useBookingFlow(): BookingFlowResult {
   }, []);
 
   const selectSlotAndHold = useCallback(
-    async (slot: TimeSlot, holdPromise: Promise<ReservationHold>): Promise<void> => {
+    async (slot: TimeSlot): Promise<void> => {
+      if (!flowState.data.selectedDate) return;
       dispatch({ type: "HOLD_START", slot });
       try {
-        const hold = await holdPromise;
+        const { hold } = await api.holds.create({
+          venueId,
+          date: flowState.data.selectedDate,
+          time: slot.time,
+          partySize: flowState.data.partySize,
+          holdDurationMinutes,
+        });
         dispatch({ type: "HOLD_SUCCESS", hold, slot });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to hold time slot";
         dispatch({ type: "HOLD_ERROR", error: msg });
       }
     },
-    []
+    [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
   );
 
   const confirmReservation = useCallback(
-    async (
-      reservationPromise: Promise<Reservation>,
-      depositConfig: DepositConfig | null
-    ): Promise<void> => {
+    async (details: GuestDetails, depositConfig: DepositConfig | null): Promise<void> => {
+      if (!flowState.data.hold) return;
       dispatch({ type: "CONFIRM_START" });
       try {
-        const reservation = await reservationPromise;
+        const reservation = await api.holds.confirm(flowState.data.hold.id, {
+          guestName: details.name,
+          guestEmail: details.email || undefined,
+          guestPhone: details.phone || undefined,
+          notes: details.notes || undefined,
+        });
         // `depositConfig` is the resolved output of effectiveDepositPolicy —
         // per its contract, a non-null result (which may itself carry
         // `enabled: false` on the risky-guest override path) means a deposit
@@ -401,7 +430,7 @@ export function useBookingFlow(): BookingFlowResult {
         dispatch({ type: "CONFIRM_ERROR", error: msg });
       }
     },
-    []
+    [api, flowState.data.hold]
   );
 
   const handleDepositSuccess = useCallback((paymentIntentId: string) => {
@@ -410,10 +439,6 @@ export function useBookingFlow(): BookingFlowResult {
 
   const goBackToGuestDetails = useCallback(() => {
     dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
-  }, []);
-
-  const expireHold = useCallback(() => {
-    dispatch({ type: "EXPIRE_HOLD" });
   }, []);
 
   const resetFlow = useCallback(() => {
@@ -431,6 +456,27 @@ export function useBookingFlow(): BookingFlowResult {
   const handleWaitlistJoined = useCallback((result: WaitlistResult) => {
     dispatch({ type: "WAITLIST_JOINED", result });
   }, []);
+
+  // Hold-expiry timer — captured hold in closure; effect restarts on every
+  // hold change. Owned here (not the component) so expiry + availability
+  // reload are exercisable headlessly through this hook alone.
+  useEffect(() => {
+    if (!flowState.data.hold) return undefined;
+    const capturedHold = flowState.data.hold;
+
+    const interval = setInterval(() => {
+      if (new Date() >= new Date(capturedHold.expiresAt)) {
+        dispatch({ type: "EXPIRE_HOLD" });
+        fetchSlots()
+          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+          .catch(() =>
+            dispatch({ type: "SET_SLOTS_ERROR", error: "Failed to reload availability" })
+          );
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [flowState.data.hold, fetchSlots]);
 
   // Render-time derivation — single source of truth for the step set and
   // indicator. Both step sets share the same indices for every step before
@@ -455,7 +501,6 @@ export function useBookingFlow(): BookingFlowResult {
       confirmReservation,
       handleDepositSuccess,
       goBackToGuestDetails,
-      expireHold,
       resetFlow,
       setDepositConfig,
       goToWaitlistJoin,
