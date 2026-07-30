@@ -45,10 +45,28 @@ async function makeFocusVisible(page: Page): Promise<void> {
   await page.keyboard.press("Shift+Tab");
 }
 
+/**
+ * Variant of makeFocusVisible() for interactions where the ring belongs on
+ * the very element that was just pointer-clicked, rather than on some other
+ * element reached via Tab (see #3531). Tab/Shift+Tab only produces a genuine
+ * blur->focus transition when there is a *different* element for Tab to land
+ * on first; on a page whose only reachable stop is the element itself, no
+ * such transition fires and the modality never flips. Blurring first (so
+ * document.activeElement genuinely changes to null) then Shift+Tab-ing back
+ * is reliable here instead: Chromium's sequential-focus-navigation position
+ * anchors to the element that was last reached via trusted input (the click
+ * that just happened), so Shift+Tab from a blurred state always returns
+ * focus to that same element via a genuine keyboard transition.
+ */
+async function makeFocusVisibleOnSelf(page: Page): Promise<void> {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("Shift+Tab");
+}
+
 async function interactButtonPrimary(page: Page): Promise<void> {
   const button = page.getByRole("button", { name: "Primary Action" });
   await button.click();
-  await makeFocusVisible(page);
+  await makeFocusVisibleOnSelf(page);
 }
 
 async function interactConfirmDialog(page: Page): Promise<void> {
@@ -100,7 +118,7 @@ async function interactToastSuccess(page: Page): Promise<void> {
   const button = page.getByRole("button", { name: "Show Success Toast" });
   await button.click();
   await expect(page.getByText("Success!")).toBeVisible();
-  await makeFocusVisible(page);
+  await makeFocusVisibleOnSelf(page);
 }
 
 async function interactToggle(page: Page): Promise<void> {
