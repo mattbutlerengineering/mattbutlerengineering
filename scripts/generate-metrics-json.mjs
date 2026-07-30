@@ -14,49 +14,87 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_PATH = resolve(__dirname, "..", ".claude", "acmm", "state.json");
 const OUTPUT_PATH = resolve(__dirname, "..", "apps", "marketing", "public", "metrics.json");
+const FRESHNESS_MAX_AGE_DAYS = 14;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-const state = JSON.parse(readFileSync(STATE_PATH, "utf8"));
-const comp = state.computation;
+/**
+ * Guards the dashboard from silently going stale: throws when the ACMM
+ * state's `lastRun` timestamp is missing or older than `maxAgeDays`.
+ *
+ * @param {string | undefined} lastRun - ISO timestamp of the last ACMM audit run.
+ * @param {{ now?: Date; maxAgeDays?: number; statePath?: string }} [options]
+ */
+export function checkFreshness(
+  lastRun,
+  { now = new Date(), maxAgeDays = FRESHNESS_MAX_AGE_DAYS, statePath = STATE_PATH } = {}
+) {
+  if (!lastRun) {
+    throw new Error(
+      `ACMM state file ${statePath} has no lastRun timestamp — cannot verify freshness`
+    );
+  }
+  const ageDays = (now.getTime() - new Date(lastRun).getTime()) / MS_PER_DAY;
+  if (ageDays > maxAgeDays) {
+    throw new Error(
+      `ACMM state file ${statePath} is ${ageDays.toFixed(1)} days stale (lastRun: ${lastRun}) — exceeds the ${maxAgeDays}-day freshness threshold. Re-run the ACMM audit before regenerating metrics.`
+    );
+  }
+}
 
-const metrics = {
-  schema: "acmm-metrics/v1",
-  generatedAt: new Date().toISOString(),
-  level: state.currentLevel,
-  levelName: state.levelName,
-  role: state.role,
-  summary: {
-    detected: state.detectedIds?.length ?? 0,
-    total: Object.keys(state.checks ?? {}).length,
-    coverage: state.detectedIds?.length
-      ? state.detectedIds.length / Object.keys(state.checks ?? {}).length
-      : 0,
-  },
-  prerequisites: comp?.prerequisites ?? { met: 0, total: 0 },
-  behavioral: {
-    ciFlakeRate: state.behavioral?.flake?.rate_30d ?? 0,
-    agentPrAcceptanceRate: state.behavioral?.agent_pr?.acceptance_rate_30d ?? 0,
-    agentPrRevertRate: state.behavioral?.agent_pr?.revert_rate_30d ?? 0,
-    evalPassRate: state.behavioral?.evals?.passRate ?? 0,
-    evalMedianScore: state.behavioral?.evals?.medianScore ?? 0,
-  },
-  history: (state.history ?? []).map((h) => ({
-    date: h.date,
-    level: h.level,
-    detected: h.detected,
-    total: h.total,
-  })),
-  detectedByLevel: comp?.detectedByLevel ?? {},
-  behavioralGates: (comp?.behavioralGates ?? []).map((g) => ({
-    level: g.level,
-    name: g.name,
-    passed: g.passed,
-    value: g.value,
-    threshold: g.threshold,
-  })),
-};
+// Run only when executed directly (`node generate-metrics-json.mjs`),
+// not when imported for unit testing.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const state = JSON.parse(readFileSync(STATE_PATH, "utf8"));
 
-mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
-writeFileSync(OUTPUT_PATH, JSON.stringify(metrics, null, 2) + "\n");
-console.log(
-  `Generated ${OUTPUT_PATH} (level ${metrics.level}, ${metrics.summary.detected}/${metrics.summary.total} criteria)`
-);
+  try {
+    checkFreshness(state.lastRun);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+
+  const comp = state.computation;
+
+  const metrics = {
+    schema: "acmm-metrics/v1",
+    generatedAt: new Date().toISOString(),
+    level: state.currentLevel,
+    levelName: state.levelName,
+    role: state.role,
+    summary: {
+      detected: state.detectedIds?.length ?? 0,
+      total: Object.keys(state.checks ?? {}).length,
+      coverage: state.detectedIds?.length
+        ? state.detectedIds.length / Object.keys(state.checks ?? {}).length
+        : 0,
+    },
+    prerequisites: comp?.prerequisites ?? { met: 0, total: 0 },
+    behavioral: {
+      ciFlakeRate: state.behavioral?.flake?.rate_30d ?? 0,
+      agentPrAcceptanceRate: state.behavioral?.agent_pr?.acceptance_rate_30d ?? 0,
+      agentPrRevertRate: state.behavioral?.agent_pr?.revert_rate_30d ?? 0,
+      evalPassRate: state.behavioral?.evals?.passRate ?? 0,
+      evalMedianScore: state.behavioral?.evals?.medianScore ?? 0,
+    },
+    history: (state.history ?? []).map((h) => ({
+      date: h.date,
+      level: h.level,
+      detected: h.detected,
+      total: h.total,
+    })),
+    detectedByLevel: comp?.detectedByLevel ?? {},
+    behavioralGates: (comp?.behavioralGates ?? []).map((g) => ({
+      level: g.level,
+      name: g.name,
+      passed: g.passed,
+      value: g.value,
+      threshold: g.threshold,
+    })),
+  };
+
+  mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
+  writeFileSync(OUTPUT_PATH, JSON.stringify(metrics, null, 2) + "\n");
+  console.log(
+    `Generated ${OUTPUT_PATH} (level ${metrics.level}, ${metrics.summary.detected}/${metrics.summary.total} criteria)`
+  );
+}

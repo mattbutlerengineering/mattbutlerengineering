@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
-import { formatRatio, formatDate } from "../utils/formatters.js";
+import { Card, Badge, Heading, Text, Spinner, Banner } from "@mattbutlerengineering/rialto";
+import { formatRatio, formatDate, isStale } from "../utils/formatters.js";
 import styles from "./MetricsPage.module.css";
 
 interface BehavioralGate {
@@ -98,6 +98,13 @@ export function MetricsPage() {
           </a>
         </Text>
       </header>
+
+      {isStale(metrics.generatedAt) && (
+        <Banner variant="warning" className={styles.staleBanner}>
+          Stale data — last generated {formatDate(metrics.generatedAt)}, more than 14 days ago. The
+          ACMM audit refresher may need attention.
+        </Banner>
+      )}
 
       <section className={styles.section}>
         <Heading level={2}>Current Level</Heading>

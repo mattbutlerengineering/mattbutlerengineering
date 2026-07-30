@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Hero, Stack, Button, SilkFlow } from "@mattbutlerengineering/rialto";
+import { Hero, Stack, SilkFlow } from "@mattbutlerengineering/rialto";
 import styles from "./HeroSection.module.css";
 
 const REPO_URL = "https://github.com/mattbutlerengineering/mattbutlerengineering";
@@ -23,10 +23,8 @@ export function HeroSection() {
             >
               Read the code
             </a>
-            <Link to="/metrics">
-              <Button variant="secondary" size="lg">
-                Live metrics
-              </Button>
+            <Link to="/metrics" className={styles.secondaryCtaLink}>
+              Live metrics
             </Link>
           </Stack>
         }

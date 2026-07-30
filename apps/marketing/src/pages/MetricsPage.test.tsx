@@ -11,6 +11,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: any) => <h2>{children}</h2>,
   Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Spinner: ({ size }: any) => <div data-testid="spinner" data-size={size} />,
+  Banner: ({ children, variant, className }: any) => (
+    <div role="alert" data-variant={variant} className={className}>
+      {children}
+    </div>
+  ),
 }));
 
 vi.mock("./MetricsPage.module.css", () => ({
@@ -52,6 +57,7 @@ vi.mock("./MetricsPage.module.css", () => ({
     levelBarFill: "levelBarFill",
     levelCount: "levelCount",
     jsonLink: "jsonLink",
+    staleBanner: "staleBanner",
   },
 }));
 
@@ -332,6 +338,31 @@ describe("MetricsPage", () => {
       const link = screen.getByText("View raw JSON");
       expect(link).toBeInTheDocument();
       expect(link).toHaveAttribute("href", "/metrics.json");
+    });
+  });
+
+  it("does not render a stale-data notice when generatedAt is within 14 days", async () => {
+    const fresh = { ...MOCK_METRICS, generatedAt: new Date().toISOString() };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => fresh });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Integrated")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("renders a stale-data notice when generatedAt is older than 14 days", async () => {
+    const stale = {
+      ...MOCK_METRICS,
+      generatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => stale });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(screen.getByText(/stale/i)).toBeInTheDocument();
     });
   });
 });
