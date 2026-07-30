@@ -47,6 +47,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {eyebrow}
     </div>
   ),
+  SilkFlow: () => <div data-testid="silk-flow" />,
   Stack: ({ children }: any) => <div>{children}</div>,
   AppBar: ({ logo, actions }: any) => (
     <header data-testid="appbar">
@@ -73,7 +74,11 @@ describe("Components and Pages", () => {
   });
 
   it("renders HeroSection", () => {
-    render(<HeroSection />);
+    render(
+      <MemoryRouter>
+        <HeroSection />
+      </MemoryRouter>
+    );
     expect(screen.getByTestId("hero")).toBeInTheDocument();
   });
 

@@ -49,17 +49,21 @@ describe("HomePage heading hierarchy", () => {
 describe("HomePage hero", () => {
   it("exposes a primary external conversion CTA that opens safely in a new tab", () => {
     renderHomePage();
-    const cta = screen.getByRole("link", { name: /work together/i });
-    expect(cta.getAttribute("href")).toContain("linkedin.com");
+    const cta = screen.getByRole("link", { name: /read the code/i });
+    expect(cta.getAttribute("href")).toContain("github.com");
     expect(cta).toHaveAttribute("target", "_blank");
     expect(cta.getAttribute("rel")).toContain("noopener");
     expect(cta.getAttribute("aria-label")).toMatch(/opens in new tab/i);
   });
 
-  it("keeps the in-page scroll actions alongside the external CTA", () => {
+  it("links to the live metrics dashboard", () => {
     renderHomePage();
-    expect(screen.getByRole("button", { name: /see my work/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /about me/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /live metrics/i })).toHaveAttribute("href", "/metrics");
+  });
+
+  it("has no eyebrow label above the title", () => {
+    renderHomePage();
+    expect(screen.queryByText("Engineering Leader")).not.toBeInTheDocument();
   });
 });
 

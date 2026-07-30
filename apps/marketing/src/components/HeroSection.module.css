@@ -1,3 +1,16 @@
+/* Positions the SilkFlow canvas full-bleed behind the Hero content.
+   Hero itself keeps position: relative + normal DOM order painting its
+   content on top, so no explicit z-index is needed on the Hero side. */
+.heroWrapper {
+  position: relative;
+}
+
+.heroWrapper .silkFlow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
 /* Primary external CTA rendered as a single styled anchor.
    Mirrors the Rialto Button primary + lg appearance without nesting a
    native <button> inside an <a> (which would be invalid interactive HTML).
