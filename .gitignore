@@ -63,6 +63,10 @@ coverage/
 # Prisma generated clients (produced by `prisma generate` at install/build time)
 services/*/src/generated/
 
+# Build-time repo stats for the marketing proof strip (scripts/collect-repo-stats.mjs).
+# The committed repo-stats.fallback.json next to it is the offline source of truth.
+apps/marketing/src/data/generated/
+
 # Claude Code (keep skills, ignore local settings)
 .claude/settings.local.json
 # Ignore improvement-loop *contents* (not the dir itself) so the negation below

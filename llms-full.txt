@@ -3060,6 +3060,33 @@
       },
     ];
   </file>
+  <file path="apps/marketing/src/data/repo-stats.ts">
+    export interface RepoStats {
+      /** Merged pull requests carrying the `agent-authored` audit label. */
+      readonly agentPrsMerged: number;
+      /** Merged pull requests in total. */
+      readonly totalPrsMerged: number;
+      /** Component folders in `packages/rialto/src/components`. */
+      readonly rialtoComponents: number;
+      /** Git-tracked `*.test.*` / `*.spec.*` files. */
+      readonly testFiles: number;
+      /** ISO timestamp of the measurement. */
+      readonly measuredAt: string;
+    }
+    export function isRepoStats(value: unknown): value is RepoStats {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+      const candidate = value as Record<string, unknown>;
+    
+      const countersValid = COUNTER_KEYS.every((key) => {
+        const count = candidate[key];
+        return typeof count === "number" && Number.isInteger(count) && count >= 0;
+      });
+      if (!countersValid) return false;
+    
+      const { measuredAt } = candidate;
+      return typeof measuredAt === "string" && !Number.isNaN(Date.parse(measuredAt));
+    }
+  </file>
   <file path="apps/marketing/src/data/stats.ts">
     export interface SiteStat {
       /** Numeric figure rendered via the Odometer rolling counter. */

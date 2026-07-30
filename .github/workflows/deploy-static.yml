@@ -116,6 +116,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Refreshes the landing proof-strip numbers. Always exits 0 — on a missing
+      # token or an unreachable GitHub the build keeps the committed
+      # apps/marketing/src/data/repo-stats.fallback.json snapshot.
+      - name: Collect repo stats
+        run: node scripts/collect-repo-stats.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - run: pnpm build --filter=@mbe/marketing
         env:
           VITE_BUILD_ID: ${{ github.sha }}

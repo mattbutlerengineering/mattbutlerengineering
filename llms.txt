@@ -968,6 +968,20 @@
       export const PROJECTS: Project[];
     </item>
   </file>
+  <file path="apps/marketing/src/data/repo-stats.ts">
+    <item priority="low">
+      interface RepoStats {
+        agentPrsMerged: number;
+        totalPrsMerged: number;
+        rialtoComponents: number;
+        testFiles: number;
+        measuredAt: string;
+      }
+    </item>
+    <item priority="high">
+      export function isRepoStats(value: unknown): value is RepoStats { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/stats.ts">
     <item priority="low">
       interface SiteStat {
