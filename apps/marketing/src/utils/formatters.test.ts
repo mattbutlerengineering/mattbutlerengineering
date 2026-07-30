@@ -9,6 +9,7 @@ import {
   formatRatio,
   formatDate,
   formatTimestamp,
+  isStale,
   SOURCE_COLORS,
   SOURCE_LABELS,
 } from "./formatters.js";
@@ -152,6 +153,26 @@ describe("formatTimestamp", () => {
 
   it("handles undefined gracefully", () => {
     expect(formatTimestamp(undefined)).toBe("Never");
+  });
+});
+
+describe("isStale", () => {
+  it("returns false when generatedAt is within the 14-day freshness window", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isStale(generatedAt, now)).toBe(false);
+  });
+
+  it("returns false exactly at the 14-day boundary", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isStale(generatedAt, now)).toBe(false);
+  });
+
+  it("returns true when generatedAt exceeds the 14-day freshness window", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isStale(generatedAt, now)).toBe(true);
   });
 });
 
