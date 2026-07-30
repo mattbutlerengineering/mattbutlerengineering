@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Reservation, ReservationStatus } from "@mbe/types";
 import { ordinalVisit } from "../../utils/ordinal.js";
 import { formatTime } from "../../utils/format.js";
@@ -8,7 +9,7 @@ export interface ReservationBlockProps {
   style: { left: number; width: number };
   isSelected?: boolean;
   isFocused?: boolean;
-  onClick?: () => void;
+  onClick?: (reservation: Reservation) => void;
 }
 
 const STATUS_CLASS: Record<ReservationStatus, string> = {
@@ -19,7 +20,7 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   NO_SHOW: styles.statusNoShow ?? "",
 };
 
-export function ReservationBlock({
+function ReservationBlockComponent({
   reservation,
   style,
   isSelected = false,
@@ -33,13 +34,14 @@ export function ReservationBlock({
   const visitCount =
     reservation.guest && reservation.guest.visitCount > 1 ? reservation.guest.visitCount : null;
   const visitLabel = visitCount !== null ? ordinalVisit(visitCount) : null;
+  const handleClick = () => onClick?.(reservation);
 
   return (
     /* eslint-disable mbe-local/prefer-rialto-components -- timeline block uses custom CSS module classes that require a native button element */
     <button
       type="button"
       data-testid={`reservation-block-${reservation.id}`}
-      onClick={onClick}
+      onClick={handleClick}
       className={[
         styles.block,
         statusClass,
@@ -65,3 +67,16 @@ export function ReservationBlock({
     /* eslint-enable mbe-local/prefer-rialto-components */
   );
 }
+
+function arePropsEqual(prev: ReservationBlockProps, next: ReservationBlockProps): boolean {
+  return (
+    prev.reservation === next.reservation &&
+    prev.style.left === next.style.left &&
+    prev.style.width === next.style.width &&
+    prev.isSelected === next.isSelected &&
+    prev.isFocused === next.isFocused &&
+    prev.onClick === next.onClick
+  );
+}
+
+export const ReservationBlock = memo(ReservationBlockComponent, arePropsEqual);

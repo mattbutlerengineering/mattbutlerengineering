@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ReservationBlock } from "./ReservationBlock.js";
 import type { Reservation } from "@mbe/types";
@@ -146,6 +147,45 @@ describe("ReservationBlock", () => {
     expect(label).toContain("Jane Doe");
     expect(label).toContain("party of 4");
     expect(label).toContain("confirmed");
+  });
+
+  it("does not re-render when props are unchanged (React.memo)", () => {
+    // Track how many times the component body actually reads `reservation.id` (used in
+    // its JSX). React.memo bailout skips the function body entirely, so this only
+    // increments on a real render — a Profiler's onRender fires on every parent commit
+    // regardless of memo bailout, so it can't detect this.
+    let renderCount = 0;
+    const reservation = makeReservation();
+    Object.defineProperty(reservation, "id", {
+      get() {
+        renderCount++;
+        return "res-1";
+      },
+    });
+
+    function Harness() {
+      const [tick, setTick] = useState(0);
+      return (
+        <>
+          <button
+            data-testid="force-rerender"
+            data-tick={tick}
+            onClick={() => setTick((n) => n + 1)}
+          >
+            rerender parent
+          </button>
+          <ReservationBlock reservation={reservation} style={defaultStyle} />
+        </>
+      );
+    }
+
+    render(<Harness />);
+    expect(renderCount).toBeGreaterThan(0);
+    const countAfterMount = renderCount;
+
+    fireEvent.click(screen.getByTestId("force-rerender"));
+
+    expect(renderCount).toBe(countAfterMount);
   });
 
   describe("returning guest visit count", () => {
