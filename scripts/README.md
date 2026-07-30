@@ -26,6 +26,7 @@ Guard invariants across the monorepo. Run by CI on every PR.
 | `generate-acmm-report.mjs`     | Build ACMM report JSON for the marketing dashboard                                               |
 | `generate-audit-inventory.mjs` | Generate audit inventory from the surface registry                                               |
 | `generate-metrics-json.mjs`    | Build ACMM state → `apps/marketing/public/metrics.json` for the quality dashboard                |
+| `collect-repo-stats.mjs`       | Measure repo proof-strip numbers → `apps/marketing/src/data/generated/repo-stats.json`           |
 | `update-schema-baselines.js`   | Update schema baseline JSON for backward compat checking                                         |
 | `process-a11y-results.mjs`     | Parse Vitest JSON output, segment a11y violations by author, fail CI on agent-branch regressions |
 
