@@ -1,0 +1,25 @@
+.root {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.canvas,
+.poster {
+  position: absolute;
+  inset: 0;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* Reduced-motion stand-in: the resting tone of the animation, held still. */
+.poster {
+  background: linear-gradient(
+    160deg,
+    var(--rialto-surface) 0%,
+    var(--rialto-surface-elevated) 100%
+  );
+}

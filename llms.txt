@@ -327,6 +327,33 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="SilkFlow">
+  <file path="packages/rialto/src/components/SilkFlow/silk-flow-engine.ts">
+    <item priority="high">
+      interface StrandStyle {
+        alpha: number;
+        width: number;
+      }
+    </item>
+    <item priority="high">
+      interface Palette {
+        surface: string;
+        accent: string;
+        silk: string;
+        goldStyle: StrandStyle;
+        silkStyle: StrandStyle;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/SilkFlow/silk-flow-field.ts">
+    <item priority="high">
+      export const FIELD_SCALE: unknown;
+    </item>
+    <item priority="high">
+      export const FIELD_TIME_STEP: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="packages/rialto/src/components/SplitFlap/charset.ts">
     <item priority="high">

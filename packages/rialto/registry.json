@@ -3348,6 +3348,20 @@
       "slots": []
     },
     {
+      "name": "SilkFlow",
+      "description": "An ambient canvas backdrop: hundreds of strands advected through a value-noise\nflow field, leaving slowly fading trails that read as woven silk. A surgical\n5% of strands are stroked in the gold accent; the rest are near-transparent\ntext-primary. The pointer pushes strands aside as it passes.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "Skeleton",
       "description": "Props for the Skeleton component, a pulsing placeholder shape that communicates loading\nstate before real content appears.\n\nUse `lines` with `\"text\"` or `\"heading\"` variants to generate a multi-line paragraph skeleton\nwhere the last line is automatically shortened for a natural look.",
       "importPath": "@mattbutlerengineering/rialto",
