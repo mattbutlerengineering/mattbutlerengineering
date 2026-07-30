@@ -104,6 +104,11 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
+    # issues: read — the repo-stats collector queries the issues/PR search API;
+    # without it the job token 403s and the strip silently ships the stale fallback.
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
