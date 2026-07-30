@@ -85,6 +85,22 @@ export function formatDate(iso: string): string {
   });
 }
 
+/**
+ * Format a build-time measurement instant as the calendar day it was taken.
+ *
+ * Pinned to UTC — the repo-stats snapshot records an instant, but the proof
+ * strip reports a day, and a local-timezone read would show the previous day
+ * for every viewer west of GMT.
+ */
+export function formatMeasuredAt(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(iso));
+}
+
 export function formatTimestamp(value: string | null | undefined): string {
   if (value == null) return "Never";
   return new Date(value).toLocaleDateString("en-US", {

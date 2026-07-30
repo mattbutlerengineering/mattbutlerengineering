@@ -1,33 +1,40 @@
 import {
   Stack,
   Text,
+  Heading,
   useScrollReveal,
   staggerReveal,
   boop,
-  useToast,
-  Heading,
 } from "@mattbutlerengineering/rialto";
 import { motion, useReducedMotion } from "framer-motion";
-import { useCopyToClipboard } from "@gen/hooks/useCopyToClipboard.js";
 import styles from "../pages/HomePage.module.css";
 
 const EMAIL = "mattbutlerengineering+webapp@gmail.com";
 
-const EXTERNAL_LINKS = [
-  { href: "https://github.com/mattbutlerengineering", label: "GitHub" },
-  { href: "https://www.linkedin.com/in/matt-butler-66496a68/", label: "LinkedIn" },
+const LINKS = [
+  {
+    href: "https://github.com/mattbutlerengineering",
+    label: "GitHub",
+    ariaLabel: "GitHub (opens in new tab)",
+    newTab: true,
+  },
+  {
+    href: "https://www.linkedin.com/in/matt-butler-66496a68/",
+    label: "LinkedIn",
+    ariaLabel: "LinkedIn (opens in new tab)",
+    newTab: true,
+  },
+  {
+    href: `mailto:${EMAIL}`,
+    label: "Email",
+    ariaLabel: "Send an email to Matt Butler Engineering",
+    newTab: false,
+  },
 ] as const;
 
 export function ContactSection() {
   const { ref, controls } = useScrollReveal();
   const shouldReduceMotion = useReducedMotion();
-  const { toast } = useToast();
-  const { copied, copy } = useCopyToClipboard();
-
-  const handleCopyEmail = async () => {
-    await copy(EMAIL);
-    toast({ title: "Email copied!", variant: "success", duration: 2000 });
-  };
 
   const hoverEffect = shouldReduceMotion ? undefined : { scale: boop.scale };
 
@@ -36,12 +43,12 @@ export function ContactSection() {
       <div className={styles.sectionInner}>
         <Stack gap="md">
           <div className={styles.sectionHeader}>
-            <Text className={styles.sectionEyebrow} as="p">
-              At your service
-            </Text>
             <Heading level={2} className={styles.sectionHeading}>
-              Contact
+              Elsewhere
             </Heading>
+            <Text variant="detail" color="tertiary">
+              One person builds and runs all of it — design system, services, infrastructure, CI.
+            </Text>
           </div>
           <motion.div
             ref={ref}
@@ -50,13 +57,12 @@ export function ContactSection() {
             animate={controls}
           >
             <Stack direction="row" gap="md" wrap>
-              {EXTERNAL_LINKS.map((link) => (
+              {LINKS.map((link) => (
                 <motion.a
                   key={link.label}
                   href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`${link.label} (opens in new tab)`}
+                  aria-label={link.ariaLabel}
+                  {...(link.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className={styles.contactLink}
                   variants={staggerReveal.item}
                   whileHover={hoverEffect}
@@ -65,28 +71,6 @@ export function ContactSection() {
                   {link.label}
                 </motion.a>
               ))}
-
-              <motion.span className={styles.contactEmailGroup} variants={staggerReveal.item}>
-                <motion.a
-                  href={`mailto:${EMAIL}`}
-                  aria-label="Send an email to Matt Butler Engineering"
-                  className={styles.contactLink}
-                  whileHover={hoverEffect}
-                  transition={boop.transition}
-                >
-                  Email
-                </motion.a>
-                <motion.button
-                  type="button"
-                  onClick={handleCopyEmail}
-                  aria-label="Copy email address to clipboard"
-                  className={styles.copyEmailButton}
-                  whileHover={hoverEffect}
-                  transition={boop.transition}
-                >
-                  {copied ? "Copied!" : "Copy"}
-                </motion.button>
-              </motion.span>
             </Stack>
           </motion.div>
         </Stack>

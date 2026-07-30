@@ -12,6 +12,10 @@
   margin: 0;
 }
 
+.stack {
+  letter-spacing: var(--rialto-tracking-wide);
+}
+
 .description {
   flex: 1;
 }
