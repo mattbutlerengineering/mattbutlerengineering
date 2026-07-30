@@ -94,6 +94,18 @@ export function formatTimestamp(value: string | null | undefined): string {
   });
 }
 
+const STALE_THRESHOLD_DAYS = 14;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Returns true when an ISO timestamp is older than the 14-day freshness
+ * window — used to flag dashboards showing out-of-date data.
+ */
+export function isStale(generatedAt: string, now: Date = new Date()): boolean {
+  const ageDays = (now.getTime() - new Date(generatedAt).getTime()) / MS_PER_DAY;
+  return ageDays > STALE_THRESHOLD_DAYS;
+}
+
 // --- Weekly source maps ---
 
 export const SOURCE_COLORS: Record<
