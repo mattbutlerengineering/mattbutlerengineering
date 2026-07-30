@@ -103,8 +103,18 @@ export function TimelineGrid({
     return isMobile ? `${displayHour}` : `${displayHour} ${ampm}`;
   };
 
-  const getTableReservations = (tableId: string) =>
-    reservations.filter((r) => r.tableId === tableId);
+  const reservationsByTable = useMemo(() => {
+    const map = new Map<string, Reservation[]>();
+    for (const reservation of reservations) {
+      const existing = map.get(reservation.tableId);
+      if (existing) {
+        existing.push(reservation);
+      } else {
+        map.set(reservation.tableId, [reservation]);
+      }
+    }
+    return map;
+  }, [reservations]);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const lastMinuteRef = useRef(currentTime.getMinutes());
@@ -207,7 +217,7 @@ export function TimelineGrid({
                 ))}
               </div>
 
-              {getTableReservations(table.id).map((reservation) => {
+              {(reservationsByTable.get(table.id) ?? []).map((reservation) => {
                 const blockStyle = computeReservationLayout(
                   reservation.startTime,
                   reservation.endTime,
@@ -221,7 +231,7 @@ export function TimelineGrid({
                     style={blockStyle}
                     isSelected={reservation.id === selectedReservationId}
                     isFocused={isFocused}
-                    onClick={() => onReservationClick?.(reservation)}
+                    onClick={onReservationClick}
                   />
                 );
               })}
