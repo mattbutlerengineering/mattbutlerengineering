@@ -270,6 +270,10 @@
       "types": "./dist/lib/components/Sidebar/index.d.ts",
       "import": "./dist/lib/components/Sidebar/index.js"
     },
+    "./SilkFlow": {
+      "types": "./dist/lib/components/SilkFlow/index.d.ts",
+      "import": "./dist/lib/components/SilkFlow/index.js"
+    },
     "./Skeleton": {
       "types": "./dist/lib/components/Skeleton/index.d.ts",
       "import": "./dist/lib/components/Skeleton/index.js"

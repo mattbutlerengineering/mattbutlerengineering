@@ -88,6 +88,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "SegmentedControl",
   "Select",
   "Sidebar",
+  "SilkFlow",
   "Skeleton",
   "Slider",
   "Spinner",

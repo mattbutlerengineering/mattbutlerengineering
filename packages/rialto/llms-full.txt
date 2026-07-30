@@ -477,6 +477,25 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="SilkFlow">
+  <file path="src/components/SilkFlow/silk-flow-engine.ts">
+    interface StrandStyle {
+      readonly alpha: number;
+      readonly width: number;
+    }
+    interface Palette {
+      readonly surface: string;
+      readonly accent: string;
+      readonly silk: string;
+      readonly goldStyle: StrandStyle;
+      readonly silkStyle: StrandStyle;
+    }
+  </file>
+  <file path="src/components/SilkFlow/silk-flow-field.ts">
+    export const FIELD_SCALE = 0.0022;
+    export const FIELD_TIME_STEP = 0.0035;
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="src/components/SplitFlap/charset.ts">
     export const CHARSETS = {
