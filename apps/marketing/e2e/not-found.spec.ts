@@ -19,6 +19,8 @@ test.describe("404 Not Found page", () => {
     await page.getByRole("link", { name: "Back to home" }).click();
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByText("One-person team.")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "This site ships itself." })
+    ).toBeVisible();
   });
 });

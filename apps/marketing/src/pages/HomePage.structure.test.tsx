@@ -47,19 +47,23 @@ describe("HomePage heading hierarchy", () => {
 });
 
 describe("HomePage hero", () => {
-  it("exposes a primary external conversion CTA that opens safely in a new tab", () => {
+  it("leads with the evidence-first h1", () => {
     renderHomePage();
-    const cta = screen.getByRole("link", { name: /work together/i });
-    expect(cta.getAttribute("href")).toContain("linkedin.com");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("This site ships itself.");
+  });
+
+  it("exposes the repo CTA that opens safely in a new tab", () => {
+    renderHomePage();
+    const cta = screen.getByRole("link", { name: /read the code/i });
+    expect(cta.getAttribute("href")).toContain("github.com/mattbutlerengineering");
     expect(cta).toHaveAttribute("target", "_blank");
     expect(cta.getAttribute("rel")).toContain("noopener");
     expect(cta.getAttribute("aria-label")).toMatch(/opens in new tab/i);
   });
 
-  it("keeps the in-page scroll actions alongside the external CTA", () => {
+  it("sends the secondary CTA to the live metrics dashboard", () => {
     renderHomePage();
-    expect(screen.getByRole("button", { name: /see my work/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /about me/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /live metrics/i })).toHaveAttribute("href", "/metrics");
   });
 });
 
