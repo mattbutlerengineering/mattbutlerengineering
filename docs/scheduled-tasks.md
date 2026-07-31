@@ -44,6 +44,7 @@ prompts and continue to run on Opus.
 | `mbe-midday`             | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
 | `mbe-weekly-improve`     | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
 | `mbe-doc-rot` _(new)_    | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                             |
+| `mbe-weekly-retro` _(new)_ | `trig_01VczFFpZUHi1vTdrfTauMkh` | Sun 4:00pm        | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues      | Process retro — what blocked flow last week and what to change (see note)                                     |
 | `mbe-monthly-meta-audit` | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
@@ -244,6 +245,62 @@ to a single worker without worktree isolation in cloud and keep the local
 - **Zero changes is a successful run.** The prompt explicitly forbids padding the
   PR with cosmetic rewording — rot means _wrong_, not unpolished.
 
+## `mbe-weekly-retro`
+
+- **When:** every Sunday 4:00pm PT (`0 23 * * 0` UTC) — late enough to see the
+  full week including Friday's `mbe-weekly-improve` and `mbe-doc-rot` output, early
+  enough that Monday's routines start with the blockers already surfaced. It sits in
+  the clean gap between `mbe-midday` (1:07pm) and `mbe-evening` (5:11pm).
+- **Why it exists:** every other routine improves the **product** — the code, the
+  docs, the artifacts. This one improves the **factory**. Its question is _what
+  blocked flow, and what should change?_
+- **Six evidence passes:**
+  1. **Routine liveness.** Did each scheduled job actually run _and_ produce its
+     expected artifact this week? This pass exists because the whole `mbe-*` chain
+     died on 2026-07-10 and went unnoticed for 19 days — the tell (a daily
+     `chore(acmm)` PR that simply stopped appearing) was visible the entire time and
+     unread. A routine that ran but produced nothing for 7 days is flagged too.
+  2. **Human-blocked backlog aging.** Human decisions are the factory's real
+     throughput ceiling. Issues in `ready-for-human` / `needs-review` / `blocked` /
+     `agent-failed` / `stealable`, oldest first; anything untouched >7 days is a
+     blocker. Each gets a one-sentence _specific_ ask — "add `TURBO_TOKEN` to repo
+     secrets", not "needs review".
+  3. **PR flow friction.** Open-to-merge duration, how many PRs needed
+     `update-branch` (the N² tax of same-zone stacking against strict `main`,
+     ADR-016/ADR-023), how many went red before merging, how many needed a
+     follow-up fix within 48h.
+  4. **Recurring failure causes.** Last week's failed CI runs grouped **by cause**,
+     with genuine flake separated from real defects — then cross-checked against
+     `.claude/rules/gotchas.md`. A cause that has bitten twice and _isn't_ documented
+     there is itself the finding.
+  5. **Throughput direction.** Issues closed vs. filed — is the backlog shrinking?
+     Metrics files are the secondary source and were only recreated 2026-07-30, so
+     early runs are told to say "data too thin" rather than manufacture a trend.
+  6. **Synthesis.** The three highest-leverage changes, where leverage is flow
+     unblocked per unit of effort.
+- **Output:** one PR appending a dated entry to `docs/process-retro.md`, plus at
+  most 3 deduped `ready` issues for process fixes an agent can actually implement.
+  Anything only a human can decide goes in the entry's **Escalations** section with
+  the specific ask — filing those as `ready` just burns a worker on something no
+  agent can do.
+- **A quiet week is a real result.** The prompt explicitly forbids padding: a padded
+  retro trains everyone to stop reading it, which costs more than the week it covers.
+
+> **Who owns which kind of improvement.** There are now four improvement routines,
+> and the boundaries are deliberate — each one's prompt names the others so findings
+> get handed off instead of re-filed:
+>
+> | Routine                              | Improves                    | Cadence      |
+> | ------------------------------------ | --------------------------- | ------------ |
+> | `optimize-implement-queue` (evening) | queue **metrics** — "did a number move?" | daily |
+> | `mbe-weekly-improve`                 | the **codebase**            | Fri          |
+> | `mbe-weekly-retro`                   | the **process** — "why did work get stuck?" | Sun |
+> | `mbe-monthly-meta-audit`             | **Claude Code config**      | monthly      |
+>
+> The daily optimizer fires on numeric threshold regressions; the retro finds causes
+> and blockers that no threshold detects. That distinction is what keeps the two from
+> collapsing into each other.
+
 ## `mbe-monthly-meta-audit`
 
 - **When:** the 1st of each month 7:00am PT (`0 14 1 * *` UTC).
@@ -317,11 +374,15 @@ interactive use. The **daily** baseline is 6 runs (`mbe-evening`, `mbe-night`,
 triggers add a 7th run on their day (`mbe-deep-audit` runs in GitHub Actions, so
 it does **not** count against the claude.ai plan quota):
 
-- Fri: + `mbe-weekly-improve` (opus) → 7
-- 1st of month: + `mbe-monthly-meta-audit` (opus) → 7 (or briefly 8 if the 1st is a Fri)
+- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 8
+- Sun: + `mbe-weekly-retro` (opus) → 7
+- 1st of month: + `mbe-monthly-meta-audit` (opus) → 7 (or briefly 9 if the 1st is a Fri)
 
-6-8 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
-interactive local sessions.
+6-9 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
+interactive local sessions. The two weekly opus routines are deliberately split
+across different days — `mbe-weekly-improve` on Friday, `mbe-weekly-retro` on
+Sunday — so the heaviest runs never stack. `mbe-monthly-meta-audit` is the one
+exception: it lands on whatever weekday the 1st falls on, occasionally Friday.
 
 > **`optimize-implement-queue` consumes no new slot.** It is folded into the
 > existing `mbe-evening` run (an extra skill invocation at the tail of one run),
