@@ -59,62 +59,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="factory">
-  <file path="src/components/factory/factory-palette.ts">
-    <item priority="low">
-      type Rgb = readonly [number, number, number];
-    </item>
-    <item priority="low">
-      interface FactoryPalette {
-        surface: Rgb;
-        line: Rgb;
-        accent: Rgb;
-        pass: Rgb;
-        fail: Rgb;
-      }
-    </item>
-  </file>
-  <file path="src/components/factory/factory-scene.ts">
-    <item priority="high">
-      export function startFactoryScene(
-        canvas: HTMLCanvasElement,
-        inputs: FactorySceneInputs
-      ): () => void { /* ... */ }
-    </item>
-    <item priority="medium">
-      function runScene(
-        canvas: HTMLCanvasElement,
-        context: WebGL2RenderingContext,
-        inputs: FactorySceneInputs
-      ): () => void { /* ... */ }
-    </item>
-  </file>
-  <file path="src/components/factory/factory-shaders.ts">
-    <item priority="high">
-      export const BACKDROP_VERTEX_SHADER: unknown;
-    </item>
-    <item priority="high">
-      export const BACKDROP_FRAGMENT_SHADER: unknown;
-    </item>
-  </file>
-  <file path="src/components/factory/pipeline-stages.ts">
-    <item priority="low">
-      interface StageMetric {
-        value: number;
-        label: string;
-      }
-    </item>
-    <item priority="low">
-      interface PipelineStage {
-        id: string;
-        step: string;
-        name: string;
-        detail: string;
-        metric?: StageMetric;
-      }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="utils">
   <file path="src/utils/formatters.ts">
     <item priority="low">
