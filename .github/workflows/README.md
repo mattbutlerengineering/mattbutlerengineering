@@ -67,6 +67,7 @@ Run on cron schedules for ongoing health and compliance.
 | `stale-in-progress.yml`        | scheduled | Detect stale in-progress issues          |
 | `synthetic-monitoring.yml`     | scheduled | Synthetic uptime monitoring              |
 | `uptime-snapshot.yml`          | scheduled | Capture uptime snapshots                 |
+| `venue-journey.yml`            | daily     | Synthetic venue-onboarding journey       |
 | `worktree-cleanup.yml`         | scheduled | Clean up stale agent worktrees           |
 
 ## Automation
