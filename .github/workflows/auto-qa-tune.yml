@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Required for the `gh workflow run` dispatch step below.
+  actions: write
 
 jobs:
   tune:
@@ -29,6 +31,7 @@ jobs:
         run: node plugins/acmm/scripts/auto-qa-tune.js
 
       - name: Open PR with updated thresholds
+        id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           commit-message: "chore(acmm): auto-tune QA thresholds"
@@ -42,3 +45,13 @@ jobs:
           branch: automation/auto-qa-tuning
           delete-branch: true
           add-paths: .github/auto-qa-tuning.json
+
+      - name: Dispatch CI on the automation branch
+        # GITHUB_TOKEN-authored PRs don't trigger the pull_request event, so the
+        # required CI Gate check never reports and the PR sits BLOCKED.
+        # workflow_dispatch is a documented exception to that rule. Only
+        # dispatch when a PR actually exists (skips no-op runs).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --ref automation/auto-qa-tuning

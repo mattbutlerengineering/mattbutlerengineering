@@ -144,6 +144,8 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      # Required for the `gh workflow run` dispatch in "Create revert PR" below.
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -228,6 +230,10 @@ jobs:
           3. Investigate the original change
           4. File a new issue if the original intent was valid" \
               --label "agent-regression"
+
+            # GITHUB_TOKEN-authored PRs don't trigger the pull_request event, so
+            # CI Gate would never report and this rollback could not be merged.
+            gh workflow run ci.yml --ref "$REVERT_BRANCH"
 
             echo "Revert PR created for agent commit ${SHORT_SHA}"
           else
