@@ -26,14 +26,18 @@ describe("HomePage heading hierarchy", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
-  it("renders every top-level section as a real h2", () => {
+  it("renders every top-level section as a real h2, in the evidence-first order", () => {
     renderHomePage();
     const h2Text = screen
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent?.trim());
-    expect(h2Text).toEqual(
-      expect.arrayContaining(["Projects", "Tech Stack", "About", "Contact", "Stay Current"])
-    );
+    expect(h2Text).toEqual(["By the numbers", "Projects", "What I'm reading", "Elsewhere"]);
+  });
+
+  it("no longer ships the badge-wall tech stack or the standalone about section", () => {
+    renderHomePage();
+    expect(screen.queryByRole("heading", { name: "Tech Stack" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "About" })).not.toBeInTheDocument();
   });
 
   it("has no heading-order jumps (each level is at most one deeper than the last)", () => {
@@ -75,8 +79,8 @@ describe("HomePage weekly CTA", () => {
     expect(weekly.className).toMatch(/card/i);
     expect(document.querySelector(".weeklyCta")).toBeNull();
     expect(
-      within(weekly).getByRole("heading", { level: 2, name: /stay current/i })
+      within(weekly).getByRole("heading", { level: 2, name: /what i'm reading/i })
     ).toBeInTheDocument();
-    expect(within(weekly).getByRole("link", { name: /view weekly reads/i })).toBeInTheDocument();
+    expect(within(weekly).getByRole("link", { name: /browse the stack/i })).toBeInTheDocument();
   });
 });

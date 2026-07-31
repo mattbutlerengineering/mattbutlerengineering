@@ -4,13 +4,13 @@ Public marketing site for mattbutlerengineering.com. React + Vite SPA. Port **30
 
 ## Pages
 
-| Page             | Route      | Description                                                      |
-| ---------------- | ---------- | ---------------------------------------------------------------- |
-| HomePage         | `/`        | Landing: hero, projects, tech stack, about, contact + weekly CTA |
-| StatusPage       | `/status`  | Real-time health dashboard for APIs and static sites             |
-| WeeklyIntakePage | `/weekly`  | Curated newsletter resources with source filtering               |
-| MetricsPage      | `/metrics` | ACMM quality metrics dashboard                                   |
-| NotFoundPage     | `*`        | 404 with suggested links                                         |
+| Page             | Route      | Description                                               |
+| ---------------- | ---------- | --------------------------------------------------------- |
+| HomePage         | `/`        | Landing: hero, proof strip, projects, weekly CTA, contact |
+| StatusPage       | `/status`  | Real-time health dashboard for APIs and static sites      |
+| WeeklyIntakePage | `/weekly`  | Curated newsletter resources with source filtering        |
+| MetricsPage      | `/metrics` | ACMM quality metrics dashboard                            |
+| NotFoundPage     | `*`        | 404 with suggested links                                  |
 
 Fallback redirects: `/rialto/*` and `/hospitality/*` redirect to their respective apps (safety net for edge router failures).
 
@@ -20,10 +20,9 @@ All pages are `React.lazy()` with `Suspense` fallback.
 
 - `Navbar` — Navigation wrapper
 - `HeroSection` — Landing hero
-- `ProjectsSection` / `ProjectCard` — Featured projects
-- `TechStackSection` — Tech stack showcase
-- `AboutSection` — About content
-- `ContactSection` — Contact/CTA
+- `ProofStrip` — Build-time repo measurements (`data/repo-stats.ts`) as count-up figures
+- `ProjectsSection` / `ProjectCard` — Featured projects, each with its stack inline
+- `ContactSection` — Minimal "Elsewhere" links row
 
 All UI primitives come from `@mattbutlerengineering/rialto` (`Footer`, `GlobalNav`, `Heading`, `Text`, `Button`, `Card`, `Badge`, `Stack`, etc.).
 

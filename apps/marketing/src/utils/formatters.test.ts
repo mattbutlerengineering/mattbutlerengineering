@@ -8,6 +8,7 @@ import {
   formatPercent,
   formatRatio,
   formatDate,
+  formatMeasuredAt,
   formatTimestamp,
   isStale,
   SOURCE_COLORS,
@@ -137,6 +138,18 @@ describe("formatDate", () => {
     const result = formatDate("2026-05-09T05:48:08.683Z");
     expect(result).toContain("2026");
     expect(result).toContain("May");
+  });
+});
+
+describe("formatMeasuredAt", () => {
+  it("formats the ISO timestamp as a readable date", () => {
+    expect(formatMeasuredAt("2026-07-29T00:00:00.000Z")).toBe("July 29, 2026");
+  });
+
+  it("reads the date in UTC so the label does not shift with the viewer's timezone", () => {
+    // Midnight UTC is the previous day in every negative-offset zone; pinning to
+    // UTC keeps the rendered date identical to the one the build recorded.
+    expect(formatMeasuredAt("2026-01-01T00:30:00.000Z")).toBe("January 1, 2026");
   });
 });
 

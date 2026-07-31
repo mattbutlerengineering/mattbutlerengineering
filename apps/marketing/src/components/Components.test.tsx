@@ -2,14 +2,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { AboutSection } from "../components/AboutSection.js";
 import { ContactSection } from "../components/ContactSection.js";
 import { HeroSection } from "../components/HeroSection.js";
-import { MetricsSection } from "../components/MetricsSection.js";
 import { Navbar } from "../components/Navbar.js";
 import { ProjectCard } from "../components/ProjectCard.js";
 import { ProjectsSection } from "../components/ProjectsSection.js";
-import { TechStackSection } from "../components/TechStackSection.js";
+import { ProofStrip } from "../components/ProofStrip.js";
 import { NotFoundPage } from "../pages/NotFoundPage.js";
 
 vi.mock("framer-motion", () => {
@@ -63,14 +61,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 describe("Components and Pages", () => {
-  it("renders AboutSection", () => {
-    render(<AboutSection />);
-    expect(screen.getByText("About")).toBeInTheDocument();
-  });
-
   it("renders ContactSection", () => {
     render(<ContactSection />);
-    expect(screen.getByText("Contact")).toBeInTheDocument();
+    expect(screen.getByText("Elsewhere")).toBeInTheDocument();
   });
 
   it("renders HeroSection", () => {
@@ -82,8 +75,8 @@ describe("Components and Pages", () => {
     expect(screen.getByTestId("hero")).toBeInTheDocument();
   });
 
-  it("renders MetricsSection", () => {
-    render(<MetricsSection />);
+  it("renders ProofStrip", () => {
+    render(<ProofStrip />);
     expect(screen.getByText("By the numbers")).toBeInTheDocument();
   });
 
@@ -102,7 +95,7 @@ describe("Components and Pages", () => {
         project={{
           title: "Test Project",
           description: "Desc",
-          tags: ["React"],
+          stack: ["React"],
         }}
       />
     );
@@ -112,11 +105,6 @@ describe("Components and Pages", () => {
   it("renders ProjectsSection", () => {
     render(<ProjectsSection />);
     expect(screen.getByText("Projects")).toBeInTheDocument();
-  });
-
-  it("renders TechStackSection", () => {
-    render(<TechStackSection />);
-    expect(screen.getByText("Tech Stack")).toBeInTheDocument();
   });
 
   it("renders NotFoundPage", () => {

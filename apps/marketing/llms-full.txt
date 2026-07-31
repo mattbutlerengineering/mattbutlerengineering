@@ -17,7 +17,8 @@
     export interface Project {
       title: string;
       description: string;
-      tags: string[];
+      /** The technologies actually used to build it, rendered inline on the card. */
+      stack: readonly string[];
       href?: string; // undefined = no live link
     }
     export const PROJECTS: Project[] = [
@@ -26,7 +27,7 @@
         description:
           "A precision component library with 65+ components built on a warm neutral token system. " +
           "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
-        tags: ["React", "TypeScript", "Vite", "Framer Motion"],
+        stack: ["React", "TypeScript", "Vite", "Framer Motion", "CSS Modules"],
         href: "/rialto/",
       },
       {
@@ -34,7 +35,7 @@
         description:
           "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
           "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
-        tags: ["React", "Auth0", "PWA", "Fastify", "Prisma"],
+        stack: ["React", "Fastify", "Prisma", "PostgreSQL", "Auth0", "PWA"],
         href: "/hospitality/",
       },
     ];
@@ -65,46 +66,6 @@
       const { measuredAt } = candidate;
       return typeof measuredAt === "string" && !Number.isNaN(Date.parse(measuredAt));
     }
-  </file>
-  <file path="src/data/stats.ts">
-    export interface SiteStat {
-      /** Numeric figure rendered via the Odometer rolling counter. */
-      readonly value: number;
-      /** Visible label describing the figure. */
-      readonly label: string;
-      /** Optional glyph shown after the value to signal an at-least figure (e.g. "+"). */
-      readonly suffix?: string;
-    }
-    export const SITE_STATS: readonly SiteStat[] = [
-      { value: PROJECTS.length, label: "Projects shipped" },
-      { value: 65, suffix: "+", label: "Rialto components" },
-      { value: TECH_COUNT, label: "Technologies in the stack" },
-      { value: TECH_STACK.length, label: "Domains owned end-to-end" },
-    ];
-  </file>
-  <file path="src/data/tech-stack.ts">
-    export interface TechCategory {
-      title: string;
-      items: string[];
-    }
-    export const TECH_STACK: TechCategory[] = [
-      {
-        title: "Frontend",
-        items: ["React", "TypeScript", "Vite", "Framer Motion"],
-      },
-      {
-        title: "Backend",
-        items: ["Fastify", "Prisma", "PostgreSQL", "Node.js"],
-      },
-      {
-        title: "Infrastructure",
-        items: ["Cloudflare Workers", "DigitalOcean", "Pulumi", "Turborepo"],
-      },
-      {
-        title: "Auth & DevOps",
-        items: ["Auth0", "GitHub Actions", "Docker", "pnpm"],
-      },
-    ];
   </file>
   <file path="src/data/weekly-intake.ts">
     export interface WeeklyResource {

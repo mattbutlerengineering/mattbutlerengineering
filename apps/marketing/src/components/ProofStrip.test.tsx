@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { MetricsSection } from "./MetricsSection.js";
-import { SITE_STATS } from "../data/stats.js";
+import { ProofStrip } from "./ProofStrip.js";
+import { REPO_STATS } from "../data/repo-stats.js";
+import { formatMeasuredAt } from "../utils/formatters.js";
 
 type MockProps = { children?: ReactNode };
 type HeadingMockProps = MockProps & { level?: number };
@@ -39,30 +40,38 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   staggerReveal: { container: {}, item: {} },
 }));
 
-describe("MetricsSection", () => {
+describe("ProofStrip", () => {
   it("renders a level-2 section heading", () => {
-    render(<MetricsSection />);
+    render(<ProofStrip />);
     const heading = screen.getByRole("heading", { level: 2 });
-    expect(heading).toBeInTheDocument();
     expect(heading).toHaveTextContent(/by the numbers/i);
   });
 
-  it("renders every metric as a final numeric value with a visible label", () => {
-    render(<MetricsSection />);
-    for (const stat of SITE_STATS) {
-      expect(screen.getByText(stat.label)).toBeInTheDocument();
-      const label = screen.getByText(stat.label);
-      const group = label.closest("div");
-      expect(group).not.toBeNull();
-      expect(within(group as HTMLElement).getByText(String(stat.value))).toBeInTheDocument();
-    }
+  it("frames the figures as measured rather than claimed", () => {
+    render(<ProofStrip />);
+    expect(screen.getByText("Measured, not claimed")).toBeInTheDocument();
   });
 
-  it("shows the trailing suffix for at-least figures", () => {
-    render(<MetricsSection />);
-    const withSuffix = SITE_STATS.filter((stat) => stat.suffix);
-    for (const stat of withSuffix) {
-      expect(screen.getAllByText(stat.suffix as string).length).toBeGreaterThan(0);
-    }
+  it("drops the self-congratulatory one-person-team blurb", () => {
+    render(<ProofStrip />);
+    expect(screen.queryByText(/one-person team/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["Agent-authored PRs merged", REPO_STATS.agentPrsMerged],
+    ["Pull requests merged", REPO_STATS.totalPrsMerged],
+    ["Rialto components", REPO_STATS.rialtoComponents],
+    ["Test files", REPO_STATS.testFiles],
+  ])("renders the real repo measurement for %s", (label, value) => {
+    render(<ProofStrip />);
+    const group = screen.getByText(label).closest("div");
+    expect(group).not.toBeNull();
+    expect(within(group as HTMLElement).getByText(String(value))).toBeInTheDocument();
+  });
+
+  it("states when the figures were measured", () => {
+    render(<ProofStrip />);
+    const provenance = screen.getByText(/measured at last deploy/i);
+    expect(provenance).toHaveTextContent(formatMeasuredAt(REPO_STATS.measuredAt));
   });
 });
