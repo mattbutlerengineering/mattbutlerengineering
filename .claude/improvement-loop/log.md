@@ -29,3 +29,12 @@
 **Sentry triage:** skipped (MCP disconnected mid-run)
 **Skill proposals:** 0 (Thursday — Friday-only)
 **Threshold notes:** no verifications.jsonl yet, so false-positive/fix-effectiveness rates not computable this run. `collect-ai-issue-feedback.mjs` failed ("Failed to query GitHub issues") — recurring gap already noted 2026-06-20: `@mbe/gh-client` shells out to the `gh` binary via `execFileSync`, which is not installed in this Claude Code Remote scheduled-session environment (only GitHub MCP tools are). This is the root cause for 10/15 sensors + the feedback budgets being permanently unavailable here, not a new regression. No action taken since it's pre-existing and didn't block this run (zero regressions to triage).
+
+## 2026-07-31
+
+**Sensors:** 5/15 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — ciHealth, lighthouse, issues, issueFeedback, prCategoryMetrics, agentCost, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114 unchanged from 2026-07-30, code churn 18.8%, down from 27.5%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (MCP disconnected mid-run, same as 2026-07-30)
+**Skill proposals:** 0 (Friday, but sessionLogs shows 0 sessions/0 commits in the last 7d — no pattern data to mine)
+**Threshold notes:** `verifications.jsonl` still doesn't exist, so false-positive/fix-effectiveness rates remain non-computable. `collect-ai-issue-feedback.mjs` failed again on its `gh` query — same pre-existing `gh`-CLI-unavailable gap noted 2026-06-20 and 2026-07-30, not a new regression. No action taken.
