@@ -10,6 +10,9 @@ permissions:
   pull-requests: write
   pages: write
   id-token: write
+  # Required for the `gh workflow run` dispatch step below — GITHUB_TOKEN
+  # needs actions:write to call the workflow-dispatch API.
+  actions: write
 
 jobs:
   track:
@@ -30,6 +33,7 @@ jobs:
       - name: Generate dashboard metrics
         run: node scripts/generate-metrics-json.mjs
       - name: Open PR with updated metrics
+        id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         env:
           # The action commits inside the runner, which fires the husky pre-commit
@@ -49,3 +53,15 @@ jobs:
             metrics/pr-acceptance.json
             apps/marketing/public/metrics.json
           labels: auto-merge
+      - name: Dispatch CI on the automation branch
+        # GITHUB_TOKEN-authored pushes/PRs don't trigger other workflows
+        # (GitHub's anti-recursion rule), so the pull_request CI run —
+        # including the required CI Gate check — never fires and the PR sits
+        # BLOCKED. workflow_dispatch is a documented exception: an explicit
+        # API call, not a passive event, so it's allowed to trigger ci.yml.
+        # Only dispatch when a PR actually exists (skips no-op runs where
+        # metrics didn't change).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --ref automation/pr-acceptance-metrics
