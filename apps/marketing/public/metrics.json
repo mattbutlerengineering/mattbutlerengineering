@@ -1,21 +1,21 @@
 {
   "schema": "acmm-metrics/v1",
-  "generatedAt": "2026-05-16T22:03:05.072Z",
-  "level": 3,
-  "levelName": "Fully Autonomous",
-  "role": "Strategist",
+  "generatedAt": "2026-07-31T00:21:49.276Z",
+  "level": 5,
+  "levelName": "Semi-Automated",
+  "role": "Operator",
   "summary": {
-    "detected": 107,
-    "total": 108,
-    "coverage": 0.9907407407407407
+    "detected": 96,
+    "total": 114,
+    "coverage": 0.8421052631578947
   },
   "prerequisites": {
-    "met": 7,
+    "met": 8,
     "total": 8
   },
   "behavioral": {
     "ciFlakeRate": 0,
-    "agentPrAcceptanceRate": 0.9655172413793104,
+    "agentPrAcceptanceRate": 1,
     "agentPrRevertRate": 0,
     "evalPassRate": 0.8649,
     "evalMedianScore": 1
@@ -92,14 +92,68 @@
       "level": 3,
       "detected": 107,
       "total": 108
+    },
+    {
+      "date": "2026-05-23",
+      "level": 6,
+      "detected": 113,
+      "total": 113
+    },
+    {
+      "date": "2026-05-30",
+      "level": 6,
+      "detected": 111,
+      "total": 113
+    },
+    {
+      "date": "2026-06-13",
+      "level": 6,
+      "detected": 111,
+      "total": 113
+    },
+    {
+      "date": "2026-06-16",
+      "level": 5,
+      "detected": 110,
+      "total": 114
+    },
+    {
+      "date": "2026-06-23",
+      "level": 5,
+      "detected": 95,
+      "total": 99
+    },
+    {
+      "date": "2026-07-09",
+      "level": 5,
+      "detected": 95,
+      "total": 99
+    },
+    {
+      "date": "2026-07-10",
+      "level": 5,
+      "detected": 95,
+      "total": 99
+    },
+    {
+      "date": "2026-07-29",
+      "level": 5,
+      "detected": 106,
+      "total": 109
+    },
+    {
+      "date": "2026-07-30",
+      "level": 5,
+      "detected": 96,
+      "total": 99
     }
   ],
   "detectedByLevel": {
     "2": 3,
-    "3": 6,
-    "4": 16,
-    "5": 16,
-    "6": 8
+    "3": 5,
+    "4": 12,
+    "5": 15,
+    "6": 6
   },
   "behavioralGates": [
     {
@@ -113,7 +167,7 @@
       "level": 4,
       "name": "agent-pr-acceptance",
       "passed": true,
-      "value": 0.9655172413793104,
+      "value": 1,
       "threshold": 0.5
     },
     {
@@ -129,6 +183,13 @@
       "passed": true,
       "value": 0,
       "threshold": 0.1
+    },
+    {
+      "level": 6,
+      "name": "human-touch-ratio",
+      "passed": false,
+      "value": 0.7307692307692307,
+      "threshold": 0.5
     }
   ]
 }
