@@ -42,6 +42,14 @@ const ALERT_READ_TIMEOUT_MS = 2_000;
  * role required"). Redacted at capture: this is untrusted page text on its way
  * to a public issue body and to the run's JSON artifact.
  *
+ * Assumes at most one alert is *relevant* at a time: `.first()` takes the
+ * leading match in DOM order and every other one is dropped. That holds for the
+ * journey as written — the wizard mounts a single step at a time and Step 5
+ * renders exactly one `[role="alert"]` — but a step that can show several at
+ * once (OperatingHoursStep mounts up to three validation alerts) would report
+ * only the leading one. Revisit the narrowing before pointing the journey at
+ * such a step; a wrong-alert capture misdirects triage worse than none.
+ *
  * Never throws. A closed page, a navigated-away DOM, or no alert at all records
  * nothing and leaves the original step failure exactly as it was.
  */
