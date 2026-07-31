@@ -64,7 +64,7 @@ function getAuth0Config(): Auth0Config {
 /**
  * Token response from Auth0's /oauth/token endpoint.
  */
-interface TokenResponse {
+export interface TokenResponse {
   access_token: string;
   id_token: string;
   token_type: string;
@@ -160,10 +160,15 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
 /**
  * Builds the oidc-client-ts session storage object that react-oidc-context reads.
  * The key format is: oidc.user:<authority>:<client_id>
+ *
+ * `storageClientId` defaults to the ROPC client that minted the tokens. The
+ * live-site journey overrides it, because the deployed SPA was built with its
+ * own `VITE_AUTH_CLIENT_ID` and only reads the key bearing that client id.
  */
-function buildOidcUserEntry(
+export function buildOidcUserEntry(
   config: Auth0Config,
-  tokens: TokenResponse
+  tokens: TokenResponse,
+  storageClientId: string = config.clientId
 ): { key: string; value: string } {
   const authority = `https://${config.domain}`;
   const idClaims = decodeJwtPayload(tokens.id_token);
@@ -188,7 +193,7 @@ function buildOidcUserEntry(
   };
 
   return {
-    key: `oidc.user:${authority}:${config.clientId}`,
+    key: `oidc.user:${authority}:${storageClientId}`,
     value: JSON.stringify(oidcUser),
   };
 }
