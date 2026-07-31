@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Page } from "@playwright/test";
+import { redactSecrets } from "../../../../scripts/venue-journey/report.mjs";
 
 export type JourneyStepStatus = "passed" | "failed" | "skipped";
 
@@ -9,6 +10,8 @@ export interface JourneyStepResult {
   status: JourneyStepStatus;
   durationMs: number;
   error?: string;
+  /** Visible `[role="alert"]` text when the step failed — see capturePageError. */
+  pageError?: string;
 }
 
 export interface JourneyReport {
@@ -23,6 +26,35 @@ export interface JourneyReport {
 /** Where the report + failure screenshots land (already gitignored). */
 const ARTIFACT_DIR = "e2e/test-results";
 const REPORT_PATH = join(ARTIFACT_DIR, "journey-report.json");
+
+/**
+ * Budget for reading the error banner. The config's 15 s `actionTimeout` would
+ * apply otherwise, and this runs on a path that has already failed — a
+ * best-effort read must not stretch the run.
+ */
+const ALERT_READ_TIMEOUT_MS = 2_000;
+
+/**
+ * Best-effort read of the app's own error banner at the moment a step failed.
+ *
+ * A Playwright locator timeout names the element that never appeared, not why —
+ * the visible `[role="alert"]` usually carries the real cause (e.g. "403 Admin
+ * role required"). Redacted at capture: this is untrusted page text on its way
+ * to a public issue body and to the run's JSON artifact.
+ *
+ * Never throws. A closed page, a navigated-away DOM, or no alert at all records
+ * nothing and leaves the original step failure exactly as it was.
+ */
+async function capturePageError(page: Page): Promise<string | undefined> {
+  try {
+    const alert = page.locator('[role="alert"]:visible').first();
+    if ((await alert.count()) === 0) return undefined;
+    const text = await alert.innerText({ timeout: ALERT_READ_TIMEOUT_MS });
+    return redactSecrets(text).trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function slugify(name: string): string {
   return name
@@ -68,7 +100,14 @@ export function createJourneyRecorder(page: Page, venueName: string) {
       steps.push({ name, status: "passed", durationMs: Date.now() - startedMs });
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      steps.push({ name, status: "failed", durationMs: Date.now() - startedMs, error });
+      const pageError = await capturePageError(page);
+      steps.push({
+        name,
+        status: "failed",
+        durationMs: Date.now() - startedMs,
+        error,
+        ...(pageError ? { pageError } : {}),
+      });
       await page
         .screenshot({ path: join(ARTIFACT_DIR, `journey-${slugify(name)}.png`), fullPage: true })
         .catch(() => undefined);

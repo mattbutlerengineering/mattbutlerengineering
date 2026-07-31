@@ -11,6 +11,10 @@
  * @property {"passed"|"failed"|"skipped"} status
  * @property {number} durationMs  Wall-clock duration of the step.
  * @property {string} [error]     Failure message (redacted before use).
+ * @property {string} [pageError] Visible `[role="alert"]` text at the moment
+ *                                the step failed (redacted before use). This is
+ *                                the app's own error message — usually the real
+ *                                cause behind a bare locator timeout.
  *
  * @typedef {object} JourneyReport
  * @property {string} runId       GitHub Actions run id (also the venue suffix).
@@ -105,6 +109,10 @@ export function buildFailureIssue(report) {
 
   const signature = buildStepSignature(failed.name);
   const error = redactSecrets(failed.error) || "(no error message captured)";
+  // The app's own banner text, when the page still had one. Redacted again
+  // here (the recorder already redacts at capture) so a report produced by any
+  // other path still cannot leak a token into a public issue body.
+  const pageError = redactSecrets(failed.pageError).trim();
 
   const body = [
     `The daily synthetic venue-onboarding journey failed at **${failed.name}**.`,
@@ -115,6 +123,7 @@ export function buildFailureIssue(report) {
     `- Synthetic venue: \`${report.venueName}\``,
     `- Screenshots: \`${SCREENSHOT_ARTIFACT_NAME}\` artifact on the run above`,
     "",
+    ...(pageError ? ["### Page error", "", "```", pageError, "```", ""] : []),
     "### Error",
     "",
     "```",
