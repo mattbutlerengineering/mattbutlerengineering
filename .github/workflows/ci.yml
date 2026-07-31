@@ -13,6 +13,14 @@ on:
     branches: [main]
   merge_group:
     branches: [main]
+  # Bare workflow_dispatch trigger — lets other workflows (e.g. pr-metrics.yml)
+  # dispatch a CI run on a branch after a GITHUB_TOKEN-created PR, working
+  # around GitHub's anti-recursion rule (workflow_dispatch is a documented
+  # exception). Every job below is event-agnostic except migration-dry-run,
+  # which is intentionally pull_request-only and treated as an allowed
+  # "skipped" by the CI Gate job, so a dispatch run still completes and
+  # reports CI Gate on the dispatched ref's head SHA.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
