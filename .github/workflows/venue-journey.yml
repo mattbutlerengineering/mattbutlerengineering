@@ -1,0 +1,90 @@
+name: Venue Journey
+
+# Daily synthetic venue-onboarding journey against the LIVE hospitality site:
+# create a venue, complete the whole wizard, verify the dashboard, delete the
+# venue. Hard failures file a deduped `audit` + `ready` issue; soft friction
+# appends to one rolling friction-log issue; a clean run writes only a job
+# summary.
+#
+# Runs from GitHub Actions (not a claude.ai routine) for the same reason
+# audit-sweep.yml does: RemoteTrigger environments have no egress to the live
+# site. 14:00 UTC is off-peak and clear of audit-sweep (Mon 16:23 UTC).
+on:
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}
+
+# Never two journeys at once — they would fight over the same synthetic venue
+# name space. In-flight runs are allowed to finish so cleanup always executes.
+concurrency:
+  group: venue-journey
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  journey:
+    name: Venue onboarding journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # No app build: the journey drives production, so nothing is compiled or
+      # served here — only Playwright and its browser are needed.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: pnpm --dir apps/hospitality exec playwright install --with-deps chromium
+
+      # continue-on-error so the reporting step below always runs; the job is
+      # failed explicitly at the end based on this step's outcome.
+      - name: Run venue journey
+        id: journey
+        continue-on-error: true
+        run: pnpm --dir apps/hospitality test:journey
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+          # The deployed SPA reads its OIDC session under the client id it was
+          # built with (deploy-static.yml), which may differ from the
+          # ROPC-capable client that mints the token. Existing secret; the
+          # journey falls back to E2E_AUTH0_CLIENT_ID when this is empty.
+          JOURNEY_OIDC_CLIENT_ID: ${{ secrets.AUTH0_HOSPITALITY_CLIENT_ID }}
+
+      # Report JSON + failure screenshots. Uploaded before the issue-filing step
+      # so the artifact link in the issue body always resolves.
+      - name: Upload journey artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: venue-journey-artifacts
+          path: apps/hospitality/e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Report journey outcome
+        if: always()
+        run: node scripts/venue-journey/file-issues.mjs apps/hospitality/e2e/test-results/journey-report.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail job on hard failure
+        if: steps.journey.outcome == 'failure'
+        run: |
+          echo "::error::Venue onboarding journey failed — see the job summary and the filed audit issue."
+          exit 1

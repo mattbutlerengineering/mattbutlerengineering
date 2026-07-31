@@ -45,10 +45,41 @@ async function makeFocusVisible(page: Page): Promise<void> {
   await page.keyboard.press("Shift+Tab");
 }
 
+/**
+ * Variant of makeFocusVisible() for interactions where the ring belongs on
+ * the very element that was just pointer-clicked, rather than on some other
+ * element reached via Tab (see #3531). Two things a real (trusted) pointer
+ * click does that testing-library's synthetic click — which is what the
+ * baselines were captured with — never does:
+ *
+ * 1. Tab/Shift+Tab only produces a genuine blur->focus transition when
+ *    there is a *different* element for Tab to land on first; on a page
+ *    whose only reachable stop is the element itself, no such transition
+ *    fires and the modality never flips. Blurring first (so
+ *    document.activeElement genuinely changes to null) then Shift+Tab-ing
+ *    back is reliable instead: Chromium's sequential-focus-navigation
+ *    position anchors to the element that was last reached via trusted
+ *    input (the click that just happened), so Shift+Tab from a blurred
+ *    state always returns focus to that same element via a genuine
+ *    keyboard transition.
+ * 2. It leaves the OS-tracked pointer resting on the element, so :hover
+ *    keeps matching afterward. Several variants (Button primary/secondary)
+ *    define their own :hover box-shadow with the same specificity as
+ *    :focus-visible's — whichever rule is later in the compiled stylesheet
+ *    wins the tie, which visually replaces the focus ring with the hover
+ *    glow. Moving the mouse off the element clears :hover so the
+ *    focus-visible ring renders as it does in the baseline.
+ */
+async function makeFocusVisibleOnSelf(page: Page): Promise<void> {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("Shift+Tab");
+  await page.mouse.move(0, 0);
+}
+
 async function interactButtonPrimary(page: Page): Promise<void> {
   const button = page.getByRole("button", { name: "Primary Action" });
   await button.click();
-  await makeFocusVisible(page);
+  await makeFocusVisibleOnSelf(page);
 }
 
 async function interactConfirmDialog(page: Page): Promise<void> {
@@ -100,7 +131,7 @@ async function interactToastSuccess(page: Page): Promise<void> {
   const button = page.getByRole("button", { name: "Show Success Toast" });
   await button.click();
   await expect(page.getByText("Success!")).toBeVisible();
-  await makeFocusVisible(page);
+  await makeFocusVisibleOnSelf(page);
 }
 
 async function interactToggle(page: Page): Promise<void> {
