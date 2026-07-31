@@ -12,17 +12,37 @@ than auto-merging.
 
 All times below are **America/Los_Angeles (PT)**; cron expressions are stored in UTC.
 
+## Recreated 2026-07-30 (account migration)
+
+The entire `mbe-*` routine chain went dark around 2026-07-10 without anyone
+noticing until 2026-07-29: all routines lived on the old claude.ai account
+(`mattwbutler@gmail.com`) and did not survive the switch to
+`mattbutlerengineering@gmail.com`. That's also why the daily `chore(acmm)` PR —
+previously a reliable signal that `mbe-morning` was alive — stopped appearing
+after 2026-07-10; there was simply no routine left to open it.
+
+Verified 2026-07-29 that https://claude.ai/code/routines on the new account had
+none of the `mbe-*` triggers. Recreated + expanded 2026-07-30 via the
+`RemoteTrigger` API on the new account. The plan is now Max 20x (not 5x), so the
+schedule was scaled up accordingly (see Plan budget below), and two new routines
+were added: `mbe-night` (overnight drain + CI health) and `mbe-auditor`
+(read-only rotating 7-lens audit). Daily routines reuse the prompt blocks
+documented in this file; weekly/monthly routines use their version-controlled
+prompts and continue to run on Opus.
+
 ## Routine catalog
 
-| Routine                  | Cadence (PT)        | Cron (UTC)   | Output                | Purpose                                                    |
-| ------------------------ | ------------------- | ------------ | --------------------- | ---------------------------------------------------------- |
-| `mbe-deep-audit`         | Mon 9:23am          | `23 16 * * 1`| issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
-| `mbe-morning`            | Daily 9:03am        | —            | issues / PRs          | Light site audit + ACMM audit + `/ideate` (cycle-check + ideation) |
-| `mbe-learning-loop`      | Daily 11:00am       | —            | issues                | Sensor report → verify past fixes → triage regressions     |
-| `mbe-midday`             | Daily 1:07pm        | —            | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                 |
-| `mbe-evening`            | Daily 5:11pm        | —            | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue |
-| `mbe-weekly-improve`     | Fri 7:00am          | `0 14 * * 5` | 1 PR + `ready` issues | Codebase improvement survey → implement the best change    |
-| `mbe-monthly-meta-audit` | 1st of month 7:00am | `0 14 1 * *` | 1 PR + `ready` issues | Claude Code config + docs/automation health                |
+| Routine                  | Trigger ID                       | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
+| ------------------------ | -------------------------------- | ------------------- | ------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `mbe-deep-audit`         | — (disabled; runs in GH Actions) | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
+| `mbe-evening`            | `trig_01PHwfbFQcFveYajVPaTrbZk`  | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
+| `mbe-night` _(new)_      | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
+| `mbe-auditor` _(new)_    | `trig_019cUkf16QbqTL7RrVXXqXsw`  | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
+| `mbe-morning`            | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs          | ACMM audit + `/ideate` (cycle-check + ideation)                                                                |
+| `mbe-learning-loop`      | `trig_018hcYeu5uCXgiddRwqaeYwd`  | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
+| `mbe-midday`             | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
+| `mbe-weekly-improve`     | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
+| `mbe-monthly-meta-audit` | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies
@@ -32,6 +52,28 @@ All times below are **America/Los_Angeles (PT)**; cron expressions are stored in
 > GitHub runners have both egress and the `AUDIT_TOKEN` secret. The claude.ai
 > `mbe-deep-audit` RemoteTrigger is disabled to avoid re-filing the same
 > infrastructure issue every week.
+
+> **`mbe-night`** runs the overnight drain: `/implement-queue` keeps clearing
+> the `ready` backlog while Matt is offline, then a CI health check confirms
+> `main` is still green before the next morning's routines run.
+
+> **`mbe-auditor`** runs a read-only rotating 7-lens audit — one lens per day,
+> cycling through the week:
+>
+> | Day | Lens          |
+> | --- | ------------- |
+> | Mon | Dependencies  |
+> | Tue | Test coverage |
+> | Wed | Accessibility |
+> | Thu | Performance   |
+> | Fri | Docs          |
+> | Sat | Architecture  |
+> | Sun | Security      |
+>
+> It never edits code — findings are filed as at most 3 deduped
+> `ready`+`audit` issues/day. Critical security findings are the one
+> exception: they get `security`+`needs-review` labels instead of `ready`, so
+> they route to human review rather than autonomous pickup.
 
 > The legacy `mbe-*` audit/worker triggers are managed in the claude.ai UI and
 > their exact prompts live there. The two improvement routines below were created
@@ -62,12 +104,12 @@ batch URL and stop; otherwise finish as usual.
 
 ### Ideation label glossary
 
-| Label              | Meaning                                                        |
-| ------------------ | -------------------------------------------------------------- |
-| `feature-proposal` | Proposal in veto window — close it (or add `vetoed`) to reject |
-| `ideation-batch`   | Tracking issue for one batch; its task-list is the cycle state |
-| `vetoed`           | Human-rejected — permanent dedup memory, never re-proposed     |
-| `deferred`         | Excluded from batch completion (stuck child / failed decompose)|
+| Label              | Meaning                                                         |
+| ------------------ | --------------------------------------------------------------- |
+| `feature-proposal` | Proposal in veto window — close it (or add `vetoed`) to reject  |
+| `ideation-batch`   | Tracking issue for one batch; its task-list is the cycle state  |
+| `vetoed`           | Human-rejected — permanent dedup memory, never re-proposed      |
+| `deferred`         | Excluded from batch completion (stuck child / failed decompose) |
 
 ### Lifecycle
 
@@ -166,40 +208,41 @@ new weekday schedule slot** (see Plan budget below).
   "chore(metrics): optimize-implement-queue <date>" labeled has-pr.
   ```
 
-> **[HITL] — Matt must wire this in the claude.ai UI.** RemoteTriggers are
-> cloud-managed; this doc version-controls the prompt, but the actual routine
-> change is manual:
+> **[DONE 2026-07-30]** All of the below shipped as part of the post-migration
+> recreation. Since every `mbe-*` routine had to be created from scratch anyway
+> (see "Recreated 2026-07-30" above), the prompt updates below were wired
+> directly via the `RemoteTrigger` API rather than hand-edited in the claude.ai
+> UI:
 >
-> - [ ] Open the `mbe-evening` routine at https://claude.ai/code/routines
-> - [ ] Append the `/optimize-implement-queue` instruction block above to its prompt
->       (2026-07 revision: includes Step 0 reconcile + Step 6 metrics-persist PR)
-> - [ ] Add the weekly `mbe agent eval` checkpoint to the `mbe-weekly-improve` prompt
-> - [ ] Confirm the evening run still completes within its budget after the addition
-> - [ ] **Ideation loop (2026-07-28):** append the `/ideate` block above to
->       `mbe-morning` (replacing its issue-worker step)
-> - [ ] **Cloud drain (2026-07-28):** replace the issue-worker step in
->       `mbe-midday` AND `mbe-evening` with the `/implement-queue` block above
-> - [ ] Manually `run` `mbe-morning` once to validate `/ideate` files batch 1,
->       and `mbe-midday` once to validate cloud `/implement-queue` (worktrees +
->       pnpm install) — check that the daily `chore(acmm)` PR reappears too
->       (they stopped after 2026-07-10; the run log will show why)
+> - [x] `mbe-evening`'s prompt includes the `/optimize-implement-queue`
+>       instruction block above (Step 0 reconcile + Step 6 metrics-persist PR)
+> - [x] The weekly `mbe agent eval` checkpoint is in the `mbe-weekly-improve` prompt
+> - [x] Evening run confirmed to complete within budget with the addition
+> - [x] **Ideation loop:** the `/ideate` block above is in `mbe-morning`
+>       (replacing its old issue-worker step)
+> - [x] **Cloud drain:** `mbe-midday` and `mbe-evening` both run the
+>       `/implement-queue` block above instead of the old issue-worker step
+> - [x] Validation runs: `mbe-morning` and `mbe-midday` were each triggered
+>       manually to confirm `/ideate` batch filing and cloud `/implement-queue`
+>       (worktrees + `pnpm install`) both work end-to-end post-recreation
 
-## Plan budget (Max 5x)
+## Plan budget (Max 20x)
 
-The Max 5x plan allows ~5 scheduled runs/day. The **daily** baseline is 4 runs
-(`mbe-morning`, `mbe-midday`, `mbe-evening`, `mbe-learning-loop`). Weekly/occasional
-triggers add a 5th run on their day (`mbe-deep-audit` runs in GitHub Actions, so
+The Max 20x plan has far more scheduled-run headroom than Max 5x, shared with
+interactive use. The **daily** baseline is 6 runs (`mbe-evening`, `mbe-night`,
+`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`, `mbe-midday`). Weekly/monthly
+triggers add a 7th run on their day (`mbe-deep-audit` runs in GitHub Actions, so
 it does **not** count against the claude.ai plan quota):
 
-- Fri: + `mbe-weekly-improve` → 5
-- 1st of month: + `mbe-monthly-meta-audit` → 5 (or briefly 6 if the 1st is a Mon/Fri)
+- Fri: + `mbe-weekly-improve` (opus) → 7
+- 1st of month: + `mbe-monthly-meta-audit` (opus) → 7 (or briefly 8 if the 1st is a Fri)
 
-The rare 6-run overlap is acceptable; if it causes throttling, shift
-`mbe-monthly-meta-audit` to a mid-month date in the web UI.
+6-8 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
+interactive local sessions.
 
 > **`optimize-implement-queue` consumes no new slot.** It is folded into the
 > existing `mbe-evening` run (an extra skill invocation at the tail of one run),
-> so the daily baseline stays at 4. The only added paid work is the weekly
+> so the daily baseline stays at 6. The only added paid work is the weekly
 > `mbe agent eval` checkpoint inside `mbe-weekly-improve` (still one Friday run);
 > the daily optimizer's eval fires only on a flagged regression, asynchronously.
 
@@ -207,20 +250,18 @@ The rare 6-run overlap is acceptable; if it causes throttling, shift
 
 Site-audit runners hit the live site via curl. Without the WAF bypass token,
 Cloudflare Bot Management returns HTTP 403 and the audit silently produces no
-findings. `mbe-deep-audit` reads `AUDIT_TOKEN` from GitHub Actions secrets; the
-claude.ai `mbe-morning` light audit reads it from the RemoteTrigger environment.
+findings. `mbe-deep-audit` reads `AUDIT_TOKEN` from GitHub Actions secrets. No
+claude.ai RemoteTrigger needs it — none of the cloud routines have live-site
+egress (issue #2920), so `mbe-morning`'s old light-audit step was dropped and
+live-site audits now run in GitHub Actions only.
 
-| Secret        | Where to set                                                 | Purpose                                                   |
-| ------------- | ------------------------------------------------------------ | --------------------------------------------------------- |
-| `AUDIT_TOKEN` | GitHub Actions repo secret **and** RemoteTrigger environment | Cloudflare Bot Management bypass header (`X-Audit-Token`) |
+| Secret        | Where to set                    | Purpose                                                   |
+| ------------- | ------------------------------- | --------------------------------------------------------- |
+| `AUDIT_TOKEN` | GitHub Actions repo secret only | Cloudflare Bot Management bypass header (`X-Audit-Token`) |
 
 **GitHub Actions:** set under Repository → Settings → Secrets and variables →
 Actions. The `audit-sweep` and `audit-scout` workflows validate this at startup
 and fail immediately with a clear error if it is missing.
-
-**RemoteTrigger environment:** set `AUDIT_TOKEN=<value>` in each cloud routine
-that calls `/site-audit` (managed at https://claude.ai/code/routines). Without
-it the cloud agent sends unauthenticated requests that are blocked by Cloudflare.
 
 See `infrastructure/AUDIT_BYPASS.md` for token generation and WAF rule setup.
 
