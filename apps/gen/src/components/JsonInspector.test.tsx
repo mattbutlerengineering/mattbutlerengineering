@@ -83,4 +83,30 @@ describe("JsonInspector", () => {
     render(<JsonInspector rawLines={rawLines} isStreaming={false} />);
     expect(screen.getByText("JSON")).toBeDefined();
   });
+
+  it("should not re-highlight an unrelated block's lines when a different block's collapse is toggled", () => {
+    const rawLines = ['{"markerZQX9": "unrelatedValue123"}', '{"toggleTarget": true}'];
+    // Pretty-printed via JSON.stringify(..., null, 2): the second line of block 0.
+    const unrelatedLine = '  "markerZQX9": "unrelatedValue123"';
+    const execSpy = vi.spyOn(RegExp.prototype, "exec");
+
+    render(<JsonInspector rawLines={rawLines} isStreaming={false} />);
+
+    const countExecCallsForUnrelatedLine = () =>
+      execSpy.mock.calls.filter((args) => args[0] === unrelatedLine).length;
+
+    const baseline = countExecCallsForUnrelatedLine();
+    expect(baseline).toBeGreaterThan(0);
+
+    // Toggle the SECOND block's collapse state — the first (unrelated) block's
+    // props/content are unchanged, so its lines should not be re-highlighted.
+    const toggleButtons = screen.getAllByLabelText("Collapse block");
+    const secondBlockToggle = toggleButtons[1];
+    if (!secondBlockToggle) throw new Error("expected two collapse toggle buttons");
+    fireEvent.click(secondBlockToggle);
+
+    expect(countExecCallsForUnrelatedLine()).toBe(baseline);
+
+    execSpy.mockRestore();
+  });
 });
