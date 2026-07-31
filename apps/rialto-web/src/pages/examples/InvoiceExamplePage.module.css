@@ -1,0 +1,79 @@
+/* ── Header card ─────────────────────────────── */
+
+.headerCard {
+  --header-gap: var(--rialto-space-md);
+}
+
+.headerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--header-gap);
+}
+
+/* ── Issuer / recipient blocks ───────────────── */
+
+.parties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+/* ── Totals ──────────────────────────────────── */
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  align-self: flex-end;
+  min-width: 16rem;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-card-radius);
+  background: var(--rialto-card-flat-bg);
+  border: 1px solid var(--rialto-border);
+}
+
+.totalsRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+}
+
+.totalsRowFinal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  margin-block-start: var(--rialto-space-xs);
+  padding-block-start: var(--rialto-space-xs);
+  border-block-start: 1px solid var(--rialto-border);
+}
+
+/* ── Print stylesheet ─────────────────────────── */
+
+/*
+ * Isolates the invoice document from the surrounding showcase chrome
+ * (GlobalNav, sidebar, ExamplePageLayout header/composition notes, footer)
+ * without editing any of those shared components: everything in the
+ * document is hidden by default, then the printable subtree and its
+ * descendants are made visible again and repositioned to fill the page.
+ */
+@media print {
+  :global(body) * {
+    visibility: hidden;
+  }
+
+  .printable,
+  .printable * {
+    visibility: visible;
+  }
+
+  .printable {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: 100%;
+  }
+}

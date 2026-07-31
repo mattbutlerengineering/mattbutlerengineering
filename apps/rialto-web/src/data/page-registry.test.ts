@@ -141,6 +141,9 @@ vi.mock("../pages/examples/CommandPaletteExamplePage.js", () => ({
 vi.mock("../pages/examples/BookingWizardExamplePage.js", () => ({
   BookingWizardExamplePage: () => null,
 }));
+vi.mock("../pages/examples/InvoiceExamplePage.js", () => ({
+  InvoiceExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
@@ -295,6 +298,21 @@ describe("PageRegistry — booking-wizard example", () => {
     expect(entry?.label).toBe("Booking Wizard");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/booking-wizard");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Invoice example (#3553)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — invoice example", () => {
+  it("registers invoice in the Examples category at /examples/invoice", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "invoice");
+    expect(entry, "invoice missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Invoice");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/invoice");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
