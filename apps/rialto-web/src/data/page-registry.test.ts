@@ -142,6 +142,9 @@ vi.mock("../pages/examples/CommandPaletteExamplePage.js", () => ({
 vi.mock("../pages/examples/BookingWizardExamplePage.js", () => ({
   BookingWizardExamplePage: () => null,
 }));
+vi.mock("../pages/examples/OnboardingExamplePage.js", () => ({
+  OnboardingExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
@@ -296,6 +299,21 @@ describe("PageRegistry — booking-wizard example", () => {
     expect(entry?.label).toBe("Booking Wizard");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/booking-wizard");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Onboarding example (#3550)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — onboarding example", () => {
+  it("registers example-onboarding in the Examples category at /examples/onboarding", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-onboarding");
+    expect(entry, "example-onboarding missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Onboarding");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/onboarding");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
