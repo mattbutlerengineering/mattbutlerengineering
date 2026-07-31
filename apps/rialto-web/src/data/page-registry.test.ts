@@ -145,6 +145,9 @@ vi.mock("../pages/examples/BookingWizardExamplePage.js", () => ({
 vi.mock("../pages/examples/OnboardingExamplePage.js", () => ({
   OnboardingExamplePage: () => null,
 }));
+vi.mock("../pages/examples/NotificationCenterExamplePage.js", () => ({
+  NotificationCenterExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests

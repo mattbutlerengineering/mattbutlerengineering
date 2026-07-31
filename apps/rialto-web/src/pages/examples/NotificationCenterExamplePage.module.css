@@ -1,0 +1,72 @@
+/* ── Toolbar ─────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+.unreadCount {
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+/* ── List ────────────────────────────────────── */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-2xs);
+  width: 100%;
+  padding: var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-card-flat-bg);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Unread rows are set apart by more than colour: a heavier left border, an
+   accent-tinted surface, an "Unread" text badge, and a bolder title weight —
+   so the state survives greyscale and screen readers alike. */
+.itemUnread {
+  composes: item;
+  border-inline-start: 3px solid var(--rialto-accent);
+  background: var(--rialto-accent-muted);
+}
+
+.itemHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.time {
+  margin-inline-start: auto;
+}
+
+.title {
+  color: var(--rialto-text-primary);
+}
+
+.message {
+  color: var(--rialto-text-secondary);
+}
