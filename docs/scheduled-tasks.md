@@ -35,6 +35,7 @@ prompts and continue to run on Opus.
 | Routine                  | Trigger ID                       | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
 | ------------------------ | -------------------------------- | ------------------- | ------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `mbe-deep-audit`         | — (disabled; runs in GH Actions) | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
+| `drift-fix` _(new)_      | — (runs in GH Actions)           | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted       | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                  |
 | `mbe-evening`            | `trig_01PHwfbFQcFveYajVPaTrbZk`  | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
 | `mbe-night` _(new)_      | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
 | `mbe-auditor` _(new)_    | `trig_019cUkf16QbqTL7RrVXXqXsw`  | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
@@ -42,6 +43,8 @@ prompts and continue to run on Opus.
 | `mbe-learning-loop`      | `trig_018hcYeu5uCXgiddRwqaeYwd`  | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
 | `mbe-midday`             | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
 | `mbe-weekly-improve`     | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
+| `mbe-doc-rot` _(new)_    | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                             |
+| `mbe-weekly-retro` _(new)_ | `trig_01VczFFpZUHi1vTdrfTauMkh` | Sun 4:00pm        | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues      | Process retro — what blocked flow last week and what to change (see note)                                     |
 | `mbe-monthly-meta-audit` | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
@@ -75,8 +78,21 @@ prompts and continue to run on Opus.
 > exception: they get `security`+`needs-review` labels instead of `ready`, so
 > they route to human review rather than autonomous pickup.
 
+> **Drift is split across two routines, by whether a machine can fix it.**
+> `drift-fix` (GitHub Actions, daily, no agent) owns everything a generator can
+> repair — llms.txt, registry.json, dep-graph.json, generated-schemas.ts,
+> dependency-graph.md, the rialto exports map. The fix there is always "run the
+> generator", so an LLM would add token cost and nondeterminism with no judgment
+> to contribute. `mbe-doc-rot` (claude.ai, weekly) owns the half where the fix is
+> a prose edit and someone has to decide what the doc *should* say.
+>
+> Note `mbe-auditor`'s **Friday lens is also docs** — but it is read-only and
+> files at most 3 issues. `mbe-doc-rot` therefore runs a mandatory dedup against
+> open `audit` issues, and where the auditor filed something it can simply fix,
+> it fixes it and closes the issue rather than filing a duplicate.
+
 > The legacy `mbe-*` audit/worker triggers are managed in the claude.ai UI and
-> their exact prompts live there. The two improvement routines below were created
+> their exact prompts live there. The improvement routines below were created
 > via `/schedule` and their prompts are reproduced here so they can be reviewed and
 > version-controlled.
 
@@ -142,6 +158,48 @@ If cloud worktree agents prove unreliable (validation run pending), fall back
 to a single worker without worktree isolation in cloud and keep the local
 `/loop 30m /implement-queue` as the heavy drain.
 
+## `drift-fix` (GitHub Actions)
+
+- **When:** daily 6:17am PT (`17 13 * * *` UTC), plus `workflow_dispatch`. Timed
+  ahead of `mbe-morning` (9:03am) so the worker routines start their day against
+  a clean `main`.
+- **Why daily:** drift on `main` is contagious. CI's "Verify generated artifacts
+  are in sync" step runs in the `build` job on _every_ PR, so one drifted
+  artifact on `main` turns every open PR red until it is cleared — including PRs
+  whose own diff is unrelated.
+- **What it does:**
+  1. Builds `@mbe/cli` (with transitive deps, which is what pulls in
+     `@mbe/agent-core`). **Not optional** — `pnpm regen`'s llms families shell
+     out to `mbe pack`, which imports agent-core; without a build that import
+     throws `ERR_MODULE_NOT_FOUND`, `regen-llms.sh` swallows it (`|| continue`),
+     and regen silently no-ops. A green run that fixed nothing is the worst
+     possible outcome for this job.
+  2. Regenerates the rialto exports map — before regen, since the dep-graph
+     generators read `package.json`.
+  3. Runs a **full** `pnpm regen`, never `check-regen-needed.mjs`'s fast path.
+     That heuristic answers "given these changed files, is a full regen
+     needed?"; a daily sweep of `main` has no changed-file list, and the drift
+     it exists to catch is precisely the drift nobody predicted.
+  4. Runs `pnpm regen --check` to confirm regeneration converged. A
+     non-idempotent generator fails here rather than shipping a PR that would
+     fail CI's own check.
+  5. Opens a PR **only when something actually drifted**. A clean day is a
+     silent no-op.
+- **Scoped staging:** `add-paths` lists generated artifacts only. `pnpm install`
+  reflows ~150 tracked files through prettier in this repo, and a catch-all
+  would commit that reformatting as if it were drift. Root-level `llms.txt` /
+  `llms-full.txt` are listed as bare paths because `**/`-style globs do not
+  match repo-root files.
+- **Keep in sync with `scripts/regen-manifest.mjs`**, the source of truth for
+  what `pnpm regen` writes. `scripts/__tests__/drift-fix-workflow.test.mjs`
+  fails if a manifest output stops being covered by `add-paths` — otherwise the
+  job would regenerate an artifact and then silently drop it from the commit.
+- **CI dispatch:** the workflow explicitly runs `gh workflow run ci.yml` on the
+  automation branch. GitHub's anti-recursion rule means a `GITHUB_TOKEN`-authored
+  PR never fires `pull_request` workflows, so the required `CI Gate` check would
+  never appear and the PR would sit `BLOCKED` forever — the same trap #3543 fixed
+  for `pr-metrics.yml`. `workflow_dispatch` is the documented exception.
+
 ## `mbe-weekly-improve`
 
 - **When:** every Friday 7:00am PT (`0 14 * * 5` UTC). Friday is the documented
@@ -160,6 +218,88 @@ to a single worker without worktree isolation in cloud and keep the local
      This is the only _scheduled_ paid eval — the daily optimizer fires eval
      only on a flagged regression, never on every run.
 - **Does not merge.** Every change lands as a reviewable PR.
+
+## `mbe-doc-rot`
+
+- **When:** every Friday 8:00am PT (`0 15 * * 5` UTC), after `mbe-weekly-improve`.
+- **Why it exists:** it is the judgment half of drift. `drift-fix.yml` handles
+  everything a generator can repair; this handles the drift where the fix is a
+  prose edit and someone has to decide what the doc _should_ say.
+- **What it does:**
+  1. Runs `detect-instruction-rot.mjs` and `check-doc-freshness.mjs` and **fixes**
+     what they find — deciding per hit whether the target moved (fix the link) or
+     was deleted (rewrite the claim, rather than leaving a sentence describing
+     something that no longer exists). Both scripts also run in CI's Integrity
+     job, so their hits are already failing or about to.
+  2. Hunts **semantic staleness** — docs whose links all resolve but whose claims
+     are false. This is the part no script can do, and the reason the routine
+     earns its tokens. Seeded with a live example: `tools/cli/CLAUDE.md` documents
+     `.localeCompare()` as the pack generator's sort, while `pack.ts` uses a
+     byte-order comparator (localeCompare was banned for sorting differently on
+     macOS vs Linux CI, which drifts generated artifacts). Two independent
+     reviewers have now flagged that line.
+- **Dedup is mandatory** — see the note under the routine catalog. `mbe-auditor`'s
+  Friday lens covers the same detection surface read-only.
+- **Does not merge.** One PR titled `docs: weekly rot sweep <date>`; `ready`
+  issues only for rot it could not safely fix itself.
+- **Zero changes is a successful run.** The prompt explicitly forbids padding the
+  PR with cosmetic rewording — rot means _wrong_, not unpolished.
+
+## `mbe-weekly-retro`
+
+- **When:** every Sunday 4:00pm PT (`0 23 * * 0` UTC) — late enough to see the
+  full week including Friday's `mbe-weekly-improve` and `mbe-doc-rot` output, early
+  enough that Monday's routines start with the blockers already surfaced. It sits in
+  the clean gap between `mbe-midday` (1:07pm) and `mbe-evening` (5:11pm).
+- **Why it exists:** every other routine improves the **product** — the code, the
+  docs, the artifacts. This one improves the **factory**. Its question is _what
+  blocked flow, and what should change?_
+- **Six evidence passes:**
+  1. **Routine liveness.** Did each scheduled job actually run _and_ produce its
+     expected artifact this week? This pass exists because the whole `mbe-*` chain
+     died on 2026-07-10 and went unnoticed for 19 days — the tell (a daily
+     `chore(acmm)` PR that simply stopped appearing) was visible the entire time and
+     unread. A routine that ran but produced nothing for 7 days is flagged too.
+  2. **Human-blocked backlog aging.** Human decisions are the factory's real
+     throughput ceiling. Issues in `ready-for-human` / `needs-review` / `blocked` /
+     `agent-failed` / `stealable`, oldest first; anything untouched >7 days is a
+     blocker. Each gets a one-sentence _specific_ ask — "add `TURBO_TOKEN` to repo
+     secrets", not "needs review".
+  3. **PR flow friction.** Open-to-merge duration, how many PRs needed
+     `update-branch` (the N² tax of same-zone stacking against strict `main`,
+     ADR-016/ADR-023), how many went red before merging, how many needed a
+     follow-up fix within 48h.
+  4. **Recurring failure causes.** Last week's failed CI runs grouped **by cause**,
+     with genuine flake separated from real defects — then cross-checked against
+     `.claude/rules/gotchas.md`. A cause that has bitten twice and _isn't_ documented
+     there is itself the finding.
+  5. **Throughput direction.** Issues closed vs. filed — is the backlog shrinking?
+     Metrics files are the secondary source and were only recreated 2026-07-30, so
+     early runs are told to say "data too thin" rather than manufacture a trend.
+  6. **Synthesis.** The three highest-leverage changes, where leverage is flow
+     unblocked per unit of effort.
+- **Output:** one PR appending a dated entry to `docs/process-retro.md`, plus at
+  most 3 deduped `ready` issues for process fixes an agent can actually implement.
+  Anything only a human can decide goes in the entry's **Escalations** section with
+  the specific ask — filing those as `ready` just burns a worker on something no
+  agent can do.
+- **A quiet week is a real result.** The prompt explicitly forbids padding: a padded
+  retro trains everyone to stop reading it, which costs more than the week it covers.
+
+> **Who owns which kind of improvement.** There are now four improvement routines,
+> and the boundaries are deliberate — each one's prompt names the others so findings
+> get handed off instead of re-filed:
+>
+> | Routine                              | Improves                    | Cadence      |
+> | ------------------------------------ | --------------------------- | ------------ |
+> | `optimize-implement-queue` (evening) | queue **metrics** — "did a number move?" | daily |
+> | `mbe-weekly-improve`                 | the **codebase**            | Fri          |
+> | `mbe-weekly-retro`                   | the **process** — "why did work get stuck?" | Sun |
+> | `mbe-monthly-meta-audit`             | **Claude Code config**      | monthly      |
+>
+> The daily optimizer fires on numeric threshold regressions; the retro finds causes
+> and blockers that no threshold detects. That distinction is what keeps the two from
+> collapsing into each other.
 
 ## `mbe-monthly-meta-audit`
 
@@ -234,11 +374,15 @@ interactive use. The **daily** baseline is 6 runs (`mbe-evening`, `mbe-night`,
 triggers add a 7th run on their day (`mbe-deep-audit` runs in GitHub Actions, so
 it does **not** count against the claude.ai plan quota):
 
-- Fri: + `mbe-weekly-improve` (opus) → 7
-- 1st of month: + `mbe-monthly-meta-audit` (opus) → 7 (or briefly 8 if the 1st is a Fri)
+- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 8
+- Sun: + `mbe-weekly-retro` (opus) → 7
+- 1st of month: + `mbe-monthly-meta-audit` (opus) → 7 (or briefly 9 if the 1st is a Fri)
 
-6-8 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
-interactive local sessions.
+6-9 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
+interactive local sessions. The two weekly opus routines are deliberately split
+across different days — `mbe-weekly-improve` on Friday, `mbe-weekly-retro` on
+Sunday — so the heaviest runs never stack. `mbe-monthly-meta-audit` is the one
+exception: it lands on whatever weekday the 1st falls on, occasionally Friday.
 
 > **`optimize-implement-queue` consumes no new slot.** It is folded into the
 > existing `mbe-evening` run (an extra skill invocation at the tail of one run),
