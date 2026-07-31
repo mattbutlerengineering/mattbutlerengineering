@@ -22,6 +22,9 @@ useDefault = true
     '''llms-full\.txt''',
     '''src/generated''',
     '''gsd-file-manifest\.json''',
+    # Test fixtures — synthetic tokens exercising the redaction/scanning logic
+    # itself (mirrors the __tests__ allowlist in scripts/secret-scan.mjs)
+    '''scripts/__tests__/''',
   ]
 
   regexTarget = "match"

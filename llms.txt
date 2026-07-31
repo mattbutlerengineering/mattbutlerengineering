@@ -1912,6 +1912,32 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="journeys">
+  <file path="apps/hospitality/e2e/journeys/journey-api.ts">
+    <item priority="high">
+      export const SYNTHETIC_VENUE_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      interface VenueSummary {
+        id: string;
+        name: string;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/journeys/journey-recorder.ts">
+    <item priority="low">
+      type JourneyStepStatus = "passed" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      interface JourneyStepResult {
+        name: string;
+        status: JourneyStepStatus;
+        durationMs: number;
+        error?: string;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="apps/hospitality/src/lib/sse-client.ts">
     <item priority="low">

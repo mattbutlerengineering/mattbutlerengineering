@@ -555,6 +555,24 @@
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
   </section>
+  <section priority="medium" role="journeys">
+  <file path="e2e/journeys/journey-api.ts">
+    export const SYNTHETIC_VENUE_PREFIX = "synthetic-journey-";
+    interface VenueSummary {
+      id: string;
+      name: string;
+    }
+  </file>
+  <file path="e2e/journeys/journey-recorder.ts">
+    export type JourneyStepStatus = "passed" | "failed" | "skipped";
+    export interface JourneyStepResult {
+      name: string;
+      status: JourneyStepStatus;
+      durationMs: number;
+      error?: string;
+    }
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="src/lib/sse-client.ts">
     export type FetchEventSourceFn = typeof fetchEventSource;
