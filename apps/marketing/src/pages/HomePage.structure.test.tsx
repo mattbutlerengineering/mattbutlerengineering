@@ -31,7 +31,13 @@ describe("HomePage heading hierarchy", () => {
     const h2Text = screen
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent?.trim());
-    expect(h2Text).toEqual(["By the numbers", "Projects", "What I'm reading", "Elsewhere"]);
+    expect(h2Text).toEqual([
+      "By the numbers",
+      "Projects",
+      "How this site ships itself",
+      "What I'm reading",
+      "Elsewhere",
+    ]);
   });
 
   it("no longer ships the badge-wall tech stack or the standalone about section", () => {
