@@ -519,6 +519,14 @@
         "dist/lib/chunks/use-flip-dot-animation-*.js"
       ],
       "limit": "3700 B"
+    },
+    {
+      "name": "SilkFlow (subpath)",
+      "path": [
+        "dist/lib/components/SilkFlow/index.js",
+        "dist/lib/chunks/SilkFlow-*.js"
+      ],
+      "limit": "2050 B"
     }
   ],
   "license": "MIT",
