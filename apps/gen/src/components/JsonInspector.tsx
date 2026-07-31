@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
+import { useRef, useEffect, useCallback, useState, useMemo, memo, type ReactNode } from "react";
 import { Button, Input, Text } from "@mattbutlerengineering/rialto";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard.js";
 import { downloadJson } from "../utils/downloadJson.js";
@@ -106,6 +106,24 @@ function highlightJson(json: string, search: string): ReactNode[] {
 
   return parts;
 }
+
+interface JsonInspectorLineProps {
+  line: string;
+  search: string;
+}
+
+/**
+ * Renders a single highlighted line. Memoized on `line` + `search` so a line
+ * only re-highlights when its own text or the active search term changes —
+ * not on every unrelated parent re-render (e.g. a sibling block's collapse
+ * toggle, or a new line streaming in).
+ */
+function JsonInspectorLineImpl({ line, search }: JsonInspectorLineProps) {
+  const highlighted = useMemo(() => highlightJson(line, search), [line, search]);
+  return <>{highlighted}</>;
+}
+
+const JsonInspectorLine = memo(JsonInspectorLineImpl);
 
 /**
  * Count case-insensitive occurrences of `search` in `text`.
@@ -265,7 +283,7 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
                     <Text className={styles.lineNumber}>{block.startLine}</Text>
                     <pre className={styles.pre}>
                       <code className={styles.collapsedCode}>
-                        {highlightJson(truncated, search)}
+                        <JsonInspectorLine line={truncated} search={search} />
                         {lines.length > 1 && <Text className={styles.ellipsis}> ...</Text>}
                       </code>
                     </pre>
@@ -276,7 +294,9 @@ export function JsonInspector({ rawLines, isStreaming }: JsonInspectorProps) {
                       <div key={li} className={styles.lineRow}>
                         <Text className={styles.lineNumber}>{block.startLine + li}</Text>
                         <pre className={styles.pre}>
-                          <code>{highlightJson(line, search)}</code>
+                          <code>
+                            <JsonInspectorLine line={line} search={search} />
+                          </code>
                         </pre>
                       </div>
                     ))}
