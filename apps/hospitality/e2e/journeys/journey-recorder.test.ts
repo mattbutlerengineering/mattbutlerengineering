@@ -13,45 +13,60 @@ interface FakeLocator {
 
 const STRICT_MODE_VIOLATION = "strict mode violation: resolved to more than one element";
 
-/** Minimal Page stand-in — only the members the recorder actually touches. */
-function createFakePage(locator: () => FakeLocator) {
+/** A `.first()` result over zero matches — a locator with nothing to read. */
+const EMPTY_MATCH: FakeLocator = {
+  count: () => Promise.resolve(0),
+  innerText: () => Promise.reject(new Error("should not be called")),
+};
+
+/**
+ * Minimal Page stand-in — only the members the recorder actually touches.
+ *
+ * `resolveMatches` returns the ordered visible-alert matches for
+ * `[role="alert"]:visible`, re-evaluated on every call (as real Playwright
+ * locators are). Real Playwright exempts `.count()` from strict mode — it
+ * reports the match count at any cardinality (0, 1, or many) without
+ * throwing — while single-element operations like `.innerText()` throw a
+ * strict-mode violation once there's more than one match. `.first()` narrows
+ * to the leading match in DOM order, where single-element ops always work.
+ */
+function createFakePage(resolveMatches: () => FakeLocator[]) {
   const screenshots: string[] = [];
+  const locator = () => ({
+    first: () => resolveMatches()[0] ?? EMPTY_MATCH,
+    count: () => Promise.resolve(resolveMatches().length),
+    innerText: (): Promise<string> => {
+      const matches = resolveMatches();
+      return matches.length > 1
+        ? Promise.reject(new Error(STRICT_MODE_VIOLATION))
+        : (matches[0]?.innerText() ?? Promise.reject(new Error("should not be called")));
+    },
+  });
   const page = {
     on: () => page,
-    // The recorder narrows with `.first()`; reading an unnarrowed multi-match
-    // handle throws a strict-mode violation against a real page, so the fake
-    // rejects too. That is what makes dropping the `.first()` a visible test
-    // failure instead of a silently-wrong capture.
-    locator: () => ({
-      first: locator,
-      count: () => Promise.reject(new Error(STRICT_MODE_VIOLATION)),
-      innerText: () => Promise.reject(new Error(STRICT_MODE_VIOLATION)),
-    }),
+    locator,
     screenshot: ({ path }: { path: string }) => {
       screenshots.push(path);
       return Promise.resolve();
     },
   };
-  return { page: page as unknown as Page, screenshots };
+  return { page: page as unknown as Page, screenshots, locator };
 }
 
 /** A locator matching nothing — the page had no visible alert. */
-const noAlert = (): FakeLocator => ({
-  count: () => Promise.resolve(0),
-  innerText: () => Promise.reject(new Error("should not be called")),
-});
+const noAlert = (): FakeLocator[] => [];
 
 /**
- * A locator over the visible alerts, in DOM order. `.first()` is the narrowing
- * step under test, so it selects from a real ordered list rather than handing
- * back one canned match — a capture that read any other candidate then fails.
+ * The visible alerts, in DOM order. `.first()` is the narrowing step under
+ * test, so it selects from a real ordered list rather than handing back one
+ * canned match — a capture that read any other candidate then fails.
  */
-function alertWith(...texts: string[]): () => FakeLocator {
-  const candidates: FakeLocator[] = texts.map((text) => ({
-    count: () => Promise.resolve(texts.length),
-    innerText: () => Promise.resolve(text),
-  }));
-  return () => candidates[0] ?? noAlert();
+function alertWith(...texts: string[]): () => FakeLocator[] {
+  return () =>
+    texts.map((text) => ({
+      count: () => Promise.resolve(1),
+      innerText: () => Promise.resolve(text),
+    }));
 }
 
 // The shape of the real #3546 failure: a web-first assertion timeout on the
@@ -140,10 +155,12 @@ describe("createJourneyRecorder page-error capture", () => {
   });
 
   it("never masks the original failure when reading the alert text rejects", async () => {
-    const { page } = createFakePage(() => ({
-      count: () => Promise.resolve(1),
-      innerText: () => Promise.reject(new Error("Timeout exceeded")),
-    }));
+    const { page } = createFakePage(() => [
+      {
+        count: () => Promise.resolve(1),
+        innerText: () => Promise.reject(new Error("Timeout exceeded")),
+      },
+    ]);
     const journey = createJourneyRecorder(page, "synthetic-journey-1");
 
     await journey.step("Launch venue", () => Promise.reject(BOOM));
@@ -161,5 +178,26 @@ describe("createJourneyRecorder page-error capture", () => {
     expect(journey.report().steps[0]).toMatchObject({ status: "passed" });
     expect(journey.report().steps[0]).not.toHaveProperty("pageError");
     expect(screenshots).toHaveLength(0);
+  });
+});
+
+// The double must not be stricter than real Playwright: `.count()` is exempt
+// from strict mode at any cardinality, while single-element methods like
+// `.innerText()` still throw on ambiguity. See #3575.
+describe("the fake locator's Playwright fidelity", () => {
+  it("count() reports the match count without throwing on a multi-match selector", async () => {
+    const { locator } = createFakePage(
+      alertWith("Closing time must be after opening time", "Pick at least one open day")
+    );
+
+    await expect(locator().count()).resolves.toBe(2);
+  });
+
+  it("still throws a strict-mode violation from a single-element method on the same multi-match selector", async () => {
+    const { locator } = createFakePage(
+      alertWith("Closing time must be after opening time", "Pick at least one open day")
+    );
+
+    await expect(locator().innerText()).rejects.toThrow(STRICT_MODE_VIOLATION);
   });
 });
