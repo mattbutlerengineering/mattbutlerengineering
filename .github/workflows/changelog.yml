@@ -9,6 +9,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Required for the `gh workflow run` dispatch after the PR is created.
+  actions: write
 
 jobs:
   changelog:
@@ -58,3 +60,7 @@ jobs:
 
           Triggered: ${MONTH_LABEL}" \
             --label "docs"
+
+          # GITHUB_TOKEN-authored PRs don't trigger the pull_request event, so
+          # the required CI Gate check never reports without an explicit dispatch.
+          gh workflow run ci.yml --ref "$BRANCH"

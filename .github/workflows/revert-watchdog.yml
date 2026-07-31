@@ -10,6 +10,9 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # Required for the `gh workflow run` dispatch in "Propose Revert PR" below —
+  # GITHUB_TOKEN needs actions:write to call the workflow-dispatch API.
+  actions: write
 
 jobs:
   on-failure:
@@ -115,6 +118,12 @@ jobs:
             --label "priority:critical" \
             --base main \
             --head "$BRANCH"
+
+          # A GITHUB_TOKEN-authored PR does not trigger the pull_request event
+          # (GitHub's anti-recursion rule), so the required CI Gate check would
+          # never report and this revert — the one PR that unbreaks main — would
+          # sit permanently BLOCKED. workflow_dispatch is a documented exception.
+          gh workflow run ci.yml --ref "$BRANCH"
 
       - name: Trigger RCA
         if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
