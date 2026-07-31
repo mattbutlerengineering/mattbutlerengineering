@@ -1878,6 +1878,7 @@
         status: JourneyStepStatus;
         durationMs: number;
         error?: string;
+        pageError?: string;
       }
     </item>
   </file>

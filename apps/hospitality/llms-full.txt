@@ -570,6 +570,8 @@
       status: JourneyStepStatus;
       durationMs: number;
       error?: string;
+      /** Visible `[role="alert"]` text when the step failed — see capturePageError. */
+      pageError?: string;
     }
   </file>
   </section>

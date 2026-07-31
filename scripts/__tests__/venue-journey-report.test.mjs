@@ -135,6 +135,69 @@ describe("buildFailureIssue", () => {
     );
   });
 
+  it("renders the captured page error above the Error block", () => {
+    const report = makeReport({
+      steps: [
+        {
+          name: "Step 5 — launch the venue",
+          status: "failed",
+          durationMs: 15000,
+          error: "locator.click: Timeout 15000ms exceeded",
+          pageError: "POST /api/v1/venues failed: 403 Admin role required",
+        },
+      ],
+    });
+
+    const { body } = buildFailureIssue(report);
+
+    expect(body).toContain("### Page error");
+    expect(body).toContain("POST /api/v1/venues failed: 403 Admin role required");
+    expect(body.indexOf("### Page error")).toBeLessThan(body.indexOf("### Error"));
+  });
+
+  it("omits the Page error section entirely when no alert was captured", () => {
+    const report = makeReport({
+      steps: [{ name: "Launch venue", status: "failed", durationMs: 900, error: "boom" }],
+    });
+
+    expect(buildFailureIssue(report).body).not.toContain("### Page error");
+  });
+
+  it("omits the Page error section when the captured text was blank", () => {
+    const report = makeReport({
+      steps: [
+        {
+          name: "Launch venue",
+          status: "failed",
+          durationMs: 900,
+          error: "boom",
+          pageError: "   ",
+        },
+      ],
+    });
+
+    expect(buildFailureIssue(report).body).not.toContain("### Page error");
+  });
+
+  it("redacts secret-shaped material out of the captured page error", () => {
+    const report = makeReport({
+      steps: [
+        {
+          name: "Launch venue",
+          status: "failed",
+          durationMs: 900,
+          error: "boom",
+          pageError: 'Request failed: {"access_token":"abc.def.ghi"}',
+        },
+      ],
+    });
+
+    const { body } = buildFailureIssue(report);
+
+    expect(body).not.toContain("abc.def.ghi");
+    expect(body).toContain("### Page error");
+  });
+
   it("builds a comment body for a duplicate that names the run", () => {
     const report = makeReport({
       steps: [{ name: "Authenticate", status: "failed", durationMs: 900, error: "boom" }],
