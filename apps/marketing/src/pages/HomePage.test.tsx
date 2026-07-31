@@ -19,6 +19,9 @@ vi.mock("../components/ProjectsSection.js", () => ({
 vi.mock("../components/ContactSection.js", () => ({
   ContactSection: () => <div data-testid="contact-section" />,
 }));
+vi.mock("../components/factory/FactorySection.js", () => ({
+  FactorySection: () => <div data-testid="factory-section" />,
+}));
 vi.mock("../components/Navbar.js", () => ({
   Navbar: () => <nav data-testid="navbar" />,
 }));
@@ -50,6 +53,7 @@ describe("HomePage", () => {
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
     expect(screen.getByTestId("proof-strip")).toBeInTheDocument();
     expect(screen.getByTestId("projects-section")).toBeInTheDocument();
+    expect(screen.getByTestId("factory-section")).toBeInTheDocument();
     expect(screen.getByTestId("contact-section")).toBeInTheDocument();
   });
 
@@ -63,10 +67,17 @@ describe("HomePage", () => {
     ).toBe(true);
   });
 
+  it("shows how the work gets built only after showing the work itself", () => {
+    renderHomePage();
+    expect(
+      precedes(screen.getByTestId("projects-section"), screen.getByTestId("factory-section"))
+    ).toBe(true);
+  });
+
   it("closes with the weekly reads card above the minimal contact row", () => {
     renderHomePage();
     const weekly = screen.getByRole("link", { name: /browse the stack/i });
-    expect(precedes(screen.getByTestId("projects-section"), weekly)).toBe(true);
+    expect(precedes(screen.getByTestId("factory-section"), weekly)).toBe(true);
     expect(precedes(weekly, screen.getByTestId("contact-section"))).toBe(true);
   });
 });

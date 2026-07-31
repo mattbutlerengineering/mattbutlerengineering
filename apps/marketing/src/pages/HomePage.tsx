@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { HeroSection } from "../components/HeroSection";
 import { ProofStrip } from "../components/ProofStrip";
 import { ProjectsSection } from "../components/ProjectsSection";
+import { FactorySection } from "../components/factory/FactorySection";
 import { ContactSection } from "../components/ContactSection";
 import { Heading, Button, Text, Card, Stack } from "@mattbutlerengineering/rialto";
 import styles from "./HomePage.module.css";
@@ -12,6 +13,7 @@ export function HomePage() {
       <HeroSection />
       <ProofStrip />
       <ProjectsSection />
+      <FactorySection />
       <Card variant="elevated" data-testid="weekly-cta" className={styles.invitationCard}>
         <Stack gap="md" align="center">
           <Heading level={2}>What I&apos;m reading</Heading>
