@@ -66,59 +66,12 @@ Before building this automation:
 
 ## Multi-Repo Orchestrator Script
 
-A proof-of-concept orchestrator is available at `scripts/orchestrate-multi.mjs`. It uses the `gh` CLI to clone a target repository, create a feature branch, apply changes, commit, push, and open a pull request.
+The proof-of-concept orchestrator that once lived at `scripts/orchestrate-multi.mjs` (clone a target repo via `gh`, create a feature branch, apply changes, commit, push, open a PR) was deleted as dead code in #3044 — it had no callers in any CI workflow, `package.json` script, or hook. There is currently no scripted replacement for the cross-repo clone/branch/PR flow it performed.
 
-### CLI Usage
-
-```bash
-node scripts/orchestrate-multi.mjs --repo <url> --task "<description>" [options]
-```
-
-Required:
-
-- `--repo <url>` — GitHub repository URL (e.g. `https://github.com/org/repo`)
-- `--task "<desc>"` — PR title and commit message describing the change
-
-Options:
-
-- `--branch <name>` — Feature branch name (default: `orchestrate-<timestamp>`)
-- `--script <path>` — Path to a script to run inside the cloned repo to apply changes
-- `--dry-run` — Print what would be done without making changes
-
-### Examples
-
-```bash
-# Bump a dependency in a downstream repo
-node scripts/orchestrate-multi.mjs \
-  --repo https://github.com/example/downstream \
-  --task "Bump @mbe/rialto to v2.0.0" \
-  --branch chore/rialto-v2
-
-# Apply changes via a custom script
-node scripts/orchestrate-multi.mjs \
-  --repo https://github.com/example/downstream \
-  --task "Update config for new API" \
-  --script ./scripts/migrate-downstream.sh
-
-# Preview what would happen
-node scripts/orchestrate-multi.mjs \
-  --dry-run \
-  --repo https://github.com/example/downstream \
-  --task "Bump dependency"
-```
-
-### Prerequisites
-
-1. **GitHub CLI (`gh`)** must be installed and authenticated (`gh auth login`).
-2. The script uses `gh` to clone, push, and create PRs — no separate GitHub token needed.
-3. Your `gh` session must have permission to push branches and open PRs in the target repository.
+`scripts/orchestrate.mjs` still exists but solves a different problem: it dispatches parallel implement-queue workers against `ready` issues within this single repo (ACMM L6 single-repo composition), not cross-repo PRs.
 
 ## Current Status
 
-- **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version. The `scripts/orchestrate-multi.mjs` script automates the PR creation step.
+- **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version, following the steps above.
 - **Monorepo structure minimizes the need.** The vast majority of dependent code lives within this repo.
-- **Automation deferred.** There are currently few external consumers, so the cost of building fully automated cross-repo orchestration exceeds the benefit. The PoC script provides a foundation for when the need grows.
-
-## Execution Log
-
-Executed: 2026-05-12 — Dry run of multi-repo orchestration script against mattbutlerengineering monorepo.
+- **Automation deferred.** There are currently few external consumers, so the cost of building fully automated cross-repo orchestration exceeds the benefit. The "Future Automation" section above remains the design sketch for when the need grows.
