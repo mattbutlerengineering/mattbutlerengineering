@@ -137,9 +137,14 @@ export function buildFailureIssue(report) {
     "_Filed by the daily venue journey (.github/workflows/venue-journey.yml)._",
   ].join("\n");
 
+  // Dedupe keys on the step, not the cause, so a 403 and a later 500 at the
+  // same step both land here. The comment is the only output on the recurrence
+  // path, so it carries the page error too — otherwise the changed root cause
+  // is exactly what gets dropped.
   const commentBody = [
     `Recurred on ${runDate(report)} — run ${report.runUrl}`,
     "",
+    ...(pageError ? ["### Page error", "", "```", pageError, "```", "", "### Error", ""] : []),
     "```",
     error,
     "```",

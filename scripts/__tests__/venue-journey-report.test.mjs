@@ -208,6 +208,72 @@ describe("buildFailureIssue", () => {
     expect(commentBody).toContain("Recurred");
     expect(commentBody).toContain("https://github.com/o/r/actions/runs/12345");
   });
+
+  it("carries the page error into the recurrence comment, so a new root cause is visible", () => {
+    // The dedupe key is the step, not the cause: a 403 and a later 500 at the
+    // same step both bump one issue. The comment is the ONLY output on that
+    // path, so it has to carry the cause that changed.
+    const report = makeReport({
+      steps: [
+        {
+          name: "Step 5 — launch the venue",
+          status: "failed",
+          durationMs: 30000,
+          error: "Timed out 30000ms waiting for expect(locator).toBeVisible()",
+          pageError: "POST /api/v1/venues failed: 500 Internal Server Error",
+        },
+      ],
+    });
+
+    const { commentBody } = buildFailureIssue(report);
+
+    expect(commentBody).toContain("### Page error");
+    expect(commentBody).toContain("POST /api/v1/venues failed: 500 Internal Server Error");
+    expect(commentBody.indexOf("### Page error")).toBeLessThan(commentBody.indexOf("### Error"));
+  });
+
+  it("omits the Page error section from the comment when no alert was captured", () => {
+    const report = makeReport({
+      steps: [{ name: "Launch venue", status: "failed", durationMs: 900, error: "boom" }],
+    });
+
+    expect(buildFailureIssue(report).commentBody).not.toContain("### Page error");
+  });
+
+  it("omits the Page error section from the comment when the captured text was blank", () => {
+    const report = makeReport({
+      steps: [
+        {
+          name: "Launch venue",
+          status: "failed",
+          durationMs: 900,
+          error: "boom",
+          pageError: "   ",
+        },
+      ],
+    });
+
+    expect(buildFailureIssue(report).commentBody).not.toContain("### Page error");
+  });
+
+  it("redacts secret-shaped material out of the page error on the comment path", () => {
+    const report = makeReport({
+      steps: [
+        {
+          name: "Launch venue",
+          status: "failed",
+          durationMs: 900,
+          error: "boom",
+          pageError: 'Request failed: {"access_token":"abc.def.ghi"}',
+        },
+      ],
+    });
+
+    const { commentBody } = buildFailureIssue(report);
+
+    expect(commentBody).not.toContain("abc.def.ghi");
+    expect(commentBody).toContain("### Page error");
+  });
 });
 
 describe("findDuplicateIssue", () => {
