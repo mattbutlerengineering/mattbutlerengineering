@@ -23,6 +23,7 @@ import {
   buildJobSummary,
   findDuplicateIssue,
   FRICTION_ISSUE_TITLE,
+  redactSecrets,
 } from "./report.mjs";
 
 /** Runs `gh` with argv-array arguments (never a shell string). */
@@ -61,6 +62,11 @@ function log(line) {
   process.stdout.write(`${line}\n`);
 }
 
+/** Error text for a log line. A `gh` failure echoes its argv, so redact. */
+function message(err) {
+  return redactSecrets(err instanceof Error ? err.message : String(err));
+}
+
 /** Creates the issue, or comments on the existing duplicate. */
 function fileOrBump({ openIssues, title, searchPhrase, body, commentBody, labels }) {
   const duplicate = findDuplicateIssue(openIssues, { title, searchPhrase });
@@ -77,9 +83,7 @@ function fileOrBump({ openIssues, title, searchPhrase, body, commentBody, labels
 function main() {
   const reportPath = process.argv[2];
   if (!reportPath || !existsSync(reportPath)) {
-    log(
-      `::warning::No journey report at ${reportPath ?? "(no path given)"} — nothing to report.`
-    );
+    log(`::warning::No journey report at ${reportPath ?? "(no path given)"} — nothing to report.`);
     return;
   }
 
@@ -93,7 +97,17 @@ function main() {
     return;
   }
 
-  const openIssues = listOpenAuditIssues();
+  // A `gh` outage must never turn a GREEN journey red. When there is a hard
+  // failure to report, filing is load-bearing and errors propagate; when the
+  // only thing to file is the advisory friction log, they degrade to warnings.
+  let openIssues;
+  try {
+    openIssues = listOpenAuditIssues();
+  } catch (err) {
+    if (failure) throw err;
+    log(`::warning::Could not list open audit issues — friction log not updated: ${message(err)}`);
+    return;
+  }
 
   if (failure) {
     fileOrBump({ openIssues, ...failure });
@@ -102,14 +116,18 @@ function main() {
   // Friction is advisory: one rolling log issue, `audit` only (never `ready`),
   // so it never enters the implement-queue as actionable work on its own.
   if (friction) {
-    fileOrBump({
-      openIssues,
-      title: FRICTION_ISSUE_TITLE,
-      searchPhrase: FRICTION_ISSUE_TITLE,
-      body: `Rolling log of soft friction seen by the daily venue-onboarding journey (.github/workflows/venue-journey.yml). Not individually actionable — read it for trends.\n\n${friction}`,
-      commentBody: friction,
-      labels: ["audit"],
-    });
+    try {
+      fileOrBump({
+        openIssues,
+        title: FRICTION_ISSUE_TITLE,
+        searchPhrase: FRICTION_ISSUE_TITLE,
+        body: `Rolling log of soft friction seen by the daily venue-onboarding journey (.github/workflows/venue-journey.yml). Not individually actionable — read it for trends.\n\n${friction}`,
+        commentBody: friction,
+        labels: ["audit"],
+      });
+    } catch (err) {
+      log(`::warning::Could not update the friction log: ${message(err)}`);
+    }
   }
 }
 

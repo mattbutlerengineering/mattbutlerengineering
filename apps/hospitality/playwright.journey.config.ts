@@ -20,6 +20,11 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   timeout: 180_000,
+  // Every wait in this journey crosses the public internet and can hit a cold
+  // prod API (the dashboard's stats query gates the readiness tiles behind
+  // Skeletons). `actionTimeout` does NOT cover web-first assertions, so the
+  // 5 s expect default would be the flakiest wait in the run without this.
+  expect: { timeout: 30_000 },
   reporter: process.env.CI ? "github" : "list",
 
   use: {

@@ -27,7 +27,7 @@ test("venue onboarding journey against the live site", async ({ page }) => {
 
   await journey.step("Authenticate", async () => {
     accessToken = await authenticateAgainstLiveSite(page);
-    await expect(page.getByTestId("auth-layout")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("auth-layout")).toBeVisible();
   });
 
   await journey.step("Sweep leftover synthetic venues", async () => {
@@ -43,8 +43,8 @@ test("venue onboarding journey against the live site", async ({ page }) => {
   });
 
   await journey.step("Step 1 — name the venue", async () => {
-    // Slug auto-derives from the name (generate-slug.ts) and is checked for
-    // uniqueness on a 500 ms debounce, so let that settle before advancing.
+    // The slug auto-derives from the name (generate-slug.ts); assert it landed
+    // so a change to that derivation surfaces here rather than at launch.
     await page.getByLabel("Venue Name").fill(venueName);
     await expect(page.getByLabel("Slug")).toHaveValue(venueName);
     await page.getByRole("button", { name: "Next" }).click();
@@ -75,17 +75,23 @@ test("venue onboarding journey against the live site", async ({ page }) => {
 
   await journey.step("Step 5 — launch the venue", async () => {
     await page.getByRole("button", { name: "Launch Venue" }).click();
-    // LaunchStep celebrates before handing off to the dashboard (#3444).
-    await expect(page.getByText("You're ready to take reservations")).toBeVisible({
-      timeout: 30_000,
-    });
+    // LaunchStep celebrates before handing off to the dashboard (#3444). Scope
+    // to the celebration container: the PRE-launch review caption reads
+    // "Review your venue details — you're ready to take reservations." and
+    // stays mounted during submit, so an unscoped getByText (substring,
+    // case-insensitive) would pass even when venue creation FAILED. The
+    // celebration is the only role="status" on this page — the toast container
+    // is role="region" and the wizard's other live regions are unmounted here.
+    await expect(
+      page.getByRole("status").getByText("You're ready to take reservations")
+    ).toBeVisible();
   });
 
   await journey.step("Dashboard handoff renders for the new venue", async () => {
-    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    // Mounts only once useDashboardStatsQuery resolves (HomePage renders
+    // Skeletons while loading) — covered by the config's 30 s expect timeout.
     await expect(page.getByLabel("Today's Reservations")).toBeVisible();
   });
 
