@@ -34,11 +34,7 @@ pnpm clean          # Wipe artifacts and node_modules
 
 ### Multi-Repo Orchestration
 
-```bash
-node scripts/orchestrate-multi.mjs --repo <url> --task "<task>" [--branch <name>] [--script <path>] [--dry-run]
-```
-
-Clones a downstream repo, creates a feature branch, applies changes, commits, pushes, and opens a PR. Used for coordinating cross-repo changes (ACMM L6). See `node scripts/orchestrate-multi.mjs --help` and `docs/acmm/multi-repo-orchestration.md`.
+`scripts/orchestrate-multi.mjs` (clone downstream repo → branch → commit → push → PR) was deleted as dead code in #3044. There is no scripted replacement — coordinating changes with external consumers (e.g. published `@mattbutlerengineering/rialto` versions) is manual today. See `docs/acmm/multi-repo-orchestration.md` for the current coordination strategy.
 
 ## Development Flow with Metrics & Continuous Improvement
 
@@ -265,8 +261,8 @@ The authoritative installed-vs-STACK gap report is at [`docs/ai-tooling-audit.md
 **Install the ai-tooling marketplace:**
 
 ```bash
-claude plugins:add-marketplace https://github.com/mattbutlerengineering/ai-tooling.git
-claude plugins:install ai-tooling
+claude plugin marketplace add https://github.com/mattbutlerengineering/ai-tooling.git
+claude plugin install ai-tooling
 ```
 
 - `llms-full.txt` — Detailed prop tables and advanced examples.
