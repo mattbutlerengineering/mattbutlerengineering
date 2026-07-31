@@ -108,6 +108,18 @@
       description: string;
     }
   </file>
+  <file path="src/pages/examples/notification-center.ts">
+    export type NotificationType = "booking" | "payment" | "system";
+    export interface NotificationItem {
+      id: string;
+      type: NotificationType;
+      title: string;
+      message: string;
+      /** ISO timestamp. */
+      timestamp: string;
+      read: boolean;
+    }
+  </file>
   <file path="src/pages/examples/onboarding.ts">
     export type OnboardingStepId = "property" | "spaces" | "preferences" | "launch";
     export interface OnboardingStepDef {
