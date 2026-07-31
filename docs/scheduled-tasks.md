@@ -35,6 +35,7 @@ prompts and continue to run on Opus.
 | Routine                  | Trigger ID                       | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
 | ------------------------ | -------------------------------- | ------------------- | ------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `mbe-deep-audit`         | — (disabled; runs in GH Actions) | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
+| `drift-fix` _(new)_      | — (runs in GH Actions)           | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted       | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                  |
 | `mbe-evening`            | `trig_01PHwfbFQcFveYajVPaTrbZk`  | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
 | `mbe-night` _(new)_      | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
 | `mbe-auditor` _(new)_    | `trig_019cUkf16QbqTL7RrVXXqXsw`  | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
@@ -42,6 +43,7 @@ prompts and continue to run on Opus.
 | `mbe-learning-loop`      | `trig_018hcYeu5uCXgiddRwqaeYwd`  | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
 | `mbe-midday`             | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
 | `mbe-weekly-improve`     | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
+| `mbe-doc-rot` _(new)_    | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                             |
 | `mbe-monthly-meta-audit` | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
@@ -75,8 +77,21 @@ prompts and continue to run on Opus.
 > exception: they get `security`+`needs-review` labels instead of `ready`, so
 > they route to human review rather than autonomous pickup.
 
+> **Drift is split across two routines, by whether a machine can fix it.**
+> `drift-fix` (GitHub Actions, daily, no agent) owns everything a generator can
+> repair — llms.txt, registry.json, dep-graph.json, generated-schemas.ts,
+> dependency-graph.md, the rialto exports map. The fix there is always "run the
+> generator", so an LLM would add token cost and nondeterminism with no judgment
+> to contribute. `mbe-doc-rot` (claude.ai, weekly) owns the half where the fix is
+> a prose edit and someone has to decide what the doc *should* say.
+>
+> Note `mbe-auditor`'s **Friday lens is also docs** — but it is read-only and
+> files at most 3 issues. `mbe-doc-rot` therefore runs a mandatory dedup against
+> open `audit` issues, and where the auditor filed something it can simply fix,
+> it fixes it and closes the issue rather than filing a duplicate.
+
 > The legacy `mbe-*` audit/worker triggers are managed in the claude.ai UI and
-> their exact prompts live there. The two improvement routines below were created
+> their exact prompts live there. The improvement routines below were created
 > via `/schedule` and their prompts are reproduced here so they can be reviewed and
 > version-controlled.
 
@@ -142,6 +157,48 @@ If cloud worktree agents prove unreliable (validation run pending), fall back
 to a single worker without worktree isolation in cloud and keep the local
 `/loop 30m /implement-queue` as the heavy drain.
 
+## `drift-fix` (GitHub Actions)
+
+- **When:** daily 6:17am PT (`17 13 * * *` UTC), plus `workflow_dispatch`. Timed
+  ahead of `mbe-morning` (9:03am) so the worker routines start their day against
+  a clean `main`.
+- **Why daily:** drift on `main` is contagious. CI's "Verify generated artifacts
+  are in sync" step runs in the `build` job on _every_ PR, so one drifted
+  artifact on `main` turns every open PR red until it is cleared — including PRs
+  whose own diff is unrelated.
+- **What it does:**
+  1. Builds `@mbe/cli` (with transitive deps, which is what pulls in
+     `@mbe/agent-core`). **Not optional** — `pnpm regen`'s llms families shell
+     out to `mbe pack`, which imports agent-core; without a build that import
+     throws `ERR_MODULE_NOT_FOUND`, `regen-llms.sh` swallows it (`|| continue`),
+     and regen silently no-ops. A green run that fixed nothing is the worst
+     possible outcome for this job.
+  2. Regenerates the rialto exports map — before regen, since the dep-graph
+     generators read `package.json`.
+  3. Runs a **full** `pnpm regen`, never `check-regen-needed.mjs`'s fast path.
+     That heuristic answers "given these changed files, is a full regen
+     needed?"; a daily sweep of `main` has no changed-file list, and the drift
+     it exists to catch is precisely the drift nobody predicted.
+  4. Runs `pnpm regen --check` to confirm regeneration converged. A
+     non-idempotent generator fails here rather than shipping a PR that would
+     fail CI's own check.
+  5. Opens a PR **only when something actually drifted**. A clean day is a
+     silent no-op.
+- **Scoped staging:** `add-paths` lists generated artifacts only. `pnpm install`
+  reflows ~150 tracked files through prettier in this repo, and a catch-all
+  would commit that reformatting as if it were drift. Root-level `llms.txt` /
+  `llms-full.txt` are listed as bare paths because `**/`-style globs do not
+  match repo-root files.
+- **Keep in sync with `scripts/regen-manifest.mjs`**, the source of truth for
+  what `pnpm regen` writes. `scripts/__tests__/drift-fix-workflow.test.mjs`
+  fails if a manifest output stops being covered by `add-paths` — otherwise the
+  job would regenerate an artifact and then silently drop it from the commit.
+- **CI dispatch:** the workflow explicitly runs `gh workflow run ci.yml` on the
+  automation branch. GitHub's anti-recursion rule means a `GITHUB_TOKEN`-authored
+  PR never fires `pull_request` workflows, so the required `CI Gate` check would
+  never appear and the PR would sit `BLOCKED` forever — the same trap #3543 fixed
+  for `pr-metrics.yml`. `workflow_dispatch` is the documented exception.
+
 ## `mbe-weekly-improve`
 
 - **When:** every Friday 7:00am PT (`0 14 * * 5` UTC). Friday is the documented
@@ -160,6 +217,32 @@ to a single worker without worktree isolation in cloud and keep the local
      This is the only _scheduled_ paid eval — the daily optimizer fires eval
      only on a flagged regression, never on every run.
 - **Does not merge.** Every change lands as a reviewable PR.
+
+## `mbe-doc-rot`
+
+- **When:** every Friday 8:00am PT (`0 15 * * 5` UTC), after `mbe-weekly-improve`.
+- **Why it exists:** it is the judgment half of drift. `drift-fix.yml` handles
+  everything a generator can repair; this handles the drift where the fix is a
+  prose edit and someone has to decide what the doc _should_ say.
+- **What it does:**
+  1. Runs `detect-instruction-rot.mjs` and `check-doc-freshness.mjs` and **fixes**
+     what they find — deciding per hit whether the target moved (fix the link) or
+     was deleted (rewrite the claim, rather than leaving a sentence describing
+     something that no longer exists). Both scripts also run in CI's Integrity
+     job, so their hits are already failing or about to.
+  2. Hunts **semantic staleness** — docs whose links all resolve but whose claims
+     are false. This is the part no script can do, and the reason the routine
+     earns its tokens. Seeded with a live example: `tools/cli/CLAUDE.md` documents
+     `.localeCompare()` as the pack generator's sort, while `pack.ts` uses a
+     byte-order comparator (localeCompare was banned for sorting differently on
+     macOS vs Linux CI, which drifts generated artifacts). Two independent
+     reviewers have now flagged that line.
+- **Dedup is mandatory** — see the note under the routine catalog. `mbe-auditor`'s
+  Friday lens covers the same detection surface read-only.
+- **Does not merge.** One PR titled `docs: weekly rot sweep <date>`; `ready`
+  issues only for rot it could not safely fix itself.
+- **Zero changes is a successful run.** The prompt explicitly forbids padding the
+  PR with cosmetic rewording — rot means _wrong_, not unpolished.
 
 ## `mbe-monthly-meta-audit`
 
