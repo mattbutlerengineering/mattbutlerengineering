@@ -7,7 +7,7 @@
 //   requiredPullRequestReviews: 1 approval, dismiss stale
 //   requiredStatusChecks: strict, contexts: [Prepare, Dockerfile Lint,
 //     Container Security Scan, Lint, Typecheck, Architecture Audit,
-//     Build, Test (Node 20), Test (Node 22), Validate Migrations]
+//     Build, Test (Node 22), Validate Migrations]
 //   enforceAdmins: true
 //   requiredLinearHistory: true
 //   allowsForcePushes: false
