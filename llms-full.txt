@@ -18531,6 +18531,23 @@
       });
     }
   </file>
+  <file path="apps/hospitality/src/utils/ics.ts">
+    export interface BuildReservationIcsOptions {
+      /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
+      cancellationUrl?: string;
+      /** Clock used for DTSTAMP. Defaults to `new Date()`. Pass explicitly for deterministic output. */
+      now?: Date;
+      /** Calendar UID. Defaults to `${reservation.id}@mattbutlerengineering.com`. */
+      uid?: string;
+    }
+    function escapeIcsText(value: string): string {
+      return value
+        .replace(/\\/g, "\\\\")
+        .replace(/;/g, "\\;")
+        .replace(/,/g, "\\,")
+        .replace(/\r\n|\r|\n/g, "\\n");
+    }
+  </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
