@@ -226,9 +226,9 @@ Context covers `packages/agent-core`, `services/agent`, `apps/gen`, `tools/` (mb
 
 **Definition:** A lightweight LLM sub-agent that evaluates a worker&apos;s diff against acceptance criteria before a PR is created; fails open on timeout.
 
-**Source:** `packages/agent-core/src/reviewer-runner.ts:ReviewerConfig`, `packages/agent-core/src/reviewer-contract.ts:ReviewInput`, `packages/agent-core/src/reviewer-contract.ts:ReviewVerdict`
+**Source:** `.claude/agents/reviewer.md` (the dispatchable agent), `packages/agent-core/src/reviewer-contract.ts:ReviewInput`, `packages/agent-core/src/reviewer-contract.ts:ReviewVerdict`
 
-**Default model:** haiku (fast + cheap; see `reviewer-runner.ts:DEFAULT_REVIEWER_CONFIG`)
+**Default model:** haiku (fast + cheap; sonnet for security-sensitive changes — see `.claude/skills/implement-queue/SKILL.md` Phase 2 step 3)
 
 **Named diff-matched reviewers:** `migration-reviewer`, `adr-compliance-reviewer`, `dependency-update-reviewer`, `stripe-flow-reviewer`, `generated-artifact-determinism-reviewer` (source: `packages/agent-core/src/pr-risk-classifier.ts`)
 

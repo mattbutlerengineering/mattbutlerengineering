@@ -100,6 +100,30 @@ function computeComposite(fps, cost, ttm) {
   return Math.round((0.4 * fps + 0.4 * cost + 0.2 * ttm) * 1000) / 1000;
 }
 
+/** Verdicts that mean a reviewer actually ran and reached a decision. */
+const REAL_VERDICTS = new Set(["pass", "flag"]);
+
+/**
+ * Share of the window's telemetry rows carrying a real `pass`/`flag` verdict.
+ *
+ * `skipped` (low-risk fast path) and `error` (reviewer could not run) both
+ * count as uncovered — the point of the metric is to make a review gate that
+ * stops firing visible as a falling number rather than as a flattering pass
+ * rate. Returns null when no window PR has a row at all, so "no telemetry"
+ * stays distinguishable from "zero coverage".
+ *
+ * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
+ * @returns {number|null}
+ */
+function reviewCoverage(windowRows) {
+  if (windowRows.length === 0) {
+    return null;
+  }
+
+  const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
+  return Math.round((reviewed / windowRows.length) * 1000) / 1000;
+}
+
 /**
  * Compute sub-metrics for a set of merged AI PRs and their cost window.
  *
@@ -111,7 +135,7 @@ function computeComposite(fps, cost, ttm) {
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ totalCost?: number }>} ccusageDays
- * @param {Array<{ pr_number?: number, cost_usd?: number }>} [telemetryRows]
+ * @param {Array<{ pr_number?: number, cost_usd?: number, reviewer_verdict?: string }>} [telemetryRows]
  * @returns {object}
  */
 function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
@@ -131,8 +155,9 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
 
   // Prefer precise per-issue telemetry cost when every window PR is covered.
   const prNumbers = new Set(windowPrs.map((pr) => pr.number));
-  const matchedCosts = (telemetryRows ?? [])
-    .filter((r) => prNumbers.has(r.pr_number) && typeof r.cost_usd === "number")
+  const windowRows = (telemetryRows ?? []).filter((r) => prNumbers.has(r.pr_number));
+  const matchedCosts = windowRows
+    .filter((r) => typeof r.cost_usd === "number")
     .map((r) => r.cost_usd);
 
   const totalCost =
@@ -148,6 +173,7 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
     median_time_to_merge_hours: Math.round(medianTtmHours * 10) / 10,
     median_rework_cycles: Math.round(medianReworkCycles * 10) / 10,
     cost_per_issue_usd: Math.round(costPerIssue * 1000) / 1000,
+    review_coverage: reviewCoverage(windowRows),
   };
 }
 
