@@ -742,6 +742,14 @@
       return parsed.data;
     }
   </file>
+  <file path="src/eval/run-detection.ts">
+    export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
+      return score.turns === 0 && score.costUsd === 0;
+    }
+    export function suiteDidNotRun(report: EvalReport): boolean {
+      return report.tasks.length > 0 && report.tasks.every(taskDidNotRun);
+    }
+  </file>
   <file path="src/eval/task-scorer.ts">
     export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> {
       const { task, session, checks } = run;
