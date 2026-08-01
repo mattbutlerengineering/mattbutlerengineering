@@ -371,10 +371,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # PRs run Node 22 only to keep the per-PR critical path short; Node 20
-        # compatibility stays verified on push-to-main, merge_group, and any
-        # scheduled/nightly run (every non-pull_request event resolves [20, 22]).
-        node-version: ${{ fromJSON(github.event_name == 'pull_request' && '[22]' || '[20,22]') }}
+        # Single Node major, identical on every trigger (pull_request, push,
+        # merge_group, schedule). Node 20 was previously tested only on
+        # non-PR events, which let a Node-20-only failure land on main before
+        # anyone saw it (#3558) — see #3570 and .claude/rules/gotchas.md.
+        node-version: [22]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
