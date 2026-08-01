@@ -318,7 +318,7 @@ to a single worker without worktree isolation in cloud and keep the local
   > (day-of-month + day-of-week is OR-semantics), so this uses the 1st of the month.
   > Adjust in the web UI if a Friday cadence is preferred.
 - **What it does:** runs the `claude-md-improver` and `claude-automation-recommender`
-  skills (or the equivalent analysis), then opens **one PR** for the best doc/automation
+  skills (both in `.claude/skills/`), then opens **one PR** for the best doc/automation
   improvement and files `ready` issues for the rest. Targets Claude Code config quality:
   stale CLAUDE.md references, missing guidance, and worthwhile new hooks/agents/skills.
 - **Does not merge.**
