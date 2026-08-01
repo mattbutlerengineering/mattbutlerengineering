@@ -522,6 +522,18 @@
       export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/utils/ics.ts">
+    <item priority="low">
+      interface BuildReservationIcsOptions {
+        cancellationUrl?: string;
+        now?: Date;
+        uid?: string;
+      }
+    </item>
+    <item priority="medium">
+      function escapeIcsText(value: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
