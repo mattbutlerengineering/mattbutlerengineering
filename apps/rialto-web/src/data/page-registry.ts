@@ -283,6 +283,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-booking-wizard", label: "Booking Wizard", category: "Examples" },
   { id: "example-onboarding", label: "Onboarding", category: "Examples" },
   { id: "notification-center", label: "Notification Center", category: "Examples" },
+  { id: "invoice", label: "Invoice", category: "Examples" },
 ];
 
 /** The full registry, derived from the raw entries above. */

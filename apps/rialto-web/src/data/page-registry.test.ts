@@ -148,6 +148,9 @@ vi.mock("../pages/examples/OnboardingExamplePage.js", () => ({
 vi.mock("../pages/examples/NotificationCenterExamplePage.js", () => ({
   NotificationCenterExamplePage: () => null,
 }));
+vi.mock("../pages/examples/InvoiceExamplePage.js", () => ({
+  InvoiceExamplePage: () => null,
+}));
 
 // ---------------------------------------------------------------------------
 // Structure tests
@@ -317,6 +320,21 @@ describe("PageRegistry — onboarding example", () => {
     expect(entry?.label).toBe("Onboarding");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/onboarding");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Invoice example (#3553)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — invoice example", () => {
+  it("registers invoice in the Examples category at /examples/invoice", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "invoice");
+    expect(entry, "invoice missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Invoice");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/invoice");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
