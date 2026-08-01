@@ -285,4 +285,9 @@ function printReport(report: EvalReport): void {
   console.log(`Mean cost:   $${a.meanCostUsd.toFixed(2)}`);
   console.log(`Mean turns:  ${a.meanTurns.toFixed(1)}`);
   console.log(`Failed to complete: ${a.stuckCount}`);
+  if (report.nonRunCount > 0) {
+    console.log(
+      `Excluded (did not run): ${report.nonRunCount} — not counted in the aggregate above`
+    );
+  }
 }

@@ -108,6 +108,14 @@ export interface EvalReport {
   readonly aggregate: EvalAggregate;
   /** Per-category aggregates — only categories present in the run appear. */
   readonly byCategory: Partial<Record<TaskCategory, EvalAggregate>>;
+  /**
+   * Count of tasks excluded from `aggregate`/`byCategory` because they never
+   * ran (see {@link taskDidNotRun}) — e.g. a broken `fixtureRef` or missing
+   * credentials for one task in an otherwise-genuine suite. `tasks` still
+   * lists every task's raw score; only the aggregates omit them, so a caller
+   * always knows how many tasks the aggregate actually covers.
+   */
+  readonly nonRunCount: number;
 }
 
 /** Injected agent-invocation seam. Real impl runs `runSession` + checks; tests stub it. */
