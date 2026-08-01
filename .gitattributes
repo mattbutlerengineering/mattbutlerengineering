@@ -2,4 +2,5 @@
 # cloud routines). union merge keeps both sides' appended lines instead of
 # conflicting — ordering within the file is not semantically meaningful.
 metrics/*.jsonl merge=union
+metrics/production-health/*.jsonl merge=union
 .claude/improvement-loop/log.md merge=union
