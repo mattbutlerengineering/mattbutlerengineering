@@ -38,6 +38,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.info.outputs.reverted_pr }}
-          SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
-          node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"
+          # revert-rca.mjs independently re-derives the merged revert PR/sha
+          # for $PR (#3583) rather than trusting a caller-supplied sha.
+          node scripts/revert-rca.mjs --pr "$PR"

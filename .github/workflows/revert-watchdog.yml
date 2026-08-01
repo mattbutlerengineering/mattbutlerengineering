@@ -130,9 +130,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.culprit.outputs.pr_number }}
-          SHA: ${{ steps.culprit.outputs.culprit_sha }}
         run: |
-          node scripts/revert-rca.mjs --pr "$PR" --revert-sha "$SHA"
+          # revert-rca.mjs independently verifies whether a revert of $PR is
+          # actually merged (#3583) — the culprit sha above is $PR's own
+          # merge commit, not a revert, so it must never be passed as one.
+          node scripts/revert-rca.mjs --pr "$PR"
 
   # Auto-close (#2958): when a later main CI run is green, close any open
   # watchdog issue whose culprit commit is now an ancestor of the green
