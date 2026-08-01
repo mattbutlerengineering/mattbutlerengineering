@@ -55,7 +55,7 @@
    default outline in favour of Rialto's focus ring so it matches the system. */
 .panelHead :focus-visible {
   outline: none;
-  border-radius: var(--rialto-radius-tight);
+  border-radius: var(--rialto-radius-sharp);
   box-shadow: var(--rialto-shadow-focus);
 }
 
