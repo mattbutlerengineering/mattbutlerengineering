@@ -48,20 +48,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
+          PR: ${{ steps.culprit.outputs.pr_number }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          PARENT_SHA=$(git rev-parse "${SHA}^")
-          echo "parent_sha=$PARENT_SHA" >> "$GITHUB_OUTPUT"
+          # Baseline resolution + the revert/issue decision are pure,
+          # unit-tested functions in scripts/revert-watchdog.mjs (#3622) — this
+          # step is a thin caller. It walks back past cancelled/null/unknown
+          # parent conclusions to the nearest conclusive ancestor (capped at
+          # 10 commits) instead of assuming an inconclusive parent means
+          # "innocent", and downgrades a revert to an issue when the failing
+          # job's test paths don't overlap the culprit PR's changed files.
+          RESULT=$(node scripts/revert-watchdog.mjs check-baseline --sha "$SHA" --pr "$PR" --run-id "$RUN_ID")
+          echo "$RESULT"
 
-          PARENT_CONCLUSION=$(gh run list --commit "$PARENT_SHA" --workflow "CI" --json conclusion -q '.[0].conclusion' 2>/dev/null || echo "unknown")
-          echo "parent_conclusion=$PARENT_CONCLUSION" >> "$GITHUB_OUTPUT"
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          REASON=$(echo "$RESULT" | jq -r '.reason')
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
 
-          if [ "$PARENT_CONCLUSION" = "failure" ]; then
+          if [ "$ACTION" = "skip" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Parent commit $PARENT_SHA also failed CI — pre-existing baseline failure, skipping issue/revert."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Parent CI was '$PARENT_CONCLUSION' — this commit may have introduced the failure."
           fi
+
+          if [ "$ACTION" = "issue-and-revert" ]; then
+            echo "revert=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "revert=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "::notice::Baseline decision for $SHA: $ACTION ($REASON)"
 
       - name: Open Broken Main Issue
         id: create_issue
@@ -98,7 +114,7 @@ jobs:
             --label "priority:critical"
 
       - name: Propose Revert PR
-        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
+        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.revert == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
@@ -126,7 +142,7 @@ jobs:
           gh workflow run ci.yml --ref "$BRANCH"
 
       - name: Trigger RCA
-        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.skip != 'true' }}
+        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.revert == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.culprit.outputs.pr_number }}
