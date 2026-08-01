@@ -284,6 +284,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-onboarding", label: "Onboarding", category: "Examples" },
   { id: "notification-center", label: "Notification Center", category: "Examples" },
   { id: "invoice", label: "Invoice", category: "Examples" },
+  { id: "checkout", label: "Checkout", category: "Examples" },
 ];
 
 /** The full registry, derived from the raw entries above. */
