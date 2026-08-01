@@ -13,7 +13,7 @@ pnpm dev:local        # spins up Postgres in Docker, runs schema sync, starts de
 
 You'll need:
 
-- **Node 20+** (the repo uses pnpm, packaged with Corepack — `corepack enable` if needed)
+- **Node 22+** (the repo uses pnpm, packaged with Corepack — `corepack enable` if needed)
 - **Docker** (for the local Postgres in `pnpm dev:local`)
 - **`gh` CLI** (for any of the issue-management or PR scripts)
 

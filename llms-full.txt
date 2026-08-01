@@ -3446,7 +3446,11 @@
       return {
         runId: opts.runId,
         tasks: scores,
-        aggregate: aggregate(scores),
+        nonRunCount: scores.filter(taskDidNotRun).length,
+        aggregate: aggregate(
+          scores.filter((s) => !taskDidNotRun(s)),
+          scores
+        ),
         byCategory: aggregateByCategory(scores),
       };
     }

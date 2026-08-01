@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-07-31T16:05:33.451Z",
+  "lastRun": "2026-08-01T16:04:22.645Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -612,9 +612,9 @@
       "substanceEvidence": null
     },
     "acmm:multi-repo-orchestration": {
-      "passed": true,
-      "evidence": "docs/acmm/multi-repo-orchestration.md contains: Executed: \\d{4}-\\d{2}-\\d{2}",
-      "verdict": "pass",
+      "passed": false,
+      "evidence": "docs/acmm/multi-repo-orchestration.md does not contain: Executed: \\d{4}-\\d{2}-\\d{2}",
+      "verdict": "not-found",
       "substantive": null,
       "substanceEvidence": null
     },
@@ -933,6 +933,12 @@
       "level": 5,
       "detected": 96,
       "total": 99
+    },
+    {
+      "date": "2026-08-01",
+      "level": 5,
+      "detected": 95,
+      "total": 99
     }
   ],
   "issuesCreated": {
@@ -1020,7 +1026,6 @@
     "acmm:feedback-loop-inventory",
     "acmm:budget-policy",
     "acmm:token-tracking",
-    "acmm:multi-repo-orchestration",
     "fullsend:test-coverage",
     "fullsend:ci-cd-maturity",
     "fullsend:auto-merge-policy",
@@ -1053,7 +1058,7 @@
       "3": 5,
       "4": 12,
       "5": 15,
-      "6": 6
+      "6": 5
     },
     "requiredByLevel": {
       "2": 3,
@@ -1098,6 +1103,23 @@
             "docs/acmm/auto-rollback.md"
           ],
           "maxAgeDays": 365
+        }
+      },
+      {
+        "id": "acmm:multi-repo-orchestration",
+        "source": "acmm",
+        "level": 6,
+        "category": "autonomy",
+        "name": "Multi-repo orchestration",
+        "description": "Strategy for coordinating AI changes across multiple dependent repositories.",
+        "rationale": "L6 signal: fully autonomous systems need to coordinate changes beyond a single repo boundary.",
+        "details": "Multi-repo orchestration covers how AI agents coordinate changes across dependent repos — updating shared libraries, publishing new versions, and opening downstream PRs. Without this, L6 autonomy is limited to a single repo.",
+        "detection": {
+          "type": "grep",
+          "pattern": {
+            "file": "docs/acmm/multi-repo-orchestration.md",
+            "contains": "Executed: \\d{4}-\\d{2}-\\d{2}"
+          }
         }
       }
     ],
@@ -1220,7 +1242,7 @@
     },
     "auto_qa_tuning": {
       "history_count": 2,
-      "measured_at": "2026-07-31T16:05:33.449Z"
+      "measured_at": "2026-08-01T16:04:22.642Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
