@@ -98,7 +98,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function findLogFile(): string { /* ... */ }
+      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
     </item>
   </file>
   <file path="src/commands/agent-frontmatter.ts">

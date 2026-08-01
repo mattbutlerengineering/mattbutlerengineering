@@ -10,6 +10,7 @@ import {
   calibrate,
   resolveSuitePath,
   checkCostRegression,
+  suiteDidNotRun,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
   type SessionConfig,
@@ -23,6 +24,11 @@ import {
 import { findMonorepoRoot } from "../monorepo-root.js";
 
 const execFileAsync = promisify(execFile);
+
+// Distinct from the exit code the `--threshold`/`--max-cost-regression` gates
+// use (1) — a caller must be able to tell "the suite genuinely regressed"
+// apart from "the agent never ran" (no credentials / missing prerequisite).
+const NO_RUN_EXIT_CODE = 2;
 
 /**
  * `mbe agent eval` — run the golden-task suite through the agent and score it.
@@ -78,13 +84,15 @@ export const agentEvalCommand = new Command("eval")
         runTask,
       });
 
-      persistReport(report);
-
-      if (options.json) {
-        console.log(JSON.stringify(report, null, 2));
-      } else {
-        printReport(report);
+      if (suiteDidNotRun(report)) {
+        emitReport(report, options.json);
+        console.error(`\n${noRunMessage()}`);
+        process.exitCode = NO_RUN_EXIT_CODE;
+        return;
       }
+
+      persistReport(report);
+      emitReport(report, options.json);
 
       if (options.calibrate) {
         printCalibration(calibrate(report));
@@ -113,6 +121,26 @@ export const agentEvalCommand = new Command("eval")
       }
     }
   );
+
+/** Prints the report as JSON or the human-readable table, per `--json`. */
+function emitReport(report: EvalReport, json: boolean): void {
+  if (json) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printReport(report);
+  }
+}
+
+/**
+ * Names the most likely missing prerequisite for a suite where every task
+ * reported 0 turns / $0 cost — the agent adapter never actually ran.
+ */
+function noRunMessage(): string {
+  if (!process.env["ANTHROPIC_API_KEY"]) {
+    return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
+  }
+  return "No task executed: every task reported 0 turns and $0.00 cost. This is not a scored regression — the suite never ran.";
+}
 
 function findLogFile(): string {
   const root = findMonorepoRoot(process.cwd());

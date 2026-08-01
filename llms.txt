@@ -725,7 +725,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function findLogFile(): string { /* ... */ }
+      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -1201,6 +1201,14 @@
     </item>
     <item priority="low">
       async function loadTaskFile(path: string): Promise<Task> { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/agent-core/src/eval/run-detection.ts">
+    <item priority="high">
+      export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function suiteDidNotRun(report: EvalReport): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/agent-core/src/eval/task-scorer.ts">

@@ -32,20 +32,20 @@ prompts and continue to run on Opus.
 
 ## Routine catalog
 
-| Routine                  | Trigger ID                       | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
-| ------------------------ | -------------------------------- | ------------------- | ------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `mbe-deep-audit`         | — (disabled; runs in GH Actions) | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
-| `drift-fix` _(new)_      | — (runs in GH Actions)           | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted       | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                  |
-| `mbe-evening`            | `trig_01PHwfbFQcFveYajVPaTrbZk`  | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
-| `mbe-night` _(new)_      | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
-| `mbe-auditor` _(new)_    | `trig_019cUkf16QbqTL7RrVXXqXsw`  | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
-| `mbe-morning`            | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs          | ACMM audit + `/ideate` (cycle-check + ideation)                                                                |
-| `mbe-learning-loop`      | `trig_018hcYeu5uCXgiddRwqaeYwd`  | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
-| `mbe-midday`             | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
-| `mbe-weekly-improve`     | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
-| `mbe-doc-rot` _(new)_    | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                             |
-| `mbe-weekly-retro` _(new)_ | `trig_01VczFFpZUHi1vTdrfTauMkh` | Sun 4:00pm        | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues      | Process retro — what blocked flow last week and what to change (see note)                                     |
-| `mbe-monthly-meta-audit` | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
+| Routine                    | Trigger ID                       | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
+| -------------------------- | -------------------------------- | ------------------- | ------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `mbe-deep-audit`           | — (disabled; runs in GH Actions) | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
+| `drift-fix` _(new)_        | — (runs in GH Actions)           | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted       | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                   |
+| `mbe-evening`              | `trig_01PHwfbFQcFveYajVPaTrbZk`  | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
+| `mbe-night` _(new)_        | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
+| `mbe-auditor` _(new)_      | `trig_019cUkf16QbqTL7RrVXXqXsw`  | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
+| `mbe-morning`              | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs          | ACMM audit + `/ideate` (cycle-check + ideation)                                                                |
+| `mbe-learning-loop`        | `trig_018hcYeu5uCXgiddRwqaeYwd`  | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
+| `mbe-midday`               | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
+| `mbe-weekly-improve`       | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
+| `mbe-doc-rot` _(new)_      | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                              |
+| `mbe-weekly-retro` _(new)_ | `trig_01VczFFpZUHi1vTdrfTauMkh`  | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues      | Process retro — what blocked flow last week and what to change (see note)                                      |
+| `mbe-monthly-meta-audit`   | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies
@@ -84,7 +84,7 @@ prompts and continue to run on Opus.
 > dependency-graph.md, the rialto exports map. The fix there is always "run the
 > generator", so an LLM would add token cost and nondeterminism with no judgment
 > to contribute. `mbe-doc-rot` (claude.ai, weekly) owns the half where the fix is
-> a prose edit and someone has to decide what the doc *should* say.
+> a prose edit and someone has to decide what the doc _should_ say.
 >
 > Note `mbe-auditor`'s **Friday lens is also docs** — but it is read-only and
 > files at most 3 issues. `mbe-doc-rot` therefore runs a mandatory dedup against
@@ -214,9 +214,19 @@ to a single worker without worktree isolation in cloud and keep the local
   3. **Weekly eval checkpoint:** runs `mbe agent eval` once against the agent
      evaluation suite to catch slow-drift quality regressions that the daily
      free telemetry scorecard (see `optimize-implement-queue` below) can't see.
-     Files a `ready` issue if the eval score regresses versus the prior baseline.
-     This is the only _scheduled_ paid eval — the daily optimizer fires eval
-     only on a flagged regression, never on every run.
+     Files a `ready` issue only when `mbe agent eval` exits **1** (a genuine
+     run whose pass rate regressed past `--threshold`). This is the only
+     _scheduled_ paid eval — the daily optimizer fires eval only on a flagged
+     regression, never on every run.
+  - **Decision (#3571): no eval credentials are provisioned in the claude.ai
+    RemoteTrigger sandbox**, the same call already made for `AUDIT_TOKEN`
+    (see "Required secrets" below) — cloud routines don't carry live paid
+    credentials. In that environment `mbe agent eval` exits **2**
+    ("no task executed" — 0 turns / $0 cost, missing `ANTHROPIC_API_KEY`),
+    distinct from the threshold-regression exit **1**. The prompt must treat
+    exit 2 as an expected, silent no-op — never file a `ready` issue for it —
+    since #3571 that non-run result is also no longer appended to
+    `metrics/eval-reports.jsonl`, so it can't poison the baseline either way.
 - **Does not merge.** Every change lands as a reviewable PR.
 
 ## `mbe-doc-rot`
@@ -290,12 +300,12 @@ to a single worker without worktree isolation in cloud and keep the local
 > and the boundaries are deliberate — each one's prompt names the others so findings
 > get handed off instead of re-filed:
 >
-> | Routine                              | Improves                    | Cadence      |
-> | ------------------------------------ | --------------------------- | ------------ |
-> | `optimize-implement-queue` (evening) | queue **metrics** — "did a number move?" | daily |
-> | `mbe-weekly-improve`                 | the **codebase**            | Fri          |
-> | `mbe-weekly-retro`                   | the **process** — "why did work get stuck?" | Sun |
-> | `mbe-monthly-meta-audit`             | **Claude Code config**      | monthly      |
+> | Routine                              | Improves                                    | Cadence |
+> | ------------------------------------ | ------------------------------------------- | ------- |
+> | `optimize-implement-queue` (evening) | queue **metrics** — "did a number move?"    | daily   |
+> | `mbe-weekly-improve`                 | the **codebase**                            | Fri     |
+> | `mbe-weekly-retro`                   | the **process** — "why did work get stuck?" | Sun     |
+> | `mbe-monthly-meta-audit`             | **Claude Code config**                      | monthly |
 >
 > The daily optimizer fires on numeric threshold regressions; the retro finds causes
 > and blockers that no threshold detects. That distinction is what keeps the two from

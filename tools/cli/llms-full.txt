@@ -396,13 +396,15 @@
             runTask,
           });
     
-          persistReport(report);
-    
-          if (options.json) {
-            console.log(JSON.stringify(report, null, 2));
-          } else {
-            printReport(report);
+          if (suiteDidNotRun(report)) {
+            emitReport(report, options.json);
+            console.error(`\n${noRunMessage()}`);
+            process.exitCode = NO_RUN_EXIT_CODE;
+            return;
           }
+    
+          persistReport(report);
+          emitReport(report, options.json);
     
           if (options.calibrate) {
             printCalibration(calibrate(report));
@@ -431,9 +433,12 @@
           }
         }
       );
-    function findLogFile(): string {
-      const root = findMonorepoRoot(process.cwd());
-      return join(root, "metrics", "eval-reports.jsonl");
+    function emitReport(report: EvalReport, json: boolean): void {
+      if (json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        printReport(report);
+      }
     }
   </file>
   <file path="src/commands/agent-frontmatter.ts">
