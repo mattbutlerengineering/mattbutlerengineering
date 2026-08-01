@@ -1,0 +1,36 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--rialto-space-xl);
+  align-items: start;
+  max-width: 960px;
+}
+
+@media (max-width: 45rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+@media (max-width: 30rem) {
+  .fieldGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.statusRegion {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
