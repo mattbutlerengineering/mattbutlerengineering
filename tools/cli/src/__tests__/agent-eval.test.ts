@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type * as AgentCore from "@mbe/agent-core";
 
 const mockLoadSuite = vi.fn();
@@ -126,6 +126,44 @@ describe("agent eval command", () => {
     await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
 
     expect(process.exitCode).toBe(1);
+  });
+
+  it("still exits 1 via --threshold and records the entry for a genuine (non-zero-turn) low score", async () => {
+    mockLoadSuite.mockResolvedValue([task]);
+    // Genuine run: real turns/cost, but over budget → fails rubric → low score
+    mockRunSession.mockResolvedValue(fakeSession({ costUsd: 99, numTurns: 12 }));
+
+    await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
+
+    expect(process.exitCode).toBe(1);
+    expect(mockAppendFileSync).toHaveBeenCalledOnce();
+  });
+
+  describe("no-credentials / non-run detection", () => {
+    const originalApiKey = process.env["ANTHROPIC_API_KEY"];
+
+    beforeEach(() => {
+      delete process.env["ANTHROPIC_API_KEY"];
+    });
+
+    afterEach(() => {
+      if (originalApiKey !== undefined) {
+        process.env["ANTHROPIC_API_KEY"] = originalApiKey;
+      }
+    });
+
+    it("exits non-zero (distinct from --threshold's exit 1), names the missing prerequisite, and does not persist when every task reports 0 turns / $0 cost", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunSession.mockResolvedValue(fakeSession({ numTurns: 0, costUsd: 0 }));
+
+      await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
+
+      expect(process.exitCode).not.toBe(0);
+      expect(process.exitCode).not.toBe(1);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut.toLowerCase()).toContain("anthropic_api_key");
+    });
   });
 
   it("appends the EvalReport as JSONL after each run", async () => {
