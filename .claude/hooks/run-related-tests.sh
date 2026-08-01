@@ -4,7 +4,7 @@
 # Silent on pass (exit 0), prints failure summary on fail.
 set -uo pipefail
 
-file_path="${1:-$CLAUDE_FILE_PATH}"
+file_path="${1:-}"
 [[ -z "$file_path" ]] && exit 0
 
 # Only run for TypeScript/JavaScript source files
