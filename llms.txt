@@ -1230,6 +1230,20 @@
       }
     </item>
   </file>
+  <file path="apps/rialto-web/src/pages/examples/notification-center.ts">
+    <item priority="low">
+      type NotificationType = "booking" | "payment" | "system";
+    </item>
+    <item priority="low">
+      interface NotificationItem {
+        id: string;
+        type: NotificationType;
+        title: string;
+        message: string;
+        timestamp: string;
+      }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/pages/examples/onboarding.ts">
     <item priority="low">
       type OnboardingStepId = "property" | "spaces" | "preferences" | "launch";
