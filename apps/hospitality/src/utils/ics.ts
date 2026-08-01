@@ -79,8 +79,11 @@ function formatIcsUtcTimestamp(date: Date): string {
  * Convert a UTC ISO instant to `YYYYMMDDTHHMMSS` in the given IANA
  * timezone's local wall-clock time (no trailing Z — paired with a
  * DTSTART/DTEND `TZID` param).
+ *
+ * Exported for reuse by calendarLinks.ts — Google Calendar's `dates=` deep-link
+ * param uses this exact same local wall-clock format.
  */
-function formatIcsLocalDateTime(isoInstant: string, timeZone: string): string {
+export function formatIcsLocalDateTime(isoInstant: string, timeZone: string): string {
   const date = new Date(isoInstant);
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,

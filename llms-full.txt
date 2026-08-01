@@ -18514,6 +18514,15 @@
       return rtf.format(diffHours, "hour");
     }
   </file>
+  <file path="apps/hospitality/src/utils/calendarLinks.ts">
+    export interface BuildCalendarLinkOptions {
+      /** Guest-facing cancellation/manage-reservation link, included in the event description. */
+      cancellationUrl?: string;
+    }
+    function buildEventTitle(venue: PublicVenueConfig): string {
+      return `${venue.name} Reservation`;
+    }
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     export function formatLongDate(dateStr: string): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {

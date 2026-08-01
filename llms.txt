@@ -5999,6 +5999,16 @@
       export function relativeTime(date: Date): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/calendarLinks.ts">
+    <item priority="low">
+      interface BuildCalendarLinkOptions {
+        cancellationUrl?: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="high">
       export function formatLongDate(dateStr: string): string { /* ... */ }
