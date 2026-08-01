@@ -116,11 +116,6 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-after-update-branch.sh\"",
             "timeout": 60000
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-push-sha.sh\"",
-            "timeout": 30000
           }
         ]
       }

@@ -43,9 +43,7 @@ local_sha=$(git rev-parse HEAD 2>/dev/null || true)
 # Determine the remote (push target if named in the command, else origin).
 remote="origin"
 for tok in $cmd; do
-  # -F/-- so flag tokens (`-u`, `--force-with-lease`) are matched literally
-  # rather than parsed as grep options.
-  if git remote 2>/dev/null | grep -qxF -- "$tok"; then remote="$tok"; break; fi
+  if git remote 2>/dev/null | grep -qx "$tok"; then remote="$tok"; break; fi
 done
 
 remote_sha=$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null | awk '{print $1}')
