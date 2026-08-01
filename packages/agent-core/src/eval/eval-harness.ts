@@ -7,6 +7,7 @@ import type {
   TaskScore,
 } from "./types.js";
 import { scoreTask } from "./task-scorer.js";
+import { taskDidNotRun } from "./run-detection.js";
 
 export interface RunEvalSuiteOptions {
   /** Agent-invocation seam. Real impl runs `runSession`; tests stub it. */
@@ -42,7 +43,11 @@ export async function runEvalSuite(
   return {
     runId: opts.runId,
     tasks: scores,
-    aggregate: aggregate(scores),
+    nonRunCount: scores.filter(taskDidNotRun).length,
+    aggregate: aggregate(
+      scores.filter((s) => !taskDidNotRun(s)),
+      scores
+    ),
     byCategory: aggregateByCategory(scores),
   };
 }
@@ -75,26 +80,38 @@ function aggregateByCategory(
   }
   const result: Partial<Record<TaskCategory, EvalAggregate>> = {};
   for (const [cat, group] of groups) {
-    result[cat] = aggregate(group);
+    result[cat] = aggregate(
+      group.filter((s) => !taskDidNotRun(s)),
+      group
+    );
   }
   return result;
 }
 
-function aggregate(scores: readonly TaskScore[]): EvalAggregate {
-  const total = scores.length;
+/**
+ * `ranScores` (tasks that actually executed, per {@link taskDidNotRun}) drive
+ * `total`/`passRate`/`meanScore`/`meanCostUsd`/`meanTurns` — a task that never
+ * ran must not dilute these. `allScores` (the unfiltered set) still drives
+ * `stuckCount`, since a crashed task is a genuine signal worth keeping even
+ * though it's excluded from the score/cost averages.
+ */
+function aggregate(
+  ranScores: readonly TaskScore[],
+  allScores: readonly TaskScore[]
+): EvalAggregate {
+  const stuckCount = allScores.filter((s) => s.error !== undefined).length;
+  const total = ranScores.length;
   if (total === 0) {
-    return { total: 0, passRate: 0, meanScore: 0, meanCostUsd: 0, meanTurns: 0, stuckCount: 0 };
+    return { total: 0, passRate: 0, meanScore: 0, meanCostUsd: 0, meanTurns: 0, stuckCount };
   }
   const sum = (pick: (s: TaskScore) => number): number =>
-    scores.reduce((acc, s) => acc + pick(s), 0);
+    ranScores.reduce((acc, s) => acc + pick(s), 0);
   return {
     total,
-    passRate: scores.filter((s) => s.passed).length / total,
+    passRate: ranScores.filter((s) => s.passed).length / total,
     meanScore: sum((s) => s.score) / total,
     meanCostUsd: sum((s) => s.costUsd) / total,
     meanTurns: sum((s) => s.turns) / total,
-    // Tasks that failed to complete (crashed mid-run) — a proxy for "stuck"
-    // until session stuckPattern is propagated in a later slice.
-    stuckCount: scores.filter((s) => s.error !== undefined).length,
+    stuckCount,
   };
 }

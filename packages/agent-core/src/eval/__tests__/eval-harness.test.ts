@@ -155,4 +155,55 @@ describe("runEvalSuite", () => {
     const report = await runEvalSuite([], { runId: "r", runTask: runnerFrom({}) });
     expect(report.byCategory).toEqual({});
   });
+
+  describe("mixed suite (some tasks did not run)", () => {
+    it("excludes non-run tasks from the aggregate but keeps their raw score in tasks", async () => {
+      const tasks = [makeTask("a"), makeTask("b"), makeTask("c")];
+      const report = await runEvalSuite(tasks, {
+        runId: "r",
+        runTask: runnerFrom({
+          // "a" never ran: 0 turns / $0 cost, e.g. a broken fixtureRef.
+          a: { checks: FAIL, session: session({ numTurns: 0, costUsd: 0 }) },
+          b: { checks: PASS },
+          c: { checks: FAIL },
+        }),
+      });
+
+      // Every task's raw score is still present — nothing is silently dropped.
+      expect(report.tasks).toHaveLength(3);
+
+      // Only "b" and "c" genuinely ran, so the aggregate covers 2, not 3.
+      expect(report.nonRunCount).toBe(1);
+      expect(report.aggregate.total).toBe(2);
+      expect(report.aggregate.passRate).toBe(0.5);
+    });
+
+    it("excludes non-run tasks from byCategory aggregates too", async () => {
+      const tasks = [makeTask("a", { category: "bugfix" }), makeTask("b", { category: "bugfix" })];
+      const report = await runEvalSuite(tasks, {
+        runId: "r",
+        runTask: runnerFrom({
+          a: { checks: FAIL, session: session({ numTurns: 0, costUsd: 0 }) },
+          b: { checks: PASS },
+        }),
+      });
+
+      expect(report.byCategory["bugfix"]?.total).toBe(1);
+      expect(report.byCategory["bugfix"]?.passRate).toBe(1);
+    });
+
+    it("a thrown task still counts toward stuckCount even though it is excluded from the aggregate (unchanged from #3587)", async () => {
+      const tasks = [makeTask("ok"), makeTask("boom")];
+      const runTask: TaskRunner = async (task) => {
+        if (task.id === "boom") throw new Error("agent crashed");
+        return { task, session: session(), checks: PASS };
+      };
+
+      const report = await runEvalSuite(tasks, { runId: "r", runTask });
+
+      expect(report.aggregate.stuckCount).toBe(1);
+      expect(report.aggregate.total).toBe(1);
+      expect(report.nonRunCount).toBe(1);
+    });
+  });
 });

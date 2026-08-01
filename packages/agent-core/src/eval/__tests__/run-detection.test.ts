@@ -33,6 +33,7 @@ function report(tasks: readonly TaskScore[]): EvalReport {
       stuckCount: 0,
     },
     byCategory: {},
+    nonRunCount: 0,
   };
 }
 

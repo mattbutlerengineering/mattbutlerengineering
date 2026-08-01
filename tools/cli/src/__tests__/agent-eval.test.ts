@@ -139,6 +139,38 @@ describe("agent eval command", () => {
     expect(mockAppendFileSync).toHaveBeenCalledOnce();
   });
 
+  describe("mixed suite (some but not all tasks did not run)", () => {
+    const taskA = { ...task, id: "a", prompt: "fix a" };
+    const taskB = { ...task, id: "b", prompt: "fix b" };
+    const taskC = { ...task, id: "c", prompt: "fix c" };
+
+    it("persists the report and excludes the non-run task from the aggregate, without a NO_RUN exit code", async () => {
+      mockLoadSuite.mockResolvedValue([taskA, taskB, taskC]);
+      mockRunSession.mockImplementation(async (config: { taskDescription: string }) => {
+        // "a" never ran: 0 turns / $0 cost, e.g. a broken fixtureRef.
+        if (config.taskDescription === "fix a") return fakeSession({ numTurns: 0, costUsd: 0 });
+        return fakeSession();
+      });
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      // Not the NO_RUN_EXIT_CODE (2) — a partially-genuine suite still persists.
+      expect(process.exitCode).toBe(0);
+      expect(mockAppendFileSync).toHaveBeenCalledOnce();
+
+      const [, line] = mockAppendFileSync.mock.calls[0] as [string, string];
+      const record = JSON.parse(line.trim());
+      expect(record.tasks).toHaveLength(3);
+      expect(record.nonRunCount).toBe(1);
+      // Aggregate covers only the 2 genuine tasks, not diluted by the non-run one.
+      expect(record.aggregate.total).toBe(2);
+      expect(record.aggregate.passRate).toBe(1);
+
+      const out = logSpy.mock.calls.flat().join("\n");
+      expect(out).toContain("Excluded (did not run): 1");
+    });
+  });
+
   describe("no-credentials / non-run detection", () => {
     const originalApiKey = process.env["ANTHROPIC_API_KEY"];
 
