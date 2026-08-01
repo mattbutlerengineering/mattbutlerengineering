@@ -78,6 +78,11 @@ export function createGhClient(opts: GhClientOptions = {}) {
       if (labelArgs.length === 0) return;
       run("gh", ["issue", "edit", String(transition.issueNumber), ...labelArgs]);
     },
+
+    list(args: string[]): unknown[] {
+      const raw = run("gh", ["label", "list", ...args]);
+      return JSON.parse(raw) as unknown[];
+    },
   };
 
   const workflow = {

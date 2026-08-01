@@ -133,6 +133,16 @@ describe("createGhClient", () => {
         expect.any(Object)
       );
     });
+
+    it("label.list returns parsed JSON array", () => {
+      const labels = [{ name: "security" }, { name: "ready" }];
+      const runner = makeMockRunner({
+        "label list --json name": JSON.stringify(labels),
+      });
+      const client = createGhClient({ runner });
+      const result = client.label.list(["--json", "name"]);
+      expect(result).toEqual(labels);
+    });
   });
 
   describe("workflow facet", () => {
