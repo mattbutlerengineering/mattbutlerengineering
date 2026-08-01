@@ -117,14 +117,14 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--rialto-space-3xs, 0.25rem);
+  gap: var(--rialto-space-2xs);
   width: 100%;
   padding: var(--rialto-space-sm);
 }
 
 .stageStep {
   font-family: var(--rialto-font-mono, monospace);
-  font-size: var(--rialto-text-2xs, 0.6875rem);
+  font-size: var(--rialto-text-xs);
   letter-spacing: var(--rialto-tracking-wide);
   color: var(--rialto-accent);
 }
