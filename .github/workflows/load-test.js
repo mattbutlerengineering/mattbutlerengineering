@@ -42,6 +42,22 @@ export const options = {
     http_req_duration: ["p(95)<500"],
     http_req_failed: ["rate<0.05"],
     errors: ["rate<0.1"],
+    // Per-endpoint submetrics (k6 sub-metric syntax: metric{tag:value}).
+    // scripts/load-test-summary.mjs reads these — plus their pass/fail
+    // counts — from the k6 JSON summary to derive a real per-endpoint
+    // status instead of a hardcoded "tested" literal.
+    "api_latency{endpoint:marketing_home}": ["p(95)<3000"],
+    "errors{endpoint:marketing_home}": ["rate<0.1"],
+    "api_latency{endpoint:users_health}": ["p(95)<800"],
+    "errors{endpoint:users_health}": ["rate<0.1"],
+    "api_latency{endpoint:reservations_health}": ["p(95)<800"],
+    "errors{endpoint:reservations_health}": ["rate<0.1"],
+    "api_latency{endpoint:venues_list}": ["p(95)<1500"],
+    "errors{endpoint:venues_list}": ["rate<0.1"],
+    "api_latency{endpoint:availability_check}": ["p(95)<1500"],
+    "errors{endpoint:availability_check}": ["rate<0.1"],
+    "api_latency{endpoint:events_list}": ["p(95)<1500"],
+    "errors{endpoint:events_list}": ["rate<0.1"],
   },
 };
 
