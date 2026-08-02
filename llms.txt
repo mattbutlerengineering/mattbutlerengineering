@@ -4328,18 +4328,6 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/reviewer-runner.ts">
-    <item priority="low">
-      interface ReviewerConfig {
-        model: string;
-        maxBudgetUsd: number;
-        timeoutMs: number;
-      }
-    </item>
-    <item priority="high">
-      export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
-    </item>
-  </file>
   <file path="packages/agent-core/src/run-agent-session.ts">
     <item priority="low">
       interface AgentSessionAdapter {
@@ -5997,6 +5985,16 @@
   <file path="apps/gen/src/utils/relative-time.ts">
     <item priority="high">
       export function relativeTime(date: Date): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/calendarLinks.ts">
+    <item priority="low">
+      interface BuildCalendarLinkOptions {
+        cancellationUrl?: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/format.ts">

@@ -514,6 +514,16 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/calendarLinks.ts">
+    <item priority="low">
+      interface BuildCalendarLinkOptions {
+        cancellationUrl?: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/format.ts">
     <item priority="high">
       export function formatLongDate(dateStr: string): string { /* ... */ }

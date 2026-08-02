@@ -10,7 +10,7 @@
 # Silent and non-blocking: never fails the edit.
 set -uo pipefail
 
-file_path="${1:-${CLAUDE_FILE_PATH:-}}"
+file_path="${1:-}"
 [[ -z "$file_path" ]] && exit 0
 
 # Cheap, generic hygiene skip (not family-specific knowledge).

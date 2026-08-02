@@ -437,11 +437,6 @@ export type {
 
 export { PASS_THRESHOLD, DEFAULT_REVIEW_RETRY_POLICY } from "./reviewer-contract.js";
 
-// Reviewer runner (dispatches the Reviewer sub-agent in the merge train)
-export {
-  runReviewer,
-  parseReviewerVerdict,
-  selectRetryAction,
-  DEFAULT_REVIEWER_CONFIG,
-} from "./reviewer-runner.js";
-export type { ReviewerConfig, RunReviewerOptions } from "./reviewer-runner.js";
+// The Reviewer itself is a Claude Code sub-agent, declared at
+// .claude/agents/reviewer.md and dispatched by implement-queue's merge train.
+// There is no in-process runner: the former reviewer-runner.ts had no callers.

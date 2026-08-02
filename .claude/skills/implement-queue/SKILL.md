@@ -140,7 +140,7 @@ appendTelemetryRow({
   merged: null, // reconciled by sensor later
   ci_first_pass: null, // reconciled by sensor later
   rework_cycles: null, // reconciled by sensor later
-  reviewer_verdict: verdict, // "pass" | "flag" | "skipped"
+  reviewer_verdict: verdict, // "pass" | "flag" | "skipped" | "error"
   claimed_at: claimedAtIso,
   merged_at: null, // reconciled by sensor later
   cost_usd: usage.costUsd ?? null, // include when known; enables precise cost in scorecard
@@ -150,6 +150,7 @@ appendTelemetryRow({
 **Rules:**
 
 - Write only schema fields — unknown keys (e.g. API keys, tokens) cause the writer to throw before any disk write.
+- `reviewer_verdict` is `pass` | `flag` | `skipped` (low-risk fast path, step 2) | `error` (the reviewer could not run). **Never record a fail-open as `pass`** — `review_coverage` in `scripts/collect-queue-efficiency.mjs` counts only `pass`/`flag` as covered, so an `error` logged as `pass` hides a dead merge gate behind a flattering pass rate.
 - The row is idempotent per `(issue_number, pr_number)` — safe to retry on transient errors.
 - Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; `scripts/reconcile-queue-telemetry.mjs` (run by `/optimize-implement-queue` Step 0) fills them from GitHub later.
 - `metrics/queue-telemetry.jsonl` is a **tracked file** (merge=union) — rows appended in ephemeral checkouts must be committed before the session ends (see Phase 4).
@@ -190,7 +191,10 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    - The serialised `ReviewInput` (diff, verification output, task description,
      acceptance criteria, changed files, commit message)
 
-   **On timeout/error:** log warning, proceed to enqueue (fail-open).
+   **On timeout/error:** log a warning, record `reviewer_verdict: "error"` on the
+   issue's telemetry row, and proceed to enqueue (fail-open). The `error` value is
+   load-bearing: a dispatch that never resolved is not a review, and recording it
+   as `pass` is indistinguishable from a real one.
 
 4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
 
