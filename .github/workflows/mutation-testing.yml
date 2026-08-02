@@ -1,11 +1,22 @@
 name: Mutation Testing
 
+# Baseline: 98.89% mutation score (services/users routes + services) as of
+# 2026-08-02 — see the `thresholds` comment in stryker.config.mjs for the
+# full breakdown and rationale. The 80% threshold below is comfortably met.
 on:
   # Weekly schedule on Monday morning (adjusted to avoid common CI peaks)
   schedule:
     - cron: "23 9 * * 1" # Monday 9:23 AM UTC
-  # Allow manual triggering via GitHub UI or API
+  # Manual triggering via GitHub UI or API. pr_number is optional: set it to
+  # also post the results as a PR comment (e.g. `gh workflow run
+  # mutation-testing.yml -f pr_number=1234`); omit it to just run and write
+  # the job summary.
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to comment mutation results on (optional)"
+        required: false
+        type: string
 
 concurrency:
   group: mutation-testing
@@ -116,36 +127,29 @@ jobs:
 
       - name: Write mutation score to job summary
         if: always()
-        run: |
-          {
-            echo "## Mutation Testing Results"
-            echo
-            if [ "${{ steps.score.outputs.available }}" = "true" ]; then
-              echo "**Mutation Score:** ${{ steps.score.outputs.score }}%"
-              echo "**Target:** > ${{ steps.score.outputs.threshold }}%"
-              echo "**Status:** $([ "${{ steps.score.outputs.passes }}" = "true" ] && echo '✅ PASS' || echo '⚠️ BELOW TARGET')"
-              echo "**Mutants killed:** ${{ steps.score.outputs.killed }}/${{ steps.score.outputs.total }}"
-            else
-              echo "**Status:** ❌ No report produced"
-            fi
-            echo
-            echo "Full report available in [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: node scripts/print-mutation-summary.mjs reports/mutation/mutation.json "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment mutation score on PR
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        # workflow_dispatch carries no implicit PR context (this workflow has
+        # no pull_request trigger — mutation testing is too expensive to run
+        # per-commit, see stryker.config.mjs), so the condition is driven by
+        # an explicit pr_number input rather than context.issue.number, which
+        # is never set here.
+        if: github.event_name == 'workflow_dispatch' && inputs.pr_number != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           MUTATION_AVAILABLE: ${{ steps.score.outputs.available }}
           MUTATION_SCORE: ${{ steps.score.outputs.score }}
           MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
           MUTATION_PASSES: ${{ steps.score.outputs.passes }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
             const available = process.env.MUTATION_AVAILABLE === 'true';
             const score = Number(process.env.MUTATION_SCORE);
             const threshold = Number(process.env.MUTATION_THRESHOLD);
             const passes = process.env.MUTATION_PASSES === 'true';
+            const prNumber = Number(process.env.PR_NUMBER);
             const artifactUrl = `${github.server_url}/${github.repository}/actions/runs/${github.run_id}`;
 
             const comment = available
@@ -163,7 +167,7 @@ jobs:
             Full report available in [Artifacts](${artifactUrl})`;
 
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: comment
@@ -182,34 +186,45 @@ jobs:
           fi
           echo "✅ Mutation score ${{ steps.score.outputs.score }}% meets target"
 
-      - name: File issue on scheduled mutation-testing failure
+      - name: File or update tracking issue on scheduled mutation-testing failure
         if: failure() && github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MUTATION_SCORE: ${{ steps.score.outputs.score }}
+          MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
         run: |
           today=$(date -u +%Y-%m-%d)
-          title="Weekly mutation testing failed [${today}]"
+          # Stable, date-less title so this is a single de-duplicated tracking
+          # issue that gets a comment on every failing week instead of a new
+          # issue per week — the pattern learning-loop uses for sensor
+          # findings (search open issues, skip/update on match).
+          title="Mutation testing below target"
 
-          # Dedup: skip if an open issue with the same title already exists.
           existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
+
           if [ -n "$existing" ]; then
-            echo "Issue #$existing already open; skipping."
+            gh issue comment "$existing" --body "Still below target as of ${today}: score ${MUTATION_SCORE}% (threshold ${MUTATION_THRESHOLD}%). Run: ${RUN_URL}"
+            echo "Updated existing issue #$existing."
             exit 0
           fi
 
           printf '%s\n' \
-            "## Weekly mutation testing failed" \
+            "## ${title}" \
             "" \
-            "The scheduled mutation-testing workflow ran on ${today} and failed —" \
-            "either the mutation score is below the 80% target or the run produced no report." \
+            "The scheduled mutation-testing workflow ran on ${today} and the score" \
+            "is below the ${MUTATION_THRESHOLD}% target (or the run produced no report)." \
             "" \
-            "**Run:** ${RUN_URL} (see the job summary for the exact score)" \
+            "**Score:** ${MUTATION_SCORE}%" \
+            "**Run:** ${RUN_URL} (see the job summary for the top surviving mutants)" \
             "" \
             "### Next steps" \
             "1. Open the run's job summary and the mutation-report artifact" \
             "2. Identify weakly-tested files from the mutation report" \
             "3. Add tests to kill surviving mutants" \
+            "" \
+            "This issue is de-duplicated by title — future failing scheduled" \
+            "runs will comment here instead of filing a new issue." \
             > /tmp/mutation-failure-body.md
 
           gh issue create \
