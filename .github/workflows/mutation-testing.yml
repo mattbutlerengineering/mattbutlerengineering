@@ -75,6 +75,16 @@ jobs:
           pnpm --filter @mbe/agent-service db:generate
 
       - name: Upload workspace artifact
+        # This step OOM-crashed ("JavaScript heap out of memory") on every
+        # one of the last 4 scheduled runs while compressing the archive —
+        # the actual, sole reason the workflow has been red for months. The
+        # mutation-test job (and every bug fixed elsewhere in this workflow)
+        # never even ran: `needs: [prepare]` skips it when this step fails.
+        # Raise the upload action's Node heap limit; the archived tree
+        # (root + per-package node_modules, generated Prisma clients) is a
+        # few hundred MB of many small files, which is memory-heavy to zip.
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace-deps
@@ -105,6 +115,10 @@ jobs:
           cache: "pnpm"
 
       - name: Download dependencies artifact
+        # Same OOM risk as the matching upload step (see its comment) —
+        # decompressing the same large archive is symmetric in memory cost.
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: workspace-deps
