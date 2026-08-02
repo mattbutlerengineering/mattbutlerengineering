@@ -175,4 +175,52 @@ describe("AiHealthPage", () => {
       expect(link).toHaveAttribute("href", "/sensor-report.json");
     });
   });
+
+  // #3659 regression guard: scripts/sensor-report.mjs now writes the newer
+  // buildReport() schema (generated_at/ciHealth/prMetrics.latest/summary.sensors_*)
+  // to this page's data source. Full migration is tracked separately (#3660);
+  // this only asserts the page degrades to placeholders instead of throwing.
+  const NEW_SCHEMA_REPORT = {
+    generated_at: "2026-08-02T20:06:07.196Z",
+    period: { start: "2026-07-26", end: "2026-08-02" },
+    sensors: {
+      acmm: { available: true, level: 5, criteria_met: 95, criteria_total: 114 },
+      ciHealth: { available: true, pass_rate_pct: 72, passed: 21, completed: 29 },
+      prMetrics: { available: true, latest: { merged: 65 }, entry_count: 2 },
+      issues: { available: true, created_7d: 50, closed_7d: 16, queue_depth: 27 },
+    },
+    regressions: [
+      { sensor: "ciHealth", metric: "pass_rate_pct", current: 72, previous: 89, delta: -17 },
+    ],
+    summary: { sensors_available: 11, sensors_total: 15, regressions_detected: 1 },
+  };
+
+  it("renders the new buildReport() schema shape without throwing", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("AI Health Dashboard")).toBeInTheDocument();
+      expect(screen.getByText("Sensor Status")).toBeInTheDocument();
+      expect(screen.getByText("ciHealth")).toBeInTheDocument();
+    });
+  });
+
+  it("falls back to placeholders for fields the new schema renamed", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+    renderPage();
+    await waitFor(() => {
+      // sensors.ci doesn't exist under the new schema (renamed to ciHealth
+      // with different field names) — old-shape reads must not throw.
+      expect(screen.getByText("CI Pass Rate")).toBeInTheDocument();
+    });
+  });
+
+  it("renders new-schema regression objects as readable labels, not [object Object]", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Active Regressions")).toBeInTheDocument();
+      expect(screen.getByText("ciHealth.pass_rate_pct")).toBeInTheDocument();
+    });
+  });
 });
