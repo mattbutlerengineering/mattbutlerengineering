@@ -89,6 +89,83 @@ describe("issue-zone", () => {
     });
   });
 
+  describe("issueZone — body-derived fallback (#3629)", () => {
+    // Real body fetched via `gh issue view 3600 --json body` (a closed
+    // /decompose-generated issue). Non-conventional title, real
+    // `## Files to Modify/Create` section listing apps/hospitality paths.
+    const ISSUE_3600_BODY = [
+      "## Context",
+      "",
+      "Part 2 of 5 for: **Add to calendar (ICS + deep-links) on booking confirmation**",
+      "",
+      "Alongside the downloadable `.ics` file (#1), guests should be able to one-click add the reservation to Google Calendar or Outlook web without a download.",
+      "",
+      "## Task",
+      "",
+      "Create pure functions that build Google Calendar and Outlook web deep-link URLs from the same reservation + venue shape used in #1 (`Reservation`, `PublicVenueConfig` from `@mbe/types`). Both providers take date/time query params — no file generation, no network calls.",
+      "",
+      "- `buildGoogleCalendarUrl(reservation, venue, opts)` — Google Calendar deep-link",
+      "- `buildOutlookCalendarUrl(reservation, venue, opts)` — Outlook web deep-link",
+      "",
+      "## Files to Modify/Create",
+      "",
+      "- `apps/hospitality/src/utils/calendarLinks.ts` — new",
+      "- `apps/hospitality/src/utils/calendarLinks.test.ts` — new",
+      "",
+      "## Acceptance Criteria",
+      "",
+      "- [ ] Both builders return well-formed, URL-encoded URLs",
+      "",
+      "## Dependencies",
+      "",
+      "- Depends on: none",
+      "- Blocks: #3 (Confirmation-state UI)",
+      "",
+      "_Created by /decompose for feature: Add to calendar (ICS + deep-links) on booking confirmation_",
+    ].join("\n");
+    const ISSUE_3600_TITLE = "[Feature] Add to calendar [2/5]: Google/Outlook deep-link builders";
+
+    test("title yields no zone → falls back to body-derived paths", () => {
+      const body = "## Files to Modify/Create\n\n- `apps/hospitality/src/App.tsx`\n";
+      expect(issueZone(issue("Fix the flaky booking test", { body }))).toBe("apps/hospitality");
+    });
+
+    test("#3600-style [Feature] issue with a real ## Files to Modify/Create section resolves via body", () => {
+      expect(issueZone(issue(ISSUE_3600_TITLE, { body: ISSUE_3600_BODY }))).toBe(
+        "apps/hospitality"
+      );
+    });
+
+    test("body naming paths in two different workspace roots → null", () => {
+      const body =
+        "## Files to Modify/Create\n\n- `apps/hospitality/src/App.tsx`\n- `packages/rialto/src/index.ts`\n";
+      expect(issueZone(issue("Cross-cutting fix", { body }))).toBeNull();
+    });
+
+    test("prose tokens that merely look path-like never produce a zone", () => {
+      const body =
+        "Merged into main after CI Gate went green. See origin/main and " +
+        "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3600 for details.";
+      expect(issueZone(issue("Non-conventional title", { body }))).toBeNull();
+    });
+
+    test("falls back to scanning the whole body when no ## Files to Modify/Create section exists", () => {
+      const body = "This change only touches apps/hospitality/src/utils/format.ts.";
+      expect(issueZone(issue("Non-conventional title", { body }))).toBe("apps/hospitality");
+    });
+
+    test("title-derived zone takes precedence over body-derived paths", () => {
+      const body = "## Files to Modify/Create\n\n- `apps/hospitality/src/App.tsx`\n";
+      expect(issueZone(issue("refactor(rialto): tidy tokens", { body }))).toBe("packages/rialto");
+    });
+
+    test("missing/non-string body never throws and yields null when title yields no zone", () => {
+      expect(issueZone({ title: "Non-conventional title" })).toBeNull();
+      expect(issueZone({ title: "Non-conventional title", body: null })).toBeNull();
+      expect(issueZone({ title: "Non-conventional title", body: 42 })).toBeNull();
+    });
+  });
+
   describe("selectZoneSpreadBatch — breadth over depth", () => {
     test("single-zone-heavy backlog yields a distinct-zone spread, not N same-zone picks", () => {
       const candidates = [
@@ -164,6 +241,43 @@ describe("issue-zone", () => {
     test("empty candidate list → empty batch", () => {
       expect(selectZoneSpreadBatch([])).toEqual([]);
       expect(selectZoneSpreadBatch([], { maxWorkers: 3 })).toEqual([]);
+    });
+
+    test("regression (#3629): a /decompose-shaped backlog spreads across 3 zones, not 1", () => {
+      // Realistic mixed backlog: three [Feature] issues, none conventionally
+      // scoped, each carrying a real ## Files to Modify/Create section that
+      // names paths in a distinct workspace zone. Before #3629 every one of
+      // these resolved to <global>, so selectZoneSpreadBatch returned just 1.
+      const filesSection = (...paths) =>
+        `## Files to Modify/Create\n\n${paths.map((p) => `- \`${p}\` — new`).join("\n")}\n`;
+      const candidates = [
+        issue("[Feature] Add to calendar [2/5]: Google/Outlook deep-link builders", {
+          number: 3600,
+          body: filesSection(
+            "apps/hospitality/src/utils/calendarLinks.ts",
+            "apps/hospitality/src/utils/calendarLinks.test.ts"
+          ),
+        }),
+        issue("[Feature] Rialto DateRangePicker keyboard nav [1/3]", {
+          number: 3601,
+          body: filesSection(
+            "packages/rialto/src/components/DateRangePicker/DateRangePicker.tsx",
+            "packages/rialto/src/components/DateRangePicker/DateRangePicker.test.tsx"
+          ),
+        }),
+        issue("[Feature] Reservations cancellation-quote caching [1/2]", {
+          number: 3602,
+          body: filesSection(
+            "services/reservations/src/routes/cancellation-quote.ts",
+            "services/reservations/src/routes/cancellation-quote.test.ts"
+          ),
+        }),
+      ];
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3 });
+      expect(batch.map((i) => i.number)).toEqual([3600, 3601, 3602]);
+      const zones = batch.map((i) => issueZone(i));
+      expect(zones).toEqual(["apps/hospitality", "packages/rialto", "services/reservations"]);
+      expect(new Set(zones).size).toBe(3);
     });
   });
 });
