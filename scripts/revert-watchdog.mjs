@@ -20,9 +20,24 @@
  * `closeIssue`); the CLI wires them to the real `@mbe/gh-client` and
  * `git merge-base --is-ancestor`.
  *
+ * #3622 adds the baseline/blame decision that used to live as inline bash in
+ * `revert-watchdog.yml` ("Check for baseline failure"), which only skipped
+ * on an exact `parent_conclusion = "failure"` match — any other value
+ * (`cancelled`, `null`, `unknown`, `skipped`, empty) fell through as an
+ * innocent parent and blamed the child commit. The fix walks back past
+ * inconclusive parents to the nearest conclusive ancestor (capped at
+ * `BASELINE_WALK_CAP` commits), and — before proposing a destructive revert
+ * on a genuine green-baseline break — checks whether the failing job's test
+ * paths even overlap the culprit PR's changed files, downgrading to an
+ * issue when they're disjoint. Same design: pure decision functions
+ * (`classifyConclusion`, `extractFailingTestPaths`, `pathsAreDisjoint`,
+ * `decideBaselineAction`) plus async orchestration with injected
+ * collaborators (`walkToBaseline`, `resolveRevertAction`).
+ *
  * Usage:
  *   node scripts/revert-watchdog.mjs create-issue --sha <sha> --pr <number>
  *   node scripts/revert-watchdog.mjs close-recovered --sha <green-sha>
+ *   node scripts/revert-watchdog.mjs check-baseline --sha <sha> --pr <number> --run-id <id>
  */
 
 import { execFileSync } from "node:child_process";
@@ -133,6 +148,168 @@ export async function runAutoCloseWatchdog({
   return toClose.map((issue) => issue.number);
 }
 
+// ---------------------------------------------------------------------------
+// Baseline / blame decision (#3622)
+// ---------------------------------------------------------------------------
+
+/** Max ancestors to walk back past inconclusive CI runs before giving up. */
+export const BASELINE_WALK_CAP = 10;
+
+const CONCLUSIVE_CONCLUSIONS = new Set(["success", "failure"]);
+
+/**
+ * Pure: classifies a `gh run list` conclusion into the three states that
+ * matter for blame — a real pass, a real fail, or "we don't actually know"
+ * (`cancelled`, `skipped`, `null`, `undefined`, `""`, anything else).
+ */
+export function classifyConclusion(conclusion) {
+  return CONCLUSIVE_CONCLUSIONS.has(conclusion) ? conclusion : "inconclusive";
+}
+
+const FAIL_LINE_PATTERN = /FAIL\s+(\S+\.\w+)/g;
+
+/**
+ * Pure: extracts the unique file paths named on vitest `FAIL <path> > ...`
+ * lines out of `gh run view --log-failed` output. Best-effort — a log
+ * format vitest doesn't use yields `[]`, which callers treat as "no
+ * evidence either way" rather than an error.
+ */
+export function extractFailingTestPaths(logText) {
+  if (!logText) return [];
+  const paths = new Set();
+  for (const match of logText.matchAll(FAIL_LINE_PATTERN)) {
+    paths.add(match[1]);
+  }
+  return [...paths];
+}
+
+/** The first two path segments — this monorepo's `<category>/<package>` boundary. */
+function pathArea(filePath) {
+  return filePath.split("/").slice(0, 2).join("/");
+}
+
+/**
+ * Pure: true when none of `changedFiles` share a package area with any of
+ * `failingTestPaths`. Empty input on either side is "not disjoint" — with no
+ * evidence of a mismatch, don't downgrade the revert.
+ */
+export function pathsAreDisjoint(failingTestPaths, changedFiles) {
+  if (!failingTestPaths?.length || !changedFiles?.length) return false;
+  const failingAreas = new Set(failingTestPaths.map(pathArea));
+  return !changedFiles.some((f) => failingAreas.has(pathArea(f)));
+}
+
+/**
+ * Pure: combines a resolved baseline with the failing-test/changed-file
+ * overlap check into the action the workflow should take.
+ *
+ * @param {{baseline: {sha:string, conclusion:"success"|"failure"}|null, failingTestPaths?:string[], changedFiles?:string[]}} args
+ * @returns {{action:"skip"|"issue-only"|"issue-and-revert", reason:string}}
+ */
+export function decideBaselineAction({ baseline, failingTestPaths = [], changedFiles = [] }) {
+  if (baseline?.conclusion === "failure") {
+    return {
+      action: "skip",
+      reason: `parent CI baseline was a pre-existing failure at ${baseline.sha}`,
+    };
+  }
+
+  if (baseline?.conclusion !== "success") {
+    return {
+      action: "issue-only",
+      reason: `no conclusive CI baseline found within ${BASELINE_WALK_CAP} commits`,
+    };
+  }
+
+  if (pathsAreDisjoint(failingTestPaths, changedFiles)) {
+    return {
+      action: "issue-only",
+      reason: "failing test paths are disjoint from the culprit PR's changed files",
+    };
+  }
+
+  return {
+    action: "issue-and-revert",
+    reason: `genuine break on green baseline ${baseline.sha}`,
+  };
+}
+
+/**
+ * Walks back from `parentSha` through ancestor commits (via injected
+ * `getParentSha`), classifying each one's CI conclusion (via injected
+ * `getConclusionForSha`) until it finds a conclusive one or hits `cap`.
+ *
+ * @param {{
+ *   parentSha: string,
+ *   getConclusionForSha: (sha:string) => Promise<string|null|undefined>,
+ *   getParentSha: (sha:string) => Promise<string|null>,
+ *   cap?: number,
+ *   log?: (msg:string) => void,
+ * }} deps
+ * @returns {Promise<{sha:string, conclusion:"success"|"failure"}|null>}
+ */
+export async function walkToBaseline({
+  parentSha,
+  getConclusionForSha,
+  getParentSha,
+  cap = BASELINE_WALK_CAP,
+  log = () => {},
+}) {
+  let sha = parentSha;
+  for (let i = 0; i < cap && sha; i++) {
+    const conclusion = await getConclusionForSha(sha);
+    const classified = classifyConclusion(conclusion);
+    if (classified !== "inconclusive") {
+      return { sha, conclusion: classified };
+    }
+    log(`baseline walk: ${sha} was ${conclusion ?? "no CI run found"} — checking its parent`);
+    sha = await getParentSha(sha);
+  }
+  return null;
+}
+
+/**
+ * Top-level orchestrator: resolves the baseline, then — only for a green
+ * baseline, where the overlap check is actually relevant — fetches the
+ * failing test paths and the culprit PR's changed files to decide the
+ * final action.
+ *
+ * @param {{
+ *   parentSha: string,
+ *   prNumber: number|string,
+ *   getConclusionForSha: (sha:string) => Promise<string|null|undefined>,
+ *   getParentSha: (sha:string) => Promise<string|null>,
+ *   getFailingTestPaths: () => Promise<string[]>,
+ *   getChangedFiles: (prNumber:number|string) => Promise<string[]>,
+ *   cap?: number,
+ *   log?: (msg:string) => void,
+ * }} deps
+ * @returns {Promise<{action:"skip"|"issue-only"|"issue-and-revert", reason:string}>}
+ */
+export async function resolveRevertAction({
+  parentSha,
+  prNumber,
+  getConclusionForSha,
+  getParentSha,
+  getFailingTestPaths,
+  getChangedFiles,
+  cap = BASELINE_WALK_CAP,
+  log = () => {},
+}) {
+  const baseline = await walkToBaseline({ parentSha, getConclusionForSha, getParentSha, cap, log });
+
+  if (baseline?.conclusion !== "success") {
+    return decideBaselineAction({ baseline });
+  }
+
+  const [failingTestPaths, changedFiles] = await Promise.all([
+    getFailingTestPaths(),
+    getChangedFiles(prNumber),
+  ]);
+
+  return decideBaselineAction({ baseline, failingTestPaths, changedFiles });
+}
+
 /** True if `culpritSha` is an ancestor of `greenSha` in local git history. */
 function isAncestorViaGit(culpritSha, greenSha) {
   try {
@@ -143,6 +320,36 @@ function isAncestorViaGit(culpritSha, greenSha) {
   } catch {
     // Non-zero exit: not an ancestor (or SHA unknown locally) — treat as "not yet recovered".
     return false;
+  }
+}
+
+/** The parent SHA of `sha` in local git history, or null at the root commit. */
+function getParentShaViaGit(sha) {
+  try {
+    return execFileSync("git", ["rev-parse", `${sha}^`], { encoding: "utf-8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Failing test file paths for a CI run, via `gh run view --log-failed`.
+ * Best-effort: any failure to fetch/parse the log (run too old, log
+ * expired, network hiccup) yields `[]` — "no evidence of overlap", which
+ * `decideBaselineAction` already treats as "not disjoint" (fail-safe: don't
+ * downgrade a genuine revert just because the log was unavailable).
+ */
+function getFailingTestPathsViaGh(runId) {
+  if (!runId) return [];
+  try {
+    const log = execFileSync("gh", ["run", "view", runId, "--log-failed"], {
+      encoding: "utf-8",
+      timeout: 30_000,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return extractFailingTestPaths(log);
+  } catch {
+    return [];
   }
 }
 
@@ -197,6 +404,57 @@ async function closeRecovered(ghClient, args) {
   );
 }
 
+/**
+ * Resolves the baseline/blame decision for a culprit commit and prints it as
+ * a single-line JSON object (`{action, reason}`) for the workflow to parse
+ * with `jq`. `--sha` is the culprit commit; its parent is where the baseline
+ * walk starts. `--run-id` (the failing CI run's database id) and `--pr` are
+ * optional — omitting either just means the overlap check runs with no
+ * evidence, which is never treated as grounds to downgrade a revert.
+ */
+async function checkBaseline(ghClient, args) {
+  const sha = readFlag(args, "--sha");
+  const pr = readFlag(args, "--pr");
+  const runId = readFlag(args, "--run-id");
+
+  if (!sha) {
+    console.error("Missing --sha <culprit-sha>");
+    process.exit(1);
+  }
+
+  const result = await resolveRevertAction({
+    parentSha: getParentShaViaGit(sha),
+    prNumber: pr,
+    getConclusionForSha: async (candidateSha) => {
+      try {
+        const runs = ghClient.workflow.runs([
+          "--commit",
+          candidateSha,
+          "--workflow",
+          "CI",
+          "--json",
+          "conclusion",
+        ]);
+        return runs[0]?.conclusion ?? null;
+      } catch {
+        // gh transient failure (rate limit, network) — treated as inconclusive,
+        // same as the original bash's `2>/dev/null || echo "unknown"` fallback.
+        return null;
+      }
+    },
+    getParentSha: async (candidateSha) => getParentShaViaGit(candidateSha),
+    getFailingTestPaths: async () => getFailingTestPathsViaGh(runId),
+    getChangedFiles: async () => {
+      if (!pr) return [];
+      const view = ghClient.pr.view(Number(pr), ["--json", "files"]);
+      return (view?.files ?? []).map((f) => f.path);
+    },
+    log: (msg) => console.error(`[revert-watchdog] ${msg}`),
+  });
+
+  console.log(JSON.stringify(result));
+}
+
 async function main() {
   const [subcommand, ...rest] = process.argv.slice(2);
   const ghClient = createGhClient();
@@ -205,8 +463,12 @@ async function main() {
     createIssue(ghClient, rest);
   } else if (subcommand === "close-recovered") {
     await closeRecovered(ghClient, rest);
+  } else if (subcommand === "check-baseline") {
+    await checkBaseline(ghClient, rest);
   } else {
-    console.error("Usage: revert-watchdog.mjs <create-issue|close-recovered> [...args]");
+    console.error(
+      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline> [...args]"
+    );
     process.exit(1);
   }
 }
