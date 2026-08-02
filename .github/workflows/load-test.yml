@@ -31,6 +31,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
       - name: Setup k6
         uses: grafana/setup-k6-action@98db1bcacc2d06234a3cade8629ebc97e0130ec2 # v1
 
@@ -38,24 +43,34 @@ jobs:
         uses: grafana/k6-action@e4714b734f2b0afaabeb7b4a69142745548ab9ec # v0.3.1
         with:
           filename: .github/workflows/load-test.js
-          flags: --tag "scenario=${{ inputs.scenario || 'load' }}"
+          flags: --tag "scenario=${{ inputs.scenario || 'load' }}" --summary-export=summary.json
         env:
           MARKETING_URL: "https://mattbutlerengineering.com"
           BASE_URL: "https://api.mattbutlerengineering.com"
 
-      - name: Generate summary
+      # Runs even when the k6 step above fails (non-zero exit on a threshold
+      # breach) so a real status — including "not-run"/"failed" — is still
+      # derived and stored. Independently fails the job if any endpoint's
+      # thresholds were breached (see scripts/load-test-summary.mjs), so
+      # threshold failures aren't only detectable via the k6 step's own exit
+      # code.
+      - name: Build results from k6 summary
+        if: always()
         run: |
-          echo "## Load Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Test scenario: ${{ inputs.scenario || 'load' }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Endpoints Tested" >> $GITHUB_STEP_SUMMARY
-          echo "- Marketing Homepage (https://mattbutlerengineering.com)" >> $GITHUB_STEP_SUMMARY
-          echo "- Users API Health (/api/v1/users/health)" >> $GITHUB_STEP_SUMMARY
-          echo "- Reservations API Health (/api/v1/reservations/health)" >> $GITHUB_STEP_SUMMARY
-          echo "- Venues List (/api/v1/venues)" >> $GITHUB_STEP_SUMMARY
-          echo "- Availability Check (/api/v1/availability/:venueId)" >> $GITHUB_STEP_SUMMARY
-          echo "- Events List (/api/v1/events)" >> $GITHUB_STEP_SUMMARY
+          DATE=$(date +%Y-%m-%d)
+          SCENARIO=${{ inputs.scenario || 'load' }}
+          node scripts/load-test-summary.mjs build summary.json "$DATE" "$SCENARIO" results.json
+
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: load-test-results-${{ github.run_id }}
+          path: |
+            results.json
+            summary.json
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Store results in KV
         if: always()
@@ -65,26 +80,16 @@ jobs:
           KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          SCENARIO=${{ inputs.scenario || 'load' }}
-
-          cat <<EOF > results.json
-          {
-            "date": "$DATE",
-            "scenario": "$SCENARIO",
-            "marketing": {"status": "tested"},
-            "users-api": {"status": "tested"},
-            "reservations-api": {"status": "tested"},
-            "venues": {"status": "tested"},
-            "availability": {"status": "tested"},
-            "events": {"status": "tested"}
-          }
-          EOF
-
           curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/kv/namespaces/$KV_NS_ID/keys/loadtest/$DATE" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d @results.json || true
 
+      # Warn-only by design: regressions are reported in the step summary
+      # (see LATENCY_REGRESSION_TOLERANCE / ERROR_RATE_REGRESSION_TOLERANCE
+      # in scripts/load-test-summary.mjs) but never fail the job — weekly
+      # production-traffic noise makes a hard failure too disruptive until
+      # there's enough baseline history to tune the tolerance.
       - name: Compare with previous baseline
         if: ${{ !inputs.baseline }}
         env:
@@ -92,14 +97,7 @@ jobs:
           CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
         run: |
-          DATE=$(date +%Y-%m-%d)
           PREV_DATE=$(date -d "7 days ago" +%Y-%m-%d)
-
           curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/kv/namespaces/$KV_NS_ID/values/loadtest/$PREV_DATE" \
             -H "Authorization: Bearer $CF_API_TOKEN" > prev.json || true
-
-          echo "## Load Test Comparison" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Comparing $DATE with $PREV_DATE" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See KV store for detailed metrics." >> $GITHUB_STEP_SUMMARY
+          node scripts/load-test-summary.mjs compare results.json prev.json
