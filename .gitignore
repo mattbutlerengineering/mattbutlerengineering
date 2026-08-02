@@ -129,6 +129,11 @@ reports/mutation/
 !/metrics/pr-acceptance.json
 !/metrics/review-burden.json
 !/metrics/eval-reports.jsonl
+# production-feedback.yml's per-day snapshots (#3623) -- a subdirectory, not
+# a single file, so it needs its own directory exception plus a file
+# exception for the dynamically-dated files inside it.
+!/metrics/production-health/
+!/metrics/production-health/*.jsonl
 
 # Playwright
 e2e/.auth/
