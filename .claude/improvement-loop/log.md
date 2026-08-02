@@ -85,3 +85,12 @@ None (`agent-skip` count is 0).
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
+## 2026-08-02
+
+**Sensors:** 5/15 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — ciHealth, lighthouse, issues, issueFeedback, prCategoryMetrics, agentCost, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 95/114, code churn 0.3%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (MCP server was mid-(re)connect for the duration of this run)
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** `verifications.jsonl` still doesn't exist, so false-positive/fix-effectiveness rates remain non-computable. `collect-ai-issue-feedback.mjs` failed again on its `gh` query ("Failed to query GitHub issues") — same pre-existing `gh`-CLI-unavailable gap noted 2026-06-20, 07-30, 07-31, 08-01 (fifth consecutive run); root cause remains `@mbe/gh-client` shelling out to the `gh` binary via `execFileSync`, absent in this scheduled-session environment. No action taken — pre-existing, non-blocking, zero regressions to triage. Also note: this checkout had no `node_modules` and no `packages/gh-client/dist` at run start — needed `pnpm install --frozen-lockfile` + `pnpm --dir packages/gh-client build` before `sensor-report.mjs` would load at all, consistent with the "fresh worktree" gotchas already documented for other scripts.
