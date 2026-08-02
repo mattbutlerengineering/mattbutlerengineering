@@ -28,6 +28,7 @@ import { stripeWebhookRoutes } from "./routes/stripe-webhook.js";
 import { waitlistRoutes } from "./routes/waitlist.js";
 import { publicUnsubscribeRoutes } from "./routes/public-unsubscribe.js";
 import { briefingRoutes } from "./routes/briefing.js";
+import { bookingMetricsRoutes } from "./routes/booking-metrics.js";
 import { createNotificationPort } from "./notifications.js";
 import {
   createDefaultBookingNotifier,
@@ -162,6 +163,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
   await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
   await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
+  await fastify.register(bookingMetricsRoutes, { prefix: "/api/v1/reservations/metrics" });
 
   // Public routes (no auth required)
   await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
