@@ -170,7 +170,26 @@ describe("User Routes", () => {
   });
 
   describe("POST /api/v1/users", () => {
-    it("creates a new user", async () => {
+    it("returns 403 when caller is not an admin", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/users",
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          email: "squatter@example.com",
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(userService.create).not.toHaveBeenCalled();
+    });
+
+    it("creates a new user when caller is an admin", async () => {
       vi.mocked(userService.create).mockResolvedValueOnce(mockUser);
 
       const response = await app.inject({

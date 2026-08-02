@@ -138,7 +138,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: requireAuth,
+      preHandler: [requireAuth, requireAdmin],
       config: {
         rateLimit: {
           max: 20,
