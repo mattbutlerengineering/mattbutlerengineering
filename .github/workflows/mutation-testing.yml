@@ -34,7 +34,12 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 15m was too tight once the OOM crash (see the Upload step below) no
+    # longer cuts the job short: node_modules across root + 3 packages + 3
+    # services is ~1.6GB uncompressed, and archiving/uploading it alone took
+    # >8m and was still climbing when a real run hit the old 15m ceiling and
+    # got cancelled mid-upload (never an OOM — just ran out of job time).
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
