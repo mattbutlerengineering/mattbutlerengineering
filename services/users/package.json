@@ -26,10 +26,12 @@
     "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^11.1.0",
     "@fastify/swagger": "^9.8.1",
-    "@fastify/swagger-ui": "^6.1.0",
+    "@fastify/swagger-ui": "^6.1.1",
     "@mbe/auth": "workspace:*",
+    "@mbe/database": "workspace:*",
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
+    "@mbe/service-bootstrap": "workspace:*",
     "@mbe/types": "workspace:*",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
@@ -38,9 +40,7 @@
     "fastify": "catalog:",
     "jose": "^6.2.4",
     "pg": "^8.22.0",
-    "zod": "catalog:",
-    "@mbe/database": "workspace:*",
-    "@mbe/service-bootstrap": "workspace:*"
+    "zod": "catalog:"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

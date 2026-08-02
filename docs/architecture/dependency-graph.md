@@ -75,30 +75,30 @@ flowchart TD
   agent_service --> api_client
   agent_service --> auth
   agent_service --> database
-  agent_service --> service_bootstrap
   agent_service --> observability
   agent_service --> rialto_catalog
   agent_service --> sentry
+  agent_service --> service_bootstrap
   agent_service --> types
   agent_service --> agent_test_utils
   agent_service --> config
   reservations_service --> auth
   reservations_service --> cancellation_policy
   reservations_service --> database
-  reservations_service --> service_bootstrap
   reservations_service --> jobs
   reservations_service --> notifications
   reservations_service --> observability
   reservations_service --> sentry
+  reservations_service --> service_bootstrap
   reservations_service --> types
   reservations_service --> config
   reservations_service --> test_fixtures
   users_service --> auth
+  users_service --> database
   users_service --> observability
   users_service --> sentry
-  users_service --> types
-  users_service --> database
   users_service --> service_bootstrap
+  users_service --> types
   users_service --> config
   users_service --> test_fixtures
   agent_core --> api_client
