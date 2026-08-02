@@ -60,28 +60,36 @@ export function parseK6SummaryMetrics(json) {
   return /** @type {Record<string, unknown>} */ (metrics);
 }
 
-/** @param {unknown} metric */
-function metricThresholdsOk(metric) {
-  const thresholds = /** @type {{ thresholds?: Record<string, { ok?: boolean }> } | undefined} */ (
-    metric
-  )?.thresholds;
-  if (!thresholds) return true;
-  return Object.values(thresholds).every((t) => t && t.ok === true);
+/**
+ * k6's `--summary-export` reports each threshold expression as a flat
+ * boolean keyed by the expression string — e.g. `{ "rate<0.1": true }` —
+ * where (confirmed against a live k6 run, see #3626 PR) `true` means the
+ * threshold was **crossed** (breached), not that it passed.
+ * @param {unknown} metric
+ */
+function metricThresholdCrossed(metric) {
+  const thresholds = /** @type {{ thresholds?: Record<string, boolean> } | undefined} */ (metric)
+    ?.thresholds;
+  if (!thresholds) return false;
+  return Object.values(thresholds).some((crossed) => crossed === true);
 }
 
 /**
  * Compute the status of a single endpoint from its `errors{endpoint:<tag>}`
- * and `api_latency{endpoint:<tag>}` submetrics.
+ * and `api_latency{endpoint:<tag>}` submetrics. Both are flat k6 metric
+ * objects (no `.values` wrapper): the Rate metric (`errors{...}`) carries
+ * `passes`/`fails`/`value` directly, the Trend metric (`api_latency{...}`)
+ * carries `p(95)` etc. directly.
  * @param {Record<string, unknown>} metrics
  * @param {string} tag
  * @returns {EndpointResult}
  */
 export function computeEndpointStatus(metrics, tag) {
   const errorsMetric =
-    /** @type {{ values?: { passes?: number, fails?: number, rate?: number } } | undefined} */ (
+    /** @type {{ passes?: number, fails?: number, value?: number } | undefined} */ (
       metrics[`errors{endpoint:${tag}}`]
     );
-  const latencyMetric = /** @type {{ values?: Record<string, number> } | undefined} */ (
+  const latencyMetric = /** @type {Record<string, number> | undefined} */ (
     metrics[`api_latency{endpoint:${tag}}`]
   );
 
@@ -89,18 +97,18 @@ export function computeEndpointStatus(metrics, tag) {
     return { status: "not-run", requests: 0, p95: null, errorRate: null };
   }
 
-  const passes = errorsMetric?.values?.passes ?? 0;
-  const fails = errorsMetric?.values?.fails ?? 0;
+  const passes = errorsMetric?.passes ?? 0;
+  const fails = errorsMetric?.fails ?? 0;
   const requests = passes + fails;
-  const p95 = latencyMetric?.values?.["p(95)"] ?? null;
-  const errorRate = errorsMetric?.values?.rate ?? null;
+  const p95 = latencyMetric?.["p(95)"] ?? null;
+  const errorRate = errorsMetric?.value ?? null;
 
   if (requests === 0) {
     return { status: "not-run", requests: 0, p95, errorRate };
   }
 
-  const thresholdsOk = metricThresholdsOk(errorsMetric) && metricThresholdsOk(latencyMetric);
-  return { status: thresholdsOk ? "passed" : "failed", requests, p95, errorRate };
+  const breached = metricThresholdCrossed(errorsMetric) || metricThresholdCrossed(latencyMetric);
+  return { status: breached ? "failed" : "passed", requests, p95, errorRate };
 }
 
 /**

@@ -14,30 +14,31 @@ import {
 
 /**
  * Builds a k6 `--summary-export` style JSON summary with per-endpoint
- * submetrics (`errors{endpoint:<tag>}` / `api_latency{endpoint:<tag>}`),
- * matching the shape k6 emits for tagged Rate/Trend metrics with
- * thresholds declared against them.
+ * submetrics (`errors{endpoint:<tag>}` / `api_latency{endpoint:<tag>}`).
+ * Verified against a live k6 run (see #3626 PR): each metric object is
+ * flat (no `.values` wrapper) and `thresholds` maps an expression string
+ * to a boolean that is `true` when the threshold was CROSSED (breached),
+ * not when it passed. `passes`/`fails` on the `errors{...}` Rate metric
+ * count `errorRate.add(true)` / `.add(false)` calls respectively — i.e.
+ * `passes` counts *errors*, not successes.
  */
-function makeEndpointMetric({ tag, passes, fails, p95, thresholdOk = true }) {
+function makeEndpointMetric({ tag, passes, fails, p95, crossed = false }) {
+  const total = passes + fails;
   return {
     [`errors{endpoint:${tag}}`]: {
-      type: "rate",
-      contains: "default",
-      values: { rate: fails / (passes + fails), passes, fails },
-      thresholds: { "rate<0.1": { ok: thresholdOk } },
+      passes,
+      fails,
+      value: total > 0 ? passes / total : 0,
+      thresholds: { "rate<0.1": crossed },
     },
     [`api_latency{endpoint:${tag}}`]: {
-      type: "trend",
-      contains: "time",
-      values: {
-        avg: p95 * 0.6,
-        min: 1,
-        med: p95 * 0.5,
-        max: p95 * 1.5,
-        "p(90)": p95 * 0.9,
-        "p(95)": p95,
-      },
-      thresholds: { "p(95)<1500": { ok: thresholdOk } },
+      avg: p95 * 0.6,
+      min: 1,
+      med: p95 * 0.5,
+      max: p95 * 1.5,
+      "p(90)": p95 * 0.9,
+      "p(95)": p95,
+      thresholds: { "p(95)<1500": crossed },
     },
   };
 }
@@ -45,7 +46,8 @@ function makeEndpointMetric({ tag, passes, fails, p95, thresholdOk = true }) {
 function makeAllPassingSummary() {
   const metrics = {};
   for (const tag of Object.values(ENDPOINT_METRIC_TAGS)) {
-    Object.assign(metrics, makeEndpointMetric({ tag, passes: 30, fails: 0, p95: 200 }));
+    // passes=0 errors, fails=30 non-errors — a clean run.
+    Object.assign(metrics, makeEndpointMetric({ tag, passes: 0, fails: 30, p95: 200 }));
   }
   return { metrics };
 }
@@ -89,7 +91,7 @@ describe("computeEndpointStatus", () => {
       passes: 25,
       fails: 5,
       p95: 900,
-      thresholdOk: false,
+      crossed: true,
     });
     const result = computeEndpointStatus(metrics, "users_health");
     expect(result.status).toBe("failed");
@@ -107,11 +109,56 @@ describe("computeEndpointStatus", () => {
 
   it("reports 'not-run' when the endpoint's submetrics exist but have zero requests", () => {
     const metrics = makeEndpointMetric({ tag: "venues_list", passes: 0, fails: 0, p95: 0 });
-    // rate becomes NaN when passes+fails=0; simulate what k6 actually emits (0)
-    metrics["errors{endpoint:venues_list}"].values.rate = 0;
     const result = computeEndpointStatus(metrics, "venues_list");
     expect(result.status).toBe("not-run");
     expect(result.requests).toBe(0);
+  });
+
+  // Regression test: a live k6 run against this workflow (see #3626 PR) proved
+  // the real --summary-export shape is flat (no `.values` wrapper) and that
+  // `thresholds[expr]` is `true` when CROSSED, not when passed — the opposite
+  // of the initial assumption. Uses a literal excerpt of that run's summary.json.
+  it("matches the real k6 --summary-export shape (excerpt from a live run)", () => {
+    const liveExcerpt = {
+      "errors{endpoint:marketing_home}": {
+        passes: 0,
+        fails: 11192,
+        thresholds: { "rate<0.1": false },
+        value: 0,
+      },
+      "api_latency{endpoint:marketing_home}": {
+        avg: 29.91,
+        min: 17.71,
+        med: 28.13,
+        max: 131.0,
+        "p(90)": 38.48,
+        "p(95)": 42.74,
+        thresholds: { "p(95)<3000": false },
+      },
+      "errors{endpoint:reservations_health}": {
+        passes: 11032,
+        fails: 160,
+        thresholds: { "rate<0.1": true },
+        value: 0.9857040743388135,
+      },
+      "api_latency{endpoint:reservations_health}": {
+        avg: 694.86,
+        min: 24.13,
+        med: 156.73,
+        max: 32987.93,
+        "p(90)": 602.87,
+        "p(95)": 1250.49,
+        thresholds: { "p(95)<800": true },
+      },
+    };
+
+    const marketing = computeEndpointStatus(liveExcerpt, "marketing_home");
+    expect(marketing).toEqual({ status: "passed", requests: 11192, p95: 42.74, errorRate: 0 });
+
+    const reservations = computeEndpointStatus(liveExcerpt, "reservations_health");
+    expect(reservations.status).toBe("failed");
+    expect(reservations.requests).toBe(11192);
+    expect(reservations.errorRate).toBeCloseTo(0.9857, 3);
   });
 });
 
