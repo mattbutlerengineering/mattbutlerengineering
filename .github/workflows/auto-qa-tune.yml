@@ -1,5 +1,15 @@
 name: Auto-QA Threshold Tuner
 
+# Weekly, tunes `.github/auto-qa-tuning.json` from PR acceptance data and
+# opens a PR with the result. PR-opening steps below use the default job
+# `GITHUB_TOKEN` (via `secrets.GITHUB_TOKEN`) — same credential as
+# `.github/workflows/drift-fix.yml`, which this workflow otherwise mirrors
+# (automation/* branch, CI dispatch below). Neither workflow uses a PAT or
+# GitHub App token; do not add one here without also switching drift-fix.yml,
+# to keep the two credential stories in sync. The repo-wide "Allow GitHub
+# Actions to create and approve pull requests" setting is intentionally left
+# untouched (see issue #3625) — do not enable it as a fix for this workflow.
+
 on:
   schedule:
     # Sunday at midnight UTC
@@ -30,6 +40,24 @@ jobs:
       - name: Run auto-qa-tune
         run: node plugins/acmm/scripts/auto-qa-tune.js
 
+      - name: Write tuning proposal to job summary
+        # Persisted BEFORE the PR step so a credential failure there (e.g. the
+        # "GitHub Actions is not permitted to create or approve pull requests"
+        # error this workflow used to hit on every run) costs only the PR,
+        # not the week's analysis.
+        run: |
+          {
+            echo "## Auto-QA Tuning Proposal"
+            echo
+            if git diff --quiet -- .github/auto-qa-tuning.json; then
+              echo "No proposal this run — metrics unavailable or insufficient sample size. No PR will be opened."
+            else
+              echo '```diff'
+              git diff -- .github/auto-qa-tuning.json
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Open PR with updated thresholds
         id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -55,3 +83,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --ref automation/auto-qa-tuning
+
+      - name: Report outcome
+        run: |
+          if [ -n "${{ steps.create-pr.outputs.pull-request-number }}" ]; then
+            echo "::notice::Tuning proposal found — opened PR #${{ steps.create-pr.outputs.pull-request-number }}"
+          else
+            echo "::notice::No tuning changes this run — thresholds already in sync, no PR opened."
+          fi
