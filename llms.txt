@@ -2389,6 +2389,14 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/booking-metrics.ts">
+    <item priority="medium">
+      function todayDateString(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const bookingMetricsRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/briefing.ts">
     <item priority="high">
       export const briefingRoutes: FastifyPluginAsync;
@@ -3049,6 +3057,25 @@
     </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+    </item>
+  </file>
+  <file path="services/reservations/src/services/booking-metrics.ts">
+    <item priority="low">
+      interface ReservationStatusCounts {
+        pending: number;
+        confirmed: number;
+        cancelled: number;
+        completed: number;
+        noShow: number;
+      }
+    </item>
+    <item priority="low">
+      interface DepositTransitionCounts {
+        held: number;
+        applied: number;
+        refunded: number;
+        forfeited: number;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
