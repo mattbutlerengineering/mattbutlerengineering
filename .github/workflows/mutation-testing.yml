@@ -14,6 +14,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
@@ -108,22 +109,58 @@ jobs:
           path: reports/mutation/
           retention-days: 30
 
+      - name: Compute mutation score
+        id: score
+        if: always()
+        run: node scripts/print-mutation-score.mjs reports/mutation/mutation.json >> "$GITHUB_OUTPUT"
+
+      - name: Write mutation score to job summary
+        if: always()
+        run: |
+          {
+            echo "## Mutation Testing Results"
+            echo
+            if [ "${{ steps.score.outputs.available }}" = "true" ]; then
+              echo "**Mutation Score:** ${{ steps.score.outputs.score }}%"
+              echo "**Target:** > ${{ steps.score.outputs.threshold }}%"
+              echo "**Status:** $([ "${{ steps.score.outputs.passes }}" = "true" ] && echo '✅ PASS' || echo '⚠️ BELOW TARGET')"
+              echo "**Mutants killed:** ${{ steps.score.outputs.killed }}/${{ steps.score.outputs.total }}"
+            else
+              echo "**Status:** ❌ No report produced"
+            fi
+            echo
+            echo "Full report available in [Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Comment mutation score on PR
         if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MUTATION_AVAILABLE: ${{ steps.score.outputs.available }}
+          MUTATION_SCORE: ${{ steps.score.outputs.score }}
+          MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
+          MUTATION_PASSES: ${{ steps.score.outputs.passes }}
         with:
           script: |
-            const fs = require('fs');
-            const report = JSON.parse(fs.readFileSync('reports/mutation/mutation.json', 'utf8'));
-            const score = report.metrics?.mutationScore || 0;
+            const available = process.env.MUTATION_AVAILABLE === 'true';
+            const score = Number(process.env.MUTATION_SCORE);
+            const threshold = Number(process.env.MUTATION_THRESHOLD);
+            const passes = process.env.MUTATION_PASSES === 'true';
+            const artifactUrl = `${github.server_url}/${github.repository}/actions/runs/${github.run_id}`;
 
-            const comment = `## Mutation Testing Results 🧬
+            const comment = available
+              ? `## Mutation Testing Results 🧬
 
             **Mutation Score:** ${score.toFixed(2)}%
-            **Target:** > 80%
-            **Status:** ${score >= 80 ? '✅ PASS' : '⚠️ BELOW TARGET'}
+            **Target:** > ${threshold}%
+            **Status:** ${passes ? '✅ PASS' : '⚠️ BELOW TARGET'}
 
-            Full report available in [Artifacts](${github.server_url}/${github.repository}/actions/runs/${github.run_id})`;
+            Full report available in [Artifacts](${artifactUrl})`
+              : `## Mutation Testing Results 🧬
+
+            ❌ No report was produced by this run.
+
+            Full report available in [Artifacts](${artifactUrl})`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -134,14 +171,49 @@ jobs:
 
       - name: Fail if mutation score below threshold
         run: |
-          if [ ! -f "reports/mutation/mutation.json" ]; then
+          if [ "${{ steps.score.outputs.available }}" != "true" ]; then
             echo "❌ Mutation testing failed to produce report"
             exit 1
           fi
-          SCORE=$(jq -r '.metrics.mutationScore' reports/mutation/mutation.json)
-          echo "Mutation Score: $SCORE%"
-          if (( $(echo "$SCORE < 80" | bc -l) )); then
-            echo "❌ Mutation score $SCORE% is below target of 80%"
+          echo "Mutation Score: ${{ steps.score.outputs.score }}%"
+          if [ "${{ steps.score.outputs.passes }}" != "true" ]; then
+            echo "❌ Mutation score ${{ steps.score.outputs.score }}% is below target of ${{ steps.score.outputs.threshold }}%"
             exit 1
           fi
-          echo "✅ Mutation score $SCORE% meets target"
+          echo "✅ Mutation score ${{ steps.score.outputs.score }}% meets target"
+
+      - name: File issue on scheduled mutation-testing failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          title="Weekly mutation testing failed [${today}]"
+
+          # Dedup: skip if an open issue with the same title already exists.
+          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already open; skipping."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            "## Weekly mutation testing failed" \
+            "" \
+            "The scheduled mutation-testing workflow ran on ${today} and failed —" \
+            "either the mutation score is below the 80% target or the run produced no report." \
+            "" \
+            "**Run:** ${RUN_URL} (see the job summary for the exact score)" \
+            "" \
+            "### Next steps" \
+            "1. Open the run's job summary and the mutation-report artifact" \
+            "2. Identify weakly-tested files from the mutation report" \
+            "3. Add tests to kill surviving mutants" \
+            > /tmp/mutation-failure-body.md
+
+          gh issue create \
+            --title "$title" \
+            --body-file /tmp/mutation-failure-body.md \
+            --label ci-fix \
+            --label ready
