@@ -76,7 +76,6 @@ import {
   PublicReservationBodySchema,
   PublicUnsubscribeQuerySchema,
   PublicWaitlistBodySchema,
-  ModifyReservationBodySchema,
 } from "./reservation-requests.js";
 
 /**
@@ -325,4 +324,3 @@ export const publicHoldBodyJsonSchema = toRequestJsonSchema(PublicHoldBodySchema
 export const publicReservationBodyJsonSchema = toRequestJsonSchema(PublicReservationBodySchema);
 export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
 export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
-export const modifyReservationBodyJsonSchema = toRequestJsonSchema(ModifyReservationBodySchema);

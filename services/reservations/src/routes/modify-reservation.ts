@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { createProblemDetails, modifyReservationBodyJsonSchema } from "@mbe/types";
+import { createProblemDetails } from "@mbe/types";
 import { requireManageToken } from "../middleware/require-manage-token.js";
 import { loadReservationForManage, manageProblemDetails } from "./load-reservation-for-manage.js";
 import { modifyReservationWithNotifications } from "../services/reservation-modification.js";
@@ -19,9 +19,6 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
     {
       config: {
         rateLimit: { max: 10, timeWindow: "1 minute" },
-      },
-      schema: {
-        body: modifyReservationBodyJsonSchema,
       },
       preHandler: requireManageToken,
     },

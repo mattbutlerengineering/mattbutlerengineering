@@ -1719,9 +1719,6 @@
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
           },
-          schema: {
-            body: modifyReservationBodyJsonSchema,
-          },
           preHandler: requireManageToken,
         },
         async (request, reply) => {
