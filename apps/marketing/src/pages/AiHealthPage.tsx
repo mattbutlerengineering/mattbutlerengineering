@@ -6,8 +6,14 @@ import {
   formatPercent,
   formatTimestamp,
 } from "../utils/formatters.js";
-import type { SensorReport } from "../data/ai-health.js";
+import { normalizeSensorReport, type SensorReport } from "../data/ai-health.js";
 import styles from "./AiHealthPage.module.css";
+
+const PLACEHOLDER = "—";
+
+function formatCount(value: number | null): string {
+  return value == null ? PLACEHOLDER : String(value);
+}
 
 async function fetchSensorReport(signal: AbortSignal): Promise<SensorReport> {
   const response = await fetch("/sensor-report.json", { signal });
@@ -47,7 +53,7 @@ export function AiHealthPage() {
     );
   }
 
-  const { sensors, summary } = report;
+  const metrics = normalizeSensorReport(report);
 
   return (
     <div className={styles.container}>
@@ -57,7 +63,7 @@ export function AiHealthPage() {
           Live metrics for the AI agent system — sensors, CI, PRs, and issue pipeline
         </Text>
         <Text className={styles.meta}>
-          Last updated: {formatTimestamp(report.timestamp)}
+          Last updated: {formatTimestamp(metrics.timestamp)}
           {" · "}
           <a href="/sensor-report.json" className={styles.jsonLink}>
             View raw JSON
@@ -70,22 +76,24 @@ export function AiHealthPage() {
         <div className={styles.statGrid}>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>CI Pass Rate</Text>
-            <Text className={styles.statValue}>{formatPercent(sensors.ci.passRate)}</Text>
-            <Text className={styles.statNote}>{sensors.ci.recentRuns} recent runs</Text>
+            <Text className={styles.statValue}>
+              {metrics.ciPassRate == null ? PLACEHOLDER : formatPercent(metrics.ciPassRate)}
+            </Text>
+            <Text className={styles.statNote}>{formatCount(metrics.ciRecentRuns)} recent runs</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PRs Merged (30d)</Text>
-            <Text className={styles.statValue}>{sensors.prMetrics.merged30d}</Text>
+            <Text className={styles.statValue}>{formatCount(metrics.prsMerged)}</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Issues Ready</Text>
-            <Text className={styles.statValue}>{sensors.issues.ready}</Text>
-            <Text className={styles.statNote}>{sensors.issues.open} open total</Text>
+            <Text className={styles.statValue}>{formatCount(metrics.issuesReady)}</Text>
+            <Text className={styles.statNote}>{formatCount(metrics.issuesOpen)} open total</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Sensors Active</Text>
             <Text className={styles.statValue}>
-              {summary.available}/{summary.total}
+              {formatCount(metrics.sensorsAvailable)}/{formatCount(metrics.sensorsTotal)}
             </Text>
           </Card>
         </div>
@@ -94,12 +102,12 @@ export function AiHealthPage() {
       <section className={styles.section}>
         <Heading level={2}>Sensor Status</Heading>
         <div className={styles.sensorGrid}>
-          {Object.entries(sensors).map(([key, sensor]) => (
+          {metrics.sensorEntries.map(([key, sensor]) => (
             <div key={key} className={styles.sensorRow}>
               <Text className={styles.sensorName}>{key}</Text>
               <div className={styles.sensorBadge}>
-                <Badge color={getSensorColor(sensor.available)} size="sm">
-                  {formatSensorStatus(sensor.available)}
+                <Badge color={getSensorColor(sensor.available === true)} size="sm">
+                  {formatSensorStatus(sensor.available === true)}
                 </Badge>
               </div>
             </div>
@@ -107,13 +115,13 @@ export function AiHealthPage() {
         </div>
       </section>
 
-      {report.regressions.length > 0 && (
+      {metrics.regressionLabels.length > 0 && (
         <section className={styles.section}>
           <Heading level={2}>Active Regressions</Heading>
           <div className={styles.sensorGrid}>
-            {report.regressions.map((regression) => (
-              <div key={regression} className={styles.sensorRow}>
-                <Text>{regression}</Text>
+            {metrics.regressionLabels.map((label) => (
+              <div key={label} className={styles.sensorRow}>
+                <Text>{label}</Text>
               </div>
             ))}
           </div>
