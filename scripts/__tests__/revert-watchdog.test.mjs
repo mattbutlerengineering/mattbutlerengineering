@@ -5,6 +5,7 @@ import {
   buildBrokenMainTitle,
   buildBrokenMainBody,
   extractCulpritSha,
+  findPriorBrokenMainIssue,
   buildRecoveryComment,
   selectIssuesToClose,
   runAutoCloseWatchdog,
@@ -92,6 +93,34 @@ describe("extractCulpritSha", () => {
   it("returns null for a missing title", () => {
     expect(extractCulpritSha({})).toBeNull();
     expect(extractCulpritSha(null)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findPriorBrokenMainIssue — dedup lookup feeding fileIssue() (#3675)
+// ---------------------------------------------------------------------------
+
+describe("findPriorBrokenMainIssue", () => {
+  it("returns null when there are no candidates", () => {
+    expect(findPriorBrokenMainIssue([], SHA)).toBeNull();
+  });
+
+  it("returns the matching issue's number when a candidate's culprit sha matches", () => {
+    const candidates = [
+      { number: 11, title: buildBrokenMainTitle(OTHER_SHA) },
+      { number: 22, title: buildBrokenMainTitle(SHA) },
+    ];
+    expect(findPriorBrokenMainIssue(candidates, SHA)).toBe(22);
+  });
+
+  it("returns null when no candidate's culprit sha matches", () => {
+    const candidates = [{ number: 11, title: buildBrokenMainTitle(OTHER_SHA) }];
+    expect(findPriorBrokenMainIssue(candidates, SHA)).toBeNull();
+  });
+
+  it("treats a nullish candidates array as empty", () => {
+    expect(findPriorBrokenMainIssue(null, SHA)).toBeNull();
+    expect(findPriorBrokenMainIssue(undefined, SHA)).toBeNull();
   });
 });
 

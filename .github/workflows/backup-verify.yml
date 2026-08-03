@@ -119,9 +119,12 @@ jobs:
             echo "---"
             echo "*Auto-created by backup-verify workflow*"
           } > /tmp/backup-body.md
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "Database backup verification failed" \
             --label "ci-fix" \
             --label "ready" \
-            --body-file /tmp/backup-body.md
+            --body-file /tmp/backup-body.md \
+            --dedupe-key "backup-verify-failure" \
+            --search-label "ci-fix" \
+            --search-state all \
+            --contains "Database backup verification failed"

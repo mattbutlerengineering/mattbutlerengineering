@@ -220,14 +220,6 @@ jobs:
           # findings (search open issues, skip/update on match).
           title="Mutation testing below target"
 
-          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
-
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body "Still below target as of ${today}: score ${MUTATION_SCORE}% (threshold ${MUTATION_THRESHOLD}%). Run: ${RUN_URL}"
-            echo "Updated existing issue #$existing."
-            exit 0
-          fi
-
           printf '%s\n' \
             "## ${title}" \
             "" \
@@ -246,8 +238,18 @@ jobs:
             "runs will comment here instead of filing a new issue." \
             > /tmp/mutation-failure-body.md
 
-          gh issue create \
+          RESULT=$(node scripts/lib/file-issue-cli.mjs \
             --title "$title" \
             --body-file /tmp/mutation-failure-body.md \
             --label ci-fix \
-            --label ready
+            --label ready \
+            --dedupe-key "mutation-testing-below-target" \
+            --search-label ci-fix \
+            --search-text "$title")
+          echo "$RESULT"
+
+          if [ "$(echo "$RESULT" | jq -r '.action')" != "create" ]; then
+            ISSUE_NUM=$(echo "$RESULT" | jq -r '.issueNumber')
+            gh issue comment "$ISSUE_NUM" --body "Still below target as of ${today}: score ${MUTATION_SCORE}% (threshold ${MUTATION_THRESHOLD}%). Run: ${RUN_URL}"
+            echo "Updated existing issue #$ISSUE_NUM."
+          fi

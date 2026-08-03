@@ -52,10 +52,14 @@ jobs:
             echo
             echo "Consider updating these dependencies to stay current."
           } > /tmp/freshness-body.md
-          gh issue create \
+          node scripts/lib/file-issue-cli.mjs \
             --title "Dependency freshness: $DATE" \
             --body-file /tmp/freshness-body.md \
-            --label "dependencies"
+            --label "dependencies" \
+            --dedupe-key "dependency-freshness-$DATE" \
+            --search-label "dependencies" \
+            --search-state all \
+            --contains "$DATE"
 
       - name: Update existing issue
         if: steps.check.outputs.count == '0'
