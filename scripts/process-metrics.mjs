@@ -24,7 +24,7 @@ import { read, append, writeWeekly, resolvePath, resolveWeeklyPath } from "./met
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const VERIFICATIONS_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
+const VERIFICATIONS_PATH = resolvePath("verifications", { root: ROOT });
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");

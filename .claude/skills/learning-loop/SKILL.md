@@ -102,7 +102,7 @@ Check if today is the configured skill-extraction day (default: Friday). If so:
 
 ### Step 5: Threshold Self-Tuning
 
-Read the verification log at `.claude/improvement-loop/verifications.jsonl` (last 30 days):
+Read the verification log at `metrics/verifications.jsonl` (last 30 days):
 
 1. Compute **false positive rate**: issues closed as `wontfix` or `invalid` / total issues created by learning loop
 2. Compute **fix effectiveness rate**: verified fixes / total verifications
@@ -125,7 +125,15 @@ Append a dated entry to `.claude/improvement-loop/log.md`:
 
 Print a summary to stdout.
 
-`.claude/improvement-loop/log.md` is a **tracked file** (merge=union) — cloud routines run in ephemeral checkouts, so an uncommitted append is lost with the checkout. If the log (or any tracked `metrics/*` file, or `apps/marketing/public/sensor-report.json`, this run touched) has a diff, commit ONLY those paths on a branch and open a PR titled `chore(metrics): learning-loop <YYYY-MM-DD>` labeled `has-pr` (metrics-only diffs auto-merge via the low-risk fast path). `sensor-report.mjs` writes both `metrics/sensor-report.json` and `apps/marketing/public/sensor-report.json` in the same run (Step 1) — commit them together so the public AI-health page never drifts from the tracked copy. Skip when there is no diff.
+Then persist this run's state — cloud routines run in ephemeral checkouts, so an uncommitted append is lost with the checkout:
+
+```bash
+node scripts/persist-metrics.mjs --routine learning-loop
+```
+
+It stages every **durable** path with a diff, commits them on a branch, and opens a PR titled `chore(metrics): learning-loop <YYYY-MM-DD>` labeled `has-pr` (metrics-only diffs auto-merge via the low-risk fast path). It exits 0 without a commit when nothing changed.
+
+Do NOT enumerate paths by hand. Durability is declared once, as `durable: true` in `METRICS` (plus `DURABLE_OUTSIDE` / `EXTERNAL`) in `scripts/metrics-store.mjs`, and `durableManifest()` derives both the `.gitignore` negations and the list this script stages (#3645). An enumerated list drifts; a derived one cannot.
 
 ## Sensor Label Map
 

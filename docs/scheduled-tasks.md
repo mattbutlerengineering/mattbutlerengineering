@@ -352,11 +352,18 @@ new weekday schedule slot** (see Plan budget below).
   trend point and a dated log entry. If it flags a regression, file
   de-duplicated `ready` issues and trigger `mbe agent eval` asynchronously
   (never block this run on eval). Do not auto-merge or auto-edit any skill
-  prompts. Finish with its Step 6: if metrics/process-metrics.jsonl,
-  metrics/queue-telemetry.jsonl, or .claude/improvement-loop/log.md changed,
-  commit only those paths on a branch and open a PR titled
-  "chore(metrics): optimize-implement-queue <date>" labeled has-pr.
+  prompts. Finish with its Step 6: run
+  `node scripts/persist-metrics.mjs --routine optimize-implement-queue`,
+  which stages every durable metrics path with a diff, commits, and opens the
+  PR labeled has-pr. It exits 0 without a commit when nothing changed.
   ```
+
+  > Do **not** re-enumerate metrics paths in this prompt. The list is derived
+  > from `durableManifest()` in `scripts/metrics-store.mjs` (#3645) — adding
+  > `durable: true` to a metric is the only change needed for a new file to be
+  > persisted, and an enumerated prompt would silently drift out of date. The
+  > same applies to the `mbe-learning-loop` prompt, which runs
+  > `node scripts/persist-metrics.mjs --routine learning-loop`.
 
 > **[DONE 2026-07-30]** All of the below shipped as part of the post-migration
 > recreation. Since every `mbe-*` routine had to be created from scratch anyway
