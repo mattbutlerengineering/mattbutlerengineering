@@ -92,7 +92,19 @@ describe("the verification log lives under metrics/", () => {
       // "verifications.jsonl"). `git grep -l` exits 1 when nothing matches.
       hits = execFileSync(
         "git",
-        ["grep", "-l", "-e", "improvement-loop", "--and", "-e", "verifications", "--", "scripts"],
+        [
+          "grep",
+          "-l",
+          "-e",
+          "improvement-loop",
+          "--and",
+          "-e",
+          "verifications",
+          "--",
+          "scripts",
+          // This file names both terms on one line, in the grep args below.
+          ":(exclude)scripts/__tests__",
+        ],
         { cwd: ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
       ).trim();
     } catch (err) {

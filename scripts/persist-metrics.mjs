@@ -36,6 +36,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** A routine name is interpolated into a branch name — keep it a plain slug. */
 const ROUTINE_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
+/** Default output sink — one place, so tests can silence the whole script. */
+const emit = (msg) => process.stdout.write(`${msg}\n`);
+
 // ── Pure functions ────────────────────────────────────
 
 /**
@@ -146,7 +149,7 @@ export function persistMetrics({
   listChanged,
   runGit,
   runGh,
-  log = console.log,
+  log = emit,
 }) {
   assertRoutineName(routine);
 
@@ -209,8 +212,7 @@ function main() {
     );
 
   // A no-op run is a success, not a failure — most runs change nothing.
-  const announce = (argv) =>
-    console.log(`[persist-metrics] DRY RUN — would run: ${argv.join(" ")}`);
+  const announce = (argv) => emit(`[persist-metrics] DRY RUN — would run: ${argv.join(" ")}`);
 
   persistMetrics({
     routine,

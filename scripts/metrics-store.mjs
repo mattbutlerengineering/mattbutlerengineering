@@ -458,9 +458,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const current = readFileSync(gitignorePath, "utf-8");
   const next = applyDurableGitignoreBlock(current);
   if (next === current) {
-    console.log("[metrics-store] .gitignore durable block already up to date");
+    process.stdout.write("[metrics-store] .gitignore durable block already up to date\n");
   } else {
     writeFileSync(gitignorePath, next, "utf-8");
-    console.log("[metrics-store] Regenerated the .gitignore durable block");
+    process.stdout.write("[metrics-store] Regenerated the .gitignore durable block\n");
   }
 }
