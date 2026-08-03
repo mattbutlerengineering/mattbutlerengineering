@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-03T03:01:57.715Z",
+  "generatedAt": "2026-08-03T16:27:36.338Z",
   "patterns": {
     "magicTimeouts": {
       "count": 31,
@@ -10,7 +10,7 @@
       "description": "Empty catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 313,
+      "count": 319,
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
