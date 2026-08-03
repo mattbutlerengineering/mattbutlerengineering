@@ -149,7 +149,7 @@ mbe up                                           # Start dev servers
 
 Managed at https://claude.ai/code/scheduled. See [docs/scheduled-tasks.md](./docs/scheduled-tasks.md) for full schedule and prompts.
 
-**Key principle:** Trust live output. For any actionable decision (which issues to close, what to build next), re-run source-of-truth checks (e.g., `node scripts/acmm/audit.js`) instead of recalling earlier summaries from conversation history.
+**Key principle:** Trust live output. For any actionable decision (which issues to close, what to build next), re-run source-of-truth checks (e.g., `node plugins/acmm/scripts/audit.js`) instead of recalling earlier summaries from conversation history.
 
 ## Dispatching Worktree Agents
 
@@ -157,7 +157,7 @@ Worktrees are bare checkouts without `node_modules`. Always include `pnpm instal
 
 ## Feature Implementation
 
-Always use TDD (test-driven development) for feature work. Write tests FIRST, verify they fail, then implement. Never write implementation code before having a failing test. Use `/tdd` skill for the workflow.
+Always use TDD (test-driven development) for feature work: write one failing test (RED) → confirm it fails → write the minimal code to pass (GREEN) → confirm it passes → refactor. Never write implementation code before having a failing test. `/tdd` is a user-level-only skill (not in this repo, see the skills table above) — use it if installed locally, otherwise follow the steps above directly.
 
 ## Before Committing
 
@@ -197,5 +197,5 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 
 ## Cross-Session Memory & Knowledge Graph
 
-- **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. Install: `npx claude-mem install`.
+- **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. **Unavailable by default** — not installed in this repo or in fresh checkouts; run `npx claude-mem install` first to make these commands resolve.
 - **graphify** (`/graphify`): Knowledge graph from repo (or folder/PDF/image/video). Vendored at `.claude/skills/graphify/SKILL.md`, self-bootstraps `graphifyy` PyPI package (needs Python 3.10+). Graph artifacts in `graphify-out/` (gitignored). Use for concept-level subsystem maps, architecture audits, and tracing dependency paths.

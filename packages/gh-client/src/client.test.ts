@@ -19,7 +19,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "issue list --json number,title": JSON.stringify(items),
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       const result = client.issue.list(["--json", "number,title"]);
       expect(result).toEqual(items);
     });
@@ -29,7 +29,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "issue view 5 --json title": JSON.stringify(prData),
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       expect(client.issue.view(5, ["--json", "title"])).toEqual(prData);
     });
 
@@ -37,14 +37,14 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "issue create --title New issue --body Body": "https://github.com/owner/repo/issues/99",
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       const result = client.issue.create(["--title", "New issue", "--body", "Body"]);
       expect(result).toBe("https://github.com/owner/repo/issues/99");
     });
 
     it("issue.comment runs gh issue comment", () => {
       const runner = makeMockRunner({ "issue comment 7 --body hello": "" });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       client.issue.comment(7, "hello");
       expect(runner).toHaveBeenCalledWith("gh", ["issue", "comment", "7", "--body", "hello"], {
         encoding: "utf-8",
@@ -54,14 +54,14 @@ describe("createGhClient", () => {
 
     it("issue.reopen runs gh issue reopen", () => {
       const runner = makeMockRunner({ "issue reopen 3": "" });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       client.issue.reopen(3);
       expect(runner).toHaveBeenCalledWith("gh", ["issue", "reopen", "3"], expect.any(Object));
     });
 
     it("issue.close runs gh issue close with extra args", () => {
       const runner = makeMockRunner({ "issue close 9 --comment done": "" });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       client.issue.close(9, ["--comment", "done"]);
       expect(runner).toHaveBeenCalledWith(
         "gh",
@@ -77,7 +77,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "pr list --state all --json number,state": JSON.stringify(prs),
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       const result = client.pr.list(["--state", "all", "--json", "number,state"]);
       expect(result).toEqual(prs);
     });
@@ -87,7 +87,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "pr view 1 --json title": JSON.stringify(prData),
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       expect(client.pr.view(1, ["--json", "title"])).toEqual(prData);
     });
 
@@ -95,14 +95,14 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "pr create --title My PR --body Body": "https://github.com/owner/repo/pull/42",
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       const url = client.pr.create(["--title", "My PR", "--body", "Body"]);
       expect(url).toBe("https://github.com/owner/repo/pull/42");
     });
 
     it("pr.close runs gh pr close with extra args", () => {
       const runner = makeMockRunner({ "pr close 9 --comment done": "" });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       client.pr.close(9, ["--comment", "done"]);
       expect(runner).toHaveBeenCalledWith(
         "gh",
@@ -117,7 +117,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "issue edit 10 --add-label has-pr --remove-label in-progress --remove-label ready": "",
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       client.label.apply({ issueNumber: 10, add: ["has-pr"], remove: ["in-progress", "ready"] });
       expect(runner).toHaveBeenCalledWith(
         "gh",
@@ -138,7 +138,7 @@ describe("createGhClient", () => {
 
     it("label.apply handles add-only transition", () => {
       const runner = makeMockRunner({ "issue edit 2 --add-label ready": "" });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       client.label.apply({ issueNumber: 2, add: ["ready"], remove: [] });
       expect(runner).toHaveBeenCalledWith(
         "gh",
@@ -152,7 +152,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "label list --json name": JSON.stringify(labels),
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       const result = client.label.list(["--json", "name"]);
       expect(result).toEqual(labels);
     });
@@ -164,7 +164,7 @@ describe("createGhClient", () => {
       const runner = makeMockRunner({
         "run list --limit 10 --json status,conclusion": JSON.stringify(runs),
       });
-      const client = createGhClient({ runner });
+      const client = createGhClient({ probe: () => true, runner });
       expect(client.workflow.runs(["--limit", "10", "--json", "status,conclusion"])).toEqual(runs);
     });
   });
