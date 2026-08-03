@@ -4,15 +4,86 @@ import {
   formatSensorStatus,
   getSensorColor,
   formatPercent,
+  formatRatio,
   formatTimestamp,
 } from "../utils/formatters.js";
-import { normalizeSensorReport, type SensorReport } from "../data/ai-health.js";
+import {
+  normalizeSensorReport,
+  type SensorReport,
+  type QueueEfficiencyMetrics,
+} from "../data/ai-health.js";
 import styles from "./AiHealthPage.module.css";
 
 const PLACEHOLDER = "—";
 
 function formatCount(value: number | null): string {
   return value == null ? PLACEHOLDER : String(value);
+}
+
+function formatUsd(value: number | null): string {
+  return value == null ? PLACEHOLDER : `$${value.toFixed(2)}`;
+}
+
+function formatHours(value: number | null): string {
+  return value == null ? PLACEHOLDER : `${value}h`;
+}
+
+function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEfficiencyMetrics }) {
+  if (!queueEfficiency.available) {
+    return (
+      <div className={styles.sensorGrid}>
+        <div className={styles.sensorRow}>
+          <Text className={styles.sensorName}>queueEfficiency</Text>
+          <div className={styles.sensorBadge}>
+            <Badge color="red" size="sm">
+              Unavailable
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.statGrid}>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Composite Score</Text>
+          <Text className={styles.statValue}>
+            {queueEfficiency.composite == null ? PLACEHOLDER : queueEfficiency.composite.toFixed(2)}
+          </Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>First-Pass Success</Text>
+          <Text className={styles.statValue}>
+            {queueEfficiency.firstPassSuccessRate == null
+              ? PLACEHOLDER
+              : formatRatio(queueEfficiency.firstPassSuccessRate)}
+          </Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Cost / Issue</Text>
+          <Text className={styles.statValue}>{formatUsd(queueEfficiency.costPerIssue)}</Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Time to Merge</Text>
+          <Text className={styles.statValue}>
+            {formatHours(queueEfficiency.medianTimeToMergeHours)}
+          </Text>
+        </Card>
+      </div>
+      {queueEfficiency.distribution.length > 0 && (
+        <div className={styles.sensorGrid}>
+          {queueEfficiency.distribution.map(([tier, count]) => (
+            <div key={tier} className={styles.sensorRow}>
+              <Text className={styles.sensorName}>{tier}</Text>
+              <Text>{count}</Text>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
 }
 
 async function fetchSensorReport(signal: AbortSignal): Promise<SensorReport> {
@@ -97,6 +168,11 @@ export function AiHealthPage() {
             </Text>
           </Card>
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>Queue Efficiency</Heading>
+        <QueueEfficiencyPanel queueEfficiency={metrics.queueEfficiency} />
       </section>
 
       <section className={styles.section}>

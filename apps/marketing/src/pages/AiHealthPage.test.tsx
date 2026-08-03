@@ -60,19 +60,38 @@ function renderPage() {
   );
 }
 
+// Matches scripts/build-sensor-report.mjs's buildReport() output — the real
+// shape written to apps/marketing/public/sensor-report.json.
 const MOCK_REPORT = {
-  timestamp: "2026-05-09T05:48:08.683Z",
+  generated_at: "2026-05-09T05:48:08.683Z",
   sensors: {
-    acmm: { available: true, level: "6", score: 99, gaps: 1 },
-    ci: { available: true, passRate: 95, recentRuns: 10 },
-    prMetrics: { available: true, merged30d: 16 },
-    issues: { available: true, open: 14, ready: 3 },
-    lighthouse: { available: false, surfacesChecked: 0, surfacesTotal: 4, note: "needs first run" },
+    acmm: { available: true, level: 6, criteria_met: 99, criteria_total: 100 },
+    ciHealth: { available: true, pass_rate_pct: 95, completed: 10 },
+    prMetrics: { available: true, latest: { merged: 16 } },
+    issues: { available: true, created_7d: 20, closed_7d: 14, queue_depth: 3 },
+    lighthouse: { available: false, note: "needs first run" },
     sentry: { available: true, totalIssues: 0, errorCount: 0, note: "healthy" },
     agentCost: { available: true, sessions: 5 },
+    queueEfficiency: {
+      available: true,
+      composite: 0.95,
+      sub_metrics: {
+        issues_merged: 32,
+        first_pass_success_rate: 0.875,
+        median_time_to_merge_hours: 0.6,
+        median_rework_cycles: 0,
+        cost_per_issue_usd: 1.2,
+        review_coverage: 0.25,
+      },
+      distribution: {
+        "size:xs": { count: 12, avg_commits: 1.3, avg_ttm_hours: 2.4 },
+        "size:m": { count: 9, avg_commits: 1.6, avg_ttm_hours: 2.3 },
+      },
+      baseline: null,
+    },
   },
   regressions: [],
-  summary: { available: 6, total: 7 },
+  summary: { sensors_available: 7, sensors_total: 8, regressions_detected: 0, status: "healthy" },
 };
 
 describe("AiHealthPage", () => {
@@ -142,7 +161,7 @@ describe("AiHealthPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Sensor Status")).toBeInTheDocument();
       expect(screen.getByText("acmm")).toBeInTheDocument();
-      expect(screen.getByText("ci")).toBeInTheDocument();
+      expect(screen.getByText("ciHealth")).toBeInTheDocument();
       expect(screen.getByText("sentry")).toBeInTheDocument();
     });
   });
@@ -221,6 +240,41 @@ describe("AiHealthPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Active Regressions")).toBeInTheDocument();
       expect(screen.getByText("ciHealth.pass_rate_pct")).toBeInTheDocument();
+    });
+  });
+
+  describe("Queue Efficiency panel", () => {
+    it("renders composite score and sub-metrics when the sensor is available", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Queue Efficiency")).toBeInTheDocument();
+        expect(screen.getByText("0.95")).toBeInTheDocument();
+        expect(screen.getByText("87.5%")).toBeInTheDocument();
+        expect(screen.getByText("$1.20")).toBeInTheDocument();
+        expect(screen.getByText("0.6h")).toBeInTheDocument();
+      });
+    });
+
+    it("renders size-tier distribution counts", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("size:xs")).toBeInTheDocument();
+        expect(screen.getByText("12")).toBeInTheDocument();
+        expect(screen.getByText("size:m")).toBeInTheDocument();
+        expect(screen.getByText("9")).toBeInTheDocument();
+      });
+    });
+
+    it("renders a graceful not-available state when the sensor is missing", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Queue Efficiency")).toBeInTheDocument();
+        expect(screen.getByText("queueEfficiency")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Composite Score")).not.toBeInTheDocument();
     });
   });
 });
