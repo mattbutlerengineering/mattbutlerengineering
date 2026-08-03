@@ -66,6 +66,7 @@ export const METRICS = {
   "queue-telemetry": { file: "queue-telemetry.jsonl", format: "jsonl" },
   "review-burden": { file: "review-burden.json", format: "json-array" },
   "sensor-report": { file: "sensor-report.json", format: "json-object" },
+  "domain-metrics": { file: "domain-metrics.jsonl", format: "jsonl" },
   "a11y-history": { file: "a11y-history.jsonl", format: "jsonl" },
 };
 
@@ -80,9 +81,7 @@ export const METRICS = {
 function entryFor(name) {
   const entry = METRICS[name];
   if (!entry) {
-    throw new Error(
-      `Unknown metric "${name}" — add it to the metrics-store registry (METRICS).`
-    );
+    throw new Error(`Unknown metric "${name}" — add it to the metrics-store registry (METRICS).`);
   }
   return entry;
 }
