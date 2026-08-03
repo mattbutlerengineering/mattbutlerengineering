@@ -84,16 +84,52 @@ function regenFamily(family) {
 // Check mode
 // ---------------------------------------------------------------------------
 
+/**
+ * Real staleness check for one llms.txt/llms-full.txt package: delegates to
+ * `mbe pack <pkg> --check` (tools/cli/src/commands/pack.ts), which re-derives
+ * the expected skeleton/full output from source and compares. Unlike a
+ * `git diff` on the committed artifact, this catches an un-regenerated
+ * source edit (or deletion) even when nobody has run `pnpm regen` yet — the
+ * false negative this function replaces (#3635).
+ */
+function isLlmsPackageStale(pkg) {
+  const code = spawn("pnpm", ["--filter", "@mbe/cli", "start", "pack", pkg, "--check"], {
+    silent: true,
+  });
+  return code !== 0;
+}
+
 function runCheck() {
-  const stale = FAMILIES.filter((f) => !isClean(f.outputs));
-  if (stale.length === 0) {
+  const llmsFamily = FAMILIES.find((f) => f.id === "llms-txt");
+  const otherFamilies = FAMILIES.filter((f) => f.id !== "llms-txt");
+
+  // Non-llms families have no `--check` mode of their own, so this still
+  // relies on a git-diff staleness check: it only catches drift already
+  // materialised in the tree (e.g. the generator ran but the result wasn't
+  // committed), not an un-regenerated source edit. Acceptable here — each of
+  // these generators has a narrow, single-file source (a schema, design
+  // tokens, a dependency manifest) that in practice changes in the same
+  // commit as its output.
+  const staleOther = otherFamilies.filter((f) => !isClean(f.outputs));
+
+  // llms-txt: real source→output check per package (see isLlmsPackageStale).
+  const stalePackages = llmsFamily ? llmsPackages().filter(isLlmsPackageStale) : [];
+
+  if (staleOther.length === 0 && stalePackages.length === 0) {
     console.log("All generated artifacts are up to date.");
     process.exit(0);
+    return;
   }
-  console.error(`\nStale artifacts detected (${stale.length}):\n`);
-  for (const f of stale) {
+
+  const staleCount = staleOther.length + (stalePackages.length > 0 ? 1 : 0);
+  console.error(`\nStale artifacts detected (${staleCount}):\n`);
+  for (const f of staleOther) {
     console.error(`  [${f.id}]  ${f.label}`);
     console.error(`          fix: ${f.command}\n`);
+  }
+  if (stalePackages.length > 0 && llmsFamily) {
+    console.error(`  [${llmsFamily.id}]  ${llmsFamily.label} (${stalePackages.join(", ")})`);
+    console.error(`          fix: ${llmsFamily.command}\n`);
   }
   process.exit(1);
 }
@@ -123,9 +159,13 @@ function runRegen() {
 // Entry point
 // ---------------------------------------------------------------------------
 
-const checkMode = process.argv.includes("--check");
-if (checkMode) {
-  runCheck();
-} else {
-  runRegen();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const checkMode = process.argv.includes("--check");
+  if (checkMode) {
+    runCheck();
+  } else {
+    runRegen();
+  }
 }
+
+export { runCheck, runRegen, isClean };
