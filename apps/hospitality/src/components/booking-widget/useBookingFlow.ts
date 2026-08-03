@@ -1,5 +1,11 @@
 import { useReducer, useCallback, useEffect } from "react";
-import type { TimeSlot, ReservationHold, Reservation, DepositConfig } from "@mbe/types";
+import type {
+  TimeSlot,
+  ReservationHold,
+  Reservation,
+  DepositConfig,
+  PublicVenueConfig,
+} from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import type { GuestDetails } from "./GuestDetailsForm.js";
 import {
@@ -47,6 +53,13 @@ export interface BookingFlowData {
   depositRequired: boolean;
   depositPaymentIntentId: string | null;
   waitlistResult: WaitlistResult | null;
+  /**
+   * The venue's full public config (name + ianaTimezone, among other fields),
+   * fetched once alongside the deposit config when `venueSlug` is present.
+   * Threaded down to `ConfirmationView` for the "Add to calendar" actions —
+   * null until the fetch resolves, or if `venueSlug` was never provided.
+   */
+  venueConfig: PublicVenueConfig | null;
 }
 
 interface BookingFlowState {
@@ -74,6 +87,7 @@ type BookingFlowAction =
   | { type: "EXPIRE_HOLD" }
   | { type: "RESET" }
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null }
+  | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "GO_TO_WAITLIST_JOIN" }
   | { type: "WAITLIST_JOINED"; result: WaitlistResult };
 
@@ -95,6 +109,7 @@ const INITIAL_DATA: BookingFlowData = {
   depositRequired: false,
   depositPaymentIntentId: null,
   waitlistResult: null,
+  venueConfig: null,
 };
 
 const INITIAL_STATE: BookingFlowState = {
@@ -264,6 +279,12 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         },
       };
 
+    case "SET_VENUE_CONFIG":
+      return {
+        ...state,
+        data: { ...state.data, venueConfig: action.config },
+      };
+
     case "GO_TO_WAITLIST_JOIN":
       return { ...state, step: "waitlist-join" };
 
@@ -386,6 +407,10 @@ export function useBookingFlow({
     const fetchDepositConfig = async () => {
       try {
         const venueConfig = await api.venues.getPublicConfig(venueSlug);
+        // Stored in full (not just the deposit portion) so ConfirmationView
+        // can thread name/ianaTimezone through for "Add to calendar" — set
+        // unconditionally, unlike the deposit config below.
+        dispatch({ type: "SET_VENUE_CONFIG", config: venueConfig });
         // Gate on whether a deposit was ever configured (amountCents
         // present), not on the venue's general `.enabled` flag — a venue
         // that configured then disabled its general policy must still

@@ -143,6 +143,7 @@ describe("useBookingFlow", () => {
       expect(data.reservation).toBeNull();
       expect(data.depositConfig).toBeNull();
       expect(data.depositPaymentIntentId).toBeNull();
+      expect(data.venueConfig).toBeNull();
     });
 
     it("has no loading or error state initially", () => {
@@ -419,6 +420,17 @@ describe("useBookingFlow", () => {
 
       await waitFor(() => expect(fakeApi.venues.getPublicConfig).toHaveBeenCalled());
       expect(result.current.data.depositConfig).toBeNull();
+    });
+
+    it("stores the venue's full public config on data.venueConfig, even when no deposit was ever configured", async () => {
+      const fakeApi = makeFakeApi();
+      const venueConfig = makePublicVenueConfig();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(venueConfig);
+
+      const { result } = renderBookingFlow(fakeApi, { venueSlug: "the-oak-table" });
+
+      await waitFor(() => expect(result.current.data.venueConfig).not.toBeNull());
+      expect(result.current.data.venueConfig).toEqual(venueConfig);
     });
   });
 
