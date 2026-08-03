@@ -141,3 +141,13 @@ None (`agent-skip` count is 0).
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
+## 2026-08-03
+
+**Sensors:** 5/15 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — ciHealth, lighthouse, issues, issueFeedback, prCategoryMetrics, agentCost, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 95/114, code churn 0.1%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (MCP server disconnected mid-run)
+**Skill proposals:** 0 (Monday — Friday-only)
+**Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on its `gh` query ("Failed to query GitHub issues") — same pre-existing `gh`-CLI-unavailable gap noted 2026-06-20 through 2026-08-02, already tracked by #3689, not re-filing. `verifications.jsonl` still doesn't exist, so false-positive/fix-effectiveness rates remain non-computable.
+**Data-integrity note:** `sensor-report.mjs`'s first run in this fresh checkout collapsed `apps/marketing/public/sensor-report.json` from 11/15 sensors (rich CI/lighthouse/issues/queue-efficiency history) down to 5/15 with near-empty placeholders — an artifact of this session's checkout having no `gh` binary and an empty local `ccusage` history, not a real regression. Reverted that diff instead of committing it, to avoid clobbering the public AI-health page with sandbox-degraded data. Only this log entry is committed this run.
