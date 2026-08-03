@@ -128,6 +128,50 @@ describe("pack command", () => {
       const errOutput = errorSpy.mock.calls.flat().join("\n");
       expect(errOutput).toContain("does not exist");
     });
+
+    // With no .ts files (glob mocked to []), the generated skeleton and full
+    // output are both just the empty `<codebase>` wrapper for the target
+    // path, so this exact string is what a clean llms.txt must contain.
+    const CLEAN_SKELETON = '<codebase path="services/users">\n</codebase>\n';
+
+    it("check mode passes when both llms.txt and llms-full.txt are in sync", async () => {
+      mockExistsSync.mockImplementation(() => true);
+      mockReadFileSync.mockReturnValue(CLEAN_SKELETON as never);
+
+      await runPack(["services/users", "--check"]);
+
+      expect(exitSpy).not.toHaveBeenCalledWith(1);
+      const output = logSpy.mock.calls.flat().join("\n");
+      expect(output).toContain("is in sync");
+    });
+
+    it("check mode catches a drifted llms-full.txt even when llms.txt is clean", async () => {
+      mockExistsSync.mockImplementation(() => true);
+      mockReadFileSync.mockImplementation((p: unknown) => {
+        const path = String(p);
+        if (path.endsWith("llms-full.txt")) return "stale full bundle content" as never;
+        return CLEAN_SKELETON as never;
+      });
+
+      await runPack(["services/users", "--check"]);
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errOutput = errorSpy.mock.calls.flat().join("\n");
+      expect(errOutput).toContain("llms-full.txt");
+      expect(errOutput).toContain("out of sync");
+    });
+
+    it("exits in check mode when llms-full.txt is missing but llms.txt is clean", async () => {
+      mockExistsSync.mockImplementation((p: unknown) => !String(p).endsWith("llms-full.txt"));
+      mockReadFileSync.mockReturnValue(CLEAN_SKELETON as never);
+
+      await runPack(["services/users", "--check"]);
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errOutput = errorSpy.mock.calls.flat().join("\n");
+      expect(errOutput).toContain("llms-full.txt");
+      expect(errOutput).toContain("does not exist");
+    });
   });
 
   describe("pack-changed", () => {
