@@ -215,6 +215,86 @@ describe("sensors-registry", () => {
     });
   });
 
+  describe("domainActivity sensor", () => {
+    let tmpDir;
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    // Exact row shape written by collect-domain-metrics.mjs (#3666).
+    const row = (overrides = {}) => ({
+      collected_at: "2026-08-03T12:00:00.000Z",
+      date: "2026-08-03",
+      venueId: "venue-1",
+      reservations: { pending: 2, confirmed: 5, cancelled: 1, completed: 3, noShow: 1 },
+      deposits: { held: 4, applied: 2, refunded: 1, forfeited: 0 },
+      ...overrides,
+    });
+
+    it("reports the latest entry's reservation and deposit counts", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "domain-activity-sensor-"));
+      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+      const rows = [row({ date: "2026-08-02" }), row({ date: "2026-08-03" })];
+      writeFileSync(
+        join(tmpDir, "metrics", "domain-metrics.jsonl"),
+        rows.map((r) => JSON.stringify(r)).join("\n") + "\n"
+      );
+
+      const sensor = SENSORS.find((s) => s.id === "domainActivity");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({
+        available: true,
+        date: "2026-08-03",
+        venueId: "venue-1",
+        reservations_created: 12,
+        reservations_cancelled: 1,
+        reservations_completed: 3,
+        reservations_no_show: 1,
+        deposits_held: 4,
+        deposits_applied: 2,
+        deposits_refunded: 1,
+        deposits_forfeited: 0,
+      });
+    });
+
+    it("returns { available: false } when metrics/domain-metrics.jsonl does not exist", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "domain-activity-sensor-"));
+
+      const sensor = SENSORS.find((s) => s.id === "domainActivity");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({ available: false });
+    });
+
+    it("formats a CLI display line from the collected data", () => {
+      const sensor = SENSORS.find((s) => s.id === "domainActivity");
+      const line = sensor.format(
+        {
+          available: true,
+          date: "2026-08-03",
+          venueId: "venue-1",
+          reservations_created: 12,
+          reservations_cancelled: 1,
+          reservations_completed: 3,
+          reservations_no_show: 1,
+          deposits_held: 4,
+          deposits_applied: 2,
+          deposits_refunded: 1,
+          deposits_forfeited: 0,
+        },
+        "domainActivity"
+      );
+
+      expect(line).toContain("12 created");
+      expect(line).toContain("1 cancelled");
+      expect(line).toContain("3 completed");
+      expect(line).toContain("1 no-show");
+      expect(line).toContain("2026-08-03");
+    });
+  });
+
   describe('collectors use the injected ghClient, not raw execFileSync("gh")', () => {
     it("prCategoryMetrics collects PRs via ghClient.pr.list", () => {
       const prs = [
@@ -632,10 +712,7 @@ describe("sensors-registry", () => {
       const repoRoot = resolve(__dirname, "..", "..");
       const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
       try {
-        const result = resolveRunChangedPaths(
-          "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-          repoRoot
-        );
+        const result = resolveRunChangedPaths("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", repoRoot);
         expect(result).toBeNull();
         const spewed = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
         expect(spewed).not.toContain("bad object");

@@ -303,6 +303,45 @@ export const SENSORS = [
     format: (data, name) => `${name}: ${data.entry_count} entries`,
   },
   {
+    id: "domainActivity",
+    category: "quality",
+    collect: ({ root }) => {
+      const rows = safe(() => read("domain-metrics", { root }));
+      if (!Array.isArray(rows) || rows.length === 0) return { available: false };
+
+      const latest = rows[rows.length - 1];
+      const reservations = latest.reservations ?? {};
+      const deposits = latest.deposits ?? {};
+      // "Created" = every reservation that existed for the venue that day,
+      // regardless of where it ended up in the funnel (pending/confirmed
+      // are still "created", just not yet resolved to cancelled/completed/no-show).
+      const created =
+        (reservations.pending ?? 0) +
+        (reservations.confirmed ?? 0) +
+        (reservations.cancelled ?? 0) +
+        (reservations.completed ?? 0) +
+        (reservations.noShow ?? 0);
+
+      return {
+        available: true,
+        date: latest.date ?? null,
+        venueId: latest.venueId ?? null,
+        reservations_created: created,
+        reservations_cancelled: reservations.cancelled ?? 0,
+        reservations_completed: reservations.completed ?? 0,
+        reservations_no_show: reservations.noShow ?? 0,
+        deposits_held: deposits.held ?? 0,
+        deposits_applied: deposits.applied ?? 0,
+        deposits_refunded: deposits.refunded ?? 0,
+        deposits_forfeited: deposits.forfeited ?? 0,
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.reservations_created} created, ${data.reservations_cancelled} cancelled, ` +
+      `${data.reservations_completed} completed, ${data.reservations_no_show} no-show, ` +
+      `deposits held/applied/refunded/forfeited ${data.deposits_held}/${data.deposits_applied}/${data.deposits_refunded}/${data.deposits_forfeited} (${data.date ?? "unknown date"})`,
+  },
+  {
     id: "prCategoryMetrics",
     category: "quality",
     collect: ({ ghClient }) => {
@@ -660,9 +699,7 @@ export const SENSORS = [
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
       // head SHA not in the local object store — see resolveRunChangedPaths.
-      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) =>
-        resolveRunChangedPaths(sha, root)
-      );
+      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) => resolveRunChangedPaths(sha, root));
       if (unresolved > 0) {
         console.warn(
           `[e2eStability] ${unresolved} CI run head SHA(s) not in the local git object store ` +
