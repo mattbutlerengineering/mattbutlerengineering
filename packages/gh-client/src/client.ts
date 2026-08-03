@@ -70,6 +70,10 @@ export function createGhClient(opts: GhClientOptions = {}) {
     create(args: string[]): string {
       return run("gh", ["pr", "create", ...args]);
     },
+
+    close(number: number, args: string[] = []): void {
+      run("gh", ["pr", "close", String(number), ...args]);
+    },
   };
 
   const label = {

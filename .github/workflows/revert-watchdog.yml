@@ -5,6 +5,10 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
+  # Manual escape hatch for the close-stale-reverts job (#3691), mirroring
+  # drift-fix.yml's pattern — lets a human/agent run the stale-revert-PR
+  # check on demand instead of waiting for the next CI-success event.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -87,20 +91,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
-        run: node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR"
+        run: |
+          URL=$(node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR")
+          echo "$URL"
+          echo "issue_number=$(echo "$URL" | grep -oE '[0-9]+$')" >> "$GITHUB_OUTPUT"
 
       # Backstop: a transient install/build flake in the node path above must
       # not mean "no issue filed" for a real broken-main event. Title format
       # is byte-identical to buildBrokenMainTitle() in revert-watchdog.mjs so
       # selectIssuesToClose()'s regex still matches it for auto-close.
       - name: Fallback - file broken-main issue via gh CLI
+        id: create_issue_fallback
         if: ${{ steps.baseline.outputs.skip != 'true' && steps.create_issue.outcome == 'failure' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
         run: |
-          gh issue create \
+          URL=$(gh issue create \
             --title "🚨 CRITICAL: Broken Main at commit $SHA" \
             --body "The main branch CI is currently FAILING.
 
@@ -111,7 +119,9 @@ jobs:
           _(filed by the gh-CLI fallback — the node issue-filer step failed, see job logs)_" \
             --label "ci-fix" \
             --label "ready" \
-            --label "priority:critical"
+            --label "priority:critical")
+          echo "$URL"
+          echo "issue_number=$(echo "$URL" | grep -oE '[0-9]+$')" >> "$GITHUB_OUTPUT"
 
       - name: Propose Revert PR
         if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.revert == 'true' }}
@@ -119,6 +129,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
+          # The broken-main issue this revert is opened for (#3691) — filed by
+          # whichever of the two prior steps ran. Its number is embedded in
+          # the PR body below so the close-stale-reverts job can later parse
+          # it back out and auto-close this PR once that issue closes.
+          ISSUE_NUMBER: ${{ steps.create_issue.outputs.issue_number || steps.create_issue_fallback.outputs.issue_number }}
         run: |
           BRANCH="revert-broken-main-$SHA"
           git config user.name "github-actions[bot]"
@@ -128,9 +143,11 @@ jobs:
           git revert --no-edit HEAD
           git push origin "$BRANCH"
 
+          BODY=$(node scripts/revert-watchdog.mjs revert-pr-body --pr "$PR" --issue "$ISSUE_NUMBER")
+
           gh pr create \
             --title "revert: #$PR (fixes broken main)" \
-            --body "Automatically proposed revert of #$PR due to CI failure on main." \
+            --body "$BODY" \
             --label "priority:critical" \
             --base main \
             --head "$BRANCH"
@@ -174,3 +191,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: node scripts/revert-watchdog.mjs close-recovered --sha "$SHA"
+
+  # Revert PR lifecycle (#3691): a revert PR asserts the repo is broken. When
+  # main is fixed forward instead (the common case — 4 opened, 0 merged in
+  # the 2026-07-27 → 2026-08-02 window), nothing ever told the revert PR. It
+  # sat open as a stale false signal (#3559 for 2.5 days). Runs on the same
+  # green-main event as on-success above, plus workflow_dispatch so it can be
+  # run on demand rather than only after the next CI success.
+  close-stale-reverts:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build CLI and its dependencies
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Close stale revert PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          if [ -z "$SHA" ]; then
+            # workflow_dispatch has no workflow_run context — use the
+            # checked-out ref's HEAD (main by default).
+            SHA=$(git rev-parse HEAD)
+          fi
+          node scripts/revert-watchdog.mjs close-stale-reverts --sha "$SHA"
