@@ -98,12 +98,6 @@ jobs:
           TOTAL_COUNT: ${{ steps.gather.outputs.total_count }}
           REPORT: ${{ steps.gather.outputs.report }}
         run: |
-          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "reflection-review" --json title --jq "[.[] | select(.title | contains(\"$MONTH\"))] | length")
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Review issue for $MONTH already exists -- skipping."
-            exit 0
-          fi
-
           {
             echo "## Monthly Reflection Review: ${MONTH}"
             echo
@@ -138,9 +132,11 @@ jobs:
             echo "*Auto-created by reflection-review workflow (monthly)*"
           } > /tmp/review-body.md
 
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "chore: monthly reflection review (${MONTH})" \
             --label "reflection-review" \
             --label "acmm" \
-            --body-file /tmp/review-body.md
+            --body-file /tmp/review-body.md \
+            --dedupe-key "reflection-review-${MONTH}" \
+            --search-label "reflection-review" \
+            --contains "${MONTH}"

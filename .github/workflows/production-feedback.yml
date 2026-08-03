@@ -180,12 +180,6 @@ jobs:
           TIMESTAMP: ${{ steps.health.outputs.timestamp }}
           RESULTS: ${{ steps.health.outputs.results }}
         run: |
-          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "production-health" --json number --jq 'length')
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Production health issue already open -- skipping."
-            exit 0
-          fi
-
           {
             echo "## Production Health Degraded"
             echo
@@ -209,10 +203,11 @@ jobs:
             echo "*Auto-created by production-feedback workflow*"
           } > /tmp/health-body.md
 
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "Production health degraded: ${DEGRADED}" \
             --label "production-health" \
             --label "ci-fix" \
             --label "ready" \
-            --body-file /tmp/health-body.md
+            --body-file /tmp/health-body.md \
+            --dedupe-key "production-health-degraded" \
+            --search-label "production-health"

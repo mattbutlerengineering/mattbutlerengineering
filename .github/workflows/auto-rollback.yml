@@ -249,10 +249,11 @@ jobs:
             echo "Revert PR created for agent commit ${SHORT_SHA}"
           else
             echo "Could not cleanly revert ${SHORT_SHA} — manual intervention needed"
-            gh issue create \
+            node scripts/lib/file-issue-cli.mjs \
               --title "Manual rollback needed: agent commit ${SHORT_SHA} caused regression" \
               --body "Post-deploy checks failed after agent commit \`${COMMIT_SHA}\` but automatic revert failed (merge conflict). Manual intervention required." \
-              --label "agent-regression,urgent"
+              --label "agent-regression,urgent" \
+              --dedupe-key "manual-rollback-${SHORT_SHA}"
           fi
 
       - name: Skip non-agent or opted-out failures
@@ -280,13 +281,6 @@ jobs:
           today=$(date -u +%Y-%m-%d)
           title="[URGENT] Auto-rollback failed [${today}]"
 
-          # Dedup: skip if an open issue with the same title already exists.
-          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            echo "Issue #$existing already open for today; skipping."
-            exit 0
-          fi
-
           printf '%s\n' \
             "## Auto-rollback workflow failed" \
             "" \
@@ -304,8 +298,11 @@ jobs:
             "3. The \`ci-fix\` label will trigger \`mbe-issue-worker\` to attempt an auto-fix" \
             > /tmp/rollback-failure-body.md
 
-          gh issue create \
+          node scripts/lib/file-issue-cli.mjs \
             --title "$title" \
             --body-file /tmp/rollback-failure-body.md \
             --label ci-fix \
-            --label audit
+            --label audit \
+            --dedupe-key "auto-rollback-failure-${today}" \
+            --search-label ci-fix \
+            --search-text "$title"

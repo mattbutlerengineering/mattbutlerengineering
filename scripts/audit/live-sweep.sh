@@ -33,25 +33,33 @@ SURFACES=(
 )
 
 # create_issue <title> <search-phrase> <body> <label>...
-# Dedups against open `audit` issues via the search phrase and honours MAX_ISSUES.
+# Dedups against open `audit` issues via the search phrase and honours
+# MAX_ISSUES. The dedup/create decision itself is delegated to the shared
+# `fileIssue()` module (#3672) via its CLI wrapper (#3675) — this function
+# just owns the MAX_ISSUES cap and the ::notice::/::warning:: messaging.
 create_issue() {
   local title="$1" search="$2" body="$3"; shift 3
   if [ "$created" -ge "$MAX_ISSUES" ]; then
     echo "::notice::MAX_ISSUES ($MAX_ISSUES) reached — skipping: $title"
     return
   fi
-  local existing
-  existing=$(gh issue list --label audit --state open --search "$search" --json number --jq 'length' 2>/dev/null || echo 0)
-  if [ "${existing:-0}" -gt 0 ]; then
-    echo "::notice::Duplicate open audit issue exists — skipping: $title"
-    return
-  fi
   local label_args=()
   local l
   for l in "$@"; do label_args+=(--label "$l"); done
-  if gh issue create --title "$title" --body "$body" "${label_args[@]}" >/dev/null 2>&1; then
-    created=$((created + 1))
-    echo "::notice::Filed audit issue: $title"
+  local result
+  if result=$(node scripts/lib/file-issue-cli.mjs \
+    --title "$title" \
+    --body "$body" \
+    "${label_args[@]}" \
+    --dedupe-key "live-sweep-$search" \
+    --search-label audit \
+    --search-text "$search" 2>/dev/null); then
+    if [ "$(echo "$result" | jq -r '.action')" = "create" ]; then
+      created=$((created + 1))
+      echo "::notice::Filed audit issue: $title"
+    else
+      echo "::notice::Duplicate open audit issue exists — skipping: $title"
+    fi
   else
     echo "::warning::Failed to file audit issue: $title"
   fi

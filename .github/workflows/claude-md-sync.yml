@@ -129,12 +129,6 @@ jobs:
           DRIFT: ${{ steps.drift.outputs.drift }}
           SINCE: ${{ steps.scan.outputs.since }}
         run: |
-          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "claude-md-sync" --json number --jq 'length')
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Sync issue already open -- skipping."
-            exit 0
-          fi
-
           {
             echo "## CLAUDE.md Sync Report"
             echo
@@ -160,10 +154,11 @@ jobs:
             echo "*Auto-created by claude-md-sync workflow*"
           } > /tmp/sync-body.md
 
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "chore: sync CLAUDE.md with recent reflections" \
             --label "claude-md-sync" \
             --label "acmm" \
             --label "ready" \
-            --body-file /tmp/sync-body.md
+            --body-file /tmp/sync-body.md \
+            --dedupe-key "claude-md-sync" \
+            --search-label "claude-md-sync"

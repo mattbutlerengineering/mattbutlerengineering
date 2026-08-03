@@ -86,20 +86,11 @@ jobs:
                 echo "Found AI-authored revert: PR #$PR_NUM"
                 FOUND_AI_REVERTS=true
 
-                # Check for existing RCA issue
-                EXISTING=$(gh issue list \
-                  --search "RCA for #$PR_NUM" \
-                  --state open \
-                  --label "revert-rca" \
-                  --json number \
-                  --jq "length" 2>/dev/null || echo "0")
+                TITLE="RCA: PR #$PR_NUM was reverted"
+                DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                PR_SUMMARY=$(echo "$PR_BODY" | head -200)
 
-                if [ "$EXISTING" -eq 0 ]; then
-                  TITLE="RCA: PR #$PR_NUM was reverted"
-                  DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-                  PR_SUMMARY=$(echo "$PR_BODY" | head -200)
-
-                  cat > /tmp/rca-body.md <<RCAEOF
+                cat > /tmp/rca-body.md <<RCAEOF
           ## Revert Details
 
           | Field | Value |
@@ -136,11 +127,13 @@ jobs:
           *Auto-created by revert-rca-detection workflow*
           RCAEOF
 
-                  gh issue create \
-                    --title "$TITLE" \
-                    --label "acmm" \
-                    --body-file /tmp/rca-body.md || echo "Failed to create RCA issue for #$PR_NUM"
-                fi
+                node scripts/lib/file-issue-cli.mjs \
+                  --title "$TITLE" \
+                  --label "acmm" \
+                  --body-file /tmp/rca-body.md \
+                  --dedupe-key "revert-rca-$PR_NUM" \
+                  --search-label "revert-rca" \
+                  --search-text "RCA for #$PR_NUM" || echo "Failed to create RCA issue for #$PR_NUM"
               fi
             done
           fi
@@ -193,11 +186,12 @@ jobs:
             sed -i "s/^          //" /tmp/escalation-body.md
             sed -i "1s/^/Revert count: ${REVERT_COUNT}\/week\n\n/" /tmp/escalation-body.md
 
-            gh issue create \
+            node scripts/lib/file-issue-cli.mjs \
               --title "[Meta] Elevated revert rate: $REVERT_COUNT/week" \
               --label "meta-improvement" \
               --label "acmm" \
-              --body-file /tmp/escalation-body.md || echo "Could not create escalation issue (may already exist)"
+              --body-file /tmp/escalation-body.md \
+              --dedupe-key "revert-rca-elevated-rate-$(date -u +%Y-%m-%d)" || echo "Could not create escalation issue"
           fi
 
       - name: Commit state updates

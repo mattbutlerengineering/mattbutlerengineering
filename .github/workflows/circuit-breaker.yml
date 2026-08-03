@@ -117,22 +117,24 @@ jobs:
           git commit -m "ci(circuit-breaker): persist state [skip ci]"
           git push origin HEAD:circuit-breaker-state
 
+      # The main checkout above is a sparse, non-cone checkout pinned to the
+      # orphaned `circuit-breaker-state` ref (state-persistence only — it
+      # never merges from main, so it can't be relied on to carry an
+      # up-to-date scripts/lib). Fetch the issue-filing CLI separately, into
+      # its own path, from the ref that actually triggered this run.
+      - name: Checkout issue-filing module
+        if: steps.analyze.outputs.blocked == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          sparse-checkout: |
+            scripts/lib/file-issue-cli.mjs
+            scripts/lib/issue-filing.mjs
+          sparse-checkout-cone-mode: false
+          path: _issue-filing
+
       - name: Create issue on circuit trip (dedup)
         if: steps.analyze.outputs.blocked == 'true'
         run: |
-          EXISTING=$(gh issue list \
-            --label "ci-fix,blocking" \
-            --search "Circuit breaker tripped" \
-            --state open \
-            --limit 1 \
-            --json number \
-            --jq '.[0].number // empty')
-
-          if [ -n "$EXISTING" ]; then
-            echo "Open circuit breaker issue already exists: #$EXISTING — skipping"
-            exit 0
-          fi
-
           {
             echo "The deploy circuit breaker has tripped after 2+ consecutive failures."
             echo
@@ -144,10 +146,13 @@ jobs:
             echo "gh workflow run circuit-breaker.yml -f force=true"
             echo '```'
           } > /tmp/circuit-body.md
-          gh issue create \
+          node _issue-filing/scripts/lib/file-issue-cli.mjs \
             --title "Circuit breaker tripped - deploys blocked" \
             --label "ci-fix,blocking" \
-            --body-file /tmp/circuit-body.md
+            --body-file /tmp/circuit-body.md \
+            --dedupe-key "circuit-breaker-tripped" \
+            --search-label "ci-fix,blocking" \
+            --search-text "Circuit breaker tripped"
 
   block-deploy:
     needs: [circuit-breaker]

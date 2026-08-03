@@ -103,9 +103,9 @@ jobs:
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
         run: |
-          URL=$(node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR")
-          echo "$URL"
-          echo "issue_number=$(echo "$URL" | grep -oE '[0-9]+$')" >> "$GITHUB_OUTPUT"
+          RESULT=$(node scripts/revert-watchdog.mjs create-issue --sha "$SHA" --pr "$PR")
+          echo "$RESULT"
+          echo "issue_number=$(echo "$RESULT" | jq -r '.issueNumber')" >> "$GITHUB_OUTPUT"
 
       # Backstop: a transient install/build flake in the node path above must
       # not mean "no issue filed" for a real broken-main event. Title format

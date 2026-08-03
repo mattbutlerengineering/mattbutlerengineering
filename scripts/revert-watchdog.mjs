@@ -43,6 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
+import { fileIssue } from "./lib/issue-filing.mjs";
 
 /** Pure: builds the original watchdog issue title (format unchanged, #2958). */
 export function buildBrokenMainTitle(sha) {
@@ -91,6 +92,22 @@ export function extractCulpritSha(issue) {
 /** Pure: comment posted when auto-closing a recovered watchdog issue. */
 export function buildRecoveryComment(greenSha) {
   return `Main has recovered — commit ${greenSha} passed CI and is a descendant of the culprit commit. Auto-closing.`;
+}
+
+/**
+ * Pure: finds a prior broken-main issue for `sha` among candidate issues
+ * (any state — open or closed), by extracting each candidate's culprit SHA
+ * from its title and matching it against `sha`. Feeds `fileIssue()`'s
+ * dedupe-by-ledger decision (#3675): a match lets a rerun for the same
+ * culprit commit skip or reopen instead of filing a duplicate.
+ *
+ * @param {Array<{number: number, title: string}>} candidates
+ * @param {string} sha
+ * @returns {number | null}
+ */
+export function findPriorBrokenMainIssue(candidates, sha) {
+  const match = (candidates ?? []).find((issue) => extractCulpritSha(issue) === sha);
+  return match ? match.number : null;
 }
 
 /**
@@ -491,6 +508,30 @@ function readFlag(args, name) {
   return idx !== -1 ? args[idx + 1] : null;
 }
 
+/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+function getIssueStateViaGhClient(ghClient, issueNumber) {
+  try {
+    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
+  } catch {
+    return "missing";
+  }
+}
+
+/** Parses the issue number out of the URL `gh issue create` prints on success. */
+function parseIssueNumberFromUrl(url) {
+  const match = url.match(/\/issues\/(\d+)\s*$/);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
+  return parseInt(match[1], 10);
+}
+
+/**
+ * Files (or dedupes against) the broken-main issue for `sha`. Searches for a
+ * prior issue across both states — label `priority:critical`, the same
+ * label `closeRecovered()` searches on — so a rerun for the same culprit
+ * commit skips (still open) or reopens (previously closed) instead of
+ * filing a duplicate (#3675; previously unconditional `gh issue create`).
+ */
 function createIssue(ghClient, args) {
   const sha = readFlag(args, "--sha");
   const pr = readFlag(args, "--pr") ?? "";
@@ -502,8 +543,34 @@ function createIssue(ghClient, args) {
 
   const title = buildBrokenMainTitle(sha);
   const body = buildBrokenMainBody(sha, pr);
-  const url = ghClient.issue.create(buildBrokenMainCreateArgs(title, body));
-  console.log(url);
+  const labels = ["ci-fix", COORDINATION_LABELS.READY, "priority:critical"];
+
+  // A failed search must not swallow a genuine broken-main alert — fail
+  // open (treat as "no prior found", file the issue) rather than closed.
+  let candidates = [];
+  try {
+    candidates = ghClient.issue.list([
+      "--label",
+      "priority:critical",
+      "--state",
+      "all",
+      "--json",
+      "number,title",
+    ]);
+  } catch (err) {
+    console.error(`[revert-watchdog] search failed, proceeding as no-match: ${err.message}`);
+  }
+  const priorNumber = findPriorBrokenMainIssue(candidates, sha);
+  const ledger = priorNumber !== null ? { [sha]: priorNumber } : {};
+
+  const result = fileIssue({ title, body, labels, dedupeKey: sha }, ledger, {
+    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    createIssue: () =>
+      parseIssueNumberFromUrl(ghClient.issue.create(buildBrokenMainCreateArgs(title, body))),
+    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+  });
+
+  console.log(JSON.stringify({ action: result.action, issueNumber: result.issueNumber }));
 }
 
 async function closeRecovered(ghClient, args) {
