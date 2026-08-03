@@ -86,7 +86,7 @@ export const METRICS = {
   // in a merge=union directory is a conflict magnet and carries no trend. The
   // history the tuner actually reads backwards is sensor-report-history.
   "sensor-report": { file: "sensor-report.json", format: "json-object" },
-  "domain-metrics": { file: "domain-metrics.jsonl", format: "jsonl" },
+  "domain-metrics": { file: "domain-metrics.jsonl", format: "jsonl", durable: true },
   "sensor-report-history": { file: "sensor-report.jsonl", format: "jsonl", durable: true },
   "a11y-history": { file: "a11y-history.jsonl", format: "jsonl", durable: true },
   verifications: { file: "verifications.jsonl", format: "jsonl", durable: true },
