@@ -183,6 +183,13 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    gh pr diff <N> --name-only  # → changedFiles for ReviewInput
    ```
 
+   **Truncate before dispatch.** If `diff` exceeds 40,000 characters, clip it to the
+   first 40,000 and append `\n\n... (diff truncated)`. If `verificationOutput` exceeds
+   10,000 characters, clip it to the first 10,000 and append `\n... (truncated)`. These
+   are the exact marker strings `.claude/agents/reviewer.md` tells the reviewer to look
+   for — on seeing one, it reads the missing region from disk via Read/Grep instead of
+   guessing.
+
    Dispatch via Agent tool with `subagent_type: "reviewer"`, `isolation: "none"`,
    model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
 
