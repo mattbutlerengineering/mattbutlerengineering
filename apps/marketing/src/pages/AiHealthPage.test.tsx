@@ -11,7 +11,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: any) => <h2>{children}</h2>,
   Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Spinner: ({ size }: any) => <div data-testid="spinner" data-size={size} />,
-  Alert: ({ children, variant, title, className }: any) => (
+  Alert: ({
+    children,
+    variant,
+    title,
+    className,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+    title?: string;
+    className?: string;
+  }) => (
     <div role="alert" data-variant={variant} className={className}>
       {title && <strong>{title}</strong>}
       {children}
