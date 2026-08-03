@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { createGhClient } from "./client.js";
 import type { ExecRunner } from "./exec-runner.js";
+import { MissingGithubTokenError } from "./rest-args.js";
+import type { SyncHttp } from "./sync-http.js";
 
 function makeMockRunner(responses: Record<string, string> = {}): ExecRunner {
   return vi.fn().mockImplementation((_cmd: string, args: string[]) => {
@@ -153,6 +155,50 @@ describe("createGhClient", () => {
       });
       const client = createGhClient({ runner });
       expect(client.workflow.runs(["--limit", "10", "--json", "status,conclusion"])).toEqual(runs);
+    });
+  });
+
+  // #3689 — non-gh-binary transport seam. These prove the three ACs that must
+  // hold at the public createGhClient() surface, not just inside the
+  // transport-internal unit tests.
+  describe("transport selection (#3689)", () => {
+    it("stays on the exec path — byte-identical to today — when the probe reports gh available", () => {
+      const runner = makeMockRunner({
+        "issue list --json number": JSON.stringify([{ number: 1 }]),
+      });
+      const http: SyncHttp = vi.fn();
+      const client = createGhClient({ probe: () => true, runner, http });
+
+      expect(client.issue.list(["--json", "number"])).toEqual([{ number: 1 }]);
+      expect(runner).toHaveBeenCalledTimes(1);
+      expect(http).not.toHaveBeenCalled();
+    });
+
+    it("falls back to REST — mocked HTTP, no gh — when the probe reports gh unavailable", () => {
+      const runner: ExecRunner = vi.fn();
+      const http: SyncHttp = vi
+        .fn()
+        .mockReturnValue({ status: 200, body: JSON.stringify([{ number: 2 }]) });
+      const client = createGhClient({
+        probe: () => false,
+        runner,
+        http,
+        token: "gho_test",
+        owner: "owner",
+        repoName: "repo",
+      });
+
+      expect(client.issue.list(["--json", "number"])).toEqual([
+        expect.objectContaining({ number: 2 }),
+      ]);
+      expect(runner).not.toHaveBeenCalled();
+      expect(http).toHaveBeenCalledTimes(1);
+    });
+
+    it("fails with one clear, actionable error naming the missing credential when gh is absent and no token is set", () => {
+      const client = createGhClient({ probe: () => false, env: {} });
+      expect(() => client.issue.list(["--json", "number"])).toThrow(MissingGithubTokenError);
+      expect(() => client.issue.list(["--json", "number"])).toThrow(/GITHUB_TOKEN/);
     });
   });
 });
