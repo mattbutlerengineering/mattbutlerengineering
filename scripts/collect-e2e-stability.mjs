@@ -30,8 +30,7 @@
  *   }
  */
 
-/** Path prefixes that classify a run as "frontend". */
-const FRONTEND_PREFIXES = ["apps/", "packages/rialto/"];
+import { isFrontendPath } from "./merge-train-lock.mjs";
 
 /**
  * Returns true when any changed path touches the frontend layer.
@@ -40,7 +39,7 @@ const FRONTEND_PREFIXES = ["apps/", "packages/rialto/"];
  * @returns {boolean}
  */
 function isFrontendRun(changedPaths) {
-  return changedPaths.some((p) => FRONTEND_PREFIXES.some((prefix) => p.startsWith(prefix)));
+  return changedPaths.some(isFrontendPath);
 }
 
 /**

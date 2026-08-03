@@ -175,6 +175,47 @@ describe("merge-train-lock", () => {
     });
   });
 
+  // ── frontend-tree predicate ──────────────────────────────────────────────
+  // A DIFFERENT question from zoneForPath: "which workspace zone owns this
+  // path" vs. "is this path front-end code". Every apps/packages/services
+  // path has a zone, but only apps/** and packages/rialto/** are frontend.
+
+  describe("isFrontendPath", () => {
+    test("apps/** paths are frontend", async () => {
+      const { isFrontendPath } = await import("../merge-train-lock.mjs");
+      expect(isFrontendPath("apps/hospitality/src/App.tsx")).toBe(true);
+    });
+
+    test("packages/rialto/** paths are frontend", async () => {
+      const { isFrontendPath } = await import("../merge-train-lock.mjs");
+      expect(isFrontendPath("packages/rialto/src/Button.tsx")).toBe(true);
+    });
+
+    test("other packages/** paths are NOT frontend", async () => {
+      const { isFrontendPath } = await import("../merge-train-lock.mjs");
+      expect(isFrontendPath("packages/api-client/src/index.ts")).toBe(false);
+    });
+
+    test("services/** paths are NOT frontend", async () => {
+      const { isFrontendPath } = await import("../merge-train-lock.mjs");
+      expect(isFrontendPath("services/reservations/src/app.ts")).toBe(false);
+    });
+  });
+
+  describe("zoneForPath vs isFrontendPath — genuinely different questions", () => {
+    test("a path can own a real (non-root) zone without being a frontend path", async () => {
+      const { zoneForPath, isFrontendPath } = await import("../merge-train-lock.mjs");
+      const filePath = "services/reservations/src/app.ts";
+
+      // Has a real, non-root zone...
+      expect(zoneForPath(filePath)).toBe("services/reservations");
+      // ...yet is not a frontend path. If these two predicates were ever
+      // merged into one (e.g. "isFrontendPath = zoneForPath(p) !== 'root'"),
+      // this path would flip to `true` and this assertion would fail.
+      expect(isFrontendPath(filePath)).toBe(false);
+    });
+  });
+
   describe("lockNameForZone", () => {
     test("uses the global lock name when zone is null/undefined (backward compat)", async () => {
       const { lockNameForZone } = await import("../merge-train-lock.mjs");

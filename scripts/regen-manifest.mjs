@@ -33,6 +33,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WORKSPACE_ROOTS } from "./merge-train-lock.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -165,10 +166,7 @@ export const FAMILIES = [
     id: "rialto-color-tokens",
     label: "packages/rialto colors.css + figma-tokens.json",
     command: "pnpm --filter @mattbutlerengineering/rialto generate:tokens",
-    outputs: [
-      "packages/rialto/src/tokens/colors.css",
-      "packages/rialto/figma-tokens.json",
-    ],
+    outputs: ["packages/rialto/src/tokens/colors.css", "packages/rialto/figma-tokens.json"],
     // Hook-scoped regen (PostToolUse): a token-source edit regenerates just
     // this family, mirroring the dep-graph/llms ergonomics.
     changedBy(path) {
@@ -215,11 +213,14 @@ export const FAMILIES = [
  *
  * Mirrors the workspace directories read by `mbe pack` (llms-txt) and the
  * package.json paths read by the dep-graph generators.
+ *
+ * The apps/packages/services trio comes from merge-train-lock's
+ * WORKSPACE_ROOTS (the tree-vocabulary this list mirrors); tools/,
+ * infrastructure/, and pnpm-workspace.yaml are regen-specific extras that
+ * aren't part of that shared vocabulary.
  */
 export const REGEN_SOURCE_PREFIXES = [
-  "apps/",
-  "packages/",
-  "services/",
+  ...WORKSPACE_ROOTS.map((rootDir) => `${rootDir}/`),
   "tools/",
   "infrastructure/",
   "pnpm-workspace.yaml",
@@ -269,7 +270,9 @@ const LLMS_SOURCE_RE = /\.(ts|tsx|prisma)$|(^|\/)CLAUDE\.md$/;
 // tolerates an absolute path whose prefix doesn't line up with the repo root
 // (e.g. a hook computed `rel_path` from an unresolved CLAUDE_PROJECT_DIR
 // while CLAUDE_FILE_PATH is symlink-resolved, or vice versa — see #2983).
-const PACKAGE_DIR_RE = /(^|\/)((?:apps|packages|services|tools)\/[^/]+)\//;
+// Root alternation is built from WORKSPACE_ROOTS (+ the regen-specific
+// "tools" extra) rather than restating the "apps|packages|services" prefixes.
+const PACKAGE_DIR_RE = new RegExp(`(^|/)((?:${[...WORKSPACE_ROOTS, "tools"].join("|")})/[^/]+)/`);
 
 /** True when `path` matches a REGEN_SOURCE_EXCLUDES pattern (test/dist/generated/etc). */
 function isRegenExcluded(path) {

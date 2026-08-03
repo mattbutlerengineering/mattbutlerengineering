@@ -19,6 +19,8 @@
  *   defaultLockDir()               → string  (git common dir path)
  *   zoneForPaths(paths)            → string | null  (deterministic zone derivation)
  *   lockNameForZone(zone?)         → string  (lockfile name for a zone)
+ *   isFrontendPath(filePath)       → boolean  (frontend-tree predicate — a DIFFERENT
+ *                                    question from zoneForPath; see its own doc comment)
  *
  * Options (all optional, primarily for testing):
  *   lockDir   {string}   — directory that contains the lock sub-dir (default: git common dir)
@@ -98,6 +100,25 @@ function zoneForPaths(paths) {
   }
   const zones = new Set(paths.map(zoneForPath));
   return zones.size === 1 ? [...zones][0] : null;
+}
+
+// Prefixes that define the "frontend" tree: apps/** and packages/rialto/**.
+// A DIFFERENT question from zoneForPath: zoneForPath answers "which
+// workspace zone owns this path" (every apps/packages/services path has
+// one); isFrontendPath answers "is this path front-end code" (most
+// packages/* and all of services/* are NOT frontend, even though
+// zoneForPath gives them a real, non-root zone).
+const FRONTEND_PREFIXES = ["apps/", "packages/rialto/"];
+
+/**
+ * True when `filePath` is under the frontend tree (`apps/**` or
+ * `packages/rialto/**`).
+ *
+ * @param {string} filePath — repo-relative path (POSIX separators)
+ * @returns {boolean}
+ */
+function isFrontendPath(filePath) {
+  return FRONTEND_PREFIXES.some((prefix) => filePath.startsWith(prefix));
 }
 
 /**
@@ -278,5 +299,6 @@ export {
   zoneForPath,
   zoneForPaths,
   lockNameForZone,
+  isFrontendPath,
   WORKSPACE_ROOTS,
 };
