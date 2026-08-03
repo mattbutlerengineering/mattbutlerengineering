@@ -203,6 +203,7 @@ export function BookingWidget({
           onNewBooking={actions.resetFlow}
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}
+          venueConfig={data.venueConfig}
         />
       )}
 

@@ -1,6 +1,8 @@
 import { Button, Text } from "@mattbutlerengineering/rialto";
-import type { Reservation } from "@mbe/types";
+import type { Reservation, PublicVenueConfig } from "@mbe/types";
 import { formatLongDateWithYear, formatTime, formatCurrencyFromCents } from "../../utils/format.js";
+import { buildReservationIcs } from "../../utils/ics.js";
+import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
 import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
@@ -11,6 +13,30 @@ export interface ConfirmationViewProps {
   depositAmountCents?: number | null;
   depositCurrency?: string | null;
   cancellationPolicySummary?: string | null;
+  /**
+   * The booking venue's public config (name + ianaTimezone). Powers the
+   * "Add to calendar" section — omitted/null hides the section entirely
+   * rather than guessing a timezone.
+   */
+  venueConfig?: PublicVenueConfig | null;
+}
+
+/** Builds the .ics blob client-side and triggers a same-tab file download — no server round-trip. */
+function downloadReservationIcs(
+  reservation: Reservation,
+  venueConfig: PublicVenueConfig,
+  cancellationUrl?: string
+): void {
+  const icsContent = buildReservationIcs(reservation, venueConfig, { cancellationUrl });
+  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `reservation-${reservation.id.slice(-8)}.ics`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }
 
 export function ConfirmationView({
@@ -21,6 +47,7 @@ export function ConfirmationView({
   depositAmountCents,
   depositCurrency,
   cancellationPolicySummary,
+  venueConfig,
 }: ConfirmationViewProps) {
   const formattedDate = formatLongDateWithYear(reservation.date);
   const formattedTime = formatTime(reservation.startTime);
@@ -153,6 +180,39 @@ export function ConfirmationView({
         <Text variant="caption" color="secondary" align="center">
           A confirmation has been sent to {reservation.guestEmail || reservation.guestPhone}.
         </Text>
+      )}
+
+      {/* Add to calendar — hidden until venue config (name + timezone) is available */}
+      {venueConfig && (
+        <div className={styles.detailsCard}>
+          <Text variant="label" as="h3" className={styles.detailsTitle}>
+            Add to Calendar
+          </Text>
+          <div className={styles.calendarActions}>
+            <Button
+              variant="secondary"
+              onClick={() => downloadReservationIcs(reservation, venueConfig, cancellationUrl)}
+            >
+              Download .ics
+            </Button>
+            <a
+              href={buildGoogleCalendarUrl(reservation, venueConfig, { cancellationUrl })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.calendarLink}
+            >
+              Google Calendar
+            </a>
+            <a
+              href={buildOutlookCalendarUrl(reservation, venueConfig, { cancellationUrl })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.calendarLink}
+            >
+              Outlook
+            </a>
+          </div>
+        </div>
       )}
 
       {/* Actions */}
