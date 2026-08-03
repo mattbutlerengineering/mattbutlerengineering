@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import type { NavSection, NavItem } from "../data/nav-sections";
 import styles from "./ShowcaseSidebar.module.css";
 

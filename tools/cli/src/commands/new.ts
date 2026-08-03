@@ -60,7 +60,7 @@ function generatePackageJson(name: string): string {
         "lucide-react": "^0.575.0",
         react: "^19.2.4",
         "react-dom": "^19.2.4",
-        "react-router-dom": "^7.13.0",
+        "react-router": "^8.3.0",
       },
       devDependencies: {
         "@mbe/config": "workspace:*",
@@ -132,7 +132,7 @@ function generateMainTsx(name: string): string {
     'import "./global.css";',
     'import { StrictMode } from "react";',
     'import { createRoot } from "react-dom/client";',
-    'import { BrowserRouter } from "react-router-dom";',
+    'import { BrowserRouter } from "react-router";',
     'import { RialtoProvider } from "@mattbutlerengineering/rialto";',
     'import { App } from "./App";',
     "",
@@ -151,7 +151,7 @@ function generateMainTsx(name: string): string {
 
 function generateAppTsx(): string {
   return [
-    'import { Routes, Route } from "react-router-dom";',
+    'import { Routes, Route } from "react-router";',
     'import { ExamplePage } from "./pages/ExamplePage";',
     "",
     "export function App() {",

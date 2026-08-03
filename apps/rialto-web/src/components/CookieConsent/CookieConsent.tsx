@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Banner, Button, Dialog, Toggle, Stack, Divider } from "@mattbutlerengineering/rialto";
 import { precision } from "@mattbutlerengineering/rialto/motion";

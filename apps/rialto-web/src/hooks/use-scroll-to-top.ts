@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
-import { useLocation, useNavigationType } from "react-router-dom";
+import { useLocation, useNavigationType } from "react-router";
 
 /**
  * Resets scroll to the top whenever the route pathname changes.

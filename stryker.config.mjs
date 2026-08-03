@@ -101,6 +101,19 @@ export default {
   // Report configuration
   reporters: ["html", "json", "progress"],
 
+  // Baseline: 98.89% mutation score (89 killed / 90 tested, 1 survived) as
+  // of 2026-08-02, run locally against this exact config — see
+  // mattbutlerengineering/mattbutlerengineering#3628 and the PR that added
+  // this comment for the validating workflow_dispatch run. The 80% `high`
+  // threshold below is comfortably met by that baseline (this workflow's
+  // long red streak was a `.metrics.mutationScore` parsing bug in
+  // .github/workflows/mutation-testing.yml, not a real quality gap — see
+  // scripts/collect-mutation-score.mjs). Set explicitly (rather than left to
+  // Stryker's own default) so the number is visible without knowing
+  // Stryker's defaults. Ratchet up deliberately as coverage improves; don't
+  // lower without recording a new baseline run here.
+  thresholds: { high: 80, low: 60, break: null },
+
   // Timeouts — the services/users test suite baseline is ~5.7s net (12s wall).
   // timeoutMS is the MINIMUM timeout added to the baseline; timeoutFactor
   // multiplies the baseline. We set a generous minimum (60s) so schema-mutation

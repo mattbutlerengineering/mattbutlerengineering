@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader.js";

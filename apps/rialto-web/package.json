@@ -35,7 +35,7 @@
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:",
+    "react-router": "catalog:",
     "@mbe/sentry": "workspace:*"
   },
   "devDependencies": {
