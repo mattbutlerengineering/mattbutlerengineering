@@ -48,6 +48,21 @@ Project-specific traps that have bitten me before. Read these before diving into
 - **Pulumi Deploy "success" can be a skipped run** — the workflow reports `success` even when `Deploy Infrastructure` job was skipped (triggered by failed static deploy). Check the job-level conclusion, not workflow-level, to determine if Pulumi actually ran
 - **DO + Pulumi dual-deploy race** — `deploy-services.yml` (doctl) and `pulumi-up.yml` both manage the same DO App Platform resource. Every `doctl apps create-deployment` triggers a paired "app spec updated" deployment that gets CANCELED. If Pulumi detects spec drift from doctl, `pulumi up` can hang waiting for DO deployment to complete
 
+- **`GITHUB_TOKEN`-authored PRs never fire `CI Gate` — the anti-recursion trap, six rediscoveries in one week (#3538, #3572, #3566, #3584, #3625, #3623).** GitHub does not fire other workflows from events triggered by the default `GITHUB_TOKEN` (anti-recursion). A PR opened or a branch pushed by automation using `GITHUB_TOKEN` therefore never triggers `ci.yml`'s `pull_request` event — `CI Gate`, the sole required status check on `main`, never appears. The PR shows ~3 checks (CodeQL only) instead of the usual ~31, `mergeStateStatus=BLOCKED`, and nothing is red — it just silently never becomes mergeable. `workflow_dispatch` is the documented exception: it's an explicit API call, not a passive event, so it isn't subject to the anti-recursion rule. Fix: after creating the PR, dispatch CI on its branch directly, gated on a PR actually having been created (a no-op day stays a silent no-op):
+
+  ```yaml
+  permissions:
+    actions: write # else the dispatch call below 403s
+  steps:
+    - name: Dispatch CI on the automation branch
+      if: steps.create-pr.outputs.pull-request-number
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh workflow run ci.yml --ref automation/my-branch
+  ```
+
+  `.github/workflows/drift-fix.yml` is the in-repo reference implementation (see its "Dispatch CI on the automation branch" step); `ci.yml` carries a bare `workflow_dispatch:` trigger specifically to accept this. Still live: #3684 (automation-pushed commits now require manual workflow approval every run, a related but distinct trap).
+
 - **pnpm-lock.yaml quote style diffs are formatting noise** — different pnpm versions use single vs double quotes for keys. These are not real changes. Revert with `git checkout -- pnpm-lock.yaml` rather than committing formatting-only lockfile diffs
 
 - **Local `generated-schemas.ts` modifications pollute drift-check** — if `packages/rialto-catalog/src/generated-schemas.ts` has uncommitted changes (e.g. from running the generator with different rialto dist), the drift-check test reads the modified file and fails. Fix: `git checkout -- packages/rialto-catalog/src/generated-schemas.ts` before push
