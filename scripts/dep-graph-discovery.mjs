@@ -20,9 +20,15 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, extname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WORKSPACE_ROOTS } from "./merge-train-lock.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const root = join(__dirname, "..");
+
+// Node "type" per workspace root, keyed by the same vocabulary merge-train-lock
+// owns (WORKSPACE_ROOTS). "tools" and "infrastructure" aren't workspace-root
+// zones in that vocabulary, so they stay as local checks below.
+const TYPE_BY_WORKSPACE_ROOT = { apps: "app", services: "service", packages: "package" };
 
 // Packages with zero internal importers by design — invoked externally
 // (CLI bin, MCP server config, editor/build plugin) rather than imported by
@@ -41,9 +47,8 @@ export const ENTRYPOINT_PACKAGES = [
  * @returns {"app" | "service" | "package" | "tool"}
  */
 export function classifyType(wsDir) {
-  if (wsDir.startsWith("apps/")) return "app";
-  if (wsDir.startsWith("services/")) return "service";
-  if (wsDir.startsWith("packages/")) return "package";
+  const root = wsDir.split("/")[0];
+  if (WORKSPACE_ROOTS.includes(root)) return TYPE_BY_WORKSPACE_ROOT[root];
   if (wsDir.startsWith("tools/")) return "tool";
   if (wsDir.startsWith("infrastructure/")) return "tool";
   return "package";
