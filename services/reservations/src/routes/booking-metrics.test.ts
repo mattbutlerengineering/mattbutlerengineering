@@ -103,6 +103,40 @@ const mockMetrics = {
   deposits: { held: 4, applied: 2, refunded: 1, forfeited: 0 },
 };
 
+/** Keys that must never appear anywhere in the metrics response, at any depth. */
+const FORBIDDEN_PII_KEYS = [
+  "guestName",
+  "guestEmail",
+  "guestPhone",
+  "guestId",
+  "id",
+  "reservationId",
+  "stripeCustomerId",
+  "stripePaymentIntentId",
+];
+
+/**
+ * Recursively walks an arbitrary JSON value and returns the dotted path of
+ * the first forbidden key found, or null if none are present at any depth.
+ */
+function findForbiddenKey(value: unknown, forbidden: string[], path = "$"): string | null {
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const hit = findForbiddenKey(value[i], forbidden, `${path}[${i}]`);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (forbidden.includes(key)) return `${path}.${key}`;
+      const hit = findForbiddenKey(nested, forbidden, `${path}.${key}`);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
 describe("GET /api/v1/reservations/metrics/daily", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
@@ -222,5 +256,18 @@ describe("GET /api/v1/reservations/metrics/daily", () => {
     for (const forbidden of ["guestName", "guestEmail", "guestPhone", "reservationId", '"id":']) {
       expect(raw).not.toContain(forbidden);
     }
+  });
+
+  it("recursively guards against PII keys anywhere in the response body, at any depth", async () => {
+    vi.mocked(bookingMetricsService.getDailyBookingMetrics).mockResolvedValueOnce(mockMetrics);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/reservations/metrics/daily?venueId=venue-abc&date=2026-06-19",
+      headers: { authorization: "Bearer valid-token" },
+    });
+
+    const body = JSON.parse(response.body);
+    expect(findForbiddenKey(body, FORBIDDEN_PII_KEYS)).toBeNull();
   });
 });

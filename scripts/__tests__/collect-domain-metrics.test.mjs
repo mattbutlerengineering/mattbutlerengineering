@@ -26,6 +26,40 @@ function stubFetch(response) {
   return async () => response;
 }
 
+/** Keys that must never appear anywhere in a persisted metrics row, at any depth. */
+const FORBIDDEN_PII_KEYS = [
+  "guestName",
+  "guestEmail",
+  "guestPhone",
+  "guestId",
+  "id",
+  "reservationId",
+  "stripeCustomerId",
+  "stripePaymentIntentId",
+];
+
+/**
+ * Recursively walks an arbitrary JSON value and returns the dotted path of
+ * the first forbidden key found, or null if none are present at any depth.
+ */
+function findForbiddenKey(value, forbidden, path = "$") {
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const hit = findForbiddenKey(value[i], forbidden, `${path}[${i}]`);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, nested] of Object.entries(value)) {
+      if (forbidden.includes(key)) return `${path}.${key}`;
+      const hit = findForbiddenKey(nested, forbidden, `${path}.${key}`);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
 const okResponse = (payload) => ({
   ok: true,
   status: 200,
@@ -123,6 +157,20 @@ describe("main", () => {
       collected_at: "2026-08-03T12:00:00.000Z",
       ...samplePayload().data,
     });
+  });
+
+  it("recursively guards against PII keys anywhere in the persisted row, at any depth", async () => {
+    await main(
+      { DOMAIN_METRICS_VENUE_ID: "venue-1" },
+      {
+        fetchImpl: stubFetch(okResponse(samplePayload())),
+        root,
+        now: () => new Date("2026-08-03T12:00:00.000Z"),
+      }
+    );
+
+    const row = JSON.parse(readFileSync(outFile(), "utf-8").trim());
+    expect(findForbiddenKey(row, FORBIDDEN_PII_KEYS)).toBeNull();
   });
 
   it("does not throw and writes no row when the API is unreachable", async () => {
