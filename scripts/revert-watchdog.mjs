@@ -304,10 +304,143 @@ export async function resolveRevertAction({
 
   const [failingTestPaths, changedFiles] = await Promise.all([
     getFailingTestPaths(),
-    getChangedFiles(prNumber),
+    getChangedFiles(prNumber).catch(() => []), // gh transient failure — [] is fail-safe: pathsAreDisjoint never downgrades a revert on missing evidence
   ]);
 
   return decideBaselineAction({ baseline, failingTestPaths, changedFiles });
+}
+
+// ---------------------------------------------------------------------------
+// Revert PR lifecycle (#3691)
+//
+// A revert PR proposed by "Propose Revert PR" (above) asserts the repo is
+// broken. When main is fixed forward instead — the common case, per the
+// 2026-08-02 process retro (4 revert PRs opened, 0 merged) — nothing ever
+// told the revert PR that. It's left open, a stale false signal.
+//
+// Design mirrors runAutoCloseWatchdog: pure title/body/decision functions,
+// unit-tested without the network; the GitHub mutations live behind injected
+// callbacks in runCloseStaleRevertPrs.
+// ---------------------------------------------------------------------------
+
+/** Pure: builds a revert PR body carrying a machine-readable link to the
+ * breakage issue it was opened for, alongside the pre-existing culprit-PR
+ * reference. `extractBreakageIssueNumber` parses the link back out — do not
+ * change the "Opened for #<n>" phrasing without updating both. */
+export function buildRevertPrBody(culpritPrNumber, issueNumber) {
+  return `Automatically proposed revert of #${culpritPrNumber} due to CI failure on main.
+
+Opened for #${issueNumber}.`;
+}
+
+const BREAKAGE_ISSUE_PATTERN = /Opened for #(\d+)/;
+
+/** Pure: extracts the breakage-issue number from a revert PR body, or null. */
+export function extractBreakageIssueNumber(body) {
+  const match = BREAKAGE_ISSUE_PATTERN.exec(body ?? "");
+  return match ? Number(match[1]) : null;
+}
+
+const REVERT_WATCHDOG_TITLE_PATTERN = /^revert: #\d+ \(fixes broken main\)$/;
+
+/** Pure: true for a PR opened by this script's "Propose Revert PR" step.
+ * Deliberately narrower than "any PR titled revert: ..." — the unrelated
+ * auto-rollback workflow also opens PRs titled "revert: auto-rollback ..."
+ * with no breakage-issue link, and must not be auto-closed by this logic. */
+export function isRevertWatchdogPr(pr) {
+  return REVERT_WATCHDOG_TITLE_PATTERN.test(pr?.title ?? "");
+}
+
+/** Pure: true when a PR carries the `needs-review` label — the escape hatch
+ * for a revert that's a human product call (as #3559 was, per #3584), never
+ * auto-closed by this logic. */
+export function hasNeedsReviewLabel(pr) {
+  return (pr?.labels ?? []).some((label) => label?.name === "needs-review");
+}
+
+/** Pure: comment posted when auto-closing a revert PR main fixed forward. */
+export function buildRevertClosedComment(greenSha) {
+  return `Main was fixed forward — commit ${greenSha} passed CI, and the breakage issue this revert was opened for is now closed. Auto-closing; no revert needed.`;
+}
+
+/**
+ * Pure: the three-input close decision. All three must line up — the
+ * breakage issue closed, main green, and no human review flag — before a
+ * revert PR is ever auto-closed.
+ */
+export function shouldCloseRevertPr({ issueState, mainConclusion, hasNeedsReview }) {
+  if (hasNeedsReview) return false;
+  if (issueState !== "closed") return false;
+  if (mainConclusion !== "success") return false;
+  return true;
+}
+
+/**
+ * Pure: given already-filtered revert-watchdog PRs, a lookup of breakage
+ * issue state by number, and main's CI conclusion, returns the subset that
+ * should be auto-closed (new array; input is not mutated).
+ *
+ * @param {Array<{number:number, body:string, labels?:Array<{name:string}>}>} prs
+ * @param {{issueStateByNumber: Record<number, string>, mainConclusion: string|null}} args
+ */
+export function selectRevertPrsToClose(prs, { issueStateByNumber, mainConclusion }) {
+  return (prs ?? []).filter((pr) => {
+    if (hasNeedsReviewLabel(pr)) return false;
+    const issueNumber = extractBreakageIssueNumber(pr.body);
+    if (issueNumber == null) return false;
+    return shouldCloseRevertPr({
+      issueState: issueStateByNumber[issueNumber],
+      mainConclusion,
+      hasNeedsReview: false,
+    });
+  });
+}
+
+/**
+ * Auto-close revert PRs whose breakage issue has closed and whose base
+ * branch (main) is green. Fetches each unique breakage issue's state once,
+ * even when multiple revert PRs reference the same issue.
+ *
+ * @param {{
+ *   listOpenRevertPrs: () => Promise<Array>,
+ *   getIssueState: (issueNumber:number) => Promise<string|null>,
+ *   getMainConclusion: (mainSha:string) => Promise<string|null>,
+ *   closePr: (number:number, comment:string) => Promise<void>,
+ *   mainSha: string,
+ *   log?: (msg:string) => void,
+ * }} deps
+ * @returns {Promise<number[]>} the PR numbers that were closed
+ */
+export async function runCloseStaleRevertPrs({
+  listOpenRevertPrs,
+  getIssueState,
+  getMainConclusion,
+  closePr,
+  mainSha,
+  log = () => {},
+}) {
+  const revertPrs = (await listOpenRevertPrs()).filter(isRevertWatchdogPr);
+  if (revertPrs.length === 0) return [];
+
+  const mainConclusion = await getMainConclusion(mainSha);
+
+  const issueNumbers = [
+    ...new Set(revertPrs.map((pr) => extractBreakageIssueNumber(pr.body)).filter((n) => n != null)),
+  ];
+  const issueStateByNumber = {};
+  for (const issueNumber of issueNumbers) {
+    issueStateByNumber[issueNumber] = await getIssueState(issueNumber);
+  }
+
+  const toClose = selectRevertPrsToClose(revertPrs, { issueStateByNumber, mainConclusion });
+  const comment = buildRevertClosedComment(mainSha);
+
+  for (const pr of toClose) {
+    await closePr(pr.number, comment);
+    log(`closed #${pr.number} (breakage issue closed, main green at ${mainSha})`);
+  }
+
+  return toClose.map((pr) => pr.number);
 }
 
 /** True if `culpritSha` is an ancestor of `greenSha` in local git history. */
@@ -455,6 +588,91 @@ async function checkBaseline(ghClient, args) {
   console.log(JSON.stringify(result));
 }
 
+/**
+ * Prints the revert PR body (with its machine-readable breakage-issue link)
+ * for the workflow's "Propose Revert PR" step to pass to `gh pr create --body`.
+ * A missing `--issue` (both issue-filing attempts upstream failed) degrades
+ * to the pre-#3691 unlinked body rather than aborting — this revert PR is
+ * the one thing that unbreaks main, and a missing link only means it won't
+ * be auto-closed later, not that it shouldn't be opened at all.
+ */
+function revertPrBody(args) {
+  const pr = readFlag(args, "--pr");
+  const issue = readFlag(args, "--issue");
+
+  if (!pr) {
+    console.error("Missing --pr <culprit-pr-number>");
+    process.exit(1);
+  }
+
+  if (!issue) {
+    console.log(`Automatically proposed revert of #${pr} due to CI failure on main.`);
+    return;
+  }
+
+  console.log(buildRevertPrBody(pr, issue));
+}
+
+/**
+ * Auto-closes open revert PRs (opened by "Propose Revert PR" above) whose
+ * breakage issue has since closed and whose base branch (main) is green at
+ * `--sha`. See `runCloseStaleRevertPrs` for the decision logic.
+ */
+async function closeStaleReverts(ghClient, args) {
+  const mainSha = readFlag(args, "--sha");
+
+  if (!mainSha) {
+    console.error("Missing --sha <main-sha>");
+    process.exit(1);
+  }
+
+  const closed = await runCloseStaleRevertPrs({
+    listOpenRevertPrs: async () =>
+      ghClient.pr.list([
+        "--search",
+        "revert: in:title",
+        "--state",
+        "open",
+        "--json",
+        "number,title,body,labels",
+      ]),
+    getIssueState: async (issueNumber) => {
+      try {
+        const view = ghClient.issue.view(issueNumber, ["--json", "state"]);
+        return typeof view?.state === "string" ? view.state.toLowerCase() : null;
+      } catch {
+        // gh transient failure or deleted issue — treated as inconclusive,
+        // same fail-safe fallback as checkBaseline's getConclusionForSha.
+        return null;
+      }
+    },
+    getMainConclusion: async (sha) => {
+      try {
+        const runs = ghClient.workflow.runs([
+          "--commit",
+          sha,
+          "--workflow",
+          "CI",
+          "--json",
+          "conclusion",
+        ]);
+        return runs[0]?.conclusion ?? null;
+      } catch {
+        return null;
+      }
+    },
+    closePr: async (number, comment) => ghClient.pr.close(number, ["--comment", comment]),
+    mainSha,
+    log: (msg) => console.log(`[revert-watchdog] ${msg}`),
+  });
+
+  console.log(
+    `[revert-watchdog] closed ${closed.length} revert PR(s): ${
+      closed.map((n) => `#${n}`).join(", ") || "none"
+    }`
+  );
+}
+
 async function main() {
   const [subcommand, ...rest] = process.argv.slice(2);
   const ghClient = createGhClient();
@@ -465,9 +683,13 @@ async function main() {
     await closeRecovered(ghClient, rest);
   } else if (subcommand === "check-baseline") {
     await checkBaseline(ghClient, rest);
+  } else if (subcommand === "revert-pr-body") {
+    revertPrBody(rest);
+  } else if (subcommand === "close-stale-reverts") {
+    await closeStaleReverts(ghClient, rest);
   } else {
     console.error(
-      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline> [...args]"
+      "Usage: revert-watchdog.mjs <create-issue|close-recovered|check-baseline|revert-pr-body|close-stale-reverts> [...args]"
     );
     process.exit(1);
   }

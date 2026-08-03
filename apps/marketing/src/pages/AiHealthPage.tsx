@@ -1,13 +1,91 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
+import { Card, Badge, Heading, Text, Spinner, Alert } from "@mattbutlerengineering/rialto";
 import {
   formatSensorStatus,
   getSensorColor,
   formatPercent,
+  formatRatio,
   formatTimestamp,
+  isReportStale,
 } from "../utils/formatters.js";
-import type { SensorReport } from "../data/ai-health.js";
+import {
+  normalizeSensorReport,
+  type SensorReport,
+  type QueueEfficiencyMetrics,
+} from "../data/ai-health.js";
 import styles from "./AiHealthPage.module.css";
+
+const PLACEHOLDER = "—";
+
+function formatCount(value: number | null): string {
+  return value == null ? PLACEHOLDER : String(value);
+}
+
+function formatUsd(value: number | null): string {
+  return value == null ? PLACEHOLDER : `$${value.toFixed(2)}`;
+}
+
+function formatHours(value: number | null): string {
+  return value == null ? PLACEHOLDER : `${value}h`;
+}
+
+function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEfficiencyMetrics }) {
+  if (!queueEfficiency.available) {
+    return (
+      <div className={styles.sensorGrid}>
+        <div className={styles.sensorRow}>
+          <Text className={styles.sensorName}>queueEfficiency</Text>
+          <div className={styles.sensorBadge}>
+            <Badge color="red" size="sm">
+              Unavailable
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.statGrid}>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Composite Score</Text>
+          <Text className={styles.statValue}>
+            {queueEfficiency.composite == null ? PLACEHOLDER : queueEfficiency.composite.toFixed(2)}
+          </Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>First-Pass Success</Text>
+          <Text className={styles.statValue}>
+            {queueEfficiency.firstPassSuccessRate == null
+              ? PLACEHOLDER
+              : formatRatio(queueEfficiency.firstPassSuccessRate)}
+          </Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Cost / Issue</Text>
+          <Text className={styles.statValue}>{formatUsd(queueEfficiency.costPerIssue)}</Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Time to Merge</Text>
+          <Text className={styles.statValue}>
+            {formatHours(queueEfficiency.medianTimeToMergeHours)}
+          </Text>
+        </Card>
+      </div>
+      {queueEfficiency.distribution.length > 0 && (
+        <div className={styles.sensorGrid}>
+          {queueEfficiency.distribution.map(([tier, count]) => (
+            <div key={tier} className={styles.sensorRow}>
+              <Text className={styles.sensorName}>{tier}</Text>
+              <Text>{count}</Text>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 async function fetchSensorReport(signal: AbortSignal): Promise<SensorReport> {
   const response = await fetch("/sensor-report.json", { signal });
@@ -47,7 +125,7 @@ export function AiHealthPage() {
     );
   }
 
-  const { sensors, summary } = report;
+  const metrics = normalizeSensorReport(report);
 
   return (
     <div className={styles.container}>
@@ -57,7 +135,7 @@ export function AiHealthPage() {
           Live metrics for the AI agent system — sensors, CI, PRs, and issue pipeline
         </Text>
         <Text className={styles.meta}>
-          Last updated: {formatTimestamp(report.timestamp)}
+          As of {formatTimestamp(metrics.timestamp)}
           {" · "}
           <a href="/sensor-report.json" className={styles.jsonLink}>
             View raw JSON
@@ -65,41 +143,55 @@ export function AiHealthPage() {
         </Text>
       </header>
 
+      {isReportStale(report.generated_at) && (
+        <Alert variant="warning" title="Data may be out of date" className={styles.staleBanner}>
+          This report was generated more than 48 hours ago and may not reflect the current system
+          state.
+        </Alert>
+      )}
+
       <section className={styles.section}>
         <Heading level={2}>Key Metrics</Heading>
         <div className={styles.statGrid}>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>CI Pass Rate</Text>
-            <Text className={styles.statValue}>{formatPercent(sensors.ci.passRate)}</Text>
-            <Text className={styles.statNote}>{sensors.ci.recentRuns} recent runs</Text>
+            <Text className={styles.statValue}>
+              {metrics.ciPassRate == null ? PLACEHOLDER : formatPercent(metrics.ciPassRate)}
+            </Text>
+            <Text className={styles.statNote}>{formatCount(metrics.ciRecentRuns)} recent runs</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>PRs Merged (30d)</Text>
-            <Text className={styles.statValue}>{sensors.prMetrics.merged30d}</Text>
+            <Text className={styles.statValue}>{formatCount(metrics.prsMerged)}</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Issues Ready</Text>
-            <Text className={styles.statValue}>{sensors.issues.ready}</Text>
-            <Text className={styles.statNote}>{sensors.issues.open} open total</Text>
+            <Text className={styles.statValue}>{formatCount(metrics.issuesReady)}</Text>
+            <Text className={styles.statNote}>{formatCount(metrics.issuesOpen)} open total</Text>
           </Card>
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Sensors Active</Text>
             <Text className={styles.statValue}>
-              {summary.available}/{summary.total}
+              {formatCount(metrics.sensorsAvailable)}/{formatCount(metrics.sensorsTotal)}
             </Text>
           </Card>
         </div>
       </section>
 
       <section className={styles.section}>
+        <Heading level={2}>Queue Efficiency</Heading>
+        <QueueEfficiencyPanel queueEfficiency={metrics.queueEfficiency} />
+      </section>
+
+      <section className={styles.section}>
         <Heading level={2}>Sensor Status</Heading>
         <div className={styles.sensorGrid}>
-          {Object.entries(sensors).map(([key, sensor]) => (
+          {metrics.sensorEntries.map(([key, sensor]) => (
             <div key={key} className={styles.sensorRow}>
               <Text className={styles.sensorName}>{key}</Text>
               <div className={styles.sensorBadge}>
-                <Badge color={getSensorColor(sensor.available)} size="sm">
-                  {formatSensorStatus(sensor.available)}
+                <Badge color={getSensorColor(sensor.available === true)} size="sm">
+                  {formatSensorStatus(sensor.available === true)}
                 </Badge>
               </div>
             </div>
@@ -107,13 +199,13 @@ export function AiHealthPage() {
         </div>
       </section>
 
-      {report.regressions.length > 0 && (
+      {metrics.regressionLabels.length > 0 && (
         <section className={styles.section}>
           <Heading level={2}>Active Regressions</Heading>
           <div className={styles.sensorGrid}>
-            {report.regressions.map((regression) => (
-              <div key={regression} className={styles.sensorRow}>
-                <Text>{regression}</Text>
+            {metrics.regressionLabels.map((label) => (
+              <div key={label} className={styles.sensorRow}>
+                <Text>{label}</Text>
               </div>
             ))}
           </div>

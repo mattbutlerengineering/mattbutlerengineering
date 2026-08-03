@@ -15,6 +15,14 @@ import {
   decideBaselineAction,
   walkToBaseline,
   resolveRevertAction,
+  buildRevertPrBody,
+  extractBreakageIssueNumber,
+  isRevertWatchdogPr,
+  hasNeedsReviewLabel,
+  buildRevertClosedComment,
+  shouldCloseRevertPr,
+  selectRevertPrsToClose,
+  runCloseStaleRevertPrs,
 } from "../revert-watchdog.mjs";
 
 const SHA = "abc1234def5678901234567890123456789abcd";
@@ -479,5 +487,348 @@ describe("resolveRevertAction", () => {
     expect(result.action).toBe("issue-only");
     expect(getFailingTestPaths).not.toHaveBeenCalled();
     expect(getChangedFiles).not.toHaveBeenCalled();
+  });
+
+  it("#3641: a throwing getChangedFiles collaborator (e.g. a transient `gh pr view` failure) does not propagate — degrades to issue-and-revert on a green baseline, not a crash", async () => {
+    const result = await resolveRevertAction({
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async () => "success",
+      getParentSha: async () => null,
+      getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
+      getChangedFiles: async () => {
+        throw new Error("gh pr view: transient failure");
+      },
+    });
+
+    expect(result.action).toBe("issue-and-revert");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Revert PR lifecycle (#3691) — record + parse the breakage-issue link, and
+// auto-close a revert PR once its breakage issue is closed and main is green.
+// ---------------------------------------------------------------------------
+
+describe("buildRevertPrBody", () => {
+  it("carries the culprit PR and a machine-readable breakage-issue link", () => {
+    const body = buildRevertPrBody(3545, 3559);
+    expect(body).toContain("#3545");
+    expect(body).toContain("Opened for #3559");
+  });
+});
+
+describe("extractBreakageIssueNumber", () => {
+  it("parses the issue number out of a well-formed revert PR body", () => {
+    const body = buildRevertPrBody(3545, 3559);
+    expect(extractBreakageIssueNumber(body)).toBe(3559);
+  });
+
+  it("returns null when the body has no breakage-issue link", () => {
+    expect(extractBreakageIssueNumber("Automatically proposed revert of #3545.")).toBeNull();
+  });
+
+  it("returns null for nullish/empty bodies", () => {
+    expect(extractBreakageIssueNumber(null)).toBeNull();
+    expect(extractBreakageIssueNumber(undefined)).toBeNull();
+    expect(extractBreakageIssueNumber("")).toBeNull();
+  });
+});
+
+describe("isRevertWatchdogPr", () => {
+  it("matches the revert-watchdog title format", () => {
+    expect(isRevertWatchdogPr({ title: "revert: #3545 (fixes broken main)" })).toBe(true);
+  });
+
+  it("does not match the unrelated auto-rollback revert PR format", () => {
+    expect(isRevertWatchdogPr({ title: "revert: auto-rollback agent commit 9241626" })).toBe(false);
+  });
+
+  it("does not match an arbitrary PR title", () => {
+    expect(isRevertWatchdogPr({ title: "fix: something unrelated" })).toBe(false);
+  });
+
+  it("returns false for a missing title", () => {
+    expect(isRevertWatchdogPr({})).toBe(false);
+    expect(isRevertWatchdogPr(null)).toBe(false);
+  });
+});
+
+describe("hasNeedsReviewLabel", () => {
+  it("is true when the needs-review label is present", () => {
+    expect(hasNeedsReviewLabel({ labels: [{ name: "needs-review" }] })).toBe(true);
+  });
+
+  it("is false when the label is absent", () => {
+    expect(hasNeedsReviewLabel({ labels: [{ name: "priority:critical" }] })).toBe(false);
+  });
+
+  it("is false when labels are missing entirely", () => {
+    expect(hasNeedsReviewLabel({})).toBe(false);
+    expect(hasNeedsReviewLabel(null)).toBe(false);
+  });
+});
+
+describe("buildRevertClosedComment", () => {
+  it("names the commit that made main green and says it was fixed forward", () => {
+    const comment = buildRevertClosedComment(SHA);
+    expect(comment).toContain(SHA);
+    expect(comment.toLowerCase()).toContain("fixed forward");
+  });
+});
+
+describe("shouldCloseRevertPr", () => {
+  it("closes when the breakage issue is closed and main is green", () => {
+    expect(
+      shouldCloseRevertPr({
+        issueState: "closed",
+        mainConclusion: "success",
+        hasNeedsReview: false,
+      })
+    ).toBe(true);
+  });
+
+  it("does not close while the breakage issue is still open", () => {
+    expect(
+      shouldCloseRevertPr({ issueState: "open", mainConclusion: "success", hasNeedsReview: false })
+    ).toBe(false);
+  });
+
+  it("does not close when main is red, even if the issue is closed", () => {
+    expect(
+      shouldCloseRevertPr({
+        issueState: "closed",
+        mainConclusion: "failure",
+        hasNeedsReview: false,
+      })
+    ).toBe(false);
+  });
+
+  it("does not close when main's conclusion is inconclusive", () => {
+    expect(
+      shouldCloseRevertPr({ issueState: "closed", mainConclusion: null, hasNeedsReview: false })
+    ).toBe(false);
+  });
+
+  it("does not close when needs-review is present, even if issue closed and main green", () => {
+    expect(
+      shouldCloseRevertPr({ issueState: "closed", mainConclusion: "success", hasNeedsReview: true })
+    ).toBe(false);
+  });
+});
+
+describe("selectRevertPrsToClose", () => {
+  it("selects a revert PR whose breakage issue is closed and main is green", () => {
+    const prs = [{ number: 1, body: buildRevertPrBody(3545, 3559), labels: [] }];
+    const selected = selectRevertPrsToClose(prs, {
+      issueStateByNumber: { 3559: "closed" },
+      mainConclusion: "success",
+    });
+    expect(selected.map((pr) => pr.number)).toEqual([1]);
+  });
+
+  it("excludes a revert PR whose breakage issue is still open", () => {
+    const prs = [{ number: 1, body: buildRevertPrBody(3545, 3559), labels: [] }];
+    const selected = selectRevertPrsToClose(prs, {
+      issueStateByNumber: { 3559: "open" },
+      mainConclusion: "success",
+    });
+    expect(selected).toEqual([]);
+  });
+
+  it("excludes a revert PR carrying the needs-review label", () => {
+    const prs = [
+      { number: 1, body: buildRevertPrBody(3545, 3559), labels: [{ name: "needs-review" }] },
+    ];
+    const selected = selectRevertPrsToClose(prs, {
+      issueStateByNumber: { 3559: "closed" },
+      mainConclusion: "success",
+    });
+    expect(selected).toEqual([]);
+  });
+
+  it("excludes a revert PR with no parseable breakage-issue link", () => {
+    const prs = [{ number: 1, body: "Automatically proposed revert of #3545.", labels: [] }];
+    const selected = selectRevertPrsToClose(prs, {
+      issueStateByNumber: {},
+      mainConclusion: "success",
+    });
+    expect(selected).toEqual([]);
+  });
+
+  it("does not mutate the input array", () => {
+    const prs = [{ number: 1, body: buildRevertPrBody(3545, 3559), labels: [] }];
+    const snapshot = JSON.stringify(prs);
+    selectRevertPrsToClose(prs, {
+      issueStateByNumber: { 3559: "closed" },
+      mainConclusion: "success",
+    });
+    expect(JSON.stringify(prs)).toBe(snapshot);
+  });
+});
+
+describe("runCloseStaleRevertPrs", () => {
+  it("closes an eligible revert PR with a fixed-forward comment", async () => {
+    const prs = [
+      {
+        number: 1,
+        title: "revert: #3545 (fixes broken main)",
+        body: buildRevertPrBody(3545, 3559),
+        labels: [],
+      },
+    ];
+    const closePr = vi.fn(async () => {});
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => prs,
+      getIssueState: async () => "closed",
+      getMainConclusion: async () => "success",
+      closePr,
+      mainSha: "green-sha",
+    });
+
+    expect(closed).toEqual([1]);
+    expect(closePr).toHaveBeenCalledWith(1, buildRevertClosedComment("green-sha"));
+  });
+
+  it("leaves the revert PR open while its breakage issue is still open", async () => {
+    const prs = [
+      {
+        number: 1,
+        title: "revert: #3545 (fixes broken main)",
+        body: buildRevertPrBody(3545, 3559),
+        labels: [],
+      },
+    ];
+    const closePr = vi.fn(async () => {});
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => prs,
+      getIssueState: async () => "open",
+      getMainConclusion: async () => "success",
+      closePr,
+      mainSha: "green-sha",
+    });
+
+    expect(closed).toEqual([]);
+    expect(closePr).not.toHaveBeenCalled();
+  });
+
+  it("leaves the revert PR open while main is red, even if the issue is closed", async () => {
+    const prs = [
+      {
+        number: 1,
+        title: "revert: #3545 (fixes broken main)",
+        body: buildRevertPrBody(3545, 3559),
+        labels: [],
+      },
+    ];
+    const closePr = vi.fn(async () => {});
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => prs,
+      getIssueState: async () => "closed",
+      getMainConclusion: async () => "failure",
+      closePr,
+      mainSha: "green-sha",
+    });
+
+    expect(closed).toEqual([]);
+    expect(closePr).not.toHaveBeenCalled();
+  });
+
+  it("leaves the revert PR open when needs-review is present", async () => {
+    const prs = [
+      {
+        number: 1,
+        title: "revert: #3545 (fixes broken main)",
+        body: buildRevertPrBody(3545, 3559),
+        labels: [{ name: "needs-review" }],
+      },
+    ];
+    const closePr = vi.fn(async () => {});
+    const getIssueState = vi.fn(async () => "closed");
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => prs,
+      getIssueState,
+      getMainConclusion: async () => "success",
+      closePr,
+      mainSha: "green-sha",
+    });
+
+    expect(closed).toEqual([]);
+    expect(closePr).not.toHaveBeenCalled();
+  });
+
+  it("ignores PRs that are not revert-watchdog PRs (e.g. the auto-rollback format)", async () => {
+    const prs = [
+      {
+        number: 1,
+        title: "revert: auto-rollback agent commit 9241626",
+        body: "## Auto-Rollback\n\nOpened for #999.",
+        labels: [],
+      },
+    ];
+    const getIssueState = vi.fn(async () => "closed");
+    const closePr = vi.fn(async () => {});
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => prs,
+      getIssueState,
+      getMainConclusion: async () => "success",
+      closePr,
+      mainSha: "green-sha",
+    });
+
+    expect(closed).toEqual([]);
+    expect(getIssueState).not.toHaveBeenCalled();
+    expect(closePr).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when there are no open revert PRs", async () => {
+    const getMainConclusion = vi.fn(async () => "success");
+    const closePr = vi.fn(async () => {});
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => [],
+      getIssueState: async () => "closed",
+      getMainConclusion,
+      closePr,
+      mainSha: "green-sha",
+    });
+
+    expect(closed).toEqual([]);
+    expect(getMainConclusion).not.toHaveBeenCalled();
+    expect(closePr).not.toHaveBeenCalled();
+  });
+
+  it("dedupes issue-state lookups when multiple revert PRs share the same breakage issue", async () => {
+    const prs = [
+      {
+        number: 1,
+        title: "revert: #3545 (fixes broken main)",
+        body: buildRevertPrBody(3545, 3559),
+        labels: [],
+      },
+      {
+        number: 2,
+        title: "revert: #3546 (fixes broken main)",
+        body: buildRevertPrBody(3546, 3559),
+        labels: [],
+      },
+    ];
+    const getIssueState = vi.fn(async () => "closed");
+
+    const closed = await runCloseStaleRevertPrs({
+      listOpenRevertPrs: async () => prs,
+      getIssueState,
+      getMainConclusion: async () => "success",
+      closePr: async () => {},
+      mainSha: "green-sha",
+    });
+
+    expect(closed.sort()).toEqual([1, 2]);
+    expect(getIssueState).toHaveBeenCalledTimes(1);
   });
 });

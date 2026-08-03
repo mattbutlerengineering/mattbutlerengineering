@@ -3046,16 +3046,17 @@
   </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health.ts">
-    export interface AcmmSensor {
-      readonly available: boolean;
-      readonly level: string;
-      readonly score: number;
-      readonly gaps: number;
+    export interface QueueEfficiencyTierStats {
+      readonly count: number;
+      readonly avg_commits: number;
+      readonly avg_ttm_hours: number;
     }
-    export interface CiSensor {
-      readonly available: boolean;
-      readonly passRate: number;
-      readonly recentRuns: number;
+    export interface QueueEfficiencyBaseline {
+      readonly composite_median: number | null;
+      readonly weeks_sampled: number;
+      readonly fps_median: number | null;
+      readonly ttm_median: number | null;
+      readonly cost_per_issue_median: number | null;
     }
   </file>
   <file path="apps/marketing/src/data/projects.ts">
@@ -7162,6 +7163,75 @@
           );
     
           return { data: dates };
+        }
+      );
+    };
+  </file>
+  <file path="services/reservations/src/routes/booking-metrics.ts">
+    function todayDateString(): string {
+      return new Date().toISOString().slice(0, 10);
+    }
+    export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Querystring: { date?: string; venueId?: string };
+        Reply: { data: DailyBookingMetrics } | ProblemDetails;
+      }>(
+        "/daily",
+        {
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
+          schema: {
+            summary: "Get daily booking-funnel counts",
+            operationId: "getDailyBookingMetrics",
+            description:
+              "Internal aggregation route for booking-funnel telemetry. Returns counts-only " +
+              "reservation and deposit aggregates for a given day and venue — never a " +
+              "reservation id, guest name, email, or phone number.",
+            tags: ["Metrics"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              properties: {
+                date: { type: "string", description: "YYYY-MM-DD, defaults to today" },
+                venueId: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                description: "Daily booking-funnel counts",
+                type: "object",
+                properties: {
+                  data: { type: "object", additionalProperties: true },
+                },
+              },
+              400: { description: "Missing or invalid query parameters", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
+              403: { description: "No access to the requested venue", $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          // Venue authorization is enforced by requireVenueAccess (ADR-020). The
+          // explicit check below only guards the platform-admin path, which
+          // bypasses venue resolution entirely and would otherwise reach here
+          // with venueId undefined.
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
+          }
+    
+          const date = request.query.date ?? todayDateString();
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+          }
+    
+          const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
+          return { data };
         }
       );
     };
@@ -12031,6 +12101,21 @@
     }
     export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
   </file>
+  <file path="services/reservations/src/services/booking-metrics.ts">
+    export interface ReservationStatusCounts {
+      pending: number;
+      confirmed: number;
+      cancelled: number;
+      completed: number;
+      noShow: number;
+    }
+    export interface DepositTransitionCounts {
+      held: number;
+      applied: number;
+      refunded: number;
+      forfeited: number;
+    }
+  </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
@@ -16076,7 +16161,7 @@
     }
   </file>
   <file path="packages/gh-client/src/client.ts">
-    export interface GhClientOptions extends ExecRunnerOptions {
+    export interface GhClientOptions extends TransportOptions {
       runner?: ExecRunner;
     }
     function buildLabelArgs(transition: LabelTransition): string[] {
@@ -16103,6 +16188,24 @@
       timeoutMs?: number;
     }
   </file>
+  <file path="packages/gh-client/src/gh-probe.ts">
+    export type GhProbe = () => boolean;
+    function defaultProbeExec(): void {
+      execFileSync("gh", ["--version"], {
+        encoding: "utf-8",
+        timeout: 5_000,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    }
+  </file>
+  <file path="packages/gh-client/src/git-branch.ts">
+    export function currentBranch(exec: (cmd: string, args: string[]) => string = defaultExec): string {
+      return exec("git", ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+    }
+    function defaultExec(cmd: string, args: string[]): string {
+      return execFileSync(cmd, args, { encoding: "utf-8", timeout: 5_000 });
+    }
+  </file>
   <file path="packages/gh-client/src/label-machine.ts">
     export const COORDINATION_LABELS = {
       READY: "ready",
@@ -16112,6 +16215,236 @@
       AGENT_SKIP: "agent-skip",
     } as const;
     export type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LABELS];
+  </file>
+  <file path="packages/gh-client/src/repo-resolver.ts">
+    export interface RepoSlug {
+      owner: string;
+      repo: string;
+    }
+    export function parseRepoSlug(remoteUrl: string): RepoSlug | null {
+      const match = REMOTE_URL_PATTERN.exec(remoteUrl.trim());
+      if (!match) return null;
+      const [, owner, repo] = match;
+      if (!owner || !repo) return null;
+      return { owner, repo };
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-args.ts">
+    export class MissingGithubTokenError extends Error {
+      constructor() {
+        super(
+          "gh-client: no `gh` binary on PATH and no GITHUB_TOKEN/GH_TOKEN in the environment. " +
+            "Set GITHUB_TOKEN (or GH_TOKEN) to use the REST fallback."
+        );
+        this.name = "MissingGithubTokenError";
+      }
+    }
+    export function resolveToken(env: NodeJS.ProcessEnv = process.env): string {
+      const token = env.GITHUB_TOKEN ?? env.GH_TOKEN;
+      if (!token) throw new MissingGithubTokenError();
+      return token;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-http.ts">
+    export interface RestContext {
+      token: string;
+      owner: string;
+      repo: string;
+      http: SyncHttp;
+    }
+    export interface RestResult {
+      status: number;
+      /** Parsed JSON body, or `null` for an empty (e.g. 204) response. */
+      json: unknown;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-issue-ops.ts">
+    function issuesPath(ctx: RestContext): string {
+      return `/repos/${ctx.owner}/${ctx.repo}/issues`;
+    }
+    function isPullRequest(item: RawIssue): boolean {
+      return "pull_request" in item;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-label-run-ops.ts">
+    export function labelList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
+      const limit = Number(flag(parsed, "limit") ?? "30");
+      const items = fetchAllPages(ctx, `/repos/${ctx.owner}/${ctx.repo}/labels`, limit);
+      return (items as RawLabel[]).map(mapLabel);
+    }
+    export function workflowRuns(ctx: RestContext, parsed: ParsedArgs): unknown[] {
+      const limit = Number(flag(parsed, "limit") ?? "30");
+      const params = new URLSearchParams();
+    
+      const branch = flag(parsed, "branch");
+      if (branch) params.set("branch", branch);
+      const commit = flag(parsed, "commit");
+      if (commit) params.set("head_sha", commit);
+    
+      const query = params.toString();
+      const path = `/repos/${ctx.owner}/${ctx.repo}/actions/runs${query ? `?${query}` : ""}`;
+      const items = fetchAllPages(ctx, path, limit, "workflow_runs") as RawWorkflowRun[];
+    
+      const workflowName = flag(parsed, "workflow");
+      const filtered = workflowName ? items.filter((run) => run.name === workflowName) : items;
+      return filtered.map(mapWorkflowRun);
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-mappers.ts">
+    export interface RawLabel {
+      name: string;
+      color?: string;
+      description?: string | null;
+    }
+    export interface RawUser {
+      login: string;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-paginate.ts">
+    export function fetchAllPages(
+      ctx: RestContext,
+      basePath: string,
+      limit: number,
+      itemsKey?: string
+    ): unknown[] {
+      const results: unknown[] = [];
+      const separator = basePath.includes("?") ? "&" : "?";
+    
+      for (let page = 1; results.length < limit; page++) {
+        const perPage = Math.min(100, limit - results.length);
+        const { json } = apiRequest(
+          ctx,
+          "GET",
+          `${basePath}${separator}per_page=${perPage}&page=${page}`
+        );
+        const pageItems = itemsKey
+          ? ((json as Record<string, unknown>)?.[itemsKey] ?? [])
+          : (json ?? []);
+        if (!Array.isArray(pageItems) || pageItems.length === 0) break;
+    
+        results.push(...pageItems);
+        if (pageItems.length < perPage) break;
+      }
+    
+      return results.slice(0, limit);
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-pr-ops.ts">
+    function pullsPath(ctx: RestContext): string {
+      return `/repos/${ctx.owner}/${ctx.repo}/pulls`;
+    }
+    function prNumberOf(item: unknown): number {
+      return (item as { number: number }).number;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-runner.ts">
+    export interface RestRunnerOptions {
+      /** Defaults to `GITHUB_TOKEN ?? GH_TOKEN`. */
+      token?: string;
+      owner?: string;
+      repoName?: string;
+      /** Injected in tests — defaults to the real subprocess-fetch bridge. */
+      http?: SyncHttp;
+      /** Injected in tests for git-derived defaults (repo slug, PR head branch). */
+      exec?: (cmd: string, args: string[]) => string;
+      env?: NodeJS.ProcessEnv;
+    }
+    export function createRestRunner(
+      opts: RestRunnerOptions = {}
+    ): (cmd: string, args: string[]) => string {
+      return function run(_cmd: string, args: string[]): string {
+        const env = opts.env ?? process.env;
+        const token = opts.token ?? resolveToken(env);
+        const { owner, repo } =
+          opts.owner && opts.repoName
+            ? { owner: opts.owner, repo: opts.repoName }
+            : resolveRepoSlug({ env, exec: opts.exec });
+        const http = opts.http ?? defaultSyncHttp;
+        const ctx: RestContext = { token, owner, repo, http };
+    
+        const [resource, action, ...rest] = args;
+        const parsed = parseArgs(rest);
+        const number = Number(parsed.positional[0]);
+    
+        switch (`${resource} ${action}`) {
+          case "issue list":
+            return JSON.stringify(issueList(ctx, parsed));
+          case "issue view":
+            return JSON.stringify(issueView(ctx, number, parsed));
+          case "issue create":
+            return issueCreate(ctx, parsed);
+          case "issue comment":
+            issueComment(ctx, number, flag(parsed, "body") ?? "");
+            return "";
+          case "issue reopen":
+            issueReopen(ctx, number);
+            return "";
+          case "issue close":
+            issueClose(ctx, number, parsed);
+            return "";
+          case "issue edit":
+            issueEdit(ctx, number, parsed);
+            return "";
+          case "pr list":
+            return JSON.stringify(prList(ctx, parsed));
+          case "pr view":
+            return JSON.stringify(prView(ctx, number, parsed));
+          case "pr create":
+            return prCreate(ctx, parsed, { exec: opts.exec });
+          case "label list":
+            return JSON.stringify(labelList(ctx, parsed));
+          case "run list":
+            return JSON.stringify(workflowRuns(ctx, parsed));
+          default:
+            throw new Error(`gh-client REST fallback: unsupported command "gh ${args.join(" ")}"`);
+        }
+      };
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-search.ts">
+    export function buildSearchQuery(
+      ctx: RestContext,
+      kind: "issue" | "pr",
+      parsed: ParsedArgs,
+      search: string
+    ): string {
+      const parts = [`repo:${ctx.owner}/${ctx.repo}`, kind === "pr" ? "is:pr" : "is:issue"];
+    
+      const state = flag(parsed, "state");
+      if (state && state !== "all") parts.push(`state:${state}`);
+    
+      for (const label of flagAll(parsed, "label")) {
+        parts.push(`label:${label}`);
+      }
+    
+      parts.push(search);
+      return parts.join(" ");
+    }
+  </file>
+  <file path="packages/gh-client/src/sync-http.ts">
+    export interface SyncHttpRequest {
+      method: string;
+      url: string;
+      headers: Record<string, string>;
+      body?: string;
+    }
+    export interface SyncHttpResponse {
+      /** 0 means the request never reached a server (DNS/network failure). */
+      status: number;
+      body: string;
+    }
+  </file>
+  <file path="packages/gh-client/src/transport.ts">
+    export interface TransportOptions extends ExecRunnerOptions, RestRunnerOptions {
+      /** Injected in tests to force the exec or REST path — see #3689. */
+      probe?: GhProbe;
+    }
+    export function createTransportRunner(
+      opts: TransportOptions = {}
+    ): (cmd: string, args: string[]) => string {
+      const probe = opts.probe ?? probeGh;
+      return probe() ? createExecRunner(opts) : createRestRunner(opts);
+    }
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
     export class UnknownJobTypeError extends Error {
@@ -17926,6 +18259,7 @@
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
       await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
+      await fastify.register(bookingMetricsRoutes, { prefix: "/api/v1/reservations/metrics" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });

@@ -1,16 +1,17 @@
 <codebase path="apps/marketing">
   <section priority="medium" role="data">
   <file path="src/data/ai-health.ts">
-    export interface AcmmSensor {
-      readonly available: boolean;
-      readonly level: string;
-      readonly score: number;
-      readonly gaps: number;
+    export interface QueueEfficiencyTierStats {
+      readonly count: number;
+      readonly avg_commits: number;
+      readonly avg_ttm_hours: number;
     }
-    export interface CiSensor {
-      readonly available: boolean;
-      readonly passRate: number;
-      readonly recentRuns: number;
+    export interface QueueEfficiencyBaseline {
+      readonly composite_median: number | null;
+      readonly weeks_sampled: number;
+      readonly fps_median: number | null;
+      readonly ttm_median: number | null;
+      readonly cost_per_issue_median: number | null;
     }
   </file>
   <file path="src/data/projects.ts">

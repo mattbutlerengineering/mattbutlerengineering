@@ -255,6 +255,25 @@ async function packDirectory(
       );
       process.exit(1);
     }
+
+    // --full mode writes only skeletonPath (no separate llms-full.txt), so
+    // there's nothing else to check. The default split mode also writes
+    // fullPathOutput — validate it too, otherwise a drifted llms-full.txt
+    // behind a clean llms.txt passes silently.
+    if (!forceFull) {
+      if (!existsSync(fullPathOutput)) {
+        console.error(`Error: ${fullPathOutput} does not exist.`);
+        process.exit(1);
+      }
+      const existingFull = readFileSync(fullPathOutput, "utf-8");
+      if (existingFull !== fullOutput) {
+        console.error(
+          `Error: ${fullPathOutput} is out of sync. Run 'mbe pack ${targetPath}' to update.`
+        );
+        process.exit(1);
+      }
+    }
+
     console.log(`  ✓ ${skeletonPath} is in sync.`);
     return;
   }

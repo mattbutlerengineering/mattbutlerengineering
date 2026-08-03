@@ -2,18 +2,19 @@
   <section priority="medium" role="data">
   <file path="src/data/ai-health.ts">
     <item priority="low">
-      interface AcmmSensor {
-        available: boolean;
-        level: string;
-        score: number;
-        gaps: number;
+      interface QueueEfficiencyTierStats {
+        count: number;
+        avg_commits: number;
+        avg_ttm_hours: number;
       }
     </item>
     <item priority="low">
-      interface CiSensor {
-        available: boolean;
-        passRate: number;
-        recentRuns: number;
+      interface QueueEfficiencyBaseline {
+        composite_median: number | null;
+        weeks_sampled: number;
+        fps_median: number | null;
+        ttm_median: number | null;
+        cost_per_issue_median: number | null;
       }
     </item>
   </file>

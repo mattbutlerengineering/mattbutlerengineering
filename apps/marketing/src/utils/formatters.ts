@@ -122,6 +122,24 @@ export function isStale(generatedAt: string, now: Date = new Date()): boolean {
   return ageDays > STALE_THRESHOLD_DAYS;
 }
 
+const DEFAULT_REPORT_STALE_THRESHOLD_HOURS = 48;
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+/**
+ * Returns true when an ISO timestamp is older than `thresholdHours` — used by
+ * the AI-health dashboard to flag a sensor report snapshot as stale. Distinct
+ * from `isStale` (day-granular, used by the ACMM metrics dashboard): this
+ * needs an hour-granular threshold to catch a report as little as 2 days old.
+ */
+export function isReportStale(
+  generatedAt: string,
+  thresholdHours: number = DEFAULT_REPORT_STALE_THRESHOLD_HOURS,
+  now: Date = new Date()
+): boolean {
+  const ageHours = (now.getTime() - new Date(generatedAt).getTime()) / MS_PER_HOUR;
+  return ageHours > thresholdHours;
+}
+
 // --- Weekly source maps ---
 
 export const SOURCE_COLORS: Record<

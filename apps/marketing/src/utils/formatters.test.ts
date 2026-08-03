@@ -11,6 +11,7 @@ import {
   formatMeasuredAt,
   formatTimestamp,
   isStale,
+  isReportStale,
   SOURCE_COLORS,
   SOURCE_LABELS,
 } from "./formatters.js";
@@ -186,6 +187,32 @@ describe("isStale", () => {
     const now = new Date("2026-07-30T00:00:00Z");
     const generatedAt = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString();
     expect(isStale(generatedAt, now)).toBe(true);
+  });
+});
+
+describe("isReportStale", () => {
+  it("returns false at 47h59m old (just under the 48h threshold)", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - (47 * 60 + 59) * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, 48, now)).toBe(false);
+  });
+
+  it("returns false exactly at the 48h boundary", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, 48, now)).toBe(false);
+  });
+
+  it("returns true at 48h01m old (just over the 48h threshold)", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - (48 * 60 + 1) * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, 48, now)).toBe(true);
+  });
+
+  it("defaults the threshold to 48 hours", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 49 * 60 * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, undefined, now)).toBe(true);
   });
 });
 

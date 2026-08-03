@@ -159,4 +159,76 @@ describe("buildReservationIcs", () => {
     expect(lines.some((line) => line.startsWith("DTSTAMP:20260110T120000Z"))).toBe(true);
     expect(lines.some((line) => line.startsWith("UID:"))).toBe(true);
   });
+
+  describe("DST and timezone edge cases", () => {
+    it("reports the correct post-transition local time for a 'spring forward gap' instant (2026-03-08 America/New_York)", () => {
+      // 07:30 UTC on 2026-03-08 is the instant that a naive fixed EST
+      // (UTC-5) offset would render as 02:30 local — but US clocks jump
+      // from 01:59:59 EST straight to 03:00:00 EDT at 07:00 UTC, so local
+      // 02:00-02:59 never exists that day. Documented behavior: the
+      // builder derives wall-clock time from the real per-instant offset
+      // (via Intl), so it must never emit the impossible 02:30 — it
+      // reports the correct post-transition 03:30 EDT.
+      const reservation = makeReservation({
+        startTime: "2026-03-08T07:30:00.000Z",
+        endTime: "2026-03-08T09:30:00.000Z",
+      });
+      const ics = buildReservationIcs(reservation, makeVenue(), { now: FIXED_NOW });
+      const lines = unfold(ics);
+      const dtstart = lines.find((line) => line.startsWith("DTSTART"));
+      const dtend = lines.find((line) => line.startsWith("DTEND"));
+      expect(dtstart).toBe("DTSTART;TZID=America/New_York:20260308T033000");
+      expect(dtend).toBe("DTEND;TZID=America/New_York:20260308T053000");
+    });
+
+    it("does not throw and renders wall-clock time for a reservation starting in the 'fall back' ambiguous hour (2026-11-01 01:30 America/New_York)", () => {
+      // 2026-11-01 01:30 local occurs twice: once as EDT (05:30 UTC) and
+      // once as EST (06:30 UTC). Documented behavior: RFC 5545's
+      // TZID form encodes wall-clock only — it has no offset field to
+      // disambiguate — so consuming calendar apps resolve the ambiguity
+      // using the IANA tz database's transition rules. That's expected,
+      // not a bug; Outlook's explicit-offset deep-link (calendarLinks.test.ts)
+      // does disambiguate the same instant.
+      const reservation = makeReservation({
+        startTime: "2026-11-01T05:30:00.000Z", // 01:30 EDT (first occurrence)
+        endTime: "2026-11-01T07:30:00.000Z", // 02:30 EST (post-transition)
+      });
+      expect(() => buildReservationIcs(reservation, makeVenue(), { now: FIXED_NOW })).not.toThrow();
+      const lines = unfold(buildReservationIcs(reservation, makeVenue(), { now: FIXED_NOW }));
+      const dtstart = lines.find((line) => line.startsWith("DTSTART"));
+      const dtend = lines.find((line) => line.startsWith("DTEND"));
+      expect(dtstart).toBe("DTSTART;TZID=America/New_York:20261101T013000");
+      expect(dtend).toBe("DTEND;TZID=America/New_York:20261101T023000");
+    });
+
+    it("produces a DTEND on the following calendar day for a midnight-crossing reservation", () => {
+      const reservation = makeReservation({
+        startTime: "2026-06-11T03:00:00.000Z", // 23:00 EDT on 2026-06-10
+        endTime: "2026-06-11T05:00:00.000Z", // 01:00 EDT on 2026-06-11
+      });
+      const ics = buildReservationIcs(reservation, makeVenue(), { now: FIXED_NOW });
+      const lines = unfold(ics);
+      const dtstart = lines.find((line) => line.startsWith("DTSTART"));
+      const dtend = lines.find((line) => line.startsWith("DTEND"));
+      expect(dtstart).toBe("DTSTART;TZID=America/New_York:20260610T230000");
+      expect(dtend).toBe("DTEND;TZID=America/New_York:20260611T010000");
+    });
+
+    it("reflects venue-local time regardless of the test runner's TZ env var", () => {
+      // Explicit-timeZone Intl calls (formatIcsLocalDateTime) ignore
+      // process.env.TZ entirely — asserting against a far-away runner TZ
+      // (UTC+14) rather than the default proves the output is
+      // deterministic in CI regardless of runner locale/TZ config.
+      const originalTz = process.env.TZ;
+      process.env.TZ = "Pacific/Kiritimati";
+      try {
+        const ics = buildReservationIcs(makeReservation(), makeVenue(), { now: FIXED_NOW });
+        const lines = unfold(ics);
+        const dtstart = lines.find((line) => line.startsWith("DTSTART"));
+        expect(dtstart).toBe("DTSTART;TZID=America/New_York:20260214T190000");
+      } finally {
+        process.env.TZ = originalTz;
+      }
+    });
+  });
 });

@@ -35,6 +35,10 @@
   margin-top: 2rem;
 }
 
+.staleBanner {
+  margin-bottom: 2rem;
+}
+
 .loading {
   display: flex;
   justify-content: center;

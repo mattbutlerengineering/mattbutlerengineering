@@ -11,6 +11,22 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: any) => <h2>{children}</h2>,
   Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Spinner: ({ size }: any) => <div data-testid="spinner" data-size={size} />,
+  Alert: ({
+    children,
+    variant,
+    title,
+    className,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+    title?: string;
+    className?: string;
+  }) => (
+    <div role="alert" data-variant={variant} className={className}>
+      {title && <strong>{title}</strong>}
+      {children}
+    </div>
+  ),
 }));
 
 vi.mock("./AiHealthPage.module.css", () => ({
@@ -32,8 +48,14 @@ vi.mock("./AiHealthPage.module.css", () => ({
     sensorName: "sensorName",
     sensorBadge: "sensorBadge",
     jsonLink: "jsonLink",
+    staleBanner: "staleBanner",
   },
 }));
+
+/** Builds an ISO timestamp `hoursAgo` hours before now — keeps staleness tests independent of wall-clock date. */
+function isoHoursAgo(hoursAgo: number): string {
+  return new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+}
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -60,19 +82,38 @@ function renderPage() {
   );
 }
 
+// Matches scripts/build-sensor-report.mjs's buildReport() output — the real
+// shape written to apps/marketing/public/sensor-report.json.
 const MOCK_REPORT = {
-  timestamp: "2026-05-09T05:48:08.683Z",
+  generated_at: "2026-05-09T05:48:08.683Z",
   sensors: {
-    acmm: { available: true, level: "6", score: 99, gaps: 1 },
-    ci: { available: true, passRate: 95, recentRuns: 10 },
-    prMetrics: { available: true, merged30d: 16 },
-    issues: { available: true, open: 14, ready: 3 },
-    lighthouse: { available: false, surfacesChecked: 0, surfacesTotal: 4, note: "needs first run" },
+    acmm: { available: true, level: 6, criteria_met: 99, criteria_total: 100 },
+    ciHealth: { available: true, pass_rate_pct: 95, completed: 10 },
+    prMetrics: { available: true, latest: { merged: 16 } },
+    issues: { available: true, created_7d: 20, closed_7d: 14, queue_depth: 3 },
+    lighthouse: { available: false, note: "needs first run" },
     sentry: { available: true, totalIssues: 0, errorCount: 0, note: "healthy" },
     agentCost: { available: true, sessions: 5 },
+    queueEfficiency: {
+      available: true,
+      composite: 0.95,
+      sub_metrics: {
+        issues_merged: 32,
+        first_pass_success_rate: 0.875,
+        median_time_to_merge_hours: 0.6,
+        median_rework_cycles: 0,
+        cost_per_issue_usd: 1.2,
+        review_coverage: 0.25,
+      },
+      distribution: {
+        "size:xs": { count: 12, avg_commits: 1.3, avg_ttm_hours: 2.4 },
+        "size:m": { count: 9, avg_commits: 1.6, avg_ttm_hours: 2.3 },
+      },
+      baseline: null,
+    },
   },
   regressions: [],
-  summary: { available: 6, total: 7 },
+  summary: { sensors_available: 7, sensors_total: 8, regressions_detected: 0, status: "healthy" },
 };
 
 describe("AiHealthPage", () => {
@@ -142,7 +183,7 @@ describe("AiHealthPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Sensor Status")).toBeInTheDocument();
       expect(screen.getByText("acmm")).toBeInTheDocument();
-      expect(screen.getByText("ci")).toBeInTheDocument();
+      expect(screen.getByText("ciHealth")).toBeInTheDocument();
       expect(screen.getByText("sentry")).toBeInTheDocument();
     });
   });
@@ -158,11 +199,11 @@ describe("AiHealthPage", () => {
     });
   });
 
-  it("renders last updated timestamp", async () => {
+  it("renders an explicit As of timestamp", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/Last updated/)).toBeInTheDocument();
+      expect(screen.getByText(/As of/)).toBeInTheDocument();
       expect(screen.getByText(/May/)).toBeInTheDocument();
     });
   });
@@ -173,6 +214,126 @@ describe("AiHealthPage", () => {
     await waitFor(() => {
       const link = screen.getByText("View raw JSON");
       expect(link).toHaveAttribute("href", "/sensor-report.json");
+    });
+  });
+
+  // #3659 regression guard: scripts/sensor-report.mjs now writes the newer
+  // buildReport() schema (generated_at/ciHealth/prMetrics.latest/summary.sensors_*)
+  // to this page's data source. Full migration is tracked separately (#3660);
+  // this only asserts the page degrades to placeholders instead of throwing.
+  const NEW_SCHEMA_REPORT = {
+    generated_at: "2026-08-02T20:06:07.196Z",
+    period: { start: "2026-07-26", end: "2026-08-02" },
+    sensors: {
+      acmm: { available: true, level: 5, criteria_met: 95, criteria_total: 114 },
+      ciHealth: { available: true, pass_rate_pct: 72, passed: 21, completed: 29 },
+      prMetrics: { available: true, latest: { merged: 65 }, entry_count: 2 },
+      issues: { available: true, created_7d: 50, closed_7d: 16, queue_depth: 27 },
+    },
+    regressions: [
+      { sensor: "ciHealth", metric: "pass_rate_pct", current: 72, previous: 89, delta: -17 },
+    ],
+    summary: { sensors_available: 11, sensors_total: 15, regressions_detected: 1 },
+  };
+
+  it("renders the new buildReport() schema shape without throwing", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("AI Health Dashboard")).toBeInTheDocument();
+      expect(screen.getByText("Sensor Status")).toBeInTheDocument();
+      expect(screen.getByText("ciHealth")).toBeInTheDocument();
+    });
+  });
+
+  it("falls back to placeholders for fields the new schema renamed", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+    renderPage();
+    await waitFor(() => {
+      // sensors.ci doesn't exist under the new schema (renamed to ciHealth
+      // with different field names) — old-shape reads must not throw.
+      expect(screen.getByText("CI Pass Rate")).toBeInTheDocument();
+    });
+  });
+
+  it("renders new-schema regression objects as readable labels, not [object Object]", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Active Regressions")).toBeInTheDocument();
+      expect(screen.getByText("ciHealth.pass_rate_pct")).toBeInTheDocument();
+    });
+  });
+
+  describe("Queue Efficiency panel", () => {
+    it("renders composite score and sub-metrics when the sensor is available", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Queue Efficiency")).toBeInTheDocument();
+        expect(screen.getByText("0.95")).toBeInTheDocument();
+        expect(screen.getByText("87.5%")).toBeInTheDocument();
+        expect(screen.getByText("$1.20")).toBeInTheDocument();
+        expect(screen.getByText("0.6h")).toBeInTheDocument();
+      });
+    });
+
+    it("renders size-tier distribution counts", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("size:xs")).toBeInTheDocument();
+        expect(screen.getByText("12")).toBeInTheDocument();
+        expect(screen.getByText("size:m")).toBeInTheDocument();
+        expect(screen.getByText("9")).toBeInTheDocument();
+      });
+    });
+
+    it("renders a graceful not-available state when the sensor is missing", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Queue Efficiency")).toBeInTheDocument();
+        expect(screen.getByText("queueEfficiency")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Composite Score")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("stale-data banner", () => {
+    it("hides the banner when generated_at is 47h59m old", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(47 + 59 / 60) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("AI Health Dashboard")).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("shows the banner when generated_at is 48h01m old", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(48 + 1 / 60) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+      });
+    });
+
+    it("still renders the As of line when the banner is showing", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(72) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+        expect(screen.getByText(/As of/)).toBeInTheDocument();
+      });
     });
   });
 });

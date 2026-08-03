@@ -85,3 +85,59 @@ None (`agent-skip` count is 0).
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
+## 2026-08-02
+
+**Sensors:** 5/15 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — ciHealth, lighthouse, issues, issueFeedback, prCategoryMetrics, agentCost, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 95/114, code churn 0.3%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (MCP server was mid-(re)connect for the duration of this run)
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** `verifications.jsonl` still doesn't exist, so false-positive/fix-effectiveness rates remain non-computable. `collect-ai-issue-feedback.mjs` failed again on its `gh` query ("Failed to query GitHub issues") — same pre-existing `gh`-CLI-unavailable gap noted 2026-06-20, 07-30, 07-31, 08-01 (fifth consecutive run); root cause remains `@mbe/gh-client` shelling out to the `gh` binary via `execFileSync`, absent in this scheduled-session environment. No action taken — pre-existing, non-blocking, zero regressions to triage. Also note: this checkout had no `node_modules` and no `packages/gh-client/dist` at run start — needed `pnpm install --frozen-lockfile` + `pnpm --dir packages/gh-client build` before `sensor-report.mjs` would load at all, consistent with the "fresh worktree" gotchas already documented for other scripts.
+
+## 2026-08-03
+
+### Metrics
+
+| Metric                 | Value                                                                                                     | Target    | Status |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- | --------- | ------ |
+| Created (7d)           | 44 (audit+ci-fix)                                                                                         | -         | -      |
+| Closed (7d)            | 30 (audit+ci-fix)                                                                                         | -         | -      |
+| Closure Rate           | 68.2%                                                                                                     | >80%      | yellow |
+| Time-to-Close          | mean 13.3h, max 94.2h                                                                                     | <24h      | green  |
+| Agent Success          | has-pr:0 / agent-failed:0 at snapshot (queue was clean before this run's claim) — not meaningful this run | >70%      | n/a    |
+| CI Pass                | 23/30 recent main runs success, 1 failure, 6 cancelled (superseded); 23/24 excl. cancelled = 95.8%        | >95%      | green  |
+| Queue (ready)          | 38 open (41 before this run's implement-queue batch claim of 3)                                           | <5        | red    |
+| Stale (>7d)            | 0 (oldest ready issue is 5 days old)                                                                      | 0         | green  |
+| Blocked (agent-failed) | 0                                                                                                         | 0         | green  |
+| Skipped (agent-skip)   | 0                                                                                                         | 0         | green  |
+| Daily/7d Spend         | unavailable — `.claude/agent-spend/sessions.jsonl` is 0 bytes (empty since 2026-07-30)                    | <$10/<$50 | n/a    |
+| Cost/Issue             | unavailable, same reason                                                                                  | <$2       | n/a    |
+| Reverts (7d)           | 0 actual revert commits merged to main (2 grep hits were revert-_automation_ PRs, not real reverts)       | <3/wk     | green  |
+
+### Patterns
+
+- Backlog (`ready`) sits at 38 open, deep red against the <5 target — consistent with the 2026-08-02 weekly retro's "+49 backlog growth" note. This run's implement-queue iteration claimed 3 (#3634, #3635, #3641), all `ci-fix`, a small dent.
+- Closure rate (68.2%) is below the 80% target but mean time-to-close is a healthy 13.3h — issues that do close, close fast; the gap is intake outpacing drain, not slow handling.
+- `.claude/agent-spend/sessions.jsonl` is empty (0 bytes, unchanged since creation 2026-07-30) despite 90 PRs merged in the same 7d window. This exact symptom was already fixed twice before (#1830 closed 2026-06-19, #2974 closed 2026-07-03 — a single `recordSpend` seam in agent-core). The seam appears to have regressed, or the file was reset without repopulating. Filed a new meta-improvement issue (#3695) rather than reopening the closed ones, since this is a recurrence, not unfinished original work.
+- `gh` CLI remains absent in this scheduled-session environment (confirmed again today: `mbe check-model`, `mbe issue transition` both failed with `spawn gh ENOENT`) — sixth+ consecutive occurrence of the gap first noted 2026-06-20. Already tracked by #3689 (filed 2026-08-02 by the weekly retro); worked around this run via GitHub MCP tools + manual label writes for the whole implement-queue iteration and the progress-tracker queries. Not re-filing.
+- CI on main shows a ~20% cancellation rate in the last 30 runs (6/30) — likely concurrency-group supersession from rapid successive pushes on a fast-merging main, not real failures. Noting for trend-watching only, not actioned.
+- Housekeeping note: a reviewer sub-agent dispatched against a PR diff checked out that PR's branch directly in the shared main checkout (`/home/user/mattbutlerengineering`) instead of using a disposable ref, leaving local `main` on a stray branch with an unrelated regenerated-timestamp diff twice during this run. Recovered both times by discarding the noise file and `git reset --hard origin/main` / `git checkout main` (verified clean/no unique local commits first). No repo state was affected (GitHub-side actions all went through the API/MCP tools, not local git), but future reviewer-agent prompts should tell them explicitly not to `git checkout` in the shared checkout.
+
+### Recommendations
+
+- Consider raising implement-queue's per-iteration batch size (currently capped at 3 by the evening routine) or running it more frequently — the queue backlog is ~8x the healthy target and closure rate is intake-bound, not throughput-bound.
+- `#3689` (gh-client non-gh transport seam) is the single highest-leverage fix outstanding — it would restore `mbe check-model`, `mbe issue transition`, and the sensors this and other skills rely on, in one change. Still `ready`, deferred this run to keep the batch small/independent (ci-fix issues by age took priority).
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+### Meta-improvement filed
+
+- #3695 — cost telemetry (`.claude/agent-spend/sessions.jsonl`) empty since 2026-07-30, third occurrence of a previously-fixed gap (#1830, #2974).
+
+## 2026-08-03
+
+**queueEfficiency:** unavailable
+**Issues filed:** 0

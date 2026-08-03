@@ -967,18 +967,19 @@
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health.ts">
     <item priority="low">
-      interface AcmmSensor {
-        available: boolean;
-        level: string;
-        score: number;
-        gaps: number;
+      interface QueueEfficiencyTierStats {
+        count: number;
+        avg_commits: number;
+        avg_ttm_hours: number;
       }
     </item>
     <item priority="low">
-      interface CiSensor {
-        available: boolean;
-        passRate: number;
-        recentRuns: number;
+      interface QueueEfficiencyBaseline {
+        composite_median: number | null;
+        weeks_sampled: number;
+        fps_median: number | null;
+        ttm_median: number | null;
+        cost_per_issue_median: number | null;
       }
     </item>
   </file>
@@ -2389,6 +2390,14 @@
       export const availabilityRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/booking-metrics.ts">
+    <item priority="medium">
+      function todayDateString(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const bookingMetricsRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/briefing.ts">
     <item priority="high">
       export const briefingRoutes: FastifyPluginAsync;
@@ -3049,6 +3058,25 @@
     </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+    </item>
+  </file>
+  <file path="services/reservations/src/services/booking-metrics.ts">
+    <item priority="low">
+      interface ReservationStatusCounts {
+        pending: number;
+        confirmed: number;
+        cancelled: number;
+        completed: number;
+        noShow: number;
+      }
+    </item>
+    <item priority="low">
+      interface DepositTransitionCounts {
+        held: number;
+        applied: number;
+        refunded: number;
+        forfeited: number;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
@@ -4951,12 +4979,167 @@
       }
     </item>
   </file>
+  <file path="packages/gh-client/src/gh-probe.ts">
+    <item priority="low">
+      type GhProbe = () => boolean;
+    </item>
+    <item priority="medium">
+      function defaultProbeExec(): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/git-branch.ts">
+    <item priority="high">
+      export function currentBranch(exec: (cmd: string, args: string[]) => string = defaultExec): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function defaultExec(cmd: string, args: string[]): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/gh-client/src/label-machine.ts">
     <item priority="high">
       export const COORDINATION_LABELS: unknown;
     </item>
     <item priority="low">
       type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
+    </item>
+  </file>
+  <file path="packages/gh-client/src/repo-resolver.ts">
+    <item priority="low">
+      interface RepoSlug {
+        owner: string;
+        repo: string;
+      }
+    </item>
+    <item priority="high">
+      export function parseRepoSlug(remoteUrl: string): RepoSlug | null { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-args.ts">
+    <item priority="high">
+      class MissingGithubTokenError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function resolveToken(env: NodeJS.ProcessEnv = process.env): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-http.ts">
+    <item priority="low">
+      interface RestContext {
+        token: string;
+        owner: string;
+        repo: string;
+        http: SyncHttp;
+      }
+    </item>
+    <item priority="low">
+      interface RestResult {
+        status: number;
+        json: unknown;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-issue-ops.ts">
+    <item priority="medium">
+      function issuesPath(ctx: RestContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPullRequest(item: RawIssue): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-label-run-ops.ts">
+    <item priority="high">
+      export function labelList(ctx: RestContext, parsed: ParsedArgs): unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function workflowRuns(ctx: RestContext, parsed: ParsedArgs): unknown[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-mappers.ts">
+    <item priority="low">
+      interface RawLabel {
+        name: string;
+        color?: string;
+        description?: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RawUser {
+        login: string;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-paginate.ts">
+    <item priority="high">
+      export function fetchAllPages(
+        ctx: RestContext,
+        basePath: string,
+        limit: number,
+        itemsKey?: string
+      ): unknown[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-pr-ops.ts">
+    <item priority="medium">
+      function pullsPath(ctx: RestContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function prNumberOf(item: unknown): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-runner.ts">
+    <item priority="low">
+      interface RestRunnerOptions {
+        token?: string;
+        owner?: string;
+        repoName?: string;
+        http?: SyncHttp;
+        exec?: (cmd: string, args: string[]) => string;
+      }
+    </item>
+    <item priority="high">
+      export function createRestRunner(
+        opts: RestRunnerOptions = {}
+      ): (cmd: string, args: string[]) => string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-search.ts">
+    <item priority="high">
+      export function buildSearchQuery(
+        ctx: RestContext,
+        kind: "issue" | "pr",
+        parsed: ParsedArgs,
+        search: string
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/sync-http.ts">
+    <item priority="low">
+      interface SyncHttpRequest {
+        method: string;
+        url: string;
+        headers: Record<string, string>;
+        body?: string;
+      }
+    </item>
+    <item priority="low">
+      interface SyncHttpResponse {
+        status: number;
+        body: string;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/transport.ts">
+    <item priority="low">
+      interface TransportOptions {
+        probe?: GhProbe;
+      }
+    </item>
+    <item priority="high">
+      export function createTransportRunner(
+        opts: TransportOptions = {}
+      ): (cmd: string, args: string[]) => string { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
