@@ -121,6 +121,7 @@ reports/mutation/
 !/metrics/agent-perf.jsonl
 !/metrics/ai-antipattern-baselines.json
 !/metrics/ai-issue-feedback.json
+!/metrics/domain-metrics.jsonl
 !/metrics/eval-reports.jsonl
 !/metrics/instruction-changes.jsonl
 !/metrics/last-audit.json
