@@ -307,6 +307,7 @@ if (APPLY) {
     applyResult = {
       createdCount: 0,
       skippedOpen: 0,
+      reopenedCount: 0,
       issuesCreated: prior.issuesCreated || {},
       error: true,
     };
@@ -486,7 +487,7 @@ console.log(`report: ${reportPath}`);
 if (BADGE) console.log(`badge:  ${badgeOutcome}`);
 if (APPLY && applyResult) {
   console.log(
-    `issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}`
+    `issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}, reopened ${applyResult.reopenedCount || 0}`
   );
 }
 if (!APPLY && computation.missingForNextLevel.length > 0) {
