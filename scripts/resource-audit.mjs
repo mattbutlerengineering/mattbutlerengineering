@@ -192,7 +192,7 @@ async function getLiveDnsRecords() {
 
 // ── Comparison Logic ────────────────────────────────────────────────
 
-function isAllowlisted(resource, category, allowlist) {
+export function isAllowlisted(resource, category, allowlist) {
   const list = allowlist[category] || [];
   return list.some((entry) => {
     if (typeof entry === "string") return entry === resource.name;
@@ -203,19 +203,19 @@ function isAllowlisted(resource, category, allowlist) {
   });
 }
 
-function findOrphanedWorkers(liveWorkers, knownWorkers, allowlist) {
+export function findOrphanedWorkers(liveWorkers, knownWorkers, allowlist) {
   return liveWorkers
     .filter((name) => !knownWorkers.has(name))
     .filter((name) => !isAllowlisted({ name }, "workers", allowlist));
 }
 
-function findOrphanedDoApps(liveApps, knownApps, allowlist) {
+export function findOrphanedDoApps(liveApps, knownApps, allowlist) {
   return liveApps
     .filter((app) => !knownApps.has(app.name))
     .filter((app) => !isAllowlisted(app, "digitalocean_apps", allowlist));
 }
 
-function findOrphanedDnsRecords(liveRecords, knownRecords, allowlist, domain) {
+export function findOrphanedDnsRecords(liveRecords, knownRecords, allowlist, domain) {
   return liveRecords
     .filter((live) => {
       // Normalize: Pulumi uses "@" for root, CF API uses the full domain name
@@ -230,7 +230,7 @@ function findOrphanedDnsRecords(liveRecords, knownRecords, allowlist, domain) {
 
 // ── Report Generation ───────────────────────────────────────────────
 
-function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
+export function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
   const totalOrphaned = orphanedWorkers.length + orphanedApps.length + orphanedDns.length;
 
   if (totalOrphaned === 0) {
@@ -348,7 +348,9 @@ async function main() {
   createGitHubIssue(report.title, report.body);
 }
 
-main().catch((err) => {
-  console.error("Resource audit failed:", err.message);
-  process.exit(1);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("Resource audit failed:", err.message);
+    process.exit(1);
+  });
+}
