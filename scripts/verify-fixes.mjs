@@ -13,16 +13,17 @@
  *   node scripts/verify-fixes.mjs --hours 72   # custom lookback window
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, markReady } from "@mbe/gh-client";
 import { run as runThresholdTuner } from "./threshold-tuner.mjs";
 import { getAllLabels } from "./sensors-registry.mjs";
+import { append, resolvePath } from "./metrics-store.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const LOG_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
+const LOG_PATH = resolvePath("verifications", { root: ROOT });
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -216,7 +217,7 @@ function verifySecurity() {
   };
 }
 
-function verifyIssue(issue) {
+export function verifyIssue(issue) {
   const labelNames = (issue.labels ?? []).map((l) => l.name);
 
   if (labelNames.includes("ci-fix")) return verifyCiFix();
@@ -226,81 +227,102 @@ function verifyIssue(issue) {
   if (labelNames.includes("security")) return verifySecurity();
   if (labelNames.includes("bug")) return verifyBug();
 
-  return { verified: false, reason: "No matching verifier for labels" };
+  // Abstain, don't act. `confidence: "skip"` is load-bearing: without it the
+  // caller below read `undefined !== "skip"` as "act", so an issue carrying a
+  // label no verifier handles (today: `meta-improvement`) was commented on and
+  // reopened purely because nothing could check it (#3645).
+  return { verified: false, reason: "No matching verifier for labels", confidence: "skip" };
+}
+
+/**
+ * Pure: whether a verification result warrants issue side effects (comment,
+ * re-label, reopen). An abstention must never move the issue.
+ *
+ * @param {{ confidence?: string }} result
+ * @returns {boolean}
+ */
+export function shouldActOnResult(result) {
+  return result.confidence !== "skip";
 }
 
 /* ── Main ────────────────────────────────────────────── */
 
-const issues = findClosedIssuesWithSensorLabels();
+async function main() {
+  const issues = findClosedIssuesWithSensorLabels();
 
-if (issues.length === 0) {
-  console.log(`\n✅ No sensor-labeled issues closed in the last ${LOOKBACK_HOURS}h to verify.\n`);
-  process.exit(0);
-}
+  if (issues.length === 0) {
+    console.log(`\n✅ No sensor-labeled issues closed in the last ${LOOKBACK_HOURS}h to verify.\n`);
+    process.exit(0);
+  }
 
-console.log(
-  `\n🔍 Verifying ${issues.length} recently-closed issues (${LOOKBACK_HOURS}h window):\n`
-);
+  console.log(
+    `\n🔍 Verifying ${issues.length} recently-closed issues (${LOOKBACK_HOURS}h window):\n`
+  );
 
-const results = [];
+  const results = [];
 
-for (const issue of issues) {
-  const labelNames = (issue.labels ?? []).map((l) => l.name);
-  const sensorLabel = labelNames.find((l) => SENSOR_LABELS.includes(l));
-  const result = verifyIssue(issue);
+  for (const issue of issues) {
+    const labelNames = (issue.labels ?? []).map((l) => l.name);
+    const sensorLabel = labelNames.find((l) => SENSOR_LABELS.includes(l));
+    const result = verifyIssue(issue);
 
-  const entry = {
-    timestamp: new Date().toISOString(),
-    issue_number: issue.number,
-    issue_title: issue.title,
-    sensor_label: sensorLabel,
-    ...result,
-  };
+    const entry = {
+      timestamp: new Date().toISOString(),
+      issue_number: issue.number,
+      issue_title: issue.title,
+      sensor_label: sensorLabel,
+      ...result,
+    };
 
-  results.push(entry);
+    results.push(entry);
 
-  const icon = result.verified ? "✅" : result.confidence === "skip" ? "⏭ " : "❌";
-  console.log(`  ${icon} #${issue.number}: ${issue.title}`);
-  console.log(`     ${result.reason}`);
-  console.log();
+    const icon = result.verified ? "✅" : result.confidence === "skip" ? "⏭ " : "❌";
+    console.log(`  ${icon} #${issue.number}: ${issue.title}`);
+    console.log(`     ${result.reason}`);
+    console.log();
 
-  if (!DRY_RUN && result.confidence !== "skip") {
-    const emoji = result.verified ? "✅" : "❌";
-    const verb = result.verified ? "Verified" : "Not verified";
-    const comment = `## ${emoji} Fix Verification (automated)\n\n**${verb}** — ${result.reason}\n\n_Checked ${LOOKBACK_HOURS}h after close by [\`scripts/verify-fixes.mjs\`](../blob/main/scripts/verify-fixes.mjs)_`;
+    if (!DRY_RUN && shouldActOnResult(result)) {
+      const emoji = result.verified ? "✅" : "❌";
+      const verb = result.verified ? "Verified" : "Not verified";
+      const comment = `## ${emoji} Fix Verification (automated)\n\n**${verb}** — ${result.reason}\n\n_Checked ${LOOKBACK_HOURS}h after close by [\`scripts/verify-fixes.mjs\`](../blob/main/scripts/verify-fixes.mjs)_`;
 
-    safe(() => ghClient.issue.comment(issue.number, comment));
+      safe(() => ghClient.issue.comment(issue.number, comment));
 
-    if (!result.verified) {
-      // Single source of truth for the re-queue edge (#2933): @mbe/gh-client's
-      // markReady owns which labels come off, not this call site.
-      safe(() => ghClient.label.apply(markReady(issue.number)));
-      safe(() => ghClient.issue.reopen(issue.number));
-      console.log(`     ↻ Reopened #${issue.number} for re-triage\n`);
+      if (!result.verified) {
+        // Single source of truth for the re-queue edge (#2933): @mbe/gh-client's
+        // markReady owns which labels come off, not this call site.
+        safe(() => ghClient.label.apply(markReady(issue.number)));
+        safe(() => ghClient.issue.reopen(issue.number));
+        console.log(`     ↻ Reopened #${issue.number} for re-triage\n`);
+      }
     }
   }
-}
 
-if (!DRY_RUN) {
-  mkdirSync(dirname(LOG_PATH), { recursive: true });
-  for (const entry of results) {
-    appendFileSync(LOG_PATH, JSON.stringify(entry) + "\n");
+  if (!DRY_RUN) {
+    for (const entry of results) {
+      append("verifications", entry, { root: ROOT });
+    }
+    console.log(`Logged ${results.length} verification(s) to ${LOG_PATH}\n`);
   }
-  console.log(`Logged ${results.length} verification(s) to ${LOG_PATH}\n`);
+
+  const verified = results.filter((r) => r.verified).length;
+  const failed = results.filter((r) => !r.verified && shouldActOnResult(r)).length;
+  const skipped = results.filter((r) => !shouldActOnResult(r)).length;
+
+  console.log(`Summary: ${verified} verified, ${failed} failed, ${skipped} skipped\n`);
+
+  /* ── Threshold auto-tuning (feedback loop) ───────────── */
+
+  console.log("🔧 Running threshold auto-tuner…\n");
+  await runThresholdTuner({ dryRun: DRY_RUN }).catch((err) => {
+    // Non-fatal — tuning failure never blocks the verification report
+    console.error(`[threshold-tuner] Warning: ${err.message}`);
+  });
+
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-const verified = results.filter((r) => r.verified).length;
-const failed = results.filter((r) => !r.verified && r.confidence !== "skip").length;
-const skipped = results.filter((r) => r.confidence === "skip").length;
-
-console.log(`Summary: ${verified} verified, ${failed} failed, ${skipped} skipped\n`);
-
-/* ── Threshold auto-tuning (feedback loop) ───────────── */
-
-console.log("🔧 Running threshold auto-tuner…\n");
-await runThresholdTuner({ dryRun: DRY_RUN }).catch((err) => {
-  // Non-fatal — tuning failure never blocks the verification report
-  console.error(`[threshold-tuner] Warning: ${err.message}`);
-});
-
-process.exit(failed > 0 ? 1 : 0);
+// Run when invoked directly (not imported by tests)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await main();
+}

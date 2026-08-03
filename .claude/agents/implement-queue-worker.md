@@ -93,6 +93,20 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 
    ```bash
    git push origin HEAD
+   ```
+
+   Run this push in the **foreground** — never background it (no `run_in_background`, no `&`, no "I'll wait for the push notification"). The pre-push hook (migration check, antipattern ratchet, and — only when your diff touches generated-artifact sources — a CLI build + full regen) can take several minutes on a cold worktree; that is expected, not a hang. Give it a generous timeout (≥10 minutes) and wait for it to actually finish. Backgrounding the push and ending your turn before it completes means neither the branch nor a PR exists — there is nothing left for the orchestrator to pick up, and your session reports done on work that never left the worktree.
+
+   After the push command returns, verify the remote actually has your commit before doing anything else:
+
+   ```bash
+   git ls-remote origin <branch-name>   # must show your local HEAD sha
+   git rev-parse HEAD                   # compare against the line above
+   ```
+
+   Only once the SHAs match, open the PR:
+
+   ```bash
    gh pr create --base main --title "<type>: <description>" --body "Closes #<ISSUE_NUMBER>
 
    <summary of changes and gate results>"

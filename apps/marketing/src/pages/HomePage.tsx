@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { HeroSection } from "../components/HeroSection";
 import { ProofStrip } from "../components/ProofStrip";
 import { ProjectsSection } from "../components/ProjectsSection";

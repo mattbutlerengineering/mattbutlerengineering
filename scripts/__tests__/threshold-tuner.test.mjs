@@ -8,7 +8,9 @@ import {
   classifyRegressionOutcome,
   tuneRegressionThreshold,
   applyRegressionThresholdAdjustments,
+  SENSOR_LABELS,
 } from "../threshold-tuner.mjs";
+import { getAllLabels } from "../sensors-registry.mjs";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -682,5 +684,30 @@ describe("applyRegressionThresholdAdjustments", () => {
     const metrics = { "ci-fix": { fpRate: 0.5, effectiveness: 0.5, total: 10 } };
     applyRegressionThresholdAdjustments(original, metrics, resolveSensor, tunableDefaults, TODAY);
     expect(original).toEqual(snapshot);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Label coverage — the tuner must see every label the sensor registry can
+// stamp on an issue. The old literal listed five of seven, so `security` and
+// `meta-improvement` verifications were written and then never tuned (#3645).
+// ---------------------------------------------------------------------------
+
+describe("SENSOR_LABELS", () => {
+  it("derives from the registry rather than a second literal", () => {
+    expect(SENSOR_LABELS).toEqual(getAllLabels());
+    expect(SENSOR_LABELS).toContain("security");
+    expect(SENSOR_LABELS).toContain("meta-improvement");
+  });
+
+  it("computes metrics for every registry label", () => {
+    const verifications = getAllLabels().flatMap((label) => [
+      makeVerification(label, true),
+      makeVerification(label, false),
+    ]);
+
+    const metrics = computePerSensorMetrics(verifications, 30, NOW.getTime());
+
+    expect(Object.keys(metrics).sort()).toEqual([...getAllLabels()].sort());
   });
 });

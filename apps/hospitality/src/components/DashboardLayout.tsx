@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { useNavigate, useLocation, Outlet } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import {
   Breadcrumb,

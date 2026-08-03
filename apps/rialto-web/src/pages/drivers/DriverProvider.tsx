@@ -1,5 +1,5 @@
 import { useState, useCallback, type ReactNode } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { DriverContext, type Driver } from "./DriverContext";
 
 /* ── Mock data ───────────────────────────────── */

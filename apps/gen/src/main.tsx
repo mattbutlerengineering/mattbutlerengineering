@@ -2,7 +2,7 @@ import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router";
 import { ErrorBoundary, RialtoProvider, Text, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";

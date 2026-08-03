@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { JSONUIProvider, Renderer } from "@json-render/react";
 import type { Spec } from "@json-render/react";
 import { registry } from "@mbe/rialto-catalog";

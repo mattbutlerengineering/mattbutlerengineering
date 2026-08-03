@@ -27,7 +27,7 @@ vi.mock("@mbe/auth/react", () => ({
   ),
 }));
 
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   RouterProvider: () => <div data-testid="router-provider" />,
 }));
 

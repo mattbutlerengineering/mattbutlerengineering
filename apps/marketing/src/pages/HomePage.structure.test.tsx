@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { HomePage } from "./HomePage.js";
 

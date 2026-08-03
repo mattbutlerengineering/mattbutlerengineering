@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate, useBlocker } from "react-router-dom";
+import { useParams, useNavigate, useBlocker } from "react-router";
 import { ConfirmDialog, Button, Heading, Text } from "@mattbutlerengineering/rialto";
 import type { CreateTableRequest, Table } from "@mbe/types";
 import { AddTableDialog, FloorPlanCanvas } from "../components/floor-plan";

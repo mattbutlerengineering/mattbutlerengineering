@@ -1,11 +1,22 @@
 name: Mutation Testing
 
+# Baseline: 98.89% mutation score (services/users routes + services) as of
+# 2026-08-02 — see the `thresholds` comment in stryker.config.mjs for the
+# full breakdown and rationale. The 80% threshold below is comfortably met.
 on:
   # Weekly schedule on Monday morning (adjusted to avoid common CI peaks)
   schedule:
     - cron: "23 9 * * 1" # Monday 9:23 AM UTC
-  # Allow manual triggering via GitHub UI or API
+  # Manual triggering via GitHub UI or API. pr_number is optional: set it to
+  # also post the results as a PR comment (e.g. `gh workflow run
+  # mutation-testing.yml -f pr_number=1234`); omit it to just run and write
+  # the job summary.
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to comment mutation results on (optional)"
+        required: false
+        type: string
 
 concurrency:
   group: mutation-testing
@@ -14,6 +25,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
@@ -22,7 +34,12 @@ jobs:
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 15m was too tight once the OOM crash (see the Upload step below) no
+    # longer cuts the job short: node_modules across root + 3 packages + 3
+    # services is ~1.6GB uncompressed, and archiving/uploading it alone took
+    # >8m and was still climbing when a real run hit the old 15m ceiling and
+    # got cancelled mid-upload (never an OOM — just ran out of job time).
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -63,6 +80,16 @@ jobs:
           pnpm --filter @mbe/agent-service db:generate
 
       - name: Upload workspace artifact
+        # This step OOM-crashed ("JavaScript heap out of memory") on every
+        # one of the last 4 scheduled runs while compressing the archive —
+        # the actual, sole reason the workflow has been red for months. The
+        # mutation-test job (and every bug fixed elsewhere in this workflow)
+        # never even ran: `needs: [prepare]` skips it when this step fails.
+        # Raise the upload action's Node heap limit; the archived tree
+        # (root + per-package node_modules, generated Prisma clients) is a
+        # few hundred MB of many small files, which is memory-heavy to zip.
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace-deps
@@ -93,6 +120,10 @@ jobs:
           cache: "pnpm"
 
       - name: Download dependencies artifact
+        # Same OOM risk as the matching upload step (see its comment) —
+        # decompressing the same large archive is symmetric in memory cost.
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: workspace-deps
@@ -108,25 +139,54 @@ jobs:
           path: reports/mutation/
           retention-days: 30
 
+      - name: Compute mutation score
+        id: score
+        if: always()
+        run: node scripts/print-mutation-score.mjs reports/mutation/mutation.json >> "$GITHUB_OUTPUT"
+
+      - name: Write mutation score to job summary
+        if: always()
+        run: node scripts/print-mutation-summary.mjs reports/mutation/mutation.json "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Comment mutation score on PR
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        # workflow_dispatch carries no implicit PR context (this workflow has
+        # no pull_request trigger — mutation testing is too expensive to run
+        # per-commit, see stryker.config.mjs), so the condition is driven by
+        # an explicit pr_number input rather than context.issue.number, which
+        # is never set here.
+        if: github.event_name == 'workflow_dispatch' && inputs.pr_number != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MUTATION_AVAILABLE: ${{ steps.score.outputs.available }}
+          MUTATION_SCORE: ${{ steps.score.outputs.score }}
+          MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
+          MUTATION_PASSES: ${{ steps.score.outputs.passes }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         with:
           script: |
-            const fs = require('fs');
-            const report = JSON.parse(fs.readFileSync('reports/mutation/mutation.json', 'utf8'));
-            const score = report.metrics?.mutationScore || 0;
+            const available = process.env.MUTATION_AVAILABLE === 'true';
+            const score = Number(process.env.MUTATION_SCORE);
+            const threshold = Number(process.env.MUTATION_THRESHOLD);
+            const passes = process.env.MUTATION_PASSES === 'true';
+            const prNumber = Number(process.env.PR_NUMBER);
+            const artifactUrl = `${github.server_url}/${github.repository}/actions/runs/${github.run_id}`;
 
-            const comment = `## Mutation Testing Results 🧬
+            const comment = available
+              ? `## Mutation Testing Results 🧬
 
             **Mutation Score:** ${score.toFixed(2)}%
-            **Target:** > 80%
-            **Status:** ${score >= 80 ? '✅ PASS' : '⚠️ BELOW TARGET'}
+            **Target:** > ${threshold}%
+            **Status:** ${passes ? '✅ PASS' : '⚠️ BELOW TARGET'}
 
-            Full report available in [Artifacts](${github.server_url}/${github.repository}/actions/runs/${github.run_id})`;
+            Full report available in [Artifacts](${artifactUrl})`
+              : `## Mutation Testing Results 🧬
+
+            ❌ No report was produced by this run.
+
+            Full report available in [Artifacts](${artifactUrl})`;
 
             github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: comment
@@ -134,14 +194,60 @@ jobs:
 
       - name: Fail if mutation score below threshold
         run: |
-          if [ ! -f "reports/mutation/mutation.json" ]; then
+          if [ "${{ steps.score.outputs.available }}" != "true" ]; then
             echo "❌ Mutation testing failed to produce report"
             exit 1
           fi
-          SCORE=$(jq -r '.metrics.mutationScore' reports/mutation/mutation.json)
-          echo "Mutation Score: $SCORE%"
-          if (( $(echo "$SCORE < 80" | bc -l) )); then
-            echo "❌ Mutation score $SCORE% is below target of 80%"
+          echo "Mutation Score: ${{ steps.score.outputs.score }}%"
+          if [ "${{ steps.score.outputs.passes }}" != "true" ]; then
+            echo "❌ Mutation score ${{ steps.score.outputs.score }}% is below target of ${{ steps.score.outputs.threshold }}%"
             exit 1
           fi
-          echo "✅ Mutation score $SCORE% meets target"
+          echo "✅ Mutation score ${{ steps.score.outputs.score }}% meets target"
+
+      - name: File or update tracking issue on scheduled mutation-testing failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MUTATION_SCORE: ${{ steps.score.outputs.score }}
+          MUTATION_THRESHOLD: ${{ steps.score.outputs.threshold }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          # Stable, date-less title so this is a single de-duplicated tracking
+          # issue that gets a comment on every failing week instead of a new
+          # issue per week — the pattern learning-loop uses for sensor
+          # findings (search open issues, skip/update on match).
+          title="Mutation testing below target"
+
+          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still below target as of ${today}: score ${MUTATION_SCORE}% (threshold ${MUTATION_THRESHOLD}%). Run: ${RUN_URL}"
+            echo "Updated existing issue #$existing."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            "## ${title}" \
+            "" \
+            "The scheduled mutation-testing workflow ran on ${today} and the score" \
+            "is below the ${MUTATION_THRESHOLD}% target (or the run produced no report)." \
+            "" \
+            "**Score:** ${MUTATION_SCORE}%" \
+            "**Run:** ${RUN_URL} (see the job summary for the top surviving mutants)" \
+            "" \
+            "### Next steps" \
+            "1. Open the run's job summary and the mutation-report artifact" \
+            "2. Identify weakly-tested files from the mutation report" \
+            "3. Add tests to kill surviving mutants" \
+            "" \
+            "This issue is de-duplicated by title — future failing scheduled" \
+            "runs will comment here instead of filing a new issue." \
+            > /tmp/mutation-failure-body.md
+
+          gh issue create \
+            --title "$title" \
+            --body-file /tmp/mutation-failure-body.md \
+            --label ci-fix \
+            --label ready

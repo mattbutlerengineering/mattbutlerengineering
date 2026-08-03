@@ -35,7 +35,7 @@
     "framer-motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:",
+    "react-router": "catalog:",
     "@mbe/sentry": "workspace:*",
     "three": "^0.185.1"
   },
@@ -50,7 +50,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/three": "^0.185.1",
+    "@types/three": "^0.185.2",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
