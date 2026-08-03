@@ -14,5 +14,13 @@
     "merged": 65,
     "rejected": 0,
     "acceptance_rate": 1
+  },
+  {
+    "date": "2026-08-03",
+    "window_days": 30,
+    "total_ai_prs": 77,
+    "merged": 76,
+    "rejected": 1,
+    "acceptance_rate": 0.99
   }
 ]
