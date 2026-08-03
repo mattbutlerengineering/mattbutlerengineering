@@ -20,13 +20,19 @@
  *   4. ALLOWLIST below — for hooks intentionally not wired anywhere, with a
  *      one-line reason
  *
- * Matching is filename substring search against file contents, with `#`/`//`
- * comment-only lines stripped first. Without that, a workflow or sibling hook
- * that merely *mentions* a hook's filename in prose (explaining what it does
- * elsewhere, e.g. documenting a failure mode) would count as "wiring" —
+ * Matching is path-bounded: a hook counts as wired only if its haystack
+ * contains the literal `.claude/hooks/<filename>` (the prefix every real
+ * invocation uses — `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/foo.sh"`,
+ * `bash .claude/hooks/foo.sh`, `import ... from ".claude/hooks/foo.mjs"`),
+ * not a bare filename substring search. Bare substring search produces false
+ * negatives: `"archive.sh"` is a substring of the wired `"session-archive.sh"`,
+ * so an actually-orphaned `archive.sh` would silently pass. `#`/`//`
+ * comment-only lines are stripped first so a workflow or sibling hook that
+ * merely *mentions* a hook's filename in prose (explaining what it does
+ * elsewhere, e.g. documenting a failure mode) doesn't count as "wiring" —
  * which is exactly the false confidence this check exists to remove. Real
- * invocations (`bash .claude/hooks/foo.sh`, `import ... from "./foo.mjs"`)
- * are never comment-only lines, so stripping them costs no true positives.
+ * invocations are never comment-only lines, so stripping them costs no true
+ * positives.
  *
  * Usage: node scripts/check-hook-wiring.mjs
  * Exit code: 0 if every hook is referenced somewhere, 1 otherwise
@@ -79,6 +85,15 @@ function workflowsText(root) {
     .join("\n");
 }
 
+/**
+ * True if `text` contains a real reference to hook `file` — the literal
+ * `.claude/hooks/<file>` path, not a bare filename substring. Bare substring
+ * search false-passes e.g. "archive.sh" against the wired "session-archive.sh".
+ */
+function references(text, file) {
+  return text.includes(`.claude/hooks/${file}`);
+}
+
 /** Pure check — returns filenames of orphaned hooks, never logs or exits. */
 export function findOrphanedHooks(root = DEFAULT_ROOT, allowlist = ALLOWLIST) {
   const hooksDir = join(root, ".claude", "hooks");
@@ -93,10 +108,12 @@ export function findOrphanedHooks(root = DEFAULT_ROOT, allowlist = ALLOWLIST) {
 
   return hookFiles.filter((file) => {
     if (file in allowlist) return false;
-    if (settingsText.includes(file)) return false;
-    if (workflowsHaystack.includes(file)) return false;
+    if (references(settingsText, file)) return false;
+    if (references(workflowsHaystack, file)) return false;
 
-    return ![...hookTexts.entries()].some(([other, text]) => other !== file && text.includes(file));
+    return ![...hookTexts.entries()].some(
+      ([other, text]) => other !== file && references(text, file)
+    );
   });
 }
 

@@ -113,6 +113,46 @@ describe("findOrphanedHooks", () => {
     expect(findOrphanedHooks(root)).toEqual([]);
   });
 
+  it("flags a hook whose filename is a bare substring of an already-wired hook's filename", () => {
+    // Reproduces the PR #3753 review finding: "archive.sh" is unwired, but
+    // ".claude/hooks/session-archive.sh" (a real, wired hook) contains
+    // "archive.sh" as a substring, so naive `text.includes(file)` matching
+    // false-passed it. This is the exact "sits in the tree, reads as
+    // protected, never runs" failure mode the check exists to catch.
+    root = makeFixture({
+      hooks: {
+        "archive.sh": "#!/usr/bin/env bash\necho hi\n",
+        "session-archive.sh": "#!/usr/bin/env bash\necho hi\n",
+      },
+      settings: JSON.stringify({
+        hooks: {
+          Stop: [{ command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-archive.sh"' }],
+        },
+      }),
+    });
+
+    expect(findOrphanedHooks(root)).toEqual(["archive.sh"]);
+  });
+
+  it("does not flag a hook wired via the real $CLAUDE_PROJECT_DIR-prefixed invocation style", () => {
+    // settings.json never invokes hooks with a bare ".claude/hooks/foo.sh"
+    // prefix — every real entry prefixes it with the $CLAUDE_PROJECT_DIR
+    // shell variable, e.g. `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/regen-llms.sh"`.
+    // A path-bounded match must still recognize this as wiring.
+    root = makeFixture({
+      hooks: { "regen-llms.sh": "#!/usr/bin/env bash\necho hi\n" },
+      settings: JSON.stringify({
+        hooks: {
+          PostToolUse: [
+            { command: 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/regen-llms.sh" "$FILE"' },
+          ],
+        },
+      }),
+    });
+
+    expect(findOrphanedHooks(root)).toEqual([]);
+  });
+
   it("has zero orphaned hooks in the real repo tree", () => {
     // The CI-enforcing assertion: every real .claude/hooks/* file must be
     // wired (or allowlisted) on the current tree, not just in fixtures.
