@@ -19,7 +19,7 @@
  *   node scripts/sensor-report.mjs --json       # output raw JSON to stdout
  */
 
-import { read, write, resolvePath } from "./metrics-store.mjs";
+import { append, lastEntry, write, resolvePath } from "./metrics-store.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,6 +54,35 @@ export function writeMarketingCopy(report, { root = ROOT } = {}) {
   return marketingPath;
 }
 
+/**
+ * Appends this run's sensor readings to the durable history (#3645). One
+ * `{ date, sensors }` line per run — jsonl so `.gitattributes`' merge=union
+ * covers concurrent local and cloud appends, unlike the whole-file
+ * metrics/sensor-report.json snapshot, which stays latest-only and untracked.
+ *
+ * @param {object} report
+ * @param {{ root?: string }} [opts]
+ * @returns {string} the resolved history file path
+ */
+export function appendReportHistory(report, { root = ROOT } = {}) {
+  return append(
+    "sensor-report-history",
+    { date: report.period.end, sensors: report.sensors },
+    { root }
+  );
+}
+
+/**
+ * The previous run's sensor readings, read from the history tail. Null on the
+ * first run — buildReport treats that as "no baseline", same as before.
+ *
+ * @param {{ root?: string }} [opts]
+ * @returns {object|null}
+ */
+export function readPreviousSensors({ root = ROOT } = {}) {
+  return lastEntry("sensor-report-history", { root })?.sensors ?? null;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const DRY_RUN = args.includes("--dry-run");
@@ -67,8 +96,8 @@ function main() {
 
   const collectedSensors = collectReportSensors(getReportSensors(), ctx);
 
-  const previousReport = safe(() => read("sensor-report", { root: ROOT }));
-  const report = buildReport(collectedSensors, previousReport?.sensors, buildThresholds(), now);
+  const previousSensors = safe(() => readPreviousSensors({ root: ROOT }));
+  const report = buildReport(collectedSensors, previousSensors, buildThresholds(), now);
 
   /* ── Output (IO) ──────────────────────────────────────────────────────── */
 
@@ -102,6 +131,7 @@ function main() {
 
   if (!DRY_RUN) {
     write("sensor-report", report, { root: ROOT });
+    appendReportHistory(report, { root: ROOT });
     writeMarketingCopy(report, { root: ROOT });
     if (!JSON_ONLY) console.log(`   Written to: ${REPORT_PATH}\n`);
   }

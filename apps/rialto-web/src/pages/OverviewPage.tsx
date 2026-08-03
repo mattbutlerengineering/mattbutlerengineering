@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Button, Card, Heading, Hero, Stack, Stat, Text } from "@mattbutlerengineering/rialto";
 import manifest from "@mattbutlerengineering/rialto/manifest";
 import { NAV_SECTIONS } from "../data/nav-sections.js";

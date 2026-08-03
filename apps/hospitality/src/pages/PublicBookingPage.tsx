@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
 import { BookingWidget, hasOperatingHours } from "../components/booking-widget/index.js";

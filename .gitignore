@@ -69,13 +69,6 @@ apps/marketing/src/data/generated/
 
 # Claude Code (keep skills, ignore local settings)
 .claude/settings.local.json
-# Ignore improvement-loop *contents* (not the dir itself) so the negation below
-# can re-include the tracked audit log — git won't descend into a dir ignored
-# as a whole.
-.claude/improvement-loop/*
-# The improvement-loop audit log is intentionally tracked: cloud routines run in
-# ephemeral checkouts, so untracked appends are lost with the checkout.
-!.claude/improvement-loop/log.md
 .claude/agent-spend.jsonl
 .claude/governor-state.json
 .claude/session-logs/*.json
@@ -110,30 +103,39 @@ test-results/
 # Stryker mutation testing artifacts
 .stryker-tmp/
 reports/mutation/
-# Single home for tracked runtime telemetry: metrics/. Everything under it
-# is ignored except the specific files below (baselines, evals, and
-# audit-trail logs written by the self-tuning scripts). queue-telemetry.jsonl
-# is tracked as of the ideation-loop work: the implement-queue drain now runs
-# in ephemeral cloud checkouts, so untracked rows evaporate before the sensor
-# can reconcile them. Append-only churn is handled by merge=union in
-# .gitattributes.
+# Durable runtime telemetry (#3645). The block below is DERIVED from the
+# `durable` flags in scripts/metrics-store.mjs — edit the registry, then run
+# `node scripts/metrics-store.mjs --sync-gitignore`. Drift is a test failure
+# (scripts/__tests__/durable-manifest.test.mjs).
+# >>> BEGIN generated durable-metrics block — scripts/metrics-store.mjs
+# Do not edit by hand — run `node scripts/metrics-store.mjs --sync-gitignore`.
+# Every path below is durable: scheduled routines run in ephemeral checkouts,
+# so an untracked append is lost with the checkout. Append-only churn is
+# handled by merge=union in .gitattributes.
+/.claude/improvement-loop/*
+!/.claude/improvement-loop/log.md
+!/.claude/improvement-loop/revert-log.md
 /metrics/*
-!/metrics/queue-telemetry.jsonl
-!/metrics/ai-antipattern-baselines.json
+!/metrics/a11y-history.jsonl
 !/metrics/acmm-evals.jsonl
-!/metrics/instruction-changes.jsonl
-!/metrics/process-metrics.jsonl
-!/metrics/threshold-changes.jsonl
 !/metrics/agent-perf.jsonl
+!/metrics/ai-antipattern-baselines.json
+!/metrics/ai-issue-feedback.json
+!/metrics/domain-metrics.jsonl
+!/metrics/eval-reports.jsonl
+!/metrics/instruction-changes.jsonl
 !/metrics/last-audit.json
 !/metrics/pr-acceptance.json
-!/metrics/review-burden.json
-!/metrics/eval-reports.jsonl
-# production-feedback.yml's per-day snapshots (#3623) -- a subdirectory, not
-# a single file, so it needs its own directory exception plus a file
-# exception for the dynamically-dated files inside it.
+!/metrics/process-metrics.jsonl
 !/metrics/production-health/
-!/metrics/production-health/*.jsonl
+!/metrics/production-health/*
+!/metrics/queue-telemetry.jsonl
+!/metrics/review-burden.json
+!/metrics/sensor-report.jsonl
+!/metrics/service-health.jsonl
+!/metrics/threshold-changes.jsonl
+!/metrics/verifications.jsonl
+# <<< END generated durable-metrics block
 
 # Playwright
 e2e/.auth/

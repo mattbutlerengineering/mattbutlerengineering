@@ -3,8 +3,8 @@
 /**
  * Threshold auto-tuner for the improvement flywheel.
  *
- * Reads per-sensor verification results from .claude/improvement-loop/verifications.jsonl
- * and adjusts two independent concerns from them:
+ * Reads per-sensor verification results from the `verifications` metric
+ * (metrics/verifications.jsonl) and adjusts two independent concerns from them:
  *
  *   1. Sensor sensitivity in .github/auto-qa-tuning.json (original concern).
  *   2. Per-sensor regression thresholds in .github/regression-tunables.json
@@ -33,10 +33,11 @@
  *   node scripts/threshold-tuner.mjs --dry-run # print only
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  getAllLabels,
   getSensorByLabel,
   getTunableSensorDefaults,
   readTunables,
@@ -48,10 +49,14 @@ import { read, append } from "./metrics-store.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const TUNING_PATH = resolve(ROOT, ".github", "auto-qa-tuning.json");
-const VERIFICATIONS_PATH = resolve(ROOT, ".claude", "improvement-loop", "verifications.jsonl");
 
-/** Sensor labels the tuner knows about */
-const SENSOR_LABELS = ["ci-fix", "audit", "acmm", "sentry", "bug"];
+/**
+ * Sensor labels the tuner knows about — derived from the registry, never a
+ * second literal. The hardcoded five omitted `security` and
+ * `meta-improvement`, so verifications for those two were written and then
+ * silently dropped at tuning time (#3645).
+ */
+export const SENSOR_LABELS = getAllLabels();
 
 /**
  * Hard minimum sensitivity per sensor.
@@ -64,16 +69,6 @@ const SENSOR_FLOORS = {
   sentry: 0.1,
   bug: 0.1,
 };
-
-// ── Pure helpers ──────────────────────────────────────
-
-function safe(fn, fallback = null) {
-  try {
-    return fn();
-  } catch {
-    return fallback;
-  }
-}
 
 // ── Pure functions (exported for testing) ─────────────
 
@@ -404,15 +399,6 @@ export function applyRegressionThresholdAdjustments(
 
 // ── I/O helpers ───────────────────────────────────────
 
-function readJsonl(filePath) {
-  if (!existsSync(filePath)) return [];
-  return readFileSync(filePath, "utf-8")
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l) => safe(() => JSON.parse(l)))
-    .filter(Boolean);
-}
-
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, "utf-8"));
 }
@@ -434,7 +420,7 @@ function isoDate(d = new Date()) {
  * @returns {Promise<{ changes: object[] }>}
  */
 export async function run({ dryRun = false } = {}) {
-  const verifications = readJsonl(VERIFICATIONS_PATH);
+  const verifications = read("verifications", { root: ROOT }) ?? [];
 
   if (verifications.length === 0) {
     console.log("[threshold-tuner] No verification data — skipping tuning");

@@ -385,4 +385,4 @@ Component tests colocated with source files (e.g., `VenueOnboardingPage.test.tsx
 5. **Don't mutate state** — always use immutable updates (`{ ...obj }`, `.map()`, `.filter()`)
 6. **Don't skip error states** — every API call needs loading, error, and empty handling
 7. **Don't import from relative paths without `.js`** — ES modules require explicit extensions
-8. **Don't use `react-router-dom` v5 APIs** — use v7 APIs (`useNavigate`, not `useHistory`)
+8. **Don't use `react-router` v5 APIs** — use v8 APIs (`useNavigate`, not `useHistory`)

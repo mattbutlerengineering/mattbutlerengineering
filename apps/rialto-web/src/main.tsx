@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- entry point, not a fast-refresh module */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router";
 import "@mattbutlerengineering/rialto/styles";
 import "./global.css";
 import {

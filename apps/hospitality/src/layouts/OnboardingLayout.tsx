@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { Heading, Text, Stack } from "@mattbutlerengineering/rialto";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import {

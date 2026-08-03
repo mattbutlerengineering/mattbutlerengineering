@@ -147,13 +147,13 @@ Queries Sentry MCP for production errors, filters by severity/frequency, dedupli
 
 Closed-loop improvement: collect sensor data, detect regressions, verify past fixes, self-tune.
 
-| Step      | What                                                                |
-| --------- | ------------------------------------------------------------------- |
-| Collect   | Run 7 sensors (ACMM, PRs, cost, CI, Lighthouse, issues, sessions)   |
-| Verify    | Check issues closed in last 48h -- reopen if metric did not improve |
-| Triage    | Create max 3 issues for new regressions                             |
-| Analyze   | Weekly: scan session logs for repeated patterns, propose new skills |
-| Self-tune | Track false positive rate and fix effectiveness                     |
+| Step      | What                                                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collect   | Run `scripts/collect-domain-metrics.mjs` (booking-funnel telemetry), then sensors incl. ACMM, PRs, cost, CI, Lighthouse, issues, sessions, `domainActivity` |
+| Verify    | Check issues closed in last 48h -- reopen if metric did not improve                                                                                         |
+| Triage    | Create max 3 issues for new regressions                                                                                                                     |
+| Analyze   | Weekly: scan session logs for repeated patterns, propose new skills                                                                                         |
+| Self-tune | Track false positive rate and fix effectiveness                                                                                                             |
 
 ## RemoteTriggers (Scheduled Agents)
 

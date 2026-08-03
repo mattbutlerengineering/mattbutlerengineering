@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import React from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { FloorPlan, Table } from "@mbe/types";
 
-/* ── Mock react-router-dom (preserve MemoryRouter/Routes/Route) ─ */
+/* ── Mock react-router (preserve MemoryRouter/Routes/Route) ─ */
 
 const mockNavigate = vi.fn();
 
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     useNavigate: () => mockNavigate,
@@ -638,7 +638,7 @@ describe("FloorPlanEditorPage", () => {
 
   describe("unsaved changes blocker", () => {
     it("shows unsaved changes dialog when navigation is blocked", async () => {
-      const { useBlocker } = await import("react-router-dom");
+      const { useBlocker } = await import("react-router");
       const mockBlocker = useBlocker as ReturnType<typeof vi.fn>;
       const mockProceed = vi.fn();
       const mockReset = vi.fn();
@@ -660,7 +660,7 @@ describe("FloorPlanEditorPage", () => {
     });
 
     it("calls blocker.proceed when Leave is clicked", async () => {
-      const { useBlocker } = await import("react-router-dom");
+      const { useBlocker } = await import("react-router");
       const mockBlocker = useBlocker as ReturnType<typeof vi.fn>;
       const mockProceed = vi.fn();
       const mockReset = vi.fn();
@@ -683,7 +683,7 @@ describe("FloorPlanEditorPage", () => {
     });
 
     it("calls blocker.reset when Stay is clicked", async () => {
-      const { useBlocker } = await import("react-router-dom");
+      const { useBlocker } = await import("react-router");
       const mockBlocker = useBlocker as ReturnType<typeof vi.fn>;
       const mockProceed = vi.fn();
       const mockReset = vi.fn();

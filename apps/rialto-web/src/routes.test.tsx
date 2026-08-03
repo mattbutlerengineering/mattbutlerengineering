@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, matchRoutes } from "react-router-dom";
+import { MemoryRouter, matchRoutes } from "react-router";
 
 // Rialto resolves to an unbuilt dist in the worktree, so — like every other app
 // test — stub it. These stubs pass children through so nested react-router

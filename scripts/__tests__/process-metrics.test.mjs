@@ -9,9 +9,6 @@ describe("process-metrics", () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "process-metrics-"));
     fs.mkdirSync(path.join(tmpDir, "metrics"), { recursive: true });
-    fs.mkdirSync(path.join(tmpDir, ".claude", "improvement-loop"), {
-      recursive: true,
-    });
   });
 
   afterEach(() => {
