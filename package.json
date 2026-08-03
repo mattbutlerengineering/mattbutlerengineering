@@ -76,7 +76,7 @@
       "effect": ">=3.20.0",
       "rollup": ">=4.59.0",
       "@isaacs/brace-expansion": ">=5.0.1",
-      "brace-expansion": ">=5.0.8",
+      "brace-expansion@<5.0.9": "^5.0.9",
       "find-my-way@<9.7.0": ">=9.7.0",
       "js-yaml@>=5.0.0 <5.2.2": ">=5.2.2 <6",
       "picomatch": ">=4.0.4",
