@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, Badge, Heading, Text, Spinner } from "@mattbutlerengineering/rialto";
+import { Card, Badge, Heading, Text, Spinner, Alert } from "@mattbutlerengineering/rialto";
 import {
   formatSensorStatus,
   getSensorColor,
   formatPercent,
   formatRatio,
   formatTimestamp,
+  isReportStale,
 } from "../utils/formatters.js";
 import {
   normalizeSensorReport,
@@ -134,13 +135,20 @@ export function AiHealthPage() {
           Live metrics for the AI agent system — sensors, CI, PRs, and issue pipeline
         </Text>
         <Text className={styles.meta}>
-          Last updated: {formatTimestamp(metrics.timestamp)}
+          As of {formatTimestamp(metrics.timestamp)}
           {" · "}
           <a href="/sensor-report.json" className={styles.jsonLink}>
             View raw JSON
           </a>
         </Text>
       </header>
+
+      {isReportStale(report.generated_at) && (
+        <Alert variant="warning" title="Data may be out of date" className={styles.staleBanner}>
+          This report was generated more than 48 hours ago and may not reflect the current system
+          state.
+        </Alert>
+      )}
 
       <section className={styles.section}>
         <Heading level={2}>Key Metrics</Heading>

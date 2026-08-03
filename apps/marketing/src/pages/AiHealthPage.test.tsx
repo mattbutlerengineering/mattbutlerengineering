@@ -11,6 +11,22 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: any) => <h2>{children}</h2>,
   Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Spinner: ({ size }: any) => <div data-testid="spinner" data-size={size} />,
+  Alert: ({
+    children,
+    variant,
+    title,
+    className,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+    title?: string;
+    className?: string;
+  }) => (
+    <div role="alert" data-variant={variant} className={className}>
+      {title && <strong>{title}</strong>}
+      {children}
+    </div>
+  ),
 }));
 
 vi.mock("./AiHealthPage.module.css", () => ({
@@ -32,8 +48,14 @@ vi.mock("./AiHealthPage.module.css", () => ({
     sensorName: "sensorName",
     sensorBadge: "sensorBadge",
     jsonLink: "jsonLink",
+    staleBanner: "staleBanner",
   },
 }));
+
+/** Builds an ISO timestamp `hoursAgo` hours before now — keeps staleness tests independent of wall-clock date. */
+function isoHoursAgo(hoursAgo: number): string {
+  return new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+}
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -177,11 +199,11 @@ describe("AiHealthPage", () => {
     });
   });
 
-  it("renders last updated timestamp", async () => {
+  it("renders an explicit As of timestamp", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/Last updated/)).toBeInTheDocument();
+      expect(screen.getByText(/As of/)).toBeInTheDocument();
       expect(screen.getByText(/May/)).toBeInTheDocument();
     });
   });
@@ -275,6 +297,43 @@ describe("AiHealthPage", () => {
         expect(screen.getByText("queueEfficiency")).toBeInTheDocument();
       });
       expect(screen.queryByText("Composite Score")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("stale-data banner", () => {
+    it("hides the banner when generated_at is 47h59m old", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(47 + 59 / 60) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("AI Health Dashboard")).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("shows the banner when generated_at is 48h01m old", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(48 + 1 / 60) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+      });
+    });
+
+    it("still renders the As of line when the banner is showing", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(72) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+        expect(screen.getByText(/As of/)).toBeInTheDocument();
+      });
     });
   });
 });
