@@ -150,6 +150,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 10
+          # AUTOMATION_PAT (#3684): the "Create revert PR" step below pushes
+          # a commit. A commit pushed with the default GITHUB_TOKEN is
+          # attributed to github-actions[bot], which forces every
+          # pull_request-triggered check on the resulting PR into
+          # `action_required` -- needing a human to manually approve the run
+          # before CI Gate can post. Pushing (and creating the PR) as a real
+          # PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity
         run: |
@@ -200,7 +210,8 @@ jobs:
       - name: Create revert PR
         if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # AUTOMATION_PAT (#3684): see checkout step above.
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           COMMIT_SHA: ${{ steps.agent-check.outputs.commit_sha }}
           COMMIT_AUTHOR: ${{ steps.agent-check.outputs.author }}
         run: |
