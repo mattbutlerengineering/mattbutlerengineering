@@ -1,14 +1,18 @@
 name: Auto-QA Threshold Tuner
 
 # Weekly, tunes `.github/auto-qa-tuning.json` from PR acceptance data and
-# opens a PR with the result. PR-opening steps below use the default job
-# `GITHUB_TOKEN` (via `secrets.GITHUB_TOKEN`) — same credential as
-# `.github/workflows/drift-fix.yml`, which this workflow otherwise mirrors
-# (automation/* branch, CI dispatch below). Neither workflow uses a PAT or
-# GitHub App token; do not add one here without also switching drift-fix.yml,
-# to keep the two credential stories in sync. The repo-wide "Allow GitHub
-# Actions to create and approve pull requests" setting is intentionally left
-# untouched (see issue #3625) — do not enable it as a fix for this workflow.
+# opens a PR with the result. The PR-opening step below pushes via
+# AUTOMATION_PAT (falling back to secrets.GITHUB_TOKEN when unset) — same
+# credential story as `.github/workflows/drift-fix.yml`, which this workflow
+# otherwise mirrors (automation/* branch, CI dispatch below). Keep the two in
+# sync (#3684): a commit pushed with the default GITHUB_TOKEN is attributed
+# to github-actions[bot], which forces every pull_request-triggered check on
+# the PR into `action_required`, needing manual approval before CI Gate can
+# post. Until AUTOMATION_PAT is set as a repo secret, this silently falls
+# back to that broken behavior — see docs/SECRETS.md. The repo-wide "Allow
+# GitHub Actions to create and approve pull requests" setting is
+# intentionally left untouched (see issue #3625) — do not enable it as a fix
+# for this workflow.
 
 on:
   schedule:
@@ -62,6 +66,9 @@ jobs:
         id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
+          # AUTOMATION_PAT (#3684): see the workflow-level comment above.
+          # Keep in sync with drift-fix.yml.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           commit-message: "chore(acmm): auto-tune QA thresholds"
           title: "chore(acmm): auto-tune QA thresholds"
           body: |

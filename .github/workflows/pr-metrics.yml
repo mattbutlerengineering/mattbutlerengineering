@@ -41,6 +41,15 @@ jobs:
           # Bot commits of generated artifacts are validated by CI on the PR instead.
           HUSKY: "0"
         with:
+          # AUTOMATION_PAT (#3684): a commit pushed with the default
+          # GITHUB_TOKEN is attributed to github-actions[bot], which forces
+          # every pull_request-triggered check on the resulting PR (CI, Auto
+          # Review, ADR check, ...) into `action_required` -- needing a human
+          # to manually approve the run before CI Gate can post. Pushing as a
+          # real PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           commit-message: "chore: update PR acceptance metrics"
           title: "chore: update PR acceptance metrics"
           body: |

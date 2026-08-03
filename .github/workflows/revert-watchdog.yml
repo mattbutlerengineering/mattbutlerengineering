@@ -23,6 +23,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
           fetch-depth: 0
+          # AUTOMATION_PAT (#3684): the "Propose Revert PR" step below pushes
+          # a commit. A commit pushed with the default GITHUB_TOKEN is
+          # attributed to github-actions[bot], which forces every
+          # pull_request-triggered check on the resulting PR into
+          # `action_required` -- needing a human to manually approve the run
+          # before CI Gate can post, on the exact PR that unbreaks main.
+          # Pushing (and creating the PR) as a real PAT/bot-token identity
+          # avoids that gate entirely. Until AUTOMATION_PAT is set as a repo
+          # secret, this silently falls back to the broken GITHUB_TOKEN
+          # behavior -- see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
 
       - uses: ./.github/actions/setup-workspace
 
@@ -116,7 +127,8 @@ jobs:
       - name: Propose Revert PR
         if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.revert == 'true' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # AUTOMATION_PAT (#3684): see checkout step above.
+          GITHUB_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           SHA: ${{ steps.culprit.outputs.culprit_sha }}
           PR: ${{ steps.culprit.outputs.pr_number }}
         run: |

@@ -32,12 +32,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # AUTOMATION_PAT (#3684): see checkout step below for why.
+      GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout (no caches)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
           fetch-depth: 1
+          # AUTOMATION_PAT (#3684): a commit pushed with the default
+          # GITHUB_TOKEN is attributed to github-actions[bot], which forces
+          # every pull_request-triggered check on the resulting PR into
+          # `action_required` -- needing a human to manually approve the run
+          # before CI Gate can post. Pushing (and creating the PR) as a real
+          # PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5

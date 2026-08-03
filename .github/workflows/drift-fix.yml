@@ -78,6 +78,16 @@ jobs:
           # not guarantee. CI on the PR validates the result instead.
           HUSKY: "0"
         with:
+          # AUTOMATION_PAT (#3684): a commit pushed with the default
+          # GITHUB_TOKEN is attributed to github-actions[bot], which forces
+          # every pull_request-triggered check on the resulting PR (CI, Auto
+          # Review, ADR check, ...) into `action_required` -- needing a human
+          # to manually approve the run before CI Gate can post. Pushing as a
+          # real PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md. Keep
+          # in sync with auto-qa-tune.yml, which mirrors this workflow.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           commit-message: "chore: regenerate drifted artifacts"
           title: "chore: regenerate drifted artifacts"
           body: |

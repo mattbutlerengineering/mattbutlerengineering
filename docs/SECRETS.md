@@ -12,28 +12,29 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 
 ## Rotation Schedule
 
-| Secret                        | Purpose                                                     | Cadence                 | Next Rotation |
-| ----------------------------- | ----------------------------------------------------------- | ----------------------- | ------------- |
-| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                  | Quarterly               | —             |
-| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)             | Quarterly               | —             |
-| `DATABASE_URL`                | PostgreSQL connection string (services)                     | Quarterly               | —             |
-| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend) | Quarterly               | —             |
-| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend) | Quarterly               | —             |
-| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)        | Semi-annually           | —             |
-| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                         | Semi-annually           | —             |
-| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)           | Semi-annually           | —             |
-| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                           | Semi-annually           | —             |
-| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)      | Semi-annually           | —             |
-| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                  | No rotation needed      | N/A           |
-| `GITHUB_TOKEN`                | GitHub Actions built-in token                               | Auto-rotated by Actions | N/A           |
-| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)         | No rotation needed      | N/A           |
-| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                | No rotation needed      | N/A           |
-| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                  | No rotation needed      | N/A           |
-| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                        | No rotation needed      | N/A           |
-| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                        | No rotation needed      | N/A           |
-| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                    | No rotation needed      | N/A           |
-| `TURBO_TOKEN`                 | Turborepo remote cache token                                | Semi-annually           | —             |
-| `AGENT_API_URL`               | Agent service API base URL (not a credential)               | No rotation needed      | N/A           |
+| Secret                        | Purpose                                                                | Cadence                 | Next Rotation |
+| ----------------------------- | ---------------------------------------------------------------------- | ----------------------- | ------------- |
+| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                             | Quarterly               | —             |
+| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)                        | Quarterly               | —             |
+| `DATABASE_URL`                | PostgreSQL connection string (services)                                | Quarterly               | —             |
+| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend)            | Quarterly               | —             |
+| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend)            | Quarterly               | —             |
+| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)                   | Semi-annually           | —             |
+| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                                    | Semi-annually           | —             |
+| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)                      | Semi-annually           | —             |
+| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                                      | Semi-annually           | —             |
+| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)                 | Semi-annually           | —             |
+| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                             | No rotation needed      | N/A           |
+| `GITHUB_TOKEN`                | GitHub Actions built-in token                                          | Auto-rotated by Actions | N/A           |
+| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)                    | No rotation needed      | N/A           |
+| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                           | No rotation needed      | N/A           |
+| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                             | No rotation needed      | N/A           |
+| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                                   | No rotation needed      | N/A           |
+| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                                   | No rotation needed      | N/A           |
+| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                               | No rotation needed      | N/A           |
+| `TURBO_TOKEN`                 | Turborepo remote cache token                                           | Semi-annually           | —             |
+| `AGENT_API_URL`               | Agent service API base URL (not a credential)                          | No rotation needed      | N/A           |
+| `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below) | Semi-annually           | —             |
 
 ## Rotation Runbooks
 
@@ -137,6 +138,41 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 4. **Verify:** Trigger a CI run; confirm remote cache hits/misses appear in logs.
 5. Revoke the old token.
 
+### AUTOMATION_PAT
+
+**Cadence:** Semi-annually
+
+> **Not currently set.** Until this secret exists, every workflow below falls back to
+> `secrets.GITHUB_TOKEN` (via `${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}`) and
+> hits the bug this secret exists to fix (see below) — the fallback is a silent no-op, not
+> a working alternative.
+
+**Why `GITHUB_TOKEN` doesn't work here:** GitHub has a hard-coded, non-configurable
+anti-privilege-escalation rule: a `pull_request` event whose head commit was pushed using the
+default `GITHUB_TOKEN` from another workflow always requires a human to manually approve the
+resulting workflow run before it can post its checks — regardless of repo settings. Scheduled
+automation that opens/updates a PR by pushing a commit as `github-actions[bot]` (via the
+ambient `GITHUB_TOKEN`) hits this every run: `CI`, `Auto Review`, `ADR check`, etc. all land in
+`action_required` and the PR sits `BLOCKED` until someone approves the runs by hand (see #3684).
+Pushing as a real PAT/bot-token identity instead avoids the rule entirely, because the commit is
+no longer attributed to `github-actions[bot]`.
+
+1. Create a dedicated GitHub account for automation (or reuse an existing bot account) — do not
+   use a personal account, so the token can be scoped and rotated independently of any one person.
+2. Generate a fine-grained PAT (or classic PAT) with `repo` (contents + pull-requests) and
+   `workflow` scope, on the bot account.
+3. In GitHub, set the repo secret: `gh secret set AUTOMATION_PAT --body "<token>"`.
+4. **Verify:** Trigger one of the workflows listed below via `workflow_dispatch`; confirm the
+   resulting PR's checks (`CI`, etc.) start automatically with no `action_required` state, and
+   `gh pr view <n> --json mergeStateStatus` resolves to `CLEAN` (given a green CI Gate) without
+   manual approval.
+5. Revoke the old token on the bot account before generating a replacement at next rotation.
+
+**Workflows that push commits and need this secret** (all fall back to the broken
+`GITHUB_TOKEN` behavior above until it is set): `production-feedback.yml`, `auto-qa-tune.yml`,
+`drift-fix.yml`, `pr-metrics.yml`, `acmm-regression.yml`, `acmm-cold-start.yml`,
+`changelog.yml`, `revert-watchdog.yml`, `auto-rollback.yml`.
+
 ## Non-Rotating Secrets
 
 These values are identifiers or public configuration, not credentials:
@@ -166,9 +202,17 @@ These values are identifiers or public configuration, not credentials:
 | `synthetic-monitoring.yml`  | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
 | `load-test.yml`             | `CLOUDFLARE_ACCOUNT_ID`, `MBE_CLOUDFLARE_API_TOKEN`, `HEALTH_KV_NAMESPACE_ID`                                                                                                                                                                                |
 | `secret-scan.yml`           | `GITHUB_TOKEN`, `GITLEAKS_LICENSE`                                                                                                                                                                                                                           |
-| `changelog.yml`             | `GITHUB_TOKEN`                                                                                                                                                                                                                                               |
+| `changelog.yml`             | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
 | `dependabot-auto-merge.yml` | `GITHUB_TOKEN`                                                                                                                                                                                                                                               |
 | `agent-task.yml`            | `AGENT_API_URL`                                                                                                                                                                                                                                              |
+| `production-feedback.yml`   | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `auto-qa-tune.yml`          | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `drift-fix.yml`             | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `pr-metrics.yml`            | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `acmm-regression.yml`       | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `acmm-cold-start.yml`       | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `revert-watchdog.yml`       | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
+| `auto-rollback.yml`         | `AUTOMATION_PAT` (falls back to `GITHUB_TOKEN`)                                                                                                                                                                                                              |
 
 ## Runtime Secrets (Not in GitHub Actions)
 
