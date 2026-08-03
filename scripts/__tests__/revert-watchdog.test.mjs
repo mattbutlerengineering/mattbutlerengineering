@@ -488,6 +488,21 @@ describe("resolveRevertAction", () => {
     expect(getFailingTestPaths).not.toHaveBeenCalled();
     expect(getChangedFiles).not.toHaveBeenCalled();
   });
+
+  it("#3641: a throwing getChangedFiles collaborator (e.g. a transient `gh pr view` failure) does not propagate — degrades to issue-and-revert on a green baseline, not a crash", async () => {
+    const result = await resolveRevertAction({
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async () => "success",
+      getParentSha: async () => null,
+      getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
+      getChangedFiles: async () => {
+        throw new Error("gh pr view: transient failure");
+      },
+    });
+
+    expect(result.action).toBe("issue-and-revert");
+  });
 });
 
 // ---------------------------------------------------------------------------

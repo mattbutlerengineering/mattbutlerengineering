@@ -304,7 +304,7 @@ export async function resolveRevertAction({
 
   const [failingTestPaths, changedFiles] = await Promise.all([
     getFailingTestPaths(),
-    getChangedFiles(prNumber),
+    getChangedFiles(prNumber).catch(() => []), // gh transient failure — [] is fail-safe: pathsAreDisjoint never downgrades a revert on missing evidence
   ]);
 
   return decideBaselineAction({ baseline, failingTestPaths, changedFiles });
