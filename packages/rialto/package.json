@@ -429,7 +429,7 @@
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
     "lucide-react": "catalog:",
-    "playwright": "^1.62.0",
+    "playwright": "^1.62.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "storybook": "^10.5.5",
