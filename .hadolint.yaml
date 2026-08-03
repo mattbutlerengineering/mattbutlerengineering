@@ -6,6 +6,13 @@ ignored:
   # DL3018: Pin versions in apk add — not applicable (no apk add in our Dockerfiles)
   # DL3016: Pin versions in npm install — migrate Dockerfile uses prisma@6 (pinned to major)
   - DL3016
+  # DL3066: Non-numeric USER may not be resolvable by host system — all four
+  # Dockerfiles use `USER app` (created via `adduser --uid 1001 app`), whose
+  # runtime UID is fully known and drops root privileges correctly. Switching
+  # to a bare numeric UID would drop the named-user->group resolution Docker
+  # performs for the named form, silently changing the process's GID — not
+  # worth the risk to silence an info-level portability advisory.
+  - DL3066
 
 trustedRegistries:
   - docker.io
