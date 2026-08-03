@@ -85,6 +85,10 @@ describe("isLowRiskPR — dependency manifests", () => {
   it("returns true for a combined package.json + lockfile bump", () => {
     expect(isLowRiskPR(["package.json", "pnpm-lock.yaml"])).toBe(true);
   });
+
+  it("returns true for a pure catalog-version bump (pnpm-lock.yaml + pnpm-workspace.yaml, no package.json)", () => {
+    expect(isLowRiskPR(["pnpm-lock.yaml", "pnpm-workspace.yaml"])).toBe(true);
+  });
 });
 
 // ── Config files ─────────────────────────────────────────────────────────────

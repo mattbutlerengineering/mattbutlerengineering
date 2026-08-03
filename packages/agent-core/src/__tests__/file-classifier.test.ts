@@ -70,6 +70,8 @@ describe("isDependencyFile", () => {
   it("matches pnpm-lock.yaml", () => expect(isDependencyFile("pnpm-lock.yaml")).toBe(true));
   it("matches package-lock.json", () => expect(isDependencyFile("package-lock.json")).toBe(true));
   it("matches yarn.lock", () => expect(isDependencyFile("yarn.lock")).toBe(true));
+  it("matches pnpm-workspace.yaml", () =>
+    expect(isDependencyFile("pnpm-workspace.yaml")).toBe(true));
   it("does NOT match package.json.bak", () =>
     expect(isDependencyFile("package.json.bak")).toBe(false));
   it("does NOT match source .ts", () => expect(isDependencyFile("src/index.ts")).toBe(false));

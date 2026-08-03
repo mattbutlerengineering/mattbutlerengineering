@@ -59,6 +59,7 @@ export const isDependencyFile = (f: string): boolean =>
   f === "package.json" ||
   f.endsWith("/package.json") ||
   f === "pnpm-lock.yaml" ||
+  f === "pnpm-workspace.yaml" ||
   f === "package-lock.json" ||
   f === "yarn.lock";
 
