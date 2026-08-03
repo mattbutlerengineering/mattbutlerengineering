@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { ContactSection } from "../components/ContactSection.js";
 import { HeroSection } from "../components/HeroSection.js";
 import { Navbar } from "../components/Navbar.js";

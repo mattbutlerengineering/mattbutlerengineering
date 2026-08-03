@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import type { NavSection } from "../nav-sections.js";
 import React from "react";

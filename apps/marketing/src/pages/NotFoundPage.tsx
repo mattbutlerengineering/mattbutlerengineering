@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Stack, Text, Button, Heading } from "@mattbutlerengineering/rialto";
 import styles from "./NotFoundPage.module.css";
 

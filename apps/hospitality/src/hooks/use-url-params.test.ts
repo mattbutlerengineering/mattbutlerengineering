@@ -2,11 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { z } from "zod";
 
-// Mock react-router-dom before importing the hook
+// Mock react-router before importing the hook
 const mockSearchParams = vi.fn();
 const mockSetSearchParams = vi.fn();
 
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useSearchParams: () => [mockSearchParams(), mockSetSearchParams],
 }));
 

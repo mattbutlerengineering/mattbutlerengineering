@@ -122,11 +122,6 @@
       "js-yaml@<4.2.0": "^4.2.0",
       "read-yaml-file>js-yaml": "3.15.0",
       "@fastify/static@<10.1.2": ">=10.1.2 <11"
-    },
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-qwww-vcr4-c8h2"
-      ]
     }
   },
   "license": "MIT"
