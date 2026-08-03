@@ -99,6 +99,17 @@ describe("createGhClient", () => {
       const url = client.pr.create(["--title", "My PR", "--body", "Body"]);
       expect(url).toBe("https://github.com/owner/repo/pull/42");
     });
+
+    it("pr.close runs gh pr close with extra args", () => {
+      const runner = makeMockRunner({ "pr close 9 --comment done": "" });
+      const client = createGhClient({ runner });
+      client.pr.close(9, ["--comment", "done"]);
+      expect(runner).toHaveBeenCalledWith(
+        "gh",
+        ["pr", "close", "9", "--comment", "done"],
+        expect.any(Object)
+      );
+    });
   });
 
   describe("label facet", () => {
