@@ -110,6 +110,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-llms.sh\" \"$FILE\"",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -142,6 +152,11 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-archive.sh\"",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-logger.sh\"",
             "timeout": 5000
           }
         ]
