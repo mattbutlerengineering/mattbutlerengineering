@@ -4,9 +4,14 @@
  * Reuses `gh` CLI (already required for every other skill in this repo).
  * No network calls from inside the check functions themselves — only at
  * "apply" time, via this module.
+ *
+ * The skip/create/reopen decision itself is delegated to the shared
+ * `fileIssue()` module (#3672) — this file only supplies the gh-CLI-backed
+ * side effects it needs.
  */
 
 import { execFileSync } from "node:child_process";
+import { fileIssue } from "../../../../scripts/lib/issue-filing.mjs";
 
 /**
  * @param {number} issueNumber
@@ -43,6 +48,17 @@ function createIssue(title, body, labels) {
   const match = url.match(/\/issues\/(\d+)\s*$/);
   if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
   return parseInt(match[1], 10);
+}
+
+/**
+ * Reopen a previously-closed GitHub issue.
+ * @param {number} issueNumber
+ */
+function reopenIssue(issueNumber) {
+  execFileSync("gh", ["issue", "reopen", String(issueNumber)], {
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 }
 
 /**
@@ -87,48 +103,48 @@ export function buildIssueBody(c) {
 /**
  * Apply issues for failing canonical-ACMM criteria. Returns updated `issuesCreated` map.
  *
- * Dedup rules (match site-audit pattern):
- *   1. If `issuesCreated[criterionId]` is open    → skip (don't spam).
- *   2. If `issuesCreated[criterionId]` is closed  → create a fresh issue, overwrite entry.
- *   3. If no entry yet                            → create, store.
+ * Dedup rules — decided by the shared `fileIssue()` module (#3672), keyed on
+ * criterion id against `issuesCreated`:
+ *   1. No entry yet                        → create, store.
+ *   2. Entry, issue currently open          → skip (don't spam).
+ *   3. Entry, issue currently closed        → reopen the existing issue (no dupe).
  *
  * @param {Array<import("../sources/types.js").Criterion>} failing
  * @param {Record<string, number>} existingIssues
  * @param {{ dryRun?: boolean, extraLabels?: string[] }} [opts]
- * @returns {{ issuesCreated: Record<string, number>, createdCount: number, skippedOpen: number }}
+ * @returns {{ issuesCreated: Record<string, number>, createdCount: number, skippedOpen: number, reopenedCount: number }}
  */
 export function applyIssuesForFailures(failing, existingIssues, opts = {}) {
-  const updated = { ...existingIssues };
+  let ledger = { ...existingIssues };
   let createdCount = 0;
   let skippedOpen = 0;
+  let reopenedCount = 0;
 
   for (const c of failing) {
-    const prior = existingIssues[c.id];
-    if (prior) {
-      const state = getIssueState(prior);
-      if (state === "open") {
-        skippedOpen += 1;
-        continue;
-      }
-      // Closed or missing — fall through to create a fresh one.
-    }
-
-    const title = `[ACMM ${c.id} · L${c.level} ${c.category}] ${c.name}`;
-    const body = buildIssueBody(c);
-
     if (opts.dryRun) {
-      updated[c.id] = -1; // placeholder
+      // Preview mode never talks to gh — always reports as a would-be create.
+      ledger = { ...ledger, [c.id]: -1 };
       createdCount += 1;
       continue;
     }
 
+    const title = `[ACMM ${c.id} · L${c.level} ${c.category}] ${c.name}`;
+    const body = buildIssueBody(c);
     const labels = ["acmm", "audit", ...(opts.extraLabels || [])];
-    const num = createIssue(title, body, labels);
-    updated[c.id] = num;
-    createdCount += 1;
+
+    const result = fileIssue({ title, body, labels, dedupeKey: c.id }, ledger, {
+      getIssueState,
+      createIssue,
+      reopenIssue,
+    });
+    ledger = result.ledger;
+
+    if (result.action === "skip") skippedOpen += 1;
+    else if (result.action === "create") createdCount += 1;
+    else if (result.action === "reopen") reopenedCount += 1;
   }
 
-  return { issuesCreated: updated, createdCount, skippedOpen };
+  return { issuesCreated: ledger, createdCount, skippedOpen, reopenedCount };
 }
 
 /**
