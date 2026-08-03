@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collectMutationScore } from "../collect-mutation-score.mjs";
+import { collectMutationScore, collectTopSurvivedMutants } from "../collect-mutation-score.mjs";
 
 /**
  * Fixture: minimal Stryker mutation.json report shape (schema v1.0).
@@ -307,5 +307,33 @@ describe("collectMutationScore", () => {
     // 4 killed in users.ts + 1 killed in user.ts = 5 killed, 1 survived
     expect(result.killed).toBe(4);
     expect(result.survived).toBe(1);
+  });
+});
+
+describe("collectTopSurvivedMutants", () => {
+  it("returns an empty array when reportJson is null", () => {
+    expect(collectTopSurvivedMutants(null)).toEqual([]);
+  });
+
+  it("returns an empty array when files is missing", () => {
+    expect(collectTopSurvivedMutants({ schemaVersion: "1.0" })).toEqual([]);
+  });
+
+  it("returns only Survived mutants with file, line, and mutator", () => {
+    const result = collectTopSurvivedMutants(FIXTURE_REPORT);
+    expect(result).toEqual([
+      { file: "services/users/src/routes/users.ts", line: 3, mutator: "StringLiteral" },
+    ]);
+  });
+
+  it("caps the result at the given limit", () => {
+    const result = collectTopSurvivedMutants(FIXTURE_BELOW_THRESHOLD, 2);
+    expect(result).toHaveLength(2);
+  });
+
+  it("defaults the limit to 5", () => {
+    const result = collectTopSurvivedMutants(FIXTURE_BELOW_THRESHOLD);
+    // FIXTURE_BELOW_THRESHOLD has 4 Survived mutants — under the default limit
+    expect(result).toHaveLength(4);
   });
 });

@@ -90,3 +90,34 @@ export function collectMutationScore(reportJson, now = new Date()) {
     last_run: now.toISOString(),
   };
 }
+
+/**
+ * Extracts Survived mutants (the actionable ones — a real behavior change
+ * no test caught) with their file/line/mutator, for surfacing "what to fix
+ * next" in reports. Order follows the report's own file/mutant iteration
+ * order; callers wanting a specific priority should sort before slicing.
+ *
+ * @param {object|null|undefined} reportJson - Parsed Stryker mutation.json content.
+ * @param {number} [limit] - Max mutants to return (default 5).
+ * @returns {Array<{file: string, line: number, mutator: string}>}
+ */
+export function collectTopSurvivedMutants(reportJson, limit = 5) {
+  if (!reportJson?.files) {
+    return [];
+  }
+
+  const survived = [];
+  for (const [file, fileResult] of Object.entries(reportJson.files)) {
+    for (const mutant of fileResult.mutants ?? []) {
+      if (mutant.status === "Survived") {
+        survived.push({
+          file,
+          line: mutant.location?.start?.line ?? 0,
+          mutator: mutant.mutatorName,
+        });
+      }
+    }
+  }
+
+  return survived.slice(0, limit);
+}
