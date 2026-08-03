@@ -47,6 +47,16 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
 
+/**
+ * Injected I/O for the verifiers below, so each one is a pure function of
+ * its inputs plus this interface — testable with fakes, zero real `gh`
+ * calls or filesystem reads in the test suite (#3674).
+ *
+ * @typedef {Object} VerifyDeps
+ * @property {(args: string[]) => unknown[]} listWorkflowRuns  `gh run list` (ghClient.workflow.runs)
+ * @property {(path: string) => unknown} readJson               parse a JSON file at `path`
+ */
+
 /* ── Find issues to verify ───────────────────────────── */
 
 function findClosedIssuesWithSensorLabels() {
@@ -77,10 +87,13 @@ function findClosedIssuesWithSensorLabels() {
 
 /* ── Sensor-specific verifiers ───────────────────────── */
 
-function verifyCiFix() {
+/**
+ * @param {VerifyDeps} deps
+ */
+export function verifyCiFix(deps) {
   const runs = safe(
     () =>
-      ghClient.workflow.runs([
+      deps.listWorkflowRuns([
         "--limit",
         "10",
         "--branch",
@@ -107,9 +120,13 @@ function verifyCiFix() {
   };
 }
 
-function verifyAcmm(issueTitle) {
+/**
+ * @param {string} issueTitle
+ * @param {VerifyDeps} deps
+ */
+export function verifyAcmm(issueTitle, deps) {
   const statePath = resolve(ROOT, ".claude", "acmm", "state.json");
-  const state = safe(() => readJson(statePath));
+  const state = safe(() => deps.readJson(statePath));
   if (!state) return { verified: false, reason: "ACMM state not available" };
 
   const checks = state.checks ?? {};
@@ -139,9 +156,14 @@ function verifyAcmm(issueTitle) {
   };
 }
 
-function verifyAudit(issueTitle, issueBody) {
+/**
+ * @param {string} issueTitle
+ * @param {string} issueBody
+ * @param {VerifyDeps} deps
+ */
+export function verifyAudit(issueTitle, issueBody, deps) {
   const invPath = resolve(ROOT, ".audit-state", "inventory.json");
-  const inv = safe(() => readJson(invPath));
+  const inv = safe(() => deps.readJson(invPath));
 
   if (!inv) {
     return {
@@ -175,7 +197,7 @@ function verifyAudit(issueTitle, issueBody) {
   };
 }
 
-function verifySentry() {
+export function verifySentry() {
   return {
     verified: false,
     reason: "Sentry verification not yet available — requires MCP authentication (#983)",
@@ -183,10 +205,13 @@ function verifySentry() {
   };
 }
 
-function verifyBug() {
+/**
+ * @param {VerifyDeps} deps
+ */
+export function verifyBug(deps) {
   const runs = safe(
     () =>
-      ghClient.workflow.runs(["--limit", "5", "--branch", "main", "--json", "status,conclusion"]),
+      deps.listWorkflowRuns(["--limit", "5", "--branch", "main", "--json", "status,conclusion"]),
     null
   );
   if (!runs) return { verified: false, reason: "Could not verify — CI unavailable" };
@@ -209,7 +234,7 @@ function verifyBug() {
 
 /* ── Route to correct verifier ───────────────────────── */
 
-function verifySecurity() {
+export function verifySecurity() {
   return {
     verified: false,
     reason: "CORS/security verification: re-run cors-audit.mjs to confirm no new findings",
@@ -217,15 +242,19 @@ function verifySecurity() {
   };
 }
 
-export function verifyIssue(issue) {
+/**
+ * @param {{ labels?: Array<{ name: string }>, title: string, body?: string }} issue
+ * @param {VerifyDeps} [deps]
+ */
+export function verifyIssue(issue, deps) {
   const labelNames = (issue.labels ?? []).map((l) => l.name);
 
-  if (labelNames.includes("ci-fix")) return verifyCiFix();
-  if (labelNames.includes("acmm")) return verifyAcmm(issue.title);
-  if (labelNames.includes("audit")) return verifyAudit(issue.title, issue.body);
+  if (labelNames.includes("ci-fix")) return verifyCiFix(deps);
+  if (labelNames.includes("acmm")) return verifyAcmm(issue.title, deps);
+  if (labelNames.includes("audit")) return verifyAudit(issue.title, issue.body, deps);
   if (labelNames.includes("sentry")) return verifySentry();
   if (labelNames.includes("security")) return verifySecurity();
-  if (labelNames.includes("bug")) return verifyBug();
+  if (labelNames.includes("bug")) return verifyBug(deps);
 
   // Abstain, don't act. `confidence: "skip"` is load-bearing: without it the
   // caller below read `undefined !== "skip"` as "act", so an issue carrying a
@@ -259,12 +288,18 @@ async function main() {
     `\n🔍 Verifying ${issues.length} recently-closed issues (${LOOKBACK_HOURS}h window):\n`
   );
 
+  /** @type {VerifyDeps} */
+  const deps = {
+    listWorkflowRuns: (args) => ghClient.workflow.runs(args),
+    readJson,
+  };
+
   const results = [];
 
   for (const issue of issues) {
     const labelNames = (issue.labels ?? []).map((l) => l.name);
     const sensorLabel = labelNames.find((l) => SENSOR_LABELS.includes(l));
-    const result = verifyIssue(issue);
+    const result = verifyIssue(issue, deps);
 
     const entry = {
       timestamp: new Date().toISOString(),
