@@ -23,9 +23,9 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.21",
+    "@ai-sdk/anthropic": "^4.0.26",
     "@fastify/cors": "^11.3.0",
-    "@fastify/rate-limit": "^11.1.0",
+    "@fastify/rate-limit": "^11.2.0",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",
     "@mbe/agent-core": "workspace:*",
@@ -40,8 +40,8 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@prisma/client-runtime-utils": "^7.9.1",
-    "@scalar/fastify-api-reference": "^1.63.0",
-    "ai": "^7.0.37",
+    "@scalar/fastify-api-reference": "^1.64.0",
+    "ai": "^7.0.45",
     "fastify": "catalog:",
     "pg": "^8.22.0",
     "zod": "catalog:"
