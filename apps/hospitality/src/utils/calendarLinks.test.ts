@@ -95,6 +95,56 @@ describe("buildGoogleCalendarUrl", () => {
     const parsed = new URL(url);
     expect(parsed.searchParams.get("dates")).toBe("20260308T010000/20260308T050000");
   });
+
+  it("reports the correct post-transition local time for a 'spring forward gap' instant (2026-03-08)", () => {
+    // 07:30 UTC is the instant a naive fixed EST (UTC-5) offset would
+    // render as the impossible 02:30 local. Documented behavior: derived
+    // from the real per-instant offset, so it must report 03:30 EDT.
+    const reservation = makeReservation({
+      startTime: "2026-03-08T07:30:00.000Z",
+      endTime: "2026-03-08T09:30:00.000Z",
+    });
+    const url = buildGoogleCalendarUrl(reservation, makeVenue());
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("dates")).toBe("20260308T033000/20260308T053000");
+  });
+
+  it("does not throw for a reservation starting in the 'fall back' ambiguous hour (2026-11-01 01:30)", () => {
+    // 01:30 local occurs twice (EDT then EST). Documented behavior: the
+    // `dates=` param is wall-clock only (paired with `ctz`), so both
+    // occurrences render identically — Google resolves the ambiguity via
+    // its own IANA tz handling, same as ICS's TZID form.
+    const reservation = makeReservation({
+      startTime: "2026-11-01T05:30:00.000Z", // 01:30 EDT (first occurrence)
+      endTime: "2026-11-01T07:30:00.000Z", // 02:30 EST (post-transition)
+    });
+    expect(() => buildGoogleCalendarUrl(reservation, makeVenue())).not.toThrow();
+    const url = buildGoogleCalendarUrl(reservation, makeVenue());
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("dates")).toBe("20261101T013000/20261101T023000");
+  });
+
+  it("produces an end date on the following calendar day for a midnight-crossing reservation", () => {
+    const reservation = makeReservation({
+      startTime: "2026-06-11T03:00:00.000Z", // 23:00 EDT on 2026-06-10
+      endTime: "2026-06-11T05:00:00.000Z", // 01:00 EDT on 2026-06-11
+    });
+    const url = buildGoogleCalendarUrl(reservation, makeVenue());
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("dates")).toBe("20260610T230000/20260611T010000");
+  });
+
+  it("reflects venue-local time regardless of the test runner's TZ env var", () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "Pacific/Kiritimati";
+    try {
+      const url = buildGoogleCalendarUrl(makeReservation(), makeVenue());
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get("dates")).toBe("20260214T190000/20260214T210000");
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
 });
 
 describe("buildOutlookCalendarUrl", () => {
@@ -134,5 +184,57 @@ describe("buildOutlookCalendarUrl", () => {
     const parsed = new URL(url);
     expect(parsed.searchParams.get("startdt")).toBe("2026-03-08T01:00:00-05:00");
     expect(parsed.searchParams.get("enddt")).toBe("2026-03-08T05:00:00-04:00");
+  });
+
+  it("reports the correct post-transition offset for a 'spring forward gap' instant (2026-03-08)", () => {
+    // 07:30 UTC is the instant a naive fixed EST (UTC-5) offset would
+    // render as the impossible 02:30 local. Documented behavior: derived
+    // from the real per-instant offset, so it must report 03:30-04:00 (EDT).
+    const reservation = makeReservation({
+      startTime: "2026-03-08T07:30:00.000Z",
+      endTime: "2026-03-08T09:30:00.000Z",
+    });
+    const url = buildOutlookCalendarUrl(reservation, makeVenue());
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("startdt")).toBe("2026-03-08T03:30:00-04:00");
+    expect(parsed.searchParams.get("enddt")).toBe("2026-03-08T05:30:00-04:00");
+  });
+
+  it("disambiguates the 'fall back' ambiguous hour (2026-11-01 01:30) via explicit UTC offset", () => {
+    // Unlike ICS's TZID form and Google's wall-clock `dates=` param,
+    // Outlook's explicit-offset ISO 8601 timestamps fully disambiguate the
+    // repeated local hour: the first (EDT) and second (EST) occurrences of
+    // 01:30 local get distinct offsets even though the wall-clock digits match.
+    const reservation = makeReservation({
+      startTime: "2026-11-01T05:30:00.000Z", // 01:30 EDT (first occurrence)
+      endTime: "2026-11-01T06:30:00.000Z", // 01:30 EST (second occurrence)
+    });
+    const url = buildOutlookCalendarUrl(reservation, makeVenue());
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("startdt")).toBe("2026-11-01T01:30:00-04:00");
+    expect(parsed.searchParams.get("enddt")).toBe("2026-11-01T01:30:00-05:00");
+  });
+
+  it("produces an end timestamp on the following calendar day for a midnight-crossing reservation", () => {
+    const reservation = makeReservation({
+      startTime: "2026-06-11T03:00:00.000Z", // 23:00 EDT on 2026-06-10
+      endTime: "2026-06-11T05:00:00.000Z", // 01:00 EDT on 2026-06-11
+    });
+    const url = buildOutlookCalendarUrl(reservation, makeVenue());
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("startdt")).toBe("2026-06-10T23:00:00-04:00");
+    expect(parsed.searchParams.get("enddt")).toBe("2026-06-11T01:00:00-04:00");
+  });
+
+  it("reflects venue-local time regardless of the test runner's TZ env var", () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "Pacific/Kiritimati";
+    try {
+      const url = buildOutlookCalendarUrl(makeReservation(), makeVenue());
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get("startdt")).toBe("2026-02-14T19:00:00-05:00");
+    } finally {
+      process.env.TZ = originalTz;
+    }
   });
 });
