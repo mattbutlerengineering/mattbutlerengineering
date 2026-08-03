@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Hero, Stack, SilkFlow } from "@mattbutlerengineering/rialto";
 import styles from "./HeroSection.module.css";
 

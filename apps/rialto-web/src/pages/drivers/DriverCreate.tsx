@@ -1,5 +1,5 @@
 import { useState, useCallback, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useDrivers } from "./DriverContext";
 import { DriverLayout } from "./DriverLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";

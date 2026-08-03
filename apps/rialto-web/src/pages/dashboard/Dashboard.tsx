@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import {
   Alert,
   AvatarGroup,
@@ -356,10 +356,10 @@ export function Dashboard() {
                                       ? "var(--rialto-error)"
                                       : "var(--rialto-text-tertiary)";
                                 return (
-                                  <span style={{ color, fontWeight: 500 }}>
+                                  <Text style={{ color, fontWeight: 500 }}>
                                     {d > 0 ? "+" : ""}
                                     {d}
-                                  </span>
+                                  </Text>
                                 );
                               },
                             },

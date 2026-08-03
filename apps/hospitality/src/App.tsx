@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";

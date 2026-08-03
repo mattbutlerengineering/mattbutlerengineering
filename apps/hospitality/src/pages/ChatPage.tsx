@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import { ChatPanel } from "@mattbutlerengineering/rialto";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";

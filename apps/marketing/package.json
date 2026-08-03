@@ -35,7 +35,7 @@
     "framer-motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:",
+    "react-router": "catalog:",
     "@mbe/sentry": "workspace:*",
     "three": "^0.185.1"
   },

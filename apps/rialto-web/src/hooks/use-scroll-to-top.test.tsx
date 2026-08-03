@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, useNavigate } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router";
 import type { MockInstance } from "vitest";
 import { useScrollToTop } from "./use-scroll-to-top.js";
 
