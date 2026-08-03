@@ -1,6 +1,7 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend, Counter } from "k6/metrics";
+import { selectScenarios } from "../../scripts/load-test-scenario.mjs";
 
 const errorRate = new Rate("errors");
 const apiLatency = new Trend("api_latency");
@@ -9,35 +10,41 @@ const requestsCounter = new Counter("total_requests");
 const BASE_URL = __ENV.BASE_URL || "https://api.mattbutlerengineering.com";
 const MARKETING_URL = __ENV.MARKETING_URL || "https://mattbutlerengineering.com";
 
-export const options = {
-  scenarios: {
-    smoke: {
-      executor: "constant-vus",
-      vus: 1,
-      duration: "30s",
-      tags: { type: "smoke" },
-    },
-    load: {
-      executor: "ramping-vus",
-      startVUs: 0,
-      stages: [
-        { duration: "30s", target: 10 },
-        { duration: "1m", target: 50 },
-        { duration: "30s", target: 0 },
-      ],
-      tags: { type: "load" },
-    },
-    stress: {
-      executor: "ramping-vus",
-      startVUs: 0,
-      stages: [
-        { duration: "1m", target: 100 },
-        { duration: "2m", target: 200 },
-        { duration: "30s", target: 0 },
-      ],
-      tags: { type: "stress" },
-    },
+// k6 has no CLI flag to run a single named scenario — `--tag` only labels
+// metrics, it doesn't filter execution (see #3682). Filter here instead,
+// driven by the K6_SCENARIO env var the workflow sets from its `scenario`
+// input. Falls back to running every scenario when unset/unknown.
+const ALL_SCENARIOS = {
+  smoke: {
+    executor: "constant-vus",
+    vus: 1,
+    duration: "30s",
+    tags: { type: "smoke" },
   },
+  load: {
+    executor: "ramping-vus",
+    startVUs: 0,
+    stages: [
+      { duration: "30s", target: 10 },
+      { duration: "1m", target: 50 },
+      { duration: "30s", target: 0 },
+    ],
+    tags: { type: "load" },
+  },
+  stress: {
+    executor: "ramping-vus",
+    startVUs: 0,
+    stages: [
+      { duration: "1m", target: 100 },
+      { duration: "2m", target: 200 },
+      { duration: "30s", target: 0 },
+    ],
+    tags: { type: "stress" },
+  },
+};
+
+export const options = {
+  scenarios: selectScenarios(ALL_SCENARIOS, __ENV.K6_SCENARIO),
   thresholds: {
     http_req_duration: ["p(95)<500"],
     http_req_failed: ["rate<0.05"],
