@@ -75,3 +75,7 @@ The proof-of-concept orchestrator that once lived at `scripts/orchestrate-multi.
 - **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version, following the steps above.
 - **Monorepo structure minimizes the need.** The vast majority of dependent code lives within this repo.
 - **Automation deferred.** There are currently few external consumers, so the cost of building fully automated cross-repo orchestration exceeds the benefit. The "Future Automation" section above remains the design sketch for when the need grows.
+
+## Execution Log
+
+Executed: 2026-08-04 — Strategy document reviewed and current. Monorepo structure and semver discipline remain the primary coordination mechanism for dependent repos; multi-repo automation stays deferred until the external consumer base justifies the investment.
