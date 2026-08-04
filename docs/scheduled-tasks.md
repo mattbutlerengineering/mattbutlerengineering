@@ -26,26 +26,31 @@ none of the `mbe-*` triggers. Recreated + expanded 2026-07-30 via the
 `RemoteTrigger` API on the new account. The plan is now Max 20x (not 5x), so the
 schedule was scaled up accordingly (see Plan budget below), and two new routines
 were added: `mbe-night` (overnight drain + CI health) and `mbe-auditor`
-(read-only rotating 7-lens audit). Daily routines reuse the prompt blocks
-documented in this file; weekly/monthly routines use their version-controlled
-prompts and continue to run on Opus.
+(read-only rotating 7-lens audit). All ten `mbe-*` prompts are now
+version-controlled under [`docs/routines/`](./routines/) (#3582) — see
+[Prompt files](#prompt-files) below.
 
 ## Routine catalog
 
-| Routine                    | Trigger ID                       | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
-| -------------------------- | -------------------------------- | ------------------- | ------------- | -------- | --------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `mbe-deep-audit`           | — (disabled; runs in GH Actions) | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
-| `drift-fix` _(new)_        | — (runs in GH Actions)           | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted       | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                   |
-| `mbe-evening`              | `trig_01PHwfbFQcFveYajVPaTrbZk`  | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
-| `mbe-night` _(new)_        | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
-| `mbe-auditor` _(new)_      | `trig_019cUkf16QbqTL7RrVXXqXsw`  | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
-| `mbe-morning`              | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs          | ACMM audit + `/ideate` (cycle-check + ideation)                                                                |
-| `mbe-learning-loop`        | `trig_018hcYeu5uCXgiddRwqaeYwd`  | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
-| `mbe-midday`               | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
-| `mbe-weekly-improve`       | `trig_01G12wULcCweXSb2jmVkChPW`  | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
-| `mbe-doc-rot` _(new)_      | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                              |
-| `mbe-weekly-retro` _(new)_ | `trig_01VczFFpZUHi1vTdrfTauMkh`  | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues      | Process retro — what blocked flow last week and what to change (see note)                                      |
-| `mbe-monthly-meta-audit`   | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
+**Prompt file** is the version-controlled, byte-for-byte copy of the trigger's
+live prompt (`job_config.ccr.events[0]`) — see [Prompt files](#prompt-files)
+below. It is the authoritative definition of the routine; the prose sections
+further down describe *why*, not *what*.
+
+| Routine                    | Trigger ID                       | Prompt file                                                           | Cadence (PT)        | Cron (UTC)    | Model    | Output                | Purpose                                                                                                        |
+| --------------------------- | --------------------------------- | ----------------------------------------------------------------------- | -------------------- | -------------- | -------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `mbe-deep-audit`           | — (disabled; runs in GH Actions) | —                                                                       | Mon 9:23am          | `23 16 * * 1` | —        | issues                | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note) |
+| `drift-fix` _(new)_        | — (runs in GH Actions)           | —                                                                       | Daily 6:17am        | `17 13 * * *` | — (none) | PR when drifted       | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                   |
+| `mbe-evening`              | `trig_01PHwfbFQcFveYajVPaTrbZk`  | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                 | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics         | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
+| `mbe-night` _(new)_        | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                     | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues          | Overnight drain (`/implement-queue`) + CI health check                                                         |
+| `mbe-auditor` _(new)_      | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                 | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                | Read-only rotating 7-lens audit (see lens table below)                                                         |
+| `mbe-morning`              | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                 | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs          | ACMM audit + `/ideate` (cycle-check + ideation)                                                                |
+| `mbe-learning-loop`        | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)     | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                | Sensor report → verify past fixes → triage regressions                                                         |
+| `mbe-midday`               | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                   | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                   | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
+| `mbe-weekly-improve`       | `trig_01G12wULcCweXSb2jmVkChPW`  | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)   | Fri 7:00am          | `0 14 * * 5`  | **opus** | 1 PR + `ready` issues | Codebase improvement survey → implement the best change                                                        |
+| `mbe-doc-rot` _(new)_      | `trig_0176gF6ty4Jg8oyyXYApKWyi`  | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                 | Fri 8:00am          | `0 15 * * 5`  | sonnet   | 1 PR                  | Documentation drift — dead links, stale refs, and false claims in docs (see note)                              |
+| `mbe-weekly-retro` _(new)_ | `trig_01VczFFpZUHi1vTdrfTauMkh`  | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)       | Sun 4:00pm          | `0 23 * * 0`  | **opus** | 1 PR + ≤3 issues      | Process retro — what blocked flow last week and what to change (see note)                                      |
+| `mbe-monthly-meta-audit`   | `trig_01SoWm7jxBGnJHxiyTMEKX1i`  | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `0 14 1 * *`  | **opus** | 1 PR + `ready` issues | Claude Code config + docs/automation health                                                                    |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies
@@ -58,10 +63,12 @@ prompts and continue to run on Opus.
 
 > **`mbe-night`** runs the overnight drain: `/implement-queue` keeps clearing
 > the `ready` backlog while Matt is offline, then a CI health check confirms
-> `main` is still green before the next morning's routines run.
+> `main` is still green before the next morning's routines run. Prompt:
+> [`routines/mbe-night.md`](./routines/mbe-night.md).
 
 > **`mbe-auditor`** runs a read-only rotating 7-lens audit — one lens per day,
-> cycling through the week:
+> cycling through the week. Prompt:
+> [`routines/mbe-auditor.md`](./routines/mbe-auditor.md).
 >
 > | Day | Lens          |
 > | --- | ------------- |
@@ -91,10 +98,57 @@ prompts and continue to run on Opus.
 > open `audit` issues, and where the auditor filed something it can simply fix,
 > it fixes it and closes the issue rather than filing a duplicate.
 
-> The legacy `mbe-*` audit/worker triggers are managed in the claude.ai UI and
-> their exact prompts live there. The improvement routines below were created
-> via `/schedule` and their prompts are reproduced here so they can be reviewed and
-> version-controlled.
+> Every `mbe-*` trigger is still managed live in the claude.ai UI / via
+> `RemoteTrigger` — that's where the schedule actually executes. But its prompt
+> is no longer *only* there: [`docs/routines/<name>.md`](./routines/) holds a
+> byte-for-byte copy of each trigger's current prompt, so changes go through a
+> reviewable PR before anyone pastes them into the live trigger. See
+> [Prompt files](#prompt-files) below for the full rationale and the
+> `update`-clobbers-`job_config` trap this exists to defang.
+
+## Prompt files (`docs/routines/`)
+
+Every `mbe-*` trigger's prompt (`job_config.ccr.events[0]` content) now has a
+byte-for-byte, version-controlled copy at `docs/routines/<name>.md`. Each file
+opens with a frontmatter block (`trigger_id`, `cron`, `model`,
+`environment_id`, `cadence`) so it is self-identifying, followed by the
+verbatim prompt in a fenced code block. Fetched and diffed against the live
+trigger via `RemoteTrigger get` on 2026-08-03 (#3582).
+
+**Why this exists — three incidents:**
+
+1. **`update` clobbers `job_config` wholesale, not a deep merge.** Sending
+   `job_config.ccr.session_context` alone silently **deleted**
+   `job_config.ccr.events` — where the entire prompt lives — with an HTTP 200
+   and no warning. Hit 2026-07-31 editing `mbe-weekly-retro`'s model.
+2. Prompts were unreviewable: edited live in a web UI with no diff, no
+   review, no history — unlike every other behavior-defining artifact in this
+   repo.
+3. The entire `mbe-*` chain died silently on 2026-07-10 (account migration)
+   and went unnoticed 19 days; recreating it meant rewriting every prompt from
+   memory, because nothing was version-controlled.
+
+**The rule when editing a live trigger — always resend the complete
+`job_config`, then verify with a `get`:**
+
+```text
+1. get the trigger — copy its full current job_config as your starting point.
+2. Edit only the field you actually want to change, in that copied object.
+3. update with the FULL job_config (never a partial/single-field payload) —
+   partial updates replace job_config wholesale, they do not deep-merge.
+4. get the trigger again and diff the result against what you intended.
+   A 200 response is not confirmation; only a get is.
+```
+
+`docs/routines/<name>.md` is the file that wins if it and the live trigger
+ever disagree — restoring a clobbered prompt is now "paste the code block back
+into `events[0]`," not "reconstruct it from memory."
+
+**Cutting a trigger over to a pointer prompt is a separate, follow-up
+change** (see #3582) — not done here. This repo lands the files first;
+switching the live `events[0]` content to a short pointer that reads
+`docs/routines/<name>.md` happens one routine at a time, each verified with a
+`get` after the `update`, once a pointer-prompt run has been proven end to end.
 
 ## Ideation loop (`/ideate`, folded into `mbe-morning`)
 
@@ -105,18 +159,9 @@ sequential — no new ideation until the previous batch is fully implemented.
 Full mechanics: `.claude/skills/ideate/SKILL.md`. Operator guide
 (what Matt does vs. what runs itself): [`ideation-loop.md`](./ideation-loop.md).
 
-**Append this to the end of the `mbe-morning` prompt** (replacing its
-issue-worker step):
-
-```text
-Then run /ideate. It first advances the ideation cycle (vetoes honored,
-proposals past the ~72h window decomposed via /decompose, finished tracking
-issues closed, stale children deferred). Only if the previous batch is fully
-complete does it generate a new batch of 4-5 feature-proposal issues grounded
-in PRODUCT.md and repo-committed signals. Never fetch live site URLs. Never
-label a proposal 'ready'. If /ideate created a new batch this run, report the
-batch URL and stop; otherwise finish as usual.
-```
+The `/ideate` step is folded into the end of `mbe-morning`'s live prompt
+(replacing its old issue-worker step) — see
+[`routines/mbe-morning.md`](./routines/mbe-morning.md) for the exact text.
 
 ### Ideation label glossary
 
@@ -141,18 +186,9 @@ The midday and evening routines run the full implement-queue (parallel TDD
 worktree agents + auto-merge train) instead of the serial `/issue-worker`, so
 the backlog drains ~6-9 issues/day without Matt's laptop.
 
-**Replace the issue-worker step in both `mbe-midday` and `mbe-evening`
-prompts with:**
-
-```text
-Instead of /issue-worker, run /implement-queue for one iteration with a batch
-of at most 3 independent ready issues (Phase 0 pre-flight through Phase 4).
-First step in every worktree: pnpm install --frozen-lockfile. Respect the
-circuit breaker; stop after one iteration. Before finishing, if
-metrics/queue-telemetry.jsonl has uncommitted appended rows, commit only that
-path on a branch and open a PR titled "chore(metrics): queue telemetry <date>"
-labeled has-pr.
-```
+The `/implement-queue` step (replacing the old issue-worker step) is in both
+routines' live prompts — see [`routines/mbe-midday.md`](./routines/mbe-midday.md)
+and [`routines/mbe-evening.md`](./routines/mbe-evening.md) for the exact text.
 
 If cloud worktree agents prove unreliable (validation run pending), fall back
 to a single worker without worktree isolation in cloud and keep the local
@@ -202,6 +238,9 @@ to a single worker without worktree isolation in cloud and keep the local
 
 ## `mbe-weekly-improve`
 
+> **Prompt:** [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md).
+> This section describes intent — the file is the prompt.
+
 - **When:** every Friday 7:00am PT (`0 14 * * 5` UTC). Friday is the documented
   highest-token-headroom day.
 - **What it does:** runs the `improve` and `improve-codebase-architecture` skills (or
@@ -231,6 +270,9 @@ to a single worker without worktree isolation in cloud and keep the local
 
 ## `mbe-doc-rot`
 
+> **Prompt:** [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md).
+> This section describes intent — the file is the prompt.
+
 - **When:** every Friday 8:00am PT (`0 15 * * 5` UTC), after `mbe-weekly-improve`.
 - **Why it exists:** it is the judgment half of drift. `drift-fix.yml` handles
   everything a generator can repair; this handles the drift where the fix is a
@@ -256,6 +298,9 @@ to a single worker without worktree isolation in cloud and keep the local
   PR with cosmetic rewording — rot means _wrong_, not unpolished.
 
 ## `mbe-weekly-retro`
+
+> **Prompt:** [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md).
+> This section describes intent — the file is the prompt.
 
 - **When:** every Sunday 4:00pm PT (`0 23 * * 0` UTC) — late enough to see the
   full week including Friday's `mbe-weekly-improve` and `mbe-doc-rot` output, early
@@ -313,6 +358,9 @@ to a single worker without worktree isolation in cloud and keep the local
 
 ## `mbe-monthly-meta-audit`
 
+> **Prompt:** [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md).
+> This section describes intent — the file is the prompt.
+
 - **When:** the 1st of each month 7:00am PT (`0 14 1 * *` UTC).
   > "First Friday" was requested, but standard cron can't reliably express it
   > (day-of-month + day-of-week is OR-semantics), so this uses the 1st of the month.
@@ -343,20 +391,10 @@ new weekday schedule slot** (see Plan budget below).
   3. Does **not** auto-merge, auto-edit skill prompts, or run eval synchronously
      (phase-1 posture). The phase-2 model-routing auto-tuning seam is documented
      in the skill as NOT-yet-built.
-- **Append this to the end of the `mbe-evening` prompt** (the cloud agent starts
-  with zero context, so the instruction must live in the prompt itself):
-
-  ```text
-  Finally, run /optimize-implement-queue. Start with its Step 0
-  (node scripts/reconcile-queue-telemetry.mjs). Append the queue-efficiency
-  trend point and a dated log entry. If it flags a regression, file
-  de-duplicated `ready` issues and trigger `mbe agent eval` asynchronously
-  (never block this run on eval). Do not auto-merge or auto-edit any skill
-  prompts. Finish with its Step 6: run
-  `node scripts/persist-metrics.mjs --routine optimize-implement-queue`,
-  which stages every durable metrics path with a diff, commits, and opens the
-  PR labeled has-pr. It exits 0 without a commit when nothing changed.
-  ```
+- **Folded into the end of the `mbe-evening` prompt** (the cloud agent starts
+  with zero context, so the instruction lives in the prompt itself) — see
+  [`routines/mbe-evening.md`](./routines/mbe-evening.md) for the exact text
+  (step 3 of that prompt).
 
   > Do **not** re-enumerate metrics paths in this prompt. The list is derived
   > from `durableManifest()` in `scripts/metrics-store.mjs` (#3645) — adding
@@ -372,13 +410,14 @@ new weekday schedule slot** (see Plan budget below).
 > UI:
 >
 > - [x] `mbe-evening`'s prompt includes the `/optimize-implement-queue`
->       instruction block above (Step 0 reconcile + Step 6 metrics-persist PR)
+>       instructions (Step 0 reconcile + Step 6 metrics-persist PR — see
+>       [`routines/mbe-evening.md`](./routines/mbe-evening.md))
 > - [x] The weekly `mbe agent eval` checkpoint is in the `mbe-weekly-improve` prompt
 > - [x] Evening run confirmed to complete within budget with the addition
-> - [x] **Ideation loop:** the `/ideate` block above is in `mbe-morning`
+> - [x] **Ideation loop:** the `/ideate` step is in `mbe-morning`
 >       (replacing its old issue-worker step)
 > - [x] **Cloud drain:** `mbe-midday` and `mbe-evening` both run the
->       `/implement-queue` block above instead of the old issue-worker step
+>       `/implement-queue` step instead of the old issue-worker step
 > - [x] Validation runs: `mbe-morning` and `mbe-midday` were each triggered
 >       manually to confirm `/ideate` batch filing and cloud `/implement-queue`
 >       (worktrees + `pnpm install`) both work end-to-end post-recreation
@@ -435,3 +474,15 @@ See `infrastructure/AUDIT_BYPASS.md` for token generation and WAF rule setup.
 Or call the `RemoteTrigger` tool directly (`action: list|get|create|update|run`).
 Each routine's prompt is self-contained — the cloud agent starts with **zero context**,
 so any behavior change must be made in the prompt itself.
+
+1. Edit `docs/routines/<name>.md` first, in a reviewable PR — it is the
+   authoritative copy.
+2. Only after that PR merges, apply the same change to the live trigger.
+   **`RemoteTrigger update` replaces `job_config` wholesale — it does not
+   deep-merge.** Sending a partial payload (e.g. just
+   `job_config.ccr.session_context`) silently deletes everything else in
+   `job_config`, including `job_config.ccr.events` (the prompt). Always `get`
+   the trigger, edit the full `job_config` object you got back, `update` with
+   that complete object, then `get` again to verify — a `200` response is not
+   confirmation. See [Prompt files](#prompt-files) above for the incident this
+   rule comes from.
