@@ -1,11 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const { mockWebhooks, mockDepositFindFirst, mockDepositUpdate } = vi.hoisted(() => ({
+const {
+  mockWebhooks,
+  mockDepositFindFirst,
+  mockDepositFindUnique,
+  mockDepositUpdate,
+  mockDepositUpdateMany,
+  mockStripeCancel,
+} = vi.hoisted(() => ({
   mockWebhooks: {
     constructEvent: vi.fn(),
   },
   mockDepositFindFirst: vi.fn(),
+  mockDepositFindUnique: vi.fn(),
   mockDepositUpdate: vi.fn(),
+  mockDepositUpdateMany: vi.fn(),
+  mockStripeCancel: vi.fn(),
 }));
 
 vi.mock("../services/database.js", async () => {
@@ -14,9 +24,10 @@ vi.mock("../services/database.js", async () => {
     prisma: {
       deposit: {
         findFirst: mockDepositFindFirst,
-        findUnique: vi.fn(),
+        findUnique: mockDepositFindUnique,
         create: vi.fn(),
         update: mockDepositUpdate,
+        updateMany: mockDepositUpdateMany,
       },
       guest: {
         findUnique: vi.fn(),
@@ -28,7 +39,11 @@ vi.mock("../services/database.js", async () => {
 
 vi.mock("stripe", () => {
   class MockStripe {
-    paymentIntents = { create: vi.fn(), capture: vi.fn(), cancel: vi.fn() };
+    paymentIntents = {
+      create: vi.fn(),
+      capture: vi.fn(),
+      cancel: mockStripeCancel,
+    };
     customers = { create: vi.fn() };
     webhooks = mockWebhooks;
     constructor(_key: string) {}
@@ -216,6 +231,258 @@ describe("POST /api/v1/stripe/webhook", () => {
     // Already held: the handler skips the transition (status !== 'pending'), no throw → 200
     expect(response.statusCode).toBe(200);
     // depositService.hold() should NOT have been called (no DB update)
+    expect(mockDepositUpdate).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("returns 200 for charge.refunded with payment_intent as string id and calls depositService.refund", async () => {
+    const mockEvent = {
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_123",
+          payment_intent: "pi_held_deposit", // string id
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    const depositMock = {
+      id: "dep_456",
+      reservationId: "res_456",
+      amountCents: 10000,
+      currency: "usd",
+      status: "held",
+      stripePaymentIntentId: "pi_held_deposit",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    // onChargeRefunded calls getByPaymentIntentId -> findFirst
+    mockDepositFindFirst.mockResolvedValueOnce(depositMock);
+    // refund() calls _requireDeposit -> findUnique
+    mockDepositFindUnique.mockResolvedValueOnce(depositMock);
+    // refund() calls updateMany with CAS condition
+    mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
+    // refund() fetches the updated row via _requireDeposit -> findUnique
+    mockDepositFindUnique.mockResolvedValueOnce({
+      ...depositMock,
+      status: "refunded",
+      refundedAt: new Date(),
+    });
+    // refund() calls stripe.cancelPaymentIntent
+    mockStripeCancel.mockResolvedValueOnce({ id: "pi_held_deposit", status: "canceled" });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // Should have looked up the deposit by payment intent id
+    expect(mockDepositFindFirst).toHaveBeenCalled();
+    // Should have transitioned via updateMany
+    expect(mockDepositUpdateMany).toHaveBeenCalled();
+    // Should have called Stripe to cancel
+    expect(mockStripeCancel).toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("returns 200 for charge.refunded with payment_intent as expanded object and calls depositService.refund", async () => {
+    const mockEvent = {
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_456",
+          payment_intent: { id: "pi_expanded_deposit" }, // expanded object
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    const depositMock = {
+      id: "dep_789",
+      reservationId: "res_789",
+      amountCents: 15000,
+      currency: "usd",
+      status: "held",
+      stripePaymentIntentId: "pi_expanded_deposit",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDepositFindFirst.mockResolvedValueOnce(depositMock);
+    mockDepositFindUnique.mockResolvedValueOnce(depositMock);
+    mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
+    mockDepositFindUnique.mockResolvedValueOnce({
+      ...depositMock,
+      status: "refunded",
+      refundedAt: new Date(),
+    });
+    mockStripeCancel.mockResolvedValueOnce({ id: "pi_expanded_deposit", status: "canceled" });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDepositFindFirst).toHaveBeenCalled();
+    expect(mockDepositUpdateMany).toHaveBeenCalled();
+    expect(mockStripeCancel).toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("returns 200 for charge.refunded when no deposit exists (idempotent no-op)", async () => {
+    const mockEvent = {
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_no_deposit",
+          payment_intent: "pi_orphaned",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    // No deposit found for this payment intent
+    mockDepositFindFirst.mockResolvedValueOnce(null);
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // Should not have attempted to refund
+    expect(mockDepositUpdate).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("calls depositService.refund for payment_intent.canceled when deposit is held", async () => {
+    const mockEvent = {
+      type: "payment_intent.canceled",
+      data: {
+        object: {
+          id: "pi_canceled_held",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    const depositMock = {
+      id: "dep_held_cancel",
+      reservationId: "res_held_cancel",
+      amountCents: 8000,
+      currency: "usd",
+      status: "held",
+      stripePaymentIntentId: "pi_canceled_held",
+      stripeCustomerId: null,
+      heldAt: new Date(),
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDepositFindFirst.mockResolvedValueOnce(depositMock);
+    mockDepositFindUnique.mockResolvedValueOnce(depositMock);
+    mockDepositUpdateMany.mockResolvedValueOnce({ count: 1 });
+    mockDepositFindUnique.mockResolvedValueOnce({
+      ...depositMock,
+      status: "refunded",
+      refundedAt: new Date(),
+    });
+    mockStripeCancel.mockResolvedValueOnce({ id: "pi_canceled_held", status: "canceled" });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDepositUpdateMany).toHaveBeenCalled();
+    expect(mockStripeCancel).toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("does NOT call depositService.refund for payment_intent.canceled when deposit is pending", async () => {
+    const mockEvent = {
+      type: "payment_intent.canceled",
+      data: {
+        object: {
+          id: "pi_canceled_pending",
+        },
+      },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+    mockDepositFindFirst.mockResolvedValueOnce({
+      id: "dep_pending_cancel",
+      reservationId: "res_pending_cancel",
+      amountCents: 12000,
+      currency: "usd",
+      status: "pending", // not held
+      stripePaymentIntentId: "pi_canceled_pending",
+      stripeCustomerId: null,
+      heldAt: null,
+      appliedAt: null,
+      refundedAt: null,
+      forfeitedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: Buffer.from(JSON.stringify(mockEvent)),
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // Should not have called refund (status is pending, not held)
     expect(mockDepositUpdate).not.toHaveBeenCalled();
     await app.close();
   });
