@@ -5,6 +5,8 @@ import {
   findRevertPr,
   classifyRevertState,
   buildRcaBody,
+  extractRcaPrNumber,
+  findPriorRcaIssue,
   runRevertRca,
 } from "../revert-rca.mjs";
 
@@ -121,6 +123,46 @@ describe("buildRcaBody", () => {
 });
 
 // ---------------------------------------------------------------------------
+// extractRcaPrNumber / findPriorRcaIssue — the #3775 dedup ledger lookup.
+// ---------------------------------------------------------------------------
+
+describe("extractRcaPrNumber", () => {
+  it("extracts the reverted PR number from an RCA issue title", () => {
+    const issue = { title: "[RCA] Reflection: Reverted PR #3545 — feat: something" };
+    expect(extractRcaPrNumber(issue)).toBe(3545);
+  });
+
+  it("returns null for a title that isn't an RCA issue title", () => {
+    expect(extractRcaPrNumber({ title: "unrelated issue" })).toBeNull();
+  });
+
+  it("returns null for missing/nullish input", () => {
+    expect(extractRcaPrNumber(null)).toBeNull();
+    expect(extractRcaPrNumber({})).toBeNull();
+  });
+});
+
+describe("findPriorRcaIssue", () => {
+  it("finds a prior RCA issue (any state) for the given PR number", () => {
+    const candidates = [
+      { number: 10, title: "[RCA] Reflection: Reverted PR #3545 — feat: something" },
+      { number: 11, title: "[RCA] Reflection: Reverted PR #9999 — other" },
+    ];
+    expect(findPriorRcaIssue(candidates, 3545)).toBe(10);
+  });
+
+  it("returns null when no candidate matches", () => {
+    const candidates = [{ number: 11, title: "[RCA] Reflection: Reverted PR #9999 — other" }];
+    expect(findPriorRcaIssue(candidates, 3545)).toBeNull();
+  });
+
+  it("returns null for empty or nullish input", () => {
+    expect(findPriorRcaIssue([], 3545)).toBeNull();
+    expect(findPriorRcaIssue(null, 3545)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // runRevertRca — end-to-end orchestration with injected gh calls. Covers the
 // 3 states from the issue, including the exact #3545/#3559 false-positive.
 // ---------------------------------------------------------------------------
@@ -166,7 +208,7 @@ describe("runRevertRca", () => {
   });
 
   it("state 3 (revert PR merged): creates the RCA issue reporting the actual revert commit", () => {
-    const createIssue = vi.fn(() => "https://github.com/x/y/issues/1");
+    const createIssue = vi.fn(() => 1);
 
     const result = runRevertRca({
       prNumber: 3545,
@@ -184,12 +226,72 @@ describe("runRevertRca", () => {
     });
 
     expect(result.action).toBe("created");
+    expect(result.issueNumber).toBe(1);
     expect(createIssue).toHaveBeenCalledTimes(1);
-    const [args] = createIssue.mock.calls[0];
-    const bodyIdx = args.indexOf("--body") + 1;
-    expect(args[bodyIdx]).toContain("revertsha1234567890");
-    expect(args[bodyIdx]).toContain("#3559");
-    expect(args[bodyIdx]).not.toContain("6908c3c05915954642136c11b3a7d4cc03abe8cd");
+    const [title, body] = createIssue.mock.calls[0];
+    expect(title).toContain("#3545");
+    expect(body).toContain("revertsha1234567890");
+    expect(body).toContain("#3559");
+    expect(body).not.toContain("6908c3c05915954642136c11b3a7d4cc03abe8cd");
+  });
+
+  it("skips filing a duplicate when an open RCA issue already tracks this PR (#3775 dedup)", () => {
+    const createIssue = vi.fn(() => 1);
+    const getIssueState = vi.fn(() => "open");
+
+    const result = runRevertRca({
+      prNumber: 3545,
+      fetchPr: () => originalPr,
+      searchRevertPrs: () => [
+        {
+          number: 3559,
+          title: "revert: #3545 (fixes broken main)",
+          state: "MERGED",
+          mergedAt: "2026-01-01T00:00:00Z",
+          mergeCommit: { oid: "revertsha1234567890" },
+        },
+      ],
+      searchRcaIssues: () => [
+        { number: 42, title: "[RCA] Reflection: Reverted PR #3545 — feat: something" },
+      ],
+      getIssueState,
+      createIssue,
+    });
+
+    expect(result.action).toBe("skipped");
+    expect(result.issueNumber).toBe(42);
+    expect(createIssue).not.toHaveBeenCalled();
+  });
+
+  it("reopens a previously-closed RCA issue for this PR instead of filing a duplicate", () => {
+    const createIssue = vi.fn(() => 1);
+    const reopenIssue = vi.fn();
+    const getIssueState = vi.fn(() => "closed");
+
+    const result = runRevertRca({
+      prNumber: 3545,
+      fetchPr: () => originalPr,
+      searchRevertPrs: () => [
+        {
+          number: 3559,
+          title: "revert: #3545 (fixes broken main)",
+          state: "MERGED",
+          mergedAt: "2026-01-01T00:00:00Z",
+          mergeCommit: { oid: "revertsha1234567890" },
+        },
+      ],
+      searchRcaIssues: () => [
+        { number: 42, title: "[RCA] Reflection: Reverted PR #3545 — feat: something" },
+      ],
+      getIssueState,
+      createIssue,
+      reopenIssue,
+    });
+
+    expect(result.action).toBe("reopened");
+    expect(result.issueNumber).toBe(42);
+    expect(reopenIssue).toHaveBeenCalledWith(42);
+    expect(createIssue).not.toHaveBeenCalled();
   });
 
   it("real-history regression (#3545/#3559): produces no false RCA for the PR's own merge commit", () => {

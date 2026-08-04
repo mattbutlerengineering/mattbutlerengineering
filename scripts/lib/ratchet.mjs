@@ -92,7 +92,15 @@ export function compare(current, baseline, opts = {}) {
 // ---------------------------------------------------------------------------
 // Deduped issue filer — shared by any adapter that opens a GitHub issue for a
 // detected regression (only the ACMM adapter today; the shape generalizes).
+//
+// Routes the skip/create/reopen decision through the shared `fileIssue()`
+// seam (#3775) instead of hand-rolling it. Search strategy is unchanged
+// (label + marker-in-body); the only behavioral change is that the search
+// now covers every state (not just open), so a rerun after the prior
+// regression issue was closed reopens it instead of filing a duplicate.
 // ---------------------------------------------------------------------------
+
+import { fileIssue } from "./issue-filing.mjs";
 
 /**
  * Lazily loads @mbe/gh-client and returns a fresh client. Kept out of the
@@ -108,33 +116,36 @@ async function defaultGhClient() {
 }
 
 /**
- * True when any OPEN issue's body already carries the given marker —
- * prevents filing duplicate regression issues.
+ * Pure: finds a prior regression issue (any state) among candidates whose
+ * body carries `marker`. Feeds `fileIssue()`'s dedupe-by-ledger decision: a
+ * match lets a rerun skip (still open) or reopen (previously closed)
+ * instead of filing a duplicate.
  *
- * @param {Array<{ state: string, body?: string }>} issues
+ * @param {Array<{ number: number, body?: string }>} candidates
  * @param {string} marker
- * @returns {boolean}
+ * @returns {number | null}
  */
-export function hasOpenRegressionIssue(issues, marker) {
-  return issues.some(
-    (issue) =>
-      issue.state === "open" && typeof issue.body === "string" && issue.body.includes(marker)
+export function findPriorRegressionIssue(candidates, marker) {
+  const match = (candidates ?? []).find(
+    (issue) => typeof issue?.body === "string" && issue.body.includes(marker)
   );
+  return match ? match.number : null;
 }
 
 /**
- * Fetches open issues for a label via the injected `ghClient`.
+ * Fetches issues for a label (any state, so a previously-closed regression
+ * issue can be found and reopened) via the injected `ghClient`.
  *
  * @param {string} label
  * @param {import("@mbe/gh-client").GhClient} ghClient
  * @returns {Array<{ number: number, body: string, state: string }>}
  */
-export function fetchOpenIssuesByLabel(label, ghClient) {
+export function fetchIssuesByLabel(label, ghClient) {
   const issues = ghClient.issue.list([
     "--label",
     label,
     "--state",
-    "open",
+    "all",
     "--limit",
     "100",
     "--json",
@@ -143,40 +154,64 @@ export function fetchOpenIssuesByLabel(label, ghClient) {
   return Array.isArray(issues) ? issues : [];
 }
 
-/**
- * Creates a GitHub issue via the injected `ghClient`.
- *
- * @param {{ title: string, body: string, labels: string[] }} payload
- * @param {import("@mbe/gh-client").GhClient} ghClient
- */
-export function createIssue(payload, ghClient) {
-  ghClient.issue.create([
-    "--title",
-    payload.title,
-    "--body",
-    payload.body,
-    "--label",
-    payload.labels.join(","),
-  ]);
+/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+function getIssueStateViaGhClient(ghClient, issueNumber) {
+  try {
+    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
+  } catch {
+    return "missing";
+  }
+}
+
+/** Parses the issue number out of the URL `gh issue create` prints on success. */
+function parseIssueNumberFromUrl(url) {
+  const match = url.match(/\/issues\/(\d+)\s*$/);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
+  return parseInt(match[1], 10);
 }
 
 /**
- * Files a regression issue unless an open issue with the same marker already
- * exists — the one issue-filing entry point every regression adapter calls.
+ * Files a regression issue unless one is already open for `marker` (or
+ * reopens it if previously closed) — the one issue-filing entry point every
+ * regression adapter calls.
  *
  * @param {object} opts
- * @param {string} opts.label - issue label to scope the open-issue search to
+ * @param {string} opts.label - issue label to scope the issue search to
  * @param {string} opts.marker - dedupe marker expected in the issue body
  * @param {{ title: string, body: string, labels: string[] }} opts.payload
  * @param {import("@mbe/gh-client").GhClient} [opts.ghClient]
- * @returns {Promise<{ filed: boolean, reason?: string }>}
+ * @returns {Promise<{ filed: boolean, reason?: string, action?: string }>}
  */
 export async function fileRegressionIssueIfNew({ label, marker, payload, ghClient }) {
   const client = ghClient ?? (await defaultGhClient());
-  const openIssues = fetchOpenIssuesByLabel(label, client);
-  if (hasOpenRegressionIssue(openIssues, marker)) {
+
+  // A failed search must not swallow a genuine regression — fail open (treat
+  // as "no prior found", file the issue) rather than closed.
+  let candidates = [];
+  try {
+    candidates = fetchIssuesByLabel(label, client);
+  } catch (err) {
+    console.error(`[ratchet] search failed, proceeding as no-match: ${err.message}`);
+  }
+  const priorNumber = findPriorRegressionIssue(candidates, marker);
+  const ledger = priorNumber !== null ? { [marker]: priorNumber } : {};
+
+  const result = fileIssue(
+    { title: payload.title, body: payload.body, labels: payload.labels, dedupeKey: marker },
+    ledger,
+    {
+      getIssueState: (issueNumber) => getIssueStateViaGhClient(client, issueNumber),
+      createIssue: (title, body, labels) =>
+        parseIssueNumberFromUrl(
+          client.issue.create(["--title", title, "--body", body, "--label", labels.join(",")])
+        ),
+      reopenIssue: (issueNumber) => client.issue.reopen(issueNumber),
+    }
+  );
+
+  if (result.action === "skip") {
     return { filed: false, reason: "duplicate" };
   }
-  createIssue(payload, client);
-  return { filed: true };
+  return { filed: true, action: result.action };
 }

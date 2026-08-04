@@ -17,6 +17,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
+import { fileIssue } from "./lib/issue-filing.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -131,22 +132,60 @@ The AI-generated PR #${prNumber} was reverted in commit ${revertSha} (merged via
 Labels: \`meta-improvement\`, \`${COORDINATION_LABELS.READY}\`, \`critical\``;
 }
 
+const RCA_ISSUE_TITLE_PATTERN = /^\[RCA\] Reflection: Reverted PR #(\d+)\b/;
+
+/** Pure: extracts the original PR number an RCA issue was filed for, from its title. */
+export function extractRcaPrNumber(issue) {
+  const match = RCA_ISSUE_TITLE_PATTERN.exec(issue?.title ?? "");
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Pure: finds a prior RCA issue for `prNumber` among candidate issues (any
+ * state). Feeds `fileIssue()`'s dedupe-by-ledger decision (#3775): a rerun
+ * for the same reverted PR skips (still open) or reopens (previously
+ * closed) instead of filing a duplicate RCA — this producer previously had
+ * no dedup ledger at all beyond its own merged-revert-state gate (#3590).
+ *
+ * @param {Array<{number: number, title: string}>} candidates
+ * @param {number} prNumber
+ * @returns {number | null}
+ */
+export function findPriorRcaIssue(candidates, prNumber) {
+  const match = (candidates ?? []).find((issue) => extractRcaPrNumber(issue) === prNumber);
+  return match ? match.number : null;
+}
+
 /**
  * Orchestrates the RCA decision with injected gh operations (testable
  * without the network). Only files an RCA issue when a revert of `prNumber`
  * is actually merged (#3583) — a proposed-but-open revert, or no revert at
- * all, is skipped rather than conflated with "was reverted."
+ * all, is skipped rather than conflated with "was reverted." The
+ * create/skip/reopen decision itself routes through the shared `fileIssue()`
+ * seam (#3775).
  *
  * @param {{
  *   prNumber: number,
  *   fetchPr: () => object,
  *   searchRevertPrs: () => Array<object>,
- *   createIssue: (args: string[]) => string,
+ *   searchRcaIssues?: () => Array<{number: number, title: string}>,
+ *   getIssueState?: (issueNumber: number) => "open"|"closed"|"missing",
+ *   createIssue: (title: string, body: string, labels: string[]) => number,
+ *   reopenIssue?: (issueNumber: number) => void,
  *   log?: (msg: string) => void,
  * }} deps
- * @returns {{action: "skipped"|"created", state: string, issueUrl?: string}}
+ * @returns {{action: "skipped"|"created"|"reopened", state: string, issueNumber?: number}}
  */
-export function runRevertRca({ prNumber, fetchPr, searchRevertPrs, createIssue, log = () => {} }) {
+export function runRevertRca({
+  prNumber,
+  fetchPr,
+  searchRevertPrs,
+  searchRcaIssues = () => [],
+  getIssueState = () => "missing",
+  createIssue,
+  reopenIssue = () => {},
+  log = () => {},
+}) {
   const pr = fetchPr(prNumber);
   const revertPr = findRevertPr(searchRevertPrs(prNumber), prNumber);
   const revertState = classifyRevertState(revertPr);
@@ -170,10 +209,62 @@ export function runRevertRca({ prNumber, fetchPr, searchRevertPrs, createIssue, 
     revertPrNumber: revertState.revertPrNumber,
     revertSha: revertState.revertSha,
   });
-  const issueUrl = createIssue(buildRcaCreateArgs(rcaTitle, rcaBody));
-  log(`Created RCA issue: ${issueUrl}`);
+  const labels = ["meta-improvement", COORDINATION_LABELS.READY, "critical"];
 
-  return { action: "created", state: revertState.state, issueUrl };
+  // A failed search must not swallow a genuine confirmed revert — fail open
+  // (treat as "no prior found", file the issue) rather than closed.
+  let candidates = [];
+  try {
+    candidates = searchRcaIssues();
+  } catch (err) {
+    log(`search for a prior RCA issue failed, proceeding as no-match: ${err.message}`);
+  }
+  const priorNumber = findPriorRcaIssue(candidates, prNumber);
+  const ledger = priorNumber !== null ? { [prNumber]: priorNumber } : {};
+
+  const result = fileIssue(
+    { title: rcaTitle, body: rcaBody, labels, dedupeKey: prNumber },
+    ledger,
+    {
+      getIssueState,
+      createIssue,
+      reopenIssue,
+    }
+  );
+
+  if (result.action === "skip") {
+    log(`RCA issue #${result.issueNumber} already tracks reverted PR #${prNumber} — skipping.`);
+    return { action: "skipped", state: revertState.state, issueNumber: result.issueNumber };
+  }
+
+  log(
+    result.action === "reopen"
+      ? `Reopened RCA issue #${result.issueNumber} for reverted PR #${prNumber}.`
+      : `Created RCA issue #${result.issueNumber} for reverted PR #${prNumber}.`
+  );
+
+  return {
+    action: result.action === "reopen" ? "reopened" : "created",
+    state: revertState.state,
+    issueNumber: result.issueNumber,
+  };
+}
+
+/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+function getIssueStateViaGhClient(client, issueNumber) {
+  try {
+    const state = String(client.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
+  } catch {
+    return "missing";
+  }
+}
+
+/** Parses the issue number out of the URL `gh issue create` prints on success. */
+function parseIssueNumberFromUrl(url) {
+  const match = url.match(/\/issues\/(\d+)\s*$/);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
+  return parseInt(match[1], 10);
 }
 
 function main() {
@@ -222,7 +313,19 @@ function main() {
         "--json",
         "number,title,state,mergedAt,mergeCommit",
       ]),
-    createIssue: (createArgs) => ghClient.issue.create(createArgs),
+    searchRcaIssues: () =>
+      ghClient.issue.list([
+        "--label",
+        "meta-improvement",
+        "--state",
+        "all",
+        "--json",
+        "number,title",
+      ]),
+    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    createIssue: (title, body) =>
+      parseIssueNumberFromUrl(ghClient.issue.create(buildRcaCreateArgs(title, body))),
+    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
     log: (msg) => console.log(msg),
   });
 }

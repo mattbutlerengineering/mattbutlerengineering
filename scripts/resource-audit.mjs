@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
+import { fileIssue } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -282,10 +283,85 @@ export function buildReport(orphanedWorkers, orphanedApps, orphanedDns) {
 
 // ── Issue Creation ──────────────────────────────────────────────────
 
-function createGitHubIssue(title, body) {
+// This audit's report title varies run to run (`Orphaned resources found
+// (${n})`), so it can't be the dedupe key itself — mirrors cors-audit's
+// fixed-prefix title search + constant dedupeKey.
+const RESOURCE_AUDIT_TITLE_PATTERN = /^Orphaned resources found/;
+const RESOURCE_AUDIT_DEDUPE_KEY = "resource-audit";
+
+/**
+ * Pure: finds a prior resource-audit issue among candidate issues (any
+ * state) by title prefix. Feeds `fileIssue()`'s dedupe-by-ledger decision
+ * (#3775) — this producer previously had no dedup at all and filed a fresh
+ * issue every run; this is an intentional behavior change.
+ *
+ * @param {Array<{number: number, title: string}>} candidates
+ * @returns {number | null}
+ */
+export function findPriorResourceAuditIssue(candidates) {
+  const match = (candidates ?? []).find((issue) =>
+    RESOURCE_AUDIT_TITLE_PATTERN.test(issue?.title ?? "")
+  );
+  return match ? match.number : null;
+}
+
+/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+function getIssueStateViaGhClient(ghClient, issueNumber) {
   try {
-    createGhClient().issue.create(["--title", title, "--label", "audit", "--body", body]);
-    console.log(`Created issue: ${title}`);
+    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
+  } catch {
+    return "missing";
+  }
+}
+
+/** Parses the issue number out of the URL `gh issue create` prints on success. */
+function parseIssueNumberFromUrl(url) {
+  const match = url.match(/\/issues\/(\d+)\s*$/);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
+  return parseInt(match[1], 10);
+}
+
+function createGitHubIssue(ghClient, title, body) {
+  try {
+    // A failed search must not swallow a genuine orphaned-resource finding —
+    // fail open (treat as "no prior found", file the issue) rather than closed.
+    let candidates = [];
+    try {
+      candidates = ghClient.issue.list([
+        "--search",
+        "Orphaned resources found in:title",
+        "--state",
+        "all",
+        "--json",
+        "number,title",
+      ]);
+    } catch (err) {
+      console.error(`[resource-audit] search failed, proceeding as no-match: ${err.message}`);
+    }
+    const priorNumber = findPriorResourceAuditIssue(candidates);
+    const ledger = priorNumber !== null ? { [RESOURCE_AUDIT_DEDUPE_KEY]: priorNumber } : {};
+
+    const result = fileIssue(
+      { title, body, labels: ["audit"], dedupeKey: RESOURCE_AUDIT_DEDUPE_KEY },
+      ledger,
+      {
+        getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+        createIssue: () =>
+          parseIssueNumberFromUrl(
+            ghClient.issue.create(["--title", title, "--label", "audit", "--body", body])
+          ),
+        reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+      }
+    );
+
+    if (result.action === "skip") {
+      console.log(`Skipping — issue #${result.issueNumber} already tracks this: ${title}`);
+    } else if (result.action === "reopen") {
+      console.log(`Reopened issue #${result.issueNumber}: ${title}`);
+    } else {
+      console.log(`Created issue #${result.issueNumber}: ${title}`);
+    }
   } catch (err) {
     console.error("Failed to create GitHub issue:", err.message);
     // Fall back to printing the report
@@ -345,7 +421,7 @@ async function main() {
     return;
   }
 
-  createGitHubIssue(report.title, report.body);
+  createGitHubIssue(createGhClient(), report.title, report.body);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
