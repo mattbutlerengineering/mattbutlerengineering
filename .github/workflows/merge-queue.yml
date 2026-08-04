@@ -43,24 +43,24 @@ jobs:
           for pr in $PR_NUMBERS; do
             echo "Checking PR #$pr..."
 
-            LABELS=$(gh pr view "$pr" --json labels -q '.labels[].name')
+            LABELS=$(gh pr view "$pr" --json labels -q '[.labels[].name] | join(",")')
 
-            HAS_PR=false
-            NEEDS_REVIEW=false
-            for label in $LABELS; do
-              if [ "$label" = "has-pr" ]; then HAS_PR=true; fi
-              if [ "$label" = "needs-review" ]; then NEEDS_REVIEW=true; fi
-            done
+            # Eligibility (has-pr/needs-review + tier:* gating) is a pure,
+            # unit-tested decision in scripts/merge-queue-eligibility.mjs
+            # (#3787) — this step is a thin caller. docs/change-tiers.md:
+            # T2 and above (tier:standard/sensitive/critical) always require
+            # Matt's personal approval, so they must never get auto-merge
+            # enabled here regardless of the needs-review label.
+            RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS")
+            echo "$RESULT"
 
-            if [ "$HAS_PR" = "true" ] && [ "$NEEDS_REVIEW" = "false" ]; then
-              echo "Enabling auto-merge for PR #$pr (squash merge)"
+            ELIGIBLE=$(echo "$RESULT" | jq -r '.eligible')
+            REASON=$(echo "$RESULT" | jq -r '.reason')
+
+            if [ "$ELIGIBLE" = "true" ]; then
+              echo "Enabling auto-merge for PR #$pr (squash merge): $REASON"
               gh pr merge "$pr" --auto --squash || echo "Skipping #$pr: Auto-merge could not be enabled."
             else
-              if [ "$HAS_PR" = "false" ]; then
-                echo "Skipping #$pr: Missing 'has-pr' label."
-              fi
-              if [ "$NEEDS_REVIEW" = "true" ]; then
-                echo "Skipping #$pr: 'needs-review' label is present."
-              fi
+              echo "Skipping #$pr: $REASON"
             fi
           done
