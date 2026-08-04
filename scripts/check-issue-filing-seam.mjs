@@ -26,9 +26,9 @@
  *      definition, deciding on its own — a real bypass.
  *   4. `EXEMPT_FILES` below — a short, individually-justified allowlist of
  *      pre-existing producers that predate #3672's migration scope and are
- *      out of scope for this check (tracked in #3775). Comment lines (`#`,
- *      `//`) are never matched, so docs/comments referencing the raw
- *      commands don't trip the check either.
+ *      out of scope for this check. Comment lines (`#`, `//`) are never
+ *      matched, so docs/comments referencing the raw commands don't trip
+ *      the check either.
  *
  * Usage: node scripts/check-issue-filing-seam.mjs
  * Exit code: 0 if every producer routes through fileIssue(), 1 otherwise
@@ -56,8 +56,12 @@ const COMMENT_PREFIXES = ["#", "//", "*"];
  * Pre-existing producers that predate #3672's "sixteen dialects" migration
  * scope and still hand-roll their own (or no) dedup instead of calling
  * `fileIssue()`. Each is a live, CI-wired producer — not dead code — so
- * fixing them is real, separately-scoped work (#3775), not a drive-by for
- * this ticket.
+ * fixing them is real, separately-scoped work, not a drive-by for this
+ * ticket. `scripts/lib/ratchet.mjs`, `scripts/revert-rca.mjs`,
+ * `scripts/secret-rotation-reminder.mjs`, and `scripts/resource-audit.mjs`
+ * were migrated onto `fileIssue()` by #3775 and no longer need an entry
+ * here — rule #3 above (a file that itself calls `fileIssue(`) now covers
+ * them.
  */
 const EXEMPT_FILES = new Set([
   "scripts/lib/issue-filing.mjs",
@@ -67,18 +71,6 @@ const EXEMPT_FILES = new Set([
   // to build/install — see the step's own comment in the workflow and its
   // dedicated assertions in scripts/__tests__/issue-filing-migration.test.mjs.
   ".github/workflows/revert-watchdog.yml",
-  // Predates #3672; dedupes by scanning open issues for a label+marker
-  // string instead of a fileIssue() ledger. Tracked in #3775.
-  "scripts/lib/ratchet.mjs",
-  // Predates #3672; no dedup ledger beyond its own merged-revert-state gate
-  // (#3590). Tracked in #3775.
-  "scripts/revert-rca.mjs",
-  // Predates #3672; dedupes by scanning open issues for a matching title.
-  // Tracked in #3775.
-  "scripts/secret-rotation-reminder.mjs",
-  // Predates #3672; no dedup at all — files a fresh issue every run.
-  // Tracked in #3775.
-  "scripts/resource-audit.mjs",
 ]);
 
 /** True for any `*.test.mjs` / `*.test.js` / `*.test.ts` file, anywhere. */

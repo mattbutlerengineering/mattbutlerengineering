@@ -6,7 +6,7 @@ import {
   issueTitleFor,
   formatIssueBody,
   validateLabels,
-  hasExistingReminder,
+  findPriorReminderIssue,
   runSecretRotationReminder,
 } from "../secret-rotation-reminder.mjs";
 
@@ -106,26 +106,27 @@ describe("validateLabels", () => {
 });
 
 // ---------------------------------------------------------------------------
-// hasExistingReminder — pure dedup check
+// findPriorReminderIssue — the #3775 dedup ledger lookup (any state, so a
+// previously-closed reminder for this exact month/year can be reopened).
 // ---------------------------------------------------------------------------
 
-describe("hasExistingReminder", () => {
+describe("findPriorReminderIssue", () => {
   const title = "chore: rotate secrets due January 2026";
 
-  it("returns true when an open issue has the exact same title", () => {
-    expect(hasExistingReminder([{ title }], title)).toBe(true);
+  it("finds a candidate issue with the exact same title", () => {
+    expect(findPriorReminderIssue([{ number: 5, title }], title)).toBe(5);
   });
 
   it("matches case-insensitively", () => {
-    expect(hasExistingReminder([{ title: title.toUpperCase() }], title)).toBe(true);
+    expect(findPriorReminderIssue([{ number: 5, title: title.toUpperCase() }], title)).toBe(5);
   });
 
-  it("returns false when no open issue matches", () => {
-    expect(hasExistingReminder([{ title: "some other issue" }], title)).toBe(false);
+  it("returns null when no candidate matches", () => {
+    expect(findPriorReminderIssue([{ number: 5, title: "some other issue" }], title)).toBeNull();
   });
 
-  it("returns false for an empty issue list", () => {
-    expect(hasExistingReminder([], title)).toBe(false);
+  it("returns null for an empty issue list", () => {
+    expect(findPriorReminderIssue([], title)).toBeNull();
   });
 });
 
@@ -139,8 +140,10 @@ describe("runSecretRotationReminder", () => {
 
   const makeDeps = (overrides = {}) => ({
     listLabels: vi.fn(async () => ["security", "ready"]),
-    listOpenIssues: vi.fn(async () => []),
-    createIssue: vi.fn(async () => "https://github.com/owner/repo/issues/1"),
+    listIssuesByLabel: vi.fn(async () => []),
+    getIssueState: vi.fn(() => "missing"),
+    createIssue: vi.fn(() => 1),
+    reopenIssue: vi.fn(),
     log: vi.fn(),
     ...overrides,
   });
@@ -151,10 +154,10 @@ describe("runSecretRotationReminder", () => {
 
     expect(result.created).toBe(true);
     expect(deps.createIssue).toHaveBeenCalledTimes(1);
-    const call = deps.createIssue.mock.calls[0][0];
-    expect(call.title).toBe("chore: rotate secrets due January 2026");
-    expect(call.labels).toEqual(["security", "ready"]);
-    expect(call.body).toContain("DIGITALOCEAN_TOKEN");
+    const [title, body, labels] = deps.createIssue.mock.calls[0];
+    expect(title).toBe("chore: rotate secrets due January 2026");
+    expect(labels).toEqual(["security", "ready"]);
+    expect(body).toContain("DIGITALOCEAN_TOKEN");
   });
 
   it("does nothing when no secrets are due this month", async () => {
@@ -168,12 +171,29 @@ describe("runSecretRotationReminder", () => {
 
   it("skips creation when a reminder for the same month is already open (no duplicate)", async () => {
     const deps = makeDeps({
-      listOpenIssues: vi.fn(async () => [{ title: "chore: rotate secrets due January 2026" }]),
+      listIssuesByLabel: vi.fn(async () => [
+        { number: 9, title: "chore: rotate secrets due January 2026" },
+      ]),
+      getIssueState: vi.fn(() => "open"),
     });
     const result = await runSecretRotationReminder({ ...deps, now: JAN_2026 });
 
     expect(result.created).toBe(false);
     expect(result.skipped).toBe(true);
+    expect(deps.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("reopens a previously-closed reminder for the same month instead of filing a duplicate (#3775 improvement)", async () => {
+    const deps = makeDeps({
+      listIssuesByLabel: vi.fn(async () => [
+        { number: 9, title: "chore: rotate secrets due January 2026" },
+      ]),
+      getIssueState: vi.fn(() => "closed"),
+    });
+    const result = await runSecretRotationReminder({ ...deps, now: JAN_2026 });
+
+    expect(result.created).toBe(true);
+    expect(deps.reopenIssue).toHaveBeenCalledWith(9);
     expect(deps.createIssue).not.toHaveBeenCalled();
   });
 
@@ -186,7 +206,7 @@ describe("runSecretRotationReminder", () => {
 
   it("does not swallow errors thrown by createIssue", async () => {
     const deps = makeDeps({
-      createIssue: vi.fn(async () => {
+      createIssue: vi.fn(() => {
         throw new Error("gh issue create failed");
       }),
     });
@@ -194,5 +214,18 @@ describe("runSecretRotationReminder", () => {
     await expect(runSecretRotationReminder({ ...deps, now: JAN_2026 })).rejects.toThrow(
       "gh issue create failed"
     );
+  });
+
+  it("fails open (treats as no-match, still files) when the search itself throws", async () => {
+    const deps = makeDeps({
+      listIssuesByLabel: vi.fn(async () => {
+        throw new Error("gh rate limited");
+      }),
+    });
+
+    const result = await runSecretRotationReminder({ ...deps, now: JAN_2026 });
+
+    expect(result.created).toBe(true);
+    expect(deps.createIssue).toHaveBeenCalledTimes(1);
   });
 });

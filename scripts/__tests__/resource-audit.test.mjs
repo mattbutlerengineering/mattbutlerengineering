@@ -5,6 +5,7 @@ import {
   findOrphanedDoApps,
   findOrphanedDnsRecords,
   buildReport,
+  findPriorResourceAuditIssue,
 } from "../resource-audit.mjs";
 
 describe("isAllowlisted", () => {
@@ -129,5 +130,34 @@ describe("buildReport", () => {
       [{ id: "2", name: "orphan.example.com", type: "A", content: "1.2.3.4" }]
     );
     expect(report.title).toBe("Orphaned resources found (3)");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findPriorResourceAuditIssue — the #3775 dedup ledger lookup. Previously
+// this producer had no dedup at all (a fresh issue was filed every run);
+// this is an intentional behavior change, matching the fixed-title-prefix
+// search strategy `buildReport`'s varying-count title requires.
+// ---------------------------------------------------------------------------
+
+describe("findPriorResourceAuditIssue", () => {
+  test("finds a prior resource-audit issue by title prefix, regardless of count", () => {
+    const candidates = [{ number: 3, title: "Orphaned resources found (2)" }];
+    expect(findPriorResourceAuditIssue(candidates)).toBe(3);
+  });
+
+  test("matches regardless of state — feeds the reopen path for a closed prior issue", () => {
+    const candidates = [{ number: 3, title: "Orphaned resources found (5)", state: "closed" }];
+    expect(findPriorResourceAuditIssue(candidates)).toBe(3);
+  });
+
+  test("returns null when no candidate matches the title prefix", () => {
+    const candidates = [{ number: 3, title: "unrelated issue" }];
+    expect(findPriorResourceAuditIssue(candidates)).toBeNull();
+  });
+
+  test("returns null for empty or nullish input", () => {
+    expect(findPriorResourceAuditIssue([])).toBeNull();
+    expect(findPriorResourceAuditIssue(null)).toBeNull();
   });
 });

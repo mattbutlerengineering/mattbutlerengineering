@@ -18,6 +18,7 @@
  */
 
 import { createGhClient } from "@mbe/gh-client";
+import { fileIssue } from "./lib/issue-filing.mjs";
 
 /** Secrets tracked for rotation, with their cadence in months (anchored to January). */
 export const ROTATION_SCHEDULE = [
@@ -90,31 +91,48 @@ export function validateLabels(existingLabelNames, requiredLabels = REQUIRED_LAB
   return { valid: missing.length === 0, missing };
 }
 
-/** Pure: true if an open issue with the same title already exists (dedup). */
-export function hasExistingReminder(openIssues, title) {
+/**
+ * Pure: finds a prior reminder issue (any state) among candidates with the
+ * exact same title. Feeds `fileIssue()`'s dedupe-by-ledger decision (#3775):
+ * a match lets a rerun this month skip (still open) or reopen (previously
+ * closed) instead of the old open-only check, which would file a fresh
+ * duplicate once the prior reminder for this month was closed.
+ *
+ * @param {Array<{number: number, title: string}>} candidates
+ * @param {string} title
+ * @returns {number | null}
+ */
+export function findPriorReminderIssue(candidates, title) {
   const target = title.trim().toLowerCase();
-  return (openIssues ?? []).some((issue) => issue?.title?.trim().toLowerCase() === target);
+  const match = (candidates ?? []).find((issue) => issue?.title?.trim().toLowerCase() === target);
+  return match ? match.number : null;
 }
 
 /**
  * Orchestrates the monthly check: no due secrets → no-op; due secrets but a
  * required label is missing → throw (no silent/opaque `gh` failure); due
- * secrets and an open reminder already exists → skip (no duplicate);
- * otherwise create the reminder issue.
+ * secrets and a reminder for this month already exists → skip (still open)
+ * or reopen (previously closed) instead of filing a duplicate; otherwise
+ * create the reminder issue. The skip/create/reopen decision routes through
+ * the shared `fileIssue()` seam (#3775).
  *
  * @param {{
  *   now?: number,
  *   listLabels: () => Promise<string[]>,
- *   listOpenIssues: () => Promise<Array<{title:string}>>,
- *   createIssue: (opts:{title:string, body:string, labels:string[]}) => Promise<string>,
+ *   listIssuesByLabel: () => Promise<Array<{number:number, title:string}>>,
+ *   getIssueState: (issueNumber: number) => "open"|"closed"|"missing",
+ *   createIssue: (title: string, body: string, labels: string[]) => number,
+ *   reopenIssue: (issueNumber: number) => void,
  *   log?: (msg:string) => void,
  * }} deps
  */
 export async function runSecretRotationReminder({
   now = Date.now(),
   listLabels,
-  listOpenIssues,
+  listIssuesByLabel,
+  getIssueState,
   createIssue,
+  reopenIssue,
   log = () => {},
 }) {
   const date = new Date(now);
@@ -136,16 +154,53 @@ export async function runSecretRotationReminder({
   }
 
   const title = issueTitleFor(month, year);
-  const openIssues = await listOpenIssues();
-  if (hasExistingReminder(openIssues, title)) {
+  const body = formatIssueBody(dueSecrets, month, year);
+
+  // A failed search must not swallow a genuine due reminder — fail open
+  // (treat as "no prior found", file the issue) rather than closed.
+  let candidates = [];
+  try {
+    candidates = await listIssuesByLabel();
+  } catch (err) {
+    log(`search for a prior reminder failed, proceeding as no-match: ${err.message}`);
+  }
+  const priorNumber = findPriorReminderIssue(candidates, title);
+  const ledger = priorNumber !== null ? { [title]: priorNumber } : {};
+
+  const result = fileIssue({ title, body, labels: REQUIRED_LABELS, dedupeKey: title }, ledger, {
+    getIssueState,
+    createIssue,
+    reopenIssue,
+  });
+
+  if (result.action === "skip") {
     log(`reminder "${title}" already open — skipping duplicate`);
     return { created: false, skipped: true, dueSecrets };
   }
 
-  const body = formatIssueBody(dueSecrets, month, year);
-  await createIssue({ title, body, labels: REQUIRED_LABELS });
-  log(`created reminder "${title}" for ${dueSecrets.length} secret(s)`);
+  log(
+    result.action === "reopen"
+      ? `reopened reminder "${title}" for ${dueSecrets.length} secret(s)`
+      : `created reminder "${title}" for ${dueSecrets.length} secret(s)`
+  );
   return { created: true, skipped: false, dueSecrets, title };
+}
+
+/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+function getIssueStateViaGhClient(gh, issueNumber) {
+  try {
+    const state = String(gh.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
+  } catch {
+    return "missing";
+  }
+}
+
+/** Parses the issue number out of the URL `gh issue create` prints on success. */
+function parseIssueNumberFromUrl(url) {
+  const match = url.match(/\/issues\/(\d+)\s*$/);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
+  return parseInt(match[1], 10);
 }
 
 /** CLI entry: wires the real gh client to {@link runSecretRotationReminder}. */
@@ -154,10 +209,14 @@ async function run() {
 
   const result = await runSecretRotationReminder({
     listLabels: async () => gh.label.list(["--json", "name", "--limit", "200"]).map((l) => l.name),
-    listOpenIssues: async () =>
-      gh.issue.list(["--state", "open", "--label", "security", "--json", "title"]),
-    createIssue: async ({ title, body, labels }) =>
-      gh.issue.create(["--title", title, "--body", body, "--label", labels.join(",")]),
+    listIssuesByLabel: async () =>
+      gh.issue.list(["--state", "all", "--label", "security", "--json", "number,title"]),
+    getIssueState: (issueNumber) => getIssueStateViaGhClient(gh, issueNumber),
+    createIssue: (title, body, labels) =>
+      parseIssueNumberFromUrl(
+        gh.issue.create(["--title", title, "--body", body, "--label", labels.join(",")])
+      ),
+    reopenIssue: (issueNumber) => gh.issue.reopen(issueNumber),
     log: (msg) => console.log(`[secret-rotation-reminder] ${msg}`),
   });
 
