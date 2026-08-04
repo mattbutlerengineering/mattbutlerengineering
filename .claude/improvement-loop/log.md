@@ -151,3 +151,49 @@ None (`agent-skip` count is 0).
 **Skill proposals:** 0 (Monday — Friday-only)
 **Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on its `gh` query ("Failed to query GitHub issues") — same pre-existing `gh`-CLI-unavailable gap noted 2026-06-20 through 2026-08-02, already tracked by #3689, not re-filing. `verifications.jsonl` still doesn't exist, so false-positive/fix-effectiveness rates remain non-computable.
 **Data-integrity note:** `sensor-report.mjs`'s first run in this fresh checkout collapsed `apps/marketing/public/sensor-report.json` from 11/15 sensors (rich CI/lighthouse/issues/queue-efficiency history) down to 5/15 with near-empty placeholders — an artifact of this session's checkout having no `gh` binary and an empty local `ccusage` history, not a real regression. Reverted that diff instead of committing it, to avoid clobbering the public AI-health page with sandbox-degraded data. Only this log entry is committed this run.
+
+## 2026-08-04
+
+### Metrics
+
+| Metric                 | Value                                                                                                                                                             | Target    | Status |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
+| Created (7d)           | 51 (23 audit + 28 ci-fix)                                                                                                                                         | -         | -      |
+| Closed (7d)            | 47 (20 audit + 27 ci-fix)                                                                                                                                         | -         | -      |
+| Closure Rate           | 92.2%                                                                                                                                                             | >80%      | green  |
+| Time-to-Close          | mean ≈15.2h (audit ≈20.1h, ci-fix ≈11.5h), max 67.4h (#3594, this run's own issue — see Patterns)                                                                 | <24h      | green  |
+| Agent Success          | This run: 2/2 claimed issues resolved cleanly (#3594 merged via has-pr→closed, #3593 still in-progress); 0 agent-failed                                           | >70%      | green  |
+| CI Pass                | `CI Gate` green on every recent main commit checked; non-required `Release` workflow failing 2 runs in a row (see below)                                          | >95%      | green  |
+| Queue (ready)          | 2 open (#3763, #3569) — down from 38 reported 2026-08-03                                                                                                          | <5        | green  |
+| Stale (>7d)            | 0 (oldest ready issue, #3569, is 4 days old)                                                                                                                      | 0         | green  |
+| Blocked (agent-failed) | 0                                                                                                                                                                 | 0         | green  |
+| Skipped (agent-skip)   | 0                                                                                                                                                                 | 0         | green  |
+| Daily/7d Spend         | unavailable — `.claude/agent-spend/sessions.jsonl` still empty (0 bytes), same gap since 2026-07-30, tracked by #3695                                             | <$10/<$50 | n/a    |
+| Cost/Issue             | unavailable, same reason                                                                                                                                          | <$2       | n/a    |
+| Reverts (7d)           | 0 merged revert commits — 2 revert PRs opened (#3737, #3759) but both closed unmerged, consistent with #3691's "fix forward instead" behavior working as intended | <3/wk     | green  |
+
+### Patterns
+
+- **Backlog collapsed from 38→2 open `ready` issues since yesterday's report.** Dozens of PRs merged across the last 24h from many concurrent automation sessions (dependency bumps, `refactor(automation)` issue-filing-module migration series, `worktree-agent-*` branches, `chore/queue-telemetry` PRs, `automation/production-feedback`) — this evening routine's own 2-issue batch was a small fraction of the day's total throughput. Queue health is now green across the board.
+- **This run's own #3594 PR (docs(acmm) fix) briefly risked shipping corrupted ACMM audit state.** The `implement-queue-worker` for #3594 ran in a _shallow_ worktree clone that was also missing the `gh` binary. Its verification step ran `plugins/acmm/scripts/audit.js`, which (a) flipped ~10 already-passing `gh`-dependent checks to false "unverifiable" (the exact class #3721 already addresses at the _report_ layer, merged 2026-08-03, but the underlying per-check state still shows `unverifiable` — #3721 only stops it being reported as a _regression_), and (b) used a `main` doc snapshot that predated a later main commit rewriting the same file, so the fix's own before/after context was stale. Caught this before merge (the file diff showed 82 insertions/48 deletions instead of the expected 1-line date bump), fixed by `git fetch --unshallow`, merging current `origin/main` into the branch, force-rebuilding `@mbe/cli` (hit the exact stale-turbo-cache symptom #3593 is investigating — `SyntaxError: ... does not provide an export named 'suiteDidNotRun'` — confirming #3593's bug is real and still live), and regenerating `.claude/acmm/state.json` fresh on top of the merged tree. Final PR diff was clean (2 files, the intended fix only). **Not filing a new meta-improvement issue for the shallow-clone/no-gh-CLI worker-verification gap** — it overlaps enough with #3593 (turbo/worktree staleness, already in-progress) and #3689/#3721 (gh-CLI-unavailable class) that a new issue would likely duplicate; recommending below that it get folded into whichever of those lands first.
+- `#3593` (turbo cache shared across worktrees) is still in-progress as of this log entry — its worker has been running long enough that this routine proceeded to progress-tracker and optimize-implement-queue rather than blocking on it; its PR will go through the same review-gate process once it completes.
+- Non-required `Release` workflow has failed on the last 2 main-branch runs in a row. Not gating (not in `CI Gate`'s required set per the documented policy), but worth a glance if it continues — could be the known changesets/prettier-CHANGELOG gotcha resurfacing.
+
+### Recommendations
+
+- Fold the "worker verification step incidentally corrupts `.claude/acmm/state.json` in a shallow/no-gh-CLI worktree" finding into #3593 or #3721's follow-up once either lands, rather than opening a third overlapping issue.
+- Consider having `implement-queue-worker`'s protocol default to `git fetch --unshallow` (or at least fetch enough depth for a valid merge-base) before any step that computes a diff against `origin/main`, given how far worktree branches can drift behind a fast-merging main during a long-running worker session.
+- Queue is healthy (2 ready, 0 stale/blocked/skipped) — no batch-size or cadence changes needed right now.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+### Meta-improvement filed
+
+None this run (see Patterns for why the shallow-clone/ACMM-corruption finding was folded into recommendations instead of a new issue).
+
+## 2026-08-04
+
+**queueEfficiency:** unavailable
+**Issues filed:** 0
