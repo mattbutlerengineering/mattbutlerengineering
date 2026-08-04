@@ -13,52 +13,60 @@ severity: critical
 # Wildcards: `*.foo.com` matches any subdomain of foo.com but not foo.com itself.
 allowed_domains:
   github:
-    - github.com
-    - "*.github.com"
-    - "*.githubusercontent.com"
+    domains:
+      - github.com
+      - "*.github.com"
+      - "*.githubusercontent.com"
     purposes: [git push/fetch, gh CLI, code search, issue/PR ops]
   anthropic:
-    - api.anthropic.com
-    - "*.anthropic.com"
-    - claude.com
-    - "*.claude.com"
-    - claude.ai
-    - "*.claude.ai"
+    domains:
+      - api.anthropic.com
+      - "*.anthropic.com"
+      - claude.com
+      - "*.claude.com"
+      - claude.ai
+      - "*.claude.ai"
     purposes: [Claude API, claude.ai routines, MCP connectors]
   npm:
-    - registry.npmjs.org
-    - "*.npmjs.com"
-    - "*.npmjs.org"
+    domains:
+      - registry.npmjs.org
+      - "*.npmjs.com"
+      - "*.npmjs.org"
     purposes: [pnpm install, npm publish]
   cloudflare:
-    - "*.cloudflare.com"
-    - "*.workers.dev"
-    - "*.cloudflareaccess.com"
+    domains:
+      - "*.cloudflare.com"
+      - "*.workers.dev"
+      - "*.cloudflareaccess.com"
     purposes: [wrangler deploy, Workers/R2/D1 ops]
   digitalocean:
-    - "*.digitalocean.com"
-    - "*.do-api.com"
+    domains:
+      - "*.digitalocean.com"
+      - "*.do-api.com"
     purposes: [doctl, app/database deploys]
   observability:
-    - "*.langfuse.com"
+    domains:
+      - "*.langfuse.com"
     purposes: [Langfuse tracing of agent sessions]
   marketing_site:
-    - mattbutlerengineering.com
-    - "*.mattbutlerengineering.com"
+    domains:
+      - mattbutlerengineering.com
+      - "*.mattbutlerengineering.com"
     purposes: [site-audit, deploy verification]
   research:
-    - arxiv.org
-    - "*.arxiv.org"
+    domains:
+      - arxiv.org
+      - "*.arxiv.org"
     purposes: [paper fetching for research tasks]
 
 # Never reach these regardless of authorization.
 forbidden_domains:
   - "*.pastebin.com"
   - "*.paste.ee"
-  - gist.github.com  # always public; never paste repo content here
+  - gist.github.com # always public; never paste repo content here
   - "*.transfer.sh"
   - "*.discord.com"
-  - "*.slack.com"  # not an authorized output destination
+  - "*.slack.com" # not an authorized output destination
 
 # Hard rules.
 rules:
