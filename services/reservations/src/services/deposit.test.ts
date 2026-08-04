@@ -875,6 +875,110 @@ describe("DepositService", () => {
       expect(mockStripe.cancelPaymentIntent).not.toHaveBeenCalled();
     });
   });
+
+  describe("ensureStripeCustomer", () => {
+    it("guest with existing stripeCustomerId returns it directly without calling stripe.createCustomer", async () => {
+      const guestWithCustomerId = {
+        id: "guest-123",
+        stripeCustomerId: "cus_existing_123",
+      };
+      mockGuestDb.findUnique.mockResolvedValueOnce(guestWithCustomerId);
+
+      const result = await depositService.ensureStripeCustomer(
+        "guest-123",
+        "test@example.com",
+        "Test Guest"
+      );
+
+      expect(result).toBe("cus_existing_123");
+      expect(mockStripe.createCustomer).not.toHaveBeenCalled();
+      expect(mockGuestDb.update).not.toHaveBeenCalled();
+    });
+
+    it("guest with no stripeCustomerId creates a new Stripe customer with email, name, and guestId metadata", async () => {
+      const guestWithoutCustomerId = {
+        id: "guest-123",
+        stripeCustomerId: null,
+      };
+      mockGuestDb.findUnique.mockResolvedValueOnce(guestWithoutCustomerId);
+      mockStripe.createCustomer.mockResolvedValueOnce({
+        id: "cus_new_456",
+      });
+      mockGuestDb.update.mockResolvedValueOnce({
+        id: "guest-123",
+        stripeCustomerId: "cus_new_456",
+      });
+
+      const result = await depositService.ensureStripeCustomer(
+        "guest-123",
+        "test@example.com",
+        "Test Guest"
+      );
+
+      expect(mockStripe.createCustomer).toHaveBeenCalledWith({
+        email: "test@example.com",
+        name: "Test Guest",
+        metadata: { guestId: "guest-123" },
+      });
+      expect(mockGuestDb.update).toHaveBeenCalledWith({
+        where: { id: "guest-123" },
+        data: { stripeCustomerId: "cus_new_456" },
+      });
+      expect(result).toBe("cus_new_456");
+    });
+
+    it("guest not found falls through to create-customer path without throwing", async () => {
+      mockGuestDb.findUnique.mockResolvedValueOnce(null);
+      mockStripe.createCustomer.mockResolvedValueOnce({
+        id: "cus_new_789",
+      });
+      mockGuestDb.update.mockResolvedValueOnce({
+        id: "guest-not-found",
+        stripeCustomerId: "cus_new_789",
+      });
+
+      const result = await depositService.ensureStripeCustomer(
+        "guest-not-found",
+        "new@example.com",
+        "New Guest"
+      );
+
+      expect(mockStripe.createCustomer).toHaveBeenCalledWith({
+        email: "new@example.com",
+        name: "New Guest",
+        metadata: { guestId: "guest-not-found" },
+      });
+      expect(mockGuestDb.update).toHaveBeenCalledWith({
+        where: { id: "guest-not-found" },
+        data: { stripeCustomerId: "cus_new_789" },
+      });
+      expect(result).toBe("cus_new_789");
+    });
+
+    it("handles optional email and name parameters (not required)", async () => {
+      const guestWithoutCustomerId = {
+        id: "guest-minimal",
+        stripeCustomerId: null,
+      };
+      mockGuestDb.findUnique.mockResolvedValueOnce(guestWithoutCustomerId);
+      mockStripe.createCustomer.mockResolvedValueOnce({
+        id: "cus_minimal_111",
+      });
+      mockGuestDb.update.mockResolvedValueOnce({
+        id: "guest-minimal",
+        stripeCustomerId: "cus_minimal_111",
+      });
+
+      const result = await depositService.ensureStripeCustomer("guest-minimal");
+
+      expect(mockStripe.createCustomer).toHaveBeenCalledWith({
+        email: undefined,
+        name: undefined,
+        metadata: { guestId: "guest-minimal" },
+      });
+      expect(result).toBe("cus_minimal_111");
+    });
+  });
 });
 
 describe("calculateDepositAmount", () => {
