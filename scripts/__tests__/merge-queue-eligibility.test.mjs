@@ -7,6 +7,7 @@ import { isAutoMergeEligible, BLOCKED_TIER_LABELS } from "../merge-queue-eligibi
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml"), "utf8");
+const SKILL_MD = readFileSync(resolve(ROOT, ".claude/skills/implement-queue/SKILL.md"), "utf8");
 
 // ---------------------------------------------------------------------------
 // isAutoMergeEligible — pure decision (#3787)
@@ -91,5 +92,61 @@ describe("merge-queue.yml wiring", () => {
     const eligibilityAt = WORKFLOW.indexOf("merge-queue-eligibility.mjs");
     expect(eligibilityAt).toBeGreaterThan(-1);
     expect(mergeAt).toBeGreaterThan(eligibilityAt);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// implement-queue SKILL.md wiring (#3807) — Phase 2's "Worker→train boundary"
+// protocol is a second, hand-followed code path with the same has-pr/
+// needs-review-only auto-merge decision merge-queue.yml had before #3796. It
+// must call the same isAutoMergeEligible() at both decision points (the
+// low-risk fast path, step 2, and the all-pass enqueue, step 5) instead of
+// re-deriving the tier check — same spirit as the "merge-queue.yml wiring"
+// tests above, but for this markdown source.
+// ---------------------------------------------------------------------------
+
+describe("implement-queue SKILL.md wiring (#3807)", () => {
+  const boundaryStart = SKILL_MD.indexOf("### Worker→train boundary");
+  const step2Start = SKILL_MD.indexOf("2. **Low-risk fast path", boundaryStart);
+  const step3Start = SKILL_MD.indexOf("3. **Reviewer sub-agent", step2Start);
+  const step5Start = SKILL_MD.indexOf("5. **On all-pass verdict", step3Start);
+  const step6Start = SKILL_MD.indexOf('6. **On `"flag"` verdict', step5Start);
+  const phase3Start = SKILL_MD.indexOf("## Phase 3", step6Start);
+
+  const step2Section = SKILL_MD.slice(step2Start, step3Start);
+  const step5Section = SKILL_MD.slice(step5Start, step6Start);
+  const step6Section = SKILL_MD.slice(step6Start, phase3Start);
+
+  it("finds the Worker→train boundary subsection and its numbered steps", () => {
+    expect(boundaryStart).toBeGreaterThan(-1);
+    expect(step2Start).toBeGreaterThan(boundaryStart);
+    expect(step3Start).toBeGreaterThan(step2Start);
+    expect(step5Start).toBeGreaterThan(step3Start);
+    expect(step6Start).toBeGreaterThan(step5Start);
+    expect(phase3Start).toBeGreaterThan(step6Start);
+  });
+
+  it("step 2 (low-risk fast path) calls isAutoMergeEligible from merge-queue-eligibility.mjs before its gh pr merge --auto call", () => {
+    expect(step2Section).toMatch(/isAutoMergeEligible/);
+    expect(step2Section).toMatch(/merge-queue-eligibility\.mjs/);
+    const eligibilityAt = step2Section.indexOf("isAutoMergeEligible");
+    const mergeAt = step2Section.indexOf("gh pr merge");
+    expect(eligibilityAt).toBeGreaterThan(-1);
+    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+  });
+
+  it("step 5 (all-pass enqueue) calls isAutoMergeEligible from merge-queue-eligibility.mjs before its gh pr merge --auto call", () => {
+    expect(step5Section).toMatch(/isAutoMergeEligible/);
+    expect(step5Section).toMatch(/merge-queue-eligibility\.mjs/);
+    const eligibilityAt = step5Section.indexOf("isAutoMergeEligible");
+    const mergeAt = step5Section.indexOf("gh pr merge");
+    expect(eligibilityAt).toBeGreaterThan(-1);
+    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+  });
+
+  it("documents the blocking-tier outcome as needs-review + do not enqueue, same as step 6's flag/block verdict", () => {
+    expect(step6Section).toMatch(/blocking tier/i);
+    expect(step6Section).toMatch(/needs-review/);
+    expect(step6Section).toMatch(/do not enqueue/i);
   });
 });
