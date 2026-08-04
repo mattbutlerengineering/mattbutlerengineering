@@ -259,7 +259,7 @@ const nextState = recordHistory(
 );
 
 /* ── Write state + report ────────────────────────────────── */
-saveState(cwd, nextState);
+await saveState(cwd, nextState);
 const reportPath = writeReport(cwd, {
   state: nextState,
   criteria: ALL_CRITERIA,
@@ -301,7 +301,7 @@ if (APPLY) {
     applyResult = applyIssuesForFailures(allFailing, prior.issuesCreated || {}, {
       extraLabels: EXTRA_LABELS,
     });
-    saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
+    await saveState(cwd, { ...nextState, issuesCreated: applyResult.issuesCreated });
   } catch (err) {
     console.error(`--apply failed: ${err instanceof Error ? err.message : String(err)}`);
     applyResult = {
