@@ -22,6 +22,10 @@ const PAGES_TO_AUDIT = [
   { name: "Shadows", path: "/components/shadows" },
   { name: "Icon Vocabulary", path: "/components/icon-vocabulary" },
   { name: "Command Palette", path: "/examples/command-palette" },
+  { name: "Onboarding", path: "/examples/onboarding" },
+  { name: "Notification Center", path: "/examples/notification-center" },
+  { name: "Invoice", path: "/examples/invoice" },
+  { name: "Checkout", path: "/examples/checkout" },
 ];
 
 for (const { name, path } of PAGES_TO_AUDIT) {

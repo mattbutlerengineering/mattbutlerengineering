@@ -1,2 +1,4 @@
 {"date":"2026-05-23","fp_rate":15,"avg_cost_usd":null,"median_cycle_hours":null,"issues_closed_7d":100}
 {"date":"2026-06-25","fp_rate":15,"avg_cost_usd":null,"median_cycle_hours":null,"issues_closed_7d":75}
+{"date":"2026-08-02","sensor":"queueEfficiency","available":false}
+{"date":"2026-08-03","sensor":"queueEfficiency","available":false}

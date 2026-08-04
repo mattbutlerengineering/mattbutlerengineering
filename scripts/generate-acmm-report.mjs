@@ -80,15 +80,19 @@ export function collectWorkspaces(rootDir) {
   return workspaces;
 }
 
-const workspaces = collectWorkspaces(ROOT);
-workspaces.sort((a, b) => b.currentLevel - a.currentLevel);
+// Run only when executed directly (`node generate-acmm-report.mjs`),
+// not when imported for unit testing.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const workspaces = collectWorkspaces(ROOT);
+  workspaces.sort((a, b) => b.currentLevel - a.currentLevel);
 
-const report = {
-  schema: "acmm-report/v1",
-  generatedAt: new Date().toISOString(),
-  workspaces,
-};
+  const report = {
+    schema: "acmm-report/v1",
+    generatedAt: new Date().toISOString(),
+    workspaces,
+  };
 
-mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
-writeFileSync(OUTPUT_PATH, JSON.stringify(report, null, 2) + "\n");
-console.log(`Generated ${OUTPUT_PATH} (${workspaces.length} workspaces)`);
+  mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
+  writeFileSync(OUTPUT_PATH, JSON.stringify(report, null, 2) + "\n");
+  console.log(`Generated ${OUTPUT_PATH} (${workspaces.length} workspaces)`);
+}

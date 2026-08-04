@@ -327,6 +327,33 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="SilkFlow">
+  <file path="packages/rialto/src/components/SilkFlow/silk-flow-engine.ts">
+    <item priority="high">
+      interface StrandStyle {
+        alpha: number;
+        width: number;
+      }
+    </item>
+    <item priority="high">
+      interface Palette {
+        surface: string;
+        accent: string;
+        silk: string;
+        goldStyle: StrandStyle;
+        silkStyle: StrandStyle;
+      }
+    </item>
+  </file>
+  <file path="packages/rialto/src/components/SilkFlow/silk-flow-field.ts">
+    <item priority="high">
+      export const FIELD_SCALE: unknown;
+    </item>
+    <item priority="high">
+      export const FIELD_TIME_STEP: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="packages/rialto/src/components/SplitFlap/charset.ts">
     <item priority="high">
@@ -698,7 +725,7 @@
       export const agentEvalCommand: unknown;
     </item>
     <item priority="medium">
-      function findLogFile(): string { /* ... */ }
+      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -940,18 +967,19 @@
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health.ts">
     <item priority="low">
-      interface AcmmSensor {
-        available: boolean;
-        level: string;
-        score: number;
-        gaps: number;
+      interface QueueEfficiencyTierStats {
+        count: number;
+        avg_commits: number;
+        avg_ttm_hours: number;
       }
     </item>
     <item priority="low">
-      interface CiSensor {
-        available: boolean;
-        passRate: number;
-        recentRuns: number;
+      interface QueueEfficiencyBaseline {
+        composite_median: number | null;
+        weeks_sampled: number;
+        fps_median: number | null;
+        ttm_median: number | null;
+        cost_per_issue_median: number | null;
       }
     </item>
   </file>
@@ -960,7 +988,7 @@
       interface Project {
         title: string;
         description: string;
-        tags: string[];
+        stack: readonly string[];
         href?: string;
       }
     </item>
@@ -968,27 +996,18 @@
       export const PROJECTS: Project[];
     </item>
   </file>
-  <file path="apps/marketing/src/data/stats.ts">
+  <file path="apps/marketing/src/data/repo-stats.ts">
     <item priority="low">
-      interface SiteStat {
-        value: number;
-        label: string;
-        suffix?: string;
+      interface RepoStats {
+        agentPrsMerged: number;
+        totalPrsMerged: number;
+        rialtoComponents: number;
+        testFiles: number;
+        measuredAt: string;
       }
     </item>
     <item priority="high">
-      export const SITE_STATS: readonly SiteStat[];
-    </item>
-  </file>
-  <file path="apps/marketing/src/data/tech-stack.ts">
-    <item priority="low">
-      interface TechCategory {
-        title: string;
-        items: string[];
-      }
-    </item>
-    <item priority="high">
-      export const TECH_STACK: TechCategory[];
+      export function isRepoStats(value: unknown): value is RepoStats { /* ... */ }
     </item>
   </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
@@ -1185,6 +1204,14 @@
       async function loadTaskFile(path: string): Promise<Task> { /* ... */ }
     </item>
   </file>
+  <file path="packages/agent-core/src/eval/run-detection.ts">
+    <item priority="high">
+      export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function suiteDidNotRun(report: EvalReport): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="packages/agent-core/src/eval/task-scorer.ts">
     <item priority="high">
       export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> { /* ... */ }
@@ -1209,6 +1236,90 @@
         id: WizardStepId;
         label: string;
         description: string;
+      }
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/notification-center.ts">
+    <item priority="low">
+      type NotificationType = "booking" | "payment" | "system";
+    </item>
+    <item priority="low">
+      interface NotificationItem {
+        id: string;
+        type: NotificationType;
+        title: string;
+        message: string;
+        timestamp: string;
+      }
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/onboarding.ts">
+    <item priority="low">
+      type OnboardingStepId = "property" | "spaces" | "preferences" | "launch";
+    </item>
+    <item priority="low">
+      interface OnboardingStepDef {
+        id: OnboardingStepId;
+        label: string;
+        description: string;
+        heading: string;
+        blurb: string;
+      }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="factory">
+  <file path="apps/marketing/src/components/factory/factory-palette.ts">
+    <item priority="low">
+      type Rgb = readonly [number, number, number];
+    </item>
+    <item priority="low">
+      interface FactoryPalette {
+        surface: Rgb;
+        line: Rgb;
+        accent: Rgb;
+        pass: Rgb;
+        fail: Rgb;
+      }
+    </item>
+  </file>
+  <file path="apps/marketing/src/components/factory/factory-scene.ts">
+    <item priority="high">
+      export function startFactoryScene(
+        canvas: HTMLCanvasElement,
+        inputs: FactorySceneInputs
+      ): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runScene(
+        canvas: HTMLCanvasElement,
+        context: WebGL2RenderingContext,
+        inputs: FactorySceneInputs
+      ): () => void { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/marketing/src/components/factory/factory-shaders.ts">
+    <item priority="high">
+      export const BACKDROP_VERTEX_SHADER: unknown;
+    </item>
+    <item priority="high">
+      export const BACKDROP_FRAGMENT_SHADER: unknown;
+    </item>
+  </file>
+  <file path="apps/marketing/src/components/factory/pipeline-stages.ts">
+    <item priority="low">
+      interface StageMetric {
+        value: number;
+        label: string;
+      }
+    </item>
+    <item priority="low">
+      interface PipelineStage {
+        id: string;
+        step: string;
+        name: string;
+        detail: string;
+        metric?: StageMetric;
       }
     </item>
   </file>
@@ -1838,6 +1949,33 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="journeys">
+  <file path="apps/hospitality/e2e/journeys/journey-api.ts">
+    <item priority="high">
+      export const SYNTHETIC_VENUE_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      interface VenueSummary {
+        id: string;
+        name: string;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/journeys/journey-recorder.ts">
+    <item priority="low">
+      type JourneyStepStatus = "passed" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      interface JourneyStepResult {
+        name: string;
+        status: JourneyStepStatus;
+        durationMs: number;
+        error?: string;
+        pageError?: string;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="apps/hospitality/src/lib/sse-client.ts">
     <item priority="low">
@@ -2250,6 +2388,14 @@
   <file path="services/reservations/src/routes/availability.ts">
     <item priority="high">
       export const availabilityRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/booking-metrics.ts">
+    <item priority="medium">
+      function todayDateString(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const bookingMetricsRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/briefing.ts">
@@ -2912,6 +3058,25 @@
     </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+    </item>
+  </file>
+  <file path="services/reservations/src/services/booking-metrics.ts">
+    <item priority="low">
+      interface ReservationStatusCounts {
+        pending: number;
+        confirmed: number;
+        cancelled: number;
+        completed: number;
+        noShow: number;
+      }
+    </item>
+    <item priority="low">
+      interface DepositTransitionCounts {
+        held: number;
+        applied: number;
+        refunded: number;
+        forfeited: number;
+      }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
@@ -4191,18 +4356,6 @@
       }
     </item>
   </file>
-  <file path="packages/agent-core/src/reviewer-runner.ts">
-    <item priority="low">
-      interface ReviewerConfig {
-        model: string;
-        maxBudgetUsd: number;
-        timeoutMs: number;
-      }
-    </item>
-    <item priority="high">
-      export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
-    </item>
-  </file>
   <file path="packages/agent-core/src/run-agent-session.ts">
     <item priority="low">
       interface AgentSessionAdapter {
@@ -4826,12 +4979,167 @@
       }
     </item>
   </file>
+  <file path="packages/gh-client/src/gh-probe.ts">
+    <item priority="low">
+      type GhProbe = () => boolean;
+    </item>
+    <item priority="medium">
+      function defaultProbeExec(): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/git-branch.ts">
+    <item priority="high">
+      export function currentBranch(exec: (cmd: string, args: string[]) => string = defaultExec): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function defaultExec(cmd: string, args: string[]): string { /* ... */ }
+    </item>
+  </file>
   <file path="packages/gh-client/src/label-machine.ts">
     <item priority="high">
       export const COORDINATION_LABELS: unknown;
     </item>
     <item priority="low">
       type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
+    </item>
+  </file>
+  <file path="packages/gh-client/src/repo-resolver.ts">
+    <item priority="low">
+      interface RepoSlug {
+        owner: string;
+        repo: string;
+      }
+    </item>
+    <item priority="high">
+      export function parseRepoSlug(remoteUrl: string): RepoSlug | null { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-args.ts">
+    <item priority="high">
+      class MissingGithubTokenError {
+        
+      }
+    </item>
+    <item priority="high">
+      export function resolveToken(env: NodeJS.ProcessEnv = process.env): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-http.ts">
+    <item priority="low">
+      interface RestContext {
+        token: string;
+        owner: string;
+        repo: string;
+        http: SyncHttp;
+      }
+    </item>
+    <item priority="low">
+      interface RestResult {
+        status: number;
+        json: unknown;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-issue-ops.ts">
+    <item priority="medium">
+      function issuesPath(ctx: RestContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPullRequest(item: RawIssue): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-label-run-ops.ts">
+    <item priority="high">
+      export function labelList(ctx: RestContext, parsed: ParsedArgs): unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function workflowRuns(ctx: RestContext, parsed: ParsedArgs): unknown[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-mappers.ts">
+    <item priority="low">
+      interface RawLabel {
+        name: string;
+        color?: string;
+        description?: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RawUser {
+        login: string;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-paginate.ts">
+    <item priority="high">
+      export function fetchAllPages(
+        ctx: RestContext,
+        basePath: string,
+        limit: number,
+        itemsKey?: string
+      ): unknown[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-pr-ops.ts">
+    <item priority="medium">
+      function pullsPath(ctx: RestContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function prNumberOf(item: unknown): number { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-runner.ts">
+    <item priority="low">
+      interface RestRunnerOptions {
+        token?: string;
+        owner?: string;
+        repoName?: string;
+        http?: SyncHttp;
+        exec?: (cmd: string, args: string[]) => string;
+      }
+    </item>
+    <item priority="high">
+      export function createRestRunner(
+        opts: RestRunnerOptions = {}
+      ): (cmd: string, args: string[]) => string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/rest-search.ts">
+    <item priority="high">
+      export function buildSearchQuery(
+        ctx: RestContext,
+        kind: "issue" | "pr",
+        parsed: ParsedArgs,
+        search: string
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/sync-http.ts">
+    <item priority="low">
+      interface SyncHttpRequest {
+        method: string;
+        url: string;
+        headers: Record<string, string>;
+        body?: string;
+      }
+    </item>
+    <item priority="low">
+      interface SyncHttpResponse {
+        status: number;
+        body: string;
+      }
+    </item>
+  </file>
+  <file path="packages/gh-client/src/transport.ts">
+    <item priority="low">
+      interface TransportOptions {
+        probe?: GhProbe;
+      }
+    </item>
+    <item priority="high">
+      export function createTransportRunner(
+        opts: TransportOptions = {}
+      ): (cmd: string, args: string[]) => string { /* ... */ }
     </item>
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
@@ -5862,12 +6170,34 @@
       export function relativeTime(date: Date): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/calendarLinks.ts">
+    <item priority="low">
+      interface BuildCalendarLinkOptions {
+        cancellationUrl?: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="high">
       export function formatLongDate(dateStr: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/ics.ts">
+    <item priority="low">
+      interface BuildReservationIcsOptions {
+        cancellationUrl?: string;
+        now?: Date;
+        uid?: string;
+      }
+    </item>
+    <item priority="medium">
+      function escapeIcsText(value: string): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">

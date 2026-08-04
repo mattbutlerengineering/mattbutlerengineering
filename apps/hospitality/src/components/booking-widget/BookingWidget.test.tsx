@@ -313,7 +313,8 @@ describe("BookingWidget", () => {
       id: "res-789",
       status: "CONFIRMED",
       date: "2026-05-20",
-      startTime: "18:00",
+      startTime: "2026-05-20T18:00:00.000Z",
+      endTime: "2026-05-20T20:00:00.000Z",
       partySize: 2,
     });
 
@@ -394,7 +395,8 @@ describe("BookingWidget", () => {
       id: "res-per-person",
       status: "CONFIRMED",
       date: "2026-05-20",
-      startTime: "18:00",
+      startTime: "2026-05-20T18:00:00.000Z",
+      endTime: "2026-05-20T20:00:00.000Z",
       partySize: 4,
     });
 
@@ -487,7 +489,8 @@ describe("BookingWidget", () => {
       id: "res-risky-override",
       status: "CONFIRMED",
       date: "2026-05-20",
-      startTime: "18:00",
+      startTime: "2026-05-20T18:00:00.000Z",
+      endTime: "2026-05-20T20:00:00.000Z",
       partySize: 2,
     });
 
@@ -564,7 +567,8 @@ describe("BookingWidget", () => {
       id: "res-no-override",
       status: "CONFIRMED",
       date: "2026-05-20",
-      startTime: "18:00",
+      startTime: "2026-05-20T18:00:00.000Z",
+      endTime: "2026-05-20T20:00:00.000Z",
       partySize: 2,
     });
 
@@ -574,5 +578,96 @@ describe("BookingWidget", () => {
     await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
     expect(screen.queryByText(/Free cancellation up to 24 hours/)).toBeNull();
     expect(screen.queryByText("Cancellation Policy")).toBeNull();
+  });
+
+  it("shows the Add to Calendar section on confirmation once the venue's public config resolves", async () => {
+    mockApi.venues.getPublicConfig.mockResolvedValue({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: {},
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    });
+
+    render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
+
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
+
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Cal Guest" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "cal@example.com" } });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-cal-1",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "2026-05-20T18:00:00.000Z",
+      endTime: "2026-05-20T20:00:00.000Z",
+      partySize: 2,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
+    expect(screen.getByText("Add to Calendar")).toBeDefined();
+    expect(screen.getByText("Download .ics")).toBeDefined();
+    expect(screen.getByText("Google Calendar")).toBeDefined();
+    expect(screen.getByText("Outlook")).toBeDefined();
+  });
+
+  it("hides the Add to Calendar section on confirmation when no venueSlug is provided (no venue config to fetch)", async () => {
+    renderWidget();
+    const dateInput = screen.getByLabelText("Date");
+    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+
+    mockApi.availability.getTimeSlots.mockResolvedValue([
+      { time: "2026-05-20T18:00:00", available: true },
+    ]);
+    fireEvent.click(screen.getByText("Find Available Times"));
+
+    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
+    mockApi.holds.create.mockResolvedValue({
+      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+    });
+    fireEvent.click(await screen.findByText(/6:00 PM/i));
+
+    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "No Venue Guest" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "none@example.com" } });
+
+    mockApi.holds.confirm.mockResolvedValue({
+      id: "res-cal-2",
+      status: "CONFIRMED",
+      date: "2026-05-20",
+      startTime: "18:00",
+      partySize: 2,
+    });
+
+    fireEvent.click(screen.getByText("Complete Reservation"));
+
+    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
+    expect(screen.queryByText("Add to Calendar")).toBeNull();
+    expect(mockApi.venues.getPublicConfig).not.toHaveBeenCalled();
   });
 });

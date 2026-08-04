@@ -116,7 +116,18 @@ jobs:
           const added = parseInt(process.env.ADDED_LINES || '0', 10);
           const isFork = process.env.PR_IS_FORK === 'true';
 
-          if (/secret|credential|rotate|leak|incident/i.test(title + ' ' + body)) {
+          // PULL_REQUEST_TEMPLATE.md's own checklist item "No hardcoded
+          // secrets or credentials" matches the keyword regex below twice, so
+          // every PR that fills in the standard template escalated to T4
+          // regardless of what it actually changed. Strip boilerplate
+          // checklist lines (`- [ ]` / `- [x]`) before scanning for keywords
+          // so template usage alone can't trigger this rule.
+          const bodyProse = body
+            .split('\n')
+            .filter((line) => !/^\s*-\s\[[ xX]\]/.test(line))
+            .join('\n');
+
+          if (/secret|credential|rotate|leak|incident/i.test(title + ' ' + bodyProse)) {
             highest = T4;
             reasons.add('escalate to T4: title/body mentions secrets or incident');
           }

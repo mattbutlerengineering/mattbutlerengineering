@@ -173,6 +173,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "odometer", label: "Odometer", category: "Data Display" },
   { id: "chalkboard", label: "Chalkboard", category: "Data Display" },
   { id: "ferrofluid", label: "Ferrofluid", category: "Data Display" },
+  { id: "silk-flow", label: "Silk Flow", category: "Data Display" },
   { id: "tape-chart", label: "Tape Chart", category: "Data Display" },
   // ── Navigation ──────────────────────────────────────────────────────────
   { id: "tabs", label: "Tabs", category: "Navigation" },
@@ -280,6 +281,10 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-pricing-table", label: "Pricing Table", category: "Examples" },
   { id: "example-command-palette", label: "Command Palette", category: "Examples" },
   { id: "example-booking-wizard", label: "Booking Wizard", category: "Examples" },
+  { id: "example-onboarding", label: "Onboarding", category: "Examples" },
+  { id: "notification-center", label: "Notification Center", category: "Examples" },
+  { id: "invoice", label: "Invoice", category: "Examples" },
+  { id: "checkout", label: "Checkout", category: "Examples" },
 ];
 
 /** The full registry, derived from the raw entries above. */

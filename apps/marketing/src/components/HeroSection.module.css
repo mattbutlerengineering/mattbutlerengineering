@@ -1,17 +1,27 @@
-/* Primary external CTA rendered as a single styled anchor.
-   Mirrors the Rialto Button primary + lg appearance without nesting a
-   native <button> inside an <a> (which would be invalid interactive HTML).
+/* Positions the SilkFlow canvas full-bleed behind the Hero content.
+   Hero itself keeps position: relative + normal DOM order painting its
+   content on top, so no explicit z-index is needed on the Hero side. */
+.heroWrapper {
+  position: relative;
+}
+
+.heroWrapper .silkFlow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Hero CTAs rendered as styled anchors — one external, one router link.
+   Mirrors the Rialto Button lg appearance without nesting a native <button>
+   inside an <a>/<Link> (which would be invalid interactive HTML).
    Colors and shadows come exclusively from Rialto tokens. */
-.primaryCtaLink {
+.ctaLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--rialto-space-xs);
   padding: var(--rialto-space-sm) var(--rialto-space-lg);
   border-radius: var(--rialto-radius-default);
-  border: 1px solid var(--rialto-accent);
-  background: linear-gradient(180deg, var(--rialto-accent-hover) 0%, var(--rialto-accent) 100%);
-  color: var(--rialto-text-on-accent);
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-base);
   font-weight: var(--rialto-weight-medium);
@@ -21,29 +31,51 @@
   text-decoration: none;
   user-select: none;
   cursor: pointer;
-  box-shadow: var(--rialto-shadow-luminous);
   transition:
     transform var(--rialto-duration-standard) var(--rialto-ease-precision),
     box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
-.primaryCtaLink:hover {
+.primaryCtaLink {
+  composes: ctaLink;
+  border: 1px solid var(--rialto-accent);
+  background: linear-gradient(180deg, var(--rialto-accent-hover) 0%, var(--rialto-accent) 100%);
+  color: var(--rialto-text-on-accent);
+  box-shadow: var(--rialto-shadow-luminous);
+}
+
+.secondaryCtaLink {
+  composes: ctaLink;
+  border: 1px solid var(--rialto-border);
+  background: linear-gradient(
+    180deg,
+    var(--rialto-surface-elevated) 0%,
+    var(--rialto-surface) 100%
+  );
+  color: var(--rialto-text-primary);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.primaryCtaLink:hover,
+.secondaryCtaLink:hover {
   transform: translateY(-1px);
   box-shadow: var(--rialto-shadow-md), var(--rialto-shadow-ambient);
 }
 
-.primaryCtaLink:active {
+.primaryCtaLink:active,
+.secondaryCtaLink:active {
   transform: translateY(1px);
   box-shadow: var(--rialto-shadow-pressed);
 }
 
-.primaryCtaLink:focus-visible {
+.primaryCtaLink:focus-visible,
+.secondaryCtaLink:focus-visible {
   outline: none;
   box-shadow: var(--rialto-shadow-focus);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .primaryCtaLink {
+  .ctaLink {
     transition: none;
   }
 }

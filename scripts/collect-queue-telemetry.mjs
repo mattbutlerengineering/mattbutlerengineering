@@ -16,7 +16,11 @@
  *   merged          boolean|null  Reconciled by sensor
  *   ci_first_pass   boolean|null  Reconciled by sensor
  *   rework_cycles   number|null   Reconciled by sensor
- *   reviewer_verdict string|null  pass | flag | skipped
+ *   reviewer_verdict string|null  pass | flag | skipped | error
+ *                                 error = the reviewer could not run (dispatch
+ *                                 threw / timed out). Distinct from pass: the
+ *                                 merge gate never fired. Read by
+ *                                 collect-queue-efficiency's review_coverage.
  *   claimed_at      string        ISO 8601
  *   merged_at       string|null   ISO 8601, reconciled by sensor
  *   cost_usd        number|null   Optional precise cost if known at write time

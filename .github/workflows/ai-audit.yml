@@ -188,15 +188,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WEEK: ${{ steps.prs.outputs.week }}
         run: |
-          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "ai-audit" --json title --jq "[.[] | select(.title | contains(\"$WEEK\"))] | length")
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Audit issue for $WEEK already exists -- skipping."
-            exit 0
-          fi
-
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "AI audit trail: ${WEEK}" \
             --label "ai-audit" \
             --label "acmm" \
-            --body-file /tmp/audit-body.md
+            --body-file /tmp/audit-body.md \
+            --dedupe-key "ai-audit-${WEEK}" \
+            --search-label "ai-audit" \
+            --contains "${WEEK}"

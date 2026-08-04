@@ -4,13 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "cd .. && vitest run --config scripts/vitest.config.mjs"
+    "test": "cd .. && vitest run --config scripts/vitest.config.mjs",
+    "test:coverage": "cd .. && vitest run --config scripts/vitest.config.mjs --coverage"
   },
   "dependencies": {
     "@mbe/agent-core": "workspace:*",
     "@mbe/gh-client": "workspace:*"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
     "vitest": "catalog:"
   }
 }

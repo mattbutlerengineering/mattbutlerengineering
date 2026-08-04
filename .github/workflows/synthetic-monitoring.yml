@@ -223,7 +223,11 @@ jobs:
         if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
-          sparse-checkout: docs/runbooks
+          sparse-checkout: |
+            docs/runbooks/**
+            scripts/lib/file-issue-cli.mjs
+            scripts/lib/issue-filing.mjs
+          sparse-checkout-cone-mode: false
 
       - name: Create health alert issue (cont.)
         if: steps.health.outputs.status != 'healthy' && steps.existing.outputs.count == '0'
@@ -293,13 +297,15 @@ jobs:
             echo "*This issue was auto-created by synthetic monitoring. It will be picked up by the implement-queue or issue-worker.*"
           } > /tmp/health-body.md
 
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "$TITLE" \
             --body-file /tmp/health-body.md \
             --label "$ISSUE_LABEL" \
             --label "auto-health" \
-            --label "ready"
+            --label "ready" \
+            --dedupe-key "synthetic-monitoring-${ISSUE_LABEL}" \
+            --search-label "$ISSUE_LABEL" \
+            --search-label "auto-health"
 
       - name: Auto-close resolved health issues
         if: steps.health.outputs.status == 'healthy'

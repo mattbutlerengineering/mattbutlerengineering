@@ -103,6 +103,34 @@
       }
     </item>
   </file>
+  <file path="src/pages/examples/notification-center.ts">
+    <item priority="low">
+      type NotificationType = "booking" | "payment" | "system";
+    </item>
+    <item priority="low">
+      interface NotificationItem {
+        id: string;
+        type: NotificationType;
+        title: string;
+        message: string;
+        timestamp: string;
+      }
+    </item>
+  </file>
+  <file path="src/pages/examples/onboarding.ts">
+    <item priority="low">
+      type OnboardingStepId = "property" | "spaces" | "preferences" | "launch";
+    </item>
+    <item priority="low">
+      interface OnboardingStepDef {
+        id: OnboardingStepId;
+        label: string;
+        description: string;
+        heading: string;
+        blurb: string;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-props-from-manifest.ts">

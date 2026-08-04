@@ -329,12 +329,15 @@ jobs:
             echo "*Auto-created by post-deploy-check workflow*"
           } > /tmp/regression-body.md
 
-          gh issue create \
-            --repo "$GITHUB_REPOSITORY" \
+          node scripts/lib/file-issue-cli.mjs \
             --title "Post-deploy smoke tests failed (${SHORT_SHA:-unknown})" \
             --label "ci-fix" \
             --label "ready" \
-            --body-file /tmp/regression-body.md
+            --body-file /tmp/regression-body.md \
+            --dedupe-key "post-deploy-check-${SHORT_SHA:-unknown}" \
+            --search-label "ci-fix" \
+            --search-state all \
+            --contains "(${SHORT_SHA:-unknown})"
 
       - name: Log verification result for learning-loop
         if: always()

@@ -1,0 +1,91 @@
+/* Persistent rail beside the step panel; the rail drops above the panel on narrow viewports. */
+.flow {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--rialto-space-xl);
+  align-items: start;
+  max-width: 60rem;
+}
+
+@media (max-width: 48rem) {
+  .flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Rail ────────────────────────────────────── */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-lg);
+  background: var(--rialto-surface);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  position: sticky;
+  top: var(--rialto-space-xl);
+}
+
+@media (max-width: 48rem) {
+  .rail {
+    position: static;
+  }
+}
+
+/* ── Panel ───────────────────────────────────── */
+
+.panelRegion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.panel {
+  padding: var(--rialto-space-xl);
+}
+
+.panelHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+/* The heading is programmatically focused on a step change; suppress the
+   default outline in favour of Rialto's focus ring so it matches the system. */
+.panelHead :focus-visible {
+  outline: none;
+  border-radius: var(--rialto-radius-sharp);
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+/* ── Fields ──────────────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  align-items: flex-start;
+}
+
+.toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+/* ── Launch ──────────────────────────────────── */
+
+.launchStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Actions ─────────────────────────────────── */
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+}

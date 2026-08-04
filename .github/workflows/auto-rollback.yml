@@ -144,10 +144,22 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      # Required for the `gh workflow run` dispatch in "Create revert PR" below.
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 10
+          # AUTOMATION_PAT (#3684): the "Create revert PR" step below pushes
+          # a commit. A commit pushed with the default GITHUB_TOKEN is
+          # attributed to github-actions[bot], which forces every
+          # pull_request-triggered check on the resulting PR into
+          # `action_required` -- needing a human to manually approve the run
+          # before CI Gate can post. Pushing (and creating the PR) as a real
+          # PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity
         run: |
@@ -198,7 +210,8 @@ jobs:
       - name: Create revert PR
         if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # AUTOMATION_PAT (#3684): see checkout step above.
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           COMMIT_SHA: ${{ steps.agent-check.outputs.commit_sha }}
           COMMIT_AUTHOR: ${{ steps.agent-check.outputs.author }}
         run: |
@@ -229,13 +242,18 @@ jobs:
           4. File a new issue if the original intent was valid" \
               --label "agent-regression"
 
+            # GITHUB_TOKEN-authored PRs don't trigger the pull_request event, so
+            # CI Gate would never report and this rollback could not be merged.
+            gh workflow run ci.yml --ref "$REVERT_BRANCH"
+
             echo "Revert PR created for agent commit ${SHORT_SHA}"
           else
             echo "Could not cleanly revert ${SHORT_SHA} — manual intervention needed"
-            gh issue create \
+            node scripts/lib/file-issue-cli.mjs \
               --title "Manual rollback needed: agent commit ${SHORT_SHA} caused regression" \
               --body "Post-deploy checks failed after agent commit \`${COMMIT_SHA}\` but automatic revert failed (merge conflict). Manual intervention required." \
-              --label "agent-regression,urgent"
+              --label "agent-regression,urgent" \
+              --dedupe-key "manual-rollback-${SHORT_SHA}"
           fi
 
       - name: Skip non-agent or opted-out failures
@@ -263,13 +281,6 @@ jobs:
           today=$(date -u +%Y-%m-%d)
           title="[URGENT] Auto-rollback failed [${today}]"
 
-          # Dedup: skip if an open issue with the same title already exists.
-          existing=$(gh issue list --state open --label ci-fix --search "$title" --json number --jq '.[0].number // empty')
-          if [ -n "$existing" ]; then
-            echo "Issue #$existing already open for today; skipping."
-            exit 0
-          fi
-
           printf '%s\n' \
             "## Auto-rollback workflow failed" \
             "" \
@@ -287,8 +298,11 @@ jobs:
             "3. The \`ci-fix\` label will trigger \`mbe-issue-worker\` to attempt an auto-fix" \
             > /tmp/rollback-failure-body.md
 
-          gh issue create \
+          node scripts/lib/file-issue-cli.mjs \
             --title "$title" \
             --body-file /tmp/rollback-failure-body.md \
             --label ci-fix \
-            --label audit
+            --label audit \
+            --dedupe-key "auto-rollback-failure-${today}" \
+            --search-label ci-fix \
+            --search-text "$title"

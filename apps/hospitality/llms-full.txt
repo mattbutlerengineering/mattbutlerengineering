@@ -555,6 +555,26 @@
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
   </section>
+  <section priority="medium" role="journeys">
+  <file path="e2e/journeys/journey-api.ts">
+    export const SYNTHETIC_VENUE_PREFIX = "synthetic-journey-";
+    interface VenueSummary {
+      id: string;
+      name: string;
+    }
+  </file>
+  <file path="e2e/journeys/journey-recorder.ts">
+    export type JourneyStepStatus = "passed" | "failed" | "skipped";
+    export interface JourneyStepResult {
+      name: string;
+      status: JourneyStepStatus;
+      durationMs: number;
+      error?: string;
+      /** Visible `[role="alert"]` text when the step failed — see capturePageError. */
+      pageError?: string;
+    }
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="src/lib/sse-client.ts">
     export type FetchEventSourceFn = typeof fetchEventSource;
@@ -620,6 +640,15 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/calendarLinks.ts">
+    export interface BuildCalendarLinkOptions {
+      /** Guest-facing cancellation/manage-reservation link, included in the event description. */
+      cancellationUrl?: string;
+    }
+    function buildEventTitle(venue: PublicVenueConfig): string {
+      return `${venue.name} Reservation`;
+    }
+  </file>
   <file path="src/utils/format.ts">
     export function formatLongDate(dateStr: string): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
@@ -635,6 +664,23 @@
         day: "numeric",
         year: "numeric",
       });
+    }
+  </file>
+  <file path="src/utils/ics.ts">
+    export interface BuildReservationIcsOptions {
+      /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
+      cancellationUrl?: string;
+      /** Clock used for DTSTAMP. Defaults to `new Date()`. Pass explicitly for deterministic output. */
+      now?: Date;
+      /** Calendar UID. Defaults to `${reservation.id}@mattbutlerengineering.com`. */
+      uid?: string;
+    }
+    function escapeIcsText(value: string): string {
+      return value
+        .replace(/\\/g, "\\\\")
+        .replace(/;/g, "\\;")
+        .replace(/,/g, "\\,")
+        .replace(/\r\n|\r|\n/g, "\\n");
     }
   </file>
   <file path="src/utils/ordinal.ts">

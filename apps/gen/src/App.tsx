@@ -1,4 +1,4 @@
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet, Navigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import { Stack, Text, Button } from "@mattbutlerengineering/rialto";
 import { LoginLanding } from "./components/LoginLanding.js";

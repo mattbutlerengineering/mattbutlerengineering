@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { PROJECTS, type Project } from "./projects.js";
-import { TECH_STACK, type TechCategory } from "./tech-stack.js";
 import { weeklyResources, type WeeklyResource } from "./weekly-intake.js";
 
 describe("projects data", () => {
@@ -12,7 +11,7 @@ describe("projects data", () => {
     for (const project of PROJECTS) {
       expect(project.title).toBeTruthy();
       expect(project.description).toBeTruthy();
-      expect(project.tags.length).toBeGreaterThan(0);
+      expect(project.stack.length).toBeGreaterThan(0);
     }
   });
 
@@ -25,30 +24,6 @@ describe("projects data", () => {
     const withHref = PROJECTS.filter((p: Project) => p.href);
     for (const project of withHref) {
       expect(project.href).toMatch(/^\//);
-    }
-  });
-});
-
-describe("tech-stack data", () => {
-  it("exports a non-empty array of categories", () => {
-    expect(TECH_STACK.length).toBeGreaterThan(0);
-  });
-
-  it("each category has a title and non-empty items", () => {
-    for (const category of TECH_STACK) {
-      expect(category.title).toBeTruthy();
-      expect(category.items.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("category titles are unique", () => {
-    const titles = TECH_STACK.map((c: TechCategory) => c.title);
-    expect(new Set(titles).size).toBe(titles.length);
-  });
-
-  it("no duplicate items within a single category", () => {
-    for (const category of TECH_STACK) {
-      expect(new Set(category.items).size).toBe(category.items.length);
     }
   });
 });

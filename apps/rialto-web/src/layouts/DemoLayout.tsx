@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { GlobalNav, RialtoProvider, type VibeName } from "@mattbutlerengineering/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
 import { useScrollToTop } from "../hooks/use-scroll-to-top.js";

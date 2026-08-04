@@ -1,0 +1,158 @@
+name: Drift Fix
+
+# Regenerates every committed generated artifact on `main` and opens a PR when
+# any of them drifted. Drift on `main` is contagious: CI's "Verify generated
+# artifacts are in sync" step (build job) fails on every open PR until it is
+# cleared, so this runs early each morning, before the mbe-* worker routines
+# start opening PRs.
+#
+# Deliberately mechanical — no agent. The fix for generated-artifact drift is
+# always "run the generator", so an LLM adds cost and nondeterminism with no
+# judgment to contribute. The drift classes that DO need judgment (instruction
+# rot, doc freshness) are handled by the weekly `mbe-doc-rot` routine instead;
+# see docs/scheduled-tasks.md.
+
+on:
+  schedule:
+    # 06:17 PT. Ahead of mbe-morning (9:03 PT) so the queue starts on a clean main.
+    - cron: "17 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Required for the `gh workflow run` dispatch step below — GITHUB_TOKEN
+  # needs actions:write to call the workflow-dispatch API.
+  actions: write
+
+jobs:
+  fix-drift:
+    name: Regenerate and PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      # Sources Node from .nvmrc — a Node-version mismatch is itself a drift
+      # cause (artifacts regenerated on Node 20 differ from Node 22).
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build the CLI
+        # NOT optional. `pnpm regen`'s llms families shell out to `mbe pack`,
+        # which imports @mbe/agent-core. Without a build, that import throws
+        # ERR_MODULE_NOT_FOUND, regen-llms.sh swallows it (`|| continue`), and
+        # regen SILENTLY NO-OPS — producing a green run that fixed nothing.
+        # The `...` suffix builds transitive deps, which is what pulls in
+        # agent-core.
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Regenerate rialto exports map
+        # Runs BEFORE regen: this rewrites packages/rialto/package.json when a
+        # component folder was added without a release, and the dep-graph
+        # generators read package.json files. Regenerating it second would
+        # leave dep-graph.json stale against the exports map we just fixed.
+        run: pnpm --filter @mattbutlerengineering/rialto exports
+
+      - name: Regenerate all committed artifacts
+        # Full regen, never scripts/check-regen-needed.mjs's fast path. That
+        # heuristic answers "given these changed files, is a full regen needed?"
+        # by diffing against origin/main — it is built for hooks that know what
+        # just changed. A daily sweep of `main` has no such input: the drift it
+        # exists to catch is precisely the drift nobody's changed-file list
+        # predicted. Regenerate everything and let the diff decide.
+        run: pnpm regen
+
+      - name: Verify regeneration converged
+        # Catches a non-idempotent generator: if a second pass would still
+        # produce a diff, the PR we are about to open would fail CI's own
+        # regen --check. Better to fail here, loudly, than to ship a red PR.
+        run: pnpm regen --check
+
+      - name: Open PR with regenerated artifacts
+        id: create-pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        env:
+          # The action commits inside the runner, firing the husky pre-commit
+          # hook; check-adr needs @mbe/agent-core built in a way this job does
+          # not guarantee. CI on the PR validates the result instead.
+          HUSKY: "0"
+        with:
+          # AUTOMATION_PAT (#3684): a commit pushed with the default
+          # GITHUB_TOKEN is attributed to github-actions[bot], which forces
+          # every pull_request-triggered check on the resulting PR (CI, Auto
+          # Review, ADR check, ...) into `action_required` -- needing a human
+          # to manually approve the run before CI Gate can post. Pushing as a
+          # real PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md. Keep
+          # in sync with auto-qa-tune.yml, which mirrors this workflow.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "chore: regenerate drifted artifacts"
+          title: "chore: regenerate drifted artifacts"
+          body: |
+            Automated daily generated-artifact drift fix.
+
+            One or more committed artifacts had drifted from their sources on `main`.
+            This PR is the output of running the generators; no hand edits.
+
+            Reproduce locally:
+
+            ```bash
+            nvm use                                  # Node 22, per .nvmrc
+            pnpm build --filter @mbe/cli...          # else regen silently no-ops
+            pnpm --filter @mattbutlerengineering/rialto exports
+            pnpm regen
+            ```
+
+            Generated by `.github/workflows/drift-fix.yml`. The artifact list is
+            driven by `scripts/regen-manifest.mjs` — add new artifacts there, not here.
+          branch: automation/drift-fix
+          delete-branch: true
+          # Scoped to generated artifacts only. `pnpm install` in this repo
+          # triggers a prettier reflow across ~150 tracked files; committing
+          # everything would sweep that in. Root entries are listed explicitly
+          # because a bare `**/llms.txt` glob does not match the repo-root file.
+          #
+          # Keep in sync with the `outputs` in scripts/regen-manifest.mjs.
+          add-paths: |
+            llms.txt
+            llms-full.txt
+            apps/*/llms.txt
+            apps/*/llms-full.txt
+            packages/*/llms.txt
+            packages/*/llms-full.txt
+            services/*/llms.txt
+            services/*/llms-full.txt
+            tools/*/llms.txt
+            tools/*/llms-full.txt
+            infrastructure/*/llms.txt
+            infrastructure/*/llms-full.txt
+            packages/rialto/package.json
+            packages/rialto/registry.json
+            packages/rialto/figma-tokens.json
+            packages/rialto/src/tokens/colors.css
+            packages/rialto-catalog/src/generated-schemas.ts
+            infrastructure/worker/dep-graph.json
+            docs/architecture/dependency-graph.md
+          labels: auto-merge
+
+      - name: Dispatch CI on the automation branch
+        # GITHUB_TOKEN-authored pushes/PRs don't trigger other workflows
+        # (GitHub's anti-recursion rule), so the pull_request CI run — including
+        # the required CI Gate check — never fires and the PR sits BLOCKED
+        # forever. workflow_dispatch is a documented exception: an explicit API
+        # call, not a passive event. Only dispatch when a PR actually exists,
+        # so a no-drift day stays a silent no-op.
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --ref automation/drift-fix
+
+      - name: Report outcome
+        run: |
+          if [ -n "${{ steps.create-pr.outputs.pull-request-number }}" ]; then
+            echo "::notice::Drift found — opened PR #${{ steps.create-pr.outputs.pull-request-number }}"
+          else
+            echo "::notice::No drift — all generated artifacts already in sync."
+          fi

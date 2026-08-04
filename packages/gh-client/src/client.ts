@@ -1,8 +1,9 @@
-import { createExecRunner } from "./exec-runner.js";
-import type { ExecRunner, ExecRunnerOptions } from "./exec-runner.js";
+import { createTransportRunner } from "./transport.js";
+import type { TransportOptions } from "./transport.js";
+import type { ExecRunner } from "./exec-runner.js";
 import type { LabelTransition } from "./label-machine.js";
 
-export interface GhClientOptions extends ExecRunnerOptions {
+export interface GhClientOptions extends TransportOptions {
   runner?: ExecRunner;
 }
 
@@ -22,7 +23,7 @@ function buildLabelArgs(transition: LabelTransition): string[] {
  * The runner is injectable for testing; defaults to execFileSync.
  */
 export function createGhClient(opts: GhClientOptions = {}) {
-  const run = createExecRunner(opts);
+  const run = createTransportRunner(opts);
 
   const issue = {
     list(args: string[]): unknown[] {
@@ -70,6 +71,10 @@ export function createGhClient(opts: GhClientOptions = {}) {
     create(args: string[]): string {
       return run("gh", ["pr", "create", ...args]);
     },
+
+    close(number: number, args: string[] = []): void {
+      run("gh", ["pr", "close", String(number), ...args]);
+    },
   };
 
   const label = {
@@ -77,6 +82,11 @@ export function createGhClient(opts: GhClientOptions = {}) {
       const labelArgs = buildLabelArgs(transition);
       if (labelArgs.length === 0) return;
       run("gh", ["issue", "edit", String(transition.issueNumber), ...labelArgs]);
+    },
+
+    list(args: string[]): unknown[] {
+      const raw = run("gh", ["label", "list", ...args]);
+      return JSON.parse(raw) as unknown[];
     },
   };
 

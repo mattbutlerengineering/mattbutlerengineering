@@ -1,4 +1,4 @@
-import { Card, Stack, Text, Tag } from "@mattbutlerengineering/rialto";
+import { Card, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Project } from "../data/projects";
 import styles from "./ProjectCard.module.css";
 
@@ -14,11 +14,9 @@ export function ProjectCard({ project }: ProjectCardProps) {
           {project.title}
         </Text>
 
-        <Stack direction="row" gap="xs" wrap>
-          {project.tags.map((tag) => (
-            <Tag key={tag}>{tag}</Tag>
-          ))}
-        </Stack>
+        <Text variant="detail" color="tertiary" className={styles.stack}>
+          {project.stack.join(" · ")}
+        </Text>
 
         <Text variant="body" color="secondary" className={styles.description}>
           {project.description}

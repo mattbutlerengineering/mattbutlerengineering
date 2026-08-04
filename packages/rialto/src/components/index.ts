@@ -91,6 +91,7 @@ export * from "./Odometer";
 export * from "./Chalkboard";
 export * from "./SplitScreenExit";
 export * from "./Ferrofluid";
+export * from "./SilkFlow";
 export * from "./WatchLoader";
 
 // ── Hospitality specialty ──────────────────────

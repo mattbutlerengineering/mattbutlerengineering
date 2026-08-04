@@ -149,16 +149,15 @@ nohup mbe agent run "Run eval suite to diagnose queue efficiency regression — 
 
 ## Step 6: Persist Metrics (always, unless --dry-run)
 
-`metrics/process-metrics.jsonl`, `metrics/queue-telemetry.jsonl`, and `.claude/improvement-loop/log.md` are **tracked files** — cloud routines run in ephemeral checkouts, so appends that aren't committed are lost with the checkout.
-
-After Steps 0-3, check for a diff and open a metrics PR:
+Cloud routines run in ephemeral checkouts, so appends that aren't committed are lost with the checkout. After Steps 0-3:
 
 ```bash
-git diff --stat -- metrics/process-metrics.jsonl metrics/queue-telemetry.jsonl .claude/improvement-loop/log.md
+node scripts/persist-metrics.mjs --routine optimize-implement-queue
 ```
 
-- **No diff** → skip this step entirely.
-- **Diff** → branch, commit ONLY those three paths (never `git add -A`), push, and open a PR titled `chore(metrics): optimize-implement-queue <YYYY-MM-DD>` labeled `has-pr`. Metrics-only diffs hit the low-risk fast path and merge-queue auto-merges on green CI.
+It stages every **durable** path with a diff (never `git add -A`), commits, pushes, and opens a PR titled `chore(metrics): optimize-implement-queue <YYYY-MM-DD>` labeled `has-pr`. Metrics-only diffs hit the low-risk fast path and auto-merge on green CI. No diff → exits 0 without a commit.
+
+Do NOT enumerate paths by hand. Durability is declared once as `durable: true` in `scripts/metrics-store.mjs`; `durableManifest()` derives both the `.gitignore` negations and the staged list (#3645).
 
 ## Phase-2 Seam: Auto-Tuning (NOT YET BUILT)
 

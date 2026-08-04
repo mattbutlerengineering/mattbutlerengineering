@@ -4,8 +4,8 @@ import React, { type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Venue } from "@mbe/types";
 
-// Mock react-router-dom
-vi.mock("react-router-dom", () => ({
+// Mock react-router
+vi.mock("react-router", () => ({
   useParams: vi.fn(),
 }));
 
@@ -85,7 +85,7 @@ vi.mock("./PublicBookingPage.module.css", () => ({
   },
 }));
 
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { PublicBookingPage } from "./PublicBookingPage.js";
 
 const mockUseParams = vi.mocked(useParams);

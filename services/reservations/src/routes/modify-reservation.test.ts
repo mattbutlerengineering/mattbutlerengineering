@@ -163,7 +163,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { partySize: 6, startTime: "20:00" },
+      payload: { partySize: 6, startTime: "2026-06-15T20:00:00-07:00" },
     });
 
     expect(response.statusCode).toBe(200);
@@ -217,7 +217,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     const response = await app.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { startTime: "18:00" },
+      payload: { startTime: "2026-06-15T18:00:00-07:00" },
     });
 
     expect(response.statusCode).toBe(409);
@@ -351,6 +351,56 @@ describe("PATCH /public/v1/reservations/manage", () => {
     expect(response.json().data.reservation.notes).toBe("No peanuts please");
   });
 
+  // Built on a dedicated app instance so these two additional requests don't
+  // push the shared `app`'s rate limiter (max 10/min) past the tests above.
+  describe("body validation", () => {
+    let validationApp: FastifyInstance;
+
+    beforeAll(async () => {
+      validationApp = await buildApp({
+        logger: false,
+        notificationPort: createStubNotificationDispatcher() as never,
+        bookingNotifier: {
+          scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+          cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+          rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+          cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+        },
+      });
+      await validationApp.ready();
+    });
+
+    afterAll(async () => {
+      await validationApp.close();
+    });
+
+    it("rejects a malformed startTime with 400 before reaching the service layer", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+
+      const response = await validationApp.inject({
+        method: "PATCH",
+        url: `/public/v1/reservations/manage?token=${token}`,
+        payload: { startTime: "not-a-date" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+    });
+
+    it("rejects a wrong-typed partySize with 400 before reaching the service layer", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+
+      const response = await validationApp.inject({
+        method: "PATCH",
+        url: `/public/v1/reservations/manage?token=${token}`,
+        payload: { partySize: "six" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+    });
+  });
+
   it("reschedules reminder jobs via injected bookingNotifier when time changes", async () => {
     const stubNotifier: BookingNotifier = {
       scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
@@ -380,7 +430,7 @@ describe("PATCH /public/v1/reservations/manage", () => {
     const response = await stubApp.inject({
       method: "PATCH",
       url: `/public/v1/reservations/manage?token=${token}`,
-      payload: { startTime: "20:00" },
+      payload: { startTime: "2026-06-15T20:00:00-07:00" },
     });
 
     expect(response.statusCode).toBe(200);

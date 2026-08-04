@@ -271,6 +271,75 @@
       );
     };
   </file>
+  <file path="src/routes/booking-metrics.ts">
+    function todayDateString(): string {
+      return new Date().toISOString().slice(0, 10);
+    }
+    export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Querystring: { date?: string; venueId?: string };
+        Reply: { data: DailyBookingMetrics } | ProblemDetails;
+      }>(
+        "/daily",
+        {
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
+          schema: {
+            summary: "Get daily booking-funnel counts",
+            operationId: "getDailyBookingMetrics",
+            description:
+              "Internal aggregation route for booking-funnel telemetry. Returns counts-only " +
+              "reservation and deposit aggregates for a given day and venue — never a " +
+              "reservation id, guest name, email, or phone number.",
+            tags: ["Metrics"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              properties: {
+                date: { type: "string", description: "YYYY-MM-DD, defaults to today" },
+                venueId: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                description: "Daily booking-funnel counts",
+                type: "object",
+                properties: {
+                  data: { type: "object", additionalProperties: true },
+                },
+              },
+              400: { description: "Missing or invalid query parameters", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
+              403: { description: "No access to the requested venue", $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          // Venue authorization is enforced by requireVenueAccess (ADR-020). The
+          // explicit check below only guards the platform-admin path, which
+          // bypasses venue resolution entirely and would otherwise reach here
+          // with venueId undefined.
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
+          }
+    
+          const date = request.query.date ?? todayDateString();
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+          }
+    
+          const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
+          return { data };
+        }
+      );
+    };
+  </file>
   <file path="src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
@@ -1718,6 +1787,9 @@
         {
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+          schema: {
+            body: modifyReservationBodyJsonSchema,
           },
           preHandler: requireManageToken,
         },
@@ -4247,6 +4319,21 @@
     }
     export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
   </file>
+  <file path="src/services/booking-metrics.ts">
+    export interface ReservationStatusCounts {
+      pending: number;
+      confirmed: number;
+      cancelled: number;
+      completed: number;
+      noShow: number;
+    }
+    export interface DepositTransitionCounts {
+      held: number;
+      applied: number;
+      refunded: number;
+      forfeited: number;
+    }
+  </file>
   <file path="src/services/booking-notifications.ts">
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
@@ -5675,6 +5762,7 @@
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
       await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
+      await fastify.register(bookingMetricsRoutes, { prefix: "/api/v1/reservations/metrics" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });

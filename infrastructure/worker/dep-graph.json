@@ -297,11 +297,6 @@
     },
     {
       "from": "@mbe/agent-service",
-      "to": "@mbe/service-bootstrap",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/agent-service",
       "to": "@mbe/observability",
       "type": "dependency"
     },
@@ -313,6 +308,11 @@
     {
       "from": "@mbe/agent-service",
       "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
+      "to": "@mbe/service-bootstrap",
       "type": "dependency"
     },
     {
@@ -347,11 +347,6 @@
     },
     {
       "from": "@mbe/reservations-service",
-      "to": "@mbe/service-bootstrap",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/reservations-service",
       "to": "@mbe/jobs",
       "type": "dependency"
     },
@@ -368,6 +363,11 @@
     {
       "from": "@mbe/reservations-service",
       "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/reservations-service",
+      "to": "@mbe/service-bootstrap",
       "type": "dependency"
     },
     {
@@ -392,6 +392,11 @@
     },
     {
       "from": "@mbe/users-service",
+      "to": "@mbe/database",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
       "to": "@mbe/observability",
       "type": "dependency"
     },
@@ -402,17 +407,12 @@
     },
     {
       "from": "@mbe/users-service",
-      "to": "@mbe/types",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/users-service",
-      "to": "@mbe/database",
-      "type": "dependency"
-    },
-    {
-      "from": "@mbe/users-service",
       "to": "@mbe/service-bootstrap",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/users-service",
+      "to": "@mbe/types",
       "type": "dependency"
     },
     {

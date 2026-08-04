@@ -270,6 +270,10 @@
       "types": "./dist/lib/components/Sidebar/index.d.ts",
       "import": "./dist/lib/components/Sidebar/index.js"
     },
+    "./SilkFlow": {
+      "types": "./dist/lib/components/SilkFlow/index.d.ts",
+      "import": "./dist/lib/components/SilkFlow/index.js"
+    },
     "./Skeleton": {
       "types": "./dist/lib/components/Skeleton/index.d.ts",
       "import": "./dist/lib/components/Skeleton/index.js"
@@ -403,7 +407,7 @@
     "@json-render/react": "^0.19.0",
     "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
-    "@playwright/test": "^1.62.0",
+    "@playwright/test": "^1.62.1",
     "@storybook/addon-a11y": "^10.5.5",
     "@storybook/addon-docs": "^10.5.5",
     "@storybook/addon-onboarding": "^10.5.5",
@@ -414,7 +418,7 @@
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^26.1.1",
+    "@types/node": "^26.1.2",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
@@ -425,7 +429,7 @@
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
     "lucide-react": "catalog:",
-    "playwright": "^1.62.0",
+    "playwright": "^1.62.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "storybook": "^10.5.5",
@@ -515,6 +519,14 @@
         "dist/lib/chunks/use-flip-dot-animation-*.js"
       ],
       "limit": "3700 B"
+    },
+    {
+      "name": "SilkFlow (subpath)",
+      "path": [
+        "dist/lib/components/SilkFlow/index.js",
+        "dist/lib/chunks/SilkFlow-*.js"
+      ],
+      "limit": "2050 B"
     }
   ],
   "license": "MIT",

@@ -13,6 +13,14 @@ on:
     branches: [main]
   merge_group:
     branches: [main]
+  # Bare workflow_dispatch trigger — lets other workflows (e.g. pr-metrics.yml)
+  # dispatch a CI run on a branch after a GITHUB_TOKEN-created PR, working
+  # around GitHub's anti-recursion rule (workflow_dispatch is a documented
+  # exception). Every job below is event-agnostic except migration-dry-run,
+  # which is intentionally pull_request-only and treated as an allowed
+  # "skipped" by the CI Gate job, so a dispatch run still completes and
+  # reports CI Gate on the dispatched ref's head SHA.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -109,19 +117,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
-      - uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+      - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: "services/users/Dockerfile"
 
-      - uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+      - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: "services/reservations/Dockerfile"
 
-      - uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+      - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: "services/agent/Dockerfile"
 
-      - uses: hadolint/hadolint-action@2332a7b74a6de0dda2e2221d575162eba76ba5e5 # v3.3.0
+      - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: "infrastructure/migrate/Dockerfile"
 
@@ -166,7 +174,7 @@ jobs:
           output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
 
       - name: Upload Trivy SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         if: always()
         # Best-effort: the Trivy scan above is the actual gate (exit-code 1 on
         # CRITICAL/HIGH). The Security-tab upload is a convenience; if it fails
@@ -363,10 +371,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # PRs run Node 22 only to keep the per-PR critical path short; Node 20
-        # compatibility stays verified on push-to-main, merge_group, and any
-        # scheduled/nightly run (every non-pull_request event resolves [20, 22]).
-        node-version: ${{ fromJSON(github.event_name == 'pull_request' && '[22]' || '[20,22]') }}
+        # Single Node major, identical on every trigger (pull_request, push,
+        # merge_group, schedule). Node 20 was previously tested only on
+        # non-PR events, which let a Node-20-only failure land on main before
+        # anyone saw it (#3558) — see #3570 and .claude/rules/gotchas.md.
+        node-version: [22]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -391,7 +400,7 @@ jobs:
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./packages/observability/coverage/coverage-final.json,./packages/mcp-server/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json
+          files: ./packages/auth/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./packages/observability/coverage/coverage-final.json,./packages/mcp-server/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json,./scripts/coverage/coverage-final.json
           fail_ci_if_error: false
           verbose: true
 

@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; *pnpm-lock.yaml) echo 'BLOCK: Never edit pnpm-lock.yaml directly — run pnpm install instead' >&2; exit 2;; */prisma/migrations/*/migration.sql) echo 'BLOCK: Do not edit existing migrations — create a new migration with prisma migrate dev instead' >&2; exit 2;; */infrastructure/pulumi/Pulumi.prod.yaml) echo 'BLOCK: Production Pulumi config requires manual review' >&2; exit 2;; esac"
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; case \"$FILE\" in *.env.example|*.env.sample|*.env.template) exit 0;; *.env|*.env.*) echo 'BLOCK: Do not edit .env files — use environment variables via vercel env or service .env.example files instead' >&2; exit 2;; *pnpm-lock.yaml) echo 'BLOCK: Never edit pnpm-lock.yaml directly — run pnpm install instead' >&2; exit 2;; */prisma/migrations/*/migration.sql) echo 'BLOCK: Do not edit existing migrations — create a new migration with prisma migrate dev instead' >&2; exit 2;; */infrastructure/pulumi/Pulumi.prod.yaml) echo 'BLOCK: Production Pulumi config requires manual review' >&2; exit 2;; esac"
           }
         ]
       },
@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; [ -f \"$FILE\" ] || exit 0; npx prettier --write --ignore-unknown \"$FILE\" || true"
           }
         ]
       },
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.ts|*.tsx|*.js|*.jsx) npx eslint --fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true;; esac"
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; [ -f \"$FILE\" ] || exit 0; case \"$FILE\" in *.ts|*.tsx|*.js|*.jsx) npx eslint --fix \"$FILE\" || true;; esac"
           }
         ]
       },
@@ -76,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in */migrations/*/migration.sql|*/prisma/migrations/*/migration.sql) if grep -iqE 'DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM|ALTER TABLE .+ DROP' \"$CLAUDE_FILE_PATH\" 2>/dev/null && ! grep -iqE '^-- DESTRUCTIVE:' \"$CLAUDE_FILE_PATH\" 2>/dev/null; then echo '⚠️  Destructive migration detected without a -- DESTRUCTIVE: <reason> marker. Add the marker or redesign as a shadow-column-then-drop-later pattern before committing.' >&2; fi;; esac"
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; case \"$FILE\" in */migrations/*/migration.sql|*/prisma/migrations/*/migration.sql) if grep -iqE 'DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM|ALTER TABLE .+ DROP' \"$FILE\" 2>/dev/null && ! grep -iqE '^-- DESTRUCTIVE:' \"$FILE\" 2>/dev/null; then echo '⚠️  Destructive migration detected without a -- DESTRUCTIVE: <reason> marker. Add the marker or redesign as a shadow-column-then-drop-later pattern before committing.' >&2; fi;; esac"
           }
         ]
       },
@@ -85,7 +85,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-changeset.sh\" \"$CLAUDE_FILE_PATH\""
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-changeset.sh\" \"$FILE\""
           }
         ]
       },
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/run-related-tests.sh\" \"$CLAUDE_FILE_PATH\"",
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/run-related-tests.sh\" \"$FILE\"",
             "timeout": 30000
           }
         ]
@@ -104,7 +104,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-dep-graph.sh\" \"$CLAUDE_FILE_PATH\"",
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-dep-graph.sh\" \"$FILE\"",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-llms.sh\" \"$FILE\"",
             "timeout": 30000
           }
         ]
@@ -116,6 +126,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-after-update-branch.sh\"",
             "timeout": 60000
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-push-sha.sh\"",
+            "timeout": 30000
           }
         ]
       }
@@ -137,6 +152,11 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-archive.sh\"",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-logger.sh\"",
             "timeout": 5000
           }
         ]

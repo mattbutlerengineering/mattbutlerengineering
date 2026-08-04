@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { HomePage } from "./HomePage.js";
 import type { ReactNode } from "react";
 
@@ -10,20 +10,17 @@ type MockProps = { children?: ReactNode };
 vi.mock("../components/HeroSection.js", () => ({
   HeroSection: () => <div data-testid="hero-section" />,
 }));
-vi.mock("../components/MetricsSection.js", () => ({
-  MetricsSection: () => <div data-testid="metrics-section" />,
-}));
-vi.mock("../components/AboutSection.js", () => ({
-  AboutSection: () => <div data-testid="about-section" />,
+vi.mock("../components/ProofStrip.js", () => ({
+  ProofStrip: () => <div data-testid="proof-strip" />,
 }));
 vi.mock("../components/ProjectsSection.js", () => ({
   ProjectsSection: () => <div data-testid="projects-section" />,
 }));
-vi.mock("../components/TechStackSection.js", () => ({
-  TechStackSection: () => <div data-testid="tech-stack-section" />,
-}));
 vi.mock("../components/ContactSection.js", () => ({
   ContactSection: () => <div data-testid="contact-section" />,
+}));
+vi.mock("../components/factory/FactorySection.js", () => ({
+  FactorySection: () => <div data-testid="factory-section" />,
 }));
 vi.mock("../components/Navbar.js", () => ({
   Navbar: () => <nav data-testid="navbar" />,
@@ -37,33 +34,50 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: MockProps) => <div>{children}</div>,
 }));
 
+function renderHomePage() {
+  return render(
+    <MemoryRouter>
+      <HomePage />
+    </MemoryRouter>
+  );
+}
+
+/** True when `first` precedes `second` in document order. */
+function precedes(first: HTMLElement, second: HTMLElement): boolean {
+  return Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+}
+
 describe("HomePage", () => {
-  it("renders all page sections in correct order", () => {
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    );
+  it("renders the evidence-first section set", () => {
+    renderHomePage();
     expect(screen.getByTestId("hero-section")).toBeInTheDocument();
-    expect(screen.getByTestId("metrics-section")).toBeInTheDocument();
-    expect(screen.getByTestId("about-section")).toBeInTheDocument();
+    expect(screen.getByTestId("proof-strip")).toBeInTheDocument();
     expect(screen.getByTestId("projects-section")).toBeInTheDocument();
-    expect(screen.getByTestId("tech-stack-section")).toBeInTheDocument();
+    expect(screen.getByTestId("factory-section")).toBeInTheDocument();
     expect(screen.getByTestId("contact-section")).toBeInTheDocument();
   });
 
-  it("places the metrics strip just below the hero, above projects", () => {
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
+  it("leads with the hero, then proof, then the work", () => {
+    renderHomePage();
+    expect(precedes(screen.getByTestId("hero-section"), screen.getByTestId("proof-strip"))).toBe(
+      true
     );
-    const hero = screen.getByTestId("hero-section");
-    const metrics = screen.getByTestId("metrics-section");
-    const projects = screen.getByTestId("projects-section");
-    expect(hero.compareDocumentPosition(metrics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
-      metrics.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+      precedes(screen.getByTestId("proof-strip"), screen.getByTestId("projects-section"))
+    ).toBe(true);
+  });
+
+  it("shows how the work gets built only after showing the work itself", () => {
+    renderHomePage();
+    expect(
+      precedes(screen.getByTestId("projects-section"), screen.getByTestId("factory-section"))
+    ).toBe(true);
+  });
+
+  it("closes with the weekly reads card above the minimal contact row", () => {
+    renderHomePage();
+    const weekly = screen.getByRole("link", { name: /browse the stack/i });
+    expect(precedes(screen.getByTestId("factory-section"), weekly)).toBe(true);
+    expect(precedes(weekly, screen.getByTestId("contact-section"))).toBe(true);
   });
 });

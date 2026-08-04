@@ -10,15 +10,22 @@ permissions:
   pull-requests: write
   pages: write
   id-token: write
+  # Required for the `gh workflow run` dispatch step below — GITHUB_TOKEN
+  # needs actions:write to call the workflow-dispatch API.
+  actions: write
 
 jobs:
   track:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build --filter @mbe/gh-client...
       - name: Generate PR metrics
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -26,8 +33,23 @@ jobs:
       - name: Generate dashboard metrics
         run: node scripts/generate-metrics-json.mjs
       - name: Open PR with updated metrics
+        id: create-pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        env:
+          # The action commits inside the runner, which fires the husky pre-commit
+          # hook; check-adr needs @mbe/agent-core built, which this job doesn't do.
+          # Bot commits of generated artifacts are validated by CI on the PR instead.
+          HUSKY: "0"
         with:
+          # AUTOMATION_PAT (#3684): a commit pushed with the default
+          # GITHUB_TOKEN is attributed to github-actions[bot], which forces
+          # every pull_request-triggered check on the resulting PR (CI, Auto
+          # Review, ADR check, ...) into `action_required` -- needing a human
+          # to manually approve the run before CI Gate can post. Pushing as a
+          # real PAT/bot-token identity avoids that gate entirely. Until
+          # AUTOMATION_PAT is set as a repo secret, this silently falls back
+          # to the broken GITHUB_TOKEN behavior -- see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           commit-message: "chore: update PR acceptance metrics"
           title: "chore: update PR acceptance metrics"
           body: |
@@ -40,3 +62,15 @@ jobs:
             metrics/pr-acceptance.json
             apps/marketing/public/metrics.json
           labels: auto-merge
+      - name: Dispatch CI on the automation branch
+        # GITHUB_TOKEN-authored pushes/PRs don't trigger other workflows
+        # (GitHub's anti-recursion rule), so the pull_request CI run —
+        # including the required CI Gate check — never fires and the PR sits
+        # BLOCKED. workflow_dispatch is a documented exception: an explicit
+        # API call, not a passive event, so it's allowed to trigger ci.yml.
+        # Only dispatch when a PR actually exists (skips no-op runs where
+        # metrics didn't change).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --ref automation/pr-acceptance-metrics

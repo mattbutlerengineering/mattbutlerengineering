@@ -8,7 +8,10 @@ import {
   formatPercent,
   formatRatio,
   formatDate,
+  formatMeasuredAt,
   formatTimestamp,
+  isStale,
+  isReportStale,
   SOURCE_COLORS,
   SOURCE_LABELS,
 } from "./formatters.js";
@@ -139,6 +142,18 @@ describe("formatDate", () => {
   });
 });
 
+describe("formatMeasuredAt", () => {
+  it("formats the ISO timestamp as a readable date", () => {
+    expect(formatMeasuredAt("2026-07-29T00:00:00.000Z")).toBe("July 29, 2026");
+  });
+
+  it("reads the date in UTC so the label does not shift with the viewer's timezone", () => {
+    // Midnight UTC is the previous day in every negative-offset zone; pinning to
+    // UTC keeps the rendered date identical to the one the build recorded.
+    expect(formatMeasuredAt("2026-01-01T00:30:00.000Z")).toBe("January 1, 2026");
+  });
+});
+
 describe("formatTimestamp", () => {
   it("formats ISO timestamp to readable date", () => {
     const result = formatTimestamp("2026-05-09T05:48:08.683Z");
@@ -152,6 +167,52 @@ describe("formatTimestamp", () => {
 
   it("handles undefined gracefully", () => {
     expect(formatTimestamp(undefined)).toBe("Never");
+  });
+});
+
+describe("isStale", () => {
+  it("returns false when generatedAt is within the 14-day freshness window", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isStale(generatedAt, now)).toBe(false);
+  });
+
+  it("returns false exactly at the 14-day boundary", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isStale(generatedAt, now)).toBe(false);
+  });
+
+  it("returns true when generatedAt exceeds the 14-day freshness window", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isStale(generatedAt, now)).toBe(true);
+  });
+});
+
+describe("isReportStale", () => {
+  it("returns false at 47h59m old (just under the 48h threshold)", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - (47 * 60 + 59) * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, 48, now)).toBe(false);
+  });
+
+  it("returns false exactly at the 48h boundary", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, 48, now)).toBe(false);
+  });
+
+  it("returns true at 48h01m old (just over the 48h threshold)", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - (48 * 60 + 1) * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, 48, now)).toBe(true);
+  });
+
+  it("defaults the threshold to 48 hours", () => {
+    const now = new Date("2026-07-30T00:00:00Z");
+    const generatedAt = new Date(now.getTime() - 49 * 60 * 60 * 1000).toISOString();
+    expect(isReportStale(generatedAt, undefined, now)).toBe(true);
   });
 });
 

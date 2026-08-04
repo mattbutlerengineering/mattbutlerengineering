@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";

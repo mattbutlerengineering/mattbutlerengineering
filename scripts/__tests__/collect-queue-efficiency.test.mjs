@@ -444,6 +444,73 @@ describe("collectQueueEfficiency — telemetry precise-cost preference", () => {
   });
 });
 
+// ── review_coverage ────────────────────────────────────────────────────────
+
+describe("collectQueueEfficiency — review_coverage", () => {
+  const CCUSAGE = { daily: [makeCcusage(0, 3.0)] };
+
+  /** 3 merged AI PRs in the current window. */
+  const PRS = [
+    makePr({ number: 10, commitCount: 1, createdAt: isoAgo(4), mergedAt: isoAgo(3) }),
+    makePr({ number: 11, commitCount: 1, createdAt: isoAgo(5), mergedAt: isoAgo(4) }),
+    makePr({ number: 12, commitCount: 1, createdAt: isoAgo(6), mergedAt: isoAgo(5) }),
+  ];
+
+  function collect(telemetryRows) {
+    return collectQueueEfficiency(
+      () => PRS,
+      () => CCUSAGE,
+      TEST_NOW,
+      () => telemetryRows
+    );
+  }
+
+  it("is 1 when every window row carries a real pass/flag verdict", () => {
+    const result = collect([
+      { pr_number: 10, reviewer_verdict: "pass" },
+      { pr_number: 11, reviewer_verdict: "flag" },
+      { pr_number: 12, reviewer_verdict: "pass" },
+    ]);
+
+    expect(result.sub_metrics.review_coverage).toBe(1);
+  });
+
+  it("drops when a window row records an error verdict", () => {
+    // An `error` row means the reviewer could not run — the gate did not fire,
+    // so it must not be counted as coverage the way a fail-open `pass` was.
+    const result = collect([
+      { pr_number: 10, reviewer_verdict: "pass" },
+      { pr_number: 11, reviewer_verdict: "error" },
+      { pr_number: 12, reviewer_verdict: "pass" },
+    ]);
+
+    expect(result.sub_metrics.review_coverage).toBeCloseTo(0.667, 3);
+  });
+
+  it("counts skipped rows as uncovered", () => {
+    const result = collect([
+      { pr_number: 10, reviewer_verdict: "pass" },
+      { pr_number: 11, reviewer_verdict: "skipped" },
+    ]);
+
+    expect(result.sub_metrics.review_coverage).toBe(0.5);
+  });
+
+  it("ignores rows outside the current window", () => {
+    const result = collect([
+      { pr_number: 10, reviewer_verdict: "pass" },
+      { pr_number: 999, reviewer_verdict: "error" },
+    ]);
+
+    expect(result.sub_metrics.review_coverage).toBe(1);
+  });
+
+  it("is null when no window PR has a telemetry row", () => {
+    // Distinguishes "no data" from a genuine zero-coverage window.
+    expect(collect([]).sub_metrics.review_coverage).toBeNull();
+  });
+});
+
 describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
   it("calls ghClient.pr.list with the expected query and derives commitCount", () => {
     const prs = [{ number: 1, state: "MERGED", commits: [{}, {}] }];

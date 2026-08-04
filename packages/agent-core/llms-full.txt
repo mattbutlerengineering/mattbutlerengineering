@@ -694,7 +694,11 @@
       return {
         runId: opts.runId,
         tasks: scores,
-        aggregate: aggregate(scores),
+        nonRunCount: scores.filter(taskDidNotRun).length,
+        aggregate: aggregate(
+          scores.filter((s) => !taskDidNotRun(s)),
+          scores
+        ),
         byCategory: aggregateByCategory(scores),
       };
     }
@@ -740,6 +744,14 @@
         throw new Error(`Invalid eval task "${path}": ${parsed.error.message}`);
       }
       return parsed.data;
+    }
+  </file>
+  <file path="src/eval/run-detection.ts">
+    export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
+      return score.turns === 0 && score.costUsd === 0;
+    }
+    export function suiteDidNotRun(report: EvalReport): boolean {
+      return report.tasks.length > 0 && report.tasks.every(taskDidNotRun);
     }
   </file>
   <file path="src/eval/task-scorer.ts">
@@ -2749,21 +2761,6 @@
       /** Optional suggested fix (could be a code snippet or natural-language guidance). */
       readonly suggestion?: string;
     }
-  </file>
-  <file path="src/reviewer-runner.ts">
-    export interface ReviewerConfig {
-      /** Model to use for the reviewer. Default: haiku (fast + cheap). */
-      readonly model: string;
-      /** Maximum spend per review in USD. Default: 0.05. */
-      readonly maxBudgetUsd: number;
-      /** Wall-clock timeout in ms. Reviewer fails-open on timeout. Default: 30_000. */
-      readonly timeoutMs: number;
-    }
-    export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig = {
-      model: resolveModelId("haiku"),
-      maxBudgetUsd: 0.05,
-      timeoutMs: 30_000,
-    };
   </file>
   <file path="src/run-agent-session.ts">
     export interface AgentSessionAdapter {

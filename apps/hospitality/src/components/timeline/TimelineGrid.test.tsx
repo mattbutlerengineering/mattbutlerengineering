@@ -36,14 +36,14 @@ vi.mock("./ReservationBlock", () => ({
     style: { left: number; width: number };
     isSelected?: boolean;
     isFocused?: boolean;
-    onClick?: () => void;
+    onClick?: (reservation: Reservation) => void;
   }) => (
     <button
       data-testid={`reservation-${reservation.id}`}
       data-selected={isSelected}
       data-focused={isFocused}
       style={{ left: style.left, width: style.width }}
-      onClick={onClick}
+      onClick={() => onClick?.(reservation)}
     >
       {reservation.guestName ?? "Guest"}
     </button>

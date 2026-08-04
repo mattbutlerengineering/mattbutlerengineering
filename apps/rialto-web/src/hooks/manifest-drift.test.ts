@@ -200,6 +200,7 @@ const DATA_COMPONENTS = [
   "Kbd",
   "Meter",
   "Shortcut",
+  "SilkFlow",
   "SplitFlap",
   "Stat",
   "Table",

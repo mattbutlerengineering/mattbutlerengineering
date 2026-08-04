@@ -2,18 +2,19 @@
   <section priority="medium" role="data">
   <file path="src/data/ai-health.ts">
     <item priority="low">
-      interface AcmmSensor {
-        available: boolean;
-        level: string;
-        score: number;
-        gaps: number;
+      interface QueueEfficiencyTierStats {
+        count: number;
+        avg_commits: number;
+        avg_ttm_hours: number;
       }
     </item>
     <item priority="low">
-      interface CiSensor {
-        available: boolean;
-        passRate: number;
-        recentRuns: number;
+      interface QueueEfficiencyBaseline {
+        composite_median: number | null;
+        weeks_sampled: number;
+        fps_median: number | null;
+        ttm_median: number | null;
+        cost_per_issue_median: number | null;
       }
     </item>
   </file>
@@ -22,7 +23,7 @@
       interface Project {
         title: string;
         description: string;
-        tags: string[];
+        stack: readonly string[];
         href?: string;
       }
     </item>
@@ -30,27 +31,18 @@
       export const PROJECTS: Project[];
     </item>
   </file>
-  <file path="src/data/stats.ts">
+  <file path="src/data/repo-stats.ts">
     <item priority="low">
-      interface SiteStat {
-        value: number;
-        label: string;
-        suffix?: string;
+      interface RepoStats {
+        agentPrsMerged: number;
+        totalPrsMerged: number;
+        rialtoComponents: number;
+        testFiles: number;
+        measuredAt: string;
       }
     </item>
     <item priority="high">
-      export const SITE_STATS: readonly SiteStat[];
-    </item>
-  </file>
-  <file path="src/data/tech-stack.ts">
-    <item priority="low">
-      interface TechCategory {
-        title: string;
-        items: string[];
-      }
-    </item>
-    <item priority="high">
-      export const TECH_STACK: TechCategory[];
+      export function isRepoStats(value: unknown): value is RepoStats { /* ... */ }
     </item>
   </file>
   <file path="src/data/weekly-intake.ts">
@@ -65,6 +57,62 @@
     </item>
     <item priority="high">
       export const weeklyResources: readonly WeeklyResource[];
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="factory">
+  <file path="src/components/factory/factory-palette.ts">
+    <item priority="low">
+      type Rgb = readonly [number, number, number];
+    </item>
+    <item priority="low">
+      interface FactoryPalette {
+        surface: Rgb;
+        line: Rgb;
+        accent: Rgb;
+        pass: Rgb;
+        fail: Rgb;
+      }
+    </item>
+  </file>
+  <file path="src/components/factory/factory-scene.ts">
+    <item priority="high">
+      export function startFactoryScene(
+        canvas: HTMLCanvasElement,
+        inputs: FactorySceneInputs
+      ): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runScene(
+        canvas: HTMLCanvasElement,
+        context: WebGL2RenderingContext,
+        inputs: FactorySceneInputs
+      ): () => void { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/factory/factory-shaders.ts">
+    <item priority="high">
+      export const BACKDROP_VERTEX_SHADER: unknown;
+    </item>
+    <item priority="high">
+      export const BACKDROP_FRAGMENT_SHADER: unknown;
+    </item>
+  </file>
+  <file path="src/components/factory/pipeline-stages.ts">
+    <item priority="low">
+      interface StageMetric {
+        value: number;
+        label: string;
+      }
+    </item>
+    <item priority="low">
+      interface PipelineStage {
+        id: string;
+        step: string;
+        name: string;
+        detail: string;
+        metric?: StageMetric;
+      }
     </item>
   </file>
   </section>

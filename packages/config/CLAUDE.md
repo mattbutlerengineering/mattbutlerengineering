@@ -53,7 +53,7 @@ export default defineVitestConfig({
 });
 ```
 
-Shipped as hand-authored `.js` runtime + sibling `.d.ts` types (no build step), the same shape as the `eslint/*` and `prettier` presets. **This is deliberate:** a consumer's `vitest.config.ts` is loaded by Vite, which externalizes workspace packages and `require()`s the preset directly. Node 22 strips TS types on `require()`, but Node 20 (still in the CI test matrix) does not — a raw `.ts` preset throws `SyntaxError: Unexpected token '{'` there. Plain `.js` loads on both. The internal `vitest/base.js` import is resolved through a private `#vitest-base` subpath (package.json `imports` field) rather than a relative specifier, so it works identically under Node's runtime resolution and every consumer's own `tsc` (whatever `moduleResolution` mode they use).
+Shipped as hand-authored `.js` runtime + sibling `.d.ts` types (no build step), the same shape as the `eslint/*` and `prettier` presets. **This is deliberate:** a consumer's `vitest.config.ts` is loaded by Vite, which externalizes workspace packages and `require()`s the preset directly. Node 22 strips TS types on `require()`, but older Node majors do not — a raw `.ts` preset throws `SyntaxError: Unexpected token '{'` there. Plain `.js` loads on both. The internal `vitest/base.js` import is resolved through a private `#vitest-base` subpath (package.json `imports` field) rather than a relative specifier, so it works identically under Node's runtime resolution and every consumer's own `tsc` (whatever `moduleResolution` mode they use).
 
 ## Commands
 

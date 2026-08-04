@@ -108,6 +108,32 @@
       description: string;
     }
   </file>
+  <file path="src/pages/examples/notification-center.ts">
+    export type NotificationType = "booking" | "payment" | "system";
+    export interface NotificationItem {
+      id: string;
+      type: NotificationType;
+      title: string;
+      message: string;
+      /** ISO timestamp. */
+      timestamp: string;
+      read: boolean;
+    }
+  </file>
+  <file path="src/pages/examples/onboarding.ts">
+    export type OnboardingStepId = "property" | "spaces" | "preferences" | "launch";
+    export interface OnboardingStepDef {
+      id: OnboardingStepId;
+      /** Short label for the persistent progress rail. */
+      label: string;
+      /** One-line rail description of what the step asks for. */
+      description: string;
+      /** Panel heading — the element focus moves to when the step changes. */
+      heading: string;
+      /** Panel sub-heading, in the product's own voice. */
+      blurb: string;
+    }
+  </file>
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/use-props-from-manifest.ts">

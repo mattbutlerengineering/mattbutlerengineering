@@ -491,6 +491,25 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="SilkFlow">
+  <file path="packages/rialto/src/components/SilkFlow/silk-flow-engine.ts">
+    interface StrandStyle {
+      readonly alpha: number;
+      readonly width: number;
+    }
+    interface Palette {
+      readonly surface: string;
+      readonly accent: string;
+      readonly silk: string;
+      readonly goldStyle: StrandStyle;
+      readonly silkStyle: StrandStyle;
+    }
+  </file>
+  <file path="packages/rialto/src/components/SilkFlow/silk-flow-field.ts">
+    export const FIELD_SCALE = 0.0022;
+    export const FIELD_TIME_STEP = 0.0035;
+  </file>
+  </section>
   <section priority="medium" role="SplitFlap">
   <file path="packages/rialto/src/components/SplitFlap/charset.ts">
     export const CHARSETS = {
@@ -1950,13 +1969,15 @@
             runTask,
           });
     
-          persistReport(report);
-    
-          if (options.json) {
-            console.log(JSON.stringify(report, null, 2));
-          } else {
-            printReport(report);
+          if (suiteDidNotRun(report)) {
+            emitReport(report, options.json);
+            console.error(`\n${noRunMessage()}`);
+            process.exitCode = NO_RUN_EXIT_CODE;
+            return;
           }
+    
+          persistReport(report);
+          emitReport(report, options.json);
     
           if (options.calibrate) {
             printCalibration(calibrate(report));
@@ -1985,9 +2006,12 @@
           }
         }
       );
-    function findLogFile(): string {
-      const root = findMonorepoRoot(process.cwd());
-      return join(root, "metrics", "eval-reports.jsonl");
+    function emitReport(report: EvalReport, json: boolean): void {
+      if (json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        printReport(report);
+      }
     }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -3022,23 +3046,25 @@
   </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health.ts">
-    export interface AcmmSensor {
-      readonly available: boolean;
-      readonly level: string;
-      readonly score: number;
-      readonly gaps: number;
+    export interface QueueEfficiencyTierStats {
+      readonly count: number;
+      readonly avg_commits: number;
+      readonly avg_ttm_hours: number;
     }
-    export interface CiSensor {
-      readonly available: boolean;
-      readonly passRate: number;
-      readonly recentRuns: number;
+    export interface QueueEfficiencyBaseline {
+      readonly composite_median: number | null;
+      readonly weeks_sampled: number;
+      readonly fps_median: number | null;
+      readonly ttm_median: number | null;
+      readonly cost_per_issue_median: number | null;
     }
   </file>
   <file path="apps/marketing/src/data/projects.ts">
     export interface Project {
       title: string;
       description: string;
-      tags: string[];
+      /** The technologies actually used to build it, rendered inline on the card. */
+      stack: readonly string[];
       href?: string; // undefined = no live link
     }
     export const PROJECTS: Project[] = [
@@ -3047,7 +3073,7 @@
         description:
           "A precision component library with 65+ components built on a warm neutral token system. " +
           "Every surface, radius, shadow, and motion value is tokenized — components compose, not collide.",
-        tags: ["React", "TypeScript", "Vite", "Framer Motion"],
+        stack: ["React", "TypeScript", "Vite", "Framer Motion", "CSS Modules"],
         href: "/rialto/",
       },
       {
@@ -3055,50 +3081,37 @@
         description:
           "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
           "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
-        tags: ["React", "Auth0", "PWA", "Fastify", "Prisma"],
+        stack: ["React", "Fastify", "Prisma", "PostgreSQL", "Auth0", "PWA"],
         href: "/hospitality/",
       },
     ];
   </file>
-  <file path="apps/marketing/src/data/stats.ts">
-    export interface SiteStat {
-      /** Numeric figure rendered via the Odometer rolling counter. */
-      readonly value: number;
-      /** Visible label describing the figure. */
-      readonly label: string;
-      /** Optional glyph shown after the value to signal an at-least figure (e.g. "+"). */
-      readonly suffix?: string;
+  <file path="apps/marketing/src/data/repo-stats.ts">
+    export interface RepoStats {
+      /** Merged pull requests carrying the `agent-authored` audit label. */
+      readonly agentPrsMerged: number;
+      /** Merged pull requests in total. */
+      readonly totalPrsMerged: number;
+      /** Component folders in `packages/rialto/src/components`. */
+      readonly rialtoComponents: number;
+      /** Git-tracked `*.test.*` / `*.spec.*` files. */
+      readonly testFiles: number;
+      /** ISO timestamp of the measurement. */
+      readonly measuredAt: string;
     }
-    export const SITE_STATS: readonly SiteStat[] = [
-      { value: PROJECTS.length, label: "Projects shipped" },
-      { value: 65, suffix: "+", label: "Rialto components" },
-      { value: TECH_COUNT, label: "Technologies in the stack" },
-      { value: TECH_STACK.length, label: "Domains owned end-to-end" },
-    ];
-  </file>
-  <file path="apps/marketing/src/data/tech-stack.ts">
-    export interface TechCategory {
-      title: string;
-      items: string[];
+    export function isRepoStats(value: unknown): value is RepoStats {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+      const candidate = value as Record<string, unknown>;
+    
+      const countersValid = COUNTER_KEYS.every((key) => {
+        const count = candidate[key];
+        return typeof count === "number" && Number.isInteger(count) && count >= 0;
+      });
+      if (!countersValid) return false;
+    
+      const { measuredAt } = candidate;
+      return typeof measuredAt === "string" && !Number.isNaN(Date.parse(measuredAt));
     }
-    export const TECH_STACK: TechCategory[] = [
-      {
-        title: "Frontend",
-        items: ["React", "TypeScript", "Vite", "Framer Motion"],
-      },
-      {
-        title: "Backend",
-        items: ["Fastify", "Prisma", "PostgreSQL", "Node.js"],
-      },
-      {
-        title: "Infrastructure",
-        items: ["Cloudflare Workers", "DigitalOcean", "Pulumi", "Turborepo"],
-      },
-      {
-        title: "Auth & DevOps",
-        items: ["Auth0", "GitHub Actions", "Docker", "pnpm"],
-      },
-    ];
   </file>
   <file path="apps/marketing/src/data/weekly-intake.ts">
     export interface WeeklyResource {
@@ -3434,7 +3447,11 @@
       return {
         runId: opts.runId,
         tasks: scores,
-        aggregate: aggregate(scores),
+        nonRunCount: scores.filter(taskDidNotRun).length,
+        aggregate: aggregate(
+          scores.filter((s) => !taskDidNotRun(s)),
+          scores
+        ),
         byCategory: aggregateByCategory(scores),
       };
     }
@@ -3480,6 +3497,14 @@
         throw new Error(`Invalid eval task "${path}": ${parsed.error.message}`);
       }
       return parsed.data;
+    }
+  </file>
+  <file path="packages/agent-core/src/eval/run-detection.ts">
+    export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean {
+      return score.turns === 0 && score.costUsd === 0;
+    }
+    export function suiteDidNotRun(report: EvalReport): boolean {
+      return report.tasks.length > 0 && report.tasks.every(taskDidNotRun);
     }
   </file>
   <file path="packages/agent-core/src/eval/task-scorer.ts">
@@ -3537,6 +3562,300 @@
       id: WizardStepId;
       label: string;
       description: string;
+    }
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/notification-center.ts">
+    export type NotificationType = "booking" | "payment" | "system";
+    export interface NotificationItem {
+      id: string;
+      type: NotificationType;
+      title: string;
+      message: string;
+      /** ISO timestamp. */
+      timestamp: string;
+      read: boolean;
+    }
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/onboarding.ts">
+    export type OnboardingStepId = "property" | "spaces" | "preferences" | "launch";
+    export interface OnboardingStepDef {
+      id: OnboardingStepId;
+      /** Short label for the persistent progress rail. */
+      label: string;
+      /** One-line rail description of what the step asks for. */
+      description: string;
+      /** Panel heading — the element focus moves to when the step changes. */
+      heading: string;
+      /** Panel sub-heading, in the product's own voice. */
+      blurb: string;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="factory">
+  <file path="apps/marketing/src/components/factory/factory-palette.ts">
+    export type Rgb = readonly [number, number, number];
+    export interface FactoryPalette {
+      /** Page surface behind the scene — the clear colour. */
+      readonly surface: Rgb;
+      /** Neutral structure: the rail, the gate posts, unfinished work. */
+      readonly line: Rgb;
+      /** Gold. Reserved for the travelling pulse and gate flashes. */
+      readonly accent: Rgb;
+      /** Work that passed its tests. */
+      readonly pass: Rgb;
+      /** Work mid-red-phase, and work a gate rejected. */
+      readonly fail: Rgb;
+      /** Nearest `data-theme` scope, so the scene can bias its contrast. */
+      readonly isDark: boolean;
+    }
+  </file>
+  <file path="apps/marketing/src/components/factory/factory-scene.ts">
+    export function startFactoryScene(
+      canvas: HTMLCanvasElement,
+      inputs: FactorySceneInputs
+    ): () => void {
+      // Probed with the attributes the renderer needs: a second `getContext` call
+      // returns the context created by the first, ignoring its arguments.
+      const context = canvas.getContext("webgl2", {
+        alpha: true,
+        antialias: true,
+        depth: false,
+        powerPreference: "high-performance",
+      });
+      return context ? runScene(canvas, context as WebGL2RenderingContext, inputs) : () => {};
+    }
+    function runScene(
+      canvas: HTMLCanvasElement,
+      context: WebGL2RenderingContext,
+      inputs: FactorySceneInputs
+    ): () => void {
+      const renderer = new WebGLRenderer({ canvas, context, alpha: true, antialias: true });
+      renderer.setClearColor(0x000000, 0);
+    
+      const scene = new Scene();
+      // Fixed design space: x ∈ [-1, 1], y ∈ [-0.5, 0.5], stretched to the canvas.
+      const camera = new OrthographicCamera(-1, 1, 0.5, -0.5, -1, 1);
+    
+      const backdropGeometry = new PlaneGeometry(2, 1);
+      const backdropMaterial = new ShaderMaterial({
+        vertexShader: BACKDROP_VERTEX_SHADER,
+        fragmentShader: BACKDROP_FRAGMENT_SHADER,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        uniforms: {
+          uTime: { value: 0 },
+          uUnitPerPx: { value: [2 / 1000, 1 / 300] },
+          uLine: { value: [0, 0, 0] },
+          uAccent: { value: [0, 0, 0] },
+          uIsDark: { value: 0 },
+        },
+      });
+      const backdrop = new Mesh(backdropGeometry, backdropMaterial);
+      backdrop.frustumCulled = false;
+      scene.add(backdrop);
+    
+      const particleGeometry = buildParticleGeometry(inputs.particleCount);
+      const particleMaterial = new ShaderMaterial({
+        vertexShader: PARTICLE_VERTEX_SHADER,
+        fragmentShader: PARTICLE_FRAGMENT_SHADER,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        uniforms: {
+          uTime: { value: 0 },
+          uAgentShare: { value: inputs.agentShare },
+          uPixelRatio: { value: 1 },
+          uLine: { value: [0, 0, 0] },
+          uAccent: { value: [0, 0, 0] },
+          uPass: { value: [0, 0, 0] },
+          uFail: { value: [0, 0, 0] },
+          uIsDark: { value: 0 },
+        },
+      });
+      const particles = new Points(particleGeometry, particleMaterial);
+      particles.frustumCulled = false;
+      scene.add(particles);
+    
+      const start = performance.now();
+      let frameId = 0;
+      let onScreen = true;
+      let stopped = false;
+    
+      function applyPalette(palette: FactoryPalette): void {
+        const isDark = palette.isDark ? 1 : 0;
+        backdropMaterial.uniforms["uLine"]!.value = palette.line;
+        backdropMaterial.uniforms["uAccent"]!.value = palette.accent;
+        backdropMaterial.uniforms["uIsDark"]!.value = isDark;
+        particleMaterial.uniforms["uLine"]!.value = palette.line;
+        particleMaterial.uniforms["uAccent"]!.value = palette.accent;
+        particleMaterial.uniforms["uPass"]!.value = palette.pass;
+        particleMaterial.uniforms["uFail"]!.value = palette.fail;
+        particleMaterial.uniforms["uIsDark"]!.value = isDark;
+        // Light surfaces wash out under additive blending; dark ones come alive.
+        particleMaterial.blending = palette.isDark ? AdditiveBlending : NormalBlending;
+        particleMaterial.needsUpdate = true;
+      }
+    
+      function resize(): void {
+        const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+        const width = Math.max(1, canvas.clientWidth);
+        const height = Math.max(1, canvas.clientHeight);
+        renderer.setPixelRatio(dpr);
+        renderer.setSize(width, height, false);
+        backdropMaterial.uniforms["uUnitPerPx"]!.value = [2 / (width * dpr), 1 / (height * dpr)];
+        particleMaterial.uniforms["uPixelRatio"]!.value = dpr;
+      }
+    
+      function tick(): void {
+        frameId = requestAnimationFrame(tick);
+        const elapsed = (performance.now() - start) / 1000;
+        backdropMaterial.uniforms["uTime"]!.value = elapsed;
+        particleMaterial.uniforms["uTime"]!.value = elapsed;
+        renderer.render(scene, camera);
+      }
+    
+      function play(): void {
+        if (!frameId && !stopped) frameId = requestAnimationFrame(tick);
+      }
+    
+      function pause(): void {
+        if (!frameId) return;
+        cancelAnimationFrame(frameId);
+        frameId = 0;
+      }
+    
+      /** Frames are only worth spending while the canvas is on screen and on top. */
+      function syncPlayback(): void {
+        if (onScreen && !document.hidden) play();
+        else pause();
+      }
+    
+      const intersection = new IntersectionObserver((entries) => {
+        onScreen = entries.some((entry) => entry.isIntersecting);
+        syncPlayback();
+      });
+      intersection.observe(canvas);
+    
+      const themeChange = new MutationObserver(() => applyPalette(readFactoryPalette(canvas)));
+      themeChange.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+      });
+    
+      window.addEventListener("resize", resize);
+      document.addEventListener("visibilitychange", syncPlayback);
+    
+      applyPalette(readFactoryPalette(canvas));
+      resize();
+      play();
+    
+      return () => {
+        if (stopped) return;
+        stopped = true;
+        pause();
+        intersection.disconnect();
+        themeChange.disconnect();
+        window.removeEventListener("resize", resize);
+        document.removeEventListener("visibilitychange", syncPlayback);
+        backdropGeometry.dispose();
+        backdropMaterial.dispose();
+        particleGeometry.dispose();
+        particleMaterial.dispose();
+        renderer.forceContextLoss();
+        renderer.dispose();
+      };
+    }
+  </file>
+  <file path="apps/marketing/src/components/factory/factory-shaders.ts">
+    export const BACKDROP_VERTEX_SHADER = /* glsl */ `
+      varying vec2 vPos;
+    
+      void main() {
+        vPos = position.xy;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+    export const BACKDROP_FRAGMENT_SHADER = /* glsl */ `
+      varying vec2 vPos;
+    
+      uniform float uTime;
+      uniform vec2 uUnitPerPx;
+      uniform vec3 uLine;
+      uniform vec3 uAccent;
+      uniform float uIsDark;
+    
+      ${COMMON}
+    
+      void main() {
+        vec2 p = vPos;
+        float dy = p.y - RAIL_Y;
+        float edge = smoothstep(1.02, 0.9, abs(p.x));
+        float wave = pulseX(uTime);
+    
+        /* Neutral structure and gold accent accumulate separately so gold can stay
+           surgical: it is only ever the moving pulse and what it touches. */
+        float ink = 0.0;
+        float gold = 0.0;
+    
+        /* The rail: a crisp line over a wide, faint bloom. */
+        ink += stroke(dy, uUnitPerPx.y * 1.4) * 1.0 * edge;
+        ink += stroke(dy, 0.022) * 0.16 * edge;
+    
+        /* Machinist's rule beneath the rail. */
+        float tickDistance = abs(fract(p.x * 30.0) - 0.5) / 30.0;
+        float tickBand = smoothstep(0.020, 0.0, abs(dy + 0.017));
+        ink += stroke(tickDistance, uUnitPerPx.x * 1.2) * tickBand * 0.34 * edge;
+    
+        /* Gate posts hang below the rail towards the labels; a collar marks each
+           one on the rail itself. */
+        float postWindow = smoothstep(0.10, 0.0, dy > 0.0 ? dy * 2.4 : -dy * 0.34);
+        for (int i = 0; i < 6; i++) {
+          float gx = gateX(i);
+          float post = stroke(p.x - gx, uUnitPerPx.x * 1.5) * postWindow;
+          float collar = stroke(p.x - gx, uUnitPerPx.x * 3.0) * stroke(dy, uUnitPerPx.y * 5.0);
+          ink += post * 0.62 + collar * 0.5;
+          gold += (post + collar * 1.4) * bell(wave - gx, 0.06) * 1.5;
+        }
+    
+        /* The pulse itself, riding the rail. */
+        gold += bell(p.x - wave, 0.055) * stroke(dy, uUnitPerPx.y * 3.0) * edge * 1.3;
+        gold += bell(p.x - wave, 0.09) * stroke(dy, 0.014) * edge * 0.26;
+    
+        /* Deploy: a tight standing glow that flares as the pulse lands. */
+        vec2 burst = (p - vec2(gateX(5), RAIL_Y)) / vec2(0.075, 0.055);
+        gold += exp(-dot(burst, burst)) * (0.3 + 0.75 * bell(wave - gateX(5), 0.10));
+    
+        /* Feedback arc: deploy back round to issues, flowing right to left. */
+        float u = clamp((p.x - GATE_0) / (gateX(5) - GATE_0), 0.0, 1.0);
+        float arcY = RAIL_Y - ARC_DEPTH * sin(PI * u);
+        float onArc = step(GATE_0 - 0.005, p.x) * step(p.x, gateX(5) + 0.005);
+        float dash = 0.1 + 0.9 * pow(0.5 + 0.5 * sin(u * 150.0 + uTime * 5.0), 4.0);
+        ink += stroke(p.y - arcY, uUnitPerPx.y * 1.3) * onArc * dash * 0.85;
+    
+        /* Dark surfaces need less ink to read; light ones need more to stop the
+           structure dissolving into the page. */
+        float inkAlpha = ink * mix(0.78, 0.46, uIsDark);
+        float alpha = clamp(inkAlpha + gold, 0.0, 1.0);
+        vec3 color = (uLine * inkAlpha + uAccent * gold) / max(inkAlpha + gold, 0.0001);
+    
+        gl_FragColor = vec4(color, alpha);
+      }
+    `;
+  </file>
+  <file path="apps/marketing/src/components/factory/pipeline-stages.ts">
+    export interface StageMetric {
+      readonly value: number;
+      readonly label: string;
+    }
+    export interface PipelineStage {
+      readonly id: string;
+      /** Zero-padded position, so the order survives a single-column layout. */
+      readonly step: string;
+      readonly name: string;
+      readonly detail: string;
+      /** Present only where the repo actually counts something for this stage. */
+      readonly metric?: StageMetric;
     }
   </file>
   </section>
@@ -4694,6 +5013,26 @@
       };
     
       return { ref, style, onMouseMove, onMouseLeave };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="journeys">
+  <file path="apps/hospitality/e2e/journeys/journey-api.ts">
+    export const SYNTHETIC_VENUE_PREFIX = "synthetic-journey-";
+    interface VenueSummary {
+      id: string;
+      name: string;
+    }
+  </file>
+  <file path="apps/hospitality/e2e/journeys/journey-recorder.ts">
+    export type JourneyStepStatus = "passed" | "failed" | "skipped";
+    export interface JourneyStepResult {
+      name: string;
+      status: JourneyStepStatus;
+      durationMs: number;
+      error?: string;
+      /** Visible `[role="alert"]` text when the step failed — see capturePageError. */
+      pageError?: string;
     }
   </file>
   </section>
@@ -6828,6 +7167,75 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/booking-metrics.ts">
+    function todayDateString(): string {
+      return new Date().toISOString().slice(0, 10);
+    }
+    export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{
+        Querystring: { date?: string; venueId?: string };
+        Reply: { data: DailyBookingMetrics } | ProblemDetails;
+      }>(
+        "/daily",
+        {
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
+          schema: {
+            summary: "Get daily booking-funnel counts",
+            operationId: "getDailyBookingMetrics",
+            description:
+              "Internal aggregation route for booking-funnel telemetry. Returns counts-only " +
+              "reservation and deposit aggregates for a given day and venue — never a " +
+              "reservation id, guest name, email, or phone number.",
+            tags: ["Metrics"],
+            security: [{ bearerAuth: [] }],
+            querystring: {
+              type: "object",
+              properties: {
+                date: { type: "string", description: "YYYY-MM-DD, defaults to today" },
+                venueId: { type: "string" },
+              },
+            },
+            response: {
+              200: {
+                description: "Daily booking-funnel counts",
+                type: "object",
+                properties: {
+                  data: { type: "object", additionalProperties: true },
+                },
+              },
+              400: { description: "Missing or invalid query parameters", $ref: "Error#" },
+              401: { description: "Authentication required", $ref: "Error#" },
+              403: { description: "No access to the requested venue", $ref: "Error#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          // Venue authorization is enforced by requireVenueAccess (ADR-020). The
+          // explicit check below only guards the platform-admin path, which
+          // bypasses venue resolution entirely and would otherwise reach here
+          // with venueId undefined.
+          const { venueId } = request.query;
+          if (!venueId) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "venueId query parameter is required"));
+          }
+    
+          const date = request.query.date ?? todayDateString();
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+          }
+    
+          const data = await bookingMetricsService.getDailyBookingMetrics({ date, venueId });
+          return { data };
+        }
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/briefing.ts">
     export const briefingRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.get<{
@@ -8275,6 +8683,9 @@
         {
           config: {
             rateLimit: { max: 10, timeWindow: "1 minute" },
+          },
+          schema: {
+            body: modifyReservationBodyJsonSchema,
           },
           preHandler: requireManageToken,
         },
@@ -11690,6 +12101,21 @@
     }
     export type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
   </file>
+  <file path="services/reservations/src/services/booking-metrics.ts">
+    export interface ReservationStatusCounts {
+      pending: number;
+      confirmed: number;
+      cancelled: number;
+      completed: number;
+      noShow: number;
+    }
+    export interface DepositTransitionCounts {
+      held: number;
+      applied: number;
+      refunded: number;
+      forfeited: number;
+    }
+  </file>
   <file path="services/reservations/src/services/booking-notifications.ts">
     function reminderJobId(jobType: string, reservationId: string): string {
       return `${jobType}:${reservationId}`;
@@ -14545,21 +14971,6 @@
       readonly suggestion?: string;
     }
   </file>
-  <file path="packages/agent-core/src/reviewer-runner.ts">
-    export interface ReviewerConfig {
-      /** Model to use for the reviewer. Default: haiku (fast + cheap). */
-      readonly model: string;
-      /** Maximum spend per review in USD. Default: 0.05. */
-      readonly maxBudgetUsd: number;
-      /** Wall-clock timeout in ms. Reviewer fails-open on timeout. Default: 30_000. */
-      readonly timeoutMs: number;
-    }
-    export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig = {
-      model: resolveModelId("haiku"),
-      maxBudgetUsd: 0.05,
-      timeoutMs: 30_000,
-    };
-  </file>
   <file path="packages/agent-core/src/run-agent-session.ts">
     export interface AgentSessionAdapter {
       runSession(
@@ -15750,7 +16161,7 @@
     }
   </file>
   <file path="packages/gh-client/src/client.ts">
-    export interface GhClientOptions extends ExecRunnerOptions {
+    export interface GhClientOptions extends TransportOptions {
       runner?: ExecRunner;
     }
     function buildLabelArgs(transition: LabelTransition): string[] {
@@ -15777,6 +16188,24 @@
       timeoutMs?: number;
     }
   </file>
+  <file path="packages/gh-client/src/gh-probe.ts">
+    export type GhProbe = () => boolean;
+    function defaultProbeExec(): void {
+      execFileSync("gh", ["--version"], {
+        encoding: "utf-8",
+        timeout: 5_000,
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    }
+  </file>
+  <file path="packages/gh-client/src/git-branch.ts">
+    export function currentBranch(exec: (cmd: string, args: string[]) => string = defaultExec): string {
+      return exec("git", ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+    }
+    function defaultExec(cmd: string, args: string[]): string {
+      return execFileSync(cmd, args, { encoding: "utf-8", timeout: 5_000 });
+    }
+  </file>
   <file path="packages/gh-client/src/label-machine.ts">
     export const COORDINATION_LABELS = {
       READY: "ready",
@@ -15786,6 +16215,236 @@
       AGENT_SKIP: "agent-skip",
     } as const;
     export type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LABELS];
+  </file>
+  <file path="packages/gh-client/src/repo-resolver.ts">
+    export interface RepoSlug {
+      owner: string;
+      repo: string;
+    }
+    export function parseRepoSlug(remoteUrl: string): RepoSlug | null {
+      const match = REMOTE_URL_PATTERN.exec(remoteUrl.trim());
+      if (!match) return null;
+      const [, owner, repo] = match;
+      if (!owner || !repo) return null;
+      return { owner, repo };
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-args.ts">
+    export class MissingGithubTokenError extends Error {
+      constructor() {
+        super(
+          "gh-client: no `gh` binary on PATH and no GITHUB_TOKEN/GH_TOKEN in the environment. " +
+            "Set GITHUB_TOKEN (or GH_TOKEN) to use the REST fallback."
+        );
+        this.name = "MissingGithubTokenError";
+      }
+    }
+    export function resolveToken(env: NodeJS.ProcessEnv = process.env): string {
+      const token = env.GITHUB_TOKEN ?? env.GH_TOKEN;
+      if (!token) throw new MissingGithubTokenError();
+      return token;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-http.ts">
+    export interface RestContext {
+      token: string;
+      owner: string;
+      repo: string;
+      http: SyncHttp;
+    }
+    export interface RestResult {
+      status: number;
+      /** Parsed JSON body, or `null` for an empty (e.g. 204) response. */
+      json: unknown;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-issue-ops.ts">
+    function issuesPath(ctx: RestContext): string {
+      return `/repos/${ctx.owner}/${ctx.repo}/issues`;
+    }
+    function isPullRequest(item: RawIssue): boolean {
+      return "pull_request" in item;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-label-run-ops.ts">
+    export function labelList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
+      const limit = Number(flag(parsed, "limit") ?? "30");
+      const items = fetchAllPages(ctx, `/repos/${ctx.owner}/${ctx.repo}/labels`, limit);
+      return (items as RawLabel[]).map(mapLabel);
+    }
+    export function workflowRuns(ctx: RestContext, parsed: ParsedArgs): unknown[] {
+      const limit = Number(flag(parsed, "limit") ?? "30");
+      const params = new URLSearchParams();
+    
+      const branch = flag(parsed, "branch");
+      if (branch) params.set("branch", branch);
+      const commit = flag(parsed, "commit");
+      if (commit) params.set("head_sha", commit);
+    
+      const query = params.toString();
+      const path = `/repos/${ctx.owner}/${ctx.repo}/actions/runs${query ? `?${query}` : ""}`;
+      const items = fetchAllPages(ctx, path, limit, "workflow_runs") as RawWorkflowRun[];
+    
+      const workflowName = flag(parsed, "workflow");
+      const filtered = workflowName ? items.filter((run) => run.name === workflowName) : items;
+      return filtered.map(mapWorkflowRun);
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-mappers.ts">
+    export interface RawLabel {
+      name: string;
+      color?: string;
+      description?: string | null;
+    }
+    export interface RawUser {
+      login: string;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-paginate.ts">
+    export function fetchAllPages(
+      ctx: RestContext,
+      basePath: string,
+      limit: number,
+      itemsKey?: string
+    ): unknown[] {
+      const results: unknown[] = [];
+      const separator = basePath.includes("?") ? "&" : "?";
+    
+      for (let page = 1; results.length < limit; page++) {
+        const perPage = Math.min(100, limit - results.length);
+        const { json } = apiRequest(
+          ctx,
+          "GET",
+          `${basePath}${separator}per_page=${perPage}&page=${page}`
+        );
+        const pageItems = itemsKey
+          ? ((json as Record<string, unknown>)?.[itemsKey] ?? [])
+          : (json ?? []);
+        if (!Array.isArray(pageItems) || pageItems.length === 0) break;
+    
+        results.push(...pageItems);
+        if (pageItems.length < perPage) break;
+      }
+    
+      return results.slice(0, limit);
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-pr-ops.ts">
+    function pullsPath(ctx: RestContext): string {
+      return `/repos/${ctx.owner}/${ctx.repo}/pulls`;
+    }
+    function prNumberOf(item: unknown): number {
+      return (item as { number: number }).number;
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-runner.ts">
+    export interface RestRunnerOptions {
+      /** Defaults to `GITHUB_TOKEN ?? GH_TOKEN`. */
+      token?: string;
+      owner?: string;
+      repoName?: string;
+      /** Injected in tests — defaults to the real subprocess-fetch bridge. */
+      http?: SyncHttp;
+      /** Injected in tests for git-derived defaults (repo slug, PR head branch). */
+      exec?: (cmd: string, args: string[]) => string;
+      env?: NodeJS.ProcessEnv;
+    }
+    export function createRestRunner(
+      opts: RestRunnerOptions = {}
+    ): (cmd: string, args: string[]) => string {
+      return function run(_cmd: string, args: string[]): string {
+        const env = opts.env ?? process.env;
+        const token = opts.token ?? resolveToken(env);
+        const { owner, repo } =
+          opts.owner && opts.repoName
+            ? { owner: opts.owner, repo: opts.repoName }
+            : resolveRepoSlug({ env, exec: opts.exec });
+        const http = opts.http ?? defaultSyncHttp;
+        const ctx: RestContext = { token, owner, repo, http };
+    
+        const [resource, action, ...rest] = args;
+        const parsed = parseArgs(rest);
+        const number = Number(parsed.positional[0]);
+    
+        switch (`${resource} ${action}`) {
+          case "issue list":
+            return JSON.stringify(issueList(ctx, parsed));
+          case "issue view":
+            return JSON.stringify(issueView(ctx, number, parsed));
+          case "issue create":
+            return issueCreate(ctx, parsed);
+          case "issue comment":
+            issueComment(ctx, number, flag(parsed, "body") ?? "");
+            return "";
+          case "issue reopen":
+            issueReopen(ctx, number);
+            return "";
+          case "issue close":
+            issueClose(ctx, number, parsed);
+            return "";
+          case "issue edit":
+            issueEdit(ctx, number, parsed);
+            return "";
+          case "pr list":
+            return JSON.stringify(prList(ctx, parsed));
+          case "pr view":
+            return JSON.stringify(prView(ctx, number, parsed));
+          case "pr create":
+            return prCreate(ctx, parsed, { exec: opts.exec });
+          case "label list":
+            return JSON.stringify(labelList(ctx, parsed));
+          case "run list":
+            return JSON.stringify(workflowRuns(ctx, parsed));
+          default:
+            throw new Error(`gh-client REST fallback: unsupported command "gh ${args.join(" ")}"`);
+        }
+      };
+    }
+  </file>
+  <file path="packages/gh-client/src/rest-search.ts">
+    export function buildSearchQuery(
+      ctx: RestContext,
+      kind: "issue" | "pr",
+      parsed: ParsedArgs,
+      search: string
+    ): string {
+      const parts = [`repo:${ctx.owner}/${ctx.repo}`, kind === "pr" ? "is:pr" : "is:issue"];
+    
+      const state = flag(parsed, "state");
+      if (state && state !== "all") parts.push(`state:${state}`);
+    
+      for (const label of flagAll(parsed, "label")) {
+        parts.push(`label:${label}`);
+      }
+    
+      parts.push(search);
+      return parts.join(" ");
+    }
+  </file>
+  <file path="packages/gh-client/src/sync-http.ts">
+    export interface SyncHttpRequest {
+      method: string;
+      url: string;
+      headers: Record<string, string>;
+      body?: string;
+    }
+    export interface SyncHttpResponse {
+      /** 0 means the request never reached a server (DNS/network failure). */
+      status: number;
+      body: string;
+    }
+  </file>
+  <file path="packages/gh-client/src/transport.ts">
+    export interface TransportOptions extends ExecRunnerOptions, RestRunnerOptions {
+      /** Injected in tests to force the exec or REST path — see #3689. */
+      probe?: GhProbe;
+    }
+    export function createTransportRunner(
+      opts: TransportOptions = {}
+    ): (cmd: string, args: string[]) => string {
+      const probe = opts.probe ?? probeGh;
+      return probe() ? createExecRunner(opts) : createRestRunner(opts);
+    }
   </file>
   <file path="packages/jobs/src/dispatch-job.ts">
     export class UnknownJobTypeError extends Error {
@@ -17600,6 +18259,7 @@
       await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
       await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
       await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
+      await fastify.register(bookingMetricsRoutes, { prefix: "/api/v1/reservations/metrics" });
     
       // Public routes (no auth required)
       await fastify.register(publicVenueRoutes, { prefix: "/public/v1/venues" });
@@ -18176,6 +18836,15 @@
       return rtf.format(diffHours, "hour");
     }
   </file>
+  <file path="apps/hospitality/src/utils/calendarLinks.ts">
+    export interface BuildCalendarLinkOptions {
+      /** Guest-facing cancellation/manage-reservation link, included in the event description. */
+      cancellationUrl?: string;
+    }
+    function buildEventTitle(venue: PublicVenueConfig): string {
+      return `${venue.name} Reservation`;
+    }
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     export function formatLongDate(dateStr: string): string {
       return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
@@ -18191,6 +18860,23 @@
         day: "numeric",
         year: "numeric",
       });
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/ics.ts">
+    export interface BuildReservationIcsOptions {
+      /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
+      cancellationUrl?: string;
+      /** Clock used for DTSTAMP. Defaults to `new Date()`. Pass explicitly for deterministic output. */
+      now?: Date;
+      /** Calendar UID. Defaults to `${reservation.id}@mattbutlerengineering.com`. */
+      uid?: string;
+    }
+    function escapeIcsText(value: string): string {
+      return value
+        .replace(/\\/g, "\\\\")
+        .replace(/;/g, "\\;")
+        .replace(/,/g, "\\,")
+        .replace(/\r\n|\r|\n/g, "\\n");
     }
   </file>
   <file path="apps/hospitality/src/utils/ordinal.ts">

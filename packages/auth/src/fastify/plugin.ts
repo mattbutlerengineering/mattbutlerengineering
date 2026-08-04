@@ -58,9 +58,7 @@ export function isTestBypass(
   bypassTestMode: boolean
 ): boolean {
   return (
-    process.env.NODE_ENV === "test" &&
-    bypassTestMode &&
-    request.headers["x-auth-bypass"] === "true"
+    process.env.NODE_ENV === "test" && bypassTestMode && request.headers["x-auth-bypass"] === "true"
   );
 }
 
@@ -110,7 +108,7 @@ export function createJoseVerifier(authority: string, audience: string): JwtVeri
   const issuer = `${normalizedAuthority}/`;
 
   return async (token) => {
-    const { payload } = await jwtVerify(token, JWKS, { issuer, audience });
+    const { payload } = await jwtVerify(token, JWKS, { issuer, audience, algorithms: ["RS256"] });
     return payload;
   };
 }

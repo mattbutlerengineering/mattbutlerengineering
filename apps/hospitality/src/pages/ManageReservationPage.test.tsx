@@ -5,7 +5,7 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const mockSearchParams = new URLSearchParams();
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useSearchParams: () => [mockSearchParams],
 }));
 

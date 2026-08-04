@@ -27,7 +27,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { WORKSPACE_ROOTS, zoneForPath } from "./merge-train-lock.mjs";
+import { WORKSPACE_ROOTS, zoneForPath, zoneForPaths } from "./merge-train-lock.mjs";
 
 // Repo root resolved from this module's own location (scripts/ → repo root),
 // so the workspace scan is independent of the caller's cwd.
@@ -82,6 +82,56 @@ function buildScopeZoneMap(repoRoot = REPO_ROOT) {
 const SCOPE_ZONE_MAP = buildScopeZoneMap();
 
 // ---------------------------------------------------------------------------
+// Body-derived path fallback
+// ---------------------------------------------------------------------------
+
+// The `/decompose` output shape (see .claude/skills/decompose) always emits
+// this exact heading before its file list.
+const FILES_SECTION_HEADING = /^#{1,6}[ \t]*files to modify\/create[ \t]*$/im;
+// Any markdown heading — used to find where the files section ends.
+const HEADING_LINE = /^#{1,6}[ \t]+\S/m;
+
+// A path token must start with a recognized workspace root so prose like
+// "main", "CI Gate", or "origin/main" can never be mistaken for a path.
+// Bounded, non-overlapping character classes keep this linear-time (no
+// nested-quantifier backtracking risk) even on adversarial issue bodies.
+const PATH_TOKEN_PATTERN = /\b(?:apps|packages|services)\/[\w.-]+(?:\/[\w.-]+)*/g;
+
+/**
+ * Extracts the `## Files to Modify/Create` section body (text between that
+ * heading and the next heading, or end of string), or null if absent.
+ *
+ * @param {string} body
+ * @returns {string | null}
+ */
+function extractFilesSection(body) {
+  const headingMatch = FILES_SECTION_HEADING.exec(body);
+  if (!headingMatch) return null;
+  const rest = body.slice(headingMatch.index + headingMatch[0].length);
+  const nextHeadingMatch = HEADING_LINE.exec(rest);
+  return nextHeadingMatch ? rest.slice(0, nextHeadingMatch.index) : rest;
+}
+
+/**
+ * Extracts candidate repo-relative paths from an issue body.
+ *
+ * Prefers the `## Files to Modify/Create` section (the shape `/decompose`
+ * generates) when present and non-empty; otherwise scans the whole body.
+ *
+ * @param {unknown} body
+ * @returns {string[]}
+ */
+function extractPathsFromBody(body) {
+  if (typeof body !== "string" || body.length === 0) return [];
+  const section = extractFilesSection(body);
+  if (section) {
+    const sectionPaths = section.match(PATH_TOKEN_PATTERN) ?? [];
+    if (sectionPaths.length > 0) return sectionPaths;
+  }
+  return body.match(PATH_TOKEN_PATTERN) ?? [];
+}
+
+// ---------------------------------------------------------------------------
 // Zone estimation
 // ---------------------------------------------------------------------------
 
@@ -106,28 +156,43 @@ function parseScopes(title) {
 }
 
 /**
+ * Estimates the zone from the title's conventional-commit scope(s) alone.
+ *
+ * Each scope resolves to a workspace zone or null (global). A single distinct
+ * zone → that zone; a single distinct null → global; a mix (or >1 zone) →
+ * cross-cutting → global. Identical to merge-train-lock's zoneForPaths.
+ *
+ * @param {unknown} title
+ * @returns {string | null}
+ */
+function titleZone(title) {
+  const scopes = parseScopes(title);
+  if (scopes.length === 0) return null;
+  const zones = new Set(scopes.map((s) => SCOPE_ZONE_MAP.get(s) ?? null));
+  return zones.size === 1 ? [...zones][0] : null;
+}
+
+/**
  * Estimates the merge-train zone an issue's PR will most likely occupy.
  *
- * Derivation mirrors `zoneForPaths` in merge-train-lock: a changeset that maps
- * to exactly one workspace zone gets that zone; anything cross-cutting (scopes
- * spanning >1 zone, an unknown/non-workspace scope, or no scope at all) → `null`
- * = the GLOBAL lock, which serializes against everything (the conservative
- * choice for a cross-cutting PR).
+ * 1. Title-derived zone (conventional-commit scope) wins when present.
+ * 2. Otherwise, falls back to paths named in the issue body (preferring a
+ *    `## Files to Modify/Create` section — the shape `/decompose` emits),
+ *    resolved through the same `zoneForPaths` the merge-train lock uses.
+ * 3. Anything still cross-cutting or scope/path-less → `null` = the GLOBAL
+ *    lock, which serializes against everything (the conservative choice for
+ *    a genuinely cross-cutting PR).
  *
  * @param {{ title?: string, labels?: unknown, body?: unknown }} issue
  * @returns {string | null} `<root>/<name>` zone, or null for global
  */
 function issueZone(issue) {
   const title = issue && typeof issue === "object" ? issue.title : undefined;
-  const scopes = parseScopes(title);
-  if (scopes.length === 0) return null;
+  const fromTitle = titleZone(title);
+  if (fromTitle !== null) return fromTitle;
 
-  // Each scope resolves to a workspace zone or null (global). A single distinct
-  // zone → that zone; a single distinct null → global; a mix (or >1 zone) →
-  // cross-cutting → global. Identical to merge-train-lock's zoneForPaths.
-  const zones = new Set(scopes.map((s) => SCOPE_ZONE_MAP.get(s) ?? null));
-  if (zones.size === 1) return [...zones][0];
-  return null;
+  const body = issue && typeof issue === "object" ? issue.body : undefined;
+  return zoneForPaths(extractPathsFromBody(body));
 }
 
 // ---------------------------------------------------------------------------

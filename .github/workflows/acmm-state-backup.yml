@@ -1,12 +1,22 @@
 name: ACMM State Backup
 
+# Weekly snapshot of the ACMM state/report for point-in-time recovery.
+#
+# Previously committed the snapshot straight to `.claude/acmm/backups/`, which
+# is gitignored -- `git add ... || true` silently no-opped every week and no
+# backup was ever produced despite the job reporting success (#3623). Backups
+# are point-in-time debugging aids, not source of truth (that's
+# `.claude/acmm/state.json`, which is already tracked and version-controlled
+# on `main`), so there's no reason to route them through a PR: upload as a
+# workflow artifact instead and drop the git plumbing entirely.
+
 on:
   schedule:
     - cron: "0 8 * * 1" # Every Monday at 8am UTC
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   backup:
@@ -15,31 +25,32 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Archive ACMM state
+        id: archive
         run: |
-          BACKUP_DIR=".claude/acmm/backups"
+          BACKUP_DIR="$RUNNER_TEMP/acmm-backup"
           mkdir -p "$BACKUP_DIR"
           DATE=$(date +%Y-%m-%d)
+          COPIED=0
 
-          # Copy current state with timestamp
           if [ -f ".claude/acmm/state.json" ]; then
             cp ".claude/acmm/state.json" "$BACKUP_DIR/state-${DATE}.json"
+            COPIED=1
           fi
           if [ -f ".claude/acmm/report.md" ]; then
             cp ".claude/acmm/report.md" "$BACKUP_DIR/report-${DATE}.md"
+            COPIED=1
           fi
 
-          # Keep only last 12 backups (3 months)
-          ls -t "$BACKUP_DIR"/state-*.json 2>/dev/null | tail -n +13 | xargs rm -f
-          ls -t "$BACKUP_DIR"/report-*.md 2>/dev/null | tail -n +13 | xargs rm -f
-
-      - name: Commit backup
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude/acmm/backups/ || true
-          if git diff --cached --quiet; then
-            echo "No changes to backup"
-          else
-            git commit -m "chore(acmm): weekly state backup $(date +%Y-%m-%d)"
-            git push
+          if [ "$COPIED" -eq 0 ]; then
+            echo "::error::No ACMM state.json or report.md found -- nothing to back up"
+            exit 1
           fi
+
+          echo "backup-dir=$BACKUP_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: acmm-state-backup-${{ github.run_id }}
+          path: ${{ steps.archive.outputs.backup-dir }}
+          retention-days: 90

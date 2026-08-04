@@ -4,15 +4,15 @@ test.describe("Homepage", () => {
   test("hero section renders with CTAs", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.getByText("One-person team.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "See my work" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "About me" })).toBeVisible();
+    await expect(page.getByText("This site ships itself.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Read the code" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Live metrics" })).toBeVisible();
   });
 
   test("Weekly Reads CTA navigates to /weekly", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("link", { name: "View Weekly Reads" }).click();
+    await page.getByRole("link", { name: "Browse the stack" }).click();
 
     await expect(page).toHaveURL("/weekly");
     await expect(page.getByRole("heading", { name: "Weekly Information Intake" })).toBeVisible();

@@ -31,17 +31,17 @@
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/observability": "workspace:^",
-    "framer-motion": "^12.42.2",
+    "framer-motion": "^12.43.0",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-router-dom": "catalog:",
+    "react-router": "catalog:",
     "@mbe/sentry": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@mbe/config": "workspace:*",
-    "@playwright/test": "^1.62.0",
+    "@playwright/test": "^1.62.1",
     "@sentry/vite-plugin": "^5.4.0",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",

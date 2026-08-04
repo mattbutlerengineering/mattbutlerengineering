@@ -421,6 +421,7 @@ export type {
 export { calibrate } from "./eval/calibrate.js";
 export type { CalibrationBucket, CalibrationSummary } from "./eval/calibrate.js";
 export { checkCostRegression } from "./eval/cost-regression.js";
+export { taskDidNotRun, suiteDidNotRun } from "./eval/run-detection.js";
 
 // Reviewer contract (multi-agent quality gates)
 export type {
@@ -436,11 +437,6 @@ export type {
 
 export { PASS_THRESHOLD, DEFAULT_REVIEW_RETRY_POLICY } from "./reviewer-contract.js";
 
-// Reviewer runner (dispatches the Reviewer sub-agent in the merge train)
-export {
-  runReviewer,
-  parseReviewerVerdict,
-  selectRetryAction,
-  DEFAULT_REVIEWER_CONFIG,
-} from "./reviewer-runner.js";
-export type { ReviewerConfig, RunReviewerOptions } from "./reviewer-runner.js";
+// The Reviewer itself is a Claude Code sub-agent, declared at
+// .claude/agents/reviewer.md and dispatched by implement-queue's merge train.
+// There is no in-process runner: the former reviewer-runner.ts had no callers.

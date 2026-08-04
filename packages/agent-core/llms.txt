@@ -144,6 +144,14 @@
       async function loadTaskFile(path: string): Promise<Task> { /* ... */ }
     </item>
   </file>
+  <file path="src/eval/run-detection.ts">
+    <item priority="high">
+      export function taskDidNotRun(score: Pick<TaskScore, "turns" | "costUsd">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function suiteDidNotRun(report: EvalReport): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/eval/task-scorer.ts">
     <item priority="high">
       export async function scoreTask(run: TaskRunResult, judge?: JudgeFunction): Promise<TaskScore> { /* ... */ }
@@ -867,18 +875,6 @@
         lineNumber?: number;
         suggestion?: string;
       }
-    </item>
-  </file>
-  <file path="src/reviewer-runner.ts">
-    <item priority="low">
-      interface ReviewerConfig {
-        model: string;
-        maxBudgetUsd: number;
-        timeoutMs: number;
-      }
-    </item>
-    <item priority="high">
-      export const DEFAULT_REVIEWER_CONFIG: ReviewerConfig;
     </item>
   </file>
   <file path="src/run-agent-session.ts">

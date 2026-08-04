@@ -2,7 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: ["**/fixtures/*.test.ts"],
+  // journeys/ runs against the LIVE site and writes production data — it is
+  // driven only by .github/workflows/venue-journey.yml via
+  // playwright.journey.config.ts, never by the PR-time E2E suite.
+  testIgnore: ["**/fixtures/*.test.ts", "**/journeys/**"],
   outputDir: "./e2e/test-results",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

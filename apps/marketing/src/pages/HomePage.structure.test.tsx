@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { HomePage } from "./HomePage.js";
 
@@ -26,14 +26,24 @@ describe("HomePage heading hierarchy", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
-  it("renders every top-level section as a real h2", () => {
+  it("renders every top-level section as a real h2, in the evidence-first order", () => {
     renderHomePage();
     const h2Text = screen
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent?.trim());
-    expect(h2Text).toEqual(
-      expect.arrayContaining(["Projects", "Tech Stack", "About", "Contact", "Stay Current"])
-    );
+    expect(h2Text).toEqual([
+      "By the numbers",
+      "Projects",
+      "How this site ships itself",
+      "What I'm reading",
+      "Elsewhere",
+    ]);
+  });
+
+  it("no longer ships the badge-wall tech stack or the standalone about section", () => {
+    renderHomePage();
+    expect(screen.queryByRole("heading", { name: "Tech Stack" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "About" })).not.toBeInTheDocument();
   });
 
   it("has no heading-order jumps (each level is at most one deeper than the last)", () => {
@@ -49,17 +59,21 @@ describe("HomePage heading hierarchy", () => {
 describe("HomePage hero", () => {
   it("exposes a primary external conversion CTA that opens safely in a new tab", () => {
     renderHomePage();
-    const cta = screen.getByRole("link", { name: /work together/i });
-    expect(cta.getAttribute("href")).toContain("linkedin.com");
+    const cta = screen.getByRole("link", { name: /read the code/i });
+    expect(cta.getAttribute("href")).toContain("github.com");
     expect(cta).toHaveAttribute("target", "_blank");
     expect(cta.getAttribute("rel")).toContain("noopener");
     expect(cta.getAttribute("aria-label")).toMatch(/opens in new tab/i);
   });
 
-  it("keeps the in-page scroll actions alongside the external CTA", () => {
+  it("links to the live metrics dashboard", () => {
     renderHomePage();
-    expect(screen.getByRole("button", { name: /see my work/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /about me/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /live metrics/i })).toHaveAttribute("href", "/metrics");
+  });
+
+  it("has no eyebrow label above the title", () => {
+    renderHomePage();
+    expect(screen.queryByText("Engineering Leader")).not.toBeInTheDocument();
   });
 });
 
@@ -71,8 +85,8 @@ describe("HomePage weekly CTA", () => {
     expect(weekly.className).toMatch(/card/i);
     expect(document.querySelector(".weeklyCta")).toBeNull();
     expect(
-      within(weekly).getByRole("heading", { level: 2, name: /stay current/i })
+      within(weekly).getByRole("heading", { level: 2, name: /what i'm reading/i })
     ).toBeInTheDocument();
-    expect(within(weekly).getByRole("link", { name: /view weekly reads/i })).toBeInTheDocument();
+    expect(within(weekly).getByRole("link", { name: /browse the stack/i })).toBeInTheDocument();
   });
 });

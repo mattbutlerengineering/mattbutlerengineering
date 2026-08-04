@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, mbe-local/prefer-rialto-components */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ProjectCard } from "./ProjectCard.js";
@@ -13,7 +13,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 const BASE_PROJECT = {
   title: "Test Project",
   description: "A test project description.",
-  tags: ["React", "TypeScript"],
+  stack: ["React", "TypeScript", "Vite"],
 };
 
 describe("ProjectCard", () => {
@@ -27,12 +27,19 @@ describe("ProjectCard", () => {
     expect(screen.getByText("A test project description.")).toBeInTheDocument();
   });
 
-  it("renders all tags", () => {
+  it("renders the stack inline as one quiet line", () => {
     render(<ProjectCard project={BASE_PROJECT} />);
-    const tags = screen.getAllByTestId("tag");
-    expect(tags).toHaveLength(2);
-    expect(tags[0]).toHaveTextContent("React");
-    expect(tags[1]).toHaveTextContent("TypeScript");
+    expect(screen.getByText("React · TypeScript · Vite")).toBeInTheDocument();
+  });
+
+  it("renders no chip wall — the stack is text, not tags", () => {
+    render(<ProjectCard project={BASE_PROJECT} />);
+    expect(screen.queryAllByTestId("tag")).toHaveLength(0);
+  });
+
+  it("renders a single-entry stack without a trailing separator", () => {
+    render(<ProjectCard project={{ ...BASE_PROJECT, stack: ["Vite"] }} />);
+    expect(screen.getByText("Vite")).toBeInTheDocument();
   });
 
   it("does NOT render a link when href is absent", () => {
@@ -68,12 +75,5 @@ describe("ProjectCard", () => {
       name: "Test Project (opens in new tab)",
     });
     expect(link).toBeInTheDocument();
-  });
-
-  it("renders a single tag when only one is provided", () => {
-    render(<ProjectCard project={{ ...BASE_PROJECT, tags: ["Vite"] }} />);
-    const tags = screen.getAllByTestId("tag");
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toHaveTextContent("Vite");
   });
 });

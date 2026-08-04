@@ -1,5 +1,5 @@
 import { useState, useReducer, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { z } from "zod";
 import type { CreateReservationRequest } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";

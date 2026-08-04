@@ -48,6 +48,7 @@ describe("createJoseVerifier (default OIDC/JWKS adapter, ADR-010)", () => {
     expect(mockJwtVerify).toHaveBeenCalledWith("valid-token", "mock-jwks", {
       issuer: "https://test.auth0.com/",
       audience: "https://api.example.com",
+      algorithms: ["RS256"],
     });
     expect(result).toEqual(payload);
   });

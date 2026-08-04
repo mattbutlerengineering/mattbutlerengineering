@@ -289,8 +289,9 @@ describe("runFeedbackLoop", () => {
           [Symbol.asyncIterator](): AsyncIterator<never> {
             return {
               next(): Promise<IteratorResult<never>> {
-                // Node-20-safe replacement for Promise.withResolvers() (Node 22+),
-                // banned by the shared @mbe/config Node-20 API floor guardrail.
+                // Manual resolver capture instead of Promise.withResolvers() —
+                // no functional reason now that Node 22 is the sole floor
+                // (#3570), just predates that API's adoption here.
                 let resolve!: (value: IteratorResult<never>) => void;
                 const promise = new Promise<IteratorResult<never>>((res) => {
                   resolve = res;

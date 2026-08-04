@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ConfirmationView } from "./ConfirmationView.js";
-import type { Reservation } from "@mbe/types";
+import type { Reservation, PublicVenueConfig } from "@mbe/types";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -42,6 +42,26 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     venueId: "venue-1",
     createdAt: "2026-05-20T00:00:00Z",
     updatedAt: "2026-05-20T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function makeVenueConfig(overrides: Partial<PublicVenueConfig> = {}): PublicVenueConfig {
+  return {
+    name: "The Rialto Grill",
+    slug: "the-rialto-grill",
+    ianaTimezone: "America/New_York",
+    currencyCode: "usd",
+    operatingHours: null,
+    settings: {},
+    deposit: {
+      enabled: false,
+      depositType: null,
+      amountCents: null,
+      freeCancellationHours: null,
+      lateCancellationFeePercent: null,
+      noShowFeePercent: null,
+    },
     ...overrides,
   };
 }
@@ -203,5 +223,81 @@ describe("ConfirmationView", () => {
 
     render(<ConfirmationView reservation={resWithTable} onNewBooking={mockOnNewBooking} />);
     expect(screen.getByText("Patio Corner")).toBeDefined();
+  });
+
+  describe("Add to calendar", () => {
+    it("does not render the section when venueConfig is not provided", () => {
+      render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
+      expect(screen.queryByText("Add to Calendar")).toBeNull();
+    });
+
+    it("renders download and deep-link actions when venueConfig is provided", () => {
+      render(
+        <ConfirmationView
+          reservation={makeReservation()}
+          onNewBooking={mockOnNewBooking}
+          venueConfig={makeVenueConfig()}
+        />
+      );
+      expect(screen.getByText("Add to Calendar")).toBeDefined();
+      expect(screen.getByText("Download .ics")).toBeDefined();
+      expect(screen.getByText("Google Calendar")).toBeDefined();
+      expect(screen.getByText("Outlook")).toBeDefined();
+    });
+
+    it("Google Calendar link opens calendar.google.com in a new tab safely", () => {
+      render(
+        <ConfirmationView
+          reservation={makeReservation()}
+          onNewBooking={mockOnNewBooking}
+          venueConfig={makeVenueConfig()}
+        />
+      );
+      const link = screen.getByText("Google Calendar").closest("a");
+      expect(link?.getAttribute("href")).toContain("https://calendar.google.com/calendar/render");
+      expect(link?.getAttribute("target")).toBe("_blank");
+      expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+    });
+
+    it("Outlook link opens outlook.live.com in a new tab safely", () => {
+      render(
+        <ConfirmationView
+          reservation={makeReservation()}
+          onNewBooking={mockOnNewBooking}
+          venueConfig={makeVenueConfig()}
+        />
+      );
+      const link = screen.getByText("Outlook").closest("a");
+      expect(link?.getAttribute("href")).toContain(
+        "https://outlook.live.com/calendar/0/deeplink/compose"
+      );
+      expect(link?.getAttribute("target")).toBe("_blank");
+      expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+    });
+
+    it("'Download .ics' builds a blob client-side and triggers a real file download", () => {
+      const createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+      const revokeObjectURL = vi.fn();
+      window.URL.createObjectURL = createObjectURL;
+      window.URL.revokeObjectURL = revokeObjectURL;
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      render(
+        <ConfirmationView
+          reservation={makeReservation()}
+          onNewBooking={mockOnNewBooking}
+          venueConfig={makeVenueConfig()}
+        />
+      );
+      fireEvent.click(screen.getByText("Download .ics"));
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      const blobArg = createObjectURL.mock.calls[0]?.[0];
+      expect(blobArg).toBeInstanceOf(Blob);
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+
+      clickSpy.mockRestore();
+    });
   });
 });

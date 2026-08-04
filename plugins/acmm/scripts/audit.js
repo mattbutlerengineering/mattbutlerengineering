@@ -21,6 +21,7 @@ import { verdictCounts } from "./evaluate.js";
 import { evaluateWithInheritance } from "./inheritance.js";
 import { substanceCheckers } from "./substance.js";
 import { computeLevel } from "./computeLevel.js";
+import { computeDetectionDiff } from "./diff.js";
 import { loadState, saveState, recordHistory } from "./state.js";
 import { writeReport } from "./outputs/report.js";
 import { updateBadge } from "./outputs/badge.js";
@@ -199,16 +200,14 @@ const computation =
 /* ── Diff vs prior saved state ──────────────────────────── */
 const priorIds = new Set(prior.detectedIds ?? []);
 const isFirstRun = !prior.lastRun;
-const diff = isFirstRun
-  ? null
-  : {
-      added: [...detectedIds].filter((id) => !priorIds.has(id)).sort(),
-      removed: [...priorIds].filter((id) => !detectedIds.has(id)).sort(),
-      levelDelta: computation.level - (prior.currentLevel ?? 0),
-      countDelta: detectedCount - priorIds.size,
-      priorLevel: prior.currentLevel ?? 0,
-      priorCount: priorIds.size,
-    };
+const diff = computeDetectionDiff({
+  priorIds,
+  detectedIds,
+  unverifiableIds,
+  isFirstRun,
+  currentLevel: computation.level,
+  priorLevel: prior.currentLevel ?? 0,
+});
 
 /* ── Build per-criterion results map from verdicts (id → {passed, evidence, ...}) ── */
 const results = {};
@@ -291,8 +290,11 @@ if (APPLY) {
       : [];
 
     // File issues for criteria gating the NEXT level — avoids issue spam
-    // for L5/L6 items when we're still climbing L3.
-    const failingForNext = computation.missingForNextLevel;
+    // for L5/L6 items when we're still climbing L3. Unverifiable criteria are
+    // excluded: unknown status isn't a confirmed gap (#3719).
+    const failingForNext = computation.missingForNextLevel.filter(
+      (c) => !unverifiableIds.has(c.id)
+    );
 
     // Combine: regressions first, then next-level gaps (dedup handled inside).
     const allFailing = [...regressedCriteria, ...failingForNext];
@@ -305,6 +307,7 @@ if (APPLY) {
     applyResult = {
       createdCount: 0,
       skippedOpen: 0,
+      reopenedCount: 0,
       issuesCreated: prior.issuesCreated || {},
       error: true,
     };
@@ -484,7 +487,7 @@ console.log(`report: ${reportPath}`);
 if (BADGE) console.log(`badge:  ${badgeOutcome}`);
 if (APPLY && applyResult) {
   console.log(
-    `issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}`
+    `issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}, reopened ${applyResult.reopenedCount || 0}`
   );
 }
 if (!APPLY && computation.missingForNextLevel.length > 0) {

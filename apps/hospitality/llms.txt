@@ -419,6 +419,33 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="journeys">
+  <file path="e2e/journeys/journey-api.ts">
+    <item priority="high">
+      export const SYNTHETIC_VENUE_PREFIX: unknown;
+    </item>
+    <item priority="high">
+      interface VenueSummary {
+        id: string;
+        name: string;
+      }
+    </item>
+  </file>
+  <file path="e2e/journeys/journey-recorder.ts">
+    <item priority="low">
+      type JourneyStepStatus = "passed" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      interface JourneyStepResult {
+        name: string;
+        status: JourneyStepStatus;
+        durationMs: number;
+        error?: string;
+        pageError?: string;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="lib">
   <file path="src/lib/sse-client.ts">
     <item priority="low">
@@ -487,12 +514,34 @@
   </file>
   </section>
   <section priority="medium" role="utils">
+  <file path="src/utils/calendarLinks.ts">
+    <item priority="low">
+      interface BuildCalendarLinkOptions {
+        cancellationUrl?: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/format.ts">
     <item priority="high">
       export function formatLongDate(dateStr: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/ics.ts">
+    <item priority="low">
+      interface BuildReservationIcsOptions {
+        cancellationUrl?: string;
+        now?: Date;
+        uid?: string;
+      }
+    </item>
+    <item priority="medium">
+      function escapeIcsText(value: string): string { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ordinal.ts">
