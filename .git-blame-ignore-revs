@@ -1,0 +1,10 @@
+# Commits listed here are ignored by `git blame` (configure once per clone with
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs`, or pass
+# `--ignore-revs-file .git-blame-ignore-revs` per-invocation). GitHub's web UI
+# picks this file up automatically for the default branch.
+#
+# Mass formatting-only commits belong here so `git blame` skips past them to
+# the last commit that changed a line's actual content.
+
+# style: reformat 168 files with prettier 3.9.6 (#3569)
+a905c2bec72e286c3bc38054c32c6e2e62af544b

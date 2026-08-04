@@ -1,0 +1,19 @@
+# Machine-generated artifacts whose generator scripts own their own output
+# formatting (JSON.stringify / hand-written line writers, not piped through
+# Prettier). Running `prettier --write` on these produces a one-time diff
+# that `pnpm regen` immediately reverts on the next run — see
+# scripts/regen-manifest.mjs FAMILIES for the generators that own these
+# paths. Keeping them out of Prettier's scope prevents that ping-pong and
+# keeps `pnpm regen`'s `git diff --exit-code` (the Integrity job) the
+# single source of truth for their formatting.
+packages/rialto/registry.json
+packages/rialto-catalog/src/generated-schemas.ts
+docs/architecture/dependency-graph.md
+
+# pnpm-managed lockfile. Prettier's YAML printer doesn't just flip pnpm's
+# single-quoted keys to double-quoted (this repo's singleQuote: false) - it
+# also reflows some sequences, producing a ~13k-line structural diff on a
+# file no one reviews by eye and that pnpm regenerates independently of
+# Prettier's config. See .claude/rules/gotchas.md "pnpm-lock.yaml quote
+# style diffs are formatting noise".
+pnpm-lock.yaml
