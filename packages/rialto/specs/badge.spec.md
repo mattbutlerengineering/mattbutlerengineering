@@ -20,11 +20,11 @@ Badge (span)
 
 ## States
 
-| State            | Description                      |
+| State | Description |
 | ---------------- | -------------------------------- | ----------- |
-| Default (no dot) | Text label only                  |
-| With dot         | Status circle prepended to label |
-| Small            | Tighter padding, smaller font    | `size="sm"` |
+| Default (no dot) | Text label only |
+| With dot | Status circle prepended to label |
+| Small | Tighter padding, smaller font | `size="sm"` |
 
 ## Variants
 

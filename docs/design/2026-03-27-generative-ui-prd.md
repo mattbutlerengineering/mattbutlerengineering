@@ -186,58 +186,65 @@ User types prompt
 Not all 59 Rialto components belong in the catalog. Sub-components (AccordionItem, BreadcrumbItem) are children, not top-level catalog entries. The AI sees only composable primitives.
 
 **Layout & Structure:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Stack | Primary layout primitive | direction, gap, align, justify |
-| Card | Content container | variant, padding, title, subtitle |
-| Divider | Visual separator | orientation |
-| AspectRatio | Media container | ratio |
+
+| Component   | Catalog Role             | Key Props for AI                  |
+| ----------- | ------------------------ | --------------------------------- |
+| Stack       | Primary layout primitive | direction, gap, align, justify    |
+| Card        | Content container        | variant, padding, title, subtitle |
+| Divider     | Visual separator         | orientation                       |
+| AspectRatio | Media container          | ratio                             |
 
 **Typography & Content:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Text | All text rendering | variant, size, weight, as |
-| Badge | Status indicators | variant, size, dot |
-| Avatar | User identity | src, alt, fallback, size |
+
+| Component | Catalog Role       | Key Props for AI          |
+| --------- | ------------------ | ------------------------- |
+| Text      | All text rendering | variant, size, weight, as |
+| Badge     | Status indicators  | variant, size, dot        |
+| Avatar    | User identity      | src, alt, fallback, size  |
 
 **Input & Forms:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Button | Primary action | variant, size, loading, disabled |
-| Input | Text entry | label, hint, error, type, placeholder |
-| Select | Option selection | label, options, placeholder |
-| Toggle | Boolean switch | label, checked, onCheckedChange |
-| Checkbox | Multi-select | label, checked |
+
+| Component | Catalog Role     | Key Props for AI                      |
+| --------- | ---------------- | ------------------------------------- |
+| Button    | Primary action   | variant, size, loading, disabled      |
+| Input     | Text entry       | label, hint, error, type, placeholder |
+| Select    | Option selection | label, options, placeholder           |
+| Toggle    | Boolean switch   | label, checked, onCheckedChange       |
+| Checkbox  | Multi-select     | label, checked                        |
 
 **Navigation:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Tabs | Content switching | defaultValue, children (Tab items) |
-| Breadcrumb | Location context | items |
-| NavigationMenu | App navigation | items |
+
+| Component      | Catalog Role      | Key Props for AI                   |
+| -------------- | ----------------- | ---------------------------------- |
+| Tabs           | Content switching | defaultValue, children (Tab items) |
+| Breadcrumb     | Location context  | items                              |
+| NavigationMenu | App navigation    | items                              |
 
 **Feedback & Overlay:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Alert | Inline messages | variant, title, children |
-| Banner | Page-level messages | variant, title, dismissible |
-| Dialog | Modal content | open, onClose, title |
-| Toast | Ephemeral notifications | (via useToast hook) |
+
+| Component | Catalog Role            | Key Props for AI            |
+| --------- | ----------------------- | --------------------------- |
+| Alert     | Inline messages         | variant, title, children    |
+| Banner    | Page-level messages     | variant, title, dismissible |
+| Dialog    | Modal content           | open, onClose, title        |
+| Toast     | Ephemeral notifications | (via useToast hook)         |
 
 **Data Display:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Table | Tabular data | columns, data, rowKey |
-| DataList | Key-value pairs | children |
-| EmptyState | No-data placeholder | heading, description, action |
-| Accordion | Collapsible sections | children |
+
+| Component  | Catalog Role         | Key Props for AI             |
+| ---------- | -------------------- | ---------------------------- |
+| Table      | Tabular data         | columns, data, rowKey        |
+| DataList   | Key-value pairs      | children                     |
+| EmptyState | No-data placeholder  | heading, description, action |
+| Accordion  | Collapsible sections | children                     |
 
 **Specialized:**
-| Component | Catalog Role | Key Props for AI |
-|-----------|-------------|-----------------|
-| Sidebar | App shell layout | children |
-| AppBar | Top navigation | title, actions |
-| Footer | Page footer | children |
+
+| Component | Catalog Role     | Key Props for AI |
+| --------- | ---------------- | ---------------- |
+| Sidebar   | App shell layout | children         |
+| AppBar    | Top navigation   | title, actions   |
+| Footer    | Page footer      | children         |
 
 ### 5.2 Catalog → Zod Schema Example
 

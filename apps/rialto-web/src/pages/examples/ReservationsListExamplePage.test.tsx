@@ -251,11 +251,8 @@ function renderPage() {
 
 /** Reservation ids of the currently visible table rows, in render order. */
 function visibleRowIds(): string[] {
-  return screen
-    .queryAllByTestId("reservations-row")
-    .map((tr) => tr.getAttribute("data-row") ?? "");
+  return screen.queryAllByTestId("reservations-row").map((tr) => tr.getAttribute("data-row") ?? "");
 }
-
 
 // ---------------------------------------------------------------------------
 // Pure logic — no components involved
@@ -359,9 +356,7 @@ describe("ReservationsListExamplePage — composition", () => {
   it("pagination changes the visible page", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
-    expect(visibleRowIds()).toEqual(
-      RESERVATIONS.slice(PAGE_SIZE, PAGE_SIZE * 2).map((r) => r.id)
-    );
+    expect(visibleRowIds()).toEqual(RESERVATIONS.slice(PAGE_SIZE, PAGE_SIZE * 2).map((r) => r.id));
   });
 
   it("selecting rows reveals a bulk-action bar with the selected count", () => {

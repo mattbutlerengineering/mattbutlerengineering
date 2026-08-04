@@ -444,11 +444,12 @@ Note: HCP Terraform Free tier caps at 500 resources. Pulumi Individual caps at 2
 7. **Pulumi Cloud self-hosted fallback** -- `pulumi login s3://bucket` switches state to S3 if the managed service becomes untenable.
 
 **Action items:**
-| Action | Effort | Impact |
-|--------|--------|--------|
-| No changes needed | 0 min | Current setup is optimal for project scale |
-| Bookmark Pulumi self-hosted backend docs | 5 min | Fallback plan if Pulumi Cloud ever becomes untenable |
-| Monitor Pulumi HCL GA (Q1 2026) | Passive | Indicates platform health and strategic direction |
+
+| Action                                   | Effort  | Impact                                               |
+| ---------------------------------------- | ------- | ---------------------------------------------------- |
+| No changes needed                        | 0 min   | Current setup is optimal for project scale           |
+| Bookmark Pulumi self-hosted backend docs | 5 min   | Fallback plan if Pulumi Cloud ever becomes untenable |
+| Monitor Pulumi HCL GA (Q1 2026)          | Passive | Indicates platform health and strategic direction    |
 
 ### #2 OpenTofu -- Best Alternative (If Switching)
 

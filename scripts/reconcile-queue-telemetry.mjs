@@ -120,7 +120,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(0);
   }
 
-  const { rows: reconciledRows, reconciled, calls } = reconcileTelemetry(rows, {
+  const {
+    rows: reconciledRows,
+    reconciled,
+    calls,
+  } = reconcileTelemetry(rows, {
     fetchPr: defaultFetchPr,
   });
 

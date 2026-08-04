@@ -142,9 +142,7 @@ describe("Combobox — single select", () => {
   it("marks the selected option aria-selected", async () => {
     render(<Combobox label="Fruit" options={options} value="banana" />);
     await user.click(screen.getByRole("combobox"));
-    const banana = screen
-      .getAllByRole("option")
-      .find((el) => within(el).queryByText("Banana"));
+    const banana = screen.getAllByRole("option").find((el) => within(el).queryByText("Banana"));
     expect(banana).toHaveAttribute("aria-selected", "true");
   });
 
@@ -247,9 +245,7 @@ describe("Combobox — multi select", () => {
       />
     );
     await user.click(screen.getByRole("combobox"));
-    const appleOption = screen
-      .getAllByRole("option")
-      .find((el) => within(el).queryByText("Apple"));
+    const appleOption = screen.getAllByRole("option").find((el) => within(el).queryByText("Apple"));
     await user.click(appleOption!);
     expect(onValuesChange).toHaveBeenCalledWith([]);
   });
@@ -288,9 +284,7 @@ describe("Combobox — multi select", () => {
   it("marks selected options aria-selected in the listbox", async () => {
     render(<Combobox label="Fruit" options={options} multiple values={["banana"]} />);
     await user.click(screen.getByRole("combobox"));
-    const banana = screen
-      .getAllByRole("option")
-      .find((el) => within(el).queryByText("Banana"));
+    const banana = screen.getAllByRole("option").find((el) => within(el).queryByText("Banana"));
     expect(banana).toHaveAttribute("aria-selected", "true");
   });
 });

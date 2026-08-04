@@ -127,11 +127,11 @@ The auth bypass (`bypassTestMode`, sourced from `AUTH_BYPASS_IN_TESTS=true`) is 
 
 ## Environment Variables
 
-| Variable         | Required      | Description                                             |
-| ---------------- | ------------- | ------------------------------------------------------- |
-| `AUTH_AUTHORITY` | Yes (backend) | OIDC issuer URL (e.g., `https://your-tenant.auth0.com`) |
-| `AUTH_AUDIENCE`  | Yes (backend) | Expected JWT audience                                   |
-| `AUTH_BYPASS_IN_TESTS` | No | When `true` **and** `NODE_ENV === "test"`, requests with `x-auth-bypass: true` skip JWT and receive a hardcoded admin identity. Default OFF; never set in production. |
+| Variable               | Required      | Description                                                                                                                                                           |
+| ---------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_AUTHORITY`       | Yes (backend) | OIDC issuer URL (e.g., `https://your-tenant.auth0.com`)                                                                                                               |
+| `AUTH_AUDIENCE`        | Yes (backend) | Expected JWT audience                                                                                                                                                 |
+| `AUTH_BYPASS_IN_TESTS` | No            | When `true` **and** `NODE_ENV === "test"`, requests with `x-auth-bypass: true` skip JWT and receive a hardcoded admin identity. Default OFF; never set in production. |
 
 Frontend config is passed via `AuthProvider` props (typically from build-time env vars).
 

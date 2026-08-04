@@ -247,16 +247,22 @@ describe("Dark theme — text on surface (4.5:1 minimum)", () => {
 
 describe("Dark theme — accent text and UI controls", () => {
   it("accent as UI control on dark surface (3:1 minimum)", () => {
-    expect(contrastRatio(resolveOn(dark.accent, dark.surface), dark.surface)).toBeGreaterThanOrEqual(3);
+    expect(
+      contrastRatio(resolveOn(dark.accent, dark.surface), dark.surface)
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it("text-on-accent on dark accent (4.5:1 minimum)", () => {
     const accentHex = parseColor(dark.accent).hex;
-    expect(contrastRatio(resolveOn(dark.textOnAccent, accentHex), accentHex)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(resolveOn(dark.textOnAccent, accentHex), accentHex)
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it("border (blended) as UI control on dark surface (3:1 minimum)", () => {
-    expect(contrastRatio(resolveOn(dark.border, dark.surface), dark.surface)).toBeGreaterThanOrEqual(3);
+    expect(
+      contrastRatio(resolveOn(dark.border, dark.surface), dark.surface)
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it("border-strong (blended) as UI control on dark surface (3:1 minimum)", () => {
@@ -268,14 +274,20 @@ describe("Dark theme — accent text and UI controls", () => {
 
 describe("Dark theme — semantic text on dark surface (4.5:1 minimum)", () => {
   it("error on dark surface", () => {
-    expect(contrastRatio(resolveOn(dark.error, dark.surface), dark.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(resolveOn(dark.error, dark.surface), dark.surface)).toBeGreaterThanOrEqual(
+      4.5
+    );
   });
 
   it("warning on dark surface", () => {
-    expect(contrastRatio(resolveOn(dark.warning, dark.surface), dark.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(resolveOn(dark.warning, dark.surface), dark.surface)
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it("success on dark surface", () => {
-    expect(contrastRatio(resolveOn(dark.success, dark.surface), dark.surface)).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(resolveOn(dark.success, dark.surface), dark.surface)
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -18,18 +18,12 @@ describe("createRefinementPrompt", () => {
 
   it("instructs the model to output the complete modified spec", () => {
     const out = createRefinementPrompt(spec, "x");
-    expect(out).toContain(
-      "Output the COMPLETE modified spec (not just the changes).",
-    );
-    expect(out).toContain(
-      "Here is an existing UI spec generated from Rialto components.",
-    );
+    expect(out).toContain("Output the COMPLETE modified spec (not just the changes).");
+    expect(out).toContain("Here is an existing UI spec generated from Rialto components.");
   });
 
   it("produces a deterministic string for the same inputs", () => {
-    expect(createRefinementPrompt(spec, "y")).toBe(
-      createRefinementPrompt(spec, "y"),
-    );
+    expect(createRefinementPrompt(spec, "y")).toBe(createRefinementPrompt(spec, "y"));
   });
 
   it("preserves the exact composed format", () => {
@@ -39,7 +33,7 @@ describe("createRefinementPrompt", () => {
         `Please modify it according to the user's instruction. ` +
         `Output the COMPLETE modified spec (not just the changes).\n\n` +
         `Existing spec:\n${JSON.stringify(spec)}\n\n` +
-        `Modification requested: tweak`,
+        `Modification requested: tweak`
     );
   });
 });

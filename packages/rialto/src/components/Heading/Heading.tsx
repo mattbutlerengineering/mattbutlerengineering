@@ -9,14 +9,7 @@ export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 export type HeadingSize = HeadingLevel;
 
 type HeadingColor =
-  | "primary"
-  | "secondary"
-  | "tertiary"
-  | "accent"
-  | "success"
-  | "warning"
-  | "error"
-  | "on-accent";
+  "primary" | "secondary" | "tertiary" | "accent" | "success" | "warning" | "error" | "on-accent";
 
 type HeadingAlign = "left" | "center" | "right";
 

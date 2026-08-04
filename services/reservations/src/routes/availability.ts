@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, DateAvailability, ApiResponse, ProblemDetails } from "@mbe/types";
-import { createProblemDetails, availabilityQueryJsonSchema, availabilityDatesQueryJsonSchema } from "@mbe/types";
+import {
+  createProblemDetails,
+  availabilityQueryJsonSchema,
+  availabilityDatesQueryJsonSchema,
+} from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { validateDateString, validatePartySize, validateDateRange } from "@mbe/database";
 

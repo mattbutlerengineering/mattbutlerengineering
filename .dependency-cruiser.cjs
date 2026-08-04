@@ -55,8 +55,7 @@ module.exports = {
     {
       name: "rialto-stays-pure",
       severity: "error",
-      comment:
-        "Rialto is a browser UI library — no server-side packages or services.",
+      comment: "Rialto is a browser UI library — no server-side packages or services.",
       from: { path: "^packages/rialto/" },
       to: { path: "^(services/|packages/(database|service-bootstrap|jobs)/)" },
     },

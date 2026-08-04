@@ -10,6 +10,7 @@ export const accordionCatalogMeta = {
     "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
   slots: ["default"],
   propSchemas: {
-    items: 'z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))',
+    items:
+      "z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))",
   },
 } satisfies CatalogMeta;

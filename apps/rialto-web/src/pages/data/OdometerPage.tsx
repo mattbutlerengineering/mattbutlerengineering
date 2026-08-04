@@ -19,7 +19,11 @@ function LiveCounter() {
         <Button variant="secondary" size="sm" onClick={() => setValue((v) => v + 10000)}>
           +10,000
         </Button>
-        <Button variant="primary" size="sm" onClick={() => setValue(Math.floor(Math.random() * 1e6))}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setValue(Math.floor(Math.random() * 1e6))}
+        >
           Randomize
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setValue(0)}>
@@ -143,7 +147,8 @@ export function OdometerPage() {
             },
             {
               label: "Composition",
-              value: "Built from SplitFlap; separators (commas, decimals, currency) render as static glyphs",
+              value:
+                "Built from SplitFlap; separators (commas, decimals, currency) render as static glyphs",
             },
           ]}
         />

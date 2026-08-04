@@ -65,8 +65,8 @@ export function ErrorNotFoundExamplePage() {
           Page not found
         </Text>
         <Text variant="body" color="secondary" className={styles.copy}>
-          The page you’re looking for doesn’t exist or has been moved. Head back home, or search
-          for what you need.
+          The page you’re looking for doesn’t exist or has been moved. Head back home, or search for
+          what you need.
         </Text>
         <div className={styles.actions}>
           <Button variant="primary">Back to home</Button>

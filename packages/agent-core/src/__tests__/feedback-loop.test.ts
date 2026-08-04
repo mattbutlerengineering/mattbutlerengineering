@@ -43,7 +43,9 @@ const UNRESOLVED_THREAD: GraphQLThreadNode = {
   id: "thread-1",
   isResolved: false,
   comments: {
-    nodes: [{ body: "Please fix this", path: "src/main.ts", line: 10, author: { login: "reviewer" } }],
+    nodes: [
+      { body: "Please fix this", path: "src/main.ts", line: 10, author: { login: "reviewer" } },
+    ],
   },
 };
 
@@ -106,7 +108,10 @@ describe("runFeedbackLoop", () => {
     const port = createFakePort({
       fetchReviewThreads: vi
         .fn()
-        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValueOnce({
+          reviewDecision: "CHANGES_REQUESTED",
+          threads: [UNRESOLVED_THREAD],
+        })
         .mockResolvedValue({ reviewDecision: null, threads: [] }),
     });
     const deps = makeDeps(port);
@@ -124,7 +129,10 @@ describe("runFeedbackLoop", () => {
     const port = createFakePort({
       fetchReviewThreads: vi
         .fn()
-        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValueOnce({
+          reviewDecision: "CHANGES_REQUESTED",
+          threads: [UNRESOLVED_THREAD],
+        })
         .mockResolvedValue({ reviewDecision: null, threads: [] }),
     });
     const deps = makeDeps(port);
@@ -155,7 +163,10 @@ describe("runFeedbackLoop", () => {
     const port = createFakePort({
       fetchReviewThreads: vi
         .fn()
-        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValueOnce({
+          reviewDecision: "CHANGES_REQUESTED",
+          threads: [UNRESOLVED_THREAD],
+        })
         .mockResolvedValue({ reviewDecision: null, threads: [] }),
     });
     const deps = makeDeps(port);
@@ -211,7 +222,10 @@ describe("runFeedbackLoop", () => {
     const port = createFakePort({
       fetchReviewThreads: vi
         .fn()
-        .mockResolvedValueOnce({ reviewDecision: "CHANGES_REQUESTED", threads: [UNRESOLVED_THREAD] })
+        .mockResolvedValueOnce({
+          reviewDecision: "CHANGES_REQUESTED",
+          threads: [UNRESOLVED_THREAD],
+        })
         .mockResolvedValue({ reviewDecision: null, threads: [] }),
     });
 
@@ -220,7 +234,9 @@ describe("runFeedbackLoop", () => {
 
     const messages = events.map((e) => {
       const data = e.data;
-      return typeof data === "object" && data !== null && "message" in data &&
+      return typeof data === "object" &&
+        data !== null &&
+        "message" in data &&
         typeof data.message === "string"
         ? data.message
         : "";

@@ -87,11 +87,7 @@ describe("planWaves", () => {
   });
 
   it("separates conflicting-zone tasks across successive waves", () => {
-    const tasks = [
-      zoneTask("a1", "apps/a"),
-      zoneTask("a2", "apps/a"),
-      zoneTask("a3", "apps/a"),
-    ];
+    const tasks = [zoneTask("a1", "apps/a"), zoneTask("a2", "apps/a"), zoneTask("a3", "apps/a")];
     const { waves } = planWaves({ tasks, activeWorkers: 0, maxWorkers: 3, canDispatch: allowGate });
     expect(waves).toHaveLength(3);
     expect(waves.map((w) => w[0].id)).toEqual(["a1", "a2", "a3"]);
@@ -294,7 +290,13 @@ describe("telemetry composition", () => {
 describe("defaultDispatch", () => {
   it("returns a documented (non-executed) dispatch descriptor", () => {
     const d = defaultDispatch({ id: "issue-3", title: "Fix bug", zone: "apps/a" }, { wave: 1 });
-    expect(d).toMatchObject({ id: "issue-3", zone: "apps/a", wave: 1, dispatched: false, mode: "documented" });
+    expect(d).toMatchObject({
+      id: "issue-3",
+      zone: "apps/a",
+      wave: 1,
+      dispatched: false,
+      mode: "documented",
+    });
     expect(d.command).toContain("gh workflow run agent-task.yml");
     expect(d.command).toContain("Fix bug");
   });

@@ -9,9 +9,7 @@ import { prisma } from "./database.js";
  * the very next call — no JWT refresh required. The Prisma query is fully
  * parameterized.
  */
-export function createVenueMembershipLookup(
-  client: PrismaClient = prisma
-): VenueMembershipLookup {
+export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup {
   return async (userSub: string, venueId: string): Promise<boolean> => {
     const count = await client.venueMembership.count({ where: { userSub, venueId } });
     return count > 0;

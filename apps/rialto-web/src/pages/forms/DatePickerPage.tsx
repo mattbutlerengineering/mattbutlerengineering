@@ -55,8 +55,8 @@ function BoundedExample() {
       </Card>
       <Text variant="caption" color="secondary">
         Bounded to 5–25 July 2026 (inclusive). For arbitrary per-date rules pass{" "}
-        <code>isDateDisabled</code> instead — it is authoritative and replaces{" "}
-        <code>min</code>/<code>max</code> when both are supplied.
+        <code>isDateDisabled</code> instead — it is authoritative and replaces <code>min</code>/
+        <code>max</code> when both are supplied.
       </Text>
     </Stack>
   );

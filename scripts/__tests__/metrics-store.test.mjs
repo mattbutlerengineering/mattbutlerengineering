@@ -102,10 +102,7 @@ describe("read/append/write", () => {
     appendFileSync(resolvePath("service-health", { root }), "not json\n", "utf-8");
     append("service-health", { service: "agent" }, { root });
 
-    expect(read("service-health", { root })).toEqual([
-      { service: "users" },
-      { service: "agent" },
-    ]);
+    expect(read("service-health", { root })).toEqual([{ service: "users" }, { service: "agent" }]);
   });
 
   it("pushes onto a json-array metric and rewrites the whole file", () => {
@@ -186,7 +183,8 @@ describe("name registry (guards #3079)", () => {
   // by a caller that manages its own file handle (collect-queue-telemetry's
   // dedup-aware appender), which still owns no path knowledge of its own.
   const READER_RE = /\b(?:read|readWeekly)\(\s*["']([a-z0-9-]+)["']/g;
-  const WRITER_RE = /\b(?:append|write|writeWeekly|resolvePath|resolveWeeklyPath)\(\s*["']([a-z0-9-]+)["']/g;
+  const WRITER_RE =
+    /\b(?:append|write|writeWeekly|resolvePath|resolveWeeklyPath)\(\s*["']([a-z0-9-]+)["']/g;
 
   const reads = new Set();
   const writes = new Set();

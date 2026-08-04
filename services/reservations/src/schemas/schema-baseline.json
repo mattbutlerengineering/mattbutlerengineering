@@ -30,12 +30,7 @@
         "type": "string"
       }
     },
-    "required": [
-      "type",
-      "title",
-      "status",
-      "detail"
-    ]
+    "required": ["type", "title", "status", "detail"]
   },
   "FloorPlanLayout": {
     "$id": "FloorPlanLayout",
@@ -57,10 +52,7 @@
         "type": "boolean"
       }
     },
-    "required": [
-      "width",
-      "height"
-    ]
+    "required": ["width", "height"]
   },
   "FloorPlan": {
     "$id": "FloorPlan",
@@ -97,10 +89,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "width",
-          "height"
-        ]
+        "required": ["width", "height"]
       },
       "tables": {
         "type": "array",
@@ -157,12 +146,7 @@
             },
             "status": {
               "type": "string",
-              "enum": [
-                "AVAILABLE",
-                "OCCUPIED",
-                "DIRTY",
-                "READY"
-              ]
+              "enum": ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]
             },
             "venueId": {
               "anyOf": [
@@ -206,23 +190,13 @@
                     },
                     "shape": {
                       "type": "string",
-                      "enum": [
-                        "rectangle",
-                        "circle",
-                        "square"
-                      ]
+                      "enum": ["rectangle", "circle", "square"]
                     },
                     "color": {
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "x",
-                    "y",
-                    "width",
-                    "height",
-                    "shape"
-                  ]
+                  "required": ["x", "y", "width", "height", "shape"]
                 },
                 {
                   "type": "null"
@@ -262,15 +236,7 @@
         "type": "string"
       }
     },
-    "required": [
-      "id",
-      "venueId",
-      "name",
-      "isActive",
-      "layoutJson",
-      "createdAt",
-      "updatedAt"
-    ]
+    "required": ["id", "venueId", "name", "isActive", "layoutJson", "createdAt", "updatedAt"]
   },
   "Guest": {
     "$id": "Guest",
@@ -323,11 +289,7 @@
       },
       "riskScore": {
         "type": "string",
-        "enum": [
-          "trusted",
-          "standard",
-          "risky"
-        ]
+        "enum": ["trusted", "standard", "risky"]
       },
       "lifetimeSpend": {
         "anyOf": [
@@ -377,12 +339,7 @@
       },
       "communicationPreference": {
         "type": "string",
-        "enum": [
-          "email_only",
-          "sms_only",
-          "both",
-          "transactional_only"
-        ]
+        "enum": ["email_only", "sms_only", "both", "transactional_only"]
       },
       "staffNotes": {
         "type": "array",
@@ -399,11 +356,7 @@
               "type": "string"
             }
           },
-          "required": [
-            "text",
-            "createdBy",
-            "createdAt"
-          ]
+          "required": ["text", "createdBy", "createdAt"]
         }
       },
       "createdAt": {
@@ -447,11 +400,7 @@
         "type": "number"
       }
     },
-    "required": [
-      "name",
-      "description",
-      "count"
-    ]
+    "required": ["name", "description", "count"]
   },
   "Pagination": {
     "$id": "Pagination",
@@ -476,14 +425,7 @@
         "type": "boolean"
       }
     },
-    "required": [
-      "page",
-      "limit",
-      "total",
-      "totalPages",
-      "hasNext",
-      "hasPrev"
-    ]
+    "required": ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"]
   },
   "Reservation": {
     "$id": "Reservation",
@@ -506,13 +448,7 @@
       },
       "status": {
         "type": "string",
-        "enum": [
-          "PENDING",
-          "CONFIRMED",
-          "CANCELLED",
-          "COMPLETED",
-          "NO_SHOW"
-        ]
+        "enum": ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED", "NO_SHOW"]
       },
       "notes": {
         "anyOf": [
@@ -548,14 +484,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "birthday",
-              "anniversary",
-              "business",
-              "date_night",
-              "other",
-              "none"
-            ]
+            "enum": ["birthday", "anniversary", "business", "date_night", "other", "none"]
           },
           {
             "type": "null"
@@ -566,14 +495,7 @@
         "anyOf": [
           {
             "type": "string",
-            "enum": [
-              "booth",
-              "patio",
-              "bar",
-              "window",
-              "quiet",
-              "no_preference"
-            ]
+            "enum": ["booth", "patio", "bar", "window", "quiet", "no_preference"]
           },
           {
             "type": "null"
@@ -686,12 +608,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "AVAILABLE",
-              "OCCUPIED",
-              "DIRTY",
-              "READY"
-            ]
+            "enum": ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]
           },
           "venueId": {
             "anyOf": [
@@ -735,23 +652,13 @@
                   },
                   "shape": {
                     "type": "string",
-                    "enum": [
-                      "rectangle",
-                      "circle",
-                      "square"
-                    ]
+                    "enum": ["rectangle", "circle", "square"]
                   },
                   "color": {
                     "type": "string"
                   }
                 },
-                "required": [
-                  "x",
-                  "y",
-                  "width",
-                  "height",
-                  "shape"
-                ]
+                "required": ["x", "y", "width", "height", "shape"]
               },
               {
                 "type": "null"
@@ -877,12 +784,7 @@
       },
       "status": {
         "type": "string",
-        "enum": [
-          "AVAILABLE",
-          "OCCUPIED",
-          "DIRTY",
-          "READY"
-        ]
+        "enum": ["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]
       },
       "venueId": {
         "anyOf": [
@@ -926,23 +828,13 @@
               },
               "shape": {
                 "type": "string",
-                "enum": [
-                  "rectangle",
-                  "circle",
-                  "square"
-                ]
+                "enum": ["rectangle", "circle", "square"]
               },
               "color": {
                 "type": "string"
               }
             },
-            "required": [
-              "x",
-              "y",
-              "width",
-              "height",
-              "shape"
-            ]
+            "required": ["x", "y", "width", "height", "shape"]
           },
           {
             "type": "null"
@@ -995,23 +887,13 @@
       },
       "shape": {
         "type": "string",
-        "enum": [
-          "rectangle",
-          "circle",
-          "square"
-        ]
+        "enum": ["rectangle", "circle", "square"]
       },
       "color": {
         "type": "string"
       }
     },
-    "required": [
-      "x",
-      "y",
-      "width",
-      "height",
-      "shape"
-    ]
+    "required": ["x", "y", "width", "height", "shape"]
   },
   "VenueGroup": {
     "$id": "VenueGroup",
@@ -1040,13 +922,7 @@
         "type": "string"
       }
     },
-    "required": [
-      "id",
-      "name",
-      "slug",
-      "settings",
-      "createdAt"
-    ]
+    "required": ["id", "name", "slug", "settings", "createdAt"]
   },
   "Venue": {
     "$id": "Venue",
@@ -1091,13 +967,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "settings",
-          "createdAt"
-        ]
+        "required": ["id", "name", "slug", "settings", "createdAt"]
       },
       "name": {
         "type": "string"
@@ -1129,10 +999,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "tuesday": {
                 "type": "object",
@@ -1147,10 +1014,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "wednesday": {
                 "type": "object",
@@ -1165,10 +1029,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "thursday": {
                 "type": "object",
@@ -1183,10 +1044,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "friday": {
                 "type": "object",
@@ -1201,10 +1059,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "saturday": {
                 "type": "object",
@@ -1219,10 +1074,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               },
               "sunday": {
                 "type": "object",
@@ -1237,10 +1089,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "open",
-                  "close"
-                ]
+                "required": ["open", "close"]
               }
             }
           },

@@ -194,10 +194,7 @@
   </section>
   <section priority="medium" role="pages">
   <file path="src/pages/createRefinementPrompt.ts">
-    export function createRefinementPrompt(
-      currentSpec: Spec,
-      userInstruction: string,
-    ): string {
+    export function createRefinementPrompt(currentSpec: Spec, userInstruction: string): string {
       return (
         `Here is an existing UI spec generated from Rialto components. ` +
         `Please modify it according to the user's instruction. ` +

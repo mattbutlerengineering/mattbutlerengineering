@@ -52,9 +52,7 @@ describe("ErrorForbiddenExamplePage", () => {
 
   it("renders supporting copy explaining the error", () => {
     render(<ErrorForbiddenExamplePage />);
-    expect(
-      screen.getByText(/You don’t have permission to view this page/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/You don’t have permission to view this page/)).toBeInTheDocument();
   });
 
   it("offers a primary sign-in CTA and a secondary contact CTA", () => {

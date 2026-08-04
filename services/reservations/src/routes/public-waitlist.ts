@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, WaitlistJoinResult } from "@mbe/types";
-import { createProblemDetails, waitlistJoinResultJsonSchema, publicWaitlistBodyJsonSchema } from "@mbe/types";
+import {
+  createProblemDetails,
+  waitlistJoinResultJsonSchema,
+  publicWaitlistBodyJsonSchema,
+} from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";

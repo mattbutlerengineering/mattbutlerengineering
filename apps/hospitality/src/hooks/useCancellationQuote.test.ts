@@ -72,12 +72,22 @@ describe("evaluateCancellationQuote", () => {
 
 describe("withQuotedFeeNote", () => {
   const feeQuote: CancellationQuote = {
-    fee: { feeType: "noshow", feeAmountCents: 5000, refundAmountCents: 0, depositAction: "forfeit" },
+    fee: {
+      feeType: "noshow",
+      feeAmountCents: 5000,
+      refundAmountCents: 0,
+      depositAction: "forfeit",
+    },
     label: "No-show fee: $50.00 forfeited — refund $0.00",
     currency: "usd",
   };
   const freeQuote: CancellationQuote = {
-    fee: { feeType: "none", feeAmountCents: 0, refundAmountCents: 5000, depositAction: "refund_full" },
+    fee: {
+      feeType: "none",
+      feeAmountCents: 0,
+      refundAmountCents: 5000,
+      depositAction: "refund_full",
+    },
     label: "No cancellation fee — full refund of $50.00",
     currency: "usd",
   };

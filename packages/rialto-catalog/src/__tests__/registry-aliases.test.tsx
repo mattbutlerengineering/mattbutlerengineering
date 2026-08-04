@@ -112,9 +112,7 @@ describe("registry alias seam", () => {
       )
       .sort();
 
-    const covered = ALIAS_CASES.map(
-      (c) => `${c.component}.${c.alias}->${c.canonical}`
-    ).sort();
+    const covered = ALIAS_CASES.map((c) => `${c.component}.${c.alias}->${c.canonical}`).sort();
 
     expect(covered).toEqual(declared);
   });

@@ -9,7 +9,7 @@ date: 2026-07-11
 
 ## Context
 
-Rialto's vibe system (`packages/rialto/src/providers/`) reads as a *seam* — a
+Rialto's vibe system (`packages/rialto/src/providers/`) reads as a _seam_ — a
 swappable design language. `vibes.ts` holds three preset maps
 (`default` / `transacting` / `presenting`), each a `VibeOverrides`
 (`Record<string, string>`) map of `--rialto-*` CSS custom properties, and
@@ -21,7 +21,7 @@ But the "seam" had **one adapter and zero real consumers**: a single static
 A seam with one implementation is speculative abstraction — nothing yet proves
 the interface generalises. Issue #3189 framed the direction as a HITL call:
 
-- **Option A — earn the seam:** add a genuine *second* adapter/consumer behind
+- **Option A — earn the seam:** add a genuine _second_ adapter/consumer behind
   the existing `VibeOverrides` interface (the issue's primary example: a
   density / reduced-data adapter driven by `useUIEnvironment().device.saveData`)
   so two real implementations justify the seam.
@@ -40,7 +40,7 @@ We add a **reduced-data adapter**: a runtime-derived source of `VibeOverrides`
 keyed on `device.saveData` (the `prefers-reduced-data: reduce` signal already
 detected by `useDeviceContext`). When Save-Data is on it tightens the spacing
 scale by roughly one step, trading whitespace for density. It is composed
-behind the *same* CSS-var-override path `RialtoProvider` already uses — not a
+behind the _same_ CSS-var-override path `RialtoProvider` already uses — not a
 bespoke second mechanism — so the seam now carries two genuinely different
 adapter shapes:
 
@@ -50,7 +50,7 @@ adapter shapes:
 | Reduced-data     | `device.saveData` signal | derived at runtime  |
 
 Both emit a `VibeOverrides` map; `RialtoProvider` merges them into one inline
-`style`. That shared output type *is* the seam, and it is now exercised by two
+`style`. That shared output type _is_ the seam, and it is now exercised by two
 real producers — the abstraction is earned rather than hypothetical.
 
 ### Implementation
@@ -68,6 +68,7 @@ real producers — the abstraction is earned rather than hypothetical.
   Reduced-data sits **above** the preset so a user's Save-Data preference
   tightens even a loose preset like `presenting`, but **below** explicit
   `vibeOverrides` so a caller can always override any single token per-var.
+
 - The change is **additive and backward compatible**: no props change, the
   preset maps and CSS-var override path are untouched, and behaviour is
   byte-identical for callers when `device.saveData` is `false`.
@@ -110,7 +111,7 @@ generalise from. The preset maps and CSS-var path are kept regardless.
 
 ### A bespoke reduced-data mechanism (new prop / separate style path)
 
-**Rejected.** Wiring Save-Data through a parallel mechanism would *not* prove
+**Rejected.** Wiring Save-Data through a parallel mechanism would _not_ prove
 the vibe seam — it would add a second, competing abstraction. Routing it
 through the existing `VibeOverrides` interface is the whole point: it
 demonstrates the seam carries more than one adapter.

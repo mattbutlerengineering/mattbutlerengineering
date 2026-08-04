@@ -86,7 +86,11 @@ describe("reconcileTelemetry — PR-backed rows", () => {
       .mockImplementationOnce(() => {
         throw new Error("gh: connection reset");
       })
-      .mockReturnValueOnce({ state: "MERGED", mergedAt: "2026-07-21T09:00:00.000Z", commitCount: 1 });
+      .mockReturnValueOnce({
+        state: "MERGED",
+        mergedAt: "2026-07-21T09:00:00.000Z",
+        commitCount: 1,
+      });
     const input = [makeRow({ pr_number: 101 }), makeRow({ issue_number: 2, pr_number: 102 })];
     const { rows, reconciled } = reconcileTelemetry(input, { fetchPr, now: NOW });
 

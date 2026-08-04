@@ -60,14 +60,14 @@ RialtoProvider (vibe="transacting")
 
 The `vibe` preset is one adapter feeding the override map; the **reduced-data adapter** is the second. It is derived at runtime from `device.saveData` — the browser's `prefers-reduced-data: reduce` signal, detected by `useDeviceContext`. When a user turns Save-Data on, Rialto tightens the spacing scale by roughly one step, trading whitespace for density so more content fits with less scrolling and paint. Only spacing tokens shift; radii, type, and colors are left alone.
 
-| Token               | Default | Reduced-data |
-| ------------------- | ------- | ------------ |
-| `--rialto-space-sm` | 12px    | 8px          |
-| `--rialto-space-md` | 16px    | 12px         |
-| `--rialto-space-lg` | 24px    | 16px         |
-| `--rialto-space-xl` | 32px    | 24px         |
-| `--rialto-space-2xl`| 48px    | 32px         |
-| `--rialto-space-3xl`| 64px    | 48px         |
+| Token                | Default | Reduced-data |
+| -------------------- | ------- | ------------ |
+| `--rialto-space-sm`  | 12px    | 8px          |
+| `--rialto-space-md`  | 16px    | 12px         |
+| `--rialto-space-lg`  | 24px    | 16px         |
+| `--rialto-space-xl`  | 32px    | 24px         |
+| `--rialto-space-2xl` | 48px    | 32px         |
+| `--rialto-space-3xl` | 64px    | 48px         |
 
 This adapter is **automatic and additive**: it applies whenever `device.saveData` is `true` and is a no-op otherwise, so callers who do not use it are completely unaffected. It is exposed for direct use (e.g. tests or bespoke wiring) from the providers subpath:
 

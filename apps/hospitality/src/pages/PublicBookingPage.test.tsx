@@ -31,9 +31,7 @@ vi.mock("../hooks/usePublicApiClient.js", () => ({
 // required Vitest pattern: vi.mock is hoisted above top-level imports, so a
 // static import cannot be referenced here.
 vi.mock("../components/booking-widget/index.js", async () => {
-  const { hasOperatingHours } = await import(
-    "../components/booking-widget/hasOperatingHours.js"
-  );
+  const { hasOperatingHours } = await import("../components/booking-widget/hasOperatingHours.js");
   return {
     BookingWidget: ({
       venueId,
