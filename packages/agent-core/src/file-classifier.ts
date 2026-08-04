@@ -11,8 +11,6 @@
  * surfaces, so isNonAuditableFile now includes them via isDependencyFile.
  */
 
-import { isFrontendPath } from "../../../scripts/merge-train-lock.mjs";
-
 // ── Basic predicates ────────────────────────────────────────────────────────
 
 /**
@@ -73,7 +71,10 @@ export const isInfrastructureFile = (f: string): boolean => f.startsWith("infras
  * test, doc, or config files.
  */
 export const isFrontendSourceFile = (f: string): boolean =>
-  isFrontendPath(f) && !isTestFile(f) && !isDocFile(f) && !isConfigFile(f);
+  (f.startsWith("apps/") || f.startsWith("packages/rialto/")) &&
+  !isTestFile(f) &&
+  !isDocFile(f) &&
+  !isConfigFile(f);
 
 /**
  * True for back-end source files under services/ that are not test, doc, or config files.
