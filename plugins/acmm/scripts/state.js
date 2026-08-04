@@ -7,6 +7,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import prettier from "prettier";
 
 /**
  * @typedef {Object} HistoryEntry
@@ -84,13 +85,21 @@ export function loadState(cwd) {
 
 /**
  * Persist state to `<cwd>/.claude/acmm/state.json` (creating parent dirs).
+ * Runs the JSON through the repo's prettier config before writing, so the
+ * output matches what `pnpm check:prettier` expects (#3801) — a plain
+ * `JSON.stringify` doesn't always match prettier's formatting (e.g. it
+ * leaves short arrays multi-line where prettier collapses them).
  * @param {string} cwd
  * @param {State} state
+ * @returns {Promise<void>}
  */
-export function saveState(cwd, state) {
+export async function saveState(cwd, state) {
   const p = join(cwd, STATE_PATH);
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(state, null, 2) + "\n", "utf-8");
+  const raw = JSON.stringify(state, null, 2) + "\n";
+  const config = await prettier.resolveConfig(p);
+  const formatted = await prettier.format(raw, { parser: "json", ...config });
+  writeFileSync(p, formatted, "utf-8");
 }
 
 /**
