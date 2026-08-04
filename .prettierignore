@@ -10,6 +10,15 @@ packages/rialto/registry.json
 packages/rialto-catalog/src/generated-schemas.ts
 docs/architecture/dependency-graph.md
 
+# Gitignored build output (packages/rialto-plugin/.gitignore), so it never
+# reaches a commit — but CI's build job (`pnpm build`, unscoped) regenerates
+# it via `generate-reference.ts` immediately before `repo-audit` runs
+# `check:prettier`, so it's present and in-scope for `prettier --check .` at
+# that point in the pipeline. Its hand-written markdown table writer doesn't
+# match Prettier's table formatting, so leaving it in scope fails CI on a
+# clean main with zero code change.
+packages/rialto-plugin/generated/component-reference.md
+
 # pnpm-managed lockfile. Prettier's YAML printer doesn't just flip pnpm's
 # single-quoted keys to double-quoted (this repo's singleQuote: false) - it
 # also reflows some sequences, producing a ~13k-line structural diff on a
