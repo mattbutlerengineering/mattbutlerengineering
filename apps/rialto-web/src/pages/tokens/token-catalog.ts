@@ -35,7 +35,10 @@ export const COLOR_GROUPS: readonly TokenGroup[] = [
     tokens: [
       { name: "--rialto-surface", usage: "Page and default component backgrounds" },
       { name: "--rialto-surface-elevated", usage: "Cards, popovers, elevated containers" },
-      { name: "--rialto-surface-recessed", usage: "Input fields, slider tracks, recessed channels" },
+      {
+        name: "--rialto-surface-recessed",
+        usage: "Input fields, slider tracks, recessed channels",
+      },
       { name: "--rialto-surface-matte", usage: "Disabled fills, subtle divider backgrounds" },
       { name: "--rialto-surface-deep", usage: "Heavy separators, decorative dark accents" },
     ],
@@ -64,7 +67,10 @@ export const COLOR_GROUPS: readonly TokenGroup[] = [
     tokens: [
       { name: "--rialto-accent", usage: "Primary buttons, focus rings, active/selected states" },
       { name: "--rialto-accent-hover", usage: "Primary button hover state" },
-      { name: "--rialto-accent-muted", usage: "Subtle accent backgrounds (selected rows, active tabs)" },
+      {
+        name: "--rialto-accent-muted",
+        usage: "Subtle accent backgrounds (selected rows, active tabs)",
+      },
       { name: "--rialto-accent-glow", usage: "Focus ring outer glow" },
     ],
   },
@@ -182,7 +188,10 @@ export const ELEVATION_LEVELS: TokenGroup = {
     { name: "--rialto-shadow-pressed", usage: "Recessed inputs, slider tracks, active press" },
     { name: "--rialto-shadow-glass", usage: "Floating frosted-glass overlays" },
     { name: "--rialto-shadow-ambient", usage: "Warm gold halo for CTAs and active selections" },
-    { name: "--rialto-shadow-luminous", usage: "Cards lit from within — elevation plus warm bloom" },
+    {
+      name: "--rialto-shadow-luminous",
+      usage: "Cards lit from within — elevation plus warm bloom",
+    },
   ],
 };
 
@@ -202,7 +211,10 @@ export const MOTION_GROUPS: readonly TokenGroup[] = [
     tokens: [
       { name: "--rialto-duration-fast", usage: "Micro-interactions — hover color, icon swaps" },
       { name: "--rialto-duration-standard", usage: "Standard state changes — most UI transitions" },
-      { name: "--rialto-duration-slow", usage: "Deliberate movement — card hover lift, panel slide" },
+      {
+        name: "--rialto-duration-slow",
+        usage: "Deliberate movement — card hover lift, panel slide",
+      },
     ],
   },
   {
@@ -242,7 +254,9 @@ export const SPACING_SCALE: TokenGroup = {
   ],
 };
 
-export const SPACING_TOKEN_NAMES: readonly string[] = SPACING_SCALE.tokens.map((token) => token.name);
+export const SPACING_TOKEN_NAMES: readonly string[] = SPACING_SCALE.tokens.map(
+  (token) => token.name
+);
 
 // ---------------------------------------------------------------------------
 // Radius
@@ -273,7 +287,10 @@ export const SHADOW_GROUPS: readonly TokenGroup[] = [
     tokens: [
       { name: "--rialto-shadow-xs", usage: "Subtle lift — buttons at rest, tags, badges" },
       { name: "--rialto-shadow-sm", usage: "Standard elevation — cards, dropdowns" },
-      { name: "--rialto-shadow-md", usage: "Pronounced elevation — hovered cards, active dropdowns" },
+      {
+        name: "--rialto-shadow-md",
+        usage: "Pronounced elevation — hovered cards, active dropdowns",
+      },
       { name: "--rialto-shadow-lg", usage: "Dramatic elevation — modals, floating panels" },
     ],
   },
@@ -291,7 +308,10 @@ export const SHADOW_GROUPS: readonly TokenGroup[] = [
     description: "Gold ambient bloom for CTAs and elements that should breathe warmth.",
     tokens: [
       { name: "--rialto-shadow-ambient", usage: "Warm gold halo — CTAs, active selections" },
-      { name: "--rialto-shadow-luminous", usage: "Cards lit from within — elevation plus warm bloom" },
+      {
+        name: "--rialto-shadow-luminous",
+        usage: "Cards lit from within — elevation plus warm bloom",
+      },
     ],
   },
 ];
@@ -319,7 +339,8 @@ export interface IconCategoryGuidance {
 export const ICON_CATEGORY_GUIDANCE: Record<string, IconCategoryGuidance> = {
   navigation: {
     label: "Navigation",
-    description: "Wayfinding and directional affordances — move between views and reveal structure.",
+    description:
+      "Wayfinding and directional affordances — move between views and reveal structure.",
   },
   actions: {
     label: "Actions",
@@ -332,7 +353,8 @@ export const ICON_CATEGORY_GUIDANCE: Record<string, IconCategoryGuidance> = {
   },
   status: {
     label: "Status",
-    description: "Outcome and state signals — pair with the matching semantic color, never color alone.",
+    description:
+      "Outcome and state signals — pair with the matching semantic color, never color alone.",
   },
   content: {
     label: "Content",

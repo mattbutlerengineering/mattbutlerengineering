@@ -683,7 +683,9 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 4, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+          makeVenuePolicy({ depositType: "per_person" })
+        );
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
           status: "held",
         } as never);
@@ -710,7 +712,9 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 6, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+          makeVenuePolicy({ depositType: "per_person" })
+        );
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
           status: "pending",
         } as never);
@@ -737,7 +741,9 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 4, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "flat" }));
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+          makeVenuePolicy({ depositType: "flat" })
+        );
         vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
           success: true,
           reservation: createMockReservation({ partySize: 6, venueId: "venue-1" }),
@@ -758,7 +764,9 @@ describe("Reservation Routes", () => {
         vi.mocked(reservationService.getById).mockResolvedValueOnce(
           createMockReservation({ partySize: 4, venueId: "venue-1" })
         );
-        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+        vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+          makeVenuePolicy({ depositType: "per_person" })
+        );
         vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
         vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
           success: true,

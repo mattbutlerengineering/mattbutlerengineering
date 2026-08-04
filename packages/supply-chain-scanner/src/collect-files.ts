@@ -3,15 +3,7 @@ import { join, relative, sep } from "node:path";
 import type { SourceFile } from "./types.js";
 
 /** Directories never worth scanning (and a DoS risk if huge). */
-const SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "coverage",
-  ".turbo",
-  ".next",
-]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".turbo", ".next"]);
 
 /** Only inspect plausibly-text files. Anything else is ignored, never executed. */
 const TEXT_EXTENSIONS = new Set([

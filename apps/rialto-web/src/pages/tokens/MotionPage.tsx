@@ -59,8 +59,8 @@ export function MotionPage() {
           <Text as="span" mono>
             @media (prefers-reduced-motion: reduce)
           </Text>{" "}
-          query. When a visitor asks their operating system to minimise motion, the demos hold
-          still at rest rather than looping — and Rialto components fall back to the same instant,
+          query. When a visitor asks their operating system to minimise motion, the demos hold still
+          at rest rather than looping — and Rialto components fall back to the same instant,
           non-animated transitions.
         </Text>
       </Section>

@@ -6,8 +6,7 @@ import type { PropDef } from "../../hooks/use-props-from-manifest.js";
 export type { PropDef } from "../../hooks/use-props-from-manifest.js";
 
 type PropsTableProps =
-  | { component: string; props?: never }
-  | { props: PropDef[]; component?: never };
+  { component: string; props?: never } | { props: PropDef[]; component?: never };
 
 /**
  * Renders a typed props/API documentation table using the Rialto Table component.

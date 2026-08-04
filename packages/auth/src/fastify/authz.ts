@@ -27,9 +27,7 @@ import { hasPermission } from "./plugin.js";
  */
 export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   if (!hasPermission(request.user, "admin")) {
-    reply
-      .code(403)
-      .send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
+    reply.code(403).send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
   }
 }
 

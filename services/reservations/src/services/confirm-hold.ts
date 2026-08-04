@@ -7,11 +7,7 @@ import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
 
 type ConfirmHoldErrorCode =
-  | "NOT_FOUND"
-  | "EXPIRED"
-  | "SESSION_MISMATCH"
-  | "CONFLICT"
-  | "PACING_EXCEEDED";
+  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED";
 
 export interface ConfirmHoldInput {
   holdId: string;

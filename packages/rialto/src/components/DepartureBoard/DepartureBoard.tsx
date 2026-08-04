@@ -72,7 +72,11 @@ export const DepartureBoard = forwardRef<HTMLDivElement, DepartureBoardProps>(
     // Reduced motion: a fully static, readable phrase — no flipping, no cycling.
     if (shouldReduceMotion) {
       return (
-        <div ref={ref} className={cn(styles.board, styles[size], styles.static, className)} {...rest}>
+        <div
+          ref={ref}
+          className={cn(styles.board, styles[size], styles.static, className)}
+          {...rest}
+        >
           <span className={styles.staticText}>{currentPhrase}</span>
         </div>
       );

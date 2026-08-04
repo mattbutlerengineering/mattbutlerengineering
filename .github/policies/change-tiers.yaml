@@ -34,7 +34,7 @@ tiers:
 # Path-based classification rules (highest tier wins).
 rules:
   critical:
-    - "prisma/migrations/**"  # destructive ops flagged by migration-reviewer
+    - "prisma/migrations/**" # destructive ops flagged by migration-reviewer
     - "prisma/schema.prisma"
     - "infrastructure/pulumi/**"
     - ".github/CODEOWNERS"
@@ -63,7 +63,7 @@ rules:
     - "apps/*/src/**"
     - "docs/adr/**"
   trivial:
-    - "**/*.md"  # except: SECURITY-AI.md, change-tiers.md, review-criteria.md, active ADRs
+    - "**/*.md" # except: SECURITY-AI.md, change-tiers.md, review-criteria.md, active ADRs
     - ".changeset/**"
     - ".editorconfig"
     - ".vscode/**"
@@ -84,20 +84,21 @@ modifiers:
     - condition: PR has been force-pushed since last review approval
     - condition: PR removes a test file
   deescalate_one_tier:
-    cap_at: standard  # never below standard
-    - condition: diff < 20 lines added AND only touches files matching trivial globs
-    - condition: Dependabot patch-version bump for devDependencies-only package
-    - condition: chore(deps) security update with lockfile-only diff
+    cap_at: standard # never below standard
+    conditions:
+      - condition: diff < 20 lines added AND only touches files matching trivial globs
+      - condition: Dependabot patch-version bump for devDependencies-only package
+      - condition: chore(deps) security update with lockfile-only diff
 
 # Auto-merge eligibility (currently disabled — GH Actions unpaid).
 auto_merge:
-  enabled: false  # set to true when GH Actions billing is restored
+  enabled: false # set to true when GH Actions billing is restored
   eligible_tiers: [trivial]
   required_signals:
     - all_ci_checks_green: true
     - no_unresolved_review_threads: true
-    - approved_by_human: false  # trivial bypasses human approval
+    - approved_by_human: false # trivial bypasses human approval
 
 on_violation:
-  block: false  # tier classification is informational, not gating
+  block: false # tier classification is informational, not gating
   notify: classify and label; let downstream rules in destructive-ops.yaml block if needed

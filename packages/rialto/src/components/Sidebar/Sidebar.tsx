@@ -108,11 +108,7 @@ function ItemElement({ item, collapsed }: { item: SidebarItem; collapsed: boolea
   const content = (
     <>
       {item.icon && (
-        <motion.span
-          className={styles.itemIcon}
-          layout={layoutMode}
-          transition={layoutTransition}
-        >
+        <motion.span className={styles.itemIcon} layout={layoutMode} transition={layoutTransition}>
           {item.icon}
         </motion.span>
       )}

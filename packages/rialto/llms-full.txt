@@ -7,7 +7,8 @@
         "Grouped set of collapsible panels. Use for FAQs, settings groups, or any content that benefits from progressive disclosure. Provide items array with id, title, and content. Set multiple=true to allow several panels open at once.",
       slots: ["default"],
       propSchemas: {
-        items: 'z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))',
+        items:
+          "z.array(z.object({ id: z.string(), title: z.string(), content: z.string(), disabled: z.boolean().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -86,7 +87,8 @@
       description:
         "Navigation trail showing hierarchy position. Use on detail pages to help users navigate back. Provide an items array with label and href for each level; omit href on the last item (current page).",
       propSchemas: {
-        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() }))',
+        items:
+          "z.array(z.object({ label: z.string(), href: z.string().optional(), icon: z.string().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -196,7 +198,8 @@
         label: 40,
       },
       propSchemas: {
-        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+        options:
+          "z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -208,7 +211,7 @@
       description:
         "Definition list of label-value pairs. Use for spec sheets, metadata panels, or structured key-value display. Use orientation=horizontal (default) for side-by-side pairs, orientation=vertical for stacked pairs. Use striped=true for alternating rows.",
       propSchemas: {
-        items: 'z.array(z.object({ label: z.string(), value: z.string() }))',
+        items: "z.array(z.object({ label: z.string(), value: z.string() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -322,11 +325,7 @@
   </file>
   <file path="src/components/FlipDot/use-flip-dot-animation.ts">
     export type FlipDotAnimationMode =
-      | "typewriter"
-      | "scroll-left"
-      | "scroll-right"
-      | "blink"
-      | "frames";
+      "typewriter" | "scroll-left" | "scroll-right" | "blink" | "frames";
     export interface UseFlipDotAnimationOptions {
       /** Text to render (used by typewriter, scroll, blink modes). */
       text?: string;
@@ -435,7 +434,8 @@
         "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
       slots: ["default"],
       propSchemas: {
-        items: 'z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() }))',
+        items:
+          "z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -460,7 +460,8 @@
         label: 40,
       },
       propSchemas: {
-        options: 'z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))',
+        options:
+          "z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -472,7 +473,8 @@
       description:
         "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
       propSchemas: {
-        items: 'z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })]))',
+        items:
+          "z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })]))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -545,7 +547,7 @@
         defaultValue: "defaultTab",
       },
       propSchemas: {
-        tabs: 'z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))',
+        tabs: "z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() }))",
       },
     } satisfies CatalogMeta;
   </file>
@@ -608,12 +610,7 @@
   </file>
   <file path="src/components/TapeChart/types.ts">
     export type TapeChartStatus =
-      | "tentative"
-      | "confirmed"
-      | "checkedIn"
-      | "checkedOut"
-      | "cancelled"
-      | "noShow";
+      "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
     export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
@@ -1549,14 +1546,15 @@
   <file path="scripts/generate-colors-css.ts">
     function assertCommentSafe(text: string): string {
       if (text.includes("*/")) {
-        throw new Error(`Token description contains "*/", which would break the generated CSS: ${text}`);
+        throw new Error(
+          `Token description contains "*/", which would break the generated CSS: ${text}`
+        );
       }
       return text;
     }
     function sectionHeader(key: string, description: string | undefined): string {
       const title = key.charAt(0).toUpperCase() + key.slice(1);
-      const label =
-        description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
+      const label = description === undefined ? title : `${title} (${assertCommentSafe(description)})`;
       const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
       return `  /* ── ${label} ${fill} */`;
     }

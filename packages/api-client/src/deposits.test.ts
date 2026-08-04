@@ -83,7 +83,9 @@ describe("DepositsClient", () => {
   describe("capture", () => {
     it("POSTs /api/v1/deposits/:id/capture and returns the deposit", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: { ...fakeDeposit, status: "applied", appliedAt: "2026-05-27T00:00:00Z" } })
+        jsonResponse({
+          data: { ...fakeDeposit, status: "applied", appliedAt: "2026-05-27T00:00:00Z" },
+        })
       );
 
       const result = await makeClient().capture("dep_1");
@@ -98,7 +100,9 @@ describe("DepositsClient", () => {
   describe("refund", () => {
     it("POSTs /api/v1/deposits/:id/refund and returns the deposit", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: { ...fakeDeposit, status: "refunded", refundedAt: "2026-05-27T00:00:00Z" } })
+        jsonResponse({
+          data: { ...fakeDeposit, status: "refunded", refundedAt: "2026-05-27T00:00:00Z" },
+        })
       );
 
       const result = await makeClient().refund("dep_1");
@@ -113,7 +117,9 @@ describe("DepositsClient", () => {
   describe("forfeit", () => {
     it("POSTs /api/v1/deposits/:id/forfeit and returns the deposit", async () => {
       mockFetch.mockResolvedValueOnce(
-        jsonResponse({ data: { ...fakeDeposit, status: "forfeited", forfeitedAt: "2026-05-27T00:00:00Z" } })
+        jsonResponse({
+          data: { ...fakeDeposit, status: "forfeited", forfeitedAt: "2026-05-27T00:00:00Z" },
+        })
       );
 
       const result = await makeClient().forfeit("dep_1");
@@ -140,8 +146,8 @@ describe("DepositsClient", () => {
       jsonResponse({ data: { ...fakeDeposit, status: "not-a-real-status" } })
     );
 
-    await expect(makeClient().create({ reservationId: "res_1", amountCents: 2500 })).rejects.toThrow(
-      ApiValidationError
-    );
+    await expect(
+      makeClient().create({ reservationId: "res_1", amountCents: 2500 })
+    ).rejects.toThrow(ApiValidationError);
   });
 });

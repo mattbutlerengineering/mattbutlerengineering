@@ -285,7 +285,9 @@ describe("useVenueReadiness", () => {
     } as any);
     vi.mocked(useAuth).mockReturnValue({ accessToken: "tok-789" } as any);
 
-    const { result, rerender } = renderHook(() => useVenueReadiness(), { wrapper: createWrapper() });
+    const { result, rerender } = renderHook(() => useVenueReadiness(), {
+      wrapper: createWrapper(),
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("setup");

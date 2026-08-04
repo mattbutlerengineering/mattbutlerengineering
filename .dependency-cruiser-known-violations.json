@@ -4,10 +4,7 @@
     "from": "packages/agent-core/src/adapters/cli-adapter-base.ts",
     "to": "packages/agent-core/src/adapters/run-cli-adapter-session.ts",
     "unresolvedTo": "./run-cli-adapter-session.js",
-    "dependencyTypes": [
-      "local",
-      "import"
-    ],
+    "dependencyTypes": ["local", "import"],
     "rule": {
       "severity": "error",
       "name": "no-circular"
@@ -15,18 +12,11 @@
     "cycle": [
       {
         "name": "packages/agent-core/src/adapters/run-cli-adapter-session.ts",
-        "dependencyTypes": [
-          "local",
-          "import"
-        ]
+        "dependencyTypes": ["local", "import"]
       },
       {
         "name": "packages/agent-core/src/adapters/cli-adapter-base.ts",
-        "dependencyTypes": [
-          "local",
-          "type-only",
-          "import"
-        ]
+        "dependencyTypes": ["local", "type-only", "import"]
       }
     ]
   }

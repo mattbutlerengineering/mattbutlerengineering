@@ -52,8 +52,7 @@ type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
 type ResolvedDeposit = { depositId: string; stripeOp: DepositStripeOp };
 
 type ResolveDepositOutcome =
-  | { ok: false; failure: CancelReservationResult }
-  | { ok: true; resolved: ResolvedDeposit | null };
+  { ok: false; failure: CancelReservationResult } | { ok: true; resolved: ResolvedDeposit | null };
 
 /**
  * The final status write failed AFTER the deposit was already resolved against

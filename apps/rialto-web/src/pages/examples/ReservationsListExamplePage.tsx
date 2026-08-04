@@ -37,29 +37,213 @@ export const PAGE_SIZE = 8;
 /* ── Fixture data (no service calls) ─────────── */
 
 export const RESERVATIONS: Reservation[] = [
-  { id: "RES-1001", guest: "Elena Marchetti", room: "Suite 402", checkIn: "Mar 23", nights: 3, party: 2, status: "confirmed" },
-  { id: "RES-1002", guest: "James Whitfield", room: "Deluxe 218", checkIn: "Mar 24", nights: 2, party: 1, status: "checked-in" },
-  { id: "RES-1003", guest: "Amara Okonkwo", room: "Standard 115", checkIn: "Mar 25", nights: 1, party: 3, status: "pending" },
-  { id: "RES-1004", guest: "Luca Ferreira", room: "Suite 510", checkIn: "Mar 26", nights: 4, party: 2, status: "confirmed" },
-  { id: "RES-1005", guest: "Sophie Laurent", room: "Deluxe 307", checkIn: "Mar 27", nights: 2, party: 4, status: "cancelled" },
-  { id: "RES-1006", guest: "Tariq Al-Rashid", room: "Standard 208", checkIn: "Mar 28", nights: 3, party: 2, status: "checked-in" },
-  { id: "RES-1007", guest: "Mei Lin Chen", room: "Suite 401", checkIn: "Mar 29", nights: 5, party: 2, status: "confirmed" },
-  { id: "RES-1008", guest: "Oliver Brandt", room: "Deluxe 220", checkIn: "Mar 30", nights: 1, party: 1, status: "pending" },
-  { id: "RES-1009", guest: "Nadia Petrova", room: "Standard 118", checkIn: "Mar 31", nights: 2, party: 2, status: "confirmed" },
-  { id: "RES-1010", guest: "Hiroshi Tanaka", room: "Suite 505", checkIn: "Apr 01", nights: 6, party: 3, status: "checked-in" },
-  { id: "RES-1011", guest: "Priya Ananth", room: "Deluxe 312", checkIn: "Apr 02", nights: 2, party: 2, status: "confirmed" },
-  { id: "RES-1012", guest: "Gabriel Moreau", room: "Standard 210", checkIn: "Apr 03", nights: 3, party: 1, status: "pending" },
-  { id: "RES-1013", guest: "Isabella Rossi", room: "Suite 404", checkIn: "Apr 04", nights: 4, party: 2, status: "cancelled" },
-  { id: "RES-1014", guest: "Kwame Mensah", room: "Deluxe 225", checkIn: "Apr 05", nights: 1, party: 4, status: "confirmed" },
-  { id: "RES-1015", guest: "Freya Andersen", room: "Standard 120", checkIn: "Apr 06", nights: 2, party: 2, status: "checked-in" },
-  { id: "RES-1016", guest: "Diego Herrera", room: "Suite 508", checkIn: "Apr 07", nights: 5, party: 3, status: "confirmed" },
-  { id: "RES-1017", guest: "Yara Haddad", room: "Deluxe 318", checkIn: "Apr 08", nights: 2, party: 2, status: "pending" },
-  { id: "RES-1018", guest: "Sven Johansson", room: "Standard 214", checkIn: "Apr 09", nights: 3, party: 1, status: "confirmed" },
-  { id: "RES-1019", guest: "Camila Duarte", room: "Suite 407", checkIn: "Apr 10", nights: 4, party: 2, status: "checked-in" },
-  { id: "RES-1020", guest: "Aleksander Nowak", room: "Deluxe 330", checkIn: "Apr 11", nights: 2, party: 3, status: "cancelled" },
-  { id: "RES-1021", guest: "Leila Karimi", room: "Standard 222", checkIn: "Apr 12", nights: 1, party: 2, status: "confirmed" },
-  { id: "RES-1022", guest: "Marcus Bergström", room: "Suite 511", checkIn: "Apr 13", nights: 7, party: 4, status: "pending" },
-  { id: "RES-1023", guest: "Zoe Kapoor", room: "Deluxe 340", checkIn: "Apr 14", nights: 2, party: 2, status: "confirmed" },
+  {
+    id: "RES-1001",
+    guest: "Elena Marchetti",
+    room: "Suite 402",
+    checkIn: "Mar 23",
+    nights: 3,
+    party: 2,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1002",
+    guest: "James Whitfield",
+    room: "Deluxe 218",
+    checkIn: "Mar 24",
+    nights: 2,
+    party: 1,
+    status: "checked-in",
+  },
+  {
+    id: "RES-1003",
+    guest: "Amara Okonkwo",
+    room: "Standard 115",
+    checkIn: "Mar 25",
+    nights: 1,
+    party: 3,
+    status: "pending",
+  },
+  {
+    id: "RES-1004",
+    guest: "Luca Ferreira",
+    room: "Suite 510",
+    checkIn: "Mar 26",
+    nights: 4,
+    party: 2,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1005",
+    guest: "Sophie Laurent",
+    room: "Deluxe 307",
+    checkIn: "Mar 27",
+    nights: 2,
+    party: 4,
+    status: "cancelled",
+  },
+  {
+    id: "RES-1006",
+    guest: "Tariq Al-Rashid",
+    room: "Standard 208",
+    checkIn: "Mar 28",
+    nights: 3,
+    party: 2,
+    status: "checked-in",
+  },
+  {
+    id: "RES-1007",
+    guest: "Mei Lin Chen",
+    room: "Suite 401",
+    checkIn: "Mar 29",
+    nights: 5,
+    party: 2,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1008",
+    guest: "Oliver Brandt",
+    room: "Deluxe 220",
+    checkIn: "Mar 30",
+    nights: 1,
+    party: 1,
+    status: "pending",
+  },
+  {
+    id: "RES-1009",
+    guest: "Nadia Petrova",
+    room: "Standard 118",
+    checkIn: "Mar 31",
+    nights: 2,
+    party: 2,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1010",
+    guest: "Hiroshi Tanaka",
+    room: "Suite 505",
+    checkIn: "Apr 01",
+    nights: 6,
+    party: 3,
+    status: "checked-in",
+  },
+  {
+    id: "RES-1011",
+    guest: "Priya Ananth",
+    room: "Deluxe 312",
+    checkIn: "Apr 02",
+    nights: 2,
+    party: 2,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1012",
+    guest: "Gabriel Moreau",
+    room: "Standard 210",
+    checkIn: "Apr 03",
+    nights: 3,
+    party: 1,
+    status: "pending",
+  },
+  {
+    id: "RES-1013",
+    guest: "Isabella Rossi",
+    room: "Suite 404",
+    checkIn: "Apr 04",
+    nights: 4,
+    party: 2,
+    status: "cancelled",
+  },
+  {
+    id: "RES-1014",
+    guest: "Kwame Mensah",
+    room: "Deluxe 225",
+    checkIn: "Apr 05",
+    nights: 1,
+    party: 4,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1015",
+    guest: "Freya Andersen",
+    room: "Standard 120",
+    checkIn: "Apr 06",
+    nights: 2,
+    party: 2,
+    status: "checked-in",
+  },
+  {
+    id: "RES-1016",
+    guest: "Diego Herrera",
+    room: "Suite 508",
+    checkIn: "Apr 07",
+    nights: 5,
+    party: 3,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1017",
+    guest: "Yara Haddad",
+    room: "Deluxe 318",
+    checkIn: "Apr 08",
+    nights: 2,
+    party: 2,
+    status: "pending",
+  },
+  {
+    id: "RES-1018",
+    guest: "Sven Johansson",
+    room: "Standard 214",
+    checkIn: "Apr 09",
+    nights: 3,
+    party: 1,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1019",
+    guest: "Camila Duarte",
+    room: "Suite 407",
+    checkIn: "Apr 10",
+    nights: 4,
+    party: 2,
+    status: "checked-in",
+  },
+  {
+    id: "RES-1020",
+    guest: "Aleksander Nowak",
+    room: "Deluxe 330",
+    checkIn: "Apr 11",
+    nights: 2,
+    party: 3,
+    status: "cancelled",
+  },
+  {
+    id: "RES-1021",
+    guest: "Leila Karimi",
+    room: "Standard 222",
+    checkIn: "Apr 12",
+    nights: 1,
+    party: 2,
+    status: "confirmed",
+  },
+  {
+    id: "RES-1022",
+    guest: "Marcus Bergström",
+    room: "Suite 511",
+    checkIn: "Apr 13",
+    nights: 7,
+    party: 4,
+    status: "pending",
+  },
+  {
+    id: "RES-1023",
+    guest: "Zoe Kapoor",
+    room: "Deluxe 340",
+    checkIn: "Apr 14",
+    nights: 2,
+    party: 2,
+    status: "confirmed",
+  },
 ];
 
 const STATUS_META: Record<
@@ -217,9 +401,7 @@ export function ReservationsListExamplePage() {
 
   const cancelSelected = () => {
     const targets = new Set(selectedKeys);
-    setRows((prev) =>
-      prev.map((r) => (targets.has(r.id) ? { ...r, status: "cancelled" } : r))
-    );
+    setRows((prev) => prev.map((r) => (targets.has(r.id) ? { ...r, status: "cancelled" } : r)));
     setSelectedKeys([]);
   };
 
@@ -259,7 +441,9 @@ export function ReservationsListExamplePage() {
             aria-label={`Cancel ${row.guest}`}
             disabled={row.status === "cancelled"}
             onClick={() =>
-              setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, status: "cancelled" } : r)))
+              setRows((prev) =>
+                prev.map((r) => (r.id === row.id ? { ...r, status: "cancelled" } : r))
+              )
             }
           >
             Cancel

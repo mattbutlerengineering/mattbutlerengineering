@@ -36,26 +36,26 @@ repo-committed artifacts.
 
 ## Your four verbs
 
-| Verb | How | When |
-| --- | --- | --- |
-| **Veto** | Close the `[Proposal]` issue (or add the `vetoed` label) | Any time before it decomposes (~72h). Permanent — the idea is never re-proposed. |
-| **Steer** | Edit `PRODUCT.md` — themes, non-goals, guardrails | Whenever direction feels off. Next batch grounds on the new text. Quarterly skim is plenty. |
-| **Pause** | Disable the `/ideate` step (or whole `mbe-morning` routine) at <https://claude.ai/code/routines> | Vacation, quota pinch, or you want the queue to itself. In-flight batch keeps draining harmlessly. |
-| **Rescue** | Remove `ready` from a decomposed child (or close it); label stuck things `deferred` | A feature turned out wrong mid-build, or something is blocking batch completion. |
+| Verb       | How                                                                                              | When                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **Veto**   | Close the `[Proposal]` issue (or add the `vetoed` label)                                         | Any time before it decomposes (~72h). Permanent — the idea is never re-proposed.                   |
+| **Steer**  | Edit `PRODUCT.md` — themes, non-goals, guardrails                                                | Whenever direction feels off. Next batch grounds on the new text. Quarterly skim is plenty.        |
+| **Pause**  | Disable the `/ideate` step (or whole `mbe-morning` routine) at <https://claude.ai/code/routines> | Vacation, quota pinch, or you want the queue to itself. In-flight batch keeps draining harmlessly. |
+| **Rescue** | Remove `ready` from a decomposed child (or close it); label stuck things `deferred`              | A feature turned out wrong mid-build, or something is blocking batch completion.                   |
 
 Everything else — proposing, decomposing, building, testing, reviewing,
 merging, telemetry, re-ideating — is automatic.
 
 ## Life of a batch
 
-| Day | What happens | Your involvement |
-| --- | --- | --- |
-| 0 | `/ideate` files `[Ideation] Batch <date>` + 4-5 `[Proposal]` issues | Skim titles on your phone; close any you dislike |
-| 0-3 | Veto window | Optional vetoes |
-| ~3 | Un-vetoed proposals decompose (max 2/day) into `feature`+`ready` children | None |
-| 3-8 | Queue drains: cloud `mbe-midday`/`mbe-evening` (≤3 issues each) + your local `/loop 30m /implement-queue` sprints when you feel like it | None (local sprints optional, just faster) |
-| ~8 | All children closed → tracking issues close → batch closes with a scorecard comment | None |
-| next morning | New batch proposed automatically | Back to day 0 |
+| Day          | What happens                                                                                                                            | Your involvement                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 0            | `/ideate` files `[Ideation] Batch <date>` + 4-5 `[Proposal]` issues                                                                     | Skim titles on your phone; close any you dislike |
+| 0-3          | Veto window                                                                                                                             | Optional vetoes                                  |
+| ~3           | Un-vetoed proposals decompose (max 2/day) into `feature`+`ready` children                                                               | None                                             |
+| 3-8          | Queue drains: cloud `mbe-midday`/`mbe-evening` (≤3 issues each) + your local `/loop 30m /implement-queue` sprints when you feel like it | None (local sprints optional, just faster)       |
+| ~8           | All children closed → tracking issues close → batch closes with a scorecard comment                                                     | None                                             |
+| next morning | New batch proposed automatically                                                                                                        | Back to day 0                                    |
 
 Safety valves: children stuck in `agent-failed`/`stealable`/`needs-review` for
 7 days get `deferred` (stop blocking, stay open); a batch force-completes 28
@@ -63,14 +63,14 @@ days after decomposition. A wedged batch cannot stall the loop forever.
 
 ## What you'll see on GitHub (and what it means)
 
-| You see | It means | Act? |
-| --- | --- | --- |
-| 4-5 new `[Proposal]` issues + one `[Ideation] Batch` issue | New batch, veto window open | Only if you object |
-| `[Feature] … [i/M]` issues labeled `ready` | A proposal survived and decomposed | No |
-| PRs merging on their own | Review gate passed + CI green (existing policy) | No |
-| Small `chore(metrics): …` PRs, auto-merged | Sensors persisting telemetry from ephemeral cloud checkouts | No — this is the loop's heartbeat; its *absence* for days is the anomaly |
-| `chore(acmm): daily audit` PRs | ACMM re-scoring | No |
-| An issue labeled `needs-review` or `stealable` | Automation hit its limit on one item | When convenient — it no longer blocks the batch after 7 days |
+| You see                                                    | It means                                                    | Act?                                                                     |
+| ---------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 4-5 new `[Proposal]` issues + one `[Ideation] Batch` issue | New batch, veto window open                                 | Only if you object                                                       |
+| `[Feature] … [i/M]` issues labeled `ready`                 | A proposal survived and decomposed                          | No                                                                       |
+| PRs merging on their own                                   | Review gate passed + CI green (existing policy)             | No                                                                       |
+| Small `chore(metrics): …` PRs, auto-merged                 | Sensors persisting telemetry from ephemeral cloud checkouts | No — this is the loop's heartbeat; its _absence_ for days is the anomaly |
+| `chore(acmm): daily audit` PRs                             | ACMM re-scoring                                             | No                                                                       |
+| An issue labeled `needs-review` or `stealable`             | Automation hit its limit on one item                        | When convenient — it no longer blocks the batch after 7 days             |
 
 ## One-time setup (do once, then never again)
 
@@ -79,7 +79,7 @@ summary:
 
 1. At <https://claude.ai/code/routines>, paste the three prompt blocks from
    `scheduled-tasks.md`: the `/ideate` block into **mbe-morning**, the
-   `/implement-queue` block into **mbe-midday** *and* **mbe-evening**, and the
+   `/implement-queue` block into **mbe-midday** _and_ **mbe-evening**, and the
    updated optimize block (Step 0 reconcile + Step 6 persist) into
    **mbe-evening**.
 2. Click **Run** on `mbe-morning` — validates `/ideate` end-to-end and files

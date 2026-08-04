@@ -21,7 +21,7 @@ export function resolveRialtoTokenCount(): number {
   } catch {
     const tokensDir = join(
       dirname(require.resolve("@mattbutlerengineering/rialto/package.json")),
-      "src/tokens",
+      "src/tokens"
     );
     const css = readdirSync(tokensDir)
       .filter((file) => file.endsWith(".css"))

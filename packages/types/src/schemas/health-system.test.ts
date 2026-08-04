@@ -148,8 +148,8 @@ describe("systemHealthSchema", () => {
 
   it("rejects a response missing a required subsystem", () => {
     const { deploys: _omitted, ...withoutDeploys } = coarse.subsystems;
-    expect(
-      systemHealthSchema.safeParse({ ...coarse, subsystems: withoutDeploys }).success
-    ).toBe(false);
+    expect(systemHealthSchema.safeParse({ ...coarse, subsystems: withoutDeploys }).success).toBe(
+      false
+    );
   });
 });

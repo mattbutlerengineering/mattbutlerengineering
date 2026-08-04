@@ -14,8 +14,10 @@ import styles from "./IconButton.module.css";
  * @example
  * <IconButton icon={<Trash2 />} aria-label="Delete" onClick={handleDelete} />
  */
-export interface IconButtonProps
-  extends Omit<ButtonProps, "children" | "isLoading" | "loadingText"> {
+export interface IconButtonProps extends Omit<
+  ButtonProps,
+  "children" | "isLoading" | "loadingText"
+> {
   /** The glyph to render — a ~16–20px icon or inline SVG. */
   icon: ReactNode;
   /**
@@ -25,16 +27,17 @@ export interface IconButtonProps
   "aria-label": string;
 }
 
-export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
-  function IconButton({ icon, variant = "ghost", size = "md", type = "button", className, ...props }, ref) {
-    const classes = cn(styles.iconButton, variantClass(styles, size, "md"), className);
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { icon, variant = "ghost", size = "md", type = "button", className, ...props },
+  ref
+) {
+  const classes = cn(styles.iconButton, variantClass(styles, size, "md"), className);
 
-    return (
-      <Button ref={ref} variant={variant} type={type} className={classes} {...props}>
-        {icon}
-      </Button>
-    );
-  }
-);
+  return (
+    <Button ref={ref} variant={variant} type={type} className={classes} {...props}>
+      {icon}
+    </Button>
+  );
+});
 
 IconButton.displayName = "IconButton";

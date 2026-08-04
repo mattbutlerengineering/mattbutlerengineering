@@ -129,7 +129,10 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
           }
           // Non-retriable (permanent) customer error — degrade gracefully and
           // take the deposit without a Stripe customer attached.
-          request.log.warn({ err }, "Stripe customer creation failed (non-retriable), continuing without customer");
+          request.log.warn(
+            { err },
+            "Stripe customer creation failed (non-retriable), continuing without customer"
+          );
         }
       }
 

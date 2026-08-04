@@ -1,5 +1,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { createProblemDetails, eventsStreamQueryJsonSchema, testEventBodyJsonSchema } from "@mbe/types";
+import {
+  createProblemDetails,
+  eventsStreamQueryJsonSchema,
+  testEventBodyJsonSchema,
+} from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import type { ReservationEvent } from "../services/events.js";
 import {

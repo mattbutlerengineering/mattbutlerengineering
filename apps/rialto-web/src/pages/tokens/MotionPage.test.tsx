@@ -19,7 +19,10 @@ const LIGHT: Record<string, string> = {
 
 function stubComputedTokens(): void {
   const real = window.getComputedStyle.bind(window);
-  vi.spyOn(window, "getComputedStyle").mockImplementation(((el: Element, pseudo?: string | null) => {
+  vi.spyOn(window, "getComputedStyle").mockImplementation(((
+    el: Element,
+    pseudo?: string | null
+  ) => {
     const base = real(el, pseudo ?? undefined);
     if (el !== document.documentElement) return base;
     return {

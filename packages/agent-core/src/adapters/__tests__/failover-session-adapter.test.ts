@@ -3,7 +3,10 @@ import type { AgentAdapter } from "../../cli-adapter.js";
 import type { AgentSessionAdapter } from "../../run-agent-session.js";
 import type { SessionConfig, SessionResult } from "../../types.js";
 import { RateLimitDetector } from "../../rate-limit-detector.js";
-import { AllAdaptersUnavailableError, FailoverSessionAdapter } from "../failover-session-adapter.js";
+import {
+  AllAdaptersUnavailableError,
+  FailoverSessionAdapter,
+} from "../failover-session-adapter.js";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

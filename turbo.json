@@ -3,11 +3,7 @@
   "remoteCache": {
     "enabled": true
   },
-  "globalDependencies": [
-    "pnpm-lock.yaml",
-    "eslint.config.js",
-    "packages/config/**"
-  ],
+  "globalDependencies": ["pnpm-lock.yaml", "eslint.config.js", "packages/config/**"],
   "globalPassThroughEnv": [
     "CI",
     "NODE_ENV",
@@ -56,7 +52,12 @@
     },
     "typecheck": {
       "dependsOn": ["^build", "db:generate"],
-      "inputs": ["src/**", "package.json", "tsconfig*.json", "$TURBO_ROOT$/packages/config/typescript/**"],
+      "inputs": [
+        "src/**",
+        "package.json",
+        "tsconfig*.json",
+        "$TURBO_ROOT$/packages/config/typescript/**"
+      ],
       "outputs": []
     },
     "test": {

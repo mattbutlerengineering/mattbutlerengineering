@@ -387,9 +387,7 @@ describe("resolveRepoIdentity", () => {
   });
 
   it("rejects a worktree path with shell metacharacters before any subprocess", async () => {
-    await expect(resolveRepoIdentity("/worktree$(whoami)")).rejects.toThrow(
-      "Invalid worktreePath"
-    );
+    await expect(resolveRepoIdentity("/worktree$(whoami)")).rejects.toThrow("Invalid worktreePath");
     expect(execFile).not.toHaveBeenCalled();
   });
 });

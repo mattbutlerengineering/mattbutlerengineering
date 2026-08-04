@@ -104,12 +104,13 @@ A comprehensive, actionable playbook for solo developers using AI agents to ship
 - [ ] Re-evaluate your workflow model quarterly ([decision tree below](#decision-tree-1-which-workflow-model))
 
 **Growth cadence:**
-| Month | Focus |
-|-------|-------|
-| Month 2 | Add QA agent, refine code review agent prompts |
-| Month 3 | Add parallel execution, custom commands for top 5 workflows |
-| Month 4 | Evaluate: do you need a PM tool upgrade? More agents? Or fewer? |
-| Month 5+ | Optimize what works, remove what does not |
+
+| Month    | Focus                                                           |
+| -------- | --------------------------------------------------------------- |
+| Month 2  | Add QA agent, refine code review agent prompts                  |
+| Month 3  | Add parallel execution, custom commands for top 5 workflows     |
+| Month 4  | Evaluate: do you need a PM tool upgrade? More agents? Or fewer? |
+| Month 5+ | Optimize what works, remove what does not                       |
 
 ---
 
@@ -474,11 +475,12 @@ You are a QA engineer. Your job is to ensure code quality through comprehensive 
 
 **Coverage Target:** [X]%
 **Test Cases:**
-| # | Category | Scenario | Expected Result |
-|---|----------|----------|-----------------|
-| 1 | Happy path | [description] | [result] |
-| 2 | Edge case | [description] | [result] |
-| 3 | Error case | [description] | [result] |
+
+| #   | Category   | Scenario      | Expected Result |
+| --- | ---------- | ------------- | --------------- |
+| 1   | Happy path | [description] | [result]        |
+| 2   | Edge case  | [description] | [result]        |
+| 3   | Error case | [description] | [result]        |
 
 **Tests Written:** [number]
 **Coverage Achieved:** [X]%

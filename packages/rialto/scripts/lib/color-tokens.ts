@@ -63,7 +63,9 @@ export function walkTokens(group: TokenGroup, prefix: readonly string[] = []): T
  * color.error.default) — generators must assert emitted names are unique.
  */
 export function cssVarName(path: readonly string[]): string {
-  const segments = path.filter((seg, i) => !(i === 0 && seg === "color") && !(i === 1 && seg === "semantic"));
+  const segments = path.filter(
+    (seg, i) => !(i === 0 && seg === "color") && !(i === 1 && seg === "semantic")
+  );
   const trimmed = segments.at(-1) === "default" ? segments.slice(0, -1) : segments;
   if (trimmed.length === 0) {
     throw new Error(`Token path [${path.join(".")}] reduces to an empty CSS variable name`);

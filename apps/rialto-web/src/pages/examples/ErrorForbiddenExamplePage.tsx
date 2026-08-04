@@ -30,9 +30,8 @@ const compositionNotes = (
       genuinely should have access.
     </CompositionNote>
     <CompositionNote>
-      The copy states what happened without blaming the user and never echoes internal
-      authorization details — permission errors are a common spot for accidental information
-      leaks.
+      The copy states what happened without blaming the user and never echoes internal authorization
+      details — permission errors are a common spot for accidental information leaks.
     </CompositionNote>
     <CompositionNote>
       Every visual value — the muted display numeral, panel surface, borders, and spacing — comes

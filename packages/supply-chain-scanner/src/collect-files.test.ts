@@ -21,7 +21,9 @@ afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 describe("collectFiles", () => {
   it("collects text files recursively", () => {
-    const rels = collectFiles(root).map((f) => f.relPath).sort();
+    const rels = collectFiles(root)
+      .map((f) => f.relPath)
+      .sort();
     expect(rels).toContain("index.js");
     expect(rels).toContain("SKILL.md");
     expect(rels).toContain("nested/deep.ts");

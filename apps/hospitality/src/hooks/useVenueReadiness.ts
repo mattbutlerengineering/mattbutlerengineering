@@ -86,10 +86,11 @@ export function useVenueReadiness(): VenueReadiness {
   // Compose the shared react-query floor-plans hook instead of a bespoke effect.
   // The query is keyed by venueId, so switching venues fetches fresh data and
   // in-flight requests for stale venues are ignored by react-query.
-  const {
-    data: floorPlans,
-    error,
-  } = useFloorPlans({ venueId: selectedVenueId, limit: 10, enabled });
+  const { data: floorPlans, error } = useFloorPlans({
+    venueId: selectedVenueId,
+    limit: 10,
+    enabled,
+  });
 
   const isError = error !== null;
 

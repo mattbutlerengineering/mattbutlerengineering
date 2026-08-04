@@ -127,7 +127,12 @@ export const Banner = forwardRef<HTMLDivElement, BannerProps>(
             <span className={styles.body}>{children}</span>
             {action && <span className={styles.action}>{action}</span>}
             {dismissible && (
-              <button type="button" className={styles.close} onClick={handleDismiss} aria-label="Dismiss">
+              <button
+                type="button"
+                className={styles.close}
+                onClick={handleDismiss}
+                aria-label="Dismiss"
+              >
                 <svg
                   width="12"
                   height="12"

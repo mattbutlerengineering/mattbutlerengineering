@@ -28,10 +28,10 @@ local sessions must see the same state).
 
 ## Flags
 
-| Flag              | Effect                                                        |
-| ----------------- | ------------------------------------------------------------- |
-| `--window-hours N`| Override the 66h veto window (testing only; e.g. `0`)         |
-| `--dry-run`       | Report what would happen; create/edit/close nothing on GitHub |
+| Flag               | Effect                                                        |
+| ------------------ | ------------------------------------------------------------- |
+| `--window-hours N` | Override the 66h veto window (testing only; e.g. `0`)         |
+| `--dry-run`        | Report what would happen; create/edit/close nothing on GitHub |
 
 ## Phase 1: Cycle-check (always)
 
@@ -75,7 +75,7 @@ cost):
 
 1. Comment: "Veto window elapsed — decomposing into implementation issues."
 2. Run `/decompose` with the proposal body as the feature description (its
-   *Suggested decomposition* section is the seed). Decompose creates 3-10
+   _Suggested decomposition_ section is the seed). Decompose creates 3-10
    `feature`+`ready` child issues plus one `tracking` issue.
 3. **Verify the tracking issue exists** (`gh issue list --label tracking`
    filtered to the new title) before touching the proposal.
@@ -161,25 +161,31 @@ Per proposal — title `[Proposal] <app>: <feature>`, label `feature-proposal`
 
 ```markdown
 ## Problem & Evidence
+
 <signal citations: file paths, issue links, trend numbers>
 
 ## Charter alignment
+
 <quoted PRODUCT.md theme>
 
 ## Proposed feature
+
 <what the user gets, 2-4 sentences>
 
 ## Target app/surface
 
 ## Scope estimate
+
 <S/M/L + expected child-issue count (3-10)>
 
 ## Suggested decomposition
+
 <3-6 bullets — seeds /decompose>
 
 ## Non-goals & risks
 
 ## Veto
+
 Reject by closing this issue or adding the `vetoed` label. Un-vetoed
 proposals are decomposed automatically after ~72h (first morning run past
 66h).
@@ -194,7 +200,7 @@ the task-list:
 ```markdown
 - [ ] #<n1> — <title>
 - [ ] #<n2> — <title>
-...
+      ...
 ```
 
 ### 6. Report
@@ -204,14 +210,14 @@ batch ends the run (give Matt the veto window headline).
 
 ## Edge cases
 
-| Case | Handling |
-| --- | --- |
-| Closed proposal, no `vetoed` label | back-fill the label (closing IS vetoing) |
-| Veto arrives after 66h but before flip | veto wins — re-check at flip time |
-| All proposals vetoed | batch completes; re-ideate same run |
-| Decompose crashes | retry-with-resume daily, 3 strikes → `deferred` |
-| Child stuck failed/needs-review 7d | `deferred`, excluded from completion |
-| Batch stuck 28d post-decompose | force-complete with deferral sweep |
-| `ready` on a proposal | strip it defensively, comment |
-| Routine misses a day | window widens by 24h — harmless |
-| Two open batches | process oldest, flag anomaly |
+| Case                                   | Handling                                        |
+| -------------------------------------- | ----------------------------------------------- |
+| Closed proposal, no `vetoed` label     | back-fill the label (closing IS vetoing)        |
+| Veto arrives after 66h but before flip | veto wins — re-check at flip time               |
+| All proposals vetoed                   | batch completes; re-ideate same run             |
+| Decompose crashes                      | retry-with-resume daily, 3 strikes → `deferred` |
+| Child stuck failed/needs-review 7d     | `deferred`, excluded from completion            |
+| Batch stuck 28d post-decompose         | force-complete with deferral sweep              |
+| `ready` on a proposal                  | strip it defensively, comment                   |
+| Routine misses a day                   | window widens by 24h — harmless                 |
+| Two open batches                       | process oldest, flag anomaly                    |

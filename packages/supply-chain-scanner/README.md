@@ -32,11 +32,11 @@ mbe-scan /path/to/candidate-package
 
 ## Heuristics
 
-| Category             | High (block)                                                        | Med / Low (flag)                              |
-| -------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| `prompt-injection`   | instruction-override phrasing ("ignore previous instructions")      | role reassignment, hidden unicode, base64 in prose |
-| `data-exfiltration`  | secret read **paired with** an outbound call in the same file       | outbound call alone (med), secret read alone (low) |
-| `malicious-command`  | `curl … \| sh`, `rm -rf <path>`, `eval(`, dynamic `require/import`, writes to MCP/shell config | raw `child_process` / `exec`/`spawn` (med)    |
+| Category            | High (block)                                                                                   | Med / Low (flag)                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `prompt-injection`  | instruction-override phrasing ("ignore previous instructions")                                 | role reassignment, hidden unicode, base64 in prose |
+| `data-exfiltration` | secret read **paired with** an outbound call in the same file                                  | outbound call alone (med), secret read alone (low) |
+| `malicious-command` | `curl … \| sh`, `rm -rf <path>`, `eval(`, dynamic `require/import`, writes to MCP/shell config | raw `child_process` / `exec`/`spawn` (med)         |
 
 Each `Finding` carries `{ category, severity, file, line, evidence }` where
 `file` is relative to the scanned package root and `line` is 1-indexed.

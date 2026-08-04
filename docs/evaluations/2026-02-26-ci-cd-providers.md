@@ -376,12 +376,13 @@ GitHub Actions is the correct platform for this project. The native GitHub integ
 4. **Add pre-commit hooks** via Lefthook — Prettier format + ESLint fix on staged files. Catches issues before they reach CI.
 
 **Action items:**
-| Action | Effort | Cost | Impact |
-|--------|--------|------|--------|
-| Turborepo remote cache (`rharkor/caching-for-turbo`) | 17 min | $0 | ~30-50% faster CI |
-| Changesets automation workflow | 30 min | $0 | Automated releases |
-| Dependabot config or Renovate setup | 20 min | $0 | Grouped, auto-merged dependency PRs |
-| Lefthook pre-commit hooks | 15 min | $0 | Catch lint issues pre-push |
+
+| Action                                               | Effort | Cost | Impact                              |
+| ---------------------------------------------------- | ------ | ---- | ----------------------------------- |
+| Turborepo remote cache (`rharkor/caching-for-turbo`) | 17 min | $0   | ~30-50% faster CI                   |
+| Changesets automation workflow                       | 30 min | $0   | Automated releases                  |
+| Dependabot config or Renovate setup                  | 20 min | $0   | Grouped, auto-merged dependency PRs |
+| Lefthook pre-commit hooks                            | 15 min | $0   | Catch lint issues pre-push          |
 
 ### #2 CircleCI — Strongest Full Alternative
 

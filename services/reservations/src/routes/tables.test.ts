@@ -74,7 +74,11 @@ describe("Table Routes", () => {
     };
     stubEvents = new ReservationEventEmitter();
     vi.spyOn(stubEvents, "emitTableUpdated");
-    app = await buildApp({ logger: false, reservationEvents: stubEvents, services: { tableService } });
+    app = await buildApp({
+      logger: false,
+      reservationEvents: stubEvents,
+      services: { tableService },
+    });
     await app.ready();
   });
 

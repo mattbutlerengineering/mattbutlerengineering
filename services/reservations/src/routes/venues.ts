@@ -501,7 +501,10 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+      ],
       schema: {
         summary: "Update a venue",
         operationId: "updateVenue",

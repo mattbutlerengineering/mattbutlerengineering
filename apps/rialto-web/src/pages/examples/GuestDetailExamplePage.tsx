@@ -71,12 +71,60 @@ export const GUEST: GuestProfile = {
 };
 
 export const PAST_STAYS: GuestStay[] = [
-  { id: "RES-1001", room: "Suite 402", checkIn: "2026-03-23", checkOut: "2026-03-26", nights: 3, total: 1740, status: "completed" },
-  { id: "RES-0871", room: "Suite 510", checkIn: "2025-11-08", checkOut: "2025-11-12", nights: 4, total: 2320, status: "completed" },
-  { id: "RES-0764", room: "Deluxe 307", checkIn: "2025-08-15", checkOut: "2025-08-17", nights: 2, total: 680, status: "cancelled" },
-  { id: "RES-0652", room: "Suite 404", checkIn: "2025-05-02", checkOut: "2025-05-07", nights: 5, total: 2900, status: "completed" },
-  { id: "RES-0518", room: "Deluxe 218", checkIn: "2024-12-19", checkOut: "2024-12-21", nights: 2, total: 640, status: "no-show" },
-  { id: "RES-0407", room: "Standard 115", checkIn: "2024-07-30", checkOut: "2024-08-02", nights: 3, total: 540, status: "completed" },
+  {
+    id: "RES-1001",
+    room: "Suite 402",
+    checkIn: "2026-03-23",
+    checkOut: "2026-03-26",
+    nights: 3,
+    total: 1740,
+    status: "completed",
+  },
+  {
+    id: "RES-0871",
+    room: "Suite 510",
+    checkIn: "2025-11-08",
+    checkOut: "2025-11-12",
+    nights: 4,
+    total: 2320,
+    status: "completed",
+  },
+  {
+    id: "RES-0764",
+    room: "Deluxe 307",
+    checkIn: "2025-08-15",
+    checkOut: "2025-08-17",
+    nights: 2,
+    total: 680,
+    status: "cancelled",
+  },
+  {
+    id: "RES-0652",
+    room: "Suite 404",
+    checkIn: "2025-05-02",
+    checkOut: "2025-05-07",
+    nights: 5,
+    total: 2900,
+    status: "completed",
+  },
+  {
+    id: "RES-0518",
+    room: "Deluxe 218",
+    checkIn: "2024-12-19",
+    checkOut: "2024-12-21",
+    nights: 2,
+    total: 640,
+    status: "no-show",
+  },
+  {
+    id: "RES-0407",
+    room: "Standard 115",
+    checkIn: "2024-07-30",
+    checkOut: "2024-08-02",
+    nights: 3,
+    total: 540,
+    status: "completed",
+  },
 ];
 
 export const UPCOMING_RESERVATIONS: UpcomingReservation[] = [
@@ -322,8 +370,16 @@ export function GuestDetailExamplePage() {
           <div className={styles.stats}>
             <Stat label="Total stays" value={PAST_STAYS.length} size="sm" />
             <Stat label="Nights stayed" value={totalNights(PAST_STAYS)} size="sm" />
-            <Stat label="Lifetime spend" value={formatCurrency(lifetimeSpend(PAST_STAYS))} size="sm" />
-            <Stat label="Loyalty points" value={GUEST.loyaltyPoints.toLocaleString("en-US")} size="sm" />
+            <Stat
+              label="Lifetime spend"
+              value={formatCurrency(lifetimeSpend(PAST_STAYS))}
+              size="sm"
+            />
+            <Stat
+              label="Loyalty points"
+              value={GUEST.loyaltyPoints.toLocaleString("en-US")}
+              size="sm"
+            />
           </div>
         </Card>
 

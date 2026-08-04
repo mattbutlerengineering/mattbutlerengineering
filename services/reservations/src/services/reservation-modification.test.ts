@@ -294,7 +294,9 @@ describe("modifyReservationWithNotifications", () => {
   it("updates partySize when there is no held/pending deposit at all", async () => {
     const reservation = makeReservation({ partySize: 4 });
     const updated = { ...reservation, partySize: 10 };
-    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+      makeVenuePolicy({ depositType: "per_person" })
+    );
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce(null);
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
@@ -323,7 +325,9 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
 
   it("blocks a partySize INCREASE with 409 when a per_person deposit is held", async () => {
     const reservation = makeReservation({ partySize: 4 });
-    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+      makeVenuePolicy({ depositType: "per_person" })
+    );
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "held",
     } as never);
@@ -346,7 +350,9 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
 
   it("blocks a partySize DECREASE with 409 when a per_person deposit is held", async () => {
     const reservation = makeReservation({ partySize: 6 });
-    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+      makeVenuePolicy({ depositType: "per_person" })
+    );
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "held",
     } as never);
@@ -368,7 +374,9 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
 
   it("blocks when the per_person deposit is still pending (not yet held)", async () => {
     const reservation = makeReservation({ partySize: 4 });
-    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "per_person" }));
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+      makeVenuePolicy({ depositType: "per_person" })
+    );
     vi.mocked(depositService.getByReservationId).mockResolvedValueOnce({
       status: "pending",
     } as never);
@@ -390,7 +398,9 @@ describe("per-person deposit guard on partySize change (#2931 — decision: Bloc
   it("passes through on a flat-deposit venue even with a held deposit", async () => {
     const reservation = makeReservation({ partySize: 4 });
     const updated = { ...reservation, partySize: 6 };
-    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(makeVenuePolicy({ depositType: "flat" }));
+    vi.mocked(venueService.getPolicyById).mockResolvedValueOnce(
+      makeVenuePolicy({ depositType: "flat" })
+    );
     vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
       success: true,
       reservation: updated,

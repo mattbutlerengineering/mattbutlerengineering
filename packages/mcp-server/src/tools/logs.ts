@@ -8,9 +8,7 @@ const ALLOWED_SERVICES = ["users", "reservations", "agent"];
 function assertValidService(service: string): string {
   const normalized = service.trim().toLowerCase();
   if (!ALLOWED_SERVICES.includes(normalized)) {
-    throw new Error(
-      `Invalid service "${service}". Must be one of: ${ALLOWED_SERVICES.join(", ")}`
-    );
+    throw new Error(`Invalid service "${service}". Must be one of: ${ALLOWED_SERVICES.join(", ")}`);
   }
   return normalized;
 }

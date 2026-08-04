@@ -2,10 +2,7 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { UserSchema, UserPreferencesSchema, UserProfileSchema } from "./schemas/user.js";
 import { GuestSchema, GuestSegmentSchema } from "./schemas/guest.js";
-import {
-  PaginationSchema,
-  paginatedResponseSchema,
-} from "./schemas/common.js";
+import { PaginationSchema, paginatedResponseSchema } from "./schemas/common.js";
 import { ProblemDetailsSchema } from "./schemas/api.js";
 
 // ── UserPreferencesSchema ──────────────────────────────────────────

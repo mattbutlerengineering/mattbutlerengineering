@@ -277,12 +277,7 @@ describe("CommandPaletteExamplePage — fixtures + catalog", () => {
   });
 
   it("SEARCH_GROUPS orders Recent first, then the three types", () => {
-    expect(SEARCH_GROUPS).toEqual([
-      GROUP_RECENT,
-      GROUP_RESERVATIONS,
-      GROUP_GUESTS,
-      GROUP_ROOMS,
-    ]);
+    expect(SEARCH_GROUPS).toEqual([GROUP_RECENT, GROUP_RESERVATIONS, GROUP_GUESTS, GROUP_ROOMS]);
   });
 
   it("seeds initial recent ids that resolve to real catalog entries", () => {

@@ -56,7 +56,9 @@ describe("css-tokens resolver", () => {
   test("findUnresolvedReferences resolves a deliberate app-local alias", () => {
     const referenced = collectReferencedProperties(".x { background: var(--color-background); }");
     const rialto = collectDefinedProperties(":root { --rialto-surface: #fff; }");
-    const appLocal = collectDefinedProperties(":root { --color-background: var(--rialto-surface); }");
+    const appLocal = collectDefinedProperties(
+      ":root { --color-background: var(--rialto-surface); }"
+    );
     const defined = new Set([...rialto, ...appLocal]);
     expect(findUnresolvedReferences(referenced, defined)).toEqual([]);
   });

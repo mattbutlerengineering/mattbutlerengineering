@@ -63,9 +63,7 @@ describe("GlobalNav", () => {
   it("mobile menu is hidden by default", () => {
     render(<GlobalNav currentApp="marketing" />);
 
-    const menuId = screen
-      .getByRole("button", { name: "Open menu" })
-      .getAttribute("aria-controls");
+    const menuId = screen.getByRole("button", { name: "Open menu" }).getAttribute("aria-controls");
     expect(menuId).toBeTruthy();
     expect(document.getElementById(menuId!)).toBeNull();
   });
@@ -94,9 +92,7 @@ describe("GlobalNav", () => {
     const user = userEvent.setup();
     render(<GlobalNav currentApp="marketing" />);
 
-    const menuId = screen
-      .getByRole("button", { name: "Open menu" })
-      .getAttribute("aria-controls")!;
+    const menuId = screen.getByRole("button", { name: "Open menu" }).getAttribute("aria-controls")!;
 
     // Open menu
     await user.click(screen.getByRole("button", { name: "Open menu" }));
