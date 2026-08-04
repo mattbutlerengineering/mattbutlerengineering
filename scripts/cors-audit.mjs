@@ -13,6 +13,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
 import { getLabelsForSensor } from "./sensors-registry.mjs";
+import { fileIssue } from "./lib/issue-filing.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -49,7 +50,7 @@ function discoverServices() {
 
 // ── Origin Extraction ──────────────────────────────────────────────
 
-function extractOrigins(content) {
+export function extractOrigins(content) {
   const prodMatches = content.match(/https:\/\/[a-z0-9.-]+/g) || [];
   const devMatches = content.match(/http:\/\/localhost:\d+/g) || [];
   const prodOrigins = [...new Set(prodMatches)];
@@ -74,8 +75,11 @@ function extractOrigins(content) {
 
 // ── CORS Config Analysis ───────────────────────────────────────────
 
-function parseCorsConfig(serviceName, appPath) {
-  const content = readFileSync(appPath, "utf-8");
+/**
+ * Pure: classifies a service's `src/app.ts` content into findings. No I/O —
+ * the caller (`main()`) owns reading `appPath` and hands the content here.
+ */
+export function parseCorsConfig(serviceName, content) {
   if (!content.includes("@fastify/cors")) {
     return { serviceName, hasCors: false, findings: [] };
   }
@@ -148,19 +152,13 @@ function parseCorsConfig(serviceName, appPath) {
 
 // ── Edge Router Analysis ───────────────────────────────────────────
 
-function analyzeEdgeRouter() {
+/**
+ * Pure: classifies the edge router's content into findings. No I/O — the
+ * caller (`analyzeEdgeRouter()`) owns reading the file and handling the
+ * "file not found" case.
+ */
+export function classifyEdgeRouterContent(content) {
   const findings = [];
-  if (!existsSync(EDGE_ROUTER_PATH)) {
-    findings.push({
-      severity: "CRITICAL",
-      issue: "Edge router file not found",
-      detail: "Expected at `infrastructure/worker/edge-router.js`.",
-      remediation: "Verify the edge router path.",
-    });
-    return { findings, presentHeaders: [], missingHeaders: REQUIRED_HEADERS };
-  }
-
-  const content = readFileSync(EDGE_ROUTER_PATH, "utf-8");
   const presentHeaders = REQUIRED_HEADERS.filter((h) => content.includes(h));
   const missingHeaders = REQUIRED_HEADERS.filter((h) => !content.includes(h));
 
@@ -226,9 +224,29 @@ function analyzeEdgeRouter() {
   return { findings, presentHeaders, missingHeaders };
 }
 
+/** I/O boundary: reads the edge router file (or reports it missing) and delegates to the pure classifier. */
+function analyzeEdgeRouter() {
+  if (!existsSync(EDGE_ROUTER_PATH)) {
+    return {
+      findings: [
+        {
+          severity: "CRITICAL",
+          issue: "Edge router file not found",
+          detail: "Expected at `infrastructure/worker/edge-router.js`.",
+          remediation: "Verify the edge router path.",
+        },
+      ],
+      presentHeaders: [],
+      missingHeaders: REQUIRED_HEADERS,
+    };
+  }
+
+  return classifyEdgeRouterContent(readFileSync(EDGE_ROUTER_PATH, "utf-8"));
+}
+
 // ── Report ─────────────────────────────────────────────────────────
 
-function buildReport(serviceResults, edgeResult) {
+export function buildReport(serviceResults, edgeResult) {
   const allFindings = [
     ...serviceResults.flatMap((s) =>
       s.findings.map((f) => ({ ...f, source: `services/${s.serviceName}` }))
@@ -291,12 +309,95 @@ function buildReport(serviceResults, edgeResult) {
 
 // ── Issue Creation ─────────────────────────────────────────────────
 
-function createGitHubIssue(title, body) {
-  const labels = getLabelsForSensor("cors");
-  const labelArgs = labels.flatMap((l) => ["--label", l]);
+const CORS_AUDIT_TITLE_PATTERN = /^CORS audit:/;
+
+/** dedupeKey fed to `fileIssue()`: this audit files one aggregate issue per
+ * outstanding CORS problem set, not one per finding, so a single constant
+ * key is enough to dedupe across runs (mirrors revert-watchdog's per-sha key,
+ * just with no varying identity here). */
+const CORS_AUDIT_DEDUPE_KEY = "cors-audit";
+
+/**
+ * Pure: finds a prior CORS audit issue among candidate issues (any state) by
+ * title prefix. Feeds `fileIssue()`'s dedupe-by-ledger decision so a rerun
+ * with no changes skips, and a rerun after the last one was closed reopens
+ * it instead of filing a duplicate.
+ *
+ * @param {Array<{number: number, title: string}>} candidates
+ * @returns {number | null}
+ */
+export function findPriorCorsAuditIssue(candidates) {
+  const match = (candidates ?? []).find((issue) =>
+    CORS_AUDIT_TITLE_PATTERN.test(issue?.title ?? "")
+  );
+  return match ? match.number : null;
+}
+
+/** Pure: the log line for a `fileIssue()` result, one per action. */
+export function describeFilingResult(result, title) {
+  if (result.action === "create") return `Created issue: ${title}`;
+  if (result.action === "reopen") return `Reopened issue #${result.issueNumber}: ${title}`;
+  return `Skipping — issue #${result.issueNumber} already tracks this: ${title}`;
+}
+
+/** Parses the issue number out of the URL `gh issue create` prints on success. */
+function parseIssueNumberFromUrl(url) {
+  const match = url.match(/\/issues\/(\d+)\s*$/);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
+  return parseInt(match[1], 10);
+}
+
+/** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
+function getIssueStateViaGhClient(ghClient, issueNumber) {
   try {
-    createGhClient().issue.create(["--title", title, ...labelArgs, "--body", body]);
-    console.log(`Created issue: ${title}`);
+    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
+  } catch {
+    return "missing";
+  }
+}
+
+function createGitHubIssue(ghClient, title, body) {
+  const labels = getLabelsForSensor("cors");
+
+  try {
+    // A failed search must not swallow a genuine CORS finding — fail open
+    // (treat as "no prior found", file the issue) rather than closed.
+    // Title search (not a label filter) — the "audit" label is shared by
+    // every audit-family producer, so a label-only search's default result
+    // window can push an older CORS-audit issue out before it's ever seen.
+    let candidates = [];
+    try {
+      candidates = ghClient.issue.list([
+        "--search",
+        "CORS audit in:title",
+        "--state",
+        "all",
+        "--json",
+        "number,title",
+      ]);
+    } catch (err) {
+      console.error(`[cors-audit] search failed, proceeding as no-match: ${err.message}`);
+    }
+    const priorNumber = findPriorCorsAuditIssue(candidates);
+    const ledger = priorNumber !== null ? { [CORS_AUDIT_DEDUPE_KEY]: priorNumber } : {};
+
+    const result = fileIssue({ title, body, labels, dedupeKey: CORS_AUDIT_DEDUPE_KEY }, ledger, {
+      getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+      createIssue: () =>
+        parseIssueNumberFromUrl(
+          ghClient.issue.create([
+            "--title",
+            title,
+            ...labels.flatMap((l) => ["--label", l]),
+            "--body",
+            body,
+          ])
+        ),
+      reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    });
+
+    console.log(describeFilingResult(result, title));
   } catch (err) {
     console.error("Failed to create GitHub issue:", err.message);
     console.log(`\n--- REPORT ---\n\n# ${title}\n\n${body}`);
@@ -314,7 +415,9 @@ async function main() {
   console.log(`  Found ${services.length}: ${services.map((s) => s.name).join(", ")}`);
 
   console.log("\nAnalyzing CORS configurations...");
-  const serviceResults = services.map((s) => parseCorsConfig(s.name, s.appPath));
+  const serviceResults = services.map((s) =>
+    parseCorsConfig(s.name, readFileSync(s.appPath, "utf-8"))
+  );
   for (const r of serviceResults) {
     console.log(`  ${r.serviceName}: ${r.hasCors ? `${r.findings.length} finding(s)` : "no CORS"}`);
   }
@@ -333,10 +436,16 @@ async function main() {
     console.log(`\n--- DRY RUN ---\n\n# ${report.title}\n\n${report.body}`);
     return;
   }
-  createGitHubIssue(report.title, report.body);
+  createGitHubIssue(createGhClient(), report.title, report.body);
 }
 
-main().catch((err) => {
-  console.error("CORS audit failed:", err.message);
-  process.exit(1);
-});
+// Run when invoked directly (not imported by tests) — importing this module
+// must never have side effects (#3676: an unguarded call here fired a real
+// `main()` — GitHub search + issue create/reopen — the moment a test file
+// imported the module for its pure functions).
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("CORS audit failed:", err.message);
+    process.exit(1);
+  });
+}
