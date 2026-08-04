@@ -333,6 +333,13 @@ export function findPriorCorsAuditIssue(candidates) {
   return match ? match.number : null;
 }
 
+/** Pure: the log line for a `fileIssue()` result, one per action. */
+export function describeFilingResult(result, title) {
+  if (result.action === "create") return `Created issue: ${title}`;
+  if (result.action === "reopen") return `Reopened issue #${result.issueNumber}: ${title}`;
+  return `Skipping — issue #${result.issueNumber} already tracks this: ${title}`;
+}
+
 /** Parses the issue number out of the URL `gh issue create` prints on success. */
 function parseIssueNumberFromUrl(url) {
   const match = url.match(/\/issues\/(\d+)\s*$/);
@@ -390,13 +397,7 @@ function createGitHubIssue(ghClient, title, body) {
       reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
     });
 
-    if (result.action === "create") {
-      console.log(`Created issue: ${title}`);
-    } else if (result.action === "reopen") {
-      console.log(`Reopened issue #${result.issueNumber}: ${title}`);
-    } else {
-      console.log(`Skipping — issue #${result.issueNumber} already tracks this: ${title}`);
-    }
+    console.log(describeFilingResult(result, title));
   } catch (err) {
     console.error("Failed to create GitHub issue:", err.message);
     console.log(`\n--- REPORT ---\n\n# ${title}\n\n${body}`);

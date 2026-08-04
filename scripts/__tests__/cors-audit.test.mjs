@@ -5,6 +5,7 @@ import {
   classifyEdgeRouterContent,
   buildReport,
   findPriorCorsAuditIssue,
+  describeFilingResult,
 } from "../cors-audit.mjs";
 
 // ---------------------------------------------------------------------------
@@ -269,5 +270,29 @@ describe("findPriorCorsAuditIssue", () => {
   it("returns null when no candidate title matches the CORS audit prefix", () => {
     const candidates = [{ number: 5, title: "some unrelated issue" }];
     expect(findPriorCorsAuditIssue(candidates)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// describeFilingResult — the log line per fileIssue() action
+// ---------------------------------------------------------------------------
+
+describe("describeFilingResult", () => {
+  it("describes a create", () => {
+    expect(describeFilingResult({ action: "create", issueNumber: 9 }, "t")).toBe(
+      "Created issue: t"
+    );
+  });
+
+  it("describes a reopen", () => {
+    expect(describeFilingResult({ action: "reopen", issueNumber: 9 }, "t")).toBe(
+      "Reopened issue #9: t"
+    );
+  });
+
+  it("describes a skip", () => {
+    expect(describeFilingResult({ action: "skip", issueNumber: 9 }, "t")).toBe(
+      "Skipping — issue #9 already tracks this: t"
+    );
   });
 });
