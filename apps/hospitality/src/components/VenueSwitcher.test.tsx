@@ -178,6 +178,66 @@ describe("VenueSwitcher", () => {
       await userEvent.keyboard("{Escape}");
       expect(screen.queryByRole("listbox")).toBeNull();
     });
+
+    it("focuses the currently selected venue option when the dropdown opens", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      const options = screen.getAllByRole("option");
+      const selectedOption = options.find((o) => o.textContent?.includes("Venue Alpha"));
+      expect(document.activeElement).toBe(selectedOption);
+    });
+
+    it("only the active option is a Tab stop (roving tabindex)", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      const options = screen.getAllByRole("option");
+      const active = options.find((o) => o === document.activeElement);
+      expect(active?.getAttribute("tabindex")).toBe("0");
+      options
+        .filter((o) => o !== active)
+        .forEach((o) => expect(o.getAttribute("tabindex")).toBe("-1"));
+    });
+
+    it("moves focus to the next option on ArrowDown", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      await userEvent.keyboard("{ArrowDown}");
+      const options = screen.getAllByRole("option");
+      const venueBOption = options.find((o) => o.textContent?.includes("Venue Beta"));
+      expect(document.activeElement).toBe(venueBOption);
+    });
+
+    it("moves focus to the previous option on ArrowUp, wrapping to the last option", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      await userEvent.keyboard("{ArrowUp}");
+      const options = screen.getAllByRole("option");
+      const venueBOption = options.find((o) => o.textContent?.includes("Venue Beta"));
+      expect(document.activeElement).toBe(venueBOption);
+    });
+
+    it("jumps to the last option on End and back to the first on Home", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      await userEvent.keyboard("{End}");
+      const venueBOption = screen
+        .getAllByRole("option")
+        .find((o) => o.textContent?.includes("Venue Beta"));
+      expect(document.activeElement).toBe(venueBOption);
+
+      await userEvent.keyboard("{Home}");
+      const venueAOption = screen
+        .getAllByRole("option")
+        .find((o) => o.textContent?.includes("Venue Alpha"));
+      expect(document.activeElement).toBe(venueAOption);
+    });
+
+    it("selects the focused venue on Enter", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      expect(mockSetVenueId).toHaveBeenCalledWith(VENUE_B.id);
+    });
   });
 
   describe("no selected venue", () => {
