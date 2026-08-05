@@ -202,21 +202,21 @@ None this run (see Patterns for why the shallow-clone/ACMM-corruption finding wa
 
 ### Metrics
 
-| Metric                 | Value                                                                                                                       | Target    | Status |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
-| Created (7d)            | ~58 (25 audit + 33 ci-fix, created_at ≥ 2026-07-29)                                                                          | -         | -      |
-| Closed (7d)             | ~53 (22 audit + 31 ci-fix currently CLOSED among that cohort — approximate, `closedAt` not exposed by the MCP issues tool)   | -         | -      |
-| Closure Rate            | ~91.4%                                                                                                                       | >80%      | green  |
-| Time-to-Close           | not computed this run — `closedAt` unavailable via `mcp__github__list_issues` fields (no `gh` CLI in this session)           | <24h      | n/a    |
-| Agent Success           | N/A this run — `ready` backlog was empty at Phase 1, implement-queue claimed 0 issues                                       | >70%      | n/a    |
-| CI Pass                 | 20/20 (100%) recent `CI` (CI Gate) runs on main green; non-required `Release` workflow now failing 3 runs in a row (already tracked by open issue #3322) | >95%      | green  |
-| Queue (ready)           | 0 open                                                                                                                      | <5        | green  |
-| Stale (>7d)             | 0 (queue empty)                                                                                                             | 0         | green  |
-| Blocked (agent-failed)  | 0                                                                                                                           | 0         | green  |
-| Skipped (agent-skip)    | 0                                                                                                                           | 0         | green  |
-| Daily/7d Spend          | unavailable — `.claude/agent-spend/sessions.jsonl` still 0 bytes, same gap since 2026-07-30, tracked by #3695 (do not refile) | <$10/<$50 | n/a    |
-| Cost/Issue              | unavailable, same reason                                                                                                    | <$2       | n/a    |
-| Reverts (7d)            | 0 true `revert:`-subject commits found via `git log --oneline --grep`                                                       | <3/wk     | green  |
+| Metric                 | Value                                                                                                                                                    | Target    | Status |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
+| Created (7d)           | ~58 (25 audit + 33 ci-fix, created_at ≥ 2026-07-29)                                                                                                      | -         | -      |
+| Closed (7d)            | ~53 (22 audit + 31 ci-fix currently CLOSED among that cohort — approximate, `closedAt` not exposed by the MCP issues tool)                               | -         | -      |
+| Closure Rate           | ~91.4%                                                                                                                                                   | >80%      | green  |
+| Time-to-Close          | not computed this run — `closedAt` unavailable via `mcp__github__list_issues` fields (no `gh` CLI in this session)                                       | <24h      | n/a    |
+| Agent Success          | N/A this run — `ready` backlog was empty at Phase 1, implement-queue claimed 0 issues                                                                    | >70%      | n/a    |
+| CI Pass                | 20/20 (100%) recent `CI` (CI Gate) runs on main green; non-required `Release` workflow now failing 3 runs in a row (already tracked by open issue #3322) | >95%      | green  |
+| Queue (ready)          | 0 open                                                                                                                                                   | <5        | green  |
+| Stale (>7d)            | 0 (queue empty)                                                                                                                                          | 0         | green  |
+| Blocked (agent-failed) | 0                                                                                                                                                        | 0         | green  |
+| Skipped (agent-skip)   | 0                                                                                                                                                        | 0         | green  |
+| Daily/7d Spend         | unavailable — `.claude/agent-spend/sessions.jsonl` still 0 bytes, same gap since 2026-07-30, tracked by #3695 (do not refile)                            | <$10/<$50 | n/a    |
+| Cost/Issue             | unavailable, same reason                                                                                                                                 | <$2       | n/a    |
+| Reverts (7d)           | 0 true `revert:`-subject commits found via `git log --oneline --grep`                                                                                    | <3/wk     | green  |
 
 ### Patterns
 
