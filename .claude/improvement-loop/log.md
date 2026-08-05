@@ -241,3 +241,12 @@ None this run (queue and CI both healthy; `Release` failure already tracked by #
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
+## 2026-08-05 (learning-loop)
+
+**Sensors:** 5/16 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114 unchanged since 2026-07-30/07-31, code churn 1%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (Sentry MCP tools not authenticated in this session)
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Threshold notes:** `verifications.jsonl` has no entries in the last 30 days (latest prior entry is 2026-06-20), so false-positive/fix-effectiveness rates aren't computable this run. `collect-ai-issue-feedback.mjs` failed again — same recurring gap noted 2026-06-20/07-30/07-31, but with a new detail: `@mbe/gh-client`'s transport now auto-falls back to the REST API when the `gh` binary is absent (#3689), and that REST call was attempted here, but the session's injected `GITHUB_TOKEN`/`GH_TOKEN` returned `401 Bad credentials` — it's a proxy placeholder for git-over-HTTPS, not a real GitHub API PAT. Only the `mcp__github__*` tools have working GitHub auth in this environment. Default budget (3/category) used since `ai-issue-feedback.json` stayed empty (`{}`, untouched). No action taken — zero regressions to triage this run, so the gap didn't block anything.
