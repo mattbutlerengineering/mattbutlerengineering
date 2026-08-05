@@ -168,13 +168,27 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    gh pr checks <N> --watch
    ```
 
-2. **Low-risk fast path.** If ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip review and enqueue immediately:
+2. **Low-risk fast path — gated on tier first.** A file-glob match alone is never sufficient: a `.github/workflows/**` change (e.g. to `ci.yml` or `merge-queue.yml` itself) must not skip review just because it lives under `.github/**`. Before checking file globs, gate on the PR's tier label with the same tested function `merge-queue.yml` uses (#3796) — never re-derive the tier check inline:
+
+   ```bash
+   gh pr view <N> --json labels -q '[.labels[].name]'   # → labelNames
+   ```
+
+   ```js
+   import { isAutoMergeEligible } from "./scripts/merge-queue-eligibility.mjs";
+
+   const decision = isAutoMergeEligible(labelNames);
+   ```
+
+   If `decision.eligible` is `false` (most commonly a blocked tier — `tier:standard`/`tier:sensitive`/`tier:critical`, see `BLOCKED_TIER_LABELS`), the fast path is off-limits regardless of file glob — fall through to step 3 (Reviewer sub-agent), which itself lands back at the same gate in step 5 before enqueue.
+
+   Only when `decision.eligible` is `true` AND ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip review and enqueue immediately:
 
    ```bash
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   (`isLowRiskPR` in `@mbe/agent-core` implements this check; `reviewersForDiff` is its sibling.) Move to the next PR.
+   (`isLowRiskPR` in `@mbe/agent-core` implements the file-glob check; `reviewersForDiff` is its sibling.) Move to the next PR.
 
 3. **Reviewer sub-agent (non-low-risk PRs).** Build `ReviewInput` from the PR diff and dispatch:
 
@@ -205,15 +219,29 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
 4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
 
-5. **On all-pass verdict:** enqueue:
+5. **On all-pass verdict:** before enqueuing, re-check the tier gate — `tier-classifier` can (re)label the PR any time up to this point, and neither the Reviewer nor a specialized reviewer's verdict says anything about tier:
+
+   ```bash
+   gh pr view <N> --json labels -q '[.labels[].name]'   # → labelNames
+   ```
+
+   ```js
+   import { isAutoMergeEligible } from "./scripts/merge-queue-eligibility.mjs";
+
+   const decision = isAutoMergeEligible(labelNames);
+   ```
+
+   Only when `decision.eligible` is `true`, enqueue:
 
    ```bash
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3).
+   GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3). If `decision.eligible` is `false`, do NOT enqueue — apply the blocking-tier outcome documented in step 6 below instead.
 
 6. **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](./.claude/skills/implement-queue/REVIEWER_CONTRACT.md) for the full policy.
+
+   **On a blocking tier (`isAutoMergeEligible` returned `eligible: false` in step 2 or step 5):** same terminal outcome as above — label the linked issue `needs-review` and **do not enqueue**. Skip the retry loop: a `tier:standard`/`tier:sensitive`/`tier:critical` label reflects what changed, not a defect a retried worker session can fix — per `docs/change-tiers.md`, only Matt's personal approval clears it.
 
    **Manual verification path (after `needs-review`):** the Reviewer's full output is in the PR comment. A human (or a new agent session pointed at the issue) reads the flagged issues, fixes the code, pushes to the branch, and manually enqueues with `gh pr merge <N> --auto --squash --delete-branch` once satisfied.
 

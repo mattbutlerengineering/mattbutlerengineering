@@ -1,0 +1,23 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  /* Let mouse/touch pass through to the Konva canvas beneath — this layer
+     exists only to give keyboard users something to Tab to and activate. */
+  pointer-events: none;
+}
+
+.tableButton {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--rialto-radius-default);
+}
+
+.tableButton:focus-visible {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: 2px;
+}

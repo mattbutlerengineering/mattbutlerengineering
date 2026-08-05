@@ -4,6 +4,7 @@ import { Text } from "@mattbutlerengineering/rialto";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table, FloorPlan } from "@mbe/types";
 import { TableShape } from "./TableShape";
+import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE, snapToGrid } from "./floor-plan-geometry.js";
 import styles from "./FloorPlanCanvas.module.css";
 
@@ -132,6 +133,16 @@ export function FloorPlanCanvas({
           ))}
         </Layer>
       </Stage>
+
+      {/* Keyboard-only table selection — Konva's canvas isn't natively
+          focusable, so this DOM overlay gives Tab/Enter access to the same
+          onSelect callback the pointer handlers above already use. */}
+      <TableSelectionOverlay
+        tables={tables}
+        scale={scale}
+        selectedTableId={selectedTableId}
+        onSelect={handleSelect}
+      />
 
       {/* Empty state */}
       {tables.length === 0 && (

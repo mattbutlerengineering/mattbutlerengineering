@@ -1,21 +1,29 @@
 {
-  "generated_at": "2026-08-02T20:06:07.196Z",
+  "generated_at": "2026-08-05T18:13:21.436Z",
   "period": {
-    "start": "2026-07-26",
-    "end": "2026-08-02"
+    "start": "2026-07-29",
+    "end": "2026-08-05"
   },
   "sensors": {
     "acmm": {
       "available": true,
       "level": 5,
       "level_name": "Semi-Automated",
-      "criteria_met": 95,
+      "criteria_met": 96,
       "criteria_total": 114,
-      "last_run": "2026-08-02T16:05:22.941Z"
+      "last_run": "2026-08-05T16:08:42.247Z"
     },
     "prMetrics": {
       "available": true,
       "latest": {
+        "date": "2026-08-03",
+        "window_days": 30,
+        "total_ai_prs": 77,
+        "merged": 76,
+        "rejected": 1,
+        "acceptance_rate": 0.99
+      },
+      "previous": {
         "date": "2026-07-31",
         "window_days": 30,
         "total_ai_prs": 65,
@@ -23,68 +31,13 @@
         "rejected": 0,
         "acceptance_rate": 1
       },
-      "previous": {
-        "date": "2026-05-02",
-        "window_days": 30,
-        "total_ai_prs": 40,
-        "merged": 40,
-        "rejected": 0,
-        "acceptance_rate": 1
-      },
-      "entry_count": 2
+      "entry_count": 3
+    },
+    "domainActivity": {
+      "available": false
     },
     "prCategoryMetrics": {
-      "available": true,
-      "total_prs": 98,
-      "total_merged": 91,
-      "total_closed_without_merge": 7,
-      "by_category": {
-        "tier:trivial": {
-          "merged": 25,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "agent-regression": {
-          "merged": 0,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0
-        },
-        "tier:standard": {
-          "merged": 28,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:critical": {
-          "merged": 26,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "auto-merge": {
-          "merged": 2,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "priority:critical": {
-          "merged": 0,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0
-        },
-        "tier:sensitive": {
-          "merged": 6,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "unlabeled": {
-          "merged": 0,
-          "closed_without_merge": 2,
-          "acceptance_rate": 0
-        },
-        "dependencies": {
-          "merged": 4,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.8
-        }
-      }
+      "available": false
     },
     "agentCost": {
       "available": false
@@ -94,117 +47,28 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 3255373739,
-      "output_tokens": 22332862,
-      "cache_creation_tokens": 129855474,
-      "cache_hit_rate": 0.9559,
+      "cache_read_tokens": 806905,
+      "output_tokens": 1832,
+      "cache_creation_tokens": 83678,
+      "cache_hit_rate": 0.906,
       "by_model": {
-        "claude-opus-4-8": {
-          "cost": 0,
-          "input_tokens": 1290440,
-          "output_tokens": 5001456,
-          "cache_read_tokens": 518768301,
-          "cache_creation_tokens": 25997395
-        },
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 1233954,
-          "output_tokens": 6365586,
-          "cache_read_tokens": 1536446642,
-          "cache_creation_tokens": 34295443
-        },
-        "claude-sonnet-4-6": {
-          "cost": 0,
-          "input_tokens": 11608,
-          "output_tokens": 3526418,
-          "cache_read_tokens": 214357267,
-          "cache_creation_tokens": 24325998
-        },
-        "claude-opus-4-7": {
-          "cost": 0,
-          "input_tokens": 2432,
-          "output_tokens": 669225,
-          "cache_read_tokens": 38243850,
-          "cache_creation_tokens": 5866102
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 6409,
-          "output_tokens": 214465,
-          "cache_read_tokens": 22568075,
-          "cache_creation_tokens": 1880908
-        },
-        "claude-fable-5": {
-          "cost": 0,
-          "input_tokens": 1614910,
-          "output_tokens": 4129597,
-          "cache_read_tokens": 559909898,
-          "cache_creation_tokens": 27900132
-        },
-        "glm-5.2": {
-          "cost": 0,
-          "input_tokens": 12481269,
-          "output_tokens": 479689,
-          "cache_read_tokens": 47227256,
-          "cache_creation_tokens": 0
-        },
-        "big-pickle": {
-          "cost": 0,
-          "input_tokens": 3367391,
-          "output_tokens": 263793,
-          "cache_read_tokens": 31718592,
-          "cache_creation_tokens": 0
-        },
-        "deepseek-v4-flash-free": {
-          "cost": 0,
-          "input_tokens": 134408,
-          "output_tokens": 33590,
-          "cache_read_tokens": 3056256,
-          "cache_creation_tokens": 0
-        },
-        "nemotron-3-ultra-free": {
-          "cost": 0,
-          "input_tokens": 19506,
-          "output_tokens": 55,
-          "cache_read_tokens": 0,
-          "cache_creation_tokens": 0
-        },
-        "claude-opus-5": {
-          "cost": 0,
-          "input_tokens": 10272,
-          "output_tokens": 1648988,
-          "cache_read_tokens": 283077602,
-          "cache_creation_tokens": 9589496
+          "input_tokens": 21,
+          "output_tokens": 1832,
+          "cache_read_tokens": 806905,
+          "cache_creation_tokens": 83678
         }
       }
     },
     "ciHealth": {
-      "available": true,
-      "total_runs": 30,
-      "completed": 29,
-      "passed": 21,
-      "failed": 1,
-      "pass_rate_pct": 72,
-      "most_recent": {
-        "conclusion": "success",
-        "createdAt": "2026-08-02T20:02:17Z",
-        "name": "Auto-Merge Policy",
-        "status": "completed"
-      }
+      "available": false
     },
     "lighthouse": {
-      "available": true,
-      "surface_count": 91,
-      "scored_count": 0,
-      "surfaces": []
+      "available": false
     },
     "issues": {
-      "available": true,
-      "created_7d": 50,
-      "closed_7d": 16,
-      "closure_rate": 32,
-      "queue_depth": 27,
-      "agent_failed": 0
+      "available": false
     },
     "issueFeedback": {
       "available": false
@@ -219,9 +83,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.192,
-      "total_lines_added_7d": 16773,
-      "lines_churned_7d": 3224,
+      "churn_rate": 0.005,
+      "total_lines_added_7d": 455894,
+      "lines_churned_7d": 2190,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -233,52 +97,10 @@
       "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
     },
     "e2eStability": {
-      "available": true,
-      "consecutive_failures": 0,
-      "total_runs": 13,
-      "total_non_frontend_runs": 13,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (13 runs checked)"
+      "available": false
     },
     "queueEfficiency": {
-      "available": true,
-      "composite": 0.95,
-      "sub_metrics": {
-        "issues_merged": 32,
-        "first_pass_success_rate": 0.875,
-        "median_time_to_merge_hours": 0.6,
-        "median_rework_cycles": 0,
-        "cost_per_issue_usd": 0,
-        "review_coverage": 0.25
-      },
-      "distribution": {
-        "size:xs": {
-          "count": 12,
-          "avg_commits": 1.3,
-          "avg_ttm_hours": 2.4
-        },
-        "size:l": {
-          "count": 5,
-          "avg_commits": 2.2,
-          "avg_ttm_hours": 1.5
-        },
-        "size:m": {
-          "count": 9,
-          "avg_commits": 1.6,
-          "avg_ttm_hours": 2.3
-        },
-        "size:s": {
-          "count": 5,
-          "avg_commits": 1.6,
-          "avg_ttm_hours": 9.7
-        },
-        "size:xl": {
-          "count": 1,
-          "avg_commits": 1,
-          "avg_ttm_hours": 0.3
-        }
-      },
-      "baseline": null,
-      "regressions": []
+      "available": false
     }
   },
   "thresholds": {
@@ -293,8 +115,8 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 11,
-    "sensors_total": 15,
+    "sensors_available": 5,
+    "sensors_total": 16,
     "regressions_detected": 0,
     "status": "healthy"
   }
