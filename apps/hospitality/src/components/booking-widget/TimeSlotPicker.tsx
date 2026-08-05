@@ -9,6 +9,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import { formatLongDate, formatTime } from "../../utils/format.js";
+import { TimeSlotListbox } from "./TimeSlotListbox.js";
 import styles from "./TimeSlotPicker.module.css";
 
 export interface TimeSlotPickerProps {
@@ -176,26 +177,12 @@ export function TimeSlotPicker({
             return (
               <div key={period}>
                 <Heading className={styles.periodLabel}>{periodLabels[period]}</Heading>
-                <div
-                  className={styles.slotGrid}
-                  role="listbox"
-                  aria-label={`Available ${periodLabels[period].toLowerCase()} times`}
-                >
-                  {periodSlots.map((slot) => (
-                    <Button
-                      key={slot.time}
-                      role="option"
-                      aria-selected={selectedSlot?.time === slot.time}
-                      onClick={() => onSelectSlot(slot)}
-                      className={[
-                        styles.slot,
-                        selectedSlot?.time === slot.time ? styles.slotSelected : "",
-                      ].join(" ")}
-                    >
-                      {formatTime(slot.time)}
-                    </Button>
-                  ))}
-                </div>
+                <TimeSlotListbox
+                  slots={periodSlots}
+                  selectedSlot={selectedSlot}
+                  onSelectSlot={onSelectSlot}
+                  label={`Available ${periodLabels[period].toLowerCase()} times`}
+                />
               </div>
             );
           })}
