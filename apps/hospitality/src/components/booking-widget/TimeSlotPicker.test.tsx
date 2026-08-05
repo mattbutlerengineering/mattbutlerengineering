@@ -173,6 +173,56 @@ describe("TimeSlotPicker", () => {
     expect(screen.getByText("Dinner")).toBeDefined();
   });
 
+  describe("keyboard navigation", () => {
+    it("scopes roving tabindex to each period's listbox independently", () => {
+      const slots = [
+        makeSlot("2026-05-20T12:00:00"), // lunch
+        makeSlot("2026-05-20T12:30:00"), // lunch
+        makeSlot("2026-05-20T18:00:00"), // dinner
+      ];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+
+      const listboxes = screen.getAllByRole("listbox");
+      expect(listboxes).toHaveLength(2);
+
+      const lunchOptions = screen.getAllByRole("option").slice(0, 2);
+      fireEvent.keyDown(lunchOptions[0]!, { key: "ArrowDown" });
+
+      const optionsAfter = screen.getAllByRole("option");
+      // Lunch's second option becomes the roving tab stop...
+      expect(optionsAfter[1]?.getAttribute("tabindex")).toBe("0");
+      // ...while dinner's only option is untouched (unaffected by lunch's nav).
+      expect(optionsAfter[2]?.getAttribute("tabindex")).toBe("0");
+    });
+
+    it("selects the focused slot on Enter, matching click behavior", () => {
+      const onSelectSlot = vi.fn();
+      const slots = [makeSlot("2026-05-20T18:00:00"), makeSlot("2026-05-20T18:30:00")];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} onSelectSlot={onSelectSlot} />);
+
+      const options = screen.getAllByRole("option");
+      fireEvent.keyDown(options[0]!, { key: "ArrowDown" });
+      fireEvent.keyDown(options[1]!, { key: "Enter" });
+      expect(onSelectSlot).toHaveBeenCalledWith(slots[1]);
+    });
+
+    it("jumps to the last slot in the group on End", () => {
+      const slots = [
+        makeSlot("2026-05-20T18:00:00"),
+        makeSlot("2026-05-20T18:30:00"),
+        makeSlot("2026-05-20T19:00:00"),
+      ];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+
+      const options = screen.getAllByRole("option");
+      fireEvent.keyDown(options[0]!, { key: "End" });
+
+      const optionsAfter = screen.getAllByRole("option");
+      expect(optionsAfter[2]?.getAttribute("tabindex")).toBe("0");
+      expect(optionsAfter[0]?.getAttribute("tabindex")).toBe("-1");
+    });
+  });
+
   describe("waitlist option when no slots available", () => {
     it("shows Join Waitlist button when onJoinWaitlist is provided and slots are empty", () => {
       const onJoinWaitlist = vi.fn();
