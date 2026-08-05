@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { FloorPlan, Table } from "@mbe/types";
 
 /* ── Mock react-konva ─────────────────────────────────────────── */
@@ -109,7 +110,7 @@ function makeTable(id: string, name: string, overrides: Partial<Table> = {}): Ta
     status: "AVAILABLE",
     venueId: "venue-1",
     floorPlanId: "fp-1",
-    shapeMetadata: { x: 100, y: 100, width: 80, height: 60, shape: "rect" },
+    shapeMetadata: { x: 100, y: 100, width: 80, height: 60, shape: "rectangle" },
     createdAt: "2025-01-01T00:00:00Z",
     updatedAt: "2025-01-01T00:00:00Z",
     ...overrides,
@@ -262,6 +263,38 @@ describe("FloorPlanCanvas", () => {
       fireEvent.mouseUp(screen.getByTestId("table-shape-t1"));
       // readOnly guard in handleDragStart prevents dragging state
       expect(onTableMove).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("keyboard selection", () => {
+    it("calls onTableSelect when a table's keyboard-focusable button is activated", async () => {
+      const onTableSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<FloorPlanCanvas {...defaultProps} onTableSelect={onTableSelect} />);
+
+      const button = screen.getByRole("button", { name: /T1/ });
+      button.focus();
+      await user.keyboard("{Enter}");
+
+      expect(onTableSelect).toHaveBeenCalledWith("t1");
+    });
+
+    it("marks the selected table's keyboard button with aria-pressed", () => {
+      render(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" />);
+      expect(screen.getByRole("button", { name: /T1/ })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: /T2/ })).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("still allows keyboard selection when readOnly, matching existing pointer behavior", async () => {
+      const onTableSelect = vi.fn();
+      const user = userEvent.setup();
+      render(<FloorPlanCanvas {...defaultProps} readOnly onTableSelect={onTableSelect} />);
+
+      const button = screen.getByRole("button", { name: /T1/ });
+      button.focus();
+      await user.keyboard("{Enter}");
+
+      expect(onTableSelect).toHaveBeenCalledWith("t1");
     });
   });
 
