@@ -111,6 +111,8 @@ export const generatedSchemas = {
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
   DateRange: z.object({
+    min: z.string().optional(),
+    max: z.string().optional(),
     locale: z.string().optional(),
   }),
   DepartureBoard: z.object({
