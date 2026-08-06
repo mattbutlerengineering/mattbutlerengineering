@@ -48,7 +48,13 @@ describe("ScrollArea", () => {
           <p>Content</p>
         </ScrollArea>
       );
-      expect(screen.getByRole("region")).toHaveStyle({ maxHeight: "50vh" });
+      // toHaveStyle can't be used for viewport-relative units: it diffs the *specified*
+      // value on a detached clone element against getComputedStyle() of the real,
+      // attached element. jsdom's getComputedStyle resolves "50vh" to a px value while
+      // the detached clone never runs layout and keeps the raw string, so the two sides
+      // never match even though the DOM output is correct. Assert the resolved inline
+      // style directly instead (jest-dom 7.0.0, latest, still has this gap).
+      expect(screen.getByRole("region").style.maxHeight).toBe("50vh");
     });
 
     it("renders without maxHeight (no inline style constraint)", () => {
