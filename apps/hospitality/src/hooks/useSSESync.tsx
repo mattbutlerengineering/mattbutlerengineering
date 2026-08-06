@@ -41,7 +41,13 @@ import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
 import { VENUES_QUERY_KEY } from "./useVenues.js";
 import { SseClient } from "../lib/sse-client.js";
-import type { Reservation, Table, ReservationHold, LapsingGuest } from "@mbe/types";
+import type {
+  Reservation,
+  Table,
+  ReservationHold,
+  LapsingGuest,
+  TableStatusDelta,
+} from "@mbe/types";
 
 /* ── Types ─────────────────────────────────────────────────────── */
 
@@ -54,13 +60,14 @@ export type ReservationEventType =
   | "hold:confirmed"
   | "table:updated"
   | "guest:lapsing"
-  | "venue:updated";
+  | "venue:updated"
+  | "table-status:changed";
 
 export interface ReservationEvent {
   type: ReservationEventType;
   venueId: string;
   timestamp: string;
-  data: Reservation | Table | ReservationHold | LapsingGuest[];
+  data: Reservation | Table | ReservationHold | LapsingGuest[] | TableStatusDelta[];
 }
 
 interface SSEConnectionState {
@@ -86,6 +93,7 @@ const SSE_EVENT_TYPES: readonly ReservationEventType[] = [
   "table:updated",
   "guest:lapsing",
   "venue:updated",
+  "table-status:changed",
 ];
 
 /* ── Context ────────────────────────────────────────────────────── */
@@ -267,6 +275,16 @@ export function useSSESync(): { reconnect: () => void } {
         case "guest:lapsing": {
           for (const listener of feedListeners) {
             listener(makeEvent("guest:lapsing", event.data as LapsingGuest[]));
+          }
+          break;
+        }
+        case "table-status:changed": {
+          // Changed-tables-only delta (status string, not a color token —
+          // see @mbe/types#deriveTableDisplayStatus). Forwarded to the feed
+          // for now; the floor plan canvas wires up live consumption in a
+          // later part of this feature (#3834/#3835).
+          for (const listener of feedListeners) {
+            listener(makeEvent("table-status:changed", event.data as TableStatusDelta[]));
           }
           break;
         }

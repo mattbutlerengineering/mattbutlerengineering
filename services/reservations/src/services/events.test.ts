@@ -9,6 +9,7 @@ import {
   emitHoldConfirmed,
   emitTableUpdated,
   emitFloorPlanCreated,
+  emitTableStatusChanged,
   type ReservationEvent,
 } from "./events.js";
 import type { Reservation, Table, ReservationHold, FloorPlan } from "@mbe/types";
@@ -307,6 +308,26 @@ describe("emit helper functions", () => {
       expect(event.type).toBe("floor-plan:created");
       expect(event.venueId).toBe("venue-88");
       expect(event.data).toBe(fp);
+    });
+  });
+
+  describe("emitTableStatusChanged", () => {
+    it("emits table-status:changed with the given venueId and changed-table deltas", async () => {
+      const nextEvent = captureNextEvent();
+      const changes = [{ tableId: "table-1", status: "seated" as const }];
+      emitTableStatusChanged("venue-33", changes);
+      const event = await nextEvent;
+      expect(event.type).toBe("table-status:changed");
+      expect(event.venueId).toBe("venue-33");
+      expect(event.data).toBe(changes);
+    });
+
+    it("does not emit when there are no changed tables", () => {
+      const listener = vi.fn();
+      reservationEvents.onChange(listener);
+      emitTableStatusChanged("venue-1", []);
+      reservationEvents.offChange(listener);
+      expect(listener).not.toHaveBeenCalled();
     });
   });
 });
