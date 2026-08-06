@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - "apps/hospitality/**"
+      - "apps/marketing/**"
       - "packages/rialto/**"
       - "services/reservations/**"
       - "services/users/**"
@@ -20,8 +21,52 @@ permissions:
   contents: read
 
 jobs:
+  # Gates hospitality-e2e / marketing-e2e so a change scoped to one app
+  # doesn't burn CI minutes running the other app's suite (issue #3886).
+  # Both jobs still run on workflow_dispatch (manual trigger has no base
+  # ref to diff against, so "Set outputs" below forces both true).
+  changes:
+    name: Detect changed apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      hospitality: ${{ steps.result.outputs.hospitality }}
+      marketing: ${{ steps.result.outputs.marketing }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            hospitality:
+              - 'apps/hospitality/**'
+              - 'packages/rialto/**'
+              - 'services/reservations/**'
+              - 'services/users/**'
+              - 'packages/database/**'
+              - '.github/workflows/e2e.yml'
+            marketing:
+              - 'apps/marketing/**'
+              - 'packages/rialto/**'
+              - '.github/workflows/e2e.yml'
+
+      - name: Set outputs
+        id: result
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "hospitality=true" >> "$GITHUB_OUTPUT"
+            echo "marketing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
+            echo "marketing=${{ steps.filter.outputs.marketing }}" >> "$GITHUB_OUTPUT"
+          fi
+
   hospitality-e2e:
     name: Hospitality E2E
+    needs: changes
+    if: needs.changes.outputs.hospitality == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -330,4 +375,54 @@ jobs:
         with:
           name: e2e-diagnostics
           path: /tmp/e2e-diagnostics/
+          retention-days: 7
+
+  # Marketing is a static Vite site with no backend proxy — no Postgres,
+  # Redis, migrations, or Auth0 preflight needed. Playwright serves the
+  # production build via `vite preview` (see apps/marketing/playwright.config.ts),
+  # not the dev server, so this exercises the same static output that ships.
+  # Advisory, not required: matches the Hospitality E2E precedent (#3886) —
+  # a brand-new suite triaged for the first time in CI needs a settling
+  # period before it can gate merges.
+  marketing-e2e:
+    name: Marketing E2E
+    needs: changes
+    if: needs.changes.outputs.marketing == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build rialto (styles export requires dist/)
+        run: pnpm build --filter @mattbutlerengineering/rialto
+
+      - name: Build marketing
+        run: pnpm --dir apps/marketing build
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: pnpm --dir apps/marketing test:e2e
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: marketing-e2e-test-results
+          path: |
+            apps/marketing/e2e/test-results/
+            apps/marketing/playwright-report/
           retention-days: 7

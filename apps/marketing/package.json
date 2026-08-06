@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
+    "test:e2e": "playwright test --config playwright.config.ts",
     "size": "size-limit",
     "size:check": "size-limit"
   },
