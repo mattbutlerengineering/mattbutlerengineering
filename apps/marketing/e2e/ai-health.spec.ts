@@ -52,11 +52,13 @@ test.describe("AI Health page", () => {
     await expect(page.getByText("87.5%")).toBeVisible();
     await expect(page.getByText("$1.20")).toBeVisible();
 
-    // Sensor Status
-    await expect(page.getByRole("heading", { name: "Sensor Status" })).toBeVisible();
-    await expect(page.getByText("ciHealth")).toBeVisible();
-    await expect(page.getByText("lighthouse")).toBeVisible();
-    await expect(page.getByText("Unavailable")).toBeVisible();
+    // Sensor Status — scoped to this section: "Unavailable" also appears in
+    // the Domain Activity section's badge, which collides in strict mode.
+    const sensorStatus = page.locator("section", { hasText: "Sensor Status" });
+    await expect(sensorStatus.getByRole("heading", { name: "Sensor Status" })).toBeVisible();
+    await expect(sensorStatus.getByText("ciHealth")).toBeVisible();
+    await expect(sensorStatus.getByText("lighthouse")).toBeVisible();
+    await expect(sensorStatus.getByText("Unavailable").first()).toBeVisible();
 
     // No stale banner on a fresh report
     await expect(page.getByRole("alert")).toHaveCount(0);
