@@ -6,6 +6,7 @@ import {
   isAutoMergeEligible,
   isAutomationAutoMergeEligible,
   BLOCKED_TIER_LABELS,
+  TIER_LABEL_PREFIX,
 } from "../merge-queue-eligibility.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -171,9 +172,18 @@ describe("implement-queue SKILL.md wiring (#3807)", () => {
 // ---------------------------------------------------------------------------
 
 describe("isAutomationAutoMergeEligible", () => {
-  it("is eligible for auto-merge label alone, with no tier label (today's four automation PRs)", () => {
+  it("is NOT eligible for auto-merge alone with no tier label — fails closed on an unclassified PR", () => {
+    // Regression guard. An earlier revision of #3857 returned eligible: true
+    // here, which was a REGRESSION against the sensitive-path regex it
+    // replaced: that regex read the PR's own file list and always blocked
+    // e.g. drift-fix.yml's committable infrastructure/worker/dep-graph.json.
+    // A label-derived gate that no-ops on unlabelled PRs would let those
+    // straight through. Measured 2026-08-06: 4 of 14 recent merged
+    // automation PRs (#3826, #3816, #3638, #3637) carried no tier:* label,
+    // so this is the common case for these workflows, not a corner case.
     const result = isAutomationAutoMergeEligible(["auto-merge"]);
-    expect(result.eligible).toBe(true);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/tier:\*/);
   });
 
   it("is eligible for auto-merge + tier:trivial", () => {
@@ -188,7 +198,7 @@ describe("isAutomationAutoMergeEligible", () => {
   });
 
   it("does not require has-pr — automation PRs never carry it (deliberate, documented carve-out)", () => {
-    const result = isAutomationAutoMergeEligible(["auto-merge"]);
+    const result = isAutomationAutoMergeEligible(["auto-merge", "tier:trivial"]);
     expect(result.eligible).toBe(true);
     expect(result.reason).not.toMatch(/has-pr/);
   });
@@ -217,6 +227,53 @@ describe("isAutomationAutoMergeEligible", () => {
     const snapshot = JSON.stringify(labels);
     isAutomationAutoMergeEligible(labels);
     expect(JSON.stringify(labels)).toBe(snapshot);
+  });
+
+  it("distinguishes 'classified low-risk' from 'never classified'", () => {
+    // The whole point of the fail-closed check: these two label sets differ
+    // only in whether tier-classifier ran, and must NOT decide the same way.
+    expect(isAutomationAutoMergeEligible(["auto-merge", "tier:trivial"]).eligible).toBe(true);
+    expect(isAutomationAutoMergeEligible(["auto-merge"]).eligible).toBe(false);
+  });
+
+  it("accepts any tier:* label as proof the classifier ran, not just tier:trivial", () => {
+    // tier:trivial is the only non-blocking tier today, but the check is
+    // "was this classified", not "is it trivial" — the blocking tiers are
+    // already rejected earlier by BLOCKED_TIER_LABELS. If a new non-blocking
+    // tier is ever added, this must keep passing without another edit here.
+    const result = isAutomationAutoMergeEligible(["auto-merge", `${TIER_LABEL_PREFIX}trivial`]);
+    expect(result.eligible).toBe(true);
+  });
+
+  it("reproduces the drift-fix.yml case: an unlabelled bot PR touching infrastructure/ is blocked", () => {
+    // drift-fix.yml's checked-in add-paths: allowlist includes
+    // infrastructure/worker/dep-graph.json and infrastructure/*/llms.txt.
+    // Pre-#3857 the sensitive-path regex (^infrastructure/) blocked those
+    // unconditionally. Post-fix, the absent tier label blocks them instead —
+    // different mechanism, same outcome, which is the bar this change had to
+    // clear to not be a net loosening.
+    expect(isAutomationAutoMergeEligible(["auto-merge"]).eligible).toBe(false);
+  });
+
+  it("reports needs-review, not 'unclassified', when both apply", () => {
+    // Ordering guard. The fail-closed check must come last: an explicit
+    // needs-review label is a human decision and deserves its own reason,
+    // otherwise the workflow log blames the tier-classifier for a block a
+    // human deliberately applied. Caught by an existing test when the
+    // fail-closed check was first added above needs-review.
+    const result = isAutomationAutoMergeEligible(["auto-merge", "needs-review"]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/needs-review/);
+    expect(result.reason).not.toMatch(/did not run/);
+  });
+
+  it("keeps a blocking tier label as the reported reason even though it is also classified", () => {
+    // Ordering guard: the blocked-tier branch must win over the
+    // fail-closed branch so the reason stays specific and actionable.
+    const result = isAutomationAutoMergeEligible(["auto-merge", "tier:critical"]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/tier:critical/);
+    expect(result.reason).not.toMatch(/did not run/);
   });
 });
 

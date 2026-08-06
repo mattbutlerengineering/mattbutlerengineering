@@ -34,6 +34,13 @@ import { fileURLToPath } from "node:url";
 export const BLOCKED_TIER_LABELS = ["tier:standard", "tier:sensitive", "tier:critical"];
 
 /**
+ * Prefix every label `tier-classifier.yml` applies shares. Used by
+ * `isAutomationAutoMergeEligible` to distinguish "classified as low-risk"
+ * from "never classified at all" — see its fail-closed check.
+ */
+export const TIER_LABEL_PREFIX = "tier:";
+
+/**
  * Pure decision matching docs/change-tiers.md's auto-merge eligibility rule.
  * Either condition alone blocks: a blocking tier label, OR the pre-existing
  * has-pr/needs-review check — the tier check is additive, not a replacement.
@@ -80,16 +87,26 @@ export function isAutoMergeEligible(labelNames = []) {
  * hard gate. This function is a distinct, explicit path for the automation
  * label instead: same tier check, `auto-merge` in place of `has-pr`.
  *
- * Known residual gap (documented, not fixed here — out of scope for #3857):
- * these four workflows fall back to `GITHUB_TOKEN` because `AUTOMATION_PAT`
- * is not configured as a repo secret. GitHub's anti-recursion rule means
- * `tier-classifier.yml` (triggered only on `pull_request: opened
- * /synchronize/reopened`) never runs on their PRs, so today they carry no
- * `tier:*` label at all — the tier check below is a no-op for them in
- * practice, identical to the gap `isAutoMergeEligible` already has for any
- * `has-pr` PR opened the same way. Configuring `AUTOMATION_PAT` (or
- * dispatching `tier-classifier.yml` the same way these workflows already
- * dispatch `ci.yml`) would close it; tracked as a follow-up, not bundled in.
+ * Fails closed on an unclassified PR. The four workflows above fall back to
+ * `GITHUB_TOKEN` because `AUTOMATION_PAT` is not configured as a repo secret,
+ * and GitHub's anti-recursion rule means `tier-classifier.yml` (triggered only
+ * on `pull_request: opened/synchronize/reopened`) does not reliably run on
+ * their PRs. Measured 2026-08-06: 4 of 14 recent merged automation PRs
+ * (#3826, #3816, #3638, #3637) carry no `tier:*` label at all.
+ *
+ * That makes "no blocking tier label" ambiguous — it means either "classified
+ * and low-risk" or "never classified". Treating the two alike would be a
+ * REGRESSION against the hand-maintained sensitive-path regex this function
+ * replaced: that regex read the PR's own file list and could not miss, so it
+ * always blocked e.g. `drift-fix.yml`'s committable `infrastructure/worker/
+ * dep-graph.json` output. A label-derived gate that silently no-ops on
+ * unlabelled PRs would let exactly those through.
+ *
+ * So an absent `tier:*` label is itself disqualifying here: a missing
+ * classification is not evidence of low risk. Configuring `AUTOMATION_PAT`
+ * (or dispatching `tier-classifier.yml` the way these workflows already
+ * dispatch `ci.yml`) restores auto-merge for them; until then they wait for
+ * a human, which is the safe direction to fail.
  *
  * @param {string[]} [labelNames] - the PR's label names.
  * @returns {{ eligible: boolean, reason: string }}
@@ -113,7 +130,20 @@ export function isAutomationAutoMergeEligible(labelNames = []) {
     return { eligible: false, reason: "needs-review label is present" };
   }
 
-  return { eligible: true, reason: "auto-merge label present, no blocking tier label" };
+  // Fail closed: no tier:* label at all means tier-classifier never ran, not
+  // that the change is low-risk. See the note above the function. Ordered
+  // last so the more specific blocks (explicit tier, missing auto-merge,
+  // explicit needs-review) report their own reason instead of this one.
+  const isClassified = labelNames.some((label) => label.startsWith(TIER_LABEL_PREFIX));
+  if (!isClassified) {
+    return {
+      eligible: false,
+      reason:
+        "no tier:* label — tier-classifier did not run; unclassified PRs require human approval",
+    };
+  }
+
+  return { eligible: true, reason: "auto-merge label present, classified, no blocking tier label" };
 }
 
 function readFlag(args, name) {
