@@ -150,5 +150,9 @@
     inset-inline-end: var(--rialto-space-sm);
     bottom: var(--rialto-space-sm);
     max-width: none;
+    /* Both inline insets are set, so the box must size from them; keeping the
+       base rule's width: 100% over-constrains the fixed box (insets lose to
+       width) and pushes it inset-inline-start px past the viewport edge. */
+    width: auto;
   }
 }

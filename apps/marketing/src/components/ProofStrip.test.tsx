@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ProofStrip } from "./ProofStrip.js";
@@ -7,7 +7,7 @@ import { formatMeasuredAt } from "../utils/formatters.js";
 
 type MockProps = { children?: ReactNode };
 type HeadingMockProps = MockProps & { level?: number };
-type OdometerMockProps = { value: number };
+type OdometerMockProps = { value: number; size?: string };
 
 vi.mock("framer-motion", () => ({
   motion: new Proxy(
@@ -32,7 +32,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: MockProps) => <div>{children}</div>,
   // Render the final numeric value as text — mirrors the Odometer's
   // reduced-motion snap and its aria-live announcement of the whole number.
-  Odometer: ({ value }: OdometerMockProps) => <span>{value}</span>,
+  Odometer: ({ value, size }: OdometerMockProps) => <span data-size={size}>{value}</span>,
   useScrollReveal: () => ({
     ref: vi.fn(),
     controls: { start: vi.fn(), set: vi.fn(), subscribe: vi.fn(), stop: vi.fn(), mount: vi.fn() },
@@ -73,5 +73,43 @@ describe("ProofStrip", () => {
     render(<ProofStrip />);
     const provenance = screen.getByText(/measured at last deploy/i);
     expect(provenance).toHaveTextContent(formatMeasuredAt(REPO_STATS.measuredAt));
+  });
+});
+
+describe("ProofStrip odometer sizing", () => {
+  function stubMatchMedia(matches: boolean) {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({
+        matches,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders lg odometers on wide viewports", () => {
+    stubMatchMedia(false);
+    render(<ProofStrip />);
+    const odometer = screen.getByText(String(REPO_STATS.agentPrsMerged));
+    expect(odometer).toHaveAttribute("data-size", "lg");
+  });
+
+  it("drops to md odometers on phone-narrow viewports, where lg flip-board cells overflow", () => {
+    stubMatchMedia(true);
+    render(<ProofStrip />);
+    const odometer = screen.getByText(String(REPO_STATS.agentPrsMerged));
+    expect(odometer).toHaveAttribute("data-size", "md");
+  });
+
+  it("falls back to lg when matchMedia is unavailable", () => {
+    vi.stubGlobal("matchMedia", undefined);
+    render(<ProofStrip />);
+    const odometer = screen.getByText(String(REPO_STATS.agentPrsMerged));
+    expect(odometer).toHaveAttribute("data-size", "lg");
   });
 });

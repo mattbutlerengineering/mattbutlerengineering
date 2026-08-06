@@ -205,7 +205,14 @@
 
 @media (max-width: 560px) {
   .stageGrid {
-    grid-template-columns: repeat(2, 1fr);
+    /* minmax(0, 1fr): plain 1fr tracks bottom out at min-content, and the
+       stage labels' longest unbreakable token (~135px) forces both tracks
+       past half of a 360px viewport, overflowing the page. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stageCard {
+    overflow-wrap: anywhere;
   }
 
   .stageLayer {
