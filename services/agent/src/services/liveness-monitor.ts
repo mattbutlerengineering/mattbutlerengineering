@@ -37,19 +37,21 @@ export function createLivenessMonitor(config: LivenessMonitorConfig): LivenessMo
     try {
       const staleSessionIds = await sessionService.findStaleSessions(inactivityThresholdMs);
 
-      for (const sessionId of staleSessionIds) {
-        activeLogger?.warn(
-          `[liveness] Session ${sessionId} exceeded inactivity threshold — auto-cancelling`
-        );
+      await Promise.allSettled(
+        staleSessionIds.map(async (sessionId) => {
+          activeLogger?.warn(
+            `[liveness] Session ${sessionId} exceeded inactivity threshold — auto-cancelling`
+          );
 
-        const cancelled = await cancelSession(sessionId);
-        if (cancelled) {
-          await sessionService.addEvent(sessionId, "session:error", {
-            message: `Auto-cancelled: exceeded inactivity threshold (${inactivityThresholdMs / 1000}s)`,
-            reason: "liveness_timeout",
-          });
-        }
-      }
+          const cancelled = await cancelSession(sessionId);
+          if (cancelled) {
+            await sessionService.addEvent(sessionId, "session:error", {
+              message: `Auto-cancelled: exceeded inactivity threshold (${inactivityThresholdMs / 1000}s)`,
+              reason: "liveness_timeout",
+            });
+          }
+        })
+      );
     } catch (error) {
       activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
     }
