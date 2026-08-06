@@ -250,3 +250,47 @@ None this run (queue and CI both healthy; `Release` failure already tracked by #
 **Sentry triage:** skipped (Sentry MCP tools not authenticated in this session)
 **Skill proposals:** 0 (Wednesday — Friday-only)
 **Threshold notes:** `verifications.jsonl` has no entries in the last 30 days (latest prior entry is 2026-06-20), so false-positive/fix-effectiveness rates aren't computable this run. `collect-ai-issue-feedback.mjs` failed again — same recurring gap noted 2026-06-20/07-30/07-31, but with a new detail: `@mbe/gh-client`'s transport now auto-falls back to the REST API when the `gh` binary is absent (#3689), and that REST call was attempted here, but the session's injected `GITHUB_TOKEN`/`GH_TOKEN` returned `401 Bad credentials` — it's a proxy placeholder for git-over-HTTPS, not a real GitHub API PAT. Only the `mcp__github__*` tools have working GitHub auth in this environment. Default budget (3/category) used since `ai-issue-feedback.json` stayed empty (`{}`, untouched). No action taken — zero regressions to triage this run, so the gap didn't block anything.
+
+## 2026-08-06
+
+### Metrics
+
+| Metric                 | Value                                                                                                                                                | Target    | Status |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
+| Created (7d)           | ~62 (29 audit + 33 ci-fix touched since ≥2026-07-30, `gh` CLI unavailable so `created_at` cohort is approximate)                                     | -         | -      |
+| Closed (7d)            | ~56 (25 audit + 31 ci-fix currently CLOSED in that cohort — `closedAt` not exposed by the MCP issues tool)                                           | -         | -      |
+| Closure Rate           | ~90.3%                                                                                                                                               | >80%      | green  |
+| Time-to-Close          | not computed this run — `closedAt` unavailable via `mcp__github__list_issues` fields (no `gh` CLI in this session)                                   | <24h      | n/a    |
+| Agent Success          | N/A this run — `ready` backlog was empty at Phase 1, implement-queue claimed 0 issues                                                                | >70%      | n/a    |
+| CI Pass                | 30/30 (100%) recent `CI` (CI Gate) runs on main green; non-required `Release` workflow still failing every run (already tracked by open issue #3322) | >95%      | green  |
+| Queue (ready)          | 0 open                                                                                                                                               | <5        | green  |
+| Stale (>7d)            | 0 (queue empty)                                                                                                                                      | 0         | green  |
+| Blocked (agent-failed) | 0                                                                                                                                                    | 0         | green  |
+| Skipped (agent-skip)   | 0                                                                                                                                                    | 0         | green  |
+| Daily/7d Spend         | unavailable — `.claude/agent-spend/sessions.jsonl` still 0 bytes, same gap since 2026-07-30, tracked by #3695 (do not refile)                        | <$10/<$50 | n/a    |
+| Cost/Issue             | unavailable, same reason                                                                                                                             | <$2       | n/a    |
+| Reverts (7d)           | 0 — one `git log --grep=Revert` hit was a false positive (commit body prose "Reverts isFrontendSourceFile...", not a `Revert:`-subject revert PR)    | <3/wk     | green  |
+
+### Patterns
+
+- **Queue empty again today.** Zero `ready` issues and zero open PRs at Phase 0/1 — implement-queue was a genuine no-op, same as 2026-08-05. Throughput has kept the backlog drained for two consecutive days.
+- **`Release` workflow remains fully red** — every run since at least 2026-08-04T18:20Z through 2026-08-05T20:17Z has failed (checked 6 most recent). Still advisory (not in `CI Gate`'s required set) and already tracked by open issue #3322 (npm publish 401 — rialto publishConfig vs setup-node token mismatch, `[needs maintainer credential decision]`). Not re-filing; now a multi-day persistent failure worth a maintainer look rather than a blip.
+- Open `audit`/`ci-fix` counts (4/4) are unchanged in composition from 2026-08-05 — same long-lived items (#3322, #3253 ci-fix; #3547/#3546/#3276 audit), no new pattern.
+
+### Recommendations
+
+- No batch-size or cadence change needed — queue is empty and CI Gate is green. Next scheduled run should just re-check for freshly-audited `ready` work.
+- Escalate #3322 (Release/npm publish) to Matt directly if it's still failing after another day or two — it's crossed from "blip" to "persistent" and needs a maintainer credential decision no automation can make.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+### Meta-improvement filed
+
+None this run (queue and CI both healthy; `Release` failure already tracked by #3322; spend-telemetry gap already tracked by #3695).
+
+## 2026-08-06
+
+**queueEfficiency:** unavailable
+**Issues filed:** 0
