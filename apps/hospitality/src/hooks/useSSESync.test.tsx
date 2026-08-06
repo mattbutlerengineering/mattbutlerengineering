@@ -4,7 +4,13 @@ import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
-import { SSESyncProvider, useSSESync, useSSEStatus, useSSEEventFeed } from "./useSSESync.js";
+import {
+  SSESyncProvider,
+  useSSESync,
+  useSSEStatus,
+  useSSEEventFeed,
+  useTableStatuses,
+} from "./useSSESync.js";
 
 /* ── Fake fetchEventSource ─────────────────────────────────────────
  *
@@ -447,5 +453,100 @@ describe("useSSEEventFeed — event feed via context", () => {
     expect(result.current.feed).toHaveLength(1);
     expect(result.current.feed[0]?.type).toBe("table-status:changed");
     expect(result.current.feed[0]?.data).toEqual([{ tableId: "t1", status: "seated" }]);
+  });
+});
+
+describe("useTableStatuses — cumulative per-table status via context", () => {
+  it("starts empty", () => {
+    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    expect(result.current.statuses.size).toBe(0);
+  });
+
+  it("records a table's status from a table-status:changed delta", () => {
+    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+
+    expect(result.current.statuses.get("t1")).toBe("seated");
+  });
+
+  it("accumulates deltas for multiple tables across events", () => {
+    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:01Z",
+        data: [{ tableId: "t2", status: "needs-bussing" }],
+      });
+    });
+
+    expect(result.current.statuses.get("t1")).toBe("seated");
+    expect(result.current.statuses.get("t2")).toBe("needs-bussing");
+  });
+
+  it("overwrites a table's previous status on a later delta (last write wins)", () => {
+    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:01Z",
+        data: [{ tableId: "t1", status: "available" }],
+      });
+    });
+
+    expect(result.current.statuses.get("t1")).toBe("available");
+  });
+
+  it("ignores unrelated event types", () => {
+    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      simulateEvent("table:updated", {
+        type: "table:updated",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: { id: "t1" },
+      });
+    });
+
+    expect(result.current.statuses.size).toBe(0);
   });
 });

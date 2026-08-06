@@ -40,6 +40,14 @@ vi.mock("../hooks/useApiClient.js", () => ({
   })),
 }));
 
+/* ── Mock useTableStatuses (SSESyncProvider isn't mounted in these tests) ── */
+
+const mockUseTableStatuses = vi.fn(() => new Map<string, string>());
+
+vi.mock("../hooks/useSSESync.js", () => ({
+  useTableStatuses: () => mockUseTableStatuses(),
+}));
+
 /* ── Mock floor-plan components ───────────────────────────────── */
 
 const mockFloorPlanCanvasOnTableMove = vi.fn();
@@ -53,6 +61,7 @@ vi.mock("../components/floor-plan/index.js", () => ({
     selectedTableId,
     floorPlan: _fp,
     readOnly: _ro,
+    tableStatuses,
   }: {
     tables: Table[];
     onTableMove: (id: string, x: number, y: number) => void;
@@ -60,12 +69,14 @@ vi.mock("../components/floor-plan/index.js", () => ({
     selectedTableId: string | null;
     floorPlan: FloorPlan;
     readOnly?: boolean;
+    tableStatuses?: ReadonlyMap<string, string>;
   }) => (
     <div data-testid="floor-plan-canvas" data-selected={selectedTableId}>
       {tables.map((t) => (
         <button
           key={t.id}
           data-testid={`canvas-table-${t.id}`}
+          data-status={tableStatuses?.get(t.id)}
           onClick={() => {
             onTableMove(t.id, 200, 300);
             mockFloorPlanCanvasOnTableMove(t.id, 200, 300);
@@ -267,6 +278,7 @@ let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockUseTableStatuses.mockReturnValue(new Map());
   const mod = await import("./FloorPlanEditorPage.js");
   FloorPlanEditorPage = mod.FloorPlanEditorPage;
 });
@@ -703,6 +715,25 @@ describe("FloorPlanEditorPage", () => {
 
       // Reset for other tests
       mockBlocker.mockReturnValue({ state: "unblocked" });
+    });
+  });
+
+  describe("live status", () => {
+    it("threads useTableStatuses' map through to the canvas for each table", async () => {
+      mockUseTableStatuses.mockReturnValue(new Map([["table-a", "seated"]]));
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      expect(tableButton.getAttribute("data-status")).toBe("seated");
+    });
+
+    it("leaves status undefined for a table with no live status data (no regression)", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      expect(tableButton.getAttribute("data-status")).toBeNull();
     });
   });
 });

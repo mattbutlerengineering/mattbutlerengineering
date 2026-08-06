@@ -287,6 +287,61 @@ describe("TableShape", () => {
       // available color is #5e6a2e
       expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
     });
+
+    it("uses the default available color when no status is provided (editor-only usage)", () => {
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      const rect = getByTestId("konva-rect");
+      expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
+    });
+
+    it("renders the seated status color when status is seated", () => {
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} status="seated" />
+      );
+      const rect = getByTestId("konva-rect");
+      // seated color mirrors --rialto-error (#b84a3c)
+      expect(rect.getAttribute("data-fill")).toBe("#b84a3c");
+    });
+
+    it("renders the needs-bussing status color when status is needs-bussing", () => {
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} status="needs-bussing" />
+      );
+      const rect = getByTestId("konva-rect");
+      // needs-bussing color mirrors --rialto-warning (#8a6820)
+      expect(rect.getAttribute("data-fill")).toBe("#8a6820");
+    });
+
+    it("renders the reserved-soon status color when status is reserved-soon", () => {
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} status="reserved-soon" />
+      );
+      const rect = getByTestId("konva-rect");
+      // reserved-soon color mirrors --rialto-accent (#b0841e)
+      expect(rect.getAttribute("data-fill")).toBe("#b0841e");
+    });
+
+    it("renders the available status color when status is explicitly available", () => {
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} status="available" />
+      );
+      const rect = getByTestId("konva-rect");
+      expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
+    });
+
+    it("keeps the inactive color even when a live status is provided", () => {
+      const table = makeTable({ isActive: false });
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} status="seated" />
+      );
+      const rect = getByTestId("konva-rect");
+      expect(rect.getAttribute("data-fill")).toBe("#a8a49d");
+    });
   });
 
   describe("selection state", () => {
