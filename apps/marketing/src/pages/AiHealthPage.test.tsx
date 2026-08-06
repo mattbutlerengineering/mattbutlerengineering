@@ -111,6 +111,19 @@ const MOCK_REPORT = {
       },
       baseline: null,
     },
+    domainActivity: {
+      available: true,
+      date: "2026-08-04",
+      venueId: "venue-1",
+      reservations_created: 41,
+      reservations_cancelled: 6,
+      reservations_completed: 33,
+      reservations_no_show: 4,
+      deposits_held: 17,
+      deposits_applied: 13,
+      deposits_refunded: 5,
+      deposits_forfeited: 2,
+    },
   },
   regressions: [],
   summary: { sensors_available: 7, sensors_total: 8, regressions_detected: 0, status: "healthy" },
@@ -297,6 +310,42 @@ describe("AiHealthPage", () => {
         expect(screen.getByText("queueEfficiency")).toBeInTheDocument();
       });
       expect(screen.queryByText("Composite Score")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Domain Activity panel", () => {
+    it("renders reservation and deposit counts when the sensor is available", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Domain Activity")).toBeInTheDocument();
+        expect(screen.getByText("Reservations Created")).toBeInTheDocument();
+        expect(screen.getByText("41")).toBeInTheDocument();
+        expect(screen.getByText("Reservations Cancelled")).toBeInTheDocument();
+        expect(screen.getByText("6")).toBeInTheDocument();
+        expect(screen.getByText("Reservations Completed")).toBeInTheDocument();
+        expect(screen.getByText("33")).toBeInTheDocument();
+        expect(screen.getByText("Reservations No-Show")).toBeInTheDocument();
+        expect(screen.getByText("4")).toBeInTheDocument();
+        expect(screen.getByText("Deposits Held")).toBeInTheDocument();
+        expect(screen.getByText("17")).toBeInTheDocument();
+        expect(screen.getByText("Deposits Applied")).toBeInTheDocument();
+        expect(screen.getByText("13")).toBeInTheDocument();
+        expect(screen.getByText("Deposits Refunded")).toBeInTheDocument();
+        expect(screen.getByText("5")).toBeInTheDocument();
+        expect(screen.getByText("Deposits Forfeited")).toBeInTheDocument();
+        expect(screen.getByText("2")).toBeInTheDocument();
+      });
+    });
+
+    it("renders a graceful not-available state when the sensor is missing", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Domain Activity")).toBeInTheDocument();
+        expect(screen.getByText("domainActivity")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Reservations Created")).not.toBeInTheDocument();
     });
   });
 
