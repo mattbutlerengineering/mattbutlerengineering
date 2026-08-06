@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import type { Reservation } from "@mbe/types";
 import { reservationEvents } from "../services/events.js";
 
 /**
@@ -171,11 +172,12 @@ describe("SSE Event Stream Integration", () => {
     // response awaited directly afterward (no extra waiting) rather than
     // racing a second setTimeout against the same 50ms deadline.
     const EMIT_DELAY_MS = 5;
+    const STREAM_URL = "/api/v1/events/stream?venueId=venue-1&testClose=1";
 
     it("fires a table-status:changed delta when a reservation transitions to CANCELLED", async () => {
       const responsePromise = app.inject({
         method: "GET",
-        url: "/api/v1/events/stream?venueId=venue-1&testClose=1",
+        url: STREAM_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
@@ -191,8 +193,7 @@ describe("SSE Event Stream Integration", () => {
           status: "CANCELLED",
           startTime: "2026-06-01T18:00:00.000Z",
           endTime: "2026-06-01T20:00:00.000Z",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any,
+        } as unknown as Reservation,
       });
 
       const response = await responsePromise;
@@ -216,7 +217,7 @@ describe("SSE Event Stream Integration", () => {
     it("does not fire for events unrelated to a reservation/hold transition", async () => {
       const responsePromise = app.inject({
         method: "GET",
-        url: "/api/v1/events/stream?venueId=venue-1&testClose=1",
+        url: STREAM_URL,
         headers: { "x-auth-bypass": "true" },
       });
 
