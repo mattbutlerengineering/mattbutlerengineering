@@ -2,11 +2,16 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isAutoMergeEligible, BLOCKED_TIER_LABELS } from "../merge-queue-eligibility.mjs";
+import {
+  isAutoMergeEligible,
+  isAutomationAutoMergeEligible,
+  BLOCKED_TIER_LABELS,
+} from "../merge-queue-eligibility.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml"), "utf8");
+const AUTO_MERGE_WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/auto-merge.yml"), "utf8");
 const SKILL_MD = readFileSync(resolve(ROOT, ".claude/skills/implement-queue/SKILL.md"), "utf8");
 
 // ---------------------------------------------------------------------------
@@ -148,5 +153,104 @@ describe("implement-queue SKILL.md wiring (#3807)", () => {
     expect(step6Section).toMatch(/blocking tier/i);
     expect(step6Section).toMatch(/needs-review/);
     expect(step6Section).toMatch(/do not enqueue/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isAutomationAutoMergeEligible — the auto-merge.yml carve-out (#3857)
+//
+// `auto-merge.yml` gates a different, hand-maintained sensitive-path regex
+// than merge-queue.yml's tier check, and never read `tier:*` at all — the
+// same hole #3787/#3796 closed in merge-queue.yml. The four workflows that
+// apply the `auto-merge` label (production-feedback, pr-metrics, drift-fix,
+// acmm-regression) never carry `has-pr` — that label gates the
+// implement-queue's own review boundary and is deliberately NOT loosened
+// here (see the docstring on isAutomationAutoMergeEligible). Instead this is
+// a distinct, explicit automation path: same tier gate, `auto-merge` label
+// in place of `has-pr`.
+// ---------------------------------------------------------------------------
+
+describe("isAutomationAutoMergeEligible", () => {
+  it("is eligible for auto-merge label alone, with no tier label (today's four automation PRs)", () => {
+    const result = isAutomationAutoMergeEligible(["auto-merge"]);
+    expect(result.eligible).toBe(true);
+  });
+
+  it("is eligible for auto-merge + tier:trivial", () => {
+    const result = isAutomationAutoMergeEligible(["auto-merge", "tier:trivial"]);
+    expect(result.eligible).toBe(true);
+  });
+
+  it("is NOT eligible when the auto-merge label is missing, even with has-pr present", () => {
+    const result = isAutomationAutoMergeEligible(["has-pr"]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/auto-merge/);
+  });
+
+  it("does not require has-pr — automation PRs never carry it (deliberate, documented carve-out)", () => {
+    const result = isAutomationAutoMergeEligible(["auto-merge"]);
+    expect(result.eligible).toBe(true);
+    expect(result.reason).not.toMatch(/has-pr/);
+  });
+
+  for (const tier of BLOCKED_TIER_LABELS) {
+    it(`is not eligible for auto-merge + ${tier} (a bot PR touching packages/rialto/src/** must not auto-merge)`, () => {
+      const result = isAutomationAutoMergeEligible(["auto-merge", tier]);
+      expect(result.eligible).toBe(false);
+      expect(result.reason).toMatch(new RegExp(tier.replace(":", "\\:")));
+    });
+  }
+
+  it("is not eligible when needs-review is present alongside auto-merge", () => {
+    const result = isAutomationAutoMergeEligible(["auto-merge", "needs-review"]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/needs-review/);
+  });
+
+  it("treats a missing labels array as ineligible", () => {
+    expect(isAutomationAutoMergeEligible().eligible).toBe(false);
+    expect(isAutomationAutoMergeEligible([]).eligible).toBe(false);
+  });
+
+  it("does not mutate the input array", () => {
+    const labels = ["auto-merge", "tier:trivial"];
+    const snapshot = JSON.stringify(labels);
+    isAutomationAutoMergeEligible(labels);
+    expect(JSON.stringify(labels)).toBe(snapshot);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// auto-merge.yml wiring (#3857) — must call the shared, tested eligibility
+// script instead of re-deriving a bespoke sensitive-path regex that drifts
+// from tier-classifier.yml.
+// ---------------------------------------------------------------------------
+
+describe("auto-merge.yml wiring (#3857)", () => {
+  it("invokes merge-queue-eligibility.mjs in automation mode instead of a bespoke sensitive-path regex", () => {
+    expect(AUTO_MERGE_WORKFLOW).toMatch(/node scripts\/merge-queue-eligibility\.mjs check/);
+    expect(AUTO_MERGE_WORKFLOW).toMatch(/--mode automation/);
+  });
+
+  it("no longer hand-rolls the sensitive-path regex this issue replaces", () => {
+    expect(AUTO_MERGE_WORKFLOW).not.toMatch(/\^\\\.github\/\|\^infrastructure\//);
+    expect(AUTO_MERGE_WORKFLOW).not.toMatch(/SENSITIVE_FILES/);
+  });
+
+  it("gates gh pr merge --auto on the eligibility result", () => {
+    const mergeAt = AUTO_MERGE_WORKFLOW.indexOf("gh pr merge");
+    const eligibilityAt = AUTO_MERGE_WORKFLOW.indexOf("merge-queue-eligibility.mjs");
+    expect(eligibilityAt).toBeGreaterThan(-1);
+    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+  });
+
+  it("still requires the auto-merge label before evaluating tier eligibility", () => {
+    expect(AUTO_MERGE_WORKFLOW).toMatch(/HAS_AUTO_MERGE/);
+  });
+
+  it("still gates on trusted/bot authorship after the eligibility check", () => {
+    const eligibilityAt = AUTO_MERGE_WORKFLOW.indexOf("merge-queue-eligibility.mjs");
+    const trustedAt = AUTO_MERGE_WORKFLOW.indexOf("TRUSTED_AUTHORS");
+    expect(trustedAt).toBeGreaterThan(eligibilityAt);
   });
 });
