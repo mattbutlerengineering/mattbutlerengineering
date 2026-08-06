@@ -51,9 +51,10 @@ jobs:
           echo "Evaluating PR #$PR_NUMBER for auto-merge..."
 
           # Fetch PR metadata
-          PR_JSON=$(gh pr view "$PR_NUMBER" --json labels,author,files,mergeable,reviewDecision)
+          PR_JSON=$(gh pr view "$PR_NUMBER" --json labels,author,mergeable,reviewDecision)
           AUTHOR=$(echo "$PR_JSON" | jq -r '.author.login')
           LABELS=$(echo "$PR_JSON" | jq -r '.labels[].name' 2>/dev/null || echo "")
+          LABELS_CSV=$(echo "$PR_JSON" | jq -r '[.labels[].name] | join(",")')
 
           echo "Author: $AUTHOR"
           echo "Labels: $LABELS"
@@ -71,16 +72,30 @@ jobs:
             exit 0
           fi
 
-          # Check if PR touches sensitive paths that require human review
-          SENSITIVE_FILES=$(echo "$PR_JSON" | jq -r '.files[].path' | grep -E \
-            '^\.github/|^infrastructure/|/migrations/|^CLAUDE\.md$|^AGENTS\.md$|^\.claude/' || true)
+          # Tier eligibility (tier:* gating) is a pure, unit-tested decision
+          # in scripts/merge-queue-eligibility.mjs — the same source of truth
+          # merge-queue.yml uses (#3787/#3796), instead of a hand-rolled
+          # sensitive-path regex that silently drifted from
+          # tier-classifier.yml (#3857). `--mode automation` swaps the
+          # has-pr requirement for auto-merge: the four workflows that apply
+          # this label (production-feedback, pr-metrics, drift-fix,
+          # acmm-regression) never carry has-pr — that label is the
+          # implement-queue's own review boundary and is not loosened here.
+          RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS_CSV" --mode automation)
+          echo "$RESULT"
 
-          if [ -n "$SENSITIVE_FILES" ]; then
-            echo "::warning::PR touches sensitive paths — human review required:"
-            echo "$SENSITIVE_FILES"
-            gh pr comment "$PR_NUMBER" --body "**Auto-merge blocked**: This PR modifies sensitive paths that require human review.
+          ELIGIBLE=$(echo "$RESULT" | jq -r '.eligible')
+          REASON=$(echo "$RESULT" | jq -r '.reason')
+
+          if [ "$ELIGIBLE" = "false" ]; then
+            if echo "$REASON" | grep -q '^blocked by tier:'; then
+              echo "::warning::PR blocked by tier gate: $REASON"
+              gh pr comment "$PR_NUMBER" --body "**Auto-merge blocked**: $REASON.
 
           Please request a manual review before merging." || true
+            else
+              echo "Skipping: $REASON"
+            fi
             exit 0
           fi
 
