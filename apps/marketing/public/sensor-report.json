@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-05T18:13:21.436Z",
+  "generated_at": "2026-08-06T00:42:27.667Z",
   "period": {
-    "start": "2026-07-29",
-    "end": "2026-08-05"
+    "start": "2026-07-30",
+    "end": "2026-08-06"
   },
   "sensors": {
     "acmm": {
@@ -47,17 +47,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 806905,
-      "output_tokens": 1832,
-      "cache_creation_tokens": 83678,
-      "cache_hit_rate": 0.906,
+      "cache_read_tokens": 3854336,
+      "output_tokens": 22797,
+      "cache_creation_tokens": 138505,
+      "cache_hit_rate": 0.9649,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 21,
-          "output_tokens": 1832,
-          "cache_read_tokens": 806905,
-          "cache_creation_tokens": 83678
+          "input_tokens": 1694,
+          "output_tokens": 22797,
+          "cache_read_tokens": 3854336,
+          "cache_creation_tokens": 138505
         }
       }
     },
@@ -84,8 +84,8 @@
     "codeChurn": {
       "available": true,
       "churn_rate": 0.005,
-      "total_lines_added_7d": 455894,
-      "lines_churned_7d": 2190,
+      "total_lines_added_7d": 456507,
+      "lines_churned_7d": 2144,
       "window_days": 7,
       "churn_threshold": 0.3
     },
