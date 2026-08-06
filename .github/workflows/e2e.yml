@@ -198,9 +198,12 @@ jobs:
       - name: Write E2E failure summary
         if: failure()
         run: |
-          # Backend health re-probe (quick liveness check)
-          users_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/api/v1/users/health || echo "000")
-          res_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3004/api/v1/reservations/health || echo "000")
+          # Backend health re-probe (quick liveness check). Uses
+          # scripts/check-endpoint.mjs (#3854) so a connection failure
+          # reports httpCode 0, not a doubled "000000" string that numeric
+          # guards below would silently misparse.
+          users_code=$(node scripts/check-endpoint.mjs users-health http://localhost:3001/api/v1/users/health --timeout 5000 | jq -r '.httpCode')
+          res_code=$(node scripts/check-endpoint.mjs reservations-health http://localhost:3004/api/v1/reservations/health --timeout 5000 | jq -r '.httpCode')
           [ "$users_code" = "200" ] && users_status="healthy" || users_status="unhealthy (HTTP $users_code)"
           [ "$res_code" = "200" ] && res_status="healthy" || res_status="unhealthy (HTTP $res_code)"
 
