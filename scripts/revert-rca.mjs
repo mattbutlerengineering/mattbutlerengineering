@@ -63,10 +63,18 @@ const REVERT_TITLE_PATTERN = /^revert:/i;
  * candidates are fetched by direct list and filtered locally via
  * `findRevertPr` instead of asking Search to filter server-side.
  *
+ * This list is sorted by `createdAt` descending and bounded by `limit`
+ * (#3873) — a revert PR that sits open for a while (e.g. #3691, open 2.5
+ * days) carries an old `createdAt` and can fall outside the window once
+ * enough newer PRs are created. `findRevertPr` is always called against the
+ * union of this list and `buildRevertPrSearchArgs`'s relevance-ranked
+ * results (see `mergeRevertCandidates`), so that boundedness alone does not
+ * reintroduce the silent-miss failure mode.
+ *
  * @param {number} [limit]
  * @returns {string[]}
  */
-export function buildRevertPrListArgs(limit = 100) {
+export function buildRevertPrListArgs(limit = 300) {
   return [
     "--state",
     "all",
@@ -78,6 +86,49 @@ export function buildRevertPrListArgs(limit = 100) {
 }
 
 /**
+ * Pure: builds `gh pr list --search` args that find revert-PR candidates by
+ * title relevance rather than recency (#3873). Unlike `buildRevertPrListArgs`,
+ * this is not bounded by creation-date window — GitHub's Search API ranks by
+ * match relevance, so an old-but-still-open revert PR is found regardless of
+ * how many newer PRs exist. Used only as a *second*, unioned source (via
+ * `mergeRevertCandidates`) alongside the direct list — never as the sole
+ * source, which is what caused #3613's index-lag gap (a revert merged
+ * seconds ago can be invisible to Search).
+ *
+ * @param {number|string} prNumber
+ * @returns {string[]}
+ */
+export function buildRevertPrSearchArgs(prNumber) {
+  return [
+    "--search",
+    `revert: #${prNumber} in:title`,
+    "--state",
+    "all",
+    "--json",
+    "number,title,state,mergedAt,mergeCommit",
+  ];
+}
+
+/**
+ * Pure: unions two revert-PR candidate lists (direct list + search results),
+ * deduped by PR number. Candidates from `listA` win on collision; order is
+ * otherwise `listA` followed by any new candidates from `listB` (#3873).
+ *
+ * @param {Array<{number:number}>} listA
+ * @param {Array<{number:number}>} listB
+ * @returns {Array<{number:number}>}
+ */
+export function mergeRevertCandidates(listA, listB) {
+  const seen = new Map((listA ?? []).map((candidate) => [candidate.number, candidate]));
+  for (const candidate of listB ?? []) {
+    if (!seen.has(candidate.number)) {
+      seen.set(candidate.number, candidate);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+/**
  * Pure: finds the PR (if any) that proposes/performs a revert of `prNumber`,
  * among a list of candidate PRs already fetched via `gh pr list`.
  *
@@ -86,6 +137,19 @@ export function buildRevertPrListArgs(limit = 100) {
  * always preferred — search-result/list ordering must never decide the
  * winner (#3613). Falls back to the first match when none is merged, same
  * as before.
+ *
+ * Known residual (#3873): callers are expected to pass the *union* of
+ * `buildRevertPrListArgs`'s bounded, recency-sorted results and
+ * `buildRevertPrSearchArgs`'s relevance-ranked results (via
+ * `mergeRevertCandidates`), not the direct list alone. The direct list is
+ * bounded by `limit` and sorted `createdAt` descending, so a revert PR that
+ * sat open for days (old `createdAt`) can fall outside that window once
+ * enough newer PRs exist. The search-sourced list has no such recency bound,
+ * so it backstops the direct list's window instead of being the sole source
+ * (which would reintroduce #3613's index-lag gap — a revert merged seconds
+ * ago can be invisible to Search). This function itself is a plain filter
+ * over whatever candidate list it's given; it has no opinion on how that
+ * list was assembled.
  *
  * @param {Array<{number:number, title:string, state?:string, mergedAt?:string|null}>} candidatePrs
  * @param {number|string} prNumber
@@ -340,7 +404,11 @@ function main() {
   runRevertRca({
     prNumber,
     fetchPr: () => pr,
-    searchRevertPrs: () => ghClient.pr.list(buildRevertPrListArgs()),
+    searchRevertPrs: () =>
+      mergeRevertCandidates(
+        ghClient.pr.list(buildRevertPrListArgs()),
+        ghClient.pr.list(buildRevertPrSearchArgs(prNumber))
+      ),
     searchRcaIssues: () =>
       ghClient.issue.list([
         "--label",

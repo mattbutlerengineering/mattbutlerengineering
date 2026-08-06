@@ -6,6 +6,8 @@ import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
   buildRcaCreateArgs,
   buildRevertPrListArgs,
+  buildRevertPrSearchArgs,
+  mergeRevertCandidates,
   findRevertPr,
   classifyRevertState,
   buildRcaBody,
@@ -139,6 +141,85 @@ describe("buildRevertPrListArgs", () => {
     const argsArr = buildRevertPrListArgs();
     const jsonIdx = argsArr.indexOf("--json");
     expect(argsArr[jsonIdx + 1]).toBe("number,title,state,mergedAt,mergeCommit");
+  });
+
+  it("defaults to a substantially raised limit, not the original 100 (#3873)", () => {
+    const argsArr = buildRevertPrListArgs();
+    const limitIdx = argsArr.indexOf("--limit");
+    expect(Number(argsArr[limitIdx + 1])).toBeGreaterThanOrEqual(300);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #3873: `--limit 100` on the createdAt-desc direct list can miss a revert PR
+// that sat open for days (e.g. #3691, open 2.5 days) once 100+ newer PRs
+// pushed it out of the window. `buildRevertPrSearchArgs` + `mergeRevertCandidates`
+// add back a relevance-ranked search source (not sorted by recency) as a
+// second, unioned source — closing the window gap without reintroducing
+// search as the *sole* source (which is what caused #3613's index-lag gap).
+// ---------------------------------------------------------------------------
+describe("buildRevertPrSearchArgs", () => {
+  it("searches by title for a revert of the given PR number", () => {
+    const argsArr = buildRevertPrSearchArgs(3600);
+    const searchIdx = argsArr.indexOf("--search");
+    expect(argsArr[searchIdx + 1]).toBe("revert: #3600 in:title");
+  });
+
+  it("requests the same fields the direct list does, across all states", () => {
+    const argsArr = buildRevertPrSearchArgs(3600);
+    const stateIdx = argsArr.indexOf("--state");
+    expect(argsArr[stateIdx + 1]).toBe("all");
+    const jsonIdx = argsArr.indexOf("--json");
+    expect(argsArr[jsonIdx + 1]).toBe("number,title,state,mergedAt,mergeCommit");
+  });
+});
+
+describe("mergeRevertCandidates", () => {
+  it("unions two candidate lists, deduped by PR number", () => {
+    const a = [{ number: 1, title: "x" }];
+    const b = [
+      { number: 1, title: "x" },
+      { number: 2, title: "y" },
+    ];
+
+    expect(mergeRevertCandidates(a, b)).toEqual([
+      { number: 1, title: "x" },
+      { number: 2, title: "y" },
+    ]);
+  });
+
+  it("returns candidates from either list when the other is empty", () => {
+    expect(mergeRevertCandidates([], [{ number: 1, title: "x" }])).toEqual([
+      { number: 1, title: "x" },
+    ]);
+    expect(mergeRevertCandidates([{ number: 1, title: "x" }], [])).toEqual([
+      { number: 1, title: "x" },
+    ]);
+  });
+
+  it("finds a revert PR outside the direct-list window via the search-sourced list (#3873)", () => {
+    // Simulate the real failure: 300+ newer PRs (createdAt-desc) fill the
+    // direct list's window, pushing out a revert PR that sat open 2.5 days
+    // (like #3691) before merging. The search-sourced list ranks by title
+    // relevance, not recency, so it still surfaces the old candidate.
+    const directList = Array.from({ length: 300 }, (_, i) => ({
+      number: 4000 + i,
+      title: `chore: unrelated PR ${i}`,
+      state: "MERGED",
+    }));
+    const searchList = [
+      {
+        number: 3691,
+        title: "revert: #3600 (sat open 2.5 days)",
+        state: "MERGED",
+        mergedAt: "2026-01-05T00:00:00Z",
+        mergeCommit: { oid: "outofwindowsha" },
+      },
+    ];
+
+    const merged = mergeRevertCandidates(directList, searchList);
+
+    expect(findRevertPr(merged, 3600)).toEqual(searchList[0]);
   });
 });
 
