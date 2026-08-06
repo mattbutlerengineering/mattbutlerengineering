@@ -24,6 +24,11 @@
  *   claimed_at      string        ISO 8601
  *   merged_at       string|null   ISO 8601, reconciled by sensor
  *   cost_usd        number|null   Optional precise cost if known at write time
+ *   human_touch_reason string|undefined  One of HUMAN_TOUCH_REASONS below.
+ *                                 Optional — classifies why a merged agent PR
+ *                                 needed a human commit. Absent on rows
+ *                                 written before this field existed, and on
+ *                                 rows where no human touch occurred.
  *
  * Writer is a PURE FUNCTION with dependency injection — no I/O unless
  * the caller passes real readFile/writeFile implementations.
@@ -37,6 +42,19 @@ import { dirname } from "node:path";
 import { resolvePath } from "./metrics-store.mjs";
 
 const DEFAULT_TELEMETRY_PATH = resolvePath("queue-telemetry");
+
+/**
+ * Fixed taxonomy for why a merged agent PR needed a human touch.
+ * Single source of truth — consumed by the classifier, backfill, and
+ * ACMM report (parts 2-4 of #3805/#3806).
+ */
+export const HUMAN_TOUCH_REASONS = Object.freeze([
+  "review-fix",
+  "ci-failure",
+  "merge-conflict",
+  "scope-change",
+  "other",
+]);
 
 /** Permitted schema fields — unknown fields are rejected before any write. */
 const SAFE_FIELDS = new Set([
@@ -54,6 +72,7 @@ const SAFE_FIELDS = new Set([
   "claimed_at",
   "merged_at",
   "cost_usd",
+  "human_touch_reason",
 ]);
 
 /**
@@ -93,6 +112,14 @@ function validateRow(row) {
     if (!SAFE_FIELDS.has(key)) {
       throw new Error(`unknown field: ${key} — only schema fields are permitted`);
     }
+  }
+  if (
+    row.human_touch_reason !== undefined &&
+    !HUMAN_TOUCH_REASONS.includes(row.human_touch_reason)
+  ) {
+    throw new Error(
+      `human_touch_reason must be one of ${HUMAN_TOUCH_REASONS.join(", ")}, got: ${row.human_touch_reason}`
+    );
   }
 }
 
