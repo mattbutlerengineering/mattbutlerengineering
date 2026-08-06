@@ -18,6 +18,13 @@ interface HistoryEntry {
   readonly total: number;
 }
 
+interface RecentAgentChange {
+  readonly number: number;
+  readonly title: string;
+  readonly url: string;
+  readonly mergedAt: string;
+}
+
 interface AcmmMetrics {
   readonly schema: string;
   readonly generatedAt: string;
@@ -41,6 +48,8 @@ interface AcmmMetrics {
     readonly evalMedianScore: number;
   };
   readonly history: readonly HistoryEntry[];
+  /** Absent in metrics.json generated before this field existed. */
+  readonly recentAgentChanges?: readonly RecentAgentChange[];
   readonly detectedByLevel: Record<string, number>;
   readonly behavioralGates: readonly BehavioralGate[];
 }
@@ -82,6 +91,9 @@ export function MetricsPage() {
       </div>
     );
   }
+
+  // Older cached metrics.json predates this field — treat it as "nothing shipped yet".
+  const recentChanges = metrics.recentAgentChanges ?? [];
 
   return (
     <div className={styles.container}>
@@ -180,6 +192,31 @@ export function MetricsPage() {
             <Text className={styles.statValue}>{formatRatio(metrics.behavioral.evalPassRate)}</Text>
           </Card>
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>Recent AI Changes</Heading>
+        {recentChanges.length === 0 ? (
+          <Text className={styles.emptyState}>No recent changes to show.</Text>
+        ) : (
+          <div className={styles.changeList}>
+            {recentChanges.map((change) => (
+              <Card key={change.number} className={styles.changeCard}>
+                <a
+                  href={change.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.changeLink}
+                >
+                  {change.title}
+                </a>
+                <Text className={styles.changeMeta}>
+                  #{change.number} · merged {formatDate(change.mergedAt)}
+                </Text>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className={styles.section}>

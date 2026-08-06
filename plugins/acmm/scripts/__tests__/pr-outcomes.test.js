@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { computePrOutcomes, isAgentPr, extractRevertedPrNumbers } from "../pr-outcomes.js";
+import {
+  computePrOutcomes,
+  isAgentPr,
+  extractRevertedPrNumbers,
+  selectRecentChanges,
+} from "../pr-outcomes.js";
 
 const NOW = new Date("2026-04-26T12:00:00Z");
 const WITHIN_WINDOW = "2026-04-25T12:00:00Z";
@@ -171,4 +176,67 @@ test("extractRevertedPrNumbers: returns empty for non-revert messages", () => {
 test("extractRevertedPrNumbers: multiple PR mentions all captured", () => {
   const msg = 'Revert "merge bundle (#1, #2, #3)"';
   assert.deepEqual(extractRevertedPrNumbers(msg), [1, 2, 3]);
+});
+
+test("selectRecentChanges: merged agent PRs, newest first, public fields only", () => {
+  const prs = [
+    pr({
+      number: 1,
+      title: "fix: older",
+      url: "https://github.com/o/r/pull/1",
+      mergedAt: "2026-04-20T00:00:00Z",
+    }),
+    pr({
+      number: 2,
+      title: "feat: newer",
+      url: "https://github.com/o/r/pull/2",
+      mergedAt: "2026-04-25T00:00:00Z",
+    }),
+  ];
+
+  assert.deepEqual(selectRecentChanges(prs, { now: NOW }), [
+    {
+      number: 2,
+      title: "feat: newer",
+      url: "https://github.com/o/r/pull/2",
+      mergedAt: "2026-04-25T00:00:00Z",
+    },
+    {
+      number: 1,
+      title: "fix: older",
+      url: "https://github.com/o/r/pull/1",
+      mergedAt: "2026-04-20T00:00:00Z",
+    },
+  ]);
+});
+
+test("selectRecentChanges: excludes unmerged, non-agent, and out-of-window PRs", () => {
+  const prs = [
+    pr({ number: 1, state: "OPEN", mergedAt: null }),
+    pr({ number: 2, state: "CLOSED", mergedAt: null }),
+    pr({ number: 3, headRefName: "feat/manual" }),
+    pr({ number: 4, createdAt: OUTSIDE_WINDOW, mergedAt: OUTSIDE_WINDOW }),
+    pr({ number: 5, url: "https://github.com/o/r/pull/5" }),
+  ];
+
+  assert.deepEqual(
+    selectRecentChanges(prs, { now: NOW }).map((c) => c.number),
+    [5]
+  );
+});
+
+test("selectRecentChanges: caps the list at the requested limit", () => {
+  const prs = Array.from({ length: 25 }, (_, i) =>
+    pr({
+      number: i + 1,
+      mergedAt: new Date(Date.parse(WITHIN_WINDOW) + i * 60_000).toISOString(),
+    })
+  );
+
+  assert.equal(selectRecentChanges(prs, { now: NOW }).length, 20);
+  assert.equal(selectRecentChanges(prs, { now: NOW, recentLimit: 3 }).length, 3);
+  assert.deepEqual(
+    selectRecentChanges(prs, { now: NOW, recentLimit: 3 }).map((c) => c.number),
+    [25, 24, 23]
+  );
 });

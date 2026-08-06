@@ -16,6 +16,8 @@ const STATE_PATH = resolve(__dirname, "..", ".claude", "acmm", "state.json");
 const OUTPUT_PATH = resolve(__dirname, "..", "apps", "marketing", "public", "metrics.json");
 const FRESHNESS_MAX_AGE_DAYS = 14;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const RECENT_CHANGES_LIMIT = 20;
+const GITHUB_URL_PREFIX = "https://github.com/";
 
 /**
  * Guards the dashboard from silently going stale: throws when the ACMM
@@ -39,6 +41,37 @@ export function checkFreshness(
       `ACMM state file ${statePath} is ${ageDays.toFixed(1)} days stale (lastRun: ${lastRun}) — exceeds the ${maxAgeDays}-day freshness threshold. Re-run the ACMM audit before regenerating metrics.`
     );
   }
+}
+
+/**
+ * Projects the merged agent PRs recorded by the ACMM audit
+ * (`behavioral.agent_pr.recent_changes`) into the public `recentAgentChanges`
+ * list: newest first, capped, and limited to fields already public on GitHub.
+ *
+ * The ACMM state file is an external input here and every surviving entry is
+ * rendered into a public page (the `url` lands in an anchor `href`), so entries
+ * missing a field — or carrying a url that is not a github.com link — are
+ * dropped rather than published. A state written before this field existed
+ * yields `[]`.
+ *
+ * @param {Record<string, any>} state - Parsed ACMM state file.
+ * @param {{ limit?: number }} [options]
+ */
+export function selectRecentAgentChanges(state, { limit = RECENT_CHANGES_LIMIT } = {}) {
+  const changes = state?.behavioral?.agent_pr?.recent_changes;
+  if (!Array.isArray(changes)) return [];
+
+  return changes
+    .filter(
+      (c) =>
+        Number.isFinite(c?.number) &&
+        Boolean(c?.title) &&
+        Boolean(c?.mergedAt) &&
+        String(c?.url ?? "").startsWith(GITHUB_URL_PREFIX)
+    )
+    .map((c) => ({ number: c.number, title: c.title, url: c.url, mergedAt: c.mergedAt }))
+    .sort((a, b) => Date.parse(b.mergedAt) - Date.parse(a.mergedAt))
+    .slice(0, limit);
 }
 
 // Run only when executed directly (`node generate-metrics-json.mjs`),
@@ -82,6 +115,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       detected: h.detected,
       total: h.total,
     })),
+    recentAgentChanges: selectRecentAgentChanges(state),
     detectedByLevel: comp?.detectedByLevel ?? {},
     behavioralGates: (comp?.behavioralGates ?? []).map((g) => ({
       level: g.level,

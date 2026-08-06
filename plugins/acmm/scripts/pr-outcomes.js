@@ -31,11 +31,13 @@ const AGENT_LABEL = "has-pr";
 const WINDOW_DAYS = 30;
 const REVERT_WINDOW_DAYS = 7;
 const MIN_SAMPLE = 5;
+const RECENT_CHANGES_LIMIT = 20;
 
 /**
  * @typedef {Object} PrRecord
  * @property {number} number
  * @property {string} title
+ * @property {string} url               public GitHub PR URL
  * @property {string} headRefName       branch name
  * @property {string} state             "OPEN" | "CLOSED" | "MERGED"
  * @property {string} createdAt         ISO timestamp
@@ -105,6 +107,41 @@ export function computePrOutcomes(prs, opts = {}) {
   };
 }
 
+/**
+ * Pick the most recently merged agent PRs for public display, newest first.
+ *
+ * Projects each PR down to fields that are already public on GitHub
+ * (`number`, `title`, `url`, `mergedAt`) — nothing derived from the enrichment
+ * passes (revert/human-touch flags, author) leaves this function.
+ *
+ * `recentLimit` rather than `limit` because `measurePrOutcomes` passes one
+ * options object to both this and `fetchAgentPrs`, whose `limit` is the
+ * `gh pr list` page size.
+ *
+ * @param {PrRecord[]} prs
+ * @param {{ now?: Date, windowDays?: number, recentLimit?: number }} [opts]
+ */
+export function selectRecentChanges(prs, opts = {}) {
+  const now = opts.now ?? new Date();
+  const cutoff = now.getTime() - (opts.windowDays ?? WINDOW_DAYS) * 24 * 60 * 60 * 1000;
+  const limit = opts.recentLimit ?? RECENT_CHANGES_LIMIT;
+
+  return prs
+    .filter((pr) => {
+      if (pr.state !== "MERGED" || !pr.mergedAt || !isAgentPr(pr)) return false;
+      const created = Date.parse(pr.createdAt);
+      return Number.isFinite(created) && created >= cutoff;
+    })
+    .sort((a, b) => Date.parse(b.mergedAt) - Date.parse(a.mergedAt))
+    .slice(0, limit)
+    .map((pr) => ({
+      number: pr.number,
+      title: pr.title,
+      url: pr.url ?? "",
+      mergedAt: pr.mergedAt,
+    }));
+}
+
 function median(sorted) {
   const n = sorted.length;
   if (n === 0) return 0;
@@ -150,7 +187,7 @@ export function fetchAgentPrs(opts = {}) {
         "--limit",
         String(limit),
         "--json",
-        "number,title,headRefName,state,createdAt,mergedAt,labels,author",
+        "number,title,url,headRefName,state,createdAt,mergedAt,labels,author",
       ],
       { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
     );
@@ -164,6 +201,7 @@ export function fetchAgentPrs(opts = {}) {
   const normalized = allPrs.map((pr) => ({
     number: Number(pr.number),
     title: String(pr.title ?? ""),
+    url: String(pr.url ?? ""),
     headRefName: String(pr.headRefName ?? ""),
     state: String(pr.state ?? ""),
     createdAt: String(pr.createdAt ?? ""),
@@ -228,5 +266,5 @@ function prHasNonAuthorCommit(ghBin, prNumber, author) {
 export function measurePrOutcomes(opts = {}) {
   const prs = fetchAgentPrs(opts);
   if (prs === null) return null;
-  return computePrOutcomes(prs, opts);
+  return { ...computePrOutcomes(prs, opts), recent_changes: selectRecentChanges(prs, opts) };
 }
