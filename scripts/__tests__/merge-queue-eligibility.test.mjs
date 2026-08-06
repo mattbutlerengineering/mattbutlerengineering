@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import {
   isAutoMergeEligible,
   isAutomationAutoMergeEligible,
+  isTrustedAutomationAuthor,
   BLOCKED_TIER_LABELS,
   TIER_LABEL_PREFIX,
+  TRUSTED_AUTOMATION_AUTHORS,
 } from "../merge-queue-eligibility.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -338,8 +340,95 @@ describe("auto-merge.yml wiring (#3857)", () => {
   });
 
   it("still gates on trusted/bot authorship after the eligibility check", () => {
-    const eligibilityAt = AUTO_MERGE_WORKFLOW.indexOf("merge-queue-eligibility.mjs");
-    const trustedAt = AUTO_MERGE_WORKFLOW.indexOf("TRUSTED_AUTHORS");
+    const eligibilityAt = AUTO_MERGE_WORKFLOW.indexOf("merge-queue-eligibility.mjs check ");
+    const trustedAt = AUTO_MERGE_WORKFLOW.indexOf("check-author");
     expect(trustedAt).toBeGreaterThan(eligibilityAt);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isTrustedAutomationAuthor — the auto-merge.yml author check (#3871)
+//
+// auto-merge.yml compared `.author.login` against literal strings like
+// `github-actions[bot]` — a legacy GraphQL-era format. `gh pr view --json
+// author` on this repo's `gh` version returns GitHub-App-authored PRs as
+// `app/<slug>` (e.g. `app/github-actions`), which never matched, so the
+// trusted-author branch was unreachable and every automation PR silently
+// took the skip path (confirmed live: #3826 merged manually by Matt,
+// never by the workflow). Fixtures below are real `gh pr view --json
+// author -q .author.login` output, not assumed formats.
+// ---------------------------------------------------------------------------
+
+describe("isTrustedAutomationAuthor", () => {
+  it("trusts app/github-actions — the verified author of every auto-merge-labeled PR today", () => {
+    // The 4 workflows that apply the `auto-merge` label (production-feedback,
+    // pr-metrics, drift-fix, acmm-regression) all push via peter-evans/
+    // create-pull-request with `token: AUTOMATION_PAT || GITHUB_TOKEN`.
+    // AUTOMATION_PAT is not configured (docs/SECRETS.md), so they fall back
+    // to GITHUB_TOKEN, which `gh` reports as `app/github-actions`. Confirmed
+    // live on #3851, #3869 (both auto-merge-labeled).
+    expect(isTrustedAutomationAuthor("app/github-actions")).toBe(true);
+  });
+
+  it("rejects app/claude — real gh output for implement-queue PRs, never carries the auto-merge label", () => {
+    // Confirmed live on #3865 (tier:standard, agent-authored — no
+    // auto-merge label). Trusting app/claude here would let a Claude-
+    // authored PR skip review the moment something applied the auto-merge
+    // label to it; implement-queue's own review boundary is the has-pr /
+    // needs-review path in merge-queue.yml, not this one.
+    expect(isTrustedAutomationAuthor("app/claude")).toBe(false);
+  });
+
+  it("rejects app/dependabot — real gh output; dependabot PRs carry dependencies/ci-fix, not auto-merge", () => {
+    // Confirmed live via `gh pr list --search author:app/dependabot`.
+    // dependabot.yml labels its PRs `dependencies` (+ `ci-fix` for the
+    // github-actions ecosystem), never `auto-merge`, so this branch is
+    // unreachable today too — but the predicate must still fail closed if
+    // that ever changes, per dependency-update-reviewer's review gate.
+    expect(isTrustedAutomationAuthor("app/dependabot")).toBe(false);
+  });
+
+  it("rejects a real human author — is_bot is false, login is not app/github-actions", () => {
+    expect(isTrustedAutomationAuthor("mattbutlerengineering")).toBe(false);
+  });
+
+  it("rejects the legacy github-actions[bot] format the old check used — it never occurs, so it must not be trusted either", () => {
+    // Regression guard for the exact defect this issue fixes: the old
+    // TRUSTED_AUTHORS list matched this string, which gh never returns. The
+    // fix must not "solve" the bug by trusting both the real and the
+    // imagined format — only the real one.
+    expect(isTrustedAutomationAuthor("github-actions[bot]")).toBe(false);
+  });
+
+  it("rejects an arbitrary app/-prefixed login — app/ prefix alone is not proof of trust", () => {
+    expect(isTrustedAutomationAuthor("app/some-other-bot")).toBe(false);
+  });
+
+  it("rejects empty/undefined login", () => {
+    expect(isTrustedAutomationAuthor("")).toBe(false);
+    expect(isTrustedAutomationAuthor(undefined)).toBe(false);
+  });
+
+  it("does not widen the trust set beyond the single verified automation identity", () => {
+    expect(TRUSTED_AUTOMATION_AUTHORS).toEqual(["app/github-actions"]);
+  });
+});
+
+describe("auto-merge.yml author-check wiring (#3871)", () => {
+  it("invokes the shared check-author subcommand instead of a hand-rolled TRUSTED_AUTHORS loop", () => {
+    expect(AUTO_MERGE_WORKFLOW).toMatch(/node scripts\/merge-queue-eligibility\.mjs check-author/);
+    expect(AUTO_MERGE_WORKFLOW).not.toMatch(/TRUSTED_AUTHORS=/);
+  });
+
+  it("no longer matches the legacy github-actions[bot] literal or the [bot]-suffix wildcard", () => {
+    expect(AUTO_MERGE_WORKFLOW).not.toMatch(/github-actions\[bot\]/);
+    expect(AUTO_MERGE_WORKFLOW).not.toMatch(/\\\[bot\\\]\$/);
+  });
+
+  it("logs loudly (a workflow annotation) when an author is rejected, not just a plain echo", () => {
+    const skipAt = AUTO_MERGE_WORKFLOW.indexOf("is not in trusted auto-merge list");
+    expect(skipAt).toBeGreaterThan(-1);
+    const precedingSlice = AUTO_MERGE_WORKFLOW.slice(Math.max(0, skipAt - 200), skipAt);
+    expect(precedingSlice).toMatch(/::warning::/);
   });
 });

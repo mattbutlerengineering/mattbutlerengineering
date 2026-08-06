@@ -1386,19 +1386,19 @@
         },
         {
           "name": "min",
-          "type": "Date | undefined",
+          "type": "string | undefined",
           "required": false,
-          "description": "Earliest selectable date (inclusive)."
+          "description": "Earliest selectable date (`yyyy-mm-dd`, inclusive)."
         },
         {
           "name": "max",
-          "type": "Date | undefined",
+          "type": "string | undefined",
           "required": false,
-          "description": "Latest selectable date (inclusive)."
+          "description": "Latest selectable date (`yyyy-mm-dd`, inclusive)."
         },
         {
           "name": "isDateDisabled",
-          "type": "((date: Date) => boolean) | undefined",
+          "type": "((isoDate: string) => boolean) | undefined",
           "required": false,
           "description": "Predicate deciding whether a date is disabled. When supplied it is\nauthoritative and wins over `min`/`max`; range bounds apply only when no\npredicate is given."
         },
@@ -1421,7 +1421,7 @@
     },
     {
       "name": "DateRangeValue",
-      "description": "A selected date range. Either endpoint may be `null` while a range is being picked.",
+      "description": "A selected date range as `yyyy-mm-dd` ISO strings. Either endpoint may be\n`null` while a range is being picked.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []
