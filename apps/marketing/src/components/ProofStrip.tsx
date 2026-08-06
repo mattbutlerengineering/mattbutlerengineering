@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Stack,
   Card,
@@ -20,12 +21,40 @@ const COUNTERS: readonly { readonly value: number; readonly label: string }[] = 
   { value: REPO_STATS.testFiles, label: "Test files" },
 ];
 
+const NARROW_VIEWPORT_QUERY = "(max-width: 640px)";
+
+/**
+ * Tracks whether the viewport is phone-narrow. The odometer's flip-board cells
+ * are em-sized boxes that cannot wrap or shrink, so the `size` prop is the only
+ * lever that keeps the figures inside a phone viewport — CSS alone can't reach
+ * it. State updates only from the media-query change event.
+ */
+function useIsNarrowViewport(): boolean {
+  const [isNarrow, setIsNarrow] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia(NARROW_VIEWPORT_QUERY).matches
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return undefined;
+    const mediaQuery = window.matchMedia(NARROW_VIEWPORT_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setIsNarrow(event.matches);
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
+
+  return isNarrow;
+}
+
 /**
  * Above-the-fold evidence: four figures counted out of the repository itself at
  * build time, with the measurement date attached so the claim stays checkable.
  */
 export function ProofStrip() {
   const { ref, controls } = useScrollReveal();
+  const isNarrowViewport = useIsNarrowViewport();
 
   return (
     <section id="proof" className={styles.metricsBand}>
@@ -52,7 +81,7 @@ export function ProofStrip() {
                 <Card variant="flat">
                   <Stack gap="2xs" align="center">
                     <div className={styles.metricValue}>
-                      <Odometer value={counter.value} size="lg" />
+                      <Odometer value={counter.value} size={isNarrowViewport ? "md" : "lg"} />
                     </div>
                     <Text variant="label" color="secondary">
                       {counter.label}

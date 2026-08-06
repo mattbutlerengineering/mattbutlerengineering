@@ -125,7 +125,10 @@
   }
 
   .metricsGrid {
-    grid-template-columns: repeat(2, 1fr);
+    /* Single column on phones: even the md odometer's flip-board cells are
+       em-sized boxes (~200px for a 4-digit figure) that cannot shrink, so a
+       two-up grid overflows the viewport on 360-412px screens. */
+    grid-template-columns: 1fr;
     row-gap: var(--rialto-space-md);
   }
 }

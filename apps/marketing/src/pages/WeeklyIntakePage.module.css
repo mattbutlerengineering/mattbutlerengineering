@@ -8,6 +8,16 @@
   margin-bottom: var(--rialto-space-sm);
 }
 
+@media (max-width: 480px) {
+  /* Heading size1 is 4.3rem; once the display font loads, the single word
+     "Information" is wider than a 360px viewport at that size and drags the
+     whole page into horizontal overflow. One token down fits with room to
+     spare. h1.heading out-specifies rialto's own .size1 class. */
+  h1.heading {
+    font-size: var(--rialto-text-3xl);
+  }
+}
+
 .subtitle {
   color: var(--rialto-text-secondary);
   margin-bottom: var(--rialto-space-2xl);
