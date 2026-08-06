@@ -58,6 +58,11 @@ vi.mock("./MetricsPage.module.css", () => ({
     levelCount: "levelCount",
     jsonLink: "jsonLink",
     staleBanner: "staleBanner",
+    changeList: "changeList",
+    changeCard: "changeCard",
+    changeLink: "changeLink",
+    changeMeta: "changeMeta",
+    emptyState: "emptyState",
   },
 }));
 
@@ -364,5 +369,65 @@ describe("MetricsPage", () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
       expect(screen.getByText(/stale/i)).toBeInTheDocument();
     });
+  });
+
+  it("renders recent AI changes as external PR links with merge dates", async () => {
+    const withChanges = {
+      ...MOCK_METRICS,
+      recentAgentChanges: [
+        {
+          number: 3210,
+          title: "feat(metrics): show recent AI changes",
+          url: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3210",
+          mergedAt: "2026-07-20T12:00:00Z",
+        },
+        {
+          number: 3199,
+          title: "fix(status): handle degraded health",
+          url: "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3199",
+          mergedAt: "2026-07-18T12:00:00Z",
+        },
+      ],
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => withChanges });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Recent AI Changes")).toBeInTheDocument();
+    });
+
+    const link = screen.getByText("feat(metrics): show recent AI changes").closest("a");
+    expect(link).toHaveAttribute(
+      "href",
+      "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3210"
+    );
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(screen.getByText(/#3210/)).toBeInTheDocument();
+    expect(screen.getByText(/Jul 20, 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/#3199/)).toBeInTheDocument();
+  });
+
+  it("renders an empty state when there are no recent AI changes", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...MOCK_METRICS, recentAgentChanges: [] }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Recent AI Changes")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/No recent changes/i)).toBeInTheDocument();
+  });
+
+  it("renders without crashing against metrics.json lacking recentAgentChanges", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_METRICS });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Recent AI Changes")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/No recent changes/i)).toBeInTheDocument();
+    expect(screen.getByText("Integrated")).toBeInTheDocument();
   });
 });
