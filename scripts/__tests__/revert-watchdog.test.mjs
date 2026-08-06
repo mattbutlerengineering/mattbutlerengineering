@@ -600,9 +600,10 @@ describe("parseCheckRunsJsonl", () => {
     const filler = Array.from({ length: 30 }, (_, i) =>
       JSON.stringify({ name: `filler-${i}`, conclusion: "success" })
     );
-    const raw = [...filler, JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "failure" })].join(
-      "\n"
-    );
+    const raw = [
+      ...filler,
+      JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "failure" }),
+    ].join("\n");
     const runs = parseCheckRunsJsonl(raw);
     expect(runs).toHaveLength(31);
     expect(extractCheckRunConclusion(runs, REQUIRED_CHECK_NAME)).toBe("failure");
@@ -610,7 +611,9 @@ describe("parseCheckRunsJsonl", () => {
 
   it("tolerates blank lines and trailing whitespace", () => {
     const raw = `\n${JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" })}\n\n`;
-    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe("success");
+    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe(
+      "success"
+    );
   });
 
   it("returns an empty array for empty or nullish output", () => {
@@ -625,7 +628,9 @@ describe("parseCheckRunsJsonl", () => {
       "{ not valid json",
       JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" }),
     ].join("\n");
-    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe("success");
+    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe(
+      "success"
+    );
   });
 });
 
