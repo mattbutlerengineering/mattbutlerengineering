@@ -111,17 +111,18 @@ describe("merge-queue.yml wiring", () => {
 // tests above, but for this markdown source.
 // ---------------------------------------------------------------------------
 
-describe("implement-queue SKILL.md wiring (#3807)", () => {
+describe("implement-queue SKILL.md wiring (#3807, revised #3861)", () => {
   const boundaryStart = SKILL_MD.indexOf("### Worker→train boundary");
   const step2Start = SKILL_MD.indexOf("2. **Low-risk fast path", boundaryStart);
   const step3Start = SKILL_MD.indexOf("3. **Reviewer sub-agent", step2Start);
   const step5Start = SKILL_MD.indexOf("5. **On all-pass verdict", step3Start);
   const step6Start = SKILL_MD.indexOf('6. **On `"flag"` verdict', step5Start);
+  const noTierHoldStart = SKILL_MD.indexOf("### No tier hold", step6Start);
   const phase3Start = SKILL_MD.indexOf("## Phase 3", step6Start);
 
   const step2Section = SKILL_MD.slice(step2Start, step3Start);
   const step5Section = SKILL_MD.slice(step5Start, step6Start);
-  const step6Section = SKILL_MD.slice(step6Start, phase3Start);
+  const noTierHoldSection = SKILL_MD.slice(noTierHoldStart, phase3Start);
 
   it("finds the Worker→train boundary subsection and its numbered steps", () => {
     expect(boundaryStart).toBeGreaterThan(-1);
@@ -129,31 +130,62 @@ describe("implement-queue SKILL.md wiring (#3807)", () => {
     expect(step3Start).toBeGreaterThan(step2Start);
     expect(step5Start).toBeGreaterThan(step3Start);
     expect(step6Start).toBeGreaterThan(step5Start);
-    expect(phase3Start).toBeGreaterThan(step6Start);
+    expect(noTierHoldStart).toBeGreaterThan(step6Start);
+    expect(phase3Start).toBeGreaterThan(noTierHoldStart);
   });
 
-  it("step 2 (low-risk fast path) calls isAutoMergeEligible from merge-queue-eligibility.mjs before its gh pr merge --auto call", () => {
-    expect(step2Section).toMatch(/isAutoMergeEligible/);
-    expect(step2Section).toMatch(/merge-queue-eligibility\.mjs/);
-    const eligibilityAt = step2Section.indexOf("isAutoMergeEligible");
+  it("step 2 (low-risk fast path) gates on needs-review, NOT on isAutoMergeEligible", () => {
+    // Reversed by #3861 on Matt's 2026-08-06 decision ("restore no-HITL
+    // fully"). Before that, this asserted step 2 called isAutoMergeEligible.
+    // That tier check deadlocked the queue: three PRs that had passed the
+    // review gate with green CI sat parked because tier-classifier had
+    // labelled them tier:standard. The gate for a REVIEWED path is the
+    // review verdict; tier gates the UNREVIEWED workflow paths below.
+    expect(step2Section).toMatch(/needs-review/);
+    expect(step2Section).not.toMatch(/isAutoMergeEligible/);
+    const needsReviewAt = step2Section.indexOf("needs-review");
     const mergeAt = step2Section.indexOf("gh pr merge");
-    expect(eligibilityAt).toBeGreaterThan(-1);
-    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+    expect(needsReviewAt).toBeGreaterThan(-1);
+    expect(mergeAt).toBeGreaterThan(needsReviewAt);
   });
 
-  it("step 5 (all-pass enqueue) calls isAutoMergeEligible from merge-queue-eligibility.mjs before its gh pr merge --auto call", () => {
-    expect(step5Section).toMatch(/isAutoMergeEligible/);
-    expect(step5Section).toMatch(/merge-queue-eligibility\.mjs/);
-    const eligibilityAt = step5Section.indexOf("isAutoMergeEligible");
-    const mergeAt = step5Section.indexOf("gh pr merge");
-    expect(eligibilityAt).toBeGreaterThan(-1);
-    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+  it("step 5 (all-pass enqueue) enqueues directly with no tier re-check", () => {
+    expect(step5Section).toMatch(/gh pr merge <N> --auto --squash --delete-branch/);
+    expect(step5Section).not.toMatch(/isAutoMergeEligible/);
+    expect(step5Section).toMatch(/no-tier-hold/);
   });
 
-  it("documents the blocking-tier outcome as needs-review + do not enqueue, same as step 6's flag/block verdict", () => {
-    expect(step6Section).toMatch(/blocking tier/i);
-    expect(step6Section).toMatch(/needs-review/);
-    expect(step6Section).toMatch(/do not enqueue/i);
+  it("documents the No tier hold carve-out with a resolvable anchor", () => {
+    // Steps 2 and 5 both link to #no-tier-hold; a dangling link would leave
+    // the "why doesn't this check tier?" question unanswered at the exact
+    // moment an agent is deciding whether to merge.
+    expect(noTierHoldSection).toMatch(/<a id="no-tier-hold"><\/a>/);
+    expect(step2Section).toMatch(/#no-tier-hold/);
+    expect(step5Section).toMatch(/#no-tier-hold/);
+  });
+
+  it("keeps tier binding for the UNREVIEWED workflow paths, so the eligibility functions stay load-bearing", () => {
+    // The carve-out is reviewed-vs-unreviewed, not "tier no longer matters".
+    // merge-queue.yml and auto-merge.yml run no review gate, so they must
+    // keep gating on tier via this module. If this assertion ever has to be
+    // deleted, the two workflows have lost their only tier gate.
+    expect(noTierHoldSection).toMatch(/merge-queue\.yml/);
+    expect(noTierHoldSection).toMatch(/auto-merge\.yml/);
+    expect(noTierHoldSection).toMatch(/isAutoMergeEligible/);
+  });
+
+  it("warns against reintroducing a Phase 2 tier check, citing the deadlock", () => {
+    // The failure mode this doc exists to prevent is a well-meaning future
+    // agent "fixing" the missing tier check in step 2 or 5.
+    expect(noTierHoldSection).toMatch(/[Dd]o not reintroduce a tier check/);
+    expect(noTierHoldSection).toMatch(/deadlock/i);
+  });
+
+  it("still names what DOES hold a PR, so removing the tier gate is not read as removing all gates", () => {
+    expect(noTierHoldSection).toMatch(/flag/);
+    expect(noTierHoldSection).toMatch(/block/);
+    expect(noTierHoldSection).toMatch(/needs-review/);
+    expect(noTierHoldSection).toMatch(/CI Gate/);
   });
 });
 
