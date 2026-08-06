@@ -88,9 +88,17 @@ These signals can shift a PR's tier independent of file paths.
 
 ## Auto-merge eligibility
 
-Currently, **only T1 PRs with all CI checks green are auto-mergeable**. The merge queue workflow (`.github/workflows/merge-queue.yml`) auto-merges PRs labeled `has-pr` (and not `needs-review`) when all CI checks pass.
+This section governs **unreviewed** merge paths — workflows that merge on CI signal alone. For those, **only T1 PRs with all CI checks green are auto-mergeable**. The merge queue workflow (`.github/workflows/merge-queue.yml`) auto-merges PRs labeled `has-pr` (and not `needs-review`) when all CI checks pass, gated by `isAutoMergeEligible()` in `scripts/merge-queue-eligibility.mjs`.
 
-T2 and above always require human approval. The user (Matt) is the only required reviewer.
+On those paths, T2 and above always require human approval. The user (Matt) is the only required reviewer.
+
+### Exemption: agent sessions that run the review gate
+
+**A `/implement-queue` session is not an unreviewed path, and tier does not hold its merges.** It runs the Reviewer sub-agent plus every reviewer `reviewersForDiff()` matches against the diff before merging — a stronger, semantic check than the CI signal this section's tier rule was written to compensate for. Per Matt's standing policy (2026-07-12, reaffirmed 2026-08-06), a PR that passes that gate with green CI merges without waiting for a human, at any tier.
+
+What holds such a PR instead: a `flag` verdict, a specialized reviewer's `block`, a `needs-review` label, or red `CI Gate`.
+
+The rule of thumb is **reviewed vs. unreviewed**, not tier. Applying the tier block to a reviewed session deadlocked the queue on 2026-08-06 — three review-gate-passed PRs parked with nothing merged. See `.claude/skills/implement-queue/SKILL.md` § "No tier hold".
 
 ## How agents apply this
 
