@@ -90,6 +90,10 @@ for (const viewport of MOBILE_VIEWPORTS) {
           scrollWidth,
           `page is ${scrollWidth}px wide in a ${clientWidth}px viewport; overflowing elements:\n  ${offenders.join("\n  ")}`
         ).toBeLessThanOrEqual(clientWidth);
+        // scrollWidth alone misses fixed-position boxes (they don't extend the
+        // document's scrollable overflow), so the rect scan is asserted too —
+        // it's what catches a viewport-overhanging toast container.
+        expect(offenders, `elements overhang the ${clientWidth}px viewport`).toEqual([]);
       });
     }
   });
