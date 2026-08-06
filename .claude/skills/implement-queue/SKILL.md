@@ -233,11 +233,11 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
 The distinction that matters is **reviewed vs. unreviewed**, not tier:
 
-| Path | Review gate | Tier blocks? |
-| --- | --- | --- |
-| `/implement-queue` (this skill) | Reviewer + diff-matched specialists | **no** |
-| `merge-queue.yml` | none | yes (`isAutoMergeEligible`) |
-| `auto-merge.yml` | none | yes (see #3857) |
+| Path                            | Review gate                         | Tier blocks?                |
+| ------------------------------- | ----------------------------------- | --------------------------- |
+| `/implement-queue` (this skill) | Reviewer + diff-matched specialists | **no**                      |
+| `merge-queue.yml`               | none                                | yes (`isAutoMergeEligible`) |
+| `auto-merge.yml`                | none                                | yes (see #3857)             |
 
 `docs/change-tiers.md`'s "T2+ requires Matt's personal approval" is **advisory for agent sessions that run the review gate**, and binding for the unreviewed workflow paths. `isAutoMergeEligible` still exists and is still correct — it just isn't this skill's gate. Do not reintroduce a tier check into Phase 2; it deadlocked the queue on 2026-08-06 (three review-gate-passed PRs parked, nothing merged).
 

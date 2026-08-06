@@ -96,13 +96,18 @@ describe("merge-queue.yml wiring", () => {
 });
 
 // ---------------------------------------------------------------------------
-// implement-queue SKILL.md wiring (#3807) — Phase 2's "Worker→train boundary"
-// protocol is a second, hand-followed code path with the same has-pr/
-// needs-review-only auto-merge decision merge-queue.yml had before #3796. It
-// must call the same isAutoMergeEligible() at both decision points (the
-// low-risk fast path, step 2, and the all-pass enqueue, step 5) instead of
-// re-deriving the tier check — same spirit as the "merge-queue.yml wiring"
-// tests above, but for this markdown source.
+// implement-queue SKILL.md wiring — Phase 2's "Worker→train boundary"
+// protocol is a second, hand-followed code path from merge-queue.yml's.
+// #3807 originally required both to call the same isAutoMergeEligible() so
+// the tier check couldn't drift between them. #3861 (2026-08-06) deliberately
+// reversed that for THIS skill only: a review-gated session (Reviewer +
+// diff-matched specialists) no longer re-checks tier at all — see the
+// skill's "No tier hold" section. merge-queue.yml and auto-merge.yml, which
+// merge on CI signal alone with no review gate, are unaffected and still
+// gate on isAutoMergeEligible (see the "merge-queue.yml wiring" tests
+// above). Do not restore the isAutoMergeEligible assertions here — that
+// would re-pin the exact deadlock #3861 fixed (three review-gate-passed
+// PRs parked, nothing merged, on 2026-08-06).
 // ---------------------------------------------------------------------------
 
 describe("implement-queue SKILL.md wiring (#3807)", () => {
@@ -126,26 +131,32 @@ describe("implement-queue SKILL.md wiring (#3807)", () => {
     expect(phase3Start).toBeGreaterThan(step6Start);
   });
 
-  it("step 2 (low-risk fast path) calls isAutoMergeEligible from merge-queue-eligibility.mjs before its gh pr merge --auto call", () => {
-    expect(step2Section).toMatch(/isAutoMergeEligible/);
-    expect(step2Section).toMatch(/merge-queue-eligibility\.mjs/);
-    const eligibilityAt = step2Section.indexOf("isAutoMergeEligible");
+  it("step 2 (low-risk fast path) does not gate on isAutoMergeEligible/tier (#3861 — No tier hold)", () => {
+    expect(step2Section).not.toMatch(/isAutoMergeEligible/);
+    expect(step2Section).toMatch(/No tier hold/);
+    expect(step2Section).toMatch(/needs-review/);
     const mergeAt = step2Section.indexOf("gh pr merge");
-    expect(eligibilityAt).toBeGreaterThan(-1);
-    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+    expect(mergeAt).toBeGreaterThan(-1);
   });
 
-  it("step 5 (all-pass enqueue) calls isAutoMergeEligible from merge-queue-eligibility.mjs before its gh pr merge --auto call", () => {
-    expect(step5Section).toMatch(/isAutoMergeEligible/);
-    expect(step5Section).toMatch(/merge-queue-eligibility\.mjs/);
-    const eligibilityAt = step5Section.indexOf("isAutoMergeEligible");
+  it("step 5 (all-pass enqueue) does not gate on isAutoMergeEligible/tier (#3861 — No tier hold)", () => {
+    expect(step5Section).not.toMatch(/isAutoMergeEligible/);
+    expect(step5Section).toMatch(/No tier hold/);
     const mergeAt = step5Section.indexOf("gh pr merge");
-    expect(eligibilityAt).toBeGreaterThan(-1);
-    expect(mergeAt).toBeGreaterThan(eligibilityAt);
+    expect(mergeAt).toBeGreaterThan(-1);
   });
 
-  it("documents the blocking-tier outcome as needs-review + do not enqueue, same as step 6's flag/block verdict", () => {
-    expect(step6Section).toMatch(/blocking tier/i);
+  it("documents a No tier hold section stating tier:standard/sensitive/critical do not block this skill's merges (#3861)", () => {
+    const noTierHoldStart = SKILL_MD.indexOf("### No tier hold", step6Start);
+    expect(noTierHoldStart).toBeGreaterThan(step6Start);
+    const noTierHoldSection = SKILL_MD.slice(noTierHoldStart, noTierHoldStart + 2000);
+    expect(noTierHoldSection).toMatch(/do NOT block a merge/);
+    expect(noTierHoldSection).toMatch(/tier:standard/);
+    expect(noTierHoldSection).toMatch(/tier:sensitive/);
+    expect(noTierHoldSection).toMatch(/tier:critical/);
+  });
+
+  it("step 6 still holds a PR on a flag/block verdict via needs-review + do not enqueue (unaffected by #3861)", () => {
     expect(step6Section).toMatch(/needs-review/);
     expect(step6Section).toMatch(/do not enqueue/i);
   });
