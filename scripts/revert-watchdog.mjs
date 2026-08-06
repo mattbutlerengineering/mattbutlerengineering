@@ -34,6 +34,18 @@
  * `decideBaselineAction`) plus async orchestration with injected
  * collaborators (`walkToBaseline`, `resolveRevertAction`).
  *
+ * #3743 closes a second conflation: the watchdog triggers on the whole "CI"
+ * workflow run's rollup conclusion (`workflow_run.conclusion`), which spans
+ * ~15+ jobs — most of them advisory (CodeQL, Container Security Scan,
+ * Dockerfile Lint, Gitleaks). Any one of those failing flips the rollup to
+ * "failure" and used to be treated as "main is broken," even when `CI Gate`
+ * — the only required status check on `main` — actually passed.
+ * `resolveRevertAction` now verifies `CI Gate` itself failed on the culprit
+ * commit (via `getConclusionForSha`, now backed by `gh api
+ * .../check-runs` scoped to `REQUIRED_CHECK_NAME`, not a workflow-run
+ * rollup) before doing anything else; a confirmed-passing `CI Gate` skips
+ * immediately, without filing an issue or proposing a revert.
+ *
  * Usage:
  *   node scripts/revert-watchdog.mjs create-issue --sha <sha> --pr <number>
  *   node scripts/revert-watchdog.mjs close-recovered --sha <green-sha>
@@ -172,6 +184,17 @@ export async function runAutoCloseWatchdog({
 /** Max ancestors to walk back past inconclusive CI runs before giving up. */
 export const BASELINE_WALK_CAP = 10;
 
+/**
+ * The only required status check on `main` per branch protection (see
+ * gotchas.md's CI section). The "CI" workflow run that triggers this
+ * watchdog is a rollup of ~15+ jobs (CodeQL, Container Security Scan,
+ * Dockerfile Lint, Gitleaks, etc.) — most of them advisory. Attributing
+ * "main is broken" to whichever commit was HEAD when *any* of those jobs
+ * failed, rather than specifically `CI Gate`, is the conflation behind
+ * #3743.
+ */
+export const REQUIRED_CHECK_NAME = "CI Gate";
+
 const CONCLUSIVE_CONCLUSIONS = new Set(["success", "failure"]);
 
 /**
@@ -198,6 +221,17 @@ export function extractFailingTestPaths(logText) {
     paths.add(match[1]);
   }
   return [...paths];
+}
+
+/**
+ * Pure: extracts a named check run's conclusion from a commit's check-runs
+ * list (as returned by `gh api .../commits/<sha>/check-runs`, `.check_runs`
+ * field). Returns `null` when that check hasn't reported for this commit —
+ * treated as inconclusive by callers, never as "passed" (#3743).
+ */
+export function extractCheckRunConclusion(checkRuns, name) {
+  const match = (checkRuns ?? []).find((run) => run?.name === name);
+  return match?.conclusion ?? null;
 }
 
 /** The first two path segments — this monorepo's `<category>/<package>` boundary. */
@@ -286,12 +320,21 @@ export async function walkToBaseline({
 }
 
 /**
- * Top-level orchestrator: resolves the baseline, then — only for a green
- * baseline, where the overlap check is actually relevant — fetches the
- * failing test paths and the culprit PR's changed files to decide the
- * final action.
+ * Top-level orchestrator: first verifies the required status check
+ * (`CI Gate`) actually failed on the culprit commit itself (#3743) — a
+ * `workflow_run.conclusion === "failure"` trigger is a rollup of the whole
+ * "CI" workflow and can fire from a non-required job (CodeQL, Container
+ * Security Scan, etc.) failing while `CI Gate` passed. Only when that's
+ * confirmed does it resolve the baseline, then — only for a green baseline,
+ * where the overlap check is actually relevant — fetch the failing test
+ * paths and the culprit PR's changed files to decide the final action.
+ *
+ * `getConclusionForSha` is deliberately reused for both the culprit check
+ * and the ancestor walk — both ask the same question ("did the required
+ * check fail for this sha"), just for different commits.
  *
  * @param {{
+ *   culpritSha: string,
  *   parentSha: string,
  *   prNumber: number|string,
  *   getConclusionForSha: (sha:string) => Promise<string|null|undefined>,
@@ -304,6 +347,7 @@ export async function walkToBaseline({
  * @returns {Promise<{action:"skip"|"issue-only"|"issue-and-revert", reason:string}>}
  */
 export async function resolveRevertAction({
+  culpritSha,
   parentSha,
   prNumber,
   getConclusionForSha,
@@ -313,6 +357,14 @@ export async function resolveRevertAction({
   cap = BASELINE_WALK_CAP,
   log = () => {},
 }) {
+  const culpritConclusion = classifyConclusion(await getConclusionForSha(culpritSha));
+  if (culpritConclusion === "success") {
+    return {
+      action: "skip",
+      reason: `required check '${REQUIRED_CHECK_NAME}' passed on the culprit commit — the workflow-run failure was in a non-required job, not attributing`,
+    };
+  }
+
   const baseline = await walkToBaseline({ parentSha, getConclusionForSha, getParentSha, cap, log });
 
   if (baseline?.conclusion !== "success") {
@@ -503,6 +555,28 @@ function getFailingTestPathsViaGh(runId) {
   }
 }
 
+/**
+ * The `CI Gate` required check's conclusion for `sha`, via `gh api
+ * .../commits/<sha>/check-runs` (#3743). Deliberately narrower than a
+ * workflow-run rollup (`gh run list --workflow CI`) — see
+ * `REQUIRED_CHECK_NAME`'s doc comment. Any failure to fetch/parse (rate
+ * limit, network hiccup, check not yet reported) yields `null` —
+ * "inconclusive", same fail-safe fallback the rest of this module uses.
+ */
+function getRequiredCheckConclusionViaGh(sha) {
+  if (!sha) return null;
+  try {
+    const raw = execFileSync(
+      "gh",
+      ["api", `repos/{owner}/{repo}/commits/${sha}/check-runs`, "--jq", ".check_runs"],
+      { encoding: "utf-8", timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }
+    );
+    return extractCheckRunConclusion(JSON.parse(raw), REQUIRED_CHECK_NAME);
+  } catch {
+    return null;
+  }
+}
+
 function readFlag(args, name) {
   const idx = args.indexOf(name);
   return idx !== -1 ? args[idx + 1] : null;
@@ -623,25 +697,13 @@ async function checkBaseline(ghClient, args) {
   }
 
   const result = await resolveRevertAction({
+    culpritSha: sha,
     parentSha: getParentShaViaGit(sha),
     prNumber: pr,
-    getConclusionForSha: async (candidateSha) => {
-      try {
-        const runs = ghClient.workflow.runs([
-          "--commit",
-          candidateSha,
-          "--workflow",
-          "CI",
-          "--json",
-          "conclusion",
-        ]);
-        return runs[0]?.conclusion ?? null;
-      } catch {
-        // gh transient failure (rate limit, network) — treated as inconclusive,
-        // same as the original bash's `2>/dev/null || echo "unknown"` fallback.
-        return null;
-      }
-    },
+    // Required-check-specific (#3743), not the "CI" workflow-run rollup —
+    // see REQUIRED_CHECK_NAME's doc comment for why the rollup conflates
+    // CI Gate with advisory jobs in the same workflow run.
+    getConclusionForSha: async (candidateSha) => getRequiredCheckConclusionViaGh(candidateSha),
     getParentSha: async (candidateSha) => getParentShaViaGit(candidateSha),
     getFailingTestPaths: async () => getFailingTestPathsViaGh(runId),
     getChangedFiles: async () => {
