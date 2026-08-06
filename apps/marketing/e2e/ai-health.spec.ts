@@ -52,16 +52,51 @@ test.describe("AI Health page", () => {
     await expect(page.getByText("87.5%")).toBeVisible();
     await expect(page.getByText("$1.20")).toBeVisible();
 
-    // Sensor Status — scoped to this section: "Unavailable" also appears in
-    // the Domain Activity section's badge, which collides in strict mode.
-    const sensorStatus = page.locator("section", { hasText: "Sensor Status" });
-    await expect(sensorStatus.getByRole("heading", { name: "Sensor Status" })).toBeVisible();
-    await expect(sensorStatus.getByText("ciHealth")).toBeVisible();
-    await expect(sensorStatus.getByText("lighthouse")).toBeVisible();
-    await expect(sensorStatus.getByText("Unavailable").first()).toBeVisible();
+    // Sensor Status
+    await expect(page.getByRole("heading", { name: "Sensor Status" })).toBeVisible();
+    const sensorStatusList = page.getByTestId("sensor-status-list");
+    await expect(sensorStatusList.getByText("ciHealth")).toBeVisible();
+    await expect(sensorStatusList.getByText("lighthouse")).toBeVisible();
+    await expect(sensorStatusList.getByText("Unavailable")).toBeVisible();
 
     // No stale banner on a fresh report
     await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("shows the not-available state when the domainActivity sensor is absent", async ({
+    page,
+  }) => {
+    // sensor-report-fresh has no `domainActivity` entry, so the panel must
+    // fall back to its unavailable state rather than throwing or rendering
+    // stale/placeholder counts.
+    await mockSensorReport(page, "sensor-report-fresh", new Date().toISOString());
+    await page.goto("/ai-health");
+
+    await expect(page.getByRole("heading", { name: "Domain Activity" })).toBeVisible();
+
+    const domainActivityPanel = page.getByTestId("domain-activity-panel");
+    await expect(domainActivityPanel.getByText("domainActivity")).toBeVisible();
+    await expect(domainActivityPanel.getByText("Unavailable")).toBeVisible();
+    await expect(domainActivityPanel.getByTestId("reservations-created")).toHaveCount(0);
+  });
+
+  test("renders Domain Activity reservation and deposit counts from a populated fixture", async ({
+    page,
+  }) => {
+    await mockSensorReport(page, "sensor-report-domain-activity", new Date().toISOString());
+    await page.goto("/ai-health");
+
+    await expect(page.getByRole("heading", { name: "Domain Activity" })).toBeVisible();
+
+    const domainActivityPanel = page.getByTestId("domain-activity-panel");
+    await expect(domainActivityPanel.getByTestId("reservations-created")).toHaveText("41");
+    await expect(domainActivityPanel.getByTestId("reservations-cancelled")).toHaveText("6");
+    await expect(domainActivityPanel.getByTestId("reservations-completed")).toHaveText("33");
+    await expect(domainActivityPanel.getByTestId("reservations-no-show")).toHaveText("4");
+    await expect(domainActivityPanel.getByTestId("deposits-held")).toHaveText("17");
+    await expect(domainActivityPanel.getByTestId("deposits-applied")).toHaveText("13");
+    await expect(domainActivityPanel.getByTestId("deposits-refunded")).toHaveText("5");
+    await expect(domainActivityPanel.getByTestId("deposits-forfeited")).toHaveText("2");
   });
 
   test("shows the stale-data banner when generated_at is more than 48h old", async ({ page }) => {

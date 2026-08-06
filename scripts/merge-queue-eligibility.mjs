@@ -146,6 +146,52 @@ export function isAutomationAutoMergeEligible(labelNames = []) {
   return { eligible: true, reason: "auto-merge label present, classified, no blocking tier label" };
 }
 
+/**
+ * The single automation identity `auto-merge.yml` currently trusts to
+ * proceed to `gh pr merge --auto` once `isAutomationAutoMergeEligible`
+ * passes (#3871).
+ *
+ * Pre-#3871, `auto-merge.yml` compared `.author.login` against literal
+ * strings (`github-actions[bot]`, `dependabot[bot]`, `renovate[bot]`,
+ * `mbe-agent`) plus an `ends-with-[bot]` wildcard — all legacy GraphQL-era
+ * bot-login formats. `gh pr view --json author` on this repo's `gh`
+ * version reports GitHub-App-authored content as `app/<slug>` instead
+ * (verified live: `gh pr view <N> --json author -q .author.login` ->
+ * `app/github-actions`), so none of those literals — or the wildcard,
+ * which no `app/`-prefixed login ends with — ever matched. The
+ * trusted-author branch was unreachable for the workflow's entire life;
+ * every automation PR silently took the skip path (#3826 was merged
+ * manually by Matt, never by the workflow — see the PR history cited in
+ * #3871).
+ *
+ * Deliberately a single-entry allowlist, not a `login.startsWith("app/")`
+ * check: `app/`-prefixed is not by itself proof of trust (`app/claude`,
+ * `app/dependabot` are also real, live `gh` output — confirmed on #3865
+ * and via `gh pr list --search author:app/dependabot` — and neither
+ * should skip review here). The four workflows that apply the
+ * `auto-merge` label (production-feedback, pr-metrics, drift-fix,
+ * acmm-regression) all push via `peter-evans/create-pull-request` with
+ * `token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}`;
+ * AUTOMATION_PAT is not configured (docs/SECRETS.md), so every one of
+ * them falls back to `GITHUB_TOKEN` and is reported as `app/github-actions`
+ * — the one identity this list needs. If AUTOMATION_PAT is ever
+ * configured, its bot-account login is unknown in advance and must be
+ * measured (not guessed) and added here explicitly.
+ */
+export const TRUSTED_AUTOMATION_AUTHORS = ["app/github-actions"];
+
+/**
+ * Pure predicate backing `auto-merge.yml`'s trusted-author gate. See
+ * `TRUSTED_AUTOMATION_AUTHORS` above for the security rationale.
+ *
+ * @param {string | undefined} login - `.author.login` from `gh pr view --json author`.
+ * @returns {boolean}
+ */
+export function isTrustedAutomationAuthor(login) {
+  if (!login) return false;
+  return TRUSTED_AUTOMATION_AUTHORS.includes(login);
+}
+
 function readFlag(args, name) {
   const idx = args.indexOf(name);
   return idx !== -1 ? args[idx + 1] : null;
@@ -154,9 +200,16 @@ function readFlag(args, name) {
 function main() {
   const [subcommand, ...rest] = process.argv.slice(2);
 
+  if (subcommand === "check-author") {
+    const login = readFlag(rest, "--login") ?? "";
+    console.log(JSON.stringify({ login, trusted: isTrustedAutomationAuthor(login) }));
+    return;
+  }
+
   if (subcommand !== "check") {
     console.error(
-      "Usage: merge-queue-eligibility.mjs check --labels <comma-separated-labels> [--mode automation]"
+      "Usage: merge-queue-eligibility.mjs check --labels <comma-separated-labels> [--mode automation]\n" +
+        "       merge-queue-eligibility.mjs check-author --login <gh-author-login>"
     );
     process.exit(1);
   }

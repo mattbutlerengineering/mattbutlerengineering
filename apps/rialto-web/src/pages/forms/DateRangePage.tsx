@@ -10,12 +10,10 @@ import { PropsTable } from "../components/PropsTable";
 
 const EMPTY: DateRangeValue = { start: null, end: null };
 
-function formatRange(range: DateRangeValue, locale = "en-US"): string {
+function formatRange(range: DateRangeValue): string {
   if (!range.start) return "none";
-  const fmt = new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" });
-  const start = fmt.format(range.start);
-  if (!range.end) return `${start} → …`;
-  return `${start} → ${fmt.format(range.end)}`;
+  if (!range.end) return `${range.start} → …`;
+  return `${range.start} → ${range.end}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -24,8 +22,8 @@ function formatRange(range: DateRangeValue, locale = "en-US"): string {
 
 function DateRangePlayground() {
   const [range, setRange] = useState<DateRangeValue>({
-    start: new Date(2026, 6, 15),
-    end: new Date(2026, 6, 19),
+    start: "2026-07-15",
+    end: "2026-07-19",
   });
 
   return (
@@ -49,8 +47,8 @@ function BoundedExample() {
         <DateRange
           value={range}
           onChange={setRange}
-          min={new Date(2026, 6, 5)}
-          max={new Date(2026, 6, 25)}
+          min="2026-07-05"
+          max="2026-07-25"
           locale="en-US"
         />
       </Card>
@@ -71,7 +69,7 @@ export function DateRangePage() {
   return (
     <ComponentPageLayout
       name="Date Range"
-      description="Inline date-range selection on a locale-aware month grid. The first activation sets the start, the second sets the end (endpoints auto-order, same-day allowed); an in-progress preview follows the hovered or focused day. Controlled with { start, end } Date objects."
+      description="Inline date-range selection on a locale-aware month grid. The first activation sets the start, the second sets the end (endpoints auto-order, same-day allowed); an in-progress preview follows the hovered or focused day. Controlled with { start, end } yyyy-mm-dd ISO strings."
     >
       <Section title="Date Range">
         <DateRangePlayground />
