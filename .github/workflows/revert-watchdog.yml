@@ -170,16 +170,12 @@ jobs:
           # sit permanently BLOCKED. workflow_dispatch is a documented exception.
           gh workflow run ci.yml --ref "$BRANCH"
 
-      - name: Trigger RCA
-        if: ${{ steps.culprit.outputs.pr_number != '' && steps.baseline.outputs.revert == 'true' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR: ${{ steps.culprit.outputs.pr_number }}
-        run: |
-          # revert-rca.mjs independently verifies whether a revert of $PR is
-          # actually merged (#3583) — the culprit sha above is $PR's own
-          # merge commit, not a revert, so it must never be passed as one.
-          node scripts/revert-rca.mjs --pr "$PR"
+          # No "Trigger RCA" step here (#3613): seconds after this PR is
+          # opened, the RCA trigger script can only ever resolve to
+          # "proposed" or "none" (#3590) — it is never merged yet, so
+          # invoking it here is a guaranteed no-op that just burns an API
+          # call. revert-rca-loop.yml's pull_request:closed(merged) trigger
+          # is the sole caller — it fires once the revert PR actually merges.
 
   # Auto-close (#2958): when a later main CI run is green, close any open
   # watchdog issue whose culprit commit is now an ancestor of the green

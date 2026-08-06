@@ -1,7 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi } from "vitest";
 import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
   buildRcaCreateArgs,
+  buildRevertPrListArgs,
   findRevertPr,
   classifyRevertState,
   buildRcaBody,
@@ -9,6 +13,8 @@ import {
   findPriorRcaIssue,
   runRevertRca,
 } from "../revert-rca.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 describe("buildRcaCreateArgs", () => {
   it("uses the shared ready label constant instead of a re-typed literal (#2933)", () => {
@@ -63,6 +69,76 @@ describe("findRevertPr", () => {
     expect(findRevertPr([], 3545)).toBeNull();
     expect(findRevertPr(null, 3545)).toBeNull();
     expect(findRevertPr(undefined, 3545)).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------
+  // #3613 gap 2: ordering must never decide the winner when multiple
+  // revert: PRs exist for the same original PR — a MERGED candidate must
+  // win over a stale closed/abandoned one, regardless of which sorts first
+  // in the candidate list.
+  // ---------------------------------------------------------------------
+  it("prefers a MERGED revert PR even when a closed/abandoned attempt sorts first (#3613)", () => {
+    const prs = [
+      { number: 3559, title: "revert: #3545 (fixes broken main)", state: "CLOSED" },
+      {
+        number: 3600,
+        title: "revert: #3545 (fixes broken main, take 2)",
+        state: "MERGED",
+        mergedAt: "2026-01-02T00:00:00Z",
+        mergeCommit: { oid: "realrevertsha" },
+      },
+    ];
+
+    expect(findRevertPr(prs, 3545)).toEqual(prs[1]);
+  });
+
+  it("prefers a MERGED revert PR even when it sorts first (order-independence)", () => {
+    const prs = [
+      {
+        number: 3600,
+        title: "revert: #3545 (fixes broken main, take 2)",
+        state: "MERGED",
+        mergedAt: "2026-01-02T00:00:00Z",
+        mergeCommit: { oid: "realrevertsha" },
+      },
+      { number: 3559, title: "revert: #3545 (fixes broken main)", state: "CLOSED" },
+    ];
+
+    expect(findRevertPr(prs, 3545)).toEqual(prs[0]);
+  });
+
+  it("falls back to the first match when no candidate is MERGED (unchanged behavior)", () => {
+    const prs = [
+      { number: 3559, title: "revert: #3545 (fixes broken main)", state: "OPEN" },
+      { number: 3560, title: "revert: #3545 (fixes broken main, take 2)", state: "CLOSED" },
+    ];
+
+    expect(findRevertPr(prs, 3545)).toEqual(prs[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #3613 gap 1: `searchRevertPrs` must not depend on GitHub's Search API,
+// which lags minutes-to-hours behind reality — a revert PR merged seconds
+// before the merge-triggered workflow runs can be invisible to Search but
+// must still be visible to a direct PR list.
+// ---------------------------------------------------------------------------
+describe("buildRevertPrListArgs", () => {
+  it("does not use --search (Search API is index-lagged, #3613)", () => {
+    const argsArr = buildRevertPrListArgs();
+    expect(argsArr).not.toContain("--search");
+  });
+
+  it("lists across all PR states so a just-merged revert is included", () => {
+    const argsArr = buildRevertPrListArgs();
+    const stateIdx = argsArr.indexOf("--state");
+    expect(argsArr[stateIdx + 1]).toBe("all");
+  });
+
+  it("requests the fields classifyRevertState/findRevertPr need", () => {
+    const argsArr = buildRevertPrListArgs();
+    const jsonIdx = argsArr.indexOf("--json");
+    expect(argsArr[jsonIdx + 1]).toBe("number,title,state,mergedAt,mergeCommit");
   });
 });
 
@@ -314,5 +390,84 @@ describe("runRevertRca", () => {
     expect(createIssue).not.toHaveBeenCalled();
     // Sanity: the sha that produced the false #3560 RCA never appears anywhere.
     expect(JSON.stringify(result)).not.toContain(ownMergeSha);
+  });
+
+  // ---------------------------------------------------------------------
+  // #3613 gap (a): a merged revert must be detected even when the source
+  // that produced `searchRevertPrs`'s candidates hasn't (yet) indexed it —
+  // simulated here by candidates that include noise (unrelated PRs) mixed
+  // with the real merged revert, i.e. exactly what a direct PR-list source
+  // returns, as opposed to a Search-API result that could still be empty.
+  // ---------------------------------------------------------------------
+  it("detects a merged revert from a list-shaped source that includes unrelated PRs (search-index-lag simulation, #3613)", () => {
+    const createIssue = vi.fn(() => 1);
+
+    const result = runRevertRca({
+      prNumber: 3545,
+      fetchPr: () => originalPr,
+      searchRevertPrs: () => [
+        { number: 1, title: "unrelated PR", state: "MERGED" },
+        {
+          number: 3559,
+          title: "revert: #3545 (fixes broken main)",
+          state: "MERGED",
+          mergedAt: "2026-01-01T00:00:00Z",
+          mergeCommit: { oid: "revertsha1234567890" },
+        },
+        { number: 2, title: "chore: something else", state: "OPEN" },
+      ],
+      createIssue,
+    });
+
+    expect(result.action).toBe("created");
+    expect(createIssue).toHaveBeenCalledTimes(1);
+  });
+
+  // ---------------------------------------------------------------------
+  // #3613 gap (b): two revert PRs exist for the same original PR — the
+  // merged one must win regardless of which sorts first in the source list.
+  // ---------------------------------------------------------------------
+  it("picks the MERGED revert over an earlier-sorted closed attempt (#3613)", () => {
+    const createIssue = vi.fn(() => 1);
+
+    const result = runRevertRca({
+      prNumber: 3545,
+      fetchPr: () => originalPr,
+      searchRevertPrs: () => [
+        { number: 3559, title: "revert: #3545 (fixes broken main)", state: "CLOSED" },
+        {
+          number: 3600,
+          title: "revert: #3545 (fixes broken main, take 2)",
+          state: "MERGED",
+          mergedAt: "2026-01-02T00:00:00Z",
+          mergeCommit: { oid: "realrevertsha" },
+        },
+      ],
+      createIssue,
+    });
+
+    expect(result.action).toBe("created");
+    const [, body] = createIssue.mock.calls[0];
+    expect(body).toContain("realrevertsha");
+    expect(body).toContain("#3600");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #3613 gap 3: the propose-time "Trigger RCA" step in revert-watchdog.yml is
+// vestigial — #3590 already guarantees it can only ever resolve to
+// "proposed" or "none" seconds after a revert PR is opened. It must be
+// removed (or gated so it cannot run before a revert could exist), leaving
+// revert-rca-loop.yml (the merge-triggered path) as the sole caller.
+// ---------------------------------------------------------------------------
+describe("revert-watchdog.yml does not invoke revert-rca.mjs at propose time (#3613)", () => {
+  it("no longer runs `node scripts/revert-rca.mjs` in the on-failure job", () => {
+    const content = readFileSync(join(ROOT, ".github/workflows/revert-watchdog.yml"), "utf8");
+    expect(content).not.toContain("scripts/revert-rca.mjs");
+  });
+
+  it("revert-rca-loop.yml (the merge-triggered path) still invokes it", () => {
+    const content = readFileSync(join(ROOT, ".github/workflows/revert-rca-loop.yml"), "utf8");
+    expect(content).toContain("scripts/revert-rca.mjs");
   });
 });
