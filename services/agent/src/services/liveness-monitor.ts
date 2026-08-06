@@ -37,7 +37,7 @@ export function createLivenessMonitor(config: LivenessMonitorConfig): LivenessMo
     try {
       const staleSessionIds = await sessionService.findStaleSessions(inactivityThresholdMs);
 
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         staleSessionIds.map(async (sessionId) => {
           activeLogger?.warn(
             `[liveness] Session ${sessionId} exceeded inactivity threshold — auto-cancelling`
@@ -52,6 +52,15 @@ export function createLivenessMonitor(config: LivenessMonitorConfig): LivenessMo
           }
         })
       );
+
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          activeLogger?.error(
+            { err: result.reason, sessionId: staleSessionIds[index] },
+            `[liveness] Failed to process stale session ${staleSessionIds[index]}`
+          );
+        }
+      });
     } catch (error) {
       activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
     }

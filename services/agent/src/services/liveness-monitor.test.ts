@@ -317,5 +317,32 @@ describe("createLivenessMonitor", () => {
 
       monitor.stop();
     });
+
+    it("logs error with the session id when a cancelSession call rejects", async () => {
+      const addEvent = vi.fn().mockResolvedValue(null);
+      const rejection = new Error("DB connection reset");
+      const cancelSession = vi
+        .fn()
+        .mockImplementationOnce(() => Promise.reject(rejection))
+        .mockImplementationOnce(() => Promise.resolve(true));
+      const config = createMockConfig({
+        sessionService: {
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-fail", "stale-ok"]),
+          addEvent,
+        },
+        cancelSession,
+      });
+      const monitor = createLivenessMonitor(config);
+      monitor.start(mockLogger);
+
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: rejection, sessionId: "stale-fail" }),
+        expect.stringContaining("stale-fail")
+      );
+
+      monitor.stop();
+    });
   });
 });
