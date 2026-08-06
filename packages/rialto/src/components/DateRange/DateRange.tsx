@@ -20,26 +20,11 @@ import {
 } from "../Calendar/date-grid";
 import styles from "./DateRange.module.css";
 
-/* ── Date ⇆ ISO boundary ────────────────────────────────────────────────────
- * The public API speaks in `Date` objects (per the API decision), while the
- * shared grid machinery is ISO-string based. Conversions use the *local*
- * calendar date (year/month/day), matching `localToday()` — no timezone math
- * crosses the boundary. */
-
-function dateToIso(date: Date | null | undefined): string | null {
-  if (!date) return null;
-  return toIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function isoToDate(iso: string): Date {
-  const parts = parseIsoDate(iso) ?? { year: 1970, month: 1, day: 1 };
-  return new Date(parts.year, parts.month - 1, parts.day);
-}
-
-/** A selected date range. Either endpoint may be `null` while a range is being picked. */
+/** A selected date range as `yyyy-mm-dd` ISO strings. Either endpoint may be
+ * `null` while a range is being picked. */
 export interface DateRangeValue {
-  readonly start: Date | null;
-  readonly end: Date | null;
+  readonly start: string | null;
+  readonly end: string | null;
 }
 
 /* ── Component ─────────────────────────────────────────────────────────────── */
@@ -49,16 +34,16 @@ export interface DateRangeProps extends Omit<HTMLAttributes<HTMLDivElement>, "on
   value: DateRangeValue;
   /** Called with the next range. Endpoints are always ordered (`start` ≤ `end`). */
   onChange: (value: DateRangeValue) => void;
-  /** Earliest selectable date (inclusive). */
-  min?: Date;
-  /** Latest selectable date (inclusive). */
-  max?: Date;
+  /** Earliest selectable date (`yyyy-mm-dd`, inclusive). */
+  min?: string;
+  /** Latest selectable date (`yyyy-mm-dd`, inclusive). */
+  max?: string;
   /**
    * Predicate deciding whether a date is disabled. When supplied it is
    * authoritative and wins over `min`/`max`; range bounds apply only when no
    * predicate is given.
    */
-  isDateDisabled?: (date: Date) => boolean;
+  isDateDisabled?: (isoDate: string) => boolean;
   /** BCP-47 locale for month/weekday labels. */
   locale?: string;
   /** First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday. */
@@ -85,10 +70,8 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
   const dir = useDirection(gridRef);
   const today = localToday();
 
-  const startIso = dateToIso(value.start);
-  const endIso = dateToIso(value.end);
-  const minIso = dateToIso(min);
-  const maxIso = dateToIso(max);
+  const startIso = value.start;
+  const endIso = value.end;
 
   const weekStart = resolveWeekStart(locale, weekStartsOn);
 
@@ -106,12 +89,12 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
 
   const isDisabled = useCallback(
     (iso: string): boolean => {
-      if (isDateDisabled) return isDateDisabled(isoToDate(iso));
-      if (minIso && iso < minIso) return true;
-      if (maxIso && iso > maxIso) return true;
+      if (isDateDisabled) return isDateDisabled(iso);
+      if (min && iso < min) return true;
+      if (max && iso > max) return true;
       return false;
     },
-    [isDateDisabled, minIso, maxIso]
+    [isDateDisabled, min, max]
   );
 
   // Move DOM focus onto the roving day only after a keyboard navigation — a
@@ -130,12 +113,12 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
       setFocusedDate(iso);
       // Fresh selection when nothing is picked yet, or a complete range exists.
       if (!startIso || endIso) {
-        onChange({ start: isoToDate(iso), end: null });
+        onChange({ start: iso, end: null });
         return;
       }
       // Second endpoint — order so start ≤ end (same-day range allowed).
       const [lo, hi] = startIso <= iso ? [startIso, iso] : [iso, startIso];
-      onChange({ start: isoToDate(lo), end: isoToDate(hi) });
+      onChange({ start: lo, end: hi });
     },
     [isDisabled, startIso, endIso, onChange]
   );

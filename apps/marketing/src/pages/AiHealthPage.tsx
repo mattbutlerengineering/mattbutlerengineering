@@ -91,7 +91,7 @@ function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEffic
 function DomainActivityPanel({ domainActivity }: { domainActivity: DomainActivityMetrics }) {
   if (!domainActivity.available) {
     return (
-      <div className={styles.sensorGrid}>
+      <div className={styles.sensorGrid} data-testid="domain-activity-panel">
         <div className={styles.sensorRow}>
           <Text className={styles.sensorName}>domainActivity</Text>
           <div className={styles.sensorBadge}>
@@ -105,50 +105,60 @@ function DomainActivityPanel({ domainActivity }: { domainActivity: DomainActivit
   }
 
   return (
-    <>
+    <div data-testid="domain-activity-panel">
       <div className={styles.statGrid}>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Reservations Created</Text>
-          <Text className={styles.statValue}>
+          <Text className={styles.statValue} data-testid="reservations-created">
             {formatCount(domainActivity.reservationsCreated)}
           </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Reservations Cancelled</Text>
-          <Text className={styles.statValue}>
+          <Text className={styles.statValue} data-testid="reservations-cancelled">
             {formatCount(domainActivity.reservationsCancelled)}
           </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Reservations Completed</Text>
-          <Text className={styles.statValue}>
+          <Text className={styles.statValue} data-testid="reservations-completed">
             {formatCount(domainActivity.reservationsCompleted)}
           </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Reservations No-Show</Text>
-          <Text className={styles.statValue}>{formatCount(domainActivity.reservationsNoShow)}</Text>
+          <Text className={styles.statValue} data-testid="reservations-no-show">
+            {formatCount(domainActivity.reservationsNoShow)}
+          </Text>
         </Card>
       </div>
       <div className={styles.statGrid}>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Deposits Held</Text>
-          <Text className={styles.statValue}>{formatCount(domainActivity.depositsHeld)}</Text>
+          <Text className={styles.statValue} data-testid="deposits-held">
+            {formatCount(domainActivity.depositsHeld)}
+          </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Deposits Applied</Text>
-          <Text className={styles.statValue}>{formatCount(domainActivity.depositsApplied)}</Text>
+          <Text className={styles.statValue} data-testid="deposits-applied">
+            {formatCount(domainActivity.depositsApplied)}
+          </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Deposits Refunded</Text>
-          <Text className={styles.statValue}>{formatCount(domainActivity.depositsRefunded)}</Text>
+          <Text className={styles.statValue} data-testid="deposits-refunded">
+            {formatCount(domainActivity.depositsRefunded)}
+          </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Deposits Forfeited</Text>
-          <Text className={styles.statValue}>{formatCount(domainActivity.depositsForfeited)}</Text>
+          <Text className={styles.statValue} data-testid="deposits-forfeited">
+            {formatCount(domainActivity.depositsForfeited)}
+          </Text>
         </Card>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -255,7 +265,7 @@ export function AiHealthPage() {
 
       <section className={styles.section}>
         <Heading level={2}>Sensor Status</Heading>
-        <div className={styles.sensorGrid}>
+        <div className={styles.sensorGrid} data-testid="sensor-status-list">
           {metrics.sensorEntries.map(([key, sensor]) => (
             <div key={key} className={styles.sensorRow}>
               <Text className={styles.sensorName}>{key}</Text>
