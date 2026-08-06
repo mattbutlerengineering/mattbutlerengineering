@@ -234,6 +234,35 @@ export function extractCheckRunConclusion(checkRuns, name) {
   return match?.conclusion ?? null;
 }
 
+/**
+ * Pure: parses the newline-delimited check-run objects emitted by
+ * `gh api --paginate --jq '.check_runs[]'` into a single array.
+ *
+ * `--paginate` is load-bearing, not defensive. GitHub's default page size for
+ * the check-runs endpoint is 30, and this repo's HEAD commits already carry
+ * 31+ check runs (several are other automation's own `workflow_run` checks,
+ * so the count only grows). An unpaginated read can therefore drop
+ * `REQUIRED_CHECK_NAME` off page 1 entirely, which `extractCheckRunConclusion`
+ * reports as `null` — inconclusive — silently degrading this module back
+ * toward the rollup-conflation behaviour #3743 exists to fix.
+ *
+ * A malformed line is skipped rather than discarding the whole response: a
+ * partial read still beats treating a real `CI Gate` result as inconclusive.
+ */
+export function parseCheckRunsJsonl(raw) {
+  const runs = [];
+  for (const line of String(raw ?? "").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      runs.push(JSON.parse(trimmed));
+    } catch {
+      // Skip unparseable line; a partial list is more useful than none.
+    }
+  }
+  return runs;
+}
+
 /** The first two path segments — this monorepo's `<category>/<package>` boundary. */
 function pathArea(filePath) {
   return filePath.split("/").slice(0, 2).join("/");
@@ -568,10 +597,16 @@ function getRequiredCheckConclusionViaGh(sha) {
   try {
     const raw = execFileSync(
       "gh",
-      ["api", `repos/{owner}/{repo}/commits/${sha}/check-runs`, "--jq", ".check_runs"],
+      [
+        "api",
+        `repos/{owner}/{repo}/commits/${sha}/check-runs`,
+        "--paginate",
+        "--jq",
+        ".check_runs[]",
+      ],
       { encoding: "utf-8", timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }
     );
-    return extractCheckRunConclusion(JSON.parse(raw), REQUIRED_CHECK_NAME);
+    return extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME);
   } catch {
     return null;
   }

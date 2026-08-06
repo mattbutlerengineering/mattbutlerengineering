@@ -18,6 +18,7 @@ import {
   resolveRevertAction,
   REQUIRED_CHECK_NAME,
   extractCheckRunConclusion,
+  parseCheckRunsJsonl,
   buildRevertPrBody,
   extractBreakageIssueNumber,
   isRevertWatchdogPr,
@@ -573,6 +574,58 @@ describe("extractCheckRunConclusion", () => {
     expect(extractCheckRunConclusion([], REQUIRED_CHECK_NAME)).toBeNull();
     expect(extractCheckRunConclusion(null, REQUIRED_CHECK_NAME)).toBeNull();
     expect(extractCheckRunConclusion(undefined, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseCheckRunsJsonl — pagination-safe parse of `gh api --paginate --jq
+// '.check_runs[]'` output (#3743 follow-up). The unpaginated call returned
+// only the first 30 check runs while this repo's HEAD commits already carry
+// 31+, so `CI Gate` could silently fall off page 1 and read as inconclusive.
+// ---------------------------------------------------------------------------
+
+describe("parseCheckRunsJsonl", () => {
+  it("parses newline-delimited check runs spanning multiple pages", () => {
+    const raw = [
+      JSON.stringify({ name: "CodeQL", conclusion: "failure" }),
+      JSON.stringify({ name: "Gitleaks Secret Scan", conclusion: "success" }),
+      JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" }),
+    ].join("\n");
+    const runs = parseCheckRunsJsonl(raw);
+    expect(runs).toHaveLength(3);
+    expect(extractCheckRunConclusion(runs, REQUIRED_CHECK_NAME)).toBe("success");
+  });
+
+  it("finds a check run that would have fallen off an unpaginated first page", () => {
+    const filler = Array.from({ length: 30 }, (_, i) =>
+      JSON.stringify({ name: `filler-${i}`, conclusion: "success" })
+    );
+    const raw = [...filler, JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "failure" })].join(
+      "\n"
+    );
+    const runs = parseCheckRunsJsonl(raw);
+    expect(runs).toHaveLength(31);
+    expect(extractCheckRunConclusion(runs, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
+  it("tolerates blank lines and trailing whitespace", () => {
+    const raw = `\n${JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" })}\n\n`;
+    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe("success");
+  });
+
+  it("returns an empty array for empty or nullish output", () => {
+    expect(parseCheckRunsJsonl("")).toEqual([]);
+    expect(parseCheckRunsJsonl("   \n  ")).toEqual([]);
+    expect(parseCheckRunsJsonl(null)).toEqual([]);
+    expect(parseCheckRunsJsonl(undefined)).toEqual([]);
+  });
+
+  it("skips malformed lines instead of throwing away the whole page", () => {
+    const raw = [
+      "{ not valid json",
+      JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" }),
+    ].join("\n");
+    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe("success");
   });
 });
 
