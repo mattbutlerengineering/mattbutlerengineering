@@ -16,6 +16,9 @@ import {
   decideBaselineAction,
   walkToBaseline,
   resolveRevertAction,
+  REQUIRED_CHECK_NAME,
+  extractCheckRunConclusion,
+  parseCheckRunsJsonl,
   buildRevertPrBody,
   extractBreakageIssueNumber,
   isRevertWatchdogPr,
@@ -28,6 +31,7 @@ import {
 
 const SHA = "abc1234def5678901234567890123456789abcd";
 const OTHER_SHA = "def5678901234567890123456789abcd1234abc";
+const CULPRIT_SHA = "1234abcd5678901234567890123456789abcdef";
 
 // ---------------------------------------------------------------------------
 // buildBrokenMainTitle / buildBrokenMainBody — unchanged issue format (#2958)
@@ -453,9 +457,14 @@ describe("walkToBaseline", () => {
 
 describe("resolveRevertAction", () => {
   it("reproduces #3620: cancelled parent + green grandparent + disjoint diff -> issue-only, no revert", async () => {
-    const conclusionsBySha = { [SHA]: "cancelled", [OTHER_SHA]: "success" };
+    const conclusionsBySha = {
+      [CULPRIT_SHA]: "failure",
+      [SHA]: "cancelled",
+      [OTHER_SHA]: "success",
+    };
 
     const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
       parentSha: SHA,
       prNumber: 3591,
       getConclusionForSha: async (sha) => conclusionsBySha[sha],
@@ -468,9 +477,14 @@ describe("resolveRevertAction", () => {
   });
 
   it("preserves the true positive: cancelled parent + green grandparent + overlapping diff -> revert", async () => {
-    const conclusionsBySha = { [SHA]: "cancelled", [OTHER_SHA]: "success" };
+    const conclusionsBySha = {
+      [CULPRIT_SHA]: "failure",
+      [SHA]: "cancelled",
+      [OTHER_SHA]: "success",
+    };
 
     const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
       parentSha: SHA,
       prNumber: 42,
       getConclusionForSha: async (sha) => conclusionsBySha[sha],
@@ -487,6 +501,7 @@ describe("resolveRevertAction", () => {
     const getChangedFiles = vi.fn(async () => []);
 
     const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
       parentSha: SHA,
       prNumber: 42,
       getConclusionForSha: async () => "failure",
@@ -505,9 +520,10 @@ describe("resolveRevertAction", () => {
     const getChangedFiles = vi.fn(async () => []);
 
     const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
       parentSha: "root",
       prNumber: 42,
-      getConclusionForSha: async () => "cancelled",
+      getConclusionForSha: async (sha) => (sha === CULPRIT_SHA ? "failure" : "cancelled"),
       getParentSha: async (sha) => `${sha}-p`,
       getFailingTestPaths,
       getChangedFiles,
@@ -520,14 +536,163 @@ describe("resolveRevertAction", () => {
 
   it("#3641: a throwing getChangedFiles collaborator (e.g. a transient `gh pr view` failure) does not propagate — degrades to issue-and-revert on a green baseline, not a crash", async () => {
     const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
       parentSha: SHA,
       prNumber: 42,
-      getConclusionForSha: async () => "success",
+      getConclusionForSha: async (sha) => (sha === CULPRIT_SHA ? "failure" : "success"),
       getParentSha: async () => null,
       getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
       getChangedFiles: async () => {
         throw new Error("gh pr view: transient failure");
       },
+    });
+
+    expect(result.action).toBe("issue-and-revert");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractCheckRunConclusion — pure lookup of a named check run's conclusion
+// (#3743)
+// ---------------------------------------------------------------------------
+
+describe("extractCheckRunConclusion", () => {
+  it("extracts the conclusion for the named check run", () => {
+    const checkRuns = [
+      { name: "CodeQL", conclusion: "failure" },
+      { name: REQUIRED_CHECK_NAME, conclusion: "success" },
+    ];
+    expect(extractCheckRunConclusion(checkRuns, REQUIRED_CHECK_NAME)).toBe("success");
+  });
+
+  it("returns null when the named check has not reported for this commit", () => {
+    const checkRuns = [{ name: "CodeQL", conclusion: "failure" }];
+    expect(extractCheckRunConclusion(checkRuns, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+
+  it("returns null for empty or nullish check-run lists", () => {
+    expect(extractCheckRunConclusion([], REQUIRED_CHECK_NAME)).toBeNull();
+    expect(extractCheckRunConclusion(null, REQUIRED_CHECK_NAME)).toBeNull();
+    expect(extractCheckRunConclusion(undefined, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseCheckRunsJsonl — pagination-safe parse of `gh api --paginate --jq
+// '.check_runs[]'` output (#3743 follow-up). The unpaginated call returned
+// only the first 30 check runs while this repo's HEAD commits already carry
+// 31+, so `CI Gate` could silently fall off page 1 and read as inconclusive.
+// ---------------------------------------------------------------------------
+
+describe("parseCheckRunsJsonl", () => {
+  it("parses newline-delimited check runs spanning multiple pages", () => {
+    const raw = [
+      JSON.stringify({ name: "CodeQL", conclusion: "failure" }),
+      JSON.stringify({ name: "Gitleaks Secret Scan", conclusion: "success" }),
+      JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" }),
+    ].join("\n");
+    const runs = parseCheckRunsJsonl(raw);
+    expect(runs).toHaveLength(3);
+    expect(extractCheckRunConclusion(runs, REQUIRED_CHECK_NAME)).toBe("success");
+  });
+
+  it("finds a check run that would have fallen off an unpaginated first page", () => {
+    const filler = Array.from({ length: 30 }, (_, i) =>
+      JSON.stringify({ name: `filler-${i}`, conclusion: "success" })
+    );
+    const raw = [
+      ...filler,
+      JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "failure" }),
+    ].join("\n");
+    const runs = parseCheckRunsJsonl(raw);
+    expect(runs).toHaveLength(31);
+    expect(extractCheckRunConclusion(runs, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
+  it("tolerates blank lines and trailing whitespace", () => {
+    const raw = `\n${JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" })}\n\n`;
+    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe(
+      "success"
+    );
+  });
+
+  it("returns an empty array for empty or nullish output", () => {
+    expect(parseCheckRunsJsonl("")).toEqual([]);
+    expect(parseCheckRunsJsonl("   \n  ")).toEqual([]);
+    expect(parseCheckRunsJsonl(null)).toEqual([]);
+    expect(parseCheckRunsJsonl(undefined)).toEqual([]);
+  });
+
+  it("skips malformed lines instead of throwing away the whole page", () => {
+    const raw = [
+      "{ not valid json",
+      JSON.stringify({ name: REQUIRED_CHECK_NAME, conclusion: "success" }),
+    ].join("\n");
+    expect(extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME)).toBe(
+      "success"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveRevertAction — required-check gate (#3743): a "CI" workflow-run
+// rollup failure must not be attributed to the culprit commit unless the
+// required status check (`CI Gate`) itself failed on that commit — a
+// non-required job failing elsewhere in the same workflow run (CodeQL,
+// Container Security Scan, Dockerfile Lint, etc.) must never trigger a
+// broken-main issue or revert.
+// ---------------------------------------------------------------------------
+
+describe("resolveRevertAction — required-check gate (#3743)", () => {
+  it("skips without walking the baseline when the culprit's required check (CI Gate) succeeded", async () => {
+    const getParentSha = vi.fn(async () => OTHER_SHA);
+    const getFailingTestPaths = vi.fn(async () => []);
+    const getChangedFiles = vi.fn(async () => []);
+
+    const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async (sha) => (sha === CULPRIT_SHA ? "success" : "failure"),
+      getParentSha,
+      getFailingTestPaths,
+      getChangedFiles,
+    });
+
+    expect(result.action).toBe("skip");
+    expect(result.reason).toContain(REQUIRED_CHECK_NAME);
+    expect(getParentSha).not.toHaveBeenCalled();
+    expect(getFailingTestPaths).not.toHaveBeenCalled();
+    expect(getChangedFiles).not.toHaveBeenCalled();
+  });
+
+  it("still walks the baseline and proposes a revert when the culprit's required check itself failed on a genuine green-baseline break", async () => {
+    const conclusionsBySha = { [CULPRIT_SHA]: "failure", [SHA]: "success" };
+
+    const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async (sha) => conclusionsBySha[sha],
+      getParentSha: async () => null,
+      getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
+      getChangedFiles: async () => ["services/users/src/routes/health.ts"],
+    });
+
+    expect(result.action).toBe("issue-and-revert");
+  });
+
+  it("does not silently drop a possibly-genuine break when the culprit's required-check conclusion is inconclusive rather than a confirmed success", async () => {
+    const conclusionsBySha = { [CULPRIT_SHA]: "cancelled", [SHA]: "success" };
+
+    const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async (sha) => conclusionsBySha[sha],
+      getParentSha: async () => null,
+      getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
+      getChangedFiles: async () => ["services/users/src/routes/health.ts"],
     });
 
     expect(result.action).toBe("issue-and-revert");
