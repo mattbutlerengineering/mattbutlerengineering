@@ -35,11 +35,34 @@ export interface QueueEfficiencySensor {
 }
 
 /**
+ * `domainActivity` sensor entry shape — see
+ * `scripts/collect-domain-metrics.mjs` (collector, appends one row per day
+ * to the domain-metrics metric) and `scripts/sensors-registry.mjs:306-336`
+ * (registry entry, reads the latest row). `date`/`venueId` are the window
+ * metadata for that row; `available` is `false` whenever
+ * `metrics/domain-metrics.jsonl` is missing or empty.
+ */
+export interface DomainActivitySensor {
+  readonly available: boolean;
+  readonly date?: string | null;
+  readonly venueId?: string | null;
+  readonly reservations_created?: number;
+  readonly reservations_cancelled?: number;
+  readonly reservations_completed?: number;
+  readonly reservations_no_show?: number;
+  readonly deposits_held?: number;
+  readonly deposits_applied?: number;
+  readonly deposits_refunded?: number;
+  readonly deposits_forfeited?: number;
+}
+
+/**
  * Matches `buildReport()`'s output in `scripts/build-sensor-report.mjs`
  * exactly. `sensors` is a dynamic map keyed by each registry entry's
- * `reportKey` (or `id`) — only `queueEfficiency` is typed here since it's
- * the one entry this page renders a dedicated panel for; every other entry
- * is read defensively as `unknown` via `normalizeSensorReport` below.
+ * `reportKey` (or `id`) — only `queueEfficiency` and `domainActivity` are
+ * typed here since they're the entries this page renders dedicated panels
+ * for; every other entry is read defensively as `unknown` via
+ * `normalizeSensorReport` below.
  */
 export interface SensorReport {
   readonly generated_at: string;
@@ -49,6 +72,7 @@ export interface SensorReport {
   };
   readonly sensors: Record<string, unknown> & {
     readonly queueEfficiency?: QueueEfficiencySensor;
+    readonly domainActivity?: DomainActivitySensor;
   };
   readonly thresholds?: Record<string, number>;
   readonly regressions: readonly unknown[];
@@ -89,6 +113,21 @@ export interface QueueEfficiencyMetrics {
   readonly distribution: ReadonlyArray<readonly [string, number]>;
 }
 
+/** Safe view model for the domainActivity panel — null fields when unavailable. */
+export interface DomainActivityMetrics {
+  readonly available: boolean;
+  readonly date: string | null;
+  readonly venueId: string | null;
+  readonly reservationsCreated: number | null;
+  readonly reservationsCancelled: number | null;
+  readonly reservationsCompleted: number | null;
+  readonly reservationsNoShow: number | null;
+  readonly depositsHeld: number | null;
+  readonly depositsApplied: number | null;
+  readonly depositsRefunded: number | null;
+  readonly depositsForfeited: number | null;
+}
+
 /** Safe view model for AiHealthPage — every field is null/empty on a miss. */
 export interface HealthMetrics {
   readonly timestamp: string | null;
@@ -102,6 +141,7 @@ export interface HealthMetrics {
   readonly sensorEntries: ReadonlyArray<readonly [string, Record<string, unknown>]>;
   readonly regressionLabels: readonly string[];
   readonly queueEfficiency: QueueEfficiencyMetrics;
+  readonly domainActivity: DomainActivityMetrics;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -142,6 +182,25 @@ function normalizeQueueEfficiency(sensors: Record<string, unknown>): QueueEffici
   };
 }
 
+/** Extracts the safe view model for the domainActivity panel from the raw sensor entry. */
+function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivityMetrics {
+  const domainActivity = asRecord(sensors.domainActivity);
+
+  return {
+    available: domainActivity.available === true,
+    date: readString(domainActivity.date),
+    venueId: readString(domainActivity.venueId),
+    reservationsCreated: readNumber(domainActivity.reservations_created),
+    reservationsCancelled: readNumber(domainActivity.reservations_cancelled),
+    reservationsCompleted: readNumber(domainActivity.reservations_completed),
+    reservationsNoShow: readNumber(domainActivity.reservations_no_show),
+    depositsHeld: readNumber(domainActivity.deposits_held),
+    depositsApplied: readNumber(domainActivity.deposits_applied),
+    depositsRefunded: readNumber(domainActivity.deposits_refunded),
+    depositsForfeited: readNumber(domainActivity.deposits_forfeited),
+  };
+}
+
 /** Normalizes a fetched sensor report (any shape) into safe display values. */
 export function normalizeSensorReport(report: unknown): HealthMetrics {
   const raw = asRecord(report);
@@ -166,5 +225,6 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
     sensorEntries: Object.entries(sensors).map(([key, value]) => [key, asRecord(value)] as const),
     regressionLabels: regressions.map(formatRegressionLabel),
     queueEfficiency: normalizeQueueEfficiency(sensors),
+    domainActivity: normalizeDomainActivity(sensors),
   };
 }
