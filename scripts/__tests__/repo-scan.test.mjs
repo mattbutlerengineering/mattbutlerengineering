@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -67,5 +67,44 @@ describe("walkFiles (shared repo-scan helper)", () => {
     const files = walkFiles(tmpDir);
 
     expect(files).toEqual([]);
+  });
+
+  test("skips a nested git worktree (.git FILE pointing into worktrees/) and warns", async () => {
+    // Fixture reproduces #3884: a directory whose `.git` is a FILE (not a
+    // directory) containing `gitdir: .../worktrees/<name>` — the actual
+    // on-disk shape of a nested `git worktree add`, as distinct from a
+    // regular checkout where `.git` is always a directory.
+    const nested = path.join(tmpDir, "mainchk");
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(
+      path.join(nested, ".git"),
+      `gitdir: ${path.join(tmpDir, ".git", "worktrees", "mainchk")}\n`
+    );
+    fs.writeFileSync(path.join(nested, "duplicate.ts"), "");
+    fs.writeFileSync(path.join(tmpDir, "real.ts"), "");
+
+    const { walkFiles } = await import("../lib/repo-scan.mjs");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const files = walkFiles(tmpDir);
+
+    expect(files).toEqual([path.join(tmpDir, "real.ts")]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("skipping nested git worktree at mainchk")
+    );
+    warnSpy.mockRestore();
+  });
+
+  test("does NOT skip a directory whose .git is a regular directory", async () => {
+    // A regular checkout's own `.git` is a directory, not a file — must
+    // never be mistaken for a nested worktree.
+    const repo = path.join(tmpDir, "some-repo");
+    fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
+    fs.writeFileSync(path.join(repo, ".git", "HEAD"), "ref: refs/heads/main\n");
+    fs.writeFileSync(path.join(repo, "kept.ts"), "");
+
+    const { walkFiles } = await import("../lib/repo-scan.mjs");
+    const files = walkFiles(tmpDir);
+
+    expect(files).toEqual([path.join(repo, "kept.ts")]);
   });
 });

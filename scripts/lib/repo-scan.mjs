@@ -23,8 +23,44 @@ export const DEFAULT_IGNORE_DIRS = new Set([
   ".stryker-tmp",
 ]);
 
+/** Matches the `gitdir: <path>/.git/worktrees/<name>` contents of a worktree's `.git` file. */
+const WORKTREE_GITDIR_RE = /^gitdir:.*[/\\]worktrees[/\\]/;
+
+/**
+ * True when `dirPath` is the root of a nested git worktree checkout — i.e. its
+ * `.git` entry is a FILE (not a directory) whose contents point into
+ * `worktrees/`. A primary checkout's own `.git` is always a directory, so
+ * this never matches it.
+ *
+ * @param {string} dirPath - absolute path to the candidate directory
+ * @returns {boolean}
+ */
+export function isNestedGitWorktree(dirPath) {
+  const gitPath = path.join(dirPath, ".git");
+  let stat;
+  try {
+    stat = fs.lstatSync(gitPath);
+  } catch {
+    return false;
+  }
+  if (!stat.isFile()) return false;
+
+  let content;
+  try {
+    content = fs.readFileSync(gitPath, "utf-8");
+  } catch {
+    return false;
+  }
+  return WORKTREE_GITDIR_RE.test(content.trim());
+}
+
 /**
  * Recursively walk a directory tree, returning absolute file paths.
+ *
+ * Nested git worktrees (a subdirectory whose `.git` is a file pointing into
+ * `worktrees/`, e.g. one registered via `git worktree add <path>` inside the
+ * tree being walked) are skipped with a warning rather than double-counted —
+ * see #3884.
  *
  * @param {string} root - absolute directory path to walk
  * @param {object} [opts]
@@ -48,6 +84,12 @@ export function walkFiles(root, { ignoreDirs = DEFAULT_IGNORE_DIRS, match } = {}
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (ignoreDirs.has(entry.name)) continue;
+        if (isNestedGitWorktree(fullPath)) {
+          console.warn(
+            `warning: skipping nested git worktree at ${path.relative(root, fullPath)}/`
+          );
+          continue;
+        }
         walk(fullPath);
       } else if (entry.isFile() && (!match || match(entry.name, fullPath))) {
         results.push(fullPath);
