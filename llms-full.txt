@@ -3906,8 +3906,24 @@
     export const CANVAS_HEIGHT = 600;
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
-    export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
-    export const RESERVED_SOON_WINDOW_MINUTES = 30;
+    export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
+      available: "var(--rialto-success)",
+      "reserved-soon": "var(--rialto-accent)",
+      seated: "var(--rialto-error)",
+      "needs-bussing": "var(--rialto-warning)",
+    } as const;
+    export interface TableStatusInput {
+      /** The reservation currently or next occupying this table, or null if none. */
+      reservation: Reservation | null;
+      /**
+       * Whether staff has confirmed an active seating hold on `reservation`
+       * (e.g. a deposit hold or check-in), independent of the reservation's
+       * own booking-lifecycle `status`. Ignored when `reservation` is null.
+       */
+      hasActiveHold: boolean;
+      /** Current time, injected by the caller. */
+      now: Date;
+    }
   </file>
   </section>
   <section priority="medium" role="gates">
@@ -12303,12 +12319,13 @@
       | "hold:confirmed"
       | "table:updated"
       | "floor-plan:created"
-      | "guest:lapsing";
+      | "guest:lapsing"
+      | "table-status:changed";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[];
+      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
     }
   </file>
   <file path="services/reservations/src/services/floor-plan.ts">
@@ -18129,6 +18146,10 @@
       required?: readonly string[];
       [key: string]: unknown;
     }
+  </file>
+  <file path="packages/types/src/table-status.ts">
+    export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
+    export const RESERVED_SOON_WINDOW_MINUTES = 30;
   </file>
   <file path="packages/types/src/table.ts">
     export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";

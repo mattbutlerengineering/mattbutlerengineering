@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appendTelemetryRow } from "../collect-queue-telemetry.mjs";
+import { appendTelemetryRow, HUMAN_TOUCH_REASONS } from "../collect-queue-telemetry.mjs";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -123,6 +123,53 @@ describe("appendTelemetryRow", () => {
     const store = makeStore("not-valid-json\n");
     const result = appendTelemetryRow(makeRow(), store);
     expect(result.written).toBe(true);
+  });
+
+  it("writes a row without human_touch_reason — field stays optional", () => {
+    const store = makeStore();
+    const row = makeRow();
+    expect(row.human_touch_reason).toBeUndefined();
+    const result = appendTelemetryRow(row, store);
+    expect(result.written).toBe(true);
+    const parsed = JSON.parse(store.getContent().trim());
+    expect(parsed.human_touch_reason).toBeUndefined();
+  });
+
+  it("accepts a valid human_touch_reason from the taxonomy", () => {
+    const store = makeStore();
+    const result = appendTelemetryRow(makeRow({ human_touch_reason: "ci-failure" }), store);
+    expect(result.written).toBe(true);
+    const parsed = JSON.parse(store.getContent().trim());
+    expect(parsed.human_touch_reason).toBe("ci-failure");
+  });
+
+  it("exports HUMAN_TOUCH_REASONS as the single source of truth for the taxonomy", () => {
+    expect(HUMAN_TOUCH_REASONS).toEqual([
+      "review-fix",
+      "ci-failure",
+      "merge-conflict",
+      "scope-change",
+      "other",
+    ]);
+  });
+
+  it("throws when human_touch_reason is not in the taxonomy", () => {
+    const store = makeStore();
+    expect(() => appendTelemetryRow(makeRow({ human_touch_reason: "gremlins" }), store)).toThrow(
+      /human_touch_reason/
+    );
+  });
+
+  it("reads existing rows that predate the human_touch_reason field without error", () => {
+    // Simulates append-only historical rows written before this field existed.
+    const legacyRow = makeRow({ issue_number: 42, pr_number: 4242 });
+    const existing = JSON.stringify(legacyRow) + "\n";
+    const store = makeStore(existing);
+    const result = appendTelemetryRow(makeRow({ pr_number: 555 }), store);
+    expect(result.written).toBe(true);
+    const lines = store.getContent().trim().split("\n");
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[0]).human_touch_reason).toBeUndefined();
   });
 
   it("does not write credential-like patterns into the JSONL output", () => {

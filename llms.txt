@@ -1371,11 +1371,15 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/floor-plan/table-status.ts">
-    <item priority="low">
-      type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
-    </item>
     <item priority="high">
-      export const RESERVED_SOON_WINDOW_MINUTES: unknown;
+      export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string>;
+    </item>
+    <item priority="low">
+      interface TableStatusInput {
+        reservation: Reservation | null;
+        hasActiveHold: boolean;
+        now: Date;
+      }
     </item>
   </file>
   </section>
@@ -3176,7 +3180,7 @@
   </file>
   <file path="services/reservations/src/services/events.ts">
     <item priority="low">
-      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing";
+      type ReservationEventType = "reservation:created" | "reservation:updated" | "reservation:cancelled" | "hold:created" | "hold:released" | "hold:confirmed" | "table:updated" | "floor-plan:created" | "guest:lapsing" | "table-status:changed";
     </item>
     <item priority="low">
       interface ReservationEvent {
@@ -5847,6 +5851,14 @@
         properties?: Record<string, JsonSchemaProperty>;
         required?: readonly string[];
       }
+    </item>
+  </file>
+  <file path="packages/types/src/table-status.ts">
+    <item priority="low">
+      type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
+    </item>
+    <item priority="high">
+      export const RESERVED_SOON_WINDOW_MINUTES: unknown;
     </item>
   </file>
   <file path="packages/types/src/table.ts">

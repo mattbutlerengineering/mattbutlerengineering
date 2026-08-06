@@ -3,6 +3,9 @@ import {
   createProblemDetails,
   eventsStreamQueryJsonSchema,
   testEventBodyJsonSchema,
+  deriveTableDisplayStatus,
+  type Reservation,
+  type TableStatusDelta,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import type { ReservationEvent } from "../services/events.js";
@@ -31,7 +34,56 @@ export function createConnectionManager(
   return new SseConnectionManager(config);
 }
 
+/**
+ * Domain event types whose `data` is a `Reservation` representing a
+ * reservation/hold transition that can flip a table's derived display
+ * status (see `deriveTableDisplayStatus` in @mbe/types).
+ */
+const RESERVATION_TRANSITION_EVENT_TYPES: ReadonlySet<ReservationEvent["type"]> = new Set([
+  "reservation:created",
+  "reservation:updated",
+  "reservation:cancelled",
+  "hold:confirmed",
+]);
+
+/**
+ * Derive the per-table status delta for a reservation/hold transition
+ * event. Returns `[]` for event types this doesn't apply to.
+ *
+ * `hasActiveHold` (physical seating/occupancy) isn't carried on these
+ * events' `Reservation` payload, so it's treated as `false` here. The
+ * `table:updated` event (which does carry occupancy via `Table.status`)
+ * is a separate signal, wired up when the floor plan canvas consumes
+ * this stream (#3834/#3835).
+ */
+function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] {
+  if (!RESERVATION_TRANSITION_EVENT_TYPES.has(event.type)) {
+    return [];
+  }
+
+  const reservation = event.data as Reservation;
+  const status = deriveTableDisplayStatus({
+    reservation,
+    hasActiveHold: false,
+    now: new Date(),
+  });
+
+  return [{ tableId: reservation.tableId, status }];
+}
+
 export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
+  // Re-derive per-table display-status deltas from reservation/hold
+  // transitions and re-emit as `table-status:changed` — changed tables
+  // only, never a full floor-plan resync (payload-growth risk, proposal
+  // #3803). Registered once per app boot via the raw EventEmitter `on`
+  // (not the connection-counted `onChange` wrapper) so every connected
+  // client's own `handleEvent` below forwards a single, consistent
+  // derived event instead of each connection re-deriving independently.
+  fastify.reservationEvents.on("change", (event: ReservationEvent) => {
+    const changes = deriveTableStatusDelta(event);
+    fastify.reservationEvents.emitTableStatusChanged(event.venueId, changes);
+  });
+
   // GET /events/stream - Server-Sent Events stream
   fastify.get<{
     Querystring: { venueId?: string };

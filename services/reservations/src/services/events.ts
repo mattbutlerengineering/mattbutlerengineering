@@ -1,5 +1,12 @@
 import { EventEmitter } from "events";
-import type { Reservation, Table, ReservationHold, FloorPlan, LapsingGuest } from "@mbe/types";
+import type {
+  Reservation,
+  Table,
+  ReservationHold,
+  FloorPlan,
+  LapsingGuest,
+  TableStatusDelta,
+} from "@mbe/types";
 
 export type ReservationEventType =
   | "reservation:created"
@@ -10,13 +17,14 @@ export type ReservationEventType =
   | "hold:confirmed"
   | "table:updated"
   | "floor-plan:created"
-  | "guest:lapsing";
+  | "guest:lapsing"
+  | "table-status:changed";
 
 export interface ReservationEvent {
   type: ReservationEventType;
   venueId: string;
   timestamp: string;
-  data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[];
+  data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
 }
 
 /** Maximum concurrent SSE connections before Node emits a warning. */
@@ -140,6 +148,21 @@ export class ReservationEventEmitter extends EventEmitter {
       data: guests,
     });
   }
+
+  /**
+   * Emit a per-table status delta — changed tables only, never a full
+   * floor-plan resync (payload-growth risk, see proposal #3803). No-op
+   * when `changes` is empty so callers can compute-then-emit unconditionally.
+   */
+  emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void {
+    if (changes.length === 0) return;
+    this.emitChange({
+      type: "table-status:changed",
+      venueId,
+      timestamp: new Date().toISOString(),
+      data: changes,
+    });
+  }
 }
 
 // Singleton event emitter for the service
@@ -182,4 +205,8 @@ export function emitFloorPlanCreated(floorPlan: FloorPlan): void {
 
 export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void {
   reservationEvents.emitLapsingGuests(venueId, guests);
+}
+
+export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void {
+  reservationEvents.emitTableStatusChanged(venueId, changes);
 }

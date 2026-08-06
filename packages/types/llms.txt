@@ -212,6 +212,14 @@
       }
     </item>
   </file>
+  <file path="src/table-status.ts">
+    <item priority="low">
+      type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
+    </item>
+    <item priority="high">
+      export const RESERVED_SOON_WINDOW_MINUTES: unknown;
+    </item>
+  </file>
   <file path="src/table.ts">
     <item priority="low">
       type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";

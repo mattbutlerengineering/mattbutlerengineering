@@ -53,22 +53,58 @@ export function buildRcaCreateArgs(title, body) {
 const REVERT_TITLE_PATTERN = /^revert:/i;
 
 /**
+ * Pure: builds `gh pr list` args that fetch revert-PR candidates without
+ * going through the Search API (#3613). `gh pr list --search`/`--search "…"
+ * in:title` is backed by GitHub's Search API, which lags minutes-to-hours
+ * behind reality — a revert PR merged seconds before this script runs (the
+ * `revert-rca-loop.yml` merge-triggered path fires immediately on the
+ * webhook) can be invisible to Search, causing a genuine merged revert to
+ * silently get no RCA. The REST `/pulls` list endpoint has no such lag, so
+ * candidates are fetched by direct list and filtered locally via
+ * `findRevertPr` instead of asking Search to filter server-side.
+ *
+ * @param {number} [limit]
+ * @returns {string[]}
+ */
+export function buildRevertPrListArgs(limit = 100) {
+  return [
+    "--state",
+    "all",
+    "--limit",
+    String(limit),
+    "--json",
+    "number,title,state,mergedAt,mergeCommit",
+  ];
+}
+
+/**
  * Pure: finds the PR (if any) that proposes/performs a revert of `prNumber`,
  * among a list of candidate PRs already fetched via `gh pr list`.
  *
- * @param {Array<{number:number, title:string}>} candidatePrs
+ * When more than one `revert:`-titled PR matches (e.g. an abandoned/closed
+ * attempt followed later by a genuine merged one), a MERGED candidate is
+ * always preferred — search-result/list ordering must never decide the
+ * winner (#3613). Falls back to the first match when none is merged, same
+ * as before.
+ *
+ * @param {Array<{number:number, title:string, state?:string, mergedAt?:string|null}>} candidatePrs
  * @param {number|string} prNumber
  * @returns {object|null}
  */
 export function findRevertPr(candidatePrs, prNumber) {
   const numberPattern = new RegExp(`#${prNumber}\\b`);
-  return (
-    (candidatePrs ?? []).find(
-      (candidate) =>
-        REVERT_TITLE_PATTERN.test((candidate?.title ?? "").trim()) &&
-        numberPattern.test(candidate?.title ?? "")
-    ) ?? null
+  const matches = (candidatePrs ?? []).filter(
+    (candidate) =>
+      REVERT_TITLE_PATTERN.test((candidate?.title ?? "").trim()) &&
+      numberPattern.test(candidate?.title ?? "")
   );
+
+  if (matches.length === 0) return null;
+
+  const merged = matches.find(
+    (candidate) => candidate?.state === "MERGED" || Boolean(candidate?.mergedAt)
+  );
+  return merged ?? matches[0];
 }
 
 /**
@@ -304,15 +340,7 @@ function main() {
   runRevertRca({
     prNumber,
     fetchPr: () => pr,
-    searchRevertPrs: () =>
-      ghClient.pr.list([
-        "--search",
-        `"revert: #${prNumber}" in:title`,
-        "--state",
-        "all",
-        "--json",
-        "number,title,state,mergedAt,mergeCommit",
-      ]),
+    searchRevertPrs: () => ghClient.pr.list(buildRevertPrListArgs()),
     searchRcaIssues: () =>
       ghClient.issue.list([
         "--label",
