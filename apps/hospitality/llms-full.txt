@@ -185,6 +185,10 @@
     export const CANVAS_WIDTH = 800;
     export const CANVAS_HEIGHT = 600;
   </file>
+  <file path="src/components/floor-plan/table-status.ts">
+    export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
+    export const RESERVED_SOON_WINDOW_MINUTES = 30;
+  </file>
   </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/create-mutation-hook.ts">

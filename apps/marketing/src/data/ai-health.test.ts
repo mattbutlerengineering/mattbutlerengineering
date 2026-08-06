@@ -134,3 +134,62 @@ describe("normalizeSensorReport — queueEfficiency", () => {
     expect(metrics.queueEfficiency.distribution).toEqual([]);
   });
 });
+
+describe("normalizeSensorReport — domainActivity", () => {
+  // Matches scripts/sensors-registry.mjs's domainActivity registry entry
+  // (reads the latest row appended by scripts/collect-domain-metrics.mjs).
+  const DOMAIN_ACTIVITY_REPORT = {
+    generated_at: "2026-08-05T12:00:00.000Z",
+    sensors: {
+      domainActivity: {
+        available: true,
+        date: "2026-08-04",
+        venueId: "venue-123",
+        reservations_created: 42,
+        reservations_cancelled: 3,
+        reservations_completed: 35,
+        reservations_no_show: 1,
+        deposits_held: 20,
+        deposits_applied: 15,
+        deposits_refunded: 2,
+        deposits_forfeited: 1,
+      },
+    },
+    regressions: [],
+    summary: { sensors_available: 1, sensors_total: 1, regressions_detected: 0 },
+  };
+
+  it("extracts reservation and deposit counts when available", () => {
+    const metrics = normalizeSensorReport(DOMAIN_ACTIVITY_REPORT);
+    expect(metrics.domainActivity.available).toBe(true);
+    expect(metrics.domainActivity.date).toBe("2026-08-04");
+    expect(metrics.domainActivity.venueId).toBe("venue-123");
+    expect(metrics.domainActivity.reservationsCreated).toBe(42);
+    expect(metrics.domainActivity.reservationsCancelled).toBe(3);
+    expect(metrics.domainActivity.reservationsCompleted).toBe(35);
+    expect(metrics.domainActivity.reservationsNoShow).toBe(1);
+    expect(metrics.domainActivity.depositsHeld).toBe(20);
+    expect(metrics.domainActivity.depositsApplied).toBe(15);
+    expect(metrics.domainActivity.depositsRefunded).toBe(2);
+    expect(metrics.domainActivity.depositsForfeited).toBe(1);
+  });
+
+  it("degrades to unavailable without throwing when the sensor key is absent", () => {
+    const metrics = normalizeSensorReport({ sensors: {} });
+    expect(metrics.domainActivity.available).toBe(false);
+    expect(metrics.domainActivity.date).toBeNull();
+    expect(metrics.domainActivity.reservationsCreated).toBeNull();
+    expect(metrics.domainActivity.depositsHeld).toBeNull();
+  });
+
+  it("degrades to unavailable without throwing when the sensor ran but the metrics file was empty", () => {
+    // Mirrors scripts/sensors-registry.mjs's collect(): an empty/missing
+    // metrics/domain-metrics.jsonl returns just `{ available: false }`.
+    const metrics = normalizeSensorReport({
+      sensors: { domainActivity: { available: false } },
+    });
+    expect(metrics.domainActivity.available).toBe(false);
+    expect(metrics.domainActivity.reservationsCreated).toBeNull();
+    expect(metrics.domainActivity.venueId).toBeNull();
+  });
+});

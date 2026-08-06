@@ -27,6 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
       - name: Check production endpoints
         id: health
         run: |
@@ -35,52 +40,39 @@ jobs:
           DEGRADED=""
           RESULTS="[]"
 
+          # Probing/classification lives in scripts/check-endpoint.mjs (#3854)
+          # -- see its header comment for the two curl bugs it replaces (code
+          # doubling on connection failure, stale shared response file).
           check_endpoint() {
             local NAME="$1"
             local URL="$2"
-            local START END ELAPSED HTTP_CODE BODY ENDPOINT_STATUS
+            local RESULT HTTP_CODE LATENCY ENDPOINT_STATUS
 
-            START=$(date +%s%N)
-            HTTP_CODE=$(curl -sf -o /tmp/health-response.txt -w '%{http_code}' --max-time 15 "$URL" 2>/dev/null || echo "000")
-            END=$(date +%s%N)
-            ELAPSED=$(( (END - START) / 1000000 ))
+            RESULT=$(node scripts/check-endpoint.mjs "$NAME" "$URL")
+            HTTP_CODE=$(echo "$RESULT" | jq -r '.httpCode')
+            LATENCY=$(echo "$RESULT" | jq -r '.latencyMs')
+            ENDPOINT_STATUS=$(echo "$RESULT" | jq -r '.status')
 
-            BODY=""
-            if [ -f /tmp/health-response.txt ]; then
-              BODY=$(cat /tmp/health-response.txt)
-            fi
-
-            ENDPOINT_STATUS="healthy"
-            if [ "$HTTP_CODE" = "000" ]; then
-              ENDPOINT_STATUS="unreachable"
-              DEGRADED="${DEGRADED}${NAME} (unreachable), "
-            elif [ "$HTTP_CODE" -ge 500 ]; then
-              ENDPOINT_STATUS="error"
-              DEGRADED="${DEGRADED}${NAME} (HTTP ${HTTP_CODE}), "
-            elif [ "$HTTP_CODE" -ge 400 ]; then
-              ENDPOINT_STATUS="client-error"
-            fi
-
-            # Check for degraded status in response body
-            if echo "$BODY" | jq -e '.status == "degraded"' >/dev/null 2>&1; then
-              ENDPOINT_STATUS="degraded"
-              DEGRADED="${DEGRADED}${NAME} (degraded), "
-            fi
+            case "$ENDPOINT_STATUS" in
+              unreachable) DEGRADED="${DEGRADED}${NAME} (unreachable), " ;;
+              error) DEGRADED="${DEGRADED}${NAME} (HTTP ${HTTP_CODE}), " ;;
+              degraded) DEGRADED="${DEGRADED}${NAME} (degraded), " ;;
+            esac
 
             RESULTS=$(echo "$RESULTS" | jq -c \
               --arg name "$NAME" \
               --arg url "$URL" \
               --argjson code "$HTTP_CODE" \
-              --argjson latency "$ELAPSED" \
+              --argjson latency "$LATENCY" \
               --arg ep_status "$ENDPOINT_STATUS" \
               '. + [{name: $name, url: $url, http_code: $code, latency_ms: $latency, status: $ep_status}]')
 
-            echo "${NAME}: HTTP ${HTTP_CODE}, ${ELAPSED}ms, ${ENDPOINT_STATUS}"
+            echo "${NAME}: HTTP ${HTTP_CODE}, ${LATENCY}ms, ${ENDPOINT_STATUS}"
           }
 
           check_endpoint "users-health" "https://api.mattbutlerengineering.com/api/v1/users/health"
           check_endpoint "marketing-site" "https://mattbutlerengineering.com"
-          check_endpoint "hospitality-site" "https://hospitality.mattbutlerengineering.com"
+          check_endpoint "hospitality-site" "https://mattbutlerengineering.com/hospitality/"
           check_endpoint "rialto-storybook" "https://mattbutlerengineering.github.io/mattbutlerengineering/"
 
           echo "results<<RESULTS_EOF" >> "$GITHUB_OUTPUT"

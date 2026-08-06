@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
       - name: Wait for deploy propagation
         run: sleep 30
 
@@ -37,41 +42,43 @@ jobs:
           FAIL_COUNT=0
           REPORT=""
 
+          # Probing/classification lives in scripts/check-endpoint.mjs (#3854)
+          # -- see its header comment for the two curl bugs it replaces (code
+          # doubling on connection failure, stale shared response file).
           smoke_check() {
             local NAME="$1"
             local URL="$2"
             local EXPECT_PATTERN="$3"
-            local HTTP_CODE BODY PASS
+            local RESULT HTTP_CODE ENDPOINT_STATUS
 
-            HTTP_CODE=$(curl -sf -o /tmp/smoke-response.txt -w '%{http_code}' --max-time 15 "$URL" 2>/dev/null || echo "000")
-            BODY=""
-            [ -f /tmp/smoke-response.txt ] && BODY=$(cat /tmp/smoke-response.txt)
-
-            PASS=true
-            if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" -ge 400 ]; then
-              PASS=false
+            if [ -n "$EXPECT_PATTERN" ]; then
+              RESULT=$(node scripts/check-endpoint.mjs "$NAME" "$URL" --pattern "$EXPECT_PATTERN")
+            else
+              RESULT=$(node scripts/check-endpoint.mjs "$NAME" "$URL")
             fi
+            HTTP_CODE=$(echo "$RESULT" | jq -r '.httpCode')
+            ENDPOINT_STATUS=$(echo "$RESULT" | jq -r '.status')
 
-            if [ -n "$EXPECT_PATTERN" ] && [ "$PASS" = true ]; then
-              if ! echo "$BODY" | grep -q "$EXPECT_PATTERN"; then
-                PASS=false
-              fi
-            fi
-
-            if [ "$PASS" = true ]; then
+            # A smoke test only cares about reachability + the expected body
+            # pattern -- "degraded" (a body-content classification meant for
+            # the production-feedback health monitor) still counts as a PASS
+            # here, matching prior behavior where this check never inspected
+            # the health payload's `status` value, only looked for the
+            # substring "status" being present at all.
+            if [ "$ENDPOINT_STATUS" = "healthy" ] || [ "$ENDPOINT_STATUS" = "degraded" ]; then
               PASS_COUNT=$((PASS_COUNT + 1))
               REPORT="${REPORT}| ${NAME} | ${HTTP_CODE} | PASS |\n"
               echo "PASS: ${NAME} (HTTP ${HTTP_CODE})"
             else
               FAIL_COUNT=$((FAIL_COUNT + 1))
               REPORT="${REPORT}| ${NAME} | ${HTTP_CODE} | **FAIL** |\n"
-              echo "FAIL: ${NAME} (HTTP ${HTTP_CODE})"
+              echo "FAIL: ${NAME} (HTTP ${HTTP_CODE}, ${ENDPOINT_STATUS})"
             fi
           }
 
           smoke_check "Marketing Homepage" "https://mattbutlerengineering.com" "<html"
           smoke_check "Marketing /about" "https://mattbutlerengineering.com/about" "<html"
-          smoke_check "Hospitality Homepage" "https://hospitality.mattbutlerengineering.com" "<html"
+          smoke_check "Hospitality Homepage" "https://mattbutlerengineering.com/hospitality/" "<html"
           smoke_check "Rialto Storybook" "https://mattbutlerengineering.github.io/mattbutlerengineering/" "<html"
           smoke_check "Users Health API" "https://api.mattbutlerengineering.com/api/v1/users/health" "status"
           smoke_check "Users Liveness" "https://api.mattbutlerengineering.com/health" "ok"

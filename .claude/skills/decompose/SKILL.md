@@ -1,6 +1,6 @@
 ---
 name: decompose
-description: Break a feature into ordered, agent-sized GitHub issues that the implement-queue can work through sequentially. Takes a feature description, analyzes the codebase, creates a dependency chain of issues. Invoke with /decompose.
+description: Create ready-labeled GitHub issues from a feature description so /implement-queue can drain them — analyzes the codebase and files a dependency-ordered chain of child issues plus a tracking issue. Produces GitHub issues, not a design document. Invoke with /decompose.
 user-invocable: true
 ---
 
