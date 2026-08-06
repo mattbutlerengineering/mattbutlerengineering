@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-06T00:42:27.667Z",
+  "generated_at": "2026-08-06T18:12:45.528Z",
   "period": {
     "start": "2026-07-30",
     "end": "2026-08-06"
@@ -47,17 +47,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 3854336,
-      "output_tokens": 22797,
-      "cache_creation_tokens": 138505,
-      "cache_hit_rate": 0.9649,
+      "cache_read_tokens": 642368,
+      "output_tokens": 1462,
+      "cache_creation_tokens": 83294,
+      "cache_hit_rate": 0.8852,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 1694,
-          "output_tokens": 22797,
-          "cache_read_tokens": 3854336,
-          "cache_creation_tokens": 138505
+          "input_tokens": 17,
+          "output_tokens": 1462,
+          "cache_read_tokens": 642368,
+          "cache_creation_tokens": 83294
         }
       }
     },
@@ -83,9 +83,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.005,
-      "total_lines_added_7d": 456507,
-      "lines_churned_7d": 2144,
+      "churn_rate": 0.003,
+      "total_lines_added_7d": 457815,
+      "lines_churned_7d": 1415,
       "window_days": 7,
       "churn_threshold": 0.3
     },
