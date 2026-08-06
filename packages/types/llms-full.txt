@@ -354,6 +354,10 @@
       [key: string]: unknown;
     }
   </file>
+  <file path="src/table-status.ts">
+    export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
+    export const RESERVED_SOON_WINDOW_MINUTES = 30;
+  </file>
   <file path="src/table.ts">
     export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
     export interface TableShapeMetadata {

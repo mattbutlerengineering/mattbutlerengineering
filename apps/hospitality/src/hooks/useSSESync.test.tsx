@@ -429,4 +429,23 @@ describe("useSSEEventFeed — event feed via context", () => {
 
     expect(result.current.feed).toHaveLength(2);
   });
+
+  it("receives table-status:changed deltas with changed tables only", () => {
+    const { result } = renderHook(() => ({ feed: useSSEEventFeed(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+
+    expect(result.current.feed).toHaveLength(1);
+    expect(result.current.feed[0]?.type).toBe("table-status:changed");
+    expect(result.current.feed[0]?.data).toEqual([{ tableId: "t1", status: "seated" }]);
+  });
 });

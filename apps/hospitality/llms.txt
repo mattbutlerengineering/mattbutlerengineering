@@ -107,11 +107,15 @@
     </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">
-    <item priority="low">
-      type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
-    </item>
     <item priority="high">
-      export const RESERVED_SOON_WINDOW_MINUTES: unknown;
+      export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string>;
+    </item>
+    <item priority="low">
+      interface TableStatusInput {
+        reservation: Reservation | null;
+        hasActiveHold: boolean;
+        now: Date;
+      }
     </item>
   </file>
   </section>

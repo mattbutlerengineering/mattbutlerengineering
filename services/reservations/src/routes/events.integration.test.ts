@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import type { Reservation } from "@mbe/types";
 import { reservationEvents } from "../services/events.js";
 
 /**
@@ -162,5 +163,76 @@ describe("SSE Event Stream Integration", () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+
+  describe("table-status:changed derived event", () => {
+    // The test-only auto-close (see events.ts) closes the connection on a
+    // FIXED 50ms timer regardless of the `testClose` query value — the
+    // triggering event must be emitted well inside that window, and the
+    // response awaited directly afterward (no extra waiting) rather than
+    // racing a second setTimeout against the same 50ms deadline.
+    const EMIT_DELAY_MS = 5;
+    const STREAM_URL = "/api/v1/events/stream?venueId=venue-1&testClose=1";
+
+    it("fires a table-status:changed delta when a reservation transitions to CANCELLED", async () => {
+      const responsePromise = app.inject({
+        method: "GET",
+        url: STREAM_URL,
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, EMIT_DELAY_MS));
+
+      app.reservationEvents.emitChange({
+        type: "reservation:cancelled",
+        venueId: "venue-1",
+        timestamp: new Date().toISOString(),
+        data: {
+          id: "res-1",
+          tableId: "table-9",
+          status: "CANCELLED",
+          startTime: "2026-06-01T18:00:00.000Z",
+          endTime: "2026-06-01T20:00:00.000Z",
+        } as unknown as Reservation,
+      });
+
+      const response = await responsePromise;
+      const body = response.body;
+
+      expect(body).toContain("event: reservation:cancelled");
+      expect(body).toContain("event: table-status:changed");
+
+      const dataMatch = body.match(/event: table-status:changed\ndata: (.+)\n/);
+      const dataLine = dataMatch?.[1];
+      if (!dataLine) throw new Error("expected a matched table-status:changed data line");
+      const parsed = JSON.parse(dataLine);
+
+      // Only the changed table, not a full floor-plan resync.
+      expect(parsed.data).toEqual([{ tableId: "table-9", status: "available" }]);
+      // Server sends the status primitive only — never a color token.
+      expect(dataLine).not.toContain("colorToken");
+      expect(dataLine).not.toContain("var(--rialto");
+    });
+
+    it("does not fire for events unrelated to a reservation/hold transition", async () => {
+      const responsePromise = app.inject({
+        method: "GET",
+        url: STREAM_URL,
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, EMIT_DELAY_MS));
+
+      app.reservationEvents.emitChange({
+        type: "guest:lapsing",
+        venueId: "venue-1",
+        timestamp: new Date().toISOString(),
+        data: [],
+      });
+
+      const response = await responsePromise;
+      expect(response.body).toContain("event: guest:lapsing");
+      expect(response.body).not.toContain("event: table-status:changed");
+    });
   });
 });

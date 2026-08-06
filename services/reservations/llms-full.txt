@@ -4524,12 +4524,13 @@
       | "hold:confirmed"
       | "table:updated"
       | "floor-plan:created"
-      | "guest:lapsing";
+      | "guest:lapsing"
+      | "table-status:changed";
     export interface ReservationEvent {
       type: ReservationEventType;
       venueId: string;
       timestamp: string;
-      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[];
+      data: Reservation | Table | ReservationHold | FloorPlan | LapsingGuest[] | TableStatusDelta[];
     }
   </file>
   <file path="src/services/floor-plan.ts">

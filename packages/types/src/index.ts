@@ -103,6 +103,14 @@ export type {
   AgentSessionEvent,
 } from "./agent.js";
 
+// Table status types (shared floor-plan display-status derivation)
+export type {
+  TableDisplayStatus,
+  TableDisplayStatusInput,
+  TableStatusDelta,
+} from "./table-status.js";
+export { deriveTableDisplayStatus, RESERVED_SOON_WINDOW_MINUTES } from "./table-status.js";
+
 // Floor plan types
 export type {
   FloorPlan,
