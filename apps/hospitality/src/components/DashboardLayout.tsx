@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useNavigate, useLocation, Outlet } from "react-router";
+import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import {
   Breadcrumb,
@@ -23,6 +23,7 @@ import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
+import { LoadingPage } from "../pages/LoadingPage.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -64,24 +65,18 @@ function DashboardLayoutInner() {
   const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Readiness-based redirect guard
+  // Path relative to the /hospitality basename — shared by the render-time
+  // gate below and the setup/operational path-guard effect.
+  const path = location.pathname.replace(/^\/hospitality/, "");
+
+  // setup/operational path-guard: these only redirect a page that's already
+  // rendering (e.g. /setup -> /timeline once operational) to a *different*
+  // page within the same dashboard chrome, so a one-frame flash of the prior
+  // page is a much milder defect than painting full dashboard chrome for a
+  // no-venue account (#3889). They stay as effects; only the loading/no-venue
+  // cases — which must never paint dashboard chrome at all — moved to the
+  // render-time gate below.
   useEffect(() => {
-    const path = location.pathname.replace(/^\/hospitality/, "");
-
-    // Do not redirect while venue data is still loading — the real status
-    // is not yet known and an early redirect would be sticky (operational
-    // recovery only handles /setup and /, not /onboarding).
-    if (readiness.status === "loading") {
-      return;
-    }
-
-    if (readiness.status === "no-venue") {
-      if (!path.startsWith("/onboarding") && !path.startsWith("/callback")) {
-        navigate("/onboarding", { replace: true });
-      }
-      return;
-    }
-
     if (readiness.status === "setup") {
       const isOperationalPage = OPERATIONAL_ONLY_PATHS.some(
         (p) => path === p || path.startsWith(p + "/")
@@ -101,7 +96,7 @@ function DashboardLayoutInner() {
         navigate("/timeline", { replace: true });
       }
     }
-  }, [readiness.status, location.pathname, navigate]);
+  }, [readiness.status, path, navigate]);
 
   // Toggle theme between light and dark
   const toggleTheme = useCallback(() => {
@@ -210,6 +205,22 @@ function DashboardLayoutInner() {
 
     return items;
   }, [location.pathname, navigate]);
+
+  // Render-time redirect gate (#3889): loading/no-venue must never paint
+  // dashboard chrome, not even for one frame. A useEffect-based redirect runs
+  // after commit and after paint, so the wrong content is guaranteed to be
+  // visible first — decide before building any dashboard JSX instead.
+  if (readiness.status === "loading") {
+    return <LoadingPage />;
+  }
+
+  if (
+    readiness.status === "no-venue" &&
+    !path.startsWith("/onboarding") &&
+    !path.startsWith("/callback")
+  ) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   return (
     <div className={styles.root} data-testid="dashboard-layout">

@@ -1,4 +1,6 @@
 import { test, expect } from "./fixtures.js";
+import { test as freshAccountTest } from "@playwright/test";
+import { mockApi } from "./api-mocks.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("Venue onboarding wizard", () => {
@@ -101,4 +103,49 @@ test.describe("Venue onboarding wizard", () => {
       fullPage: true,
     });
   });
+});
+
+// Deliberate delay on the mocked venues response so the app's "loading"
+// phase has a real, pollable window in the test below — without it, the
+// mocked response could resolve fast enough for a flash-of-chrome regression
+// to slip past the assertion before it ever gets a chance to observe it.
+const VENUES_FETCH_DELAY_MS = 250;
+
+// Regression for #3889: a genuinely zero-venue account must never paint
+// dashboard chrome (sidebar/breadcrumbs/nav/Outlet) before landing on
+// /onboarding. This deliberately does NOT use the `mockedPage` fixture —
+// api-mocks.ts:46-59 pre-seeds `localStorage["mbe-hospitality-venue-id"]`
+// before every test boots specifically so the rest of the suite never
+// exercises a truly empty venue list (see the comment there for why). This
+// spec opts out of that seed and mocks a real empty venues response instead.
+test.describe("Zero-venue account (issue #3889)", () => {
+  freshAccountTest(
+    "does not paint dashboard chrome before redirecting to /onboarding",
+    async ({ page }) => {
+      await mockApi(page, { seedVenueId: false });
+
+      // Registered after mockApi (Playwright routes match LIFO — last
+      // registered wins), overriding the venues list with a genuinely empty
+      // one.
+      await page.route("**/api/v1/venues?*", async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, VENUES_FETCH_DELAY_MS));
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        });
+      });
+
+      await page.goto("");
+
+      // Chrome must not paint at all while the account resolves as
+      // zero-venue — checked before the redirect settles.
+      await expect(page.getByTestId("dashboard-layout")).toHaveCount(0);
+
+      await page.waitForURL(/\/onboarding/, { timeout: 10_000 });
+
+      await expect(page.getByTestId("dashboard-layout")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Hospitality" })).toBeVisible();
+    }
+  );
 });

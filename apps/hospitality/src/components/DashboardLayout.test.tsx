@@ -85,9 +85,9 @@ describe("DashboardLayout", () => {
     } as ReturnType<typeof useAuth>);
   });
 
-  const renderLayout = (initialPath = "/") => {
+  const buildTree = (initialPath: string) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
+    return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
@@ -108,7 +108,15 @@ describe("DashboardLayout", () => {
     );
   };
 
-  it("does not redirect while readiness status is loading", () => {
+  const renderLayout = (initialPath = "/") => render(buildTree(initialPath));
+
+  it("renders a loading state instead of dashboard chrome while readiness status is loading", () => {
+    // Previously this test asserted "Timeline Content" WAS visible during
+    // loading — that assertion was itself the bug (#3889). Unconditionally
+    // rendering the Outlet/dashboard chrome while readiness is unresolved
+    // paints a flash of the wrong UI before the no-venue redirect fires later
+    // in a useEffect. The correct behavior is to render a loading state and
+    // defer the dashboard/redirect decision until readiness settles.
     const loading: VenueReadiness = {
       status: "loading",
       completedSteps: [],
@@ -117,8 +125,46 @@ describe("DashboardLayout", () => {
     };
     vi.mocked(useVenueReadiness).mockReturnValue(loading);
     renderLayout("/timeline");
-    // Should stay on the requested route — not bounce to /onboarding
-    expect(screen.getByText("Timeline Content")).toBeDefined();
+    expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+  });
+
+  it("never paints dashboard chrome across the loading -> no-venue transition", () => {
+    const loading: VenueReadiness = {
+      status: "loading",
+      completedSteps: [],
+      nextStep: null,
+      progress: 0,
+    };
+    vi.mocked(useVenueReadiness).mockReturnValue(loading);
+
+    const { rerender } = render(buildTree("/timeline"));
+    // While loading, neither dashboard chrome nor the requested route's
+    // content may paint.
+    expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
+    expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
+
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "no-venue",
+      completedSteps: [],
+      nextStep: "hours",
+      progress: 0,
+    });
+    // rerender with a freshly-built (but structurally identical) tree — reusing
+    // the exact same element reference lets React bail out of re-rendering the
+    // subtree entirely, since the mocked readiness value isn't part of React's
+    // tracked props/state/context and wouldn't otherwise trigger an update.
+    rerender(buildTree("/timeline"));
+
+    // The requested route's content (Timeline) must never have painted across
+    // the loading -> no-venue transition — only the render-time <Navigate>
+    // to /onboarding. (This fixture's route tree nests "onboarding" inside
+    // DashboardLayout for historical reasons, so dashboard-layout legitimately
+    // reappears once settled on /onboarding — unlike production, where
+    // OnboardingLayout renders /onboarding outside DashboardLayout entirely.)
+    expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Onboarding Content")).toBeInTheDocument();
   });
 
   it("redirects to onboarding when no venue exists", () => {

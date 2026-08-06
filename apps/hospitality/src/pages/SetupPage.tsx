@@ -34,7 +34,11 @@ export function SetupPage() {
   const readiness = useVenueReadiness();
   const { selectedVenue } = useVenue();
 
-  // Auto-redirect to timeline when fully operational
+  // Auto-redirect to timeline when fully operational.
+  // Scoped out of the #3889 render-time-redirect fix: this page's own content
+  // (the setup checklist) is a valid transient state to flash for a frame
+  // while operational status resolves, unlike DashboardLayout's loading/
+  // no-venue cases, which painted unrelated dashboard chrome before bouncing.
   useEffect(() => {
     if (readiness.status === "operational") {
       navigate("/timeline", { replace: true });

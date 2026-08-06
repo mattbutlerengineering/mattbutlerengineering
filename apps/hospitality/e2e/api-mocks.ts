@@ -35,7 +35,19 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
   });
 }
 
-export async function mockApi(page: Page): Promise<void> {
+export interface MockApiOptions {
+  /**
+   * Pre-seed the persisted venue selection (see comment below). Defaults to
+   * true. Set to false to exercise a genuinely fresh, zero-venue account —
+   * the seed exists specifically to make the *other* suites deterministic
+   * against a resolved venue and is unrepresentative of that path (#3889).
+   */
+  seedVenueId?: boolean;
+}
+
+export async function mockApi(page: Page, options: MockApiOptions = {}): Promise<void> {
+  const { seedVenueId = true } = options;
+
   // Signal to QueryProvider to disable react-query retries so error states
   // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
   // instead of after the default 3x exponential backoff (~7s).
@@ -52,11 +64,13 @@ export async function mockApi(page: Page): Promise<void> {
   // suite onto the New Venue wizard (issue #3309). The underlying product
   // race still deserves an in-app fix; this only makes the harness
   // deterministic.
-  const venuesFixture = JSON.parse(loadFixture("venues-list"));
-  const seededVenueId: string = venuesFixture.data[0].id;
-  await page.addInitScript((id) => {
-    localStorage.setItem("mbe-hospitality-venue-id", id);
-  }, seededVenueId);
+  if (seedVenueId) {
+    const venuesFixture = JSON.parse(loadFixture("venues-list"));
+    const seededVenueId: string = venuesFixture.data[0].id;
+    await page.addInitScript((id) => {
+      localStorage.setItem("mbe-hospitality-venue-id", id);
+    }, seededVenueId);
+  }
 
   // Users
   await page.route("**/api/v1/users/me", (route) =>
