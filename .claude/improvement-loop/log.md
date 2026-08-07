@@ -294,3 +294,12 @@ None this run (queue and CI both healthy; `Release` failure already tracked by #
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
+## 2026-08-06 (learning-loop)
+
+**Sensors:** 5/16 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114 unchanged, code churn 0%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (Sentry MCP tools disconnected mid-session, same as 2026-08-05)
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Threshold notes:** `verifications.jsonl` still has no entries in the last 30 days (latest prior entry remains 2026-06-20), so false-positive/fix-effectiveness rates aren't computable this run. `collect-ai-issue-feedback.mjs` failed again with the same recurring gap noted 2026-08-05 — default budget (3/category) used since `ai-issue-feedback.json` stayed empty. No action taken — zero regressions to triage this run, so the gap didn't block anything.
