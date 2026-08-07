@@ -1,0 +1,10 @@
+.wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  inline-size: fit-content;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+}

@@ -122,6 +122,10 @@
       "types": "./dist/lib/components/DateRange/index.d.ts",
       "import": "./dist/lib/components/DateRange/index.js"
     },
+    "./DateRangePicker": {
+      "types": "./dist/lib/components/DateRangePicker/index.d.ts",
+      "import": "./dist/lib/components/DateRangePicker/index.js"
+    },
     "./DepartureBoard": {
       "types": "./dist/lib/components/DepartureBoard/index.d.ts",
       "import": "./dist/lib/components/DepartureBoard/index.js"

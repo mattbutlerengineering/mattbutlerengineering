@@ -1422,6 +1422,85 @@
       ]
     },
     {
+      "name": "DateRangePicker",
+      "description": "A date-range field: a read-only trigger \n{@link \nInput \n}\n that opens a\n\n{@link \nPopover \n}\n containing an inline \n{@link \nDateRange \n}\n grid. Controlled via\na \n{@link \nDateRangeValue \n}\n of ISO `yyyy-mm-dd` strings — no `Date` objects\ncross the public boundary. Picking the first endpoint keeps the popover\nopen; completing the range (or pressing Escape) closes it and returns\nfocus to the trigger. `Calendar`/`DatePicker`/`DateRange` share this same\nISO-string vocabulary, per ADR-024\n(`docs/adr/ADR-024-date-value-vocabulary.md`).",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "value",
+          "type": "DateRangeValue",
+          "required": true,
+          "description": "The selected range. `end` is `null` while the second endpoint is being picked."
+        },
+        {
+          "name": "onChange",
+          "type": "(value: DateRangeValue) => void",
+          "required": true,
+          "description": "Called with the next range. Endpoints are always ordered (`start` ≤ `end`)."
+        },
+        {
+          "name": "min",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Earliest selectable date (`yyyy-mm-dd`, inclusive)."
+        },
+        {
+          "name": "max",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Latest selectable date (`yyyy-mm-dd`, inclusive)."
+        },
+        {
+          "name": "isDateDisabled",
+          "type": "((isoDate: string) => boolean) | undefined",
+          "required": false,
+          "description": "Predicate deciding whether a date is disabled. When supplied it is\nauthoritative and wins over `min`/`max`."
+        },
+        {
+          "name": "locale",
+          "type": "string | undefined",
+          "required": false,
+          "description": "BCP-47 locale for month/weekday labels and the formatted trigger value."
+        },
+        {
+          "name": "weekStartsOn",
+          "type": "0 | 1 | 2 | 3 | 4 | 5 | 6 | undefined",
+          "required": false,
+          "description": "First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday."
+        },
+        {
+          "name": "label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Label rendered above the trigger input."
+        },
+        {
+          "name": "placeholder",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Placeholder shown on the trigger input when no range is selected."
+        },
+        {
+          "name": "placement",
+          "type": "Placement | undefined",
+          "required": false,
+          "description": "Popover placement relative to the trigger."
+        },
+        {
+          "name": "id",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Trigger input id (associates the label)."
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "DateRangeValue",
       "description": "A selected date range as `yyyy-mm-dd` ISO strings. Either endpoint may be\n`null` while a range is being picked. Matches the ISO-string vocabulary\n`Calendar`/`DatePicker` use, per ADR-024\n(`docs/adr/ADR-024-date-value-vocabulary.md`).",
       "importPath": "@mattbutlerengineering/rialto",
