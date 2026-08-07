@@ -443,22 +443,46 @@ describe("TableShape", () => {
       });
     });
 
-    it("falls back to the light-theme hex when --rialto-success is unset", () => {
-      const table = makeTable({ isActive: true });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
-        readRialtoToken("--rialto-success", "light")
-      );
-    });
+    // Every live-status color key (not just "available") is resolved through
+    // the same getComputedStyle/fallback mechanism — covering all four here
+    // is the drift guard for issue #3893's reserved-soon/seated/needs-bussing
+    // fallbacks, not just the originally-fixed "available" case.
+    it.each([
+      ["available", "--rialto-success"],
+      ["reserved-soon", "--rialto-accent"],
+      ["seated", "--rialto-error"],
+      ["needs-bussing", "--rialto-warning"],
+    ] as const)(
+      "falls back to the light-theme hex for status %s when its token is unset",
+      (status, token) => {
+        const table = makeTable({ isActive: true });
+        const { getByTestId } = render(
+          <TableShape table={table} {...defaultProps} status={status} />
+        );
+        expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
+          readRialtoToken(token, "light")
+        );
+      }
+    );
 
-    it("falls back to the dark-theme hex when --rialto-success is unset and dark theme is active", () => {
-      setTheme("dark");
-      const table = makeTable({ isActive: true });
-      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
-      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
-        readRialtoToken("--rialto-success", "dark")
-      );
-    });
+    it.each([
+      ["available", "--rialto-success"],
+      ["reserved-soon", "--rialto-accent"],
+      ["seated", "--rialto-error"],
+      ["needs-bussing", "--rialto-warning"],
+    ] as const)(
+      "falls back to the dark-theme hex for status %s when its token is unset and dark theme is active",
+      (status, token) => {
+        setTheme("dark");
+        const table = makeTable({ isActive: true });
+        const { getByTestId } = render(
+          <TableShape table={table} {...defaultProps} status={status} />
+        );
+        expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
+          readRialtoToken(token, "dark")
+        );
+      }
+    );
 
     it("falls back to the dark-theme hex for the inactive fill in dark mode", () => {
       setTheme("dark");
