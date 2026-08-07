@@ -404,11 +404,22 @@ function main() {
   runRevertRca({
     prNumber,
     fetchPr: () => pr,
-    searchRevertPrs: () =>
-      mergeRevertCandidates(
-        ghClient.pr.list(buildRevertPrListArgs()),
-        ghClient.pr.list(buildRevertPrSearchArgs(prNumber))
-      ),
+    searchRevertPrs: () => {
+      const directList = ghClient.pr.list(buildRevertPrListArgs());
+      // A failed search must not crash the whole run — fail open to the
+      // direct list alone (the previously-sole, reliable source) rather
+      // than losing a genuine confirmed revert to an unhandled throw.
+      // Mirrors searchRcaIssues's fail-open pattern above.
+      let searchList = [];
+      try {
+        searchList = ghClient.pr.list(buildRevertPrSearchArgs(prNumber));
+      } catch (err) {
+        console.error(
+          `search for revert-PR candidates failed, using direct list only: ${err.message}`
+        );
+      }
+      return mergeRevertCandidates(directList, searchList);
+    },
     searchRcaIssues: () =>
       ghClient.issue.list([
         "--label",
