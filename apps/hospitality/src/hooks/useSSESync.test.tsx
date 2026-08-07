@@ -173,6 +173,33 @@ describe("useSSEStatus — connection status via context", () => {
     expect(result.current.status.error).toBeInstanceOf(Error);
     expect(result.current.status.error?.message).toBe("SSE connection error");
   });
+
+  it("reports connected again — and clears the error — once the scheduled reconnect opens", () => {
+    // Drives the floor plan canvas's staleness indicator: it derives
+    // isStale from !isConnected, so this is the exact round trip that
+    // must clear it (see FloorPlanCanvas's `isStale` prop).
+    const { result } = renderHook(() => ({ status: useSSEStatus(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      void simulateOpen();
+    });
+    act(() => {
+      simulateError();
+    });
+    expect(result.current.status.isConnected).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt opens a new connection
+    });
+    act(() => {
+      void simulateOpen();
+    });
+
+    expect(result.current.status.isConnected).toBe(true);
+    expect(result.current.status.error).toBeNull();
+  });
 });
 
 describe("useSSESync — connect → event → invalidate flow", () => {

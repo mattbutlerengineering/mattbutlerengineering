@@ -22,6 +22,15 @@ export interface FloorPlanCanvasProps {
    * own "available" default with no regression.
    */
   tableStatuses?: ReadonlyMap<string, TableDisplayStatus>;
+  /**
+   * True when the SSE connection is down (see `useSSEStatus().isConnected`
+   * in the caller). The canvas keeps rendering the last-known
+   * `tableStatuses` — nothing is cleared — but shows a staleness
+   * indicator so staff know colors may be out of date. Omitted in
+   * editor-only usage — no indicator renders, matching the `tableStatuses`
+   * no-regression contract above.
+   */
+  isStale?: boolean;
 }
 
 export function FloorPlanCanvas({
@@ -32,6 +41,7 @@ export function FloorPlanCanvas({
   selectedTableId,
   readOnly = false,
   tableStatuses,
+  isStale = false,
 }: FloorPlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
@@ -118,6 +128,15 @@ export function FloorPlanCanvas({
 
       {/* Zoom indicator */}
       <div className={styles.zoomOverlay}>{Math.round(scale * 100)}%</div>
+
+      {/* Staleness indicator — connection dropped; last-known table
+          statuses above are retained as-is, not cleared. */}
+      {isStale && (
+        <div className={styles.staleOverlay} role="status" data-testid="floor-plan-stale-indicator">
+          <Text variant="label" className={styles.staleDot} />
+          <Text className={styles.staleLabel}>Reconnecting — showing last known status</Text>
+        </div>
+      )}
 
       <Stage
         width={dimensions.width}
