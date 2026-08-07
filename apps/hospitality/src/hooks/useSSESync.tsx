@@ -355,7 +355,16 @@ export function useSSESync(): { reconnect: () => void } {
 
 /* ── useSSEStatus ───────────────────────────────────────────────── */
 
-/** Read the current SSE connection status from context. */
+/**
+ * Read the current SSE connection status from context.
+ *
+ * `isConnected` is the single source of truth for "live vs. stale" UI —
+ * callers that render a staleness indicator (e.g. the floor plan canvas,
+ * see `FloorPlanCanvas`'s `isStale` prop) derive it as `!isConnected`.
+ * It's set only from `SseClient`'s `onConnected`/`onDisconnected`/`onError`
+ * callbacks (event handlers, not a `useEffect` body), so flipping it never
+ * re-triggers the effect that created the connection.
+ */
 export function useSSEStatus(): SSEConnectionState {
   const { connectionState } = useSSESyncContext();
   return connectionState;

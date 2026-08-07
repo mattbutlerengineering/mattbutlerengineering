@@ -330,6 +330,31 @@ describe("FloorPlanCanvas", () => {
     });
   });
 
+  describe("staleness indicator", () => {
+    it("shows a staleness indicator when isStale is true", () => {
+      render(<FloorPlanCanvas {...defaultProps} isStale />);
+      expect(screen.getByTestId("floor-plan-stale-indicator")).toBeDefined();
+    });
+
+    it("does not show a staleness indicator when isStale is false", () => {
+      render(<FloorPlanCanvas {...defaultProps} isStale={false} />);
+      expect(screen.queryByTestId("floor-plan-stale-indicator")).toBeNull();
+    });
+
+    it("does not show a staleness indicator when isStale is omitted (no regression to editor-only usage)", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.queryByTestId("floor-plan-stale-indicator")).toBeNull();
+    });
+
+    it("keeps rendering last-known table statuses while stale", () => {
+      const tableStatuses = new Map([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} isStale tableStatuses={tableStatuses} />);
+
+      expect(screen.getByTestId("floor-plan-stale-indicator")).toBeDefined();
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe("seated");
+    });
+  });
+
   describe("zoom level", () => {
     it("adjusts zoom level based on container width", () => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
