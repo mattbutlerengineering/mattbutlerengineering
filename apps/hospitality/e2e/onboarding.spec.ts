@@ -4,7 +4,7 @@ import { mockApi } from "./api-mocks.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 base.describe("Zero-venue account redirect (#3889)", () => {
-  base("dashboard chrome never appears before landing on /onboarding", async ({ page }) => {
+  base("dashboard chrome never paints before landing on /onboarding", async ({ page }) => {
     await mockApi(page);
 
     // api-mocks.ts pre-seeds localStorage["mbe-hospitality-venue-id"] to
@@ -14,6 +14,21 @@ base.describe("Zero-venue account redirect (#3889)", () => {
     // venues endpoint genuinely empty so this test hits the real race.
     await page.addInitScript(() => {
       localStorage.removeItem("mbe-hospitality-venue-id");
+    });
+
+    // DashboardLayoutInner sets window.__e2eChromePainted = true as soon as
+    // its full-chrome branch mounts, before any later redirect could unmount
+    // it (see DashboardLayout.tsx). Seed it to false before the app boots so
+    // a post-redirect read reflects whether chrome EVER painted, not merely
+    // whether it's absent right now. This is the fix for #3918:
+    // toHaveURL()/toHaveCount(0)/not.toBeVisible() are all web-first
+    // assertions that only observe state at (or after) the moment they
+    // resolve — a chrome flash that already ended still passes them. Reading
+    // a flag set the moment that branch mounts is immune to that: it can
+    // only be true if the forbidden branch ever rendered, no matter how
+    // quickly a subsequent redirect happens.
+    await page.addInitScript(() => {
+      (window as unknown as { __e2eChromePainted?: boolean }).__e2eChromePainted = false;
     });
     await page.route("**/api/v1/venues?*", (route) =>
       route.fulfill({
@@ -35,9 +50,14 @@ base.describe("Zero-venue account redirect (#3889)", () => {
 
     await page.goto("");
 
+    // Sanity check: the redirect actually landed. Not the regression guard
+    // itself — see the flag read below for that.
     await expect(page).toHaveURL(/\/onboarding/);
-    await expect(page.getByTestId("dashboard-layout")).toHaveCount(0);
-    await expect(page.getByText("Timeline")).not.toBeVisible();
+
+    const chromePainted = await page.evaluate(
+      () => (window as unknown as { __e2eChromePainted?: boolean }).__e2eChromePainted
+    );
+    expect(chromePainted).toBe(false);
   });
 });
 
