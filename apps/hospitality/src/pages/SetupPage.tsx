@@ -34,7 +34,15 @@ export function SetupPage() {
   const readiness = useVenueReadiness();
   const { selectedVenue } = useVenue();
 
-  // Auto-redirect to timeline when fully operational
+  // Auto-redirect to timeline when fully operational.
+  // Same useEffect-redirect class as #3889 (DashboardLayout), but lower
+  // severity: SetupPage is only reached once already inside DashboardLayout's
+  // chrome (which is itself gated correctly now), so this only flashes the
+  // setup step list, not the dashboard shell around a not-yet-verified
+  // state. Scoped out of #3889 rather than converting to a render-time
+  // <Navigate> here, since this component's tests mock react-router with
+  // only `useNavigate` — converting would require updating that mock too,
+  // which is out of this issue's stated file list.
   useEffect(() => {
     if (readiness.status === "operational") {
       navigate("/timeline", { replace: true });

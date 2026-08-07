@@ -142,6 +142,53 @@ describe("buildRevertPrListArgs", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// #3873: `gh pr list --state all` without `--search` sorts by createdAt
+// descending, not updatedAt. A revert PR that sits open a while before
+// merging (#3691 sat open 2.5 days) carries an old createdAt — if enough
+// other PRs are created while it's open, it falls outside a too-small
+// `--limit` window and `findRevertPr` silently returns null. This regression
+// test constructs a revert candidate positioned beyond the pre-fix 100-item
+// window and asserts it is still found once the window is fetched at the
+// current (raised) limit.
+// ---------------------------------------------------------------------------
+describe("out-of-window boundary (#3873): revert PR positioned beyond the pre-fix 100-item window", () => {
+  // Simulates `gh pr list --state all` results in createdAt-desc order: 150
+  // PRs created after the revert PR was opened (it sat open a while before
+  // merging), pushing the revert PR's position past the old hardcoded
+  // `--limit 100`.
+  const REVERT_POSITION = 150;
+  const revertCandidate = {
+    number: 3559,
+    title: "revert: #3545 (fixes broken main)",
+    state: "MERGED",
+    mergedAt: "2026-01-01T00:00:00Z",
+    mergeCommit: { oid: "revertsha1234567890" },
+  };
+  const candidates = [
+    ...Array.from({ length: REVERT_POSITION }, (_, i) => ({
+      number: 9000 + i,
+      title: `chore: unrelated PR #${i}`,
+      state: "MERGED",
+    })),
+    revertCandidate,
+  ];
+
+  it("would have been silently missed by the pre-fix 100-item window (documents the bug)", () => {
+    const preFixWindow = candidates.slice(0, 100);
+    expect(findRevertPr(preFixWindow, 3545)).toBeNull();
+  });
+
+  it("is still found within the current fetch window (the fix)", () => {
+    const argsArr = buildRevertPrListArgs();
+    const currentLimit = Number(argsArr[argsArr.indexOf("--limit") + 1]);
+    expect(currentLimit).toBeGreaterThan(REVERT_POSITION);
+
+    const currentWindow = candidates.slice(0, currentLimit);
+    expect(findRevertPr(currentWindow, 3545)).toEqual(revertCandidate);
+  });
+});
+
 describe("classifyRevertState", () => {
   it("state 1: no revert exists — null revertPr classifies as 'none'", () => {
     expect(classifyRevertState(null)).toEqual({

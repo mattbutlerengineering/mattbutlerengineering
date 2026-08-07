@@ -351,9 +351,9 @@ describe("floorPlanService", () => {
   });
 
   describe("bulkUpdateTablePositions", () => {
-    it("updates multiple tables in a transaction", async () => {
+    it("issues exactly one database call for multiple positions", async () => {
       const tables = [makePrismaTable({ id: "t1" }), makePrismaTable({ id: "t2" })];
-      vi.mocked(prisma.$transaction).mockResolvedValueOnce(tables as never);
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(tables as never);
 
       const positions = [
         {
@@ -369,6 +369,15 @@ describe("floorPlanService", () => {
       const result = await floorPlanService.bulkUpdateTablePositions("fp-1", positions);
 
       expect(result).toHaveLength(2);
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("returns an empty array without issuing a query when positions is empty", async () => {
+      const result = await floorPlanService.bulkUpdateTablePositions("fp-1", []);
+
+      expect(result).toEqual([]);
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
   });
 

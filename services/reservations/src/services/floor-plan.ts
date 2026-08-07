@@ -268,17 +268,41 @@ export const floorPlanService = {
     floorPlanId: string,
     positions: UpdateTablePositionRequest[]
   ): Promise<Table[]> {
-    const updates = positions.map((pos) =>
-      prisma.table.update({
-        where: { id: pos.tableId },
-        data: {
-          floorPlanId,
-          shapeMetadata: pos.shapeMetadata as unknown as Prisma.InputJsonValue,
-        },
-      })
+    if (positions.length === 0) return [];
+
+    // Postgres does not guarantee UPDATE ... RETURNING row order matches the
+    // input VALUES order. Callers (the /tables/positions route and its
+    // hospitality client) key results by table id, not by array position, so
+    // this is safe — do not add positional-order assumptions downstream.
+    const values = Prisma.join(
+      positions.map(
+        (pos) => Prisma.sql`(${pos.tableId}::text, ${JSON.stringify(pos.shapeMetadata)}::jsonb)`
+      )
     );
 
-    const tables = await prisma.$transaction(updates);
+    const tables = await prisma.$queryRaw<PrismaTable[]>`
+      UPDATE tables AS t
+      SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
+      FROM (VALUES ${values}) AS v(id, shape_metadata)
+      WHERE t.id = v.id
+      RETURNING
+        t.id,
+        t.name,
+        t.table_number AS "tableNumber",
+        t.capacity,
+        t.min_covers AS "minCovers",
+        t.max_covers AS "maxCovers",
+        t.location,
+        t.is_active AS "isActive",
+        t.status,
+        t.priority,
+        t.venue_id AS "venueId",
+        t.floor_plan_id AS "floorPlanId",
+        t.shape_metadata AS "shapeMetadata",
+        t.created_at AS "createdAt",
+        t.updated_at AS "updatedAt"
+    `;
+
     return tables.map(mapPrismaTable);
   },
 
