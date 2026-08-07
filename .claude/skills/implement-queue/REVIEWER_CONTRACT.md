@@ -99,8 +99,8 @@ Reviewer must fire here — before enqueue — to remain effective. This catches
 that CI cannot (semantic regressions, hallucinated behaviour, skipped acceptance
 criteria).
 
-Review is **skipped** for low-risk PRs (tests-only, docs, config, deps)
-as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`.
+Review is **skipped** for low-risk PRs (tests-only, docs, config, deps, metrics
+telemetry) as defined by `isLowRiskPR()` in `pr-risk-classifier.ts`.
 
 ### Reviewer agent constraints
 

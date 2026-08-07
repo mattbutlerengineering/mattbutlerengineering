@@ -67,6 +67,15 @@ function DashboardLayoutInner() {
 
   const path = location.pathname.replace(/^\/hospitality/, "");
 
+  // Single source of truth for the two render-time-gate branches below —
+  // computed once and reused by the instrumentation effect so the two can't
+  // silently drift apart.
+  const isLoadingGate = readiness.status === "loading";
+  const isNoVenueRedirectGate =
+    readiness.status === "no-venue" &&
+    !path.startsWith("/onboarding") &&
+    !path.startsWith("/callback");
+
   // Readiness-based redirect guard for "setup" and "operational" statuses.
   // "loading" and "no-venue" are handled by the render-time gate below
   // instead of here: an effect runs after commit and paint, so routing those
@@ -93,6 +102,21 @@ function DashboardLayoutInner() {
       }
     }
   }, [readiness.status, path, navigate]);
+
+  // E2E-only instrumentation: records that the full-chrome branch below is
+  // about to render, rather than the loading/no-venue render-time gate
+  // (#3918). A plain render-body write here would violate React's render
+  // purity (and this repo's lint rule for it), so this reports the fact via
+  // an effect instead — mutating `window` directly is only safe from an
+  // effect. It stays a same-mount-cycle signal, not a return to
+  // effect-driven redirects: no navigate() call was reintroduced, and the
+  // gate branches below are unchanged. Mirrors the "test harness reads a
+  // window global" pattern of window.__e2eNoRetry in QueryProvider.tsx.
+  useEffect(() => {
+    if (!isLoadingGate && !isNoVenueRedirectGate) {
+      (window as unknown as { __e2eChromePainted?: boolean }).__e2eChromePainted = true;
+    }
+  }, [isLoadingGate, isNoVenueRedirectGate]);
 
   // Toggle theme between light and dark
   const toggleTheme = useCallback(() => {
@@ -205,15 +229,11 @@ function DashboardLayoutInner() {
   // Render-time gate: decide before painting any dashboard chrome, instead of
   // in a post-commit effect (#3889). All hooks above must still run
   // unconditionally on every render for the Rules of Hooks.
-  if (readiness.status === "loading") {
+  if (isLoadingGate) {
     return <LoadingPage />;
   }
 
-  if (
-    readiness.status === "no-venue" &&
-    !path.startsWith("/onboarding") &&
-    !path.startsWith("/callback")
-  ) {
+  if (isNoVenueRedirectGate) {
     return <Navigate to="/onboarding" replace />;
   }
 

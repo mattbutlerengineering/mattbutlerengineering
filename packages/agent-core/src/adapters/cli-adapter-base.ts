@@ -18,6 +18,7 @@ import { createDefaultPhaseDeps } from "../phases/default-deps.js";
 import type { PhaseDeps } from "../phases/index.js";
 import type { SessionConfig, SessionEventCallback, SessionResult } from "../types.js";
 import { runCliAdapterSession } from "./run-cli-adapter-session.js";
+import type { CliAdapterContract } from "./cli-adapter-contract.js";
 import type { CliUsage } from "./cli-usage-parser.js";
 
 const execFileAsync = promisify(execFileCb);
@@ -31,7 +32,7 @@ const GIT_TIMEOUT_MS = 60_000;
 /** Maximum task description length passed to CLI (prevent arg overflow) */
 const MAX_TASK_LENGTH = 8_000;
 
-export abstract class CliAdapterBase implements AgentAdapter {
+export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract {
   /** Unique adapter name matching AgentAdapter.name. */
   abstract readonly name: string;
 

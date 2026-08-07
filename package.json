@@ -15,7 +15,7 @@
     "db:generate": "pnpm --filter './services/*' exec prisma generate",
     "repo-audit": "pnpm check:prettier && node scripts/check-circular-deps.js && node scripts/check-dep-versions.js && node scripts/check-env-sync.js && node scripts/check-service-bindings.js && node scripts/check-destructive-migrations.js && node scripts/check-dockerfile-deps.js && node scripts/check-schema-compat.js && node scripts/check-ci-dispatch.mjs && node scripts/check-issue-filing-seam.mjs && node scripts/check-orphaned-tests.mjs && pnpm check:boundaries && pnpm audit --audit-level=high",
     "check:prettier": "prettier --check .",
-    "check:boundaries": "depcruise apps services packages tools --config .dependency-cruiser.cjs --ignore-known .dependency-cruiser-known-violations.json",
+    "check:boundaries": "depcruise apps services packages tools --config .dependency-cruiser.cjs",
     "check:circular-deps": "node scripts/check-circular-deps.js",
     "check:dep-versions": "node scripts/check-dep-versions.js",
     "check:service-bindings": "node scripts/check-service-bindings.js",

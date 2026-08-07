@@ -136,6 +136,10 @@ describe("isLowRiskFile", () => {
   it("returns false for a shell script", () =>
     expect(isLowRiskFile("scripts/deploy.sh")).toBe(false));
   it("returns false for a Dockerfile", () => expect(isLowRiskFile("Dockerfile")).toBe(false));
+  it("returns true for a metrics telemetry file", () =>
+    expect(isLowRiskFile("metrics/queue-telemetry.jsonl")).toBe(true));
+  it("returns true for a nested metrics file", () =>
+    expect(isLowRiskFile("metrics/production-health/2026-08-06.jsonl")).toBe(true));
 });
 
 // ── isNonAuditableFile ──────────────────────────────────────────────────────

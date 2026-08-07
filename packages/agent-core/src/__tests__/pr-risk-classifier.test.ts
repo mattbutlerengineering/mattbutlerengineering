@@ -171,6 +171,32 @@ describe("isLowRiskPR — high-risk files", () => {
   });
 });
 
+// ── Metrics telemetry ────────────────────────────────────────────────────────
+// Motivated by #3887: SKILL.md claimed queue-telemetry PRs auto-merge via the
+// low-risk fast path, but metrics/** was never in the allowlist. These are the
+// exact PRs that surfaced the drift (#3885 must still fall through to review
+// because of the publicly-served marketing JSON file it also touches).
+
+describe("isLowRiskPR — metrics telemetry", () => {
+  it("returns true for a queue-telemetry.jsonl-only PR", () => {
+    expect(isLowRiskPR(["metrics/queue-telemetry.jsonl"])).toBe(true);
+  });
+
+  it("returns true for a dated production-health metrics file", () => {
+    expect(isLowRiskPR(["metrics/production-health/2026-08-06.jsonl"])).toBe(true);
+  });
+
+  it("returns false for PR #3885's mixed diff (metrics + publicly-served marketing JSON)", () => {
+    expect(
+      isLowRiskPR([
+        ".claude/improvement-loop/log.md",
+        "metrics/sensor-report.jsonl",
+        "apps/marketing/public/sensor-report.json",
+      ])
+    ).toBe(false);
+  });
+});
+
 // ── Edge cases ───────────────────────────────────────────────────────────────
 
 describe("isLowRiskPR — edge cases", () => {
