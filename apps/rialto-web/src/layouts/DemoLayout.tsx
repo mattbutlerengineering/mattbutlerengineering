@@ -194,7 +194,7 @@ export function DemoLayout() {
           theme={demoTheme}
           onThemeToggle={() => handleDarkModeChange(!darkMode)}
         />
-        <div className={styles.floatingControls}>
+        <div className={styles.floatingControls} data-testid="demo-floating-controls">
           <FloatingControls
             darkMode={darkMode}
             onDarkModeChange={handleDarkModeChange}
