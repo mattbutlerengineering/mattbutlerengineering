@@ -149,6 +149,11 @@
       "path": "infrastructure/pulumi"
     },
     {
+      "name": "@mbe/edge-worker",
+      "type": "tool",
+      "path": "infrastructure/worker"
+    },
+    {
       "name": "@mbe/scripts",
       "type": "package",
       "path": "scripts"
@@ -642,6 +647,11 @@
     },
     {
       "from": "@mbe/infrastructure",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/edge-worker",
       "to": "@mbe/config",
       "type": "devDependency"
     },

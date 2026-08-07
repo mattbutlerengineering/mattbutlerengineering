@@ -58,10 +58,11 @@ export function classifyType(wsDir) {
  * Parse pnpm-workspace.yaml to discover workspace globs.
  * Only handles the simple `packages:` list format used by this repo.
  *
+ * @param {string} [repoRoot] - Root to read pnpm-workspace.yaml from.
  * @returns {string[]} Array of glob patterns (e.g. ["apps/*", "infrastructure/pulumi"])
  */
-function discoverWorkspaceGlobs() {
-  const wsPath = join(root, "pnpm-workspace.yaml");
+export function discoverWorkspaceGlobs(repoRoot = root) {
+  const wsPath = join(repoRoot, "pnpm-workspace.yaml");
   if (!existsSync(wsPath)) {
     throw new Error("pnpm-workspace.yaml not found at project root");
   }
@@ -96,13 +97,14 @@ function discoverWorkspaceGlobs() {
  * (e.g. "infrastructure/pulumi").
  *
  * @param {string} glob
+ * @param {string} [repoRoot] - Root the glob is resolved against.
  * @returns {{ pkgJsonPath: string; wsDir: string }[]}
  */
-function resolveGlob(glob) {
+export function resolveGlob(glob, repoRoot = root) {
   const results = [];
 
   if (glob.endsWith("/*")) {
-    const parentDir = join(root, glob.slice(0, -2));
+    const parentDir = join(repoRoot, glob.slice(0, -2));
     if (!existsSync(parentDir)) return results;
 
     for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
@@ -116,7 +118,7 @@ function resolveGlob(glob) {
       }
     }
   } else {
-    const pkgJsonPath = join(root, glob, "package.json");
+    const pkgJsonPath = join(repoRoot, glob, "package.json");
     if (existsSync(pkgJsonPath)) {
       results.push({ pkgJsonPath, wsDir: glob });
     }
@@ -197,7 +199,10 @@ export function scanScriptsImports(nameSet) {
  */
 export function buildGraph() {
   const globs = discoverWorkspaceGlobs();
-  const workspaces = globs.flatMap(resolveGlob);
+  // Arrow, not a bare reference: flatMap passes (element, index, array), and
+  // resolveGlob's second parameter is the repo root — a bare reference hands it
+  // the array index instead.
+  const workspaces = globs.flatMap((glob) => resolveGlob(glob));
 
   const nodes = [];
   const edges = [];

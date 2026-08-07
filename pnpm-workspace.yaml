@@ -4,6 +4,7 @@ packages:
   - "packages/*"
   - "tools/*"
   - "infrastructure/pulumi"
+  - "infrastructure/worker"
   - "scripts"
 
 catalog:
