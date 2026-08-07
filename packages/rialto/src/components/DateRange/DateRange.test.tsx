@@ -13,21 +13,6 @@ const user = userEvent.setup();
 
 const EMPTY: DateRangeValue = { start: null, end: null };
 
-/** Local calendar Date at midnight for a `yyyy-mm-dd` string. */
-function d(iso: string): Date {
-  const [y, m, day] = iso.split("-").map(Number);
-  return new Date(y ?? 1970, (m ?? 1) - 1, day ?? 1);
-}
-
-/** Extract `yyyy-mm-dd` from a local Date (mirrors the component boundary). */
-function iso(date: Date | null): string | null {
-  if (!date) return null;
-  const y = String(date.getFullYear()).padStart(4, "0");
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function renderRange(overrides: Partial<React.ComponentProps<typeof DateRange>> = {}) {
   const onChange = vi.fn();
   const utils = render(
@@ -49,13 +34,13 @@ function activeIso(): string | null {
 /** Assert the last onChange call carried a range with the given ISO endpoints. */
 function expectRange(onChange: ReturnType<typeof vi.fn>, start: string | null, end: string | null) {
   const arg = onChange.mock.calls.at(-1)?.[0] as DateRangeValue;
-  expect(iso(arg.start)).toBe(start);
-  expect(iso(arg.end)).toBe(end);
+  expect(arg.start).toBe(start);
+  expect(arg.end).toBe(end);
 }
 
 describe("DateRange — ARIA structure", () => {
   it("renders a multiselectable grid with a weekday header and 42 gridcells", () => {
-    renderRange({ value: { start: d("2024-06-01"), end: null } });
+    renderRange({ value: { start: "2024-06-01", end: null } });
     const grid = screen.getByRole("grid");
     expect(grid).toBeInTheDocument();
     expect(grid).toHaveAttribute("aria-multiselectable", "true");
@@ -64,7 +49,7 @@ describe("DateRange — ARIA structure", () => {
   });
 
   it("marks every day in the committed range with aria-selected", () => {
-    const { container } = renderRange({ value: { start: d("2024-06-10"), end: d("2024-06-12") } });
+    const { container } = renderRange({ value: { start: "2024-06-10", end: "2024-06-12" } });
     expect(cell(container, "2024-06-10")).toHaveAttribute("aria-selected", "true");
     expect(cell(container, "2024-06-11")).toHaveAttribute("aria-selected", "true");
     expect(cell(container, "2024-06-12")).toHaveAttribute("aria-selected", "true");
@@ -86,21 +71,21 @@ describe("DateRange — selection semantics", () => {
   });
 
   it("second click sets end when after start", async () => {
-    const { container, onChange } = renderRange({ value: { start: d("2024-06-10"), end: null } });
+    const { container, onChange } = renderRange({ value: { start: "2024-06-10", end: null } });
     await user.click(cell(container, "2024-06-15"));
     expect(onChange).toHaveBeenCalledTimes(1);
     expectRange(onChange, "2024-06-10", "2024-06-15");
   });
 
   it("swaps endpoints when the second click is before the start", async () => {
-    const { container, onChange } = renderRange({ value: { start: d("2024-06-15"), end: null } });
+    const { container, onChange } = renderRange({ value: { start: "2024-06-15", end: null } });
     await user.click(cell(container, "2024-06-10"));
     expect(onChange).toHaveBeenCalledTimes(1);
     expectRange(onChange, "2024-06-10", "2024-06-15");
   });
 
   it("allows a same-day range (start === end)", async () => {
-    const { container, onChange } = renderRange({ value: { start: d("2024-06-10"), end: null } });
+    const { container, onChange } = renderRange({ value: { start: "2024-06-10", end: null } });
     await user.click(cell(container, "2024-06-10"));
     expect(onChange).toHaveBeenCalledTimes(1);
     expectRange(onChange, "2024-06-10", "2024-06-10");
@@ -108,20 +93,29 @@ describe("DateRange — selection semantics", () => {
 
   it("clears the range and starts fresh when a complete range exists", async () => {
     const { container, onChange } = renderRange({
-      value: { start: d("2024-06-10"), end: d("2024-06-15") },
+      value: { start: "2024-06-10", end: "2024-06-15" },
     });
     await user.click(cell(container, "2024-06-20"));
     expect(onChange).toHaveBeenCalledTimes(1);
     expectRange(onChange, "2024-06-20", null);
+  });
+
+  it("passes onChange plain ISO strings, not Date instances", async () => {
+    const { container, onChange } = renderRange();
+    const focusable = container.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]');
+    await user.click(focusable!);
+    const arg = onChange.mock.calls.at(-1)?.[0] as DateRangeValue;
+    expect(typeof arg.start).toBe("string");
+    expect(arg.start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
 describe("DateRange — disabled dates", () => {
   it("disables and refuses dates outside min/max", async () => {
     const { container, onChange } = renderRange({
-      value: { start: d("2024-06-01"), end: d("2024-06-01") },
-      min: d("2024-06-05"),
-      max: d("2024-06-20"),
+      value: { start: "2024-06-01", end: "2024-06-01" },
+      min: "2024-06-05",
+      max: "2024-06-20",
     });
     expect(cell(container, "2024-06-03")).toHaveAttribute("aria-disabled", "true");
     expect(cell(container, "2024-06-25")).toHaveAttribute("aria-disabled", "true");
@@ -129,11 +123,11 @@ describe("DateRange — disabled dates", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("lets the isDateDisabled predicate win over range bounds", async () => {
+  it("lets the isDateDisabled predicate win over range bounds, receiving an ISO string", async () => {
     const { container, onChange } = renderRange({
-      value: { start: d("2024-06-01"), end: d("2024-06-01") },
-      min: d("2024-06-05"),
-      isDateDisabled: (date) => iso(date) === "2024-06-10",
+      value: { start: "2024-06-01", end: "2024-06-01" },
+      min: "2024-06-05",
+      isDateDisabled: (isoDate) => isoDate === "2024-06-10",
     });
     expect(cell(container, "2024-06-10")).toHaveAttribute("aria-disabled", "true");
     // Predicate false → enabled even though below min (predicate is authoritative).
@@ -147,7 +141,7 @@ describe("DateRange — disabled dates", () => {
 
 describe("DateRange — keyboard navigation", () => {
   it("moves the roving focus with arrows / Home / End / PageDown", async () => {
-    const { container } = renderRange({ value: { start: d("2024-06-10"), end: null } });
+    const { container } = renderRange({ value: { start: "2024-06-10", end: null } });
     act(() => cell(container, "2024-06-10").focus());
     await user.keyboard("{ArrowRight}");
     expect(activeIso()).toBe("2024-06-11");
@@ -162,7 +156,7 @@ describe("DateRange — keyboard navigation", () => {
   });
 
   it("selects the focused day with Enter", async () => {
-    const { container, onChange } = renderRange({ value: { start: d("2024-06-10"), end: null } });
+    const { container, onChange } = renderRange({ value: { start: "2024-06-10", end: null } });
     act(() => cell(container, "2024-06-10").focus());
     await user.keyboard("{ArrowRight}{Enter}");
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -172,7 +166,7 @@ describe("DateRange — keyboard navigation", () => {
 
 describe("DateRange — month navigation", () => {
   it("advances to the next month without losing the selection", async () => {
-    renderRange({ value: { start: d("2024-06-10"), end: d("2024-06-15") } });
+    renderRange({ value: { start: "2024-06-10", end: "2024-06-15" } });
     await user.click(screen.getByRole("button", { name: /next month/i }));
     expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("July"));
   });
