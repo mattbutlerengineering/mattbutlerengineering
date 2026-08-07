@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { createGhClient } from "@mbe/gh-client";
+import { createGhClient, describeGhError } from "@mbe/gh-client";
 import { read } from "./metrics-store.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
@@ -264,8 +264,10 @@ export function collectQueueEfficiency(
   let prs;
   try {
     prs = readPrs();
-  } catch {
-    return { available: false };
+  } catch (err) {
+    // Distinguishable from "no PRs" (#3937/#3946) — a thrown error (e.g. auth
+    // failure) is a query failure, not an empty-but-valid result.
+    return { available: false, error: describeGhError(err) };
   }
   if (!Array.isArray(prs) || prs.length === 0) return { available: false };
 
