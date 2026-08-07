@@ -145,25 +145,24 @@ function parseGitNumstat(root) {
  * `commits` field (needed for first-pass-success classification) and
  * normalises it to a `commitCount`.
  *
+ * Lets a thrown error (e.g. auth failure) propagate rather than swallowing it
+ * (#3937/#3946) — collectQueueEfficiency's own catch surfaces it via
+ * describeGhError, distinct from a legitimately empty result.
+ *
  * @param {import("@mbe/gh-client").GhClient} ghClient
- * @returns {Array<object> | null}
+ * @returns {Array<object>}
  */
 export function readQueueEfficiencyPrs(ghClient) {
-  const prs = safe(
-    () =>
-      // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
-      // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
-      ghClient.pr.list([
-        "--state",
-        "all",
-        "--limit",
-        "45",
-        "--json",
-        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-      ]),
-    null
-  );
-  if (!prs) return null;
+  // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
+  // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
+  const prs = ghClient.pr.list([
+    "--state",
+    "all",
+    "--limit",
+    "45",
+    "--json",
+    "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+  ]);
   return prs.map((pr) => ({
     ...pr,
     commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
@@ -346,19 +345,21 @@ export const SENSORS = [
     id: "prCategoryMetrics",
     category: "quality",
     collect: ({ ghClient }) => {
-      const prs = safe(
-        () =>
-          ghClient.pr.list([
-            "--state",
-            "all",
-            "--limit",
-            "100",
-            "--json",
-            "number,state,headRefName,mergedAt,closedAt,labels",
-          ]),
-        null
-      );
-      if (!prs) return { available: false };
+      let prs;
+      try {
+        prs = ghClient.pr.list([
+          "--state",
+          "all",
+          "--limit",
+          "100",
+          "--json",
+          "number,state,headRefName,mergedAt,closedAt,labels",
+        ]);
+      } catch (err) {
+        // Distinguishable from "no PRs" (#3937) — a thrown error (e.g. auth
+        // failure) is a query failure, not an empty-but-valid result.
+        return { available: false, error: describeGhError(err) };
+      }
       return computePrCategoryMetrics(prs);
     },
     format: (data, name) => {
@@ -700,17 +701,19 @@ export const SENSORS = [
     id: "e2eStability",
     category: "availability",
     collect: ({ root, ghClient }) => {
-      const ghRuns = safe(
-        () =>
-          ghClient.workflow.runs([
-            "--limit",
-            "30",
-            "--json",
-            "conclusion,createdAt,headBranch,headSha",
-          ]),
-        null
-      );
-      if (!ghRuns) return { available: false };
+      let ghRuns;
+      try {
+        ghRuns = ghClient.workflow.runs([
+          "--limit",
+          "30",
+          "--json",
+          "conclusion,createdAt,headBranch,headSha",
+        ]);
+      } catch (err) {
+        // Distinguishable from "no runs yet" (#3937) — a thrown error (e.g.
+        // auth failure) is a query failure, not an empty-but-valid result.
+        return { available: false, error: describeGhError(err) };
+      }
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
       // head SHA not in the local object store — see resolveRunChangedPaths.
