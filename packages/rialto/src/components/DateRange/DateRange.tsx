@@ -21,7 +21,9 @@ import {
 import styles from "./DateRange.module.css";
 
 /** A selected date range as `yyyy-mm-dd` ISO strings. Either endpoint may be
- * `null` while a range is being picked. */
+ * `null` while a range is being picked. Matches the ISO-string vocabulary
+ * `Calendar`/`DatePicker` use, per ADR-024
+ * (`docs/adr/ADR-024-date-value-vocabulary.md`). */
 export interface DateRangeValue {
   readonly start: string | null;
   readonly end: string | null;
@@ -29,6 +31,17 @@ export interface DateRangeValue {
 
 /* ── Component ─────────────────────────────────────────────────────────────── */
 
+/**
+ * Inline, locale-aware month grid for date-range selection. Controlled via a
+ * {@link DateRangeValue} of ISO `yyyy-mm-dd` strings — no `Date` objects
+ * cross the public boundary, per ADR-024
+ * (`docs/adr/ADR-024-date-value-vocabulary.md`), which unifies the value
+ * contract across `Calendar`/`DatePicker`/`DateRange`.
+ *
+ * @example
+ * const [range, setRange] = useState<DateRangeValue>({ start: null, end: null });
+ * <DateRange value={range} onChange={setRange} />
+ */
 export interface DateRangeProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange"> {
   /** The selected range. `end` is `null` while the second endpoint is being picked. */
   value: DateRangeValue;

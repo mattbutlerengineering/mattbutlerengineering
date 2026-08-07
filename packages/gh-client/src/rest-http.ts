@@ -7,6 +7,37 @@ export interface RestContext {
   http: SyncHttp;
 }
 
+/**
+ * Thrown when GitHub REST returns 401 or 403 for an authenticated request —
+ * the token is present but not accepted for direct API access. In a Claude
+ * Code Remote session `GITHUB_TOKEN`/`GH_TOKEN` is scoped for git-over-HTTPS
+ * only (see #3937), so this is a distinguishable capability gap, not "no
+ * data". Callers should check for this specifically instead of losing the
+ * distinction inside a generic try/catch.
+ */
+export class GhAuthError extends Error {
+  readonly status: number;
+
+  constructor(method: string, path: string, status: number, body: string) {
+    super(`gh-client REST auth failed: ${method} ${path} -> ${status}: ${body}`);
+    this.name = "GhAuthError";
+    this.status = status;
+  }
+}
+
+/**
+ * Human-readable reason for a caught gh-client error, for scripts to log
+ * alongside "query failed" instead of silently swallowing it. Distinguishes
+ * the auth-capability gap ({@link GhAuthError}) from any other failure.
+ */
+export function describeGhError(err: unknown): string {
+  if (err instanceof GhAuthError) {
+    return `GitHub auth failed (${err.status}) — REST fallback credential is not valid for direct API calls`;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
 export interface RestResult {
   status: number;
   /** Parsed JSON body, or `null` for an empty (e.g. 204) response. */
@@ -50,6 +81,9 @@ export function apiRequest(
     );
   }
   if (res.status >= 400 && !(opts.ignoreStatuses ?? []).includes(res.status)) {
+    if (res.status === 401 || res.status === 403) {
+      throw new GhAuthError(method, path, res.status, res.body);
+    }
     throw new Error(
       `gh-client REST request failed: ${method} ${path} -> ${res.status}: ${res.body}`
     );

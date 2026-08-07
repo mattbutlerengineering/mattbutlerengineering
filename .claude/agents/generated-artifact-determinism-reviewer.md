@@ -63,6 +63,10 @@ If a package was added or deleted, check it is consistently represented in the r
 - Whether the embedded source itself is correct — you only check that the bundle MATCHES the source, not that the source is good.
 - Formatting handled by prettier (the PostToolUse hook covers it). You care about generator output determinism, not style.
 
+## Read-only contract
+
+**Never mutate the main checkout.** No `git add`, `git checkout`, `git stash`, `git apply`, `git commit`, or any file write/redirect (`>`, `>>`) against the working tree you were dispatched into — you read and report, you do not change state. The regeneration commands in check 2 above (`pnpm build`, `node tools/cli/dist/index.js pack`) MUST run against the worker's own worktree at `.claude/worktrees/agent-<taskId>/` — it is already checked out on the PR branch — never the main checkout. Before you finish, `git status --porcelain` in the main checkout must read byte-identical to how you found it.
+
 ## Output format
 
 For each finding:
