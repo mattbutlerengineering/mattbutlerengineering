@@ -1,14 +1,70 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Group, Rect, Circle, Text } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
-import type { TableDisplayStatus } from "./table-status.js";
+import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
 
-/* Canvas (Konva) doesn't support CSS custom properties — use JS constants */
+/* Canvas (Konva) doesn't support CSS custom properties — `fillStyle` needs a
+ * literal color string, and `var(--rialto-*)` never resolves on a canvas.
+ * Resolve tokens at render time from the live document instead of mirroring
+ * a single palette: `getComputedStyle` picks up whichever theme is active,
+ * and re-resolves whenever `data-theme` flips (see the MutationObserver in
+ * TableShape below). See apps/hospitality/CLAUDE.md for the documented
+ * exception this implements. */
 const TABLE_LABEL_COLOR = "#ffffff";
-const INACTIVE_COLOR = "#a8a49d"; // Rialto Surface Deep
+
+type ColorKey = TableDisplayStatus | "inactive" | "selectedStroke";
+
+/** rialto custom-property names backing each canvas fill/stroke. The
+ * per-status keys are read from TABLE_STATUS_COLOR_TOKEN — table-status.ts's
+ * source of truth — instead of being restated here. */
+const COLOR_TOKENS: Record<ColorKey, string> = {
+  available: TABLE_STATUS_COLOR_TOKEN.available.replace(/^var\(|\)$/g, ""),
+  "reserved-soon": TABLE_STATUS_COLOR_TOKEN["reserved-soon"].replace(/^var\(|\)$/g, ""),
+  seated: TABLE_STATUS_COLOR_TOKEN.seated.replace(/^var\(|\)$/g, ""),
+  "needs-bussing": TABLE_STATUS_COLOR_TOKEN["needs-bussing"].replace(/^var\(|\)$/g, ""),
+  inactive: "--rialto-surface-deep",
+  selectedStroke: "--rialto-accent",
+};
+
+/** Fallback fills used only when a custom property hasn't resolved yet (e.g.
+ * before the stylesheet paints) or `getComputedStyle` returns "" in a
+ * non-browser environment. Mirrors packages/rialto/src/tokens/colors.css —
+ * TableShape.test.tsx's drift-guard tests read that file directly and fail
+ * if these values fall out of sync. */
+const FALLBACK_COLORS: Record<"light" | "dark", Record<ColorKey, string>> = {
+  light: {
+    available: "#5e6a2e",
+    "reserved-soon": "#b0841e",
+    seated: "#b84a3c",
+    "needs-bussing": "#8a6820",
+    inactive: "#a8a49d",
+    selectedStroke: "#b0841e",
+  },
+  dark: {
+    available: "#9aaa4c",
+    "reserved-soon": "#d4a23a",
+    seated: "#e06050",
+    "needs-bussing": "#d4a030",
+    inactive: "#4a4643",
+    selectedStroke: "#d4a23a",
+  },
+};
+
+function resolveThemeColors(): Record<ColorKey, string> {
+  const theme: "light" | "dark" =
+    document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const fallback = FALLBACK_COLORS[theme];
+  const computed = getComputedStyle(document.documentElement);
+  const colors = {} as Record<ColorKey, string>;
+  for (const key of Object.keys(COLOR_TOKENS) as ColorKey[]) {
+    const value = computed.getPropertyValue(COLOR_TOKENS[key]).trim();
+    colors[key] = value || fallback[key];
+  }
+  return colors;
+}
 
 export interface TableShapeProps {
   table: Table;
@@ -25,19 +81,6 @@ export interface TableShapeProps {
   status?: TableDisplayStatus;
 }
 
-/**
- * Hex mirror of `table-status.ts`'s `TABLE_STATUS_COLOR_TOKEN` — Konva
- * renders to an actual canvas, which can't resolve `var(--rialto-*)` CSS
- * custom properties, so each token's rialto light-mode hex value is
- * duplicated here as a JS constant.
- */
-const TABLE_STATUS_COLORS: Record<TableDisplayStatus, string> = {
-  available: "#5e6a2e", // --rialto-success
-  "reserved-soon": "#b0841e", // --rialto-accent
-  seated: "#b84a3c", // --rialto-error
-  "needs-bussing": "#8a6820", // --rialto-warning
-};
-
 export function TableShape({
   table,
   isSelected,
@@ -48,6 +91,19 @@ export function TableShape({
   status,
 }: TableShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
+  const [themeColors, setThemeColors] = useState(resolveThemeColors);
+
+  // Re-resolve fills whenever the active theme flips — Konva can't consume
+  // var(--rialto-*) directly, so this is what keeps table fills in sync
+  // with light/dark mode without a page reload.
+  useEffect(() => {
+    const observer = new MutationObserver(() => setThemeColors(resolveThemeColors()));
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   // Get position from shapeMetadata or default
   const x = table.shapeMetadata?.x ?? 100;
@@ -57,7 +113,7 @@ export function TableShape({
 
   // Determine color based on table state — inactive always wins over any
   // live status, then live status, then the editor-only "available" default.
-  const fillColor = !table.isActive ? INACTIVE_COLOR : TABLE_STATUS_COLORS[status ?? "available"];
+  const fillColor = !table.isActive ? themeColors.inactive : themeColors[status ?? "available"];
 
   const handleDragStart = () => {
     onDragStart(table.id);
@@ -85,7 +141,7 @@ export function TableShape({
 
   const renderShape = () => {
     const strokeWidth = isSelected ? 3 : 1;
-    const stroke = isSelected ? "#b0841e" : "#b8b4ad";
+    const stroke = isSelected ? themeColors.selectedStroke : "#b8b4ad";
 
     switch (shape) {
       case "circle":
