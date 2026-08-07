@@ -109,6 +109,20 @@ describe("apiRequest", () => {
     );
   });
 
+  it("throws GhRateLimitError (not GhAuthError) on an abuse-detection 403 response", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({
+      status: 403,
+      body: '{"message":"You have triggered an abuse detection mechanism. Please wait a few minutes before you try again.","documentation_url":"https://docs.github.com/rest/overview/resources-in-the-rest-api#secondary-rate-limits"}',
+    });
+    try {
+      apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues");
+      expect.unreachable("apiRequest should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(GhRateLimitError);
+      expect(err).not.toBeInstanceOf(GhAuthError);
+    }
+  });
+
   it("does not throw GhAuthError for a non-auth 4xx/5xx response", () => {
     const http: SyncHttp = vi.fn().mockReturnValue({ status: 500, body: "Server Error" });
     try {
