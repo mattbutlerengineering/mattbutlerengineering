@@ -21,10 +21,14 @@ const RIALTO_COLORS_CSS_PATH = resolve(
   "../../packages/rialto/src/tokens/colors.css"
 );
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function extractToken(cssText: string, blockSelector: string, tokenName: string): string {
-  const blockPattern = new RegExp(`${blockSelector.replace(/[[\]"]/g, "\\$&")}\\s*\\{([^}]*)\\}`);
+  const blockPattern = new RegExp(`${escapeRegExp(blockSelector)}\\s*\\{([^}]*)\\}`);
   const block = cssText.match(blockPattern)?.[1] ?? "";
-  const value = block.match(new RegExp(`${tokenName}:\\s*([^;]+);`))?.[1];
+  const value = block.match(new RegExp(`${escapeRegExp(tokenName)}:\\s*([^;]+);`))?.[1];
   if (!value) {
     throw new Error(`Token ${tokenName} not found in block ${blockSelector}`);
   }
