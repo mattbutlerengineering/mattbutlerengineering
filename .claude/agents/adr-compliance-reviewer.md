@@ -48,6 +48,10 @@ Do NOT hard-code this list in the review — always `ls docs/adr/ADR-*.md` and r
 - Non-ADR style preferences. If it's not codified in an active ADR, it's not your call.
 - Plain bugs. That's `code-reviewer`'s job.
 
+## Read-only contract
+
+**Never mutate the main checkout.** No `git add`, `git checkout`, `git stash`, `git apply`, `git commit`, or any file write/redirect (`>`, `>>`) against the working tree you were dispatched into — you read and report, you do not change state. If you need the PR's code present on disk to check something concretely, use the worker's own worktree at `.claude/worktrees/agent-<taskId>/` — it is already checked out on the PR branch — never the main checkout. Before you finish, `git status --porcelain` in the main checkout must read byte-identical to how you found it.
+
 ## Output format
 
 For each violation:
