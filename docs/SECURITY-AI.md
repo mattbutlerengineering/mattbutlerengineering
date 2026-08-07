@@ -127,5 +127,5 @@ This file is not modifiable by agents in pursuit of any task. If an agent's work
 - `docs/change-tiers.md` — risk tiers that route which agents review which changes
 - `.github/workflows/tier-classifier.yml` — the workflow that assigns tiers
 - `scripts/check-destructive-migrations.js` — the script that enforces the prisma rule above
-- `scripts/check-adr.js` — the script that enforces ADR compliance
+- `tools/cli/src/commands/adr.ts` — the script that enforces ADR compliance (via `mbe check-adr`)
 - `~/.claude/settings.json` (user) — global attribution and tool-permission settings

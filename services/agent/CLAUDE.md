@@ -104,15 +104,15 @@ src/
 | POST   | `/v1/sessions`            | Create new agent session    |
 | GET    | `/v1/sessions`            | List sessions               |
 | GET    | `/v1/sessions/:id`        | Get session details         |
-| DELETE | `/v1/sessions/:id`        | Cancel session              |
+| POST   | `/v1/sessions/:id/cancel` | Cancel a running session    |
+| DELETE | `/v1/sessions/:id`        | Delete a session            |
 | GET    | `/v1/sessions/:id/events` | Stream session events (SSE) |
 
 ### Orchestration
 
-| Method | Path                  | Description                  |
-| ------ | --------------------- | ---------------------------- |
-| POST   | `/v1/orchestrate`     | Create orchestration session |
-| GET    | `/v1/orchestrate/:id` | Get orchestration status     |
+| Method | Path              | Description                |
+| ------ | ----------------- | -------------------------- |
+| POST   | `/v1/orchestrate` | Orchestrate a complex task |
 
 ### Gen AI (Streaming)
 

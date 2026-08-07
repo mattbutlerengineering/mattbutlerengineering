@@ -285,11 +285,11 @@ to a single worker without worktree isolation in cloud and keep the local
      job, so their hits are already failing or about to.
   2. Hunts **semantic staleness** — docs whose links all resolve but whose claims
      are false. This is the part no script can do, and the reason the routine
-     earns its tokens. Seeded with a live example: `tools/cli/CLAUDE.md` documents
-     `.localeCompare()` as the pack generator's sort, while `pack.ts` uses a
-     byte-order comparator (localeCompare was banned for sorting differently on
-     macOS vs Linux CI, which drifts generated artifacts). Two independent
-     reviewers have now flagged that line.
+     earns its tokens. Past example of the class: `tools/cli/CLAUDE.md` once
+     documented `.localeCompare()` as the pack generator's sort after `pack.ts`
+     had already switched to a byte-order comparator (localeCompare was banned
+     for sorting differently on macOS vs Linux CI, which drifts generated
+     artifacts) — fixed by an earlier run of this routine.
 - **Dedup is mandatory** — see the note under the routine catalog. `mbe-auditor`'s
   Friday lens covers the same detection surface read-only.
 - **Does not merge.** One PR titled `docs: weekly rot sweep <date>`; `ready`

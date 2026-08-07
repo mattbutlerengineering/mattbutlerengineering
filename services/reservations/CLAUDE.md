@@ -288,15 +288,15 @@ type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled
 
 ### Reservations
 
-| Method | Path                                | Description                          |
-| ------ | ----------------------------------- | ------------------------------------ |
-| GET    | `/api/v1/reservations`              | List reservations (filterable)       |
-| GET    | `/api/v1/reservations/:id`          | Get reservation                      |
-| POST   | `/api/v1/reservations`              | Create walk-in                       |
-| PUT    | `/api/v1/reservations/:id`          | Update reservation                   |
-| PUT    | `/api/v1/reservations/:id/cancel`   | Cancel reservation                   |
-| PUT    | `/api/v1/reservations/:id/seat`     | Seat guest (transition to CONFIRMED) |
-| PUT    | `/api/v1/reservations/:id/complete` | Complete dining                      |
+| Method | Path                           | Description                     |
+| ------ | ------------------------------ | ------------------------------- |
+| GET    | `/api/v1/reservations`         | List reservations (filterable)  |
+| GET    | `/api/v1/reservations/me`      | Get current user's reservations |
+| GET    | `/api/v1/reservations/:id`     | Get reservation                 |
+| POST   | `/api/v1/reservations`         | Create reservation              |
+| POST   | `/api/v1/reservations/walk-in` | Create walk-in reservation      |
+| PATCH  | `/api/v1/reservations/:id`     | Update reservation              |
+| DELETE | `/api/v1/reservations/:id`     | Cancel reservation              |
 
 ### Availability
 

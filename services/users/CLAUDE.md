@@ -113,12 +113,10 @@ Returns 200 when all checks pass, 503 while starting or when a dependency is una
 
 ### User Management
 
-| Method | Path                           | Description                | Auth     |
-| ------ | ------------------------------ | -------------------------- | -------- |
-| GET    | `/api/v1/users/me`             | Get current user profile   | Required |
-| PUT    | `/api/v1/users/me`             | Update profile             | Required |
-| PUT    | `/api/v1/users/me/preferences` | Update preferences         | Required |
-| POST   | `/api/v1/users/me/preferences` | Partial preferences update | Required |
+| Method | Path                           | Description              | Auth     |
+| ------ | ------------------------------ | ------------------------ | -------- |
+| GET    | `/api/v1/users/me`             | Get current user profile | Required |
+| PATCH  | `/api/v1/users/me/preferences` | Update preferences       | Required |
 
 **GET /api/v1/users/me Response:**
 

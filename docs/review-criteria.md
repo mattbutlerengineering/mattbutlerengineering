@@ -23,7 +23,7 @@ These warrant a `request changes` review. If you find one, name it specifically 
 
 1. **Bugs and broken behavior** — Logic errors, off-by-one, mutation where immutability is expected, async/await footguns, wrong type narrowing, dead conditionals.
 2. **Security** — Hardcoded secrets, SQL injection vectors, unvalidated user input crossing a trust boundary, missing authorization checks, XSS-prone JSX, runtime evaluation of attacker-controlled strings.
-3. **ADR violations** — A change that contradicts an active ADR in `docs/adr/`. The `adr-compliance-reviewer` agent goes beyond the regex `scripts/check-adr.js` enforces — flag _semantic_ violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
+3. **ADR violations** — A change that contradicts an active ADR in `docs/adr/`. The `adr-compliance-reviewer` agent goes beyond the regex `check-adr` enforces — flag _semantic_ violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
 4. **Destructive or scope-creeping migrations** — A Prisma migration that drops columns/tables, renames without backfill, or whose SQL doesn't match the accompanying code change. Use `migration-reviewer` agent and check `scripts/check-destructive-migrations.js`.
 5. **Silent failures** — `try { ... } catch {}`, default-fallback values that mask errors, retry loops without a circuit breaker, "graceful degradation" that hides legitimate breakage.
 6. **Broken contracts** — Public API shape changes without a version bump, breaking changes to `@mattbutlerengineering/rialto` exports without a changeset, missing entry in `packages/*/CHANGELOG.md` for a versioned package.
