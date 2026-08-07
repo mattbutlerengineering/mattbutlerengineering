@@ -1,6 +1,6 @@
 ---
 name: adr-compliance-reviewer
-description: Use this agent when a commit or PR touches code that might violate an active ADR. Reviews the change against `docs/adr/*.md` entries with status=active, going beyond the regex prohibited_patterns that `scripts/check-adr.js` already enforces to catch semantic violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
+description: Use this agent when a commit or PR touches code that might violate an active ADR. Reviews the change against `docs/adr/*.md` entries with status=active, going beyond the regex prohibited_patterns that `check-adr` already enforces to catch semantic violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -28,7 +28,7 @@ Do NOT hard-code this list in the review — always `ls docs/adr/ADR-*.md` and r
 
 ## What you catch that the regex script doesn't
 
-`scripts/check-adr.js` handles regex `prohibited_patterns`. You handle:
+`check-adr` (`tools/cli/src/commands/adr.ts`) handles regex `prohibited_patterns`. You handle:
 
 1. **Semantic use-the-right-abstraction violations.**
    - ADR-001 forbids Tailwind classes (regex). You catch: using inline `style={{}}` when a Rialto token token exists for that property. Example flag: `style={{ color: "#b0841e" }}` when `color: "var(--rialto-accent)"` is the canonical form.

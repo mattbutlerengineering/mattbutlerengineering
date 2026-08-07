@@ -205,18 +205,18 @@ The orchestrator in `orchestrator.ts` trusts tool return values from
 
 ## Defense layers summary
 
-| Layer                    | Mechanism                                                                                  | Files / config                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| **Input authentication** | HMAC-SHA256 webhook signature verification with timing-safe compare                        | `services/agent/src/lib/verified-webhook.ts`; env vars `GITHUB_WEBHOOK_SECRET`, `REMEDIATION_WEBHOOK_SECRET` |
-| **Budget and turn caps** | Per-session `maxBudgetUsd` and `maxTurns` enforced in agent-core                           | `packages/agent-core/src/types.ts`, `orchestrator.ts`, `feedback-loop.ts`                                    |
-| **Worktree isolation**   | Each session runs in a fresh git worktree with no access to production infra               | `packages/agent-core/src/worktree-manager.ts`; agent-service session lifecycle                               |
-| **Hard guardrails**      | Explicit hard prohibitions on secrets, destructive git ops, network exfiltration           | `docs/SECURITY-AI.md` (system-prompt floor)                                                                  |
-| **Static code scanning** | Semgrep rules catch eval, hardcoded secrets, SQL injection, XSS, insecure random           | `semgrep.yml` (rules with CWE metadata); Semgrep MCP server in `.mcp.json`                                   |
-| **Secret scanning**      | Gitleaks scans every PR diff and push-to-main for high-entropy strings and secret patterns | `.github/workflows/secret-scan.yml`; `.gitleaks.toml`                                                        |
-| **ADR compliance gate**  | CI checks that no PR introduces prohibited dependencies or architectural violations        | `.github/workflows/adr-check.yml`; `scripts/check-adr.js` via `pnpm --filter @mbe/cli start check-adr`       |
-| **PR review gate**       | All agent PRs require CI to pass; sensitive paths require human review                     | `.github/workflows/ci.yml`; `CODEOWNERS`; `docs/SECURITY-AI.md` approval gates                               |
-| **MCP tool allowlist**   | Orchestrator declares an explicit set of permitted MCP tool names                          | `packages/agent-core/src/orchestrator.ts` L271–274                                                           |
-| **Observability**        | Every agent session is traced to Langfuse; `pr-metrics.json` tracks success rate           | `services/agent/src/`; `docs/SECURITY-AI.md` audit section                                                   |
+| Layer                    | Mechanism                                                                                  | Files / config                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| **Input authentication** | HMAC-SHA256 webhook signature verification with timing-safe compare                        | `services/agent/src/lib/verified-webhook.ts`; env vars `GITHUB_WEBHOOK_SECRET`, `REMEDIATION_WEBHOOK_SECRET`    |
+| **Budget and turn caps** | Per-session `maxBudgetUsd` and `maxTurns` enforced in agent-core                           | `packages/agent-core/src/types.ts`, `orchestrator.ts`, `feedback-loop.ts`                                       |
+| **Worktree isolation**   | Each session runs in a fresh git worktree with no access to production infra               | `packages/agent-core/src/worktree-manager.ts`; agent-service session lifecycle                                  |
+| **Hard guardrails**      | Explicit hard prohibitions on secrets, destructive git ops, network exfiltration           | `docs/SECURITY-AI.md` (system-prompt floor)                                                                     |
+| **Static code scanning** | Semgrep rules catch eval, hardcoded secrets, SQL injection, XSS, insecure random           | `semgrep.yml` (rules with CWE metadata); Semgrep MCP server in `.mcp.json`                                      |
+| **Secret scanning**      | Gitleaks scans every PR diff and push-to-main for high-entropy strings and secret patterns | `.github/workflows/secret-scan.yml`; `.gitleaks.toml`                                                           |
+| **ADR compliance gate**  | CI checks that no PR introduces prohibited dependencies or architectural violations        | `.github/workflows/adr-check.yml`; `tools/cli/src/commands/adr.ts` via `pnpm --filter @mbe/cli start check-adr` |
+| **PR review gate**       | All agent PRs require CI to pass; sensitive paths require human review                     | `.github/workflows/ci.yml`; `CODEOWNERS`; `docs/SECURITY-AI.md` approval gates                                  |
+| **MCP tool allowlist**   | Orchestrator declares an explicit set of permitted MCP tool names                          | `packages/agent-core/src/orchestrator.ts` L271–274                                                              |
+| **Observability**        | Every agent session is traced to Langfuse; `pr-metrics.json` tracks success rate           | `services/agent/src/`; `docs/SECURITY-AI.md` audit section                                                      |
 
 ---
 
