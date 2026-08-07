@@ -92,10 +92,14 @@
       repo: string;
       http: SyncHttp;
     }
-    export interface RestResult {
-      status: number;
-      /** Parsed JSON body, or `null` for an empty (e.g. 204) response. */
-      json: unknown;
+    export class GhAuthError extends Error {
+      readonly status: number;
+    
+      constructor(method: string, path: string, status: number, body: string) {
+        super(`gh-client REST auth failed: ${method} ${path} -> ${status}: ${body}`);
+        this.name = "GhAuthError";
+        this.status = status;
+      }
     }
   </file>
   <file path="src/rest-issue-ops.ts">

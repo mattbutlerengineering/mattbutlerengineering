@@ -194,4 +194,17 @@ describe("formatSensorDisplay", () => {
       "agentCost (per-issue attribution): $2.36 (7d), $0 (today), 30 attributed sessions"
     );
   });
+
+  // #3937: a query failure (e.g. GhAuthError in a Claude Code Remote session)
+  // must render distinctly from a sensor that simply doesn't apply here —
+  // both used to collapse to the identical "⏭  not available" line.
+  it("renders a distinguishable 'query failed' line when a sensor collect() carries an error", () => {
+    const lines = formatSensorDisplay({
+      ciHealth: { available: false, error: "GitHub auth failed (401)" },
+    });
+    const ciHealthLine = lines.find((l) => l.startsWith("ciHealth:"));
+    expect(ciHealthLine).toContain("query failed");
+    expect(ciHealthLine).toContain("GitHub auth failed");
+    expect(ciHealthLine).not.toContain("not available");
+  });
 });

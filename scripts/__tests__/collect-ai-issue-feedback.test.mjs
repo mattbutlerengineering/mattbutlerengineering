@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { GhAuthError } from "@mbe/gh-client";
 import {
   classifyIssue,
   computeCategoryRates,
   computeIssueBudget,
+  queryClosedIssuesForFeedback,
   CATEGORIES,
   DEFAULT_BUDGET_PER_CATEGORY,
   REJECTION_THRESHOLD,
@@ -159,6 +161,39 @@ describe("computeIssueBudget", () => {
     };
     const budget = computeIssueBudget("sentry", rates);
     expect(budget).toBe(Math.floor(DEFAULT_BUDGET_PER_CATEGORY / 2));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// queryClosedIssuesForFeedback — injected `listIssues`, zero real `gh` calls.
+//
+// #3937: an auth failure (Claude Code Remote's REST fallback token isn't
+// valid for direct api.github.com calls) must be distinguishable from a
+// legitimately empty result set, instead of both collapsing to the same
+// `safe()`-swallowed "no data" shape.
+// ---------------------------------------------------------------------------
+
+describe("queryClosedIssuesForFeedback", () => {
+  it("returns ok:true with the raw issues on success", () => {
+    const issues = [makeIssue()];
+    const result = queryClosedIssuesForFeedback(() => issues);
+
+    expect(result).toEqual({ ok: true, issues });
+  });
+
+  it("returns ok:true with an empty array when the query legitimately finds nothing", () => {
+    const result = queryClosedIssuesForFeedback(() => []);
+
+    expect(result).toEqual({ ok: true, issues: [] });
+  });
+
+  it("returns ok:false with a distinguishable reason when the query throws (e.g. auth failure)", () => {
+    const result = queryClosedIssuesForFeedback(() => {
+      throw new GhAuthError("GET", "/repos/o/r/issues", 401, "Bad credentials");
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/auth/i);
   });
 });
 
