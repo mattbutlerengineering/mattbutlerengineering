@@ -24,7 +24,16 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: "pnpm dev -- --port 3000 --strictPort",
+    // CI serves the production build (`vite preview`) — marketing has no
+    // backend proxy to keep warm, so there's no reason to pay for the dev
+    // server's HMR overhead. Locally, `pnpm dev` gives fast iteration.
+    // `pnpm exec vite preview` (not `pnpm preview --`) because the preview
+    // script's own subcommand ("vite preview") means pnpm's `--` separator
+    // gets forwarded as a literal `--` to vite's CLI parser, which then
+    // treats --port/--strictPort as positional args and silently ignores them.
+    command: process.env.CI
+      ? "pnpm exec vite preview --port 3000 --strictPort"
+      : "pnpm dev -- --port 3000 --strictPort",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
