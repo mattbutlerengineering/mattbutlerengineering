@@ -14,6 +14,13 @@ export default defineVitestConfig({
   },
   extend: {
     test: {
+      // buildApp() Fastify cold-start (plugins, Prisma, JSON schema compilation)
+      // can exceed the 5s vitest default under CI's ~40-task concurrent run,
+      // which any pnpm-lock.yaml change triggers by cache-busting every turbo
+      // task (see .claude/rules/gotchas.md § CI). 18 test files here call
+      // buildApp(). Same class as services/reservations and tools/cli.
+      testTimeout: 15000,
+      hookTimeout: 15000,
       env: {
         AUTH_AUTHORITY: "https://test.auth0.com/",
         AUTH_AUDIENCE: "https://api.test.com",
