@@ -8,21 +8,39 @@
  * shipped `classifyHumanTouch()`. This script is the caller that decides
  * *which* rows/commits to feed the classifier and writes the result back.
  *
- * "Human touch" signal: in this repo, agent worktree commits and any
- * follow-up fixup commits are pushed under the same GitHub account (there is
- * no separate bot identity), so commit-author-login comparison — the
- * approach `isAgentPr()`'s sibling `prHasNonAuthorCommit()` uses elsewhere —
- * cannot distinguish an agent's own commit from a later manual fixup here.
- * The practical, observable proxy is `commits.length > 1`: a merged agent PR
- * that landed in more than one commit needed *some* additional touch beyond
- * the worker's initial submission. The first commit after the original
- * (`commits[1]`) is treated as that touch and fed to `classifyHumanTouch()`.
+ * "Human touch" signal: author-identity comparison, same idea as
+ * `isAgentPr()`'s sibling `prHasNonAuthorCommit()`, with two corrections
+ * this repo's real data requires:
+ *
+ * 1. PR-level bot authors are reported by `gh` with an "app/" login prefix
+ *    (`pr.author.login === "app/claude"`) while that same bot's *commits*
+ *    carry the unprefixed login (`commit.authors[].login === "claude"`).
+ *    Naive string comparison treats every commit from a bot-authored PR as
+ *    a "different author" — exactly backwards. The PR author login is
+ *    normalized (prefix stripped) before comparing.
+ * 2. Some commits differ in author but are still not a human decision:
+ *    branch-freshening merges (`Merge branch '...' into ...`,
+ *    `Merge remote-tracking branch '...' into ...`) and the
+ *    `regen-after-update-branch.sh` hook's fixup commit
+ *    (`chore: regenerate stale artifacts`) are automation, regardless of
+ *    which identity's credentials pushed them. These are excluded from
+ *    consideration outright.
+ *
+ * A known blind spot, not worked around: commits pushed by `/implement-queue`
+ * worktree workers use the operator's own local git identity, so an
+ * agent-authored PR opened under that same account has *no* commit-level
+ * signal to discriminate agent-vs-human by — every commit shares one login.
+ * Per the identity, the row is genuinely unmatchable and is skipped, per
+ * #3845's explicit "missing/unmatchable data is fine — skip silently"
+ * guidance. This is a real coverage ceiling, not a bug: only PRs opened
+ * through the `claude` GitHub App identity are discriminable at all.
  *
  * BEST EFFORT, NOT 100% COVERAGE: rows with no PR, an unreconciled outcome,
- * an unfetchable PR, a PR that doesn't look like an agent PR, or no rework
- * commit are left untouched — no field is written, existing values are never
- * overwritten. This matches the classifier's own "directional signal, not
- * ground truth" posture.
+ * an unfetchable PR, a PR that doesn't look like an agent PR, a PR whose
+ * author identity can't be determined, or a PR where no commit clears both
+ * the identity and mechanical-commit checks are left untouched — no field is
+ * written, existing values are never overwritten. This matches the
+ * classifier's own "directional signal, not ground truth" posture.
  *
  * Idempotent: a row that already carries `human_touch_reason` is never
  * re-fetched or rewritten. Re-running is always safe.
@@ -39,6 +57,51 @@ import { classifyHumanTouch } from "./classify-human-touch.mjs";
 import { isAgentPr } from "../plugins/acmm/scripts/pr-outcomes.js";
 
 const DEFAULT_MAX_CALLS = 50;
+
+/** `gh` prefixes a PR-level bot author's login with "app/"; commit-level
+ * author logins for that same bot do not carry the prefix. Strip it so both
+ * sides compare on the same identity.
+ *
+ * @param {unknown} login
+ * @returns {string}
+ */
+export function normalizeAuthorLogin(login) {
+  if (typeof login !== "string") return "";
+  return login.startsWith("app/") ? login.slice(4) : login;
+}
+
+const MERGE_COMMIT_RE = /^Merge (branch|pull request|remote-tracking branch) /;
+const REGEN_FIXUP_MESSAGE = "chore: regenerate stale artifacts";
+
+/** Branch-freshening merges and the regen-fixup hook's commit are automation,
+ * not a human decision, regardless of whose identity pushed them.
+ *
+ * @param {unknown} messageHeadline
+ * @returns {boolean}
+ */
+export function isMechanicalCommit(messageHeadline) {
+  if (typeof messageHeadline !== "string") return false;
+  return MERGE_COMMIT_RE.test(messageHeadline) || messageHeadline.trim() === REGEN_FIXUP_MESSAGE;
+}
+
+/**
+ * The first commit authored by someone other than the (normalized) PR author
+ * that isn't mechanical — the closest available signal to "a human decision
+ * happened here". Returns -1 when no commit qualifies (including when the PR
+ * author identity itself is unknown — nothing to discriminate against).
+ *
+ * @param {Array<{ authors?: Array<{ login?: string }>, messageHeadline?: string }>} commits
+ * @param {string} prAuthorLogin
+ * @returns {number}
+ */
+function findHumanCommitIndex(commits, prAuthorLogin) {
+  if (!prAuthorLogin) return -1;
+  return commits.findIndex((c) => {
+    const authors = Array.isArray(c.authors) ? c.authors : [];
+    const sharesAuthor = authors.some((a) => a?.login === prAuthorLogin);
+    return !sharesAuthor && !isMechanicalCommit(c.messageHeadline);
+  });
+}
 
 /**
  * Best-effort CI conclusion for a commit's check runs. Returns "failure" if
@@ -69,30 +132,37 @@ function fetchCiConclusion(sha) {
 
 /**
  * Default PR detail fetcher — one `gh pr view` per PR (plus, best-effort,
- * one check-runs lookup when a rework commit exists).
+ * one check-runs lookup when a discriminable human commit is found).
  *
  * @param {number} prNumber
- * @param {import("@mbe/gh-client").GhClient} [ghClient]
+ * @param {object} [deps]
+ * @param {import("@mbe/gh-client").GhClient} [deps.ghClient]
+ * @param {(sha: string|undefined) => string|null} [deps.fetchCiConclusion] - Injectable for tests.
  * @returns {{ pr: { headRefName: string, labels: string[] }, humanCommit: { message: string, ciConclusion: string|null, reviewCommentsBefore: number }|null }}
  */
-export function defaultFetchPrDetails(prNumber, ghClient = createGhClient()) {
-  const data = ghClient.pr.view(prNumber, ["--json", "headRefName,labels,commits,reviews"]);
+export function defaultFetchPrDetails(
+  prNumber,
+  { ghClient = createGhClient(), fetchCiConclusion: fetchCi = fetchCiConclusion } = {}
+) {
+  const data = ghClient.pr.view(prNumber, ["--json", "author,headRefName,labels,commits,reviews"]);
   const pr = {
     headRefName: data.headRefName,
     labels: Array.isArray(data.labels) ? data.labels.map((l) => l.name) : [],
   };
+  const prAuthorLogin = normalizeAuthorLogin(data.author?.login);
   const commits = Array.isArray(data.commits) ? data.commits : [];
   const reviews = Array.isArray(data.reviews) ? data.reviews : [];
 
-  if (commits.length < 2) {
+  const idx = findHumanCommitIndex(commits, prAuthorLogin);
+  if (idx === -1) {
     return { pr, humanCommit: null };
   }
 
-  const reworkCommit = commits[1];
-  const message = [reworkCommit.messageHeadline, reworkCommit.messageBody]
+  const humanCommitRaw = commits[idx];
+  const message = [humanCommitRaw.messageHeadline, humanCommitRaw.messageBody]
     .filter(Boolean)
     .join("\n");
-  const commitMs = Date.parse(reworkCommit.authoredDate ?? "");
+  const commitMs = Date.parse(humanCommitRaw.authoredDate ?? "");
   const reviewCommentsBefore = reviews.filter((r) => {
     const t = Date.parse(r.submittedAt ?? "");
     return Number.isFinite(t) && Number.isFinite(commitMs) && t < commitMs;
@@ -102,7 +172,7 @@ export function defaultFetchPrDetails(prNumber, ghClient = createGhClient()) {
     pr,
     humanCommit: {
       message,
-      ciConclusion: fetchCiConclusion(commits[0]?.oid),
+      ciConclusion: fetchCi(commits[idx - 1]?.oid),
       reviewCommentsBefore,
     },
   };
