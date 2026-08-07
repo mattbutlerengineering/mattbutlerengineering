@@ -140,6 +140,26 @@ describe("DashboardLayout", () => {
     expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
   });
 
+  it("never sets window.__e2eChromePainted when no venue exists (regression guard for #3918)", () => {
+    // Mirrors the flag the zero-venue E2E spec (e2e/onboarding.spec.ts) reads
+    // instead of asserting DOM absence after the redirect settles — which
+    // would pass even if chrome painted and the flash had already ended by
+    // the time the assertion ran. This unit test is the executable proxy for
+    // that E2E spec here: this environment has no E2E_AUTH0_* credentials, so
+    // Playwright itself cannot run, but this exercises the exact same
+    // render-time gate and instrumentation hook the spec depends on.
+    const win = window as unknown as { __e2eChromePainted?: boolean };
+    win.__e2eChromePainted = false;
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "no-venue",
+      completedSteps: [],
+      nextStep: "hours",
+      progress: 0,
+    });
+    renderLayout("/timeline");
+    expect(win.__e2eChromePainted).toBe(false);
+  });
+
   it("never renders dashboard chrome across the loading -> no-venue transition", () => {
     const loading: VenueReadiness = {
       status: "loading",
