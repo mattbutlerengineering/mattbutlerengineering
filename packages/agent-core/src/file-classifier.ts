@@ -67,6 +67,13 @@ export const isDependencyFile = (f: string): boolean =>
 export const isInfrastructureFile = (f: string): boolean => f.startsWith("infrastructure/");
 
 /**
+ * True for files under metrics/ — append-only telemetry (queue-telemetry.jsonl,
+ * production-health snapshots, sensor reports). Appending a row to one of these
+ * is low-risk by construction; see isLowRiskFile.
+ */
+export const isMetricsFile = (f: string): boolean => f.startsWith("metrics/");
+
+/**
  * True for front-end source files (apps/ or packages/rialto/) that are not
  * test, doc, or config files.
  */
@@ -86,10 +93,10 @@ export const isBackendSourceFile = (f: string): boolean =>
 
 /**
  * True when a file is considered low-risk for auto-merge purposes:
- * tests, docs, config, or dependency manifests.
+ * tests, docs, config, dependency manifests, or metrics telemetry.
  */
 export const isLowRiskFile = (f: string): boolean =>
-  isTestFile(f) || isDocFile(f) || isConfigFile(f) || isDependencyFile(f);
+  isTestFile(f) || isDocFile(f) || isConfigFile(f) || isDependencyFile(f) || isMetricsFile(f);
 
 /**
  * True when a file has no effect on any auditable surface (Lighthouse / smoke-audit).

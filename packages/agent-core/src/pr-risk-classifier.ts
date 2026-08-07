@@ -2,11 +2,12 @@
  * PR risk classifier — identifies PRs that are safe to auto-merge as soon as
  * CI passes, without waiting for the next implement-queue iteration.
  *
- * A PR is "low-risk" when every changed file falls into one of these categories:
- *   - Test files  (*.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx, *.test.js, *.spec.js, *.test.jsx, *.spec.jsx)
- *   - Documentation  (*.md, docs/**)
- *   - Dependency manifests  (package.json, pnpm-lock.yaml, package-lock.json, yarn.lock)
- *   - Config files  (.github/**, .claude/**, turbo.json, *.config.ts, *.config.js, *.config.mjs)
+ * A PR is "low-risk" when every changed file matches `isLowRiskFile` in
+ * `./file-classifier.ts` — that predicate is the single source of truth for
+ * the allowlisted categories (tests, docs, config, dependency manifests,
+ * metrics telemetry). Consult it directly rather than duplicating its globs
+ * here or elsewhere; that duplication is what let `metrics/**` silently fall
+ * outside the fast path (see #3887).
  */
 
 import { isLowRiskFile } from "./file-classifier.js";
