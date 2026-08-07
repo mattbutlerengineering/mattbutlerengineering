@@ -27,12 +27,16 @@ test.describe("Weekly intake page", () => {
     await page.goto("/weekly");
 
     const nav = page.getByRole("navigation", { name: "Filter resources by source" });
-    const allCount = await page.locator('[class*="card"]').count();
+    const cards = page.locator('[class*="card"]');
+    // .count() doesn't auto-wait like .toBeVisible() — without this, allCount
+    // can be read before the resource list renders, reading 0.
+    await cards.first().waitFor();
+    const allCount = await cards.count();
 
     await nav.getByRole("button", { name: "JS Weekly" }).click();
 
     // After filtering, resource count may be less than or equal to total
-    const filteredCount = await page.locator('[class*="card"]').count();
+    const filteredCount = await cards.count();
     expect(filteredCount).toBeGreaterThanOrEqual(0);
     expect(filteredCount).toBeLessThanOrEqual(allCount);
   });

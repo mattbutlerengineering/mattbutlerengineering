@@ -1,5 +1,45 @@
 import { test, expect } from "./fixtures.js";
+import { test as base } from "@playwright/test";
+import { mockApi } from "./api-mocks.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
+
+base.describe("Zero-venue account redirect (#3889)", () => {
+  base("dashboard chrome never appears before landing on /onboarding", async ({ page }) => {
+    await mockApi(page);
+
+    // api-mocks.ts pre-seeds localStorage["mbe-hospitality-venue-id"] to
+    // keep the rest of the E2E suite deterministic (see its comment on
+    // that seed) — which means the suite is structurally incapable of
+    // exercising a true zero-venue account. Undo the seed and make the
+    // venues endpoint genuinely empty so this test hits the real race.
+    await page.addInitScript(() => {
+      localStorage.removeItem("mbe-hospitality-venue-id");
+    });
+    await page.route("**/api/v1/venues?*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: {
+            page: 1,
+            limit: 25,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          },
+        }),
+      })
+    );
+
+    await page.goto("");
+
+    await expect(page).toHaveURL(/\/onboarding/);
+    await expect(page.getByTestId("dashboard-layout")).toHaveCount(0);
+    await expect(page.getByText("Timeline")).not.toBeVisible();
+  });
+});
 
 test.describe("Venue onboarding wizard", () => {
   test("page loads with the onboarding shell and step 1 (Basic Info)", async ({ mockedPage }) => {

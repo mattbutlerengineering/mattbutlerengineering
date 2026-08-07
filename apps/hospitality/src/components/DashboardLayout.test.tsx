@@ -85,12 +85,18 @@ describe("DashboardLayout", () => {
     } as ReturnType<typeof useAuth>);
   });
 
+  // "onboarding" is a top-level sibling route here — matching the real app's
+  // route tree (main.tsx), where /onboarding uses a separate OnboardingLayout
+  // and is NOT nested inside DashboardLayout. This lets tests observe that
+  // dashboard chrome (data-testid="dashboard-layout") never mounts when the
+  // render-time gate redirects there (#3889).
   const renderLayout = (initialPath = "/") => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
+            <Route path="onboarding" element={<div>Onboarding Content</div>} />
             <Route path="/" element={<DashboardLayout />}>
               <Route path="timeline" element={<div>Timeline Content</div>} />
               <Route path="guests" element={<div>Guests Content</div>} />
@@ -98,7 +104,6 @@ describe("DashboardLayout", () => {
               <Route path="floor-plans/:id" element={<div>Floor Plan Editor</div>} />
               <Route path="reservations" element={<div>Reservations Content</div>} />
               <Route path="settings" element={<div>Settings Content</div>} />
-              <Route path="onboarding" element={<div>Onboarding Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
             </Route>
@@ -108,7 +113,7 @@ describe("DashboardLayout", () => {
     );
   };
 
-  it("does not redirect while readiness status is loading", () => {
+  it("renders a loading state instead of dashboard chrome while readiness status is loading", () => {
     const loading: VenueReadiness = {
       status: "loading",
       completedSteps: [],
@@ -117,11 +122,13 @@ describe("DashboardLayout", () => {
     };
     vi.mocked(useVenueReadiness).mockReturnValue(loading);
     renderLayout("/timeline");
-    // Should stay on the requested route — not bounce to /onboarding
-    expect(screen.getByText("Timeline Content")).toBeDefined();
+    // No dashboard chrome and no outlet content while readiness is unknown.
+    expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
+    expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 
-  it("redirects to onboarding when no venue exists", () => {
+  it("redirects to onboarding when no venue exists, without ever rendering dashboard chrome", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "no-venue",
       completedSteps: [],
@@ -130,6 +137,52 @@ describe("DashboardLayout", () => {
     });
     renderLayout("/timeline");
     expect(screen.getByText("Onboarding Content")).toBeDefined();
+    expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
+  });
+
+  it("never renders dashboard chrome across the loading -> no-venue transition", () => {
+    const loading: VenueReadiness = {
+      status: "loading",
+      completedSteps: [],
+      nextStep: null,
+      progress: 0,
+    };
+    vi.mocked(useVenueReadiness).mockReturnValue(loading);
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // A fresh element tree per render call — reusing the same JSX object
+    // reference across render()/rerender() lets React bail out of
+    // re-rendering the whole subtree (props identity unchanged), which would
+    // hide a real transition from ever reaching DashboardLayoutInner.
+    const renderTree = () => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/timeline"]}>
+          <Routes>
+            <Route path="onboarding" element={<div>Onboarding Content</div>} />
+            <Route path="/" element={<DashboardLayout />}>
+              <Route path="timeline" element={<div>Timeline Content</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(renderTree());
+
+    expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
+    expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
+
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "no-venue",
+      completedSteps: [],
+      nextStep: "hours",
+      progress: 0,
+    });
+    rerender(renderTree());
+
+    expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
+    expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
+    expect(screen.getByText("Onboarding Content")).toBeInTheDocument();
   });
 
   it("redirects operational pages to setup when status is setup", () => {

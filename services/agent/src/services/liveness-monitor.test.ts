@@ -235,5 +235,114 @@ describe("createLivenessMonitor", () => {
       expect(config.cancelSession).toHaveBeenCalledWith("stale-b");
       monitor.stop();
     });
+
+    it("dispatches cancelSession for all stale sessions concurrently, not sequentially", async () => {
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const releaseFns: Array<() => void> = [];
+      const cancelSession = vi.fn().mockImplementation(() => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        return new Promise<boolean>((resolve) => {
+          releaseFns.push(() => {
+            inFlight -= 1;
+            resolve(true);
+          });
+        });
+      });
+      const addEvent = vi.fn().mockResolvedValue(null);
+      const config = createMockConfig({
+        sessionService: {
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-a", "stale-b"]),
+          addEvent,
+        },
+        cancelSession,
+      });
+      const monitor = createLivenessMonitor(config);
+      monitor.start(mockLogger);
+
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      // A sequential `for...await` loop would only ever have 1 cancelSession
+      // call in flight at a time (the next iteration can't start until the
+      // previous await resolves). Both calls being in flight simultaneously
+      // proves concurrent dispatch, deterministically — no wall-clock timing.
+      expect(maxInFlight).toBe(2);
+      expect(cancelSession).toHaveBeenCalledWith("stale-a");
+      expect(cancelSession).toHaveBeenCalledWith("stale-b");
+
+      releaseFns.forEach((release) => release());
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(addEvent).toHaveBeenCalledWith(
+        "stale-a",
+        "session:error",
+        expect.objectContaining({ reason: "liveness_timeout" })
+      );
+      expect(addEvent).toHaveBeenCalledWith(
+        "stale-b",
+        "session:error",
+        expect.objectContaining({ reason: "liveness_timeout" })
+      );
+
+      monitor.stop();
+    });
+
+    it("still processes remaining stale sessions when one cancelSession call rejects", async () => {
+      const addEvent = vi.fn().mockResolvedValue(null);
+      const cancelSession = vi
+        .fn()
+        .mockImplementationOnce(() => Promise.reject(new Error("CAS conflict")))
+        .mockImplementationOnce(() => Promise.resolve(true));
+      const config = createMockConfig({
+        sessionService: {
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-fail", "stale-ok"]),
+          addEvent,
+        },
+        cancelSession,
+      });
+      const monitor = createLivenessMonitor(config);
+      monitor.start(mockLogger);
+
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(cancelSession).toHaveBeenCalledWith("stale-fail");
+      expect(cancelSession).toHaveBeenCalledWith("stale-ok");
+      expect(addEvent).toHaveBeenCalledWith(
+        "stale-ok",
+        "session:error",
+        expect.objectContaining({ reason: "liveness_timeout" })
+      );
+      expect(addEvent).not.toHaveBeenCalledWith("stale-fail", "session:error", expect.anything());
+
+      monitor.stop();
+    });
+
+    it("logs error with the session id when a cancelSession call rejects", async () => {
+      const addEvent = vi.fn().mockResolvedValue(null);
+      const rejection = new Error("DB connection reset");
+      const cancelSession = vi
+        .fn()
+        .mockImplementationOnce(() => Promise.reject(rejection))
+        .mockImplementationOnce(() => Promise.resolve(true));
+      const config = createMockConfig({
+        sessionService: {
+          findStaleSessions: vi.fn().mockResolvedValueOnce(["stale-fail", "stale-ok"]),
+          addEvent,
+        },
+        cancelSession,
+      });
+      const monitor = createLivenessMonitor(config);
+      monitor.start(mockLogger);
+
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: rejection, sessionId: "stale-fail" }),
+        expect.stringContaining("stale-fail")
+      );
+
+      monitor.stop();
+    });
   });
 });
