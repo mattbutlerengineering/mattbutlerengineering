@@ -1,7 +1,41 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, waitFor } from "@testing-library/react";
 import React from "react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { Table } from "@mbe/types";
+
+/* ── Rialto color-token drift guard ──────────────────────────────
+ * Reads the real, drift-checked design-token source instead of
+ * mirroring hex values in this test file — if TableShape.tsx's
+ * fallback colors ever fall out of sync with the tokens below, the
+ * "drift guard" tests at the bottom of this file fail.
+ *
+ * Resolved from `process.cwd()` (vitest runs from apps/hospitality)
+ * rather than `import.meta.url` — Vite statically rewrites
+ * `new URL(literal, import.meta.url)` into an asset-URL transform that
+ * breaks once the path escapes this package's directory.
+ */
+const RIALTO_COLORS_CSS_PATH = resolve(
+  process.cwd(),
+  "../../packages/rialto/src/tokens/colors.css"
+);
+
+function extractToken(cssText: string, blockSelector: string, tokenName: string): string {
+  const blockPattern = new RegExp(`${blockSelector.replace(/[[\]"]/g, "\\$&")}\\s*\\{([^}]*)\\}`);
+  const block = cssText.match(blockPattern)?.[1] ?? "";
+  const value = block.match(new RegExp(`${tokenName}:\\s*([^;]+);`))?.[1];
+  if (!value) {
+    throw new Error(`Token ${tokenName} not found in block ${blockSelector}`);
+  }
+  return value.trim();
+}
+
+function readRialtoToken(tokenName: string, theme: "light" | "dark"): string {
+  const cssText = readFileSync(RIALTO_COLORS_CSS_PATH, "utf-8");
+  const blockSelector = theme === "light" ? ":root" : '[data-theme="dark"]';
+  return extractToken(cssText, blockSelector, tokenName);
+}
 
 /* ── Mock react-konva ─────────────────────────────────────────── */
 // Konva runs in a canvas context — replace all primitives with DOM equivalents.
@@ -173,11 +207,34 @@ const defaultProps = {
   onDragEnd: vi.fn(),
 };
 
+/** Sets a CSS custom property on <html>, simulating the rialto stylesheet. */
+function setThemeVar(name: string, value: string): void {
+  document.documentElement.style.setProperty(name, value);
+}
+
+function setTheme(theme: "light" | "dark"): void {
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+}
+
+function resetDocumentTheme(): void {
+  document.documentElement.removeAttribute("data-theme");
+  document.documentElement.removeAttribute("style");
+}
+
 /* ── Tests ────────────────────────────────────────────────────── */
 
 describe("TableShape", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetDocumentTheme();
+  });
+
+  afterEach(() => {
+    resetDocumentTheme();
   });
 
   describe("shape rendering", () => {
@@ -286,6 +343,90 @@ describe("TableShape", () => {
       const rect = getByTestId("konva-rect");
       // available color is #5e6a2e
       expect(rect.getAttribute("data-fill")).toBe("#5e6a2e");
+    });
+  });
+
+  describe("theme-aware colors", () => {
+    it("resolves the active fill from the --rialto-success custom property", () => {
+      setThemeVar("--rialto-success", "rgb(1, 2, 3)");
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(1, 2, 3)");
+    });
+
+    it("resolves the inactive fill from the --rialto-surface-deep custom property", () => {
+      setThemeVar("--rialto-surface-deep", "rgb(4, 5, 6)");
+      const table = makeTable({ isActive: false });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(4, 5, 6)");
+    });
+
+    it("resolves the selected stroke from the --rialto-accent custom property", () => {
+      setThemeVar("--rialto-accent", "rgb(7, 8, 9)");
+      const table = makeTable();
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} isSelected={true} />
+      );
+      expect(getByTestId("konva-rect").getAttribute("data-stroke")).toBe("rgb(7, 8, 9)");
+    });
+
+    it("updates fills when the theme changes at runtime, without a remount", async () => {
+      setThemeVar("--rialto-success", "rgb(1, 1, 1)");
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(1, 1, 1)");
+
+      setThemeVar("--rialto-success", "rgb(2, 2, 2)");
+      setTheme("dark");
+
+      await waitFor(() => {
+        expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe("rgb(2, 2, 2)");
+      });
+    });
+
+    it("falls back to the light-theme hex when --rialto-success is unset", () => {
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
+        readRialtoToken("--rialto-success", "light")
+      );
+    });
+
+    it("falls back to the dark-theme hex when --rialto-success is unset and dark theme is active", () => {
+      setTheme("dark");
+      const table = makeTable({ isActive: true });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
+        readRialtoToken("--rialto-success", "dark")
+      );
+    });
+
+    it("falls back to the dark-theme hex for the inactive fill in dark mode", () => {
+      setTheme("dark");
+      const table = makeTable({ isActive: false });
+      const { getByTestId } = render(<TableShape table={table} {...defaultProps} />);
+      expect(getByTestId("konva-rect").getAttribute("data-fill")).toBe(
+        readRialtoToken("--rialto-surface-deep", "dark")
+      );
+    });
+
+    it("falls back to the dark-theme hex for the selected stroke in dark mode", () => {
+      setTheme("dark");
+      const table = makeTable();
+      const { getByTestId } = render(
+        <TableShape table={table} {...defaultProps} isSelected={true} />
+      );
+      expect(getByTestId("konva-rect").getAttribute("data-stroke")).toBe(
+        readRialtoToken("--rialto-accent", "dark")
+      );
+    });
+
+    it("inactive-table dark fallback is legible against the dark surface (not the light-theme grey)", () => {
+      // Regression guard for the specific bug reported in #3893: the light
+      // inactive fill (#a8a49d) rendered against the dark surface.
+      const lightFallback = readRialtoToken("--rialto-surface-deep", "light");
+      const darkFallback = readRialtoToken("--rialto-surface-deep", "dark");
+      expect(darkFallback).not.toBe(lightFallback);
     });
   });
 
