@@ -1025,7 +1025,7 @@
     }
   </file>
   <file path="packages/agent-core/src/adapters/cli-adapter-base.ts">
-    export abstract class CliAdapterBase implements AgentAdapter {
+    export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract {
       /** Unique adapter name matching AgentAdapter.name. */
       abstract readonly name: string;
     
@@ -1242,6 +1242,18 @@
       }
     }
   </file>
+  <file path="packages/agent-core/src/adapters/cli-adapter-contract.ts">
+    export interface CliAdapterContract {
+      /** Unique adapter name (e.g. "gemini", "opencode"). */
+      readonly name: string;
+    
+      /**
+       * Spawn the CLI subprocess and detect changes WITHOUT committing them.
+       * See `CliAdapterBase.dispatch()` for the full contract.
+       */
+      dispatch(config: AdapterConfig): Promise<AdapterResult>;
+    }
+  </file>
   <file path="packages/agent-core/src/adapters/cli-usage-parser.ts">
     export interface CliUsage {
       readonly costUsd?: number;
@@ -1331,7 +1343,7 @@
   </file>
   <file path="packages/agent-core/src/adapters/run-cli-adapter-session.ts">
     export async function runCliAdapterSession(
-      cliAdapter: CliAdapterBase,
+      cliAdapter: CliAdapterContract,
       config: SessionConfig,
       onEvent?: SessionEventCallback,
       deps: PhaseDeps = createDefaultPhaseDeps(),

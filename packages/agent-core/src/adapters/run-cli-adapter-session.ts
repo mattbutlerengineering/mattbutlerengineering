@@ -38,7 +38,7 @@ import { WorktreePhase, VerificationPhase, PublishPhase, FeedbackPhase } from ".
 import type { PhaseDeps } from "../phases/index.js";
 import type { AdapterResult } from "../cli-adapter.js";
 import type { GatewayVerdict } from "../post-commit-gateway.js";
-import type { CliAdapterBase } from "./cli-adapter-base.js";
+import type { CliAdapterContract } from "./cli-adapter-contract.js";
 import type {
   FailureCategory,
   SessionConfig,
@@ -63,7 +63,7 @@ const publishPhase = new PublishPhase();
 const feedbackPhase = new FeedbackPhase();
 
 export async function runCliAdapterSession(
-  cliAdapter: CliAdapterBase,
+  cliAdapter: CliAdapterContract,
   config: SessionConfig,
   onEvent?: SessionEventCallback,
   deps: PhaseDeps = createDefaultPhaseDeps(),
