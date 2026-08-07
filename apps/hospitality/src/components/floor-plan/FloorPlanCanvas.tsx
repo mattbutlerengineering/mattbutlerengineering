@@ -6,6 +6,7 @@ import type { Table, FloorPlan } from "@mbe/types";
 import { TableShape } from "./TableShape";
 import { TableSelectionOverlay } from "./TableSelectionOverlay.js";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE, snapToGrid } from "./floor-plan-geometry.js";
+import type { TableDisplayStatus } from "./table-status.js";
 import styles from "./FloorPlanCanvas.module.css";
 
 export interface FloorPlanCanvasProps {
@@ -15,6 +16,12 @@ export interface FloorPlanCanvasProps {
   onTableSelect: (tableId: string | null) => void;
   selectedTableId: string | null;
   readOnly?: boolean;
+  /**
+   * Live per-table status, keyed by table id (see `useTableStatuses`).
+   * Omitted in editor-only usage — tables then render `TableShape`'s
+   * own "available" default with no regression.
+   */
+  tableStatuses?: ReadonlyMap<string, TableDisplayStatus>;
 }
 
 export function FloorPlanCanvas({
@@ -24,6 +31,7 @@ export function FloorPlanCanvas({
   onTableSelect,
   selectedTableId,
   readOnly = false,
+  tableStatuses,
 }: FloorPlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
@@ -129,6 +137,7 @@ export function FloorPlanCanvas({
               onSelect={handleSelect}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              status={tableStatuses?.get(table.id)}
             />
           ))}
         </Layer>

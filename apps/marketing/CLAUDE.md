@@ -61,6 +61,7 @@ pnpm typecheck        # TypeScript check
 pnpm test             # Vitest unit tests
 pnpm test:coverage    # Coverage report
 pnpm test:a11y        # Playwright + axe-core a11y tests
+pnpm test:e2e         # Full Playwright e2e/ suite (run in CI by Marketing E2E)
 pnpm size             # Check bundle size limits
 
 # Deploy
@@ -69,13 +70,15 @@ pnpm dlx wrangler@latest deploy
 
 ## E2E Tests
 
-Playwright tests in `e2e/`:
+Playwright tests in `e2e/`, run in CI by the `Marketing E2E` job (`.github/workflows/e2e.yml`, advisory — see issue #3886):
 
-| Test                 | Validates                 |
-| -------------------- | ------------------------- |
-| `a11y.test.ts`       | Accessibility (axe-core)  |
-| `navigation.spec.ts` | Navigation flows          |
-| `not-found.spec.ts`  | 404 handling              |
-| `seo.spec.ts`        | SEO structure (headings)  |
-| `status.spec.ts`     | Status page health checks |
-| `weekly.spec.ts`     | Weekly intake page        |
+| Test                      | Validates                                       |
+| ------------------------- | ----------------------------------------------- |
+| `a11y.test.ts`            | Accessibility (axe-core)                        |
+| `ai-health.spec.ts`       | AI Health dashboard rendering + stale banner    |
+| `mobile-overflow.spec.ts` | No horizontal overflow on real mobile viewports |
+| `navigation.spec.ts`      | Navigation flows                                |
+| `not-found.spec.ts`       | 404 handling                                    |
+| `seo.spec.ts`             | SEO structure (headings)                        |
+| `status.spec.ts`          | Status page health checks                       |
+| `weekly.spec.ts`          | Weekly intake page                              |

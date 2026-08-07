@@ -12,6 +12,7 @@ import {
   useAddTable,
   useDeleteTable,
 } from "../hooks/useFloorPlans.js";
+import { useTableStatuses } from "../hooks/useSSESync.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
@@ -19,6 +20,7 @@ export function FloorPlanEditorPage() {
   const navigate = useNavigate();
 
   const { data: floorPlan, isLoading, error, refetch } = useFloorPlan(id);
+  const tableStatuses = useTableStatuses();
 
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -299,6 +301,7 @@ export function FloorPlanEditorPage() {
             onTableMove={handleTableMove}
             onTableSelect={setSelectedTableId}
             selectedTableId={selectedTableId}
+            tableStatuses={tableStatuses}
           />
         </div>
 

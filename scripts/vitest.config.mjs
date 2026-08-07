@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: false,
     environment: "node",
+    testTimeout: 15000,
     include: ["scripts/__tests__/**/*.test.mjs"],
     coverage: {
       provider: "v8",

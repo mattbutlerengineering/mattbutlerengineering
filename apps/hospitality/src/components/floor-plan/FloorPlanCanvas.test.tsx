@@ -59,6 +59,7 @@ vi.mock("./TableShape.js", () => ({
     onSelect,
     onDragStart,
     onDragEnd,
+    status,
   }: {
     table: Table;
     isSelected: boolean;
@@ -66,12 +67,14 @@ vi.mock("./TableShape.js", () => ({
     onSelect: (id: string) => void;
     onDragStart: (id: string) => void;
     onDragEnd: (id: string, x: number, y: number) => void;
+    status?: string;
   }) => (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       data-testid={`table-shape-${table.id}`}
       data-selected={isSelected}
       data-dragging={isDragging}
+      data-status={status}
       onClick={() => onSelect(table.id)}
       onMouseDown={() => onDragStart(table.id)}
       onMouseUp={() => onDragEnd(table.id, 120, 240)}
@@ -196,6 +199,35 @@ describe("FloorPlanCanvas", () => {
       render(<FloorPlanCanvas {...defaultProps} />);
       // Scale = 800 / 800 = 1.0 → 100%
       expect(screen.getByText("100%")).toBeDefined();
+    });
+  });
+
+  describe("live status threading", () => {
+    it("passes each table's status from tableStatuses to its TableShape", () => {
+      const tableStatuses = new Map([
+        ["t1", "seated"],
+        ["t2", "needs-bussing"],
+      ]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe("seated");
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBe(
+        "needs-bussing"
+      );
+    });
+
+    it("leaves status undefined for a table with no entry in tableStatuses", () => {
+      const tableStatuses = new Map([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
+    });
+
+    it("leaves status undefined for every table when tableStatuses is omitted (no regression to editor-only usage)", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBeNull();
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
     });
   });
 

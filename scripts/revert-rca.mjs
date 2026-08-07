@@ -63,10 +63,18 @@ const REVERT_TITLE_PATTERN = /^revert:/i;
  * candidates are fetched by direct list and filtered locally via
  * `findRevertPr` instead of asking Search to filter server-side.
  *
+ * `gh pr list --state all` without `--search` sorts by `createdAt`
+ * descending, not `updatedAt` (verified empirically, #3873). A revert PR
+ * that sits open a while before merging (#3691 sat open 2.5 days) carries an
+ * old `createdAt`, so it can fall outside too small a `--limit` window if
+ * enough other PRs are created while it's open. The default was raised from
+ * 100 to 300 for exactly this reason — see `findRevertPr`'s docstring for
+ * the residual bound this still leaves.
+ *
  * @param {number} [limit]
  * @returns {string[]}
  */
-export function buildRevertPrListArgs(limit = 100) {
+export function buildRevertPrListArgs(limit = 300) {
   return [
     "--state",
     "all",
@@ -86,6 +94,18 @@ export function buildRevertPrListArgs(limit = 100) {
  * always preferred — search-result/list ordering must never decide the
  * winner (#3613). Falls back to the first match when none is merged, same
  * as before.
+ *
+ * Known residual (#3873): this function only ever sees whatever
+ * `buildRevertPrListArgs`'s `--limit` (currently 300) fetched, and that
+ * fetch is ordered by `createdAt` descending — a revert PR that sits open
+ * long enough for 300+ other PRs to be created in the meantime would still
+ * fall outside the window and be missed, exactly like the 100-item window
+ * that caused this bug. That is considered acceptable: 300 comfortably
+ * covers the worst observed real case (#3691, open 2.5 days, at this repo's
+ * peak observed velocity of ~44 PRs/10h — roughly 264 PRs over 2.5 days).
+ * This bound is not closed, only pushed out; if it is ever exceeded again,
+ * raise `buildRevertPrListArgs`'s limit rather than treating it as a
+ * one-time fix.
  *
  * @param {Array<{number:number, title:string, state?:string, mergedAt?:string|null}>} candidatePrs
  * @param {number|string} prNumber

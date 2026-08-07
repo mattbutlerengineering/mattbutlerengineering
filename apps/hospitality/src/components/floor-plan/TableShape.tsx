@@ -4,7 +4,7 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
-import { TABLE_STATUS_COLOR_TOKEN } from "./table-status.js";
+import { TABLE_STATUS_COLOR_TOKEN, type TableDisplayStatus } from "./table-status.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — `fillStyle` needs a
  * literal color string, and `var(--rialto-*)` never resolves on a canvas.
@@ -15,13 +15,16 @@ import { TABLE_STATUS_COLOR_TOKEN } from "./table-status.js";
  * exception this implements. */
 const TABLE_LABEL_COLOR = "#ffffff";
 
-type ColorKey = "available" | "inactive" | "selectedStroke";
+type ColorKey = TableDisplayStatus | "inactive" | "selectedStroke";
 
-/** rialto custom-property names backing each canvas fill/stroke. "available"
- * is read from TABLE_STATUS_COLOR_TOKEN — table-status.ts's source of truth
- * — instead of being restated here. */
+/** rialto custom-property names backing each canvas fill/stroke. The
+ * per-status keys are read from TABLE_STATUS_COLOR_TOKEN — table-status.ts's
+ * source of truth — instead of being restated here. */
 const COLOR_TOKENS: Record<ColorKey, string> = {
   available: TABLE_STATUS_COLOR_TOKEN.available.replace(/^var\(|\)$/g, ""),
+  "reserved-soon": TABLE_STATUS_COLOR_TOKEN["reserved-soon"].replace(/^var\(|\)$/g, ""),
+  seated: TABLE_STATUS_COLOR_TOKEN.seated.replace(/^var\(|\)$/g, ""),
+  "needs-bussing": TABLE_STATUS_COLOR_TOKEN["needs-bussing"].replace(/^var\(|\)$/g, ""),
   inactive: "--rialto-surface-deep",
   selectedStroke: "--rialto-accent",
 };
@@ -32,8 +35,22 @@ const COLOR_TOKENS: Record<ColorKey, string> = {
  * TableShape.test.tsx's drift-guard tests read that file directly and fail
  * if these values fall out of sync. */
 const FALLBACK_COLORS: Record<"light" | "dark", Record<ColorKey, string>> = {
-  light: { available: "#5e6a2e", inactive: "#a8a49d", selectedStroke: "#b0841e" },
-  dark: { available: "#9aaa4c", inactive: "#4a4643", selectedStroke: "#d4a23a" },
+  light: {
+    available: "#5e6a2e",
+    "reserved-soon": "#b0841e",
+    seated: "#b84a3c",
+    "needs-bussing": "#8a6820",
+    inactive: "#a8a49d",
+    selectedStroke: "#b0841e",
+  },
+  dark: {
+    available: "#9aaa4c",
+    "reserved-soon": "#d4a23a",
+    seated: "#e06050",
+    "needs-bussing": "#d4a030",
+    inactive: "#4a4643",
+    selectedStroke: "#d4a23a",
+  },
 };
 
 function resolveThemeColors(): Record<ColorKey, string> {
@@ -56,6 +73,12 @@ export interface TableShapeProps {
   onSelect: (tableId: string) => void;
   onDragStart: (tableId: string) => void;
   onDragEnd: (tableId: string, x: number, y: number) => void;
+  /**
+   * Live status derived from reservation/hold data (see `table-status.ts`).
+   * Omitted in editor-only usage (no SSE status data available), which
+   * falls back to "available" — matching the pre-live-status default.
+   */
+  status?: TableDisplayStatus;
 }
 
 export function TableShape({
@@ -65,6 +88,7 @@ export function TableShape({
   onSelect,
   onDragStart,
   onDragEnd,
+  status,
 }: TableShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
   const [themeColors, setThemeColors] = useState(resolveThemeColors);
@@ -87,8 +111,9 @@ export function TableShape({
   const shape = table.shapeMetadata?.shape ?? "rectangle";
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
-  // Determine color based on table state
-  const fillColor = !table.isActive ? themeColors.inactive : themeColors.available;
+  // Determine color based on table state — inactive always wins over any
+  // live status, then live status, then the editor-only "available" default.
+  const fillColor = !table.isActive ? themeColors.inactive : themeColors[status ?? "available"];
 
   const handleDragStart = () => {
     onDragStart(table.id);
