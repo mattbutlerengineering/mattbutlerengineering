@@ -485,6 +485,41 @@ describe("Floor Plan Routes", () => {
       expect(body.data).toHaveLength(1);
     });
 
+    it("returns 404 when a tableId in the batch is unknown/deleted", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.bulkUpdateTablePositions).mockRejectedValueOnce(
+        Object.assign(new Error("One or more tables not found"), { code: "P2025" })
+      );
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/floor-plans/tables/positions",
+        headers: {
+          "x-auth-bypass": "true",
+        },
+        payload: {
+          floorPlanId: "floor-plan-123",
+          positions: [
+            {
+              tableId: "missing-table",
+              shapeMetadata: {
+                x: 150,
+                y: 250,
+                width: 80,
+                height: 80,
+                shape: "rectangle",
+              },
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",

@@ -379,6 +379,27 @@ describe("floorPlanService", () => {
       expect(result).toEqual([]);
       expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
+
+    it("throws a P2025 not-found error when a tableId does not match any row", async () => {
+      // Only one of the two requested tableIds actually exists — simulates a
+      // deleted/unknown tableId in the batch.
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never);
+
+      const positions = [
+        {
+          tableId: "t1",
+          shapeMetadata: { x: 10, y: 20, width: 80, height: 80, shape: "rectangle" as const },
+        },
+        {
+          tableId: "missing",
+          shapeMetadata: { x: 30, y: 40, width: 80, height: 80, shape: "circle" as const },
+        },
+      ];
+
+      await expect(
+        floorPlanService.bulkUpdateTablePositions("fp-1", positions)
+      ).rejects.toMatchObject({ code: "P2025" });
+    });
   });
 
   describe("assignTableToFloorPlan", () => {
