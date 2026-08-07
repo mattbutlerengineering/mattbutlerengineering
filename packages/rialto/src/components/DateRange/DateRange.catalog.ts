@@ -6,6 +6,10 @@
  * `onChange` callback and a `{ start, end }` ISO-string value, so it cannot be
  * expressed as static AI-generated markup; it is kept in the metadata but
  * excluded from the catalog the AI consumes.
+ *
+ * Value type: `{ start: string | null; end: string | null }` (ISO `yyyy-mm-dd`
+ * endpoints), matching Calendar/DatePicker per ADR-024
+ * (`docs/adr/ADR-024-date-value-vocabulary.md`).
  */
 import type { CatalogMeta } from "../catalog-meta";
 
