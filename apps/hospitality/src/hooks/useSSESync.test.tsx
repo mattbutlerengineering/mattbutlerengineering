@@ -496,17 +496,23 @@ describe("useSSEEventFeed — event feed via context", () => {
 
 describe("useTableStatuses — cumulative per-table status via context", () => {
   it("starts empty", () => {
-    const { result } = renderHook(() => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     expect(result.current.tableStatuses.statuses.size).toBe(0);
   });
 
   it("records a table's status from a table-status:changed delta", () => {
-    const { result } = renderHook(() => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table-status:changed", {
@@ -521,9 +527,12 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
   });
 
   it("accumulates deltas for multiple tables across events", () => {
-    const { result } = renderHook(() => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table-status:changed", {
@@ -547,9 +556,12 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
   });
 
   it("overwrites a table's previous status on a later delta (last write wins)", () => {
-    const { result } = renderHook(() => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table-status:changed", {
@@ -572,9 +584,12 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
   });
 
   it("ignores unrelated event types", () => {
-    const { result } = renderHook(() => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table:updated", {
