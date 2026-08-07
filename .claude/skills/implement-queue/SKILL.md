@@ -198,6 +198,17 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    for — on seeing one, it reads the missing region from disk via Read/Grep instead of
    guessing.
 
+   **Snapshot `git status --porcelain` before dispatch — a hard mismatch check, not a warning.**
+   Reviewer agents run with `isolation: "none"` in the main checkout and each carries a
+   "Read-only contract" (`.claude/agents/reviewer.md` and the seven specialist agent files)
+   telling it to point any code-execution need at the worker's own worktree
+   (`.claude/worktrees/agent-<taskId>/`, already checked out on the PR branch) instead of
+   touching the main tree. Don't just trust the instruction — verify it:
+
+   ```bash
+   BEFORE=$(git status --porcelain)
+   ```
+
    Dispatch via Agent tool with `subagent_type: "reviewer"`, `isolation: "none"`,
    model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
 
@@ -211,7 +222,23 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    load-bearing: a dispatch that never resolved is not a review, and recording it
    as `pass` is indistinguishable from a real one.
 
-4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
+   **Immediately after the reviewer returns, compare:**
+
+   ```bash
+   AFTER=$(git status --porcelain)
+   [ "$BEFORE" = "$AFTER" ] || echo "MISMATCH — reviewer mutated the main checkout"
+   ```
+
+   A mismatch means the reviewer wrote to, staged, or otherwise changed the main
+   checkout — this is what happened in #3917, where a PR's changes were left staged
+   in the index one `git commit` away from landing on an unrelated branch. Treat a
+   mismatch as a **failed review, not a pass**: restore the tree to the `BEFORE` state
+   (inspect what changed first — `git diff`/`git status` — before discarding anything,
+   in case it overlaps work already in progress in this checkout), then re-dispatch the
+   reviewer. Whatever verdict the mutating dispatch returned is invalid — it read a tree
+   it had already altered.
+
+4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers. Apply the same before/after `git status --porcelain` guard from step 3 to each specialist dispatch — snapshot before, compare after, treat any mismatch as a failed review and re-dispatch rather than trusting a verdict from a reviewer that mutated the tree it read.
 
 5. **On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar:
 
