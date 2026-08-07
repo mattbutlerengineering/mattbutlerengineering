@@ -8,12 +8,12 @@ export interface RestContext {
 }
 
 /**
- * Thrown when GitHub REST returns 401 or 403 for an authenticated request —
- * the token is present but not accepted for direct API access. In a Claude
- * Code Remote session `GITHUB_TOKEN`/`GH_TOKEN` is scoped for git-over-HTTPS
- * only (see #3937), so this is a distinguishable capability gap, not "no
- * data". Callers should check for this specifically instead of losing the
- * distinction inside a generic try/catch.
+ * Thrown when GitHub REST returns 401, or 403 for a reason other than rate
+ * limiting — the token is present but not accepted for direct API access. In
+ * a Claude Code Remote session `GITHUB_TOKEN`/`GH_TOKEN` is scoped for
+ * git-over-HTTPS only (see #3937), so this is a distinguishable capability
+ * gap, not "no data". Callers should check for this specifically instead of
+ * losing the distinction inside a generic try/catch.
  */
 export class GhAuthError extends Error {
   readonly status: number;
@@ -26,11 +26,38 @@ export class GhAuthError extends Error {
 }
 
 /**
+ * Thrown when GitHub REST returns 403 specifically because the caller is
+ * rate-limited (primary or secondary), detected by sniffing `res.body` for
+ * GitHub's "rate limit" wording (see #3947 — `SyncHttpResponse` doesn't
+ * capture headers, so `x-ratelimit-remaining` isn't reachable here). A
+ * rate-limited credential is not an invalid one, so this must not be
+ * reported as a {@link GhAuthError}.
+ */
+export class GhRateLimitError extends Error {
+  readonly status: number;
+
+  constructor(method: string, path: string, status: number, body: string) {
+    super(`gh-client REST rate limit exceeded: ${method} ${path} -> ${status}: ${body}`);
+    this.name = "GhRateLimitError";
+    this.status = status;
+  }
+}
+
+/** GitHub's primary and secondary rate-limit 403 bodies both say "rate limit". */
+function isRateLimitBody(body: string): boolean {
+  return /rate limit/i.test(body);
+}
+
+/**
  * Human-readable reason for a caught gh-client error, for scripts to log
  * alongside "query failed" instead of silently swallowing it. Distinguishes
- * the auth-capability gap ({@link GhAuthError}) from any other failure.
+ * the rate-limit gap ({@link GhRateLimitError}) and the auth-capability gap
+ * ({@link GhAuthError}) from each other and from any other failure.
  */
 export function describeGhError(err: unknown): string {
+  if (err instanceof GhRateLimitError) {
+    return `GitHub API rate limit exceeded (${err.status}) — REST fallback credential is valid but throttled, retry later`;
+  }
   if (err instanceof GhAuthError) {
     return `GitHub auth failed (${err.status}) — REST fallback credential is not valid for direct API calls`;
   }
@@ -81,6 +108,9 @@ export function apiRequest(
     );
   }
   if (res.status >= 400 && !(opts.ignoreStatuses ?? []).includes(res.status)) {
+    if (res.status === 403 && isRateLimitBody(res.body)) {
+      throw new GhRateLimitError(method, path, res.status, res.body);
+    }
     if (res.status === 401 || res.status === 403) {
       throw new GhAuthError(method, path, res.status, res.body);
     }
