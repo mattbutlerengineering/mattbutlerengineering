@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { apiRequest, GhAuthError, describeGhError } from "./rest-http.js";
+import { apiRequest, GhAuthError, GhRateLimitError, describeGhError } from "./rest-http.js";
 import type { RestContext } from "./rest-http.js";
 import type { SyncHttp } from "./sync-http.js";
 
@@ -72,9 +72,41 @@ describe("apiRequest", () => {
     expect(() => apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues")).toThrow(GhAuthError);
   });
 
-  it("throws GhAuthError on a 403 response", () => {
+  it("throws GhAuthError on a permission-denied 403 response", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({
+      status: 403,
+      body: '{"message":"Resource not accessible by integration","documentation_url":"https://docs.github.com/rest"}',
+    });
+    expect(() => apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues")).toThrow(GhAuthError);
+  });
+
+  it("throws GhAuthError on a plain 403 response with no body", () => {
     const http: SyncHttp = vi.fn().mockReturnValue({ status: 403, body: "Forbidden" });
     expect(() => apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues")).toThrow(GhAuthError);
+  });
+
+  it("throws GhRateLimitError (not GhAuthError) on a primary rate-limit 403 response", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({
+      status: 403,
+      body: '{"message":"API rate limit exceeded for user ID 12345.","documentation_url":"https://docs.github.com/rest/overview/resources-in-the-rest-api#rate-limiting"}',
+    });
+    try {
+      apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues");
+      expect.unreachable("apiRequest should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(GhRateLimitError);
+      expect(err).not.toBeInstanceOf(GhAuthError);
+    }
+  });
+
+  it("throws GhRateLimitError on a secondary rate-limit 403 response", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({
+      status: 403,
+      body: '{"message":"You have exceeded a secondary rate limit. Please wait a few minutes before you try again.","documentation_url":"https://docs.github.com/rest/overview/resources-in-the-rest-api#secondary-rate-limits"}',
+    });
+    expect(() => apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues")).toThrow(
+      GhRateLimitError
+    );
   });
 
   it("does not throw GhAuthError for a non-auth 4xx/5xx response", () => {
@@ -93,6 +125,19 @@ describe("describeGhError", () => {
     const err = new GhAuthError("GET", "/repos/owner/repo/issues", 401, "Bad credentials");
     expect(describeGhError(err)).toMatch(/auth/i);
     expect(describeGhError(err)).toContain("401");
+  });
+
+  it("names the rate-limit gap distinctly for a GhRateLimitError, without implying a bad credential", () => {
+    const err = new GhRateLimitError(
+      "GET",
+      "/repos/owner/repo/issues",
+      403,
+      "API rate limit exceeded for user ID 12345."
+    );
+    const description = describeGhError(err);
+    expect(description).toMatch(/rate limit/i);
+    expect(description).toContain("403");
+    expect(description).not.toMatch(/credential is not valid/i);
   });
 
   it("falls back to the error's own message for any other Error", () => {

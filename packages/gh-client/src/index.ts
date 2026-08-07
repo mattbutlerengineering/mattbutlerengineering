@@ -11,4 +11,4 @@ export {
   markReady,
 } from "./label-machine.js";
 export type { LabelTransition, CoordinationLabel } from "./label-machine.js";
-export { GhAuthError, describeGhError } from "./rest-http.js";
+export { GhAuthError, GhRateLimitError, describeGhError } from "./rest-http.js";
