@@ -47,6 +47,7 @@ import type {
   ReservationHold,
   LapsingGuest,
   TableStatusDelta,
+  TableDisplayStatus,
 } from "@mbe/types";
 
 /* ── Types ─────────────────────────────────────────────────────── */
@@ -383,4 +384,41 @@ export function useSSEEventFeed(options: UseSSEEventFeedOptions = {}): readonly 
   }, [feedListeners, maxItems]);
 
   return events;
+}
+
+/* ── useTableStatuses ───────────────────────────────────────────── */
+
+/**
+ * Subscribe to the live, cumulative per-table status map from context.
+ *
+ * Unlike `useSSEEventFeed` (a rolling window of the last N events, for
+ * activity displays), this merges every `table-status:changed` delta into
+ * a table-id-keyed map that never evicts entries — the floor plan canvas
+ * needs the latest known status for every table, not just recent events.
+ */
+export function useTableStatuses(): ReadonlyMap<string, TableDisplayStatus> {
+  const { feedListeners } = useSSESyncContext();
+  const [statuses, setStatuses] = useState<ReadonlyMap<string, TableDisplayStatus>>(
+    () => new Map()
+  );
+
+  useEffect(() => {
+    const listener = (event: ReservationEvent) => {
+      if (event.type !== "table-status:changed") return;
+      const deltas = event.data as TableStatusDelta[];
+      setStatuses((prev) => {
+        const next = new Map(prev);
+        for (const delta of deltas) {
+          next.set(delta.tableId, delta.status);
+        }
+        return next;
+      });
+    };
+    feedListeners.add(listener);
+    return () => {
+      feedListeners.delete(listener);
+    };
+  }, [feedListeners]);
+
+  return statuses;
 }

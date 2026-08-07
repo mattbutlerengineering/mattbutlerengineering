@@ -4,9 +4,11 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
+import type { TableDisplayStatus } from "./table-status.js";
 
 /* Canvas (Konva) doesn't support CSS custom properties — use JS constants */
 const TABLE_LABEL_COLOR = "#ffffff";
+const INACTIVE_COLOR = "#a8a49d"; // Rialto Surface Deep
 
 export interface TableShapeProps {
   table: Table;
@@ -15,13 +17,25 @@ export interface TableShapeProps {
   onSelect: (tableId: string) => void;
   onDragStart: (tableId: string) => void;
   onDragEnd: (tableId: string, x: number, y: number) => void;
+  /**
+   * Live status derived from reservation/hold data (see `table-status.ts`).
+   * Omitted in editor-only usage (no SSE status data available), which
+   * falls back to "available" — matching the pre-live-status default.
+   */
+  status?: TableDisplayStatus;
 }
 
-const TABLE_COLORS = {
-  available: "#5e6a2e", // Rialto Success
-  occupied: "#b84a3c", // Rialto Error
-  reserved: "#8a6820", // Rialto Warning
-  inactive: "#a8a49d", // Rialto Surface Deep
+/**
+ * Hex mirror of `table-status.ts`'s `TABLE_STATUS_COLOR_TOKEN` — Konva
+ * renders to an actual canvas, which can't resolve `var(--rialto-*)` CSS
+ * custom properties, so each token's rialto light-mode hex value is
+ * duplicated here as a JS constant.
+ */
+const TABLE_STATUS_COLORS: Record<TableDisplayStatus, string> = {
+  available: "#5e6a2e", // --rialto-success
+  "reserved-soon": "#b0841e", // --rialto-accent
+  seated: "#b84a3c", // --rialto-error
+  "needs-bussing": "#8a6820", // --rialto-warning
 };
 
 export function TableShape({
@@ -31,6 +45,7 @@ export function TableShape({
   onSelect,
   onDragStart,
   onDragEnd,
+  status,
 }: TableShapeProps) {
   const groupRef = useRef<Konva.Group>(null);
 
@@ -40,8 +55,9 @@ export function TableShape({
   const shape = table.shapeMetadata?.shape ?? "rectangle";
   const rotation = table.shapeMetadata?.rotation ?? 0;
 
-  // Determine color based on table state
-  const fillColor = !table.isActive ? TABLE_COLORS.inactive : TABLE_COLORS.available;
+  // Determine color based on table state — inactive always wins over any
+  // live status, then live status, then the editor-only "available" default.
+  const fillColor = !table.isActive ? INACTIVE_COLOR : TABLE_STATUS_COLORS[status ?? "available"];
 
   const handleDragStart = () => {
     onDragStart(table.id);
