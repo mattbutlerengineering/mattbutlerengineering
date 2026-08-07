@@ -671,4 +671,70 @@ describe("useTableStatuses — reconnect resync (#3931)", () => {
 
     expect(result.current.tableStatuses.isStale).toBe(false);
   });
+
+  it("does not let a reconnect snapshot clobber a delta that landed while the fetch was in flight (#3948)", async () => {
+    mockGetStatuses.mockResolvedValueOnce([
+      { tableId: "t1", status: "available" },
+      { tableId: "t2", status: "available" },
+    ]);
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(false);
+
+    // Connection drops and reconnects — the resync snapshot fetch starts but
+    // has not resolved yet.
+    act(() => {
+      simulateError();
+    });
+
+    let resolveSnapshot!: (deltas: { tableId: string; status: string }[]) => void;
+    const pending = new Promise<{ tableId: string; status: string }[]>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    mockGetStatuses.mockReturnValueOnce(pending);
+
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt
+    });
+    act(() => {
+      void simulateOpen();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    // A live delta for t1 lands while the snapshot fetch (captured before
+    // this delta existed) is still in flight.
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:02Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+
+    // The in-flight snapshot resolves with server state captured before the
+    // delta above — it must not clobber the delta, but it should still land
+    // for tables it has no newer delta for.
+    await act(async () => {
+      resolveSnapshot([
+        { tableId: "t1", status: "available" },
+        { tableId: "t2", status: "dirty" },
+      ]);
+      await pending;
+      await Promise.resolve();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t2")).toBe("dirty");
+  });
 });
