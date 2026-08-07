@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { apiRequest } from "./rest-http.js";
+import { apiRequest, GhAuthError, describeGhError } from "./rest-http.js";
 import type { RestContext } from "./rest-http.js";
 import type { SyncHttp } from "./sync-http.js";
 
@@ -63,5 +63,43 @@ describe("apiRequest", () => {
       }
     );
     expect(result).toEqual({ status: 404, json: null });
+  });
+
+  it("throws GhAuthError (not a generic Error) on a 401 response", () => {
+    const http: SyncHttp = vi
+      .fn()
+      .mockReturnValue({ status: 401, body: '{"message":"Bad credentials"}' });
+    expect(() => apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues")).toThrow(GhAuthError);
+  });
+
+  it("throws GhAuthError on a 403 response", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({ status: 403, body: "Forbidden" });
+    expect(() => apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues")).toThrow(GhAuthError);
+  });
+
+  it("does not throw GhAuthError for a non-auth 4xx/5xx response", () => {
+    const http: SyncHttp = vi.fn().mockReturnValue({ status: 500, body: "Server Error" });
+    try {
+      apiRequest(makeCtx(http), "GET", "/repos/owner/repo/issues");
+      expect.unreachable("apiRequest should have thrown");
+    } catch (err) {
+      expect(err).not.toBeInstanceOf(GhAuthError);
+    }
+  });
+});
+
+describe("describeGhError", () => {
+  it("names the auth-capability gap distinctly for a GhAuthError", () => {
+    const err = new GhAuthError("GET", "/repos/owner/repo/issues", 401, "Bad credentials");
+    expect(describeGhError(err)).toMatch(/auth/i);
+    expect(describeGhError(err)).toContain("401");
+  });
+
+  it("falls back to the error's own message for any other Error", () => {
+    expect(describeGhError(new Error("boom"))).toBe("boom");
+  });
+
+  it("stringifies a non-Error throw value", () => {
+    expect(describeGhError("plain string failure")).toBe("plain string failure");
   });
 });

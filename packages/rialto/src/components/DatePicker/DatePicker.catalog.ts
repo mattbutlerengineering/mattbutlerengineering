@@ -5,6 +5,9 @@
  * `include: false` — DatePicker is a controlled widget that requires an
  * `onChange` callback and cannot be expressed as static AI-generated markup, so
  * it is kept in the metadata but excluded from the catalog the AI consumes.
+ *
+ * Value type: `string | null` (ISO `yyyy-mm-dd`), shared by Calendar/DateRange
+ * per ADR-024 (`docs/adr/ADR-024-date-value-vocabulary.md`).
  */
 import type { CatalogMeta } from "../catalog-meta";
 

@@ -78,10 +78,9 @@
         http: SyncHttp;
       }
     </item>
-    <item priority="low">
-      interface RestResult {
+    <item priority="high">
+      class GhAuthError {
         status: number;
-        json: unknown;
       }
     </item>
   </file>

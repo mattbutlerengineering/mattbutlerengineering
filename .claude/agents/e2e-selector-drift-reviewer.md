@@ -63,7 +63,11 @@ Cross-reference each **user action that mutates state** (create / update / delet
 - Assertions on genuinely-unique landmarks (`getByRole('heading', { name: 'Dashboard' })` on a page with one h1).
 - Pure comment/formatting changes.
 
-### 6. Output
+### 6. Read-only contract
+
+**Never mutate the main checkout.** No `git add`, `git checkout`, `git stash`, `git apply`, `git commit`, or any file write/redirect (`>`, `>>`) against the working tree you were dispatched into — you read and report, you do not change state. If you need the PR's spec files or mocks present on disk beyond what was passed to you, use the worker's own worktree at `.claude/worktrees/agent-<taskId>/` — it is already checked out on the PR branch — never the main checkout. Before you finish, `git status --porcelain` in the main checkout must read byte-identical to how you found it.
+
+### 7. Output
 
 One block per finding, machine-parseable:
 

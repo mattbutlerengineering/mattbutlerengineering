@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { GhAuthError } from "@mbe/gh-client";
 import {
   verifyIssue,
   shouldActOnResult,
@@ -8,6 +9,7 @@ import {
   verifySentry,
   verifyBug,
   verifySecurity,
+  queryClosedIssuesWithSensorLabels,
 } from "../verify-fixes.mjs";
 
 const issueWith = (...labels) => ({
@@ -297,5 +299,61 @@ describe("verifyIssue — routes injected deps to the matching verifier", () => 
     const result = verifyIssue(issueWith("acmm"), depsWithJson(state));
 
     expect(result.confidence).toBe("low");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// queryClosedIssuesWithSensorLabels — injected `listIssues`, zero real `gh`
+// calls.
+//
+// #3937: an auth failure (Claude Code Remote's REST fallback token isn't
+// valid for direct api.github.com calls) must be distinguishable from a
+// legitimately empty result set, instead of both collapsing to the same
+// `safe(..., [])`-swallowed "nothing to verify" shape.
+// ---------------------------------------------------------------------------
+
+describe("queryClosedIssuesWithSensorLabels", () => {
+  const now = new Date("2026-08-07T12:00:00Z");
+  const withinWindow = "2026-08-07T00:00:00Z"; // 12h before `now`
+  const outsideWindow = "2026-08-01T00:00:00Z"; // 6 days before `now`
+
+  it("filters to closed, in-window issues carrying a sensor label", () => {
+    const issues = [
+      { number: 1, closedAt: withinWindow, labels: [{ name: "ci-fix" }] },
+      { number: 2, closedAt: outsideWindow, labels: [{ name: "ci-fix" }] }, // too old
+      { number: 3, closedAt: withinWindow, labels: [{ name: "unrelated" }] }, // no sensor label
+      { number: 4, closedAt: null, labels: [{ name: "ci-fix" }] }, // still open
+    ];
+
+    const result = queryClosedIssuesWithSensorLabels(() => issues, {
+      lookbackHours: 48,
+      sensorLabels: ["ci-fix"],
+      now,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.issues.map((i) => i.number)).toEqual([1]);
+  });
+
+  it("returns ok:true with an empty array when the query legitimately finds nothing", () => {
+    const result = queryClosedIssuesWithSensorLabels(() => [], {
+      lookbackHours: 48,
+      sensorLabels: ["ci-fix"],
+      now,
+    });
+
+    expect(result).toEqual({ ok: true, issues: [] });
+  });
+
+  it("returns ok:false with a distinguishable reason when the query throws (e.g. auth failure)", () => {
+    const result = queryClosedIssuesWithSensorLabels(
+      () => {
+        throw new GhAuthError("GET", "/repos/o/r/issues", 401, "Bad credentials");
+      },
+      { lookbackHours: 48, sensorLabels: ["ci-fix"], now }
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/auth/i);
   });
 });

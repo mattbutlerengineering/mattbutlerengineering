@@ -28,6 +28,10 @@ Review a proposed dependency bump and report whether it is safe to merge.
 10. **Duplicated runtime libraries (dedupe risk)**: After install, check whether the bump leaves a runtime library resolved at two versions with shared type identity (`pnpm why <lib>` / `grep -c "<lib>@" pnpm-lock.yaml`). The classic case: a transitive pin (e.g. `ioredis@5.10.1` under bullmq) coexisting with a direct dep (`ioredis@5.11.0`) — instances type-check against different declarations and produce TS2322 errors that look unrelated to the bump. Recommendation: a scoped `pnpm.overrides` dedupe entry (see item 3 for the required pattern).
 11. **Coverage / test-tooling threshold risk**: Treat bumps to coverage and test tooling (`@vitest/coverage-v8`, `vitest`, istanbul/v8 instrumenters) as threshold risks even with zero code changes — a new coverage engine can re-measure branch coverage _downward_ below a package's configured `thresholds`, breaking the Coverage gate. Run `pnpm test:coverage` in the lowest-margin packages (check `vitest.config.ts` thresholds vs last known coverage) and call out any package within ~2% of its threshold in the verdict.
 
+## Read-only contract
+
+**Never mutate the main checkout.** No `git add`, `git checkout`, `git stash`, `git apply`, `git commit`, or any file write/redirect (`>`, `>>`) against the working tree you were dispatched into — you read and report, you do not change state. The install/build/test steps above (`pnpm install --frozen-lockfile`, `pnpm build`, `pnpm test`) MUST run against the worker's own worktree at `.claude/worktrees/agent-<taskId>/` — it is already checked out on the PR branch — never the main checkout. Before you finish, `git status --porcelain` in the main checkout must read byte-identical to how you found it.
+
 ## Output Format
 
 ```markdown

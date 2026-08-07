@@ -26,6 +26,17 @@ export type { CalendarMonth };
 
 /* ── Component ─────────────────────────────────────────────────────────────── */
 
+/**
+ * Inline, locale-aware month grid for single-date selection. Controlled via
+ * an ISO `yyyy-mm-dd` string — no `Date` objects cross the public boundary.
+ * `DatePicker` and `DateRange` share this same ISO-string vocabulary, per
+ * ADR-024 (`docs/adr/ADR-024-date-value-vocabulary.md`), which unifies the
+ * value contract across all three date components.
+ *
+ * @example
+ * const [date, setDate] = useState<string | null>(null);
+ * <Calendar value={date} onChange={setDate} />
+ */
 export interface CalendarProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange"> {
   /** Currently selected date as a `yyyy-mm-dd` ISO string, or `null` when empty. */
   value: string | null;
