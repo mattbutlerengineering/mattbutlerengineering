@@ -303,6 +303,15 @@ export const floorPlanService = {
         t.updated_at AS "updatedAt"
     `;
 
+    // An unknown/deleted tableId in the batch simply doesn't match any row —
+    // the UPDATE doesn't error, it just returns fewer rows. Fail loudly on a
+    // partial match so this restores the pre-#3892 contract: throw the same
+    // P2025 shape isPrismaNotFound/classifyError already map to a 404,
+    // triggering the client's rollback path instead of a silent 200.
+    if (tables.length !== positions.length) {
+      throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
+    }
+
     return tables.map(mapPrismaTable);
   },
 
