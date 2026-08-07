@@ -177,6 +177,28 @@ describe("TablesClient", () => {
     });
   });
 
+  describe("getStatuses", () => {
+    it("requests GET /api/v1/venues/:venueId/table-statuses and unwraps data", async () => {
+      const deltas = [
+        { tableId: "t1", status: "available" },
+        { tableId: "t2", status: "seated" },
+      ];
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: deltas }));
+
+      const result = await makeClient().getStatuses("v1");
+
+      const [url] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/venues/v1/table-statuses");
+      expect(result).toEqual(deltas);
+    });
+
+    it("throws ApiValidationError when receiving a malformed delta list", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [{ tableId: "t1" }] }));
+
+      await expect(makeClient().getStatuses("v1")).rejects.toBeInstanceOf(ApiValidationError);
+    });
+  });
+
   describe("error handling", () => {
     it("propagates 404 errors", async () => {
       mockFetch.mockResolvedValueOnce(

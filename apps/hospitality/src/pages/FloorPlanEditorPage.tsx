@@ -12,7 +12,7 @@ import {
   useAddTable,
   useDeleteTable,
 } from "../hooks/useFloorPlans.js";
-import { useTableStatuses, useSSEStatus } from "../hooks/useSSESync.js";
+import { useTableStatuses } from "../hooks/useSSESync.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
 export function FloorPlanEditorPage() {
@@ -20,8 +20,7 @@ export function FloorPlanEditorPage() {
   const navigate = useNavigate();
 
   const { data: floorPlan, isLoading, error, refetch } = useFloorPlan(id);
-  const tableStatuses = useTableStatuses();
-  const { isConnected } = useSSEStatus();
+  const { statuses: tableStatuses, isStale } = useTableStatuses();
 
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -303,7 +302,7 @@ export function FloorPlanEditorPage() {
             onTableSelect={setSelectedTableId}
             selectedTableId={selectedTableId}
             tableStatuses={tableStatuses}
-            isStale={!isConnected}
+            isStale={isStale}
           />
         </div>
 

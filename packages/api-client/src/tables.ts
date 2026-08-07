@@ -1,6 +1,12 @@
-import type { z } from "zod";
-import type { PaginatedResponse, Table, CreateTableRequest, UpdateTableRequest } from "@mbe/types";
-import { TableSchema, paginatedResponseSchema } from "@mbe/types";
+import { z } from "zod";
+import type {
+  PaginatedResponse,
+  Table,
+  CreateTableRequest,
+  UpdateTableRequest,
+  TableStatusDelta,
+} from "@mbe/types";
+import { TableSchema, TableStatusDeltaSchema, paginatedResponseSchema } from "@mbe/types";
 import type { ApiClient, QueryParams } from "./client.js";
 
 export interface ListTablesParams {
@@ -62,6 +68,19 @@ export class TablesClient {
       `/api/v1/tables/${id}/status`,
       { status: tableStatus },
       TableSchema
+    );
+  }
+
+  /**
+   * Current derived status for every table in a venue — the resync snapshot
+   * an SSE client refetches on reconnect to replace `table-status:changed`
+   * deltas lost while disconnected (#3931).
+   */
+  async getStatuses(venueId: string): Promise<TableStatusDelta[]> {
+    return this.client.getOne<TableStatusDelta[]>(
+      `/api/v1/venues/${venueId}/table-statuses`,
+      undefined,
+      z.array(TableStatusDeltaSchema)
     );
   }
 }

@@ -40,14 +40,15 @@ vi.mock("../hooks/useApiClient.js", () => ({
   })),
 }));
 
-/* ── Mock useTableStatuses / useSSEStatus (SSESyncProvider isn't mounted in these tests) ── */
+/* ── Mock useTableStatuses (SSESyncProvider isn't mounted in these tests) ── */
 
-const mockUseTableStatuses = vi.fn(() => new Map<string, string>());
-const mockUseSSEStatus = vi.fn(() => ({ isConnected: true, error: null as Error | null }));
+const mockUseTableStatuses = vi.fn(() => ({
+  statuses: new Map<string, string>(),
+  isStale: false,
+}));
 
 vi.mock("../hooks/useSSESync.js", () => ({
   useTableStatuses: () => mockUseTableStatuses(),
-  useSSEStatus: () => mockUseSSEStatus(),
 }));
 
 /* ── Mock floor-plan components ───────────────────────────────── */
@@ -282,8 +283,7 @@ let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  mockUseTableStatuses.mockReturnValue(new Map());
-  mockUseSSEStatus.mockReturnValue({ isConnected: true, error: null });
+  mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: false });
   const mod = await import("./FloorPlanEditorPage.js");
   FloorPlanEditorPage = mod.FloorPlanEditorPage;
 });
@@ -725,7 +725,10 @@ describe("FloorPlanEditorPage", () => {
 
   describe("live status", () => {
     it("threads useTableStatuses' map through to the canvas for each table", async () => {
-      mockUseTableStatuses.mockReturnValue(new Map([["table-a", "seated"]]));
+      mockUseTableStatuses.mockReturnValue({
+        statuses: new Map([["table-a", "seated"]]),
+        isStale: false,
+      });
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       renderPage();
 
@@ -741,8 +744,8 @@ describe("FloorPlanEditorPage", () => {
       expect(tableButton.getAttribute("data-status")).toBeNull();
     });
 
-    it("marks the canvas stale when the SSE connection is down", async () => {
-      mockUseSSEStatus.mockReturnValue({ isConnected: false, error: null });
+    it("marks the canvas stale when useTableStatuses reports isStale", async () => {
+      mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: true });
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       renderPage();
 

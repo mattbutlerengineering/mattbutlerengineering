@@ -40,6 +40,7 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
 import { VENUES_QUERY_KEY } from "./useVenues.js";
+import { useApiClient } from "./useApiClient.js";
 import { SseClient } from "../lib/sse-client.js";
 import type {
   Reservation,
@@ -72,6 +73,22 @@ export interface ReservationEvent {
 }
 
 interface SSEConnectionState {
+  isConnected: boolean;
+  error: Error | null;
+  /**
+   * Bumped on every successful `connected` transition (including the first).
+   * `useTableStatuses` compares this against the epoch it last completed a
+   * resync for — the only way `isStale` clears is a snapshot fetch that
+   * actually landed for the *current* epoch, not merely `isConnected` going
+   * true (#3931's false-all-clear bug).
+   */
+  connectionEpoch: number;
+}
+
+/** Public shape of `useSSEStatus()` — deliberately excludes `connectionEpoch`,
+ * an internal resync-tracking detail `useTableStatuses` reads directly from
+ * context instead. */
+export interface SSEStatus {
   isConnected: boolean;
   error: Error | null;
 }
@@ -114,11 +131,11 @@ function connectionReducer(
 ): SSEConnectionState {
   switch (action.type) {
     case "connected":
-      return { isConnected: true, error: null };
+      return { isConnected: true, error: null, connectionEpoch: state.connectionEpoch + 1 };
     case "disconnected":
-      return { isConnected: false, error: state.error };
+      return { ...state, isConnected: false };
     case "error":
-      return { isConnected: false, error: action.error };
+      return { ...state, isConnected: false, error: action.error };
   }
 }
 
@@ -127,6 +144,7 @@ export function SSESyncProvider({ children }: { children: ReactNode }) {
   const [connectionState, dispatchConnection] = useReducer(connectionReducer, {
     isConnected: false,
     error: null,
+    connectionEpoch: 0,
   });
 
   // Stable Set — useMemo gives a stable reference without touching .current in render
@@ -365,9 +383,9 @@ export function useSSESync(): { reconnect: () => void } {
  * callbacks (event handlers, not a `useEffect` body), so flipping it never
  * re-triggers the effect that created the connection.
  */
-export function useSSEStatus(): SSEConnectionState {
+export function useSSEStatus(): SSEStatus {
   const { connectionState } = useSSESyncContext();
-  return connectionState;
+  return { isConnected: connectionState.isConnected, error: connectionState.error };
 }
 
 /* ── useSSEEventFeed ────────────────────────────────────────────── */
@@ -397,6 +415,18 @@ export function useSSEEventFeed(options: UseSSEEventFeedOptions = {}): readonly 
 
 /* ── useTableStatuses ───────────────────────────────────────────── */
 
+export interface UseTableStatusesResult {
+  statuses: ReadonlyMap<string, TableDisplayStatus>;
+  /**
+   * True whenever displayed statuses might not reflect reality: while
+   * disconnected, AND for the window between reconnect and the resync
+   * snapshot actually landing. Derived at render time from
+   * `connectionEpoch`/`syncedEpoch` — never set from a `useEffect` body —
+   * so reconnecting alone can never produce a false all-clear (#3931).
+   */
+  isStale: boolean;
+}
+
 /**
  * Subscribe to the live, cumulative per-table status map from context.
  *
@@ -404,12 +434,25 @@ export function useSSEEventFeed(options: UseSSEEventFeedOptions = {}): readonly 
  * activity displays), this merges every `table-status:changed` delta into
  * a table-id-keyed map that never evicts entries — the floor plan canvas
  * needs the latest known status for every table, not just recent events.
+ *
+ * `EventSource`/`fetchEventSource` has no `Last-Event-ID` replay, so any
+ * deltas that fired while disconnected are lost forever — reconnecting
+ * alone leaves stale colors on screen. On every `connected` transition this
+ * refetches a full snapshot (`GET /venues/:id/table-statuses`, the same
+ * `deriveTableDisplayStatus` derivation the live deltas use) and replaces
+ * the map, so a reconnect always ends with statuses that are actually
+ * current rather than merely "not visibly stale".
  */
-export function useTableStatuses(): ReadonlyMap<string, TableDisplayStatus> {
-  const { feedListeners } = useSSESyncContext();
+export function useTableStatuses(): UseTableStatusesResult {
+  const { feedListeners, connectionState } = useSSESyncContext();
+  const { isConnected, connectionEpoch } = connectionState;
+  const { selectedVenueId } = useVenue();
+  const api = useApiClient();
+
   const [statuses, setStatuses] = useState<ReadonlyMap<string, TableDisplayStatus>>(
     () => new Map()
   );
+  const [syncedEpoch, setSyncedEpoch] = useState(0);
 
   useEffect(() => {
     const listener = (event: ReservationEvent) => {
@@ -429,5 +472,29 @@ export function useTableStatuses(): ReadonlyMap<string, TableDisplayStatus> {
     };
   }, [feedListeners]);
 
-  return statuses;
+  useEffect(() => {
+    if (!isConnected || !selectedVenueId) return;
+    let cancelled = false;
+
+    api.tables
+      .getStatuses(selectedVenueId)
+      .then((deltas) => {
+        if (cancelled) return;
+        setStatuses(new Map(deltas.map((delta) => [delta.tableId, delta.status])));
+        setSyncedEpoch(connectionEpoch);
+      })
+      .catch(() => {
+        // Already reported to Sentry via useApiClient's onError. Leave the
+        // prior statuses and isStale untouched — retrying on the next
+        // reconnect cycle beats showing a false all-clear.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, connectionEpoch, selectedVenueId, api]);
+
+  const isStale = !isConnected || syncedEpoch !== connectionEpoch;
+
+  return { statuses, isStale };
 }
