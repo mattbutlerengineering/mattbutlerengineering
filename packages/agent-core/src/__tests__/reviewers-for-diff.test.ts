@@ -134,6 +134,26 @@ describe("reviewersForDiff — stripe-flow-reviewer", () => {
   });
 });
 
+describe("reviewersForDiff — e2e-selector-drift-reviewer", () => {
+  it("fires for a Playwright spec file", () => {
+    expect(reviewersForDiff(["apps/hospitality/e2e/onboarding.spec.ts"])).toContain(
+      "e2e-selector-drift-reviewer"
+    );
+  });
+
+  it("fires for an e2e support module (not just *.spec.ts)", () => {
+    expect(reviewersForDiff(["apps/hospitality/e2e/api-mocks.ts"])).toContain(
+      "e2e-selector-drift-reviewer"
+    );
+  });
+
+  it("does NOT fire for app source outside e2e/", () => {
+    expect(reviewersForDiff(["apps/hospitality/src/components/DashboardLayout.tsx"])).not.toContain(
+      "e2e-selector-drift-reviewer"
+    );
+  });
+});
+
 describe("reviewersForDiff — no match / dedupe / order", () => {
   it("returns no reviewers for a plain library source file", () => {
     expect(reviewersForDiff(["packages/observability/src/error-rates.ts"])).toEqual([]);

@@ -59,6 +59,14 @@ const DIFF_REVIEWERS: ReadonlyArray<{ name: string; matches: (file: string) => b
       /^packages\/rialto\/src\/.*\.(test|spec)\.tsx$/.test(f),
   },
   {
+    // Playwright E2E specs and their support modules — strict-mode selector
+    // collisions, volatile-text locators, stateful-mock gaps. Not just
+    // *.spec.ts: a support module like api-mocks.ts or fixtures.ts can carry
+    // the same class of bug (see #3896's blocking finding on api-mocks.ts).
+    name: "e2e-selector-drift-reviewer",
+    matches: (f) => /^apps\/[^/]+\/e2e\//.test(f),
+  },
+  {
     // Dependency manifests — version-bump safety across the monorepo.
     name: "dependency-update-reviewer",
     matches: (f) =>
@@ -105,3 +113,11 @@ const DIFF_REVIEWERS: ReadonlyArray<{ name: string; matches: (file: string) => b
 export function reviewersForDiff(files: readonly string[]): string[] {
   return DIFF_REVIEWERS.filter((r) => files.some((f) => r.matches(f))).map((r) => r.name);
 }
+
+/**
+ * Every reviewer name registered in `DIFF_REVIEWERS`, as a runtime source of
+ * truth. Exported for the `.claude/agents/*.md` coverage test — every
+ * reviewer-type agent file must either appear here or be on that test's
+ * explicit allowlist (see #3916).
+ */
+export const DIFF_REVIEWER_NAMES: readonly string[] = DIFF_REVIEWERS.map((r) => r.name);

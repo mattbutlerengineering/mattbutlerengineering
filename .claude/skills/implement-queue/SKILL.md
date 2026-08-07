@@ -211,7 +211,7 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    load-bearing: a dispatch that never resolved is not a review, and recording it
    as `pass` is indistinguishable from a real one.
 
-4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
+4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
 
 5. **On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar:
 
