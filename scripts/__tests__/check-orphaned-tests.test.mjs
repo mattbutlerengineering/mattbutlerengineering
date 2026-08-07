@@ -42,18 +42,27 @@ describe("collectTestFiles", () => {
   let root;
   afterEach(() => root && rmSync(root, { recursive: true, force: true }));
 
-  it("finds test and spec files across extensions", () => {
+  it("finds test files across extensions", () => {
     root = makeFixture({
       workspaceYaml: "packages:\n",
-      files: ["a/x.test.js", "a/y.spec.ts", "a/z.test.mjs", "a/w.test.tsx"],
+      files: ["a/x.test.js", "a/z.test.mjs", "a/w.test.tsx", "a/v.test.cjs"],
     });
 
     expect(collectTestFiles(root, root)).toEqual([
+      "a/v.test.cjs",
       "a/w.test.tsx",
       "a/x.test.js",
-      "a/y.spec.ts",
       "a/z.test.mjs",
     ]);
+  });
+
+  it("ignores .spec files — those are Playwright's convention, run by their own workflows", () => {
+    root = makeFixture({
+      workspaceYaml: "packages:\n",
+      files: ["a/e2e/thing.spec.ts", "a/real.test.js"],
+    });
+
+    expect(collectTestFiles(root, root)).toEqual(["a/real.test.js"]);
   });
 
   it("ignores non-test sources and skipped directories", () => {
@@ -63,6 +72,30 @@ describe("collectTestFiles", () => {
     });
 
     expect(collectTestFiles(root, root)).toEqual(["a/real.test.js"]);
+  });
+
+  it("does not descend into a nested git worktree", () => {
+    // Regression: a worktree's `.git` is a FILE pointing into worktrees/, so it
+    // cannot be excluded by directory name. Without the shared walker's
+    // isNestedGitWorktree check, every worktree's tests are reported as orphans
+    // and `repo-audit` fails on any checkout carrying agent worktrees.
+    root = makeFixture({
+      workspaceYaml: "packages:\n",
+      files: ["a/real.test.js", "wt/nested.test.js"],
+    });
+    writeFileSync(join(root, "wt", ".git"), "gitdir: /somewhere/.git/worktrees/wt\n");
+
+    expect(collectTestFiles(root, root)).toEqual(["a/real.test.js"]);
+  });
+
+  it("still descends into a normal directory that merely contains a .git file-like name", () => {
+    root = makeFixture({
+      workspaceYaml: "packages:\n",
+      files: ["plain/keep.test.js"],
+    });
+    writeFileSync(join(root, "plain", ".git"), "not a worktree pointer\n");
+
+    expect(collectTestFiles(root, root)).toEqual(["plain/keep.test.js"]);
   });
 });
 
@@ -132,9 +165,9 @@ describe("findOrphanedTests", () => {
 
   it("exempts allowlisted prefixes", () => {
     const { orphans } = findOrphanedTests({
-      testFiles: ["tests/smoke/smoke.spec.ts"],
+      testFiles: ["plugins/acmm/scripts/__tests__/badge.test.js"],
       runnableDirs: [],
-      allowlist: [{ prefix: "tests/smoke/", reason: "playwright" }],
+      allowlist: [{ prefix: "plugins/acmm/", reason: "node:test suite" }],
     });
 
     expect(orphans).toEqual([]);

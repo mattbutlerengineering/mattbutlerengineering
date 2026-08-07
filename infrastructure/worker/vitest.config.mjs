@@ -11,7 +11,8 @@ export default defineVitestConfig({
     include: ["**/*.js"],
     exclude: ["**/*.test.js", "**/node_modules/**", "**/dist/**"],
     // Floors set just under the suite's standing numbers at the time it was
-    // first wired into CI (91.5% lines / 81% branches / 95.3% functions).
+    // first wired into CI: 91.5% lines, 81% branches, 95.3% functions,
+    // 90.8% statements.
     thresholds: {
       lines: 88,
       branches: 78,

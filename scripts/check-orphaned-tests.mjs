@@ -14,30 +14,48 @@
  * routing — none of which had ever run in CI. The failure mode is silent by
  * construction: nothing is red, the tests simply never execute.
  *
- * The rule: every test file must live under a workspace package whose
+ * The rule: every `*.test.*` file must live under a workspace package whose
  * package.json declares a `test` script. Anything else is an orphan and must
  * either be wired in or added to ALLOWLIST with a reason.
+ *
+ * Scope — `*.test.*` only, deliberately. In this repo `.test.*` is the vitest
+ * convention and `.spec.*` is the Playwright one: every `*.spec.*` file in the
+ * workspace (31 under `apps/*&#47;e2e/**`, plus rialto's visual suite) is a
+ * Playwright spec run by its own workflow, and no package's vitest `include`
+ * glob matches `.spec.*` at all. Checking directory reachability for those
+ * would report "covered by turbo test" about files turbo never runs.
+ *
+ * Known limitation of that scope: a `.spec.*` file dropped inside a workspace
+ * package *expecting* vitest to pick it up is not caught here — the package's
+ * vitest `include` glob wouldn't match it either, so it would silently never
+ * run. Closing that needs per-package glob evaluation rather than directory
+ * reachability; see the issue trail on #3911.
  */
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { relative, sep } from "node:path";
 
 import { discoverWorkspaceGlobs, resolveGlob, root } from "./dep-graph-discovery.mjs";
+import { walkFiles, DEFAULT_IGNORE_DIRS } from "./lib/repo-scan.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
 
-/** Test files this check is responsible for. */
-export const TEST_FILE_RE = /\.(test|spec)\.(js|mjs|cjs|ts|tsx)$/;
+/**
+ * Test files this check is responsible for — the vitest convention only.
+ * See the scope note in the module docblock for why `.spec.*` is excluded.
+ */
+export const TEST_FILE_RE = /\.test\.(js|mjs|cjs|ts|tsx)$/;
 
-/** Directories never worth walking into. */
-export const SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
+/**
+ * Build-output directories the shared ignore list doesn't cover. The shared set
+ * already handles node_modules, dist, generated, .git, .claude, .agent-worktrees,
+ * coverage, .turbo and .stryker-tmp — and `walkFiles` additionally refuses to
+ * descend into nested git worktrees, whose `.git` is a *file* rather than a
+ * directory and so cannot be excluded by name (#3884, #3890).
+ */
+export const IGNORE_DIRS = new Set([
+  ...DEFAULT_IGNORE_DIRS,
   "build",
-  "coverage",
-  ".turbo",
   ".next",
-  "generated",
   "graphify-out",
   "test-results",
   "playwright-report",
@@ -50,38 +68,29 @@ export const SKIP_DIRS = new Set([
  */
 export const ALLOWLIST = [
   {
-    prefix: "tests/smoke/",
-    reason:
-      "Playwright post-deploy smoke suite — run by .github/workflows/post-deploy-check.yml against the deployed site, not by turbo.",
-  },
-  {
     prefix: "plugins/acmm/",
     reason:
-      "node:test suite (286 tests), not vitest — turbo cannot run it as-is. Wiring tracked separately; remove this entry when the plugin becomes a workspace package.",
+      "node:test suite (286 tests), not vitest — turbo cannot run it as-is. Wiring tracked by #3912; remove this entry when the plugin becomes a workspace package.",
   },
 ];
 
 /**
- * Recursively collect test files under a directory, relative to `from`.
+ * Collect test files under a directory, relative to `from`.
+ *
+ * Delegates the walk to the shared hardened walker rather than hand-rolling a
+ * fourth one — that is what skips nested git worktrees, without which a
+ * checkout carrying agent worktrees reports every worktree's tests as orphans
+ * and fails `repo-audit` on the developer's own machine.
  *
  * @param {string} dir - Absolute directory to walk.
  * @param {string} from - Absolute path that results are made relative to.
- * @param {Set<string>} [skipDirs]
- * @returns {string[]} POSIX-style relative paths.
+ * @param {Set<string>} [ignoreDirs]
+ * @returns {string[]} POSIX-style relative paths, sorted.
  */
-export function collectTestFiles(dir, from, skipDirs = SKIP_DIRS) {
-  if (!existsSync(dir)) return [];
-  const found = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (skipDirs.has(entry.name)) continue;
-    const entryPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      found.push(...collectTestFiles(entryPath, from, skipDirs));
-    } else if (TEST_FILE_RE.test(entry.name)) {
-      found.push(relative(from, entryPath).split(sep).join("/"));
-    }
-  }
-  return found.sort();
+export function collectTestFiles(dir, from, ignoreDirs = IGNORE_DIRS) {
+  return walkFiles(dir, { ignoreDirs, match: (name) => TEST_FILE_RE.test(name) })
+    .map((file) => relative(from, file).split(sep).join("/"))
+    .sort();
 }
 
 /**
