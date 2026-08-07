@@ -84,6 +84,15 @@ vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenueId: "v1" }),
 }));
 
+const mockGetStatuses = vi.fn();
+// Stable reference across renders — mirrors useApiClient()'s real useMemo
+// (keyed on accessToken). A fresh object per call would re-trigger any
+// effect keyed on `api`.
+const mockApiClient = { tables: { getStatuses: mockGetStatuses } };
+vi.mock("./useApiClient.js", () => ({
+  useApiClient: () => mockApiClient,
+}));
+
 /* ── Wrappers ──────────────────────────────────────────────────── */
 
 function makeWrapper(queryClient?: QueryClient) {
@@ -104,6 +113,8 @@ beforeEach(() => {
   vi.mocked(useAuth).mockReturnValue({ accessToken: "test-access-token" } as never);
   vi.stubEnv("VITE_API_URL", "http://localhost:3000");
   vi.useFakeTimers();
+  mockGetStatuses.mockReset();
+  mockGetStatuses.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -485,17 +496,23 @@ describe("useSSEEventFeed — event feed via context", () => {
 
 describe("useTableStatuses — cumulative per-table status via context", () => {
   it("starts empty", () => {
-    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
-    expect(result.current.statuses.size).toBe(0);
+    expect(result.current.tableStatuses.statuses.size).toBe(0);
   });
 
   it("records a table's status from a table-status:changed delta", () => {
-    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table-status:changed", {
@@ -506,13 +523,16 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
       });
     });
 
-    expect(result.current.statuses.get("t1")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
   });
 
   it("accumulates deltas for multiple tables across events", () => {
-    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table-status:changed", {
@@ -531,14 +551,17 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
       });
     });
 
-    expect(result.current.statuses.get("t1")).toBe("seated");
-    expect(result.current.statuses.get("t2")).toBe("needs-bussing");
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t2")).toBe("needs-bussing");
   });
 
   it("overwrites a table's previous status on a later delta (last write wins)", () => {
-    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table-status:changed", {
@@ -557,13 +580,16 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
       });
     });
 
-    expect(result.current.statuses.get("t1")).toBe("available");
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
   });
 
   it("ignores unrelated event types", () => {
-    const { result } = renderHook(() => ({ statuses: useTableStatuses(), sync: useSSESync() }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     act(() => {
       simulateEvent("table:updated", {
@@ -574,6 +600,75 @@ describe("useTableStatuses — cumulative per-table status via context", () => {
       });
     });
 
-    expect(result.current.statuses.size).toBe(0);
+    expect(result.current.tableStatuses.statuses.size).toBe(0);
+  });
+});
+
+describe("useTableStatuses — reconnect resync (#3931)", () => {
+  it("replays a status change that happened during the outage once the reconnect resync lands", async () => {
+    mockGetStatuses.mockResolvedValueOnce([{ tableId: "t1", status: "available" }]);
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
+
+    // Connection drops — a status change happens during the outage. There is
+    // no delta for it (EventSource has no Last-Event-ID replay), so it would
+    // be lost without a resync.
+    act(() => {
+      simulateError();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    mockGetStatuses.mockResolvedValueOnce([{ tableId: "t1", status: "seated" }]);
+
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt
+    });
+    await act(async () => {
+      await simulateOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+  });
+
+  it("keeps isStale true after reconnect until the resync snapshot has actually landed", async () => {
+    let resolveSnapshot!: (deltas: { tableId: string; status: string }[]) => void;
+    const pending = new Promise<{ tableId: string; status: string }[]>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    mockGetStatuses.mockReturnValueOnce(pending);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    act(() => {
+      void simulateOpen();
+    });
+
+    // Reconnect flipped isConnected, but the resync fetch is still in flight —
+    // must NOT clear staleness on reconnect alone (the false-all-clear bug).
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    await act(async () => {
+      resolveSnapshot([]);
+      await pending;
+      await Promise.resolve();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
   });
 });

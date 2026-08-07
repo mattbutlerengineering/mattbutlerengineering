@@ -69,6 +69,14 @@
       export const OccasionSchema: unknown;
     </item>
   </file>
+  <file path="src/schemas/table-status.ts">
+    <item priority="high">
+      export const TableDisplayStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TableStatusDeltaSchema: unknown;
+    </item>
+  </file>
   <file path="src/schemas/user.ts">
     <item priority="high">
       export const UserPreferencesSchema: unknown;

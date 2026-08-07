@@ -822,6 +822,17 @@
       export function transitionTable(from: TableStatus, to: TableStatus): TableStatus { /* ... */ }
     </item>
   </file>
+  <file path="src/services/table-status.ts">
+    <item priority="high">
+      export function selectCurrentReservation(
+        reservations: readonly Reservation[],
+        now: Date
+      ): Reservation | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function getSnapshot(venueId: string, now: Date = new Date()): Promise<TableStatusDelta[]> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/table.ts">
     <item priority="high">
       export function mapPrismaTable(table: {

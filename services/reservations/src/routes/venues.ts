@@ -9,6 +9,7 @@ import type {
   ApiResponse,
   ProblemDetails,
   PaginatedResponse,
+  TableStatusDelta,
 } from "@mbe/types";
 import {
   createProblemDetails,
@@ -28,6 +29,7 @@ import {
 } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { venueService, venueGroupService } from "../services/venue.js";
+import { tableStatusService } from "../services/table-status.js";
 
 /**
  * Reads a venue's own id from the `:id` route param, so requireVenueAccess can
@@ -390,6 +392,75 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }
       return { data: venue };
+    }
+  );
+
+  // Get current derived table-status snapshot for the venue (staff-only —
+  // reconnect resync for the floor plan's live status map, #3931)
+  fastify.get<{
+    Params: { id: string };
+    Reply: ApiResponse<TableStatusDelta[]> | ProblemDetails;
+  }>(
+    "/:id/table-statuses",
+    {
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+      ],
+      schema: {
+        summary: "Get current table-status snapshot for a venue",
+        operationId: "getVenueTableStatuses",
+        description:
+          "Returns the current derived display status for every table in the venue — " +
+          "the snapshot a reconnecting SSE client refetches to replace any " +
+          "table-status:changed deltas lost while disconnected.",
+        tags: ["Venues"],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Unique venue identifier",
+            },
+          },
+          required: ["id"],
+        },
+        response: {
+          200: {
+            description: "Current table-status snapshot",
+            type: "object",
+            properties: {
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    tableId: { type: "string" },
+                    status: {
+                      type: "string",
+                      enum: ["available", "seated", "needs-bussing", "reserved-soon"],
+                    },
+                  },
+                  required: ["tableId", "status"],
+                },
+              },
+            },
+          },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
+          403: {
+            description: "Caller does not have access to this venue",
+            $ref: "Error#",
+          },
+        },
+      },
+    },
+    async (request) => {
+      const snapshot = await tableStatusService.getSnapshot(request.params.id);
+      return { data: snapshot };
     }
   );
 
