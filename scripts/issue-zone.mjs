@@ -91,11 +91,108 @@ const FILES_SECTION_HEADING = /^#{1,6}[ \t]*files to modify\/create[ \t]*$/im;
 // Any markdown heading — used to find where the files section ends.
 const HEADING_LINE = /^#{1,6}[ \t]+\S/m;
 
-// A path token must start with a recognized workspace root so prose like
-// "main", "CI Gate", or "origin/main" can never be mistaken for a path.
-// Bounded, non-overlapping character classes keep this linear-time (no
-// nested-quantifier backtracking risk) even on adversarial issue bodies.
-const PATH_TOKEN_PATTERN = /\b(?:apps|packages|services)\/[\w.-]+(?:\/[\w.-]+)*/g;
+// Repo-root directory entries that are never a candidate "root-level path"
+// segment: the workspace roots themselves (already matched by the pattern
+// below, via a *different* zone) and VCS/dependency internals.
+const ROOT_DIR_EXCLUDE = new Set([...WORKSPACE_ROOTS, "node_modules", ".git"]);
+
+/**
+ * Scans the repo root for real top-level directories that are NOT one of
+ * the merge-train workspace roots (apps/packages/services) — e.g. `scripts/`,
+ * `docs/`, `.claude/`. Every one of these already maps to the `root` zone
+ * via merge-train-lock's `zoneForPath`; listing them here only widens what
+ * `extractPathsFromBody` recognizes as a path token at all — it never
+ * changes what zone a recognized path resolves to.
+ *
+ * Disk-derived (mirrors `buildScopeZoneMap`'s approach) so this list can't
+ * drift from the real repo layout — the drift pattern already fixed 3x
+ * (#3887, #3916, #3933): two hand-maintained lists that must agree.
+ *
+ * @param {string} [repoRoot]
+ * @returns {string[]}
+ */
+function buildRootDirList(repoRoot = REPO_ROOT) {
+  let entries;
+  try {
+    entries = fs.readdirSync(repoRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory() && !ROOT_DIR_EXCLUDE.has(entry.name))
+    .map((entry) => entry.name);
+}
+
+// Common top-level filenames referenced in issue bodies. Unlike the
+// directory list above, this is a deliberate hand-picked allowlist rather
+// than a full disk scan: the repo root also holds ~20 other real files
+// (LICENSE, .editorconfig, .prettierrc.js, CODE_OF_CONDUCT.md, ...) that are
+// essentially never the subject of "files to modify" prose, and whose bare
+// (slash-less) names are far more collision-prone against ordinary English
+// than a slash-qualified directory token — scanning all of them in would
+// widen the false-positive surface for no real benefit. Extend this list if
+// a real issue body needs a filename it's missing.
+const ROOT_LEVEL_FILES = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "GEMINI.md",
+  "README.md",
+  "package.json",
+  "turbo.json",
+  "pnpm-workspace.yaml",
+  "pnpm-lock.yaml",
+  "vitest.config.ts",
+  "eslint.config.js",
+];
+
+const ROOT_LEVEL_DIRS = buildRootDirList();
+
+/**
+ * Escapes regex metacharacters so a literal directory/file name can be
+ * embedded in an alternation.
+ *
+ * @param {string} token
+ * @returns {string}
+ */
+function escapeRegExp(token) {
+  return token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Builds the body path-token pattern from the workspace roots plus the
+ * disk-derived/hand-picked root-level allowlists.
+ *
+ * A path token must start with one of these recognized roots so prose like
+ * "main", "CI Gate", or "origin/main" can never be mistaken for a path.
+ * Bounded, non-overlapping character classes keep this linear-time (no
+ * nested-quantifier backtracking risk) even on adversarial issue bodies.
+ *
+ * The directory alternation uses a negative lookbehind, not `\b`, as its
+ * left boundary: `\b` fires on a \w/\W transition, but dot-prefixed dirs
+ * (`.claude`, `.github`) start with a \W char, so a preceding space (also
+ * \W) gives no transition and `\b` would never match. `(?<![\w.])` — "not
+ * preceded by a word char or a dot" — works identically to `\b` for
+ * word-initial names (e.g. "scripts") and additionally handles dot-initial
+ * ones, so a single alternation covers both.
+ *
+ * @param {string[]} workspaceRoots
+ * @param {string[]} rootDirs
+ * @param {string[]} rootFiles
+ * @returns {RegExp}
+ */
+function buildPathTokenPattern(workspaceRoots, rootDirs, rootFiles) {
+  const dirAlt = [...workspaceRoots, ...rootDirs].map(escapeRegExp).join("|");
+  const dirPattern = `(?<![\\w.])(?:${dirAlt})/[\\w.-]+(?:/[\\w.-]+)*`;
+  if (rootFiles.length === 0) return new RegExp(dirPattern, "g");
+  const fileAlt = rootFiles.map(escapeRegExp).join("|");
+  return new RegExp(`${dirPattern}|\\b(?:${fileAlt})\\b`, "g");
+}
+
+const PATH_TOKEN_PATTERN = buildPathTokenPattern(
+  WORKSPACE_ROOTS,
+  ROOT_LEVEL_DIRS,
+  ROOT_LEVEL_FILES
+);
 
 /**
  * Extracts the `## Files to Modify/Create` section body (text between that

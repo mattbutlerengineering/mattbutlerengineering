@@ -279,5 +279,102 @@ describe("issue-zone", () => {
       expect(zones).toEqual(["apps/hospitality", "packages/rialto", "services/reservations"]);
       expect(new Set(zones).size).toBe(3);
     });
+
+    test("regression (#3934): a root-only candidate takes the root slot, not the shared global one", () => {
+      // Real shape observed live 2026-08-07 (see issue #3934): three
+      // candidates, priority order #3840 > #3844 > #3931. #3840 and #3931
+      // are genuinely cross-cutting (multiple workspace zones) → global.
+      // #3844 only touches scripts/** → should resolve to "root", a
+      // DIFFERENT slot from global, so both #3840 and #3844 fit in one batch.
+      const filesSection = (...paths) =>
+        `## Files to Modify/Create\n\n${paths.map((p) => `- \`${p}\``).join("\n")}\n`;
+      const candidates = [
+        issue("[Feature] unified date-value vocabulary [3/4]: update catalog + docs", {
+          number: 3840,
+          body: filesSection(
+            "packages/rialto/src/components/Calendar/Calendar.stories.tsx",
+            "packages/rialto-catalog/src/entries/calendar.ts"
+          ),
+        }),
+        issue("[Feature] human-touch reason telemetry [2/4]: reason classifier", {
+          number: 3844,
+          body: filesSection(
+            "scripts/classify-human-touch.mjs",
+            "scripts/__tests__/classify-human-touch.test.mjs"
+          ),
+        }),
+        issue("hospitality: floor plan clears staleness indicator without resyncing", {
+          number: 3931,
+          body: filesSection(
+            "apps/hospitality/src/hooks/useSSESync.tsx",
+            "services/reservations/src/routes/events.ts",
+            "packages/api-client/src/tables.ts"
+          ),
+        }),
+      ];
+      const zones = candidates.map((i) => issueZone(i));
+      expect(zones).toEqual([null, "root", null]);
+
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3 });
+      // #3840 takes the global slot, #3844 takes the (now-distinct) root
+      // slot, #3931 is deferred (global slot already occupied).
+      expect(batch.map((i) => i.number)).toEqual([3840, 3844]);
+    });
+  });
+
+  describe("issueZone — root-zone body fallback (#3934)", () => {
+    test("body naming only scripts/ paths → root zone (real #3844 shape)", () => {
+      const body =
+        "## Files to Modify/Create\n\n" +
+        "- `scripts/classify-human-touch.mjs` — new classifier module\n" +
+        "- `scripts/__tests__/classify-human-touch.test.mjs` — one test per taxonomy branch\n";
+      expect(
+        issueZone(
+          issue("[Feature] human-touch reason telemetry [2/4]: reason classifier", { body })
+        )
+      ).toBe("root");
+    });
+
+    test.each([
+      ["docs/review-criteria.md", "docs/review-criteria.md"],
+      [".claude/rules/gotchas.md", ".claude/rules/gotchas.md"],
+      ["tools/cli/src/index.ts", "tools/cli/src/index.ts"],
+      ["plugins/acmm/scripts/audit.js", "plugins/acmm/scripts/audit.js"],
+      ["infrastructure/worker/health.js", "infrastructure/worker/health.js"],
+      ["AGENTS.md (top-level filename)", "AGENTS.md"],
+      ["CLAUDE.md (top-level filename)", "CLAUDE.md"],
+    ])("body naming only %s → root zone", (_label, p) => {
+      const body = `## Files to Modify/Create\n\n- \`${p}\`\n`;
+      expect(issueZone(issue("Non-conventional title", { body }))).toBe("root");
+    });
+
+    test("body mixing a root-level path and a workspace-package path → null (cross-cutting)", () => {
+      const body =
+        "## Files to Modify/Create\n\n- `scripts/regen.mjs`\n- `packages/rialto/src/index.ts`\n";
+      expect(issueZone(issue("Non-conventional title", { body }))).toBeNull();
+    });
+
+    test("root-level path found via whole-body scan (no ## Files to Modify/Create heading)", () => {
+      const body = "This change only touches scripts/regen.mjs and its test.";
+      expect(issueZone(issue("Non-conventional title", { body }))).toBe("root");
+    });
+
+    describe("false-positive guard — prose must never be mistaken for a root-level path", () => {
+      test.each([
+        ["conventional-commit-scope prose", "Follow-up to feat(scope): thing landing next week."],
+        ["merge/branch prose", "Merged into main after CI Gate went green. See origin/main."],
+        ["slash-separated word pairs", "Choose and/or configure the pass/flag threshold."],
+        ["slash-separated model tiers", "Model tiers considered: haiku/sonnet/opus."],
+        ["slash-separated command list", "Run lint/typecheck/test before committing."],
+        ["en-dash numeric range", "Reviewer score range is 0–10."],
+        [
+          "a github.com URL with no leading dot",
+          "See https://github.com/mattbutlerengineering/x for details.",
+        ],
+        ["a docs.github.com URL", "Docs: https://docs.github.com/rest for the REST API."],
+      ])("%s", (_label, body) => {
+        expect(issueZone(issue("Non-conventional title", { body }))).toBeNull();
+      });
+    });
   });
 });
