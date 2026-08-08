@@ -22,13 +22,21 @@
  * Design: path selection and naming are pure functions; git/gh live behind
  * injected `runGit`/`runGh` callbacks (the revert-watchdog.mjs /
  * collect-queue-telemetry.mjs pattern), so the selection logic is unit-tested
- * without touching a repo. The CLI wires them to execFileSync with argv arrays
- * — never a shell string.
+ * without touching a repo. The CLI wires `runGit` to execFileSync with argv
+ * arrays — never a shell string — and `runGh` to `createRunGh()` below.
+ *
+ * `runGh` used to shell straight to `execFileSync("gh", ...)`. In a Claude
+ * Code Remote session `gh` isn't installed, so that hard-failed with ENOENT
+ * right after the git push succeeded (#3985). `createRunGh()` instead wires
+ * to `@mbe/gh-client`'s `pr.create()` facet, which already probes for `gh`
+ * and falls back to a direct REST call when it's missing — no second,
+ * divergent fallback implementation here.
  */
 
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createGhClient } from "@mbe/gh-client";
 import { durableManifest } from "./metrics-store.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -136,6 +144,7 @@ export function buildPrBody(routine, paths) {
  *   today: string,
  *   paths?: string[],
  *   listChanged: () => string[],
+ *   branchExists?: (branch: string) => boolean,
  *   runGit: (args: string[]) => void,
  *   runGh: (args: string[]) => void,
  *   log?: (msg: string) => void,
@@ -147,6 +156,7 @@ export function persistMetrics({
   today,
   paths = durableManifest(),
   listChanged,
+  branchExists = () => false,
   runGit,
   runGh,
   log = emit,
@@ -162,7 +172,10 @@ export function persistMetrics({
   const branch = buildBranchName(routine, today);
   const message = buildCommitMessage(routine, today);
 
-  runGit(["checkout", "-b", branch]);
+  // A prior partial run (e.g. commit failed after the branch was already
+  // created — #3985) leaves the branch behind. Reuse it instead of
+  // hard-crashing on "branch already exists".
+  runGit(branchExists(branch) ? ["checkout", branch] : ["checkout", "-b", branch]);
   runGit(["add", "--", ...changed]);
   runGit(["commit", "-m", message]);
   runGit(["push", "--set-upstream", "origin", branch]);
@@ -185,6 +198,31 @@ export function persistMetrics({
   return { committed: true, paths: changed, branch, message };
 }
 
+/**
+ * Wires `persistMetrics()`'s `runGh` callback to `@mbe/gh-client`'s
+ * `pr.create()` facet — it already probes for the `gh` binary and falls
+ * back to a direct REST call when it's missing (see
+ * `packages/gh-client/src/transport.ts`), which is what makes this work
+ * in a Claude Code Remote session with no `gh` installed (#3985).
+ *
+ * `persistMetrics()` only ever calls `runGh(["pr", "create", ...])`, so
+ * this strips the leading `"pr", "create"` and forwards the rest straight
+ * to the facet.
+ *
+ * @param {import("@mbe/gh-client").GhClientOptions} [opts] — forwarded to
+ *   createGhClient(); tests inject `probe`/`runner`/`http` to force a path.
+ * @returns {(argv: string[]) => string}
+ */
+export function createRunGh(opts = {}) {
+  const { pr } = createGhClient(opts);
+  return (argv) => {
+    if (argv[0] !== "pr" || argv[1] !== "create") {
+      throw new Error(`createRunGh only supports "gh pr create", got: gh ${argv.join(" ")}`);
+    }
+    return pr.create(argv.slice(2));
+  };
+}
+
 // ── CLI ───────────────────────────────────────────────
 
 /** @param {string[]} args */
@@ -195,6 +233,19 @@ function readFlag(args, name) {
 
 function exec(file, args) {
   execFileSync(file, args, { cwd: ROOT, stdio: "inherit" });
+}
+
+/** @param {string} branch */
+function localBranchExists(branch) {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", "--quiet", branch], {
+      cwd: ROOT,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function main() {
@@ -219,8 +270,9 @@ function main() {
     today: new Date().toISOString().slice(0, 10),
     paths,
     listChanged,
+    branchExists: localBranchExists,
     runGit: dryRun ? announce : (argv) => exec("git", argv),
-    runGh: dryRun ? announce : (argv) => exec("gh", argv),
+    runGh: dryRun ? announce : createRunGh(),
   });
 }
 
