@@ -38,10 +38,6 @@
       "types": "./dist/lib/components/AspectRatio/index.d.ts",
       "import": "./dist/lib/components/AspectRatio/index.js"
     },
-    "./AuthMascot": {
-      "types": "./dist/lib/components/AuthMascot/index.d.ts",
-      "import": "./dist/lib/components/AuthMascot/index.js"
-    },
     "./Autocomplete": {
       "types": "./dist/lib/components/Autocomplete/index.d.ts",
       "import": "./dist/lib/components/Autocomplete/index.js"
@@ -121,6 +117,10 @@
     "./DateRange": {
       "types": "./dist/lib/components/DateRange/index.d.ts",
       "import": "./dist/lib/components/DateRange/index.js"
+    },
+    "./DateRangePicker": {
+      "types": "./dist/lib/components/DateRangePicker/index.d.ts",
+      "import": "./dist/lib/components/DateRangePicker/index.js"
     },
     "./DepartureBoard": {
       "types": "./dist/lib/components/DepartureBoard/index.d.ts",

@@ -19,7 +19,6 @@ import { Accordion } from "../../components/Accordion/Accordion";
 import { Alert } from "../../components/Alert/Alert";
 import { AppBar } from "../../components/AppBar/AppBar";
 import { AspectRatio } from "../../components/AspectRatio/AspectRatio";
-import { AuthMascot } from "../../components/AuthMascot/AuthMascot";
 import { Autocomplete } from "../../components/Autocomplete/Autocomplete";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { Badge } from "../../components/Badge/Badge";
@@ -45,6 +44,7 @@ import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
 import { DatePicker } from "../../components/DatePicker/DatePicker";
 import { DateRange } from "../../components/DateRange/DateRange";
+import { DateRangePicker } from "../../components/DateRangePicker/DateRangePicker";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Dialog } from "../../components/Dialog/Dialog";
 import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledTooltip";
@@ -122,7 +122,6 @@ export type BarrelExportName =
   | "Alert"
   | "AppBar"
   | "AspectRatio"
-  | "AuthMascot"
   | "Autocomplete"
   | "Avatar"
   | "Badge"
@@ -143,6 +142,7 @@ export type BarrelExportName =
   | "DataTable"
   | "DatePicker"
   | "DateRange"
+  | "DateRangePicker"
   | "DepartureBoard"
   | "Dialog"
   | "DisabledTooltip"
@@ -225,6 +225,15 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
   DateRange: {
     element: <DateRange value={{ start: "2024-06-10", end: "2024-06-15" }} onChange={noop} />,
   },
+  DateRangePicker: {
+    element: (
+      <DateRangePicker
+        label="Dates"
+        value={{ start: "2024-06-10", end: "2024-06-15" }}
+        onChange={noop}
+      />
+    ),
+  },
   Accordion: {
     element: (
       <Accordion
@@ -250,10 +259,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         <div>Content</div>
       </AspectRatio>
     ),
-  },
-
-  AuthMascot: {
-    element: <AuthMascot state="neutral" />,
   },
 
   Autocomplete: {

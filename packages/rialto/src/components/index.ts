@@ -54,6 +54,7 @@ export * from "./FlipDot";
 export * from "./Calendar";
 export * from "./DatePicker";
 export * from "./DateRange";
+export * from "./DateRangePicker";
 export * from "./TimePicker";
 export * from "./AspectRatio";
 export * from "./DisabledTooltip";
@@ -99,4 +100,3 @@ export * from "./TapeChart";
 
 // ── Providers ──────────────────────────────────
 export * from "../providers";
-export * from "./AuthMascot";

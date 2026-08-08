@@ -454,6 +454,13 @@ export function useTableStatuses(): UseTableStatusesResult {
   );
   const [syncedEpoch, setSyncedEpoch] = useState(0);
 
+  // While a reconnect snapshot fetch is in flight, buffer any live deltas
+  // that land for the same tables — otherwise the snapshot's `.then()`
+  // (server state captured *before* those deltas existed) would overwrite
+  // them with stale data once it resolves (#3948). `null` = no fetch in
+  // flight; a Map = accumulating deltas to reapply once the snapshot lands.
+  const pendingDuringFetchRef = useRef<Map<string, TableDisplayStatus> | null>(null);
+
   useEffect(() => {
     const listener = (event: ReservationEvent) => {
       if (event.type !== "table-status:changed") return;
@@ -465,6 +472,9 @@ export function useTableStatuses(): UseTableStatusesResult {
         }
         return next;
       });
+      for (const delta of deltas) {
+        pendingDuringFetchRef.current?.set(delta.tableId, delta.status);
+      }
     };
     feedListeners.add(listener);
     return () => {
@@ -475,22 +485,36 @@ export function useTableStatuses(): UseTableStatusesResult {
   useEffect(() => {
     if (!isConnected || !selectedVenueId) return;
     let cancelled = false;
+    const pendingDuringFetch = new Map<string, TableDisplayStatus>();
+    pendingDuringFetchRef.current = pendingDuringFetch;
+
+    const clearIfCurrent = () => {
+      if (pendingDuringFetchRef.current === pendingDuringFetch) {
+        pendingDuringFetchRef.current = null;
+      }
+    };
 
     api.tables
       .getStatuses(selectedVenueId)
       .then((deltas) => {
         if (cancelled) return;
-        setStatuses(new Map(deltas.map((delta) => [delta.tableId, delta.status])));
+        const next = new Map(deltas.map((delta) => [delta.tableId, delta.status]));
+        for (const [tableId, status] of pendingDuringFetch) {
+          next.set(tableId, status);
+        }
+        setStatuses(next);
         setSyncedEpoch(connectionEpoch);
       })
       .catch(() => {
         // Already reported to Sentry via useApiClient's onError. Leave the
         // prior statuses and isStale untouched — retrying on the next
         // reconnect cycle beats showing a false all-clear.
-      });
+      })
+      .finally(clearIfCurrent);
 
     return () => {
       cancelled = true;
+      clearIfCurrent();
     };
   }, [isConnected, connectionEpoch, selectedVenueId, api]);
 

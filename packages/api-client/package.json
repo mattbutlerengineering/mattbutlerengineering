@@ -27,7 +27,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:contract": "vitest run src/contract.test.ts",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "size": "size-limit",
+    "size:check": "size-limit"
   },
   "dependencies": {
     "@mbe/types": "workspace:*",
@@ -38,5 +40,22 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
+  "size-limit": [
+    {
+      "name": "index (subpath)",
+      "path": "dist/index.js",
+      "limit": "650 B"
+    },
+    {
+      "name": "users (subpath)",
+      "path": "dist/users.js",
+      "limit": "460 B"
+    },
+    {
+      "name": "streaming (subpath)",
+      "path": "dist/streaming.js",
+      "limit": "1000 B"
+    }
+  ],
   "license": "MIT"
 }

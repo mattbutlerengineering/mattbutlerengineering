@@ -23,7 +23,9 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:drift": "vitest run src/__tests__/drift-check.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "size": "size-limit",
+    "size:check": "size-limit"
   },
   "dependencies": {
     "@json-render/core": "^0.19.0",
@@ -44,5 +46,17 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
+  "size-limit": [
+    {
+      "name": "index (subpath)",
+      "path": "dist/index.js",
+      "limit": "120 B"
+    },
+    {
+      "name": "catalog (subpath)",
+      "path": "dist/catalog.js",
+      "limit": "800 B"
+    }
+  ],
   "license": "MIT"
 }

@@ -8,8 +8,8 @@ export interface RestContext {
 }
 
 /**
- * Thrown when GitHub REST returns 401, or 403 for a reason other than rate
- * limiting — the token is present but not accepted for direct API access. In
+ * Thrown when GitHub REST returns 401, or 403 for a reason other than
+ * throttling — the token is present but not accepted for direct API access. In
  * a Claude Code Remote session `GITHUB_TOKEN`/`GH_TOKEN` is scoped for
  * git-over-HTTPS only (see #3937), so this is a distinguishable capability
  * gap, not "no data". Callers should check for this specifically instead of
@@ -27,11 +27,13 @@ export class GhAuthError extends Error {
 
 /**
  * Thrown when GitHub REST returns 403 specifically because the caller is
- * rate-limited (primary or secondary), detected by sniffing `res.body` for
- * GitHub's "rate limit" wording (see #3947 — `SyncHttpResponse` doesn't
- * capture headers, so `x-ratelimit-remaining` isn't reachable here). A
- * rate-limited credential is not an invalid one, so this must not be
- * reported as a {@link GhAuthError}.
+ * being throttled — primary rate limit, secondary rate limit, or abuse
+ * detection — detected by sniffing `res.body` for GitHub's wording for each
+ * (see #3947, widened in #3953 — `SyncHttpResponse` doesn't capture headers,
+ * so `x-ratelimit-remaining`/`retry-after` aren't reachable here). All three
+ * are the same shape: a valid credential told to back off and retry later,
+ * not an invalid one, so none of them must be reported as a
+ * {@link GhAuthError}.
  */
 export class GhRateLimitError extends Error {
   readonly status: number;
@@ -43,9 +45,13 @@ export class GhRateLimitError extends Error {
   }
 }
 
-/** GitHub's primary and secondary rate-limit 403 bodies both say "rate limit". */
-function isRateLimitBody(body: string): boolean {
-  return /rate limit/i.test(body);
+/**
+ * GitHub's primary and secondary rate-limit 403 bodies both say "rate
+ * limit"; its abuse-detection 403 body says "abuse detection mechanism"
+ * instead (#3953). All three are throttling, not a credential problem.
+ */
+function isThrottledBody(body: string): boolean {
+  return /rate limit/i.test(body) || /abuse detection/i.test(body);
 }
 
 /**
@@ -108,7 +114,7 @@ export function apiRequest(
     );
   }
   if (res.status >= 400 && !(opts.ignoreStatuses ?? []).includes(res.status)) {
-    if (res.status === 403 && isRateLimitBody(res.body)) {
+    if (res.status === 403 && isThrottledBody(res.body)) {
       throw new GhRateLimitError(method, path, res.status, res.body);
     }
     if (res.status === 401 || res.status === 403) {

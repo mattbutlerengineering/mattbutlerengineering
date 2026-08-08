@@ -93,13 +93,6 @@
   margin: 0;
 }
 
-/* ── Mascot ──────────────────────────────────── */
-
-.mascot {
-  display: flex;
-  justify-content: center;
-}
-
 @keyframes stagePulse {
   0%,
   35%,
