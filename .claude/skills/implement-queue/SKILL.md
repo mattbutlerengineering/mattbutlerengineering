@@ -331,6 +331,14 @@ If CI fails on the updated branch: one fix attempt in the main session (small fi
 ## Phase 4: Loop or Stop
 
 - **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
+- **Reap merged workers' worktrees.** A successful worker's worktree is never auto-removed (Claude Code's `isolation: "worktree"` only reclaims an _unchanged_ worktree, and every successful worker commits) — #3950. After Phase 3 merges, run the reaper to reclaim any now-eligible `.claude/worktrees/agent-*` worktree:
+
+  ```bash
+  DRY_RUN=false node scripts/reap-worktrees.mjs
+  ```
+
+  Its safety gate (`decideWorktreeReap` in `scripts/reap-worktrees.mjs`) refuses any worktree with an open PR or a live owning process — see the module header for the liveness definition. Dry-run by default; safe to run every iteration, a no-op when nothing is eligible.
+
 - More `ready` issues and time/budget remain → back to Phase 0.
 - **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
 - **Persist telemetry before stopping:** if `metrics/queue-telemetry.jsonl` has uncommitted appended rows (`git diff --stat -- metrics/queue-telemetry.jsonl`), commit ONLY that path on a branch and open a PR titled `chore(metrics): queue telemetry <YYYY-MM-DD>` labeled `has-pr`. A PR that touches only `metrics/**` satisfies `isLowRiskPR` (see Phase 2 step 2) and auto-merges via the low-risk fast path — but only if every changed file is metrics-only; a mixed diff (e.g. also touching a non-allowlisted file) falls through to the reviewer gate like any other PR. Ephemeral cloud checkouts lose uncommitted rows forever.
