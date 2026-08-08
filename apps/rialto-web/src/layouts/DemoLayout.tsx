@@ -185,7 +185,7 @@ export function DemoLayout() {
 
   return (
     <RialtoProvider vibe={activeVibe} theme={demoTheme}>
-      <div dir={rtl ? "rtl" : undefined}>
+      <div dir={rtl ? "rtl" : undefined} className={styles.root}>
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
@@ -194,7 +194,7 @@ export function DemoLayout() {
           theme={demoTheme}
           onThemeToggle={() => handleDarkModeChange(!darkMode)}
         />
-        <div className={styles.floatingControls}>
+        <div className={styles.floatingControls} data-testid="demo-floating-controls">
           <FloatingControls
             darkMode={darkMode}
             onDarkModeChange={handleDarkModeChange}

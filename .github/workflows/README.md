@@ -46,6 +46,7 @@ Run on cron schedules for ongoing health and compliance.
 | `audit-sweep.yml`              | weekly    | Rotating zone site audit                 |
 | `auto-issue.yml`               | scheduled | Auto-generate issues from audit findings |
 | `auto-qa-tune.yml`             | scheduled | Tune QA thresholds                       |
+| `automation-pr-rescue.yml`     | scheduled | Update-branch stale automation/\* PRs    |
 | `backup-verify.yml`            | scheduled | Verify database backups                  |
 | `branch-cleanup.yml`           | scheduled | Delete merged/stale branches             |
 | `changelog.yml`                | scheduled | Generate changelog                       |

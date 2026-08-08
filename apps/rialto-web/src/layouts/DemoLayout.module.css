@@ -1,9 +1,17 @@
 /* ── Floating controls bar ──────────────────── */
+/* Positioned below GlobalNav's 64px (--rialto-space-3xl) bar instead of
+   sharing its top-16px corner — GlobalNav's brand link and its trailing
+   actions (theme toggle + hamburger) both live at that block-start edge in
+   both LTR and RTL (inset-inline-* flips symmetrically for both), so any
+   fixed corner placement up there collides with one side or the other.
+   See #3939. */
 .floatingControls {
   position: fixed;
-  top: var(--rialto-space-md);
+  top: calc(var(--rialto-space-3xl) + var(--rialto-space-md));
   inset-inline-start: var(--rialto-space-md);
-  z-index: 9990;
+  /* --rialto-z-overlay: highest token in the scale — these controls must
+     stay above ordinary demo-page content regardless of route. */
+  z-index: var(--rialto-z-overlay);
   display: flex;
   gap: var(--rialto-space-xs);
 }
@@ -56,4 +64,18 @@
 .vibeSelect:hover {
   border-color: var(--rialto-accent);
   color: var(--rialto-accent);
+}
+
+/* GlobalNav's mobile menu renders in normal flow directly below its sticky
+   bar and shares the same vertical range as `.floatingControls` (fixed,
+   36px tall) below 768px. GlobalNav doesn't expose its open/closed state
+   via props, but its hamburger toggle button carries a standard
+   aria-expanded attribute — use that (not a GlobalNav internal, a public
+   ARIA contract) to disable pointer events on the floating controls while
+   the mobile menu is open, so it never swallows clicks meant for a menu
+   link. See #3939 follow-up. */
+@media (max-width: 767px) {
+  .root:has(button[aria-expanded="true"][aria-controls]) .floatingControls {
+    pointer-events: none;
+  }
 }
