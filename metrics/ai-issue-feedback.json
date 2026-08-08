@@ -1,1 +1,4 @@
-{}
+{
+  "collected_at": "2026-08-08T18:18:11.406Z",
+  "error": "GitHub auth failed (401) — REST fallback credential is not valid for direct API calls"
+}
