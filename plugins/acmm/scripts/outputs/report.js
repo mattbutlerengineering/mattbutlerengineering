@@ -15,6 +15,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { loadLatestColdStart, scoreColdStart } from "../cold-start.js";
+import { loadReasonBreakdown } from "../human-touch-reasons.js";
 
 /**
  * @param {string} cwd
@@ -245,6 +246,17 @@ export function writeReport(
       lines.push(
         `- **${htrIcon} Human-touch ratio (L6 gate):** ${htrPct} of merged PRs had non-author commits${apr.human_touch_ratio == null ? " (unverifiable — no data)" : ` · window: 30d · n=${apr.merged_count}`}`
       );
+      const reasonBreakdown = loadReasonBreakdown(cwd);
+      if (reasonBreakdown) {
+        const parts = Object.entries(reasonBreakdown.counts)
+          .filter(([, count]) => count > 0)
+          .map(([reason, count]) => `${reason}: ${count}`)
+          .join(" · ");
+        lines.push(`  - **Reason breakdown (30d, n=${reasonBreakdown.total}):** ${parts}`);
+        lines.push(
+          `  - _Inferred from commit-message text, CI status, and review-comment counts — directional signal, not ground truth._`
+        );
+      }
       lines.push(
         `- **Sample:** ${apr.sample_size} agent PR${apr.sample_size === 1 ? "" : "s"} (${apr.open_count} still open)`
       );
