@@ -114,19 +114,29 @@ export async function runRescue({
 }) {
   const prs = await listPrs();
   const selected = selectPrsToRescue(prs);
+  const rescued = [];
 
   for (const pr of selected) {
     if (dryRun) {
       log(`[dry-run] would rescue #${pr.number} (${pr.headRefName})`);
+      rescued.push(pr.number);
       continue;
     }
-    await updateBranch(pr.number);
-    await dispatchCi(pr.headRefName);
-    await ensureAutoMerge(pr.number);
-    log(`rescued #${pr.number} (${pr.headRefName})`);
+    // Each PR's rescue is isolated: a transient updateBranch/dispatchCi/
+    // ensureAutoMerge failure on one PR must not abort the batch — without
+    // this, one flaky call skipped every remaining PR in the 30-minute pass.
+    try {
+      await updateBranch(pr.number);
+      await dispatchCi(pr.headRefName);
+      await ensureAutoMerge(pr.number);
+      log(`rescued #${pr.number} (${pr.headRefName})`);
+      rescued.push(pr.number);
+    } catch (err) {
+      log(`failed to rescue #${pr.number} (${pr.headRefName}): ${err.message}`);
+    }
   }
 
-  return selected.map((pr) => pr.number);
+  return rescued;
 }
 
 /** CLI entry: wires raw `gh` calls to {@link runRescue}. */
@@ -151,20 +161,12 @@ async function run() {
       execFileSync("gh", ["workflow", "run", "ci.yml", "--ref", headRefName], { stdio: "inherit" });
     },
     ensureAutoMerge: async (number) => {
-      try {
-        execFileSync(
-          "gh",
-          ["pr", "merge", String(number), "--auto", "--squash", "--delete-branch"],
-          { stdio: "inherit" }
-        );
-      } catch (err) {
-        // Non-fatal — update-branch and the CI re-dispatch already advanced
-        // the PR; a transient merge-enable failure here should not fail the
-        // whole rescue pass.
-        process.stderr.write(
-          `[rescue-automation-prs] could not (re-)enable auto-merge for #${number}: ${err.message}\n`
-        );
-      }
+      // Isolation from a failure here (or in updateBranch/dispatchCi above)
+      // is handled once, generically, by runRescue's per-PR try/catch — no
+      // need to duplicate it at each callback.
+      execFileSync("gh", ["pr", "merge", String(number), "--auto", "--squash", "--delete-branch"], {
+        stdio: "inherit",
+      });
     },
     dryRun,
     log: (msg) => console.log(`[rescue-automation-prs] ${msg}`),

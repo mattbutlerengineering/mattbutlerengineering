@@ -144,6 +144,61 @@ describe("runRescue", () => {
     expect(dispatchCi).not.toHaveBeenCalled();
     expect(ensureAutoMerge).not.toHaveBeenCalled();
   });
+
+  it("logs and continues to the next PR when one PR's rescue steps throw", async () => {
+    const prs = [
+      makePr({ number: 1, headRefName: "automation/production-feedback" }),
+      makePr({ number: 2, headRefName: "automation/drift-fix" }),
+    ];
+    // #1's updateBranch fails transiently; #2 must still be processed in full.
+    const updateBranch = vi.fn(async (number) => {
+      if (number === 1) throw new Error("update-branch transient failure");
+    });
+    const dispatchCi = vi.fn().mockResolvedValue(undefined);
+    const ensureAutoMerge = vi.fn().mockResolvedValue(undefined);
+    const log = vi.fn();
+
+    const rescued = await runRescue({
+      listPrs: async () => prs,
+      updateBranch,
+      dispatchCi,
+      ensureAutoMerge,
+      log,
+    });
+
+    expect(updateBranch).toHaveBeenCalledWith(1);
+    expect(updateBranch).toHaveBeenCalledWith(2);
+    expect(dispatchCi).not.toHaveBeenCalledWith("automation/production-feedback");
+    expect(dispatchCi).toHaveBeenCalledWith("automation/drift-fix");
+    expect(ensureAutoMerge).not.toHaveBeenCalledWith(1);
+    expect(ensureAutoMerge).toHaveBeenCalledWith(2);
+    expect(rescued).toEqual([2]);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("#1"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("update-branch transient failure"));
+  });
+
+  it("a throwing dispatchCi does not block ensureAutoMerge from running on later PRs", async () => {
+    const prs = [
+      makePr({ number: 1, headRefName: "automation/pr-metrics" }),
+      makePr({ number: 2, headRefName: "automation/acmm-regression" }),
+    ];
+    const updateBranch = vi.fn().mockResolvedValue(undefined);
+    const dispatchCi = vi.fn(async (headRefName) => {
+      if (headRefName === "automation/pr-metrics") throw new Error("dispatch failed");
+    });
+    const ensureAutoMerge = vi.fn().mockResolvedValue(undefined);
+
+    const rescued = await runRescue({
+      listPrs: async () => prs,
+      updateBranch,
+      dispatchCi,
+      ensureAutoMerge,
+    });
+
+    expect(ensureAutoMerge).not.toHaveBeenCalledWith(1);
+    expect(ensureAutoMerge).toHaveBeenCalledWith(2);
+    expect(rescued).toEqual([2]);
+  });
 });
 
 // ---------------------------------------------------------------------------
