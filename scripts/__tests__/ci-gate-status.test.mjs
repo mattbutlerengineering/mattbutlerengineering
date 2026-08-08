@@ -91,6 +91,71 @@ describe("ci-gate-status", () => {
       expect(result.state).toBe("pending");
     });
 
+    test("#3991 repro: no CI Gate entry but other checks still IN_PROGRESS -> pending, not gate-missing", async () => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+
+      // Exact shape observed live on PR #3990: CI Gate is the last job in
+      // the run and hasn't reported yet, but several other jobs are still
+      // running — proof CI is alive, not absent.
+      const rollup = [
+        {
+          __typename: "CheckRun",
+          name: "Dependency Sync",
+          status: "IN_PROGRESS",
+          conclusion: null,
+        },
+        { __typename: "CheckRun", name: "Lint", status: "IN_PROGRESS", conclusion: null },
+        { __typename: "CheckRun", name: "Typecheck", status: "IN_PROGRESS", conclusion: null },
+        {
+          __typename: "CheckRun",
+          name: "Architecture Audit",
+          status: "IN_PROGRESS",
+          conclusion: null,
+        },
+        { __typename: "CheckRun", name: "ADR check", status: "COMPLETED", conclusion: "SUCCESS" },
+      ];
+
+      const result = classifyCiGateStatus(rollup);
+
+      expect(result.state).toBe("pending");
+      expect(result.state).not.toBe("gate-missing");
+    });
+
+    test("no CI Gate entry and all other checks COMPLETED -> gate-missing (#3968 shape preserved)", async () => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+
+      const rollup = [
+        { __typename: "CheckRun", name: "ADR check", status: "COMPLETED", conclusion: "SUCCESS" },
+        {
+          __typename: "CheckRun",
+          name: "tier-classifier",
+          status: "COMPLETED",
+          conclusion: "SUCCESS",
+        },
+      ];
+
+      const result = classifyCiGateStatus(rollup);
+
+      expect(result.state).toBe("gate-missing");
+    });
+
+    test("CI Gate present as a StatusContext (.context, not .name) and SUCCESS -> green", async () => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+
+      const rollup = [
+        {
+          __typename: "StatusContext",
+          context: "CI Gate",
+          status: "COMPLETED",
+          conclusion: "SUCCESS",
+        },
+      ];
+
+      const result = classifyCiGateStatus(rollup);
+
+      expect(result.state).toBe("green");
+    });
+
     test("empty rollup (no checks at all) -> gate-missing, not green", async () => {
       const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
 

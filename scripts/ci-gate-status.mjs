@@ -49,14 +49,27 @@ export const CI_GATE_CHECK_NAME = "CI Gate";
  * propagating an error, since "I can't find CI Gate" is the correct
  * conclusion either way.
  *
- * @param {Array<{name?: string, status?: string, conclusion?: string|null}>} [statusCheckRollup]
+ * @param {Array<{name?: string, context?: string, status?: string, conclusion?: string|null}>} [statusCheckRollup]
  * @returns {{ state: "green"|"failed"|"pending"|"gate-missing", reason: string }}
  */
 export function classifyCiGateStatus(statusCheckRollup) {
   const rollup = Array.isArray(statusCheckRollup) ? statusCheckRollup : [];
-  const gate = rollup.find((check) => check?.name === CI_GATE_CHECK_NAME);
+  // `statusCheckRollup` mixes two GraphQL shapes — CheckRun (`.name`) and
+  // StatusContext (`.context`) — so match either (#3987 review follow-up).
+  const gate = rollup.find((check) => (check?.name ?? check?.context) === CI_GATE_CHECK_NAME);
 
   if (!gate) {
+    // CI Gate aggregates every other job and reports last, so its absence
+    // is the expected state for the first several minutes of every PR's
+    // CI run — not just the #3968 "CI never ran" failure mode. Only
+    // conclude "never ran" when nothing else on the SHA is still running.
+    const anyRunning = rollup.some((check) => check?.status && check.status !== "COMPLETED");
+    if (anyRunning) {
+      return {
+        state: "pending",
+        reason: "CI is running but CI Gate has not reported yet",
+      };
+    }
     return {
       state: "gate-missing",
       reason: `no "${CI_GATE_CHECK_NAME}" check found on this SHA — CI likely never ran`,
