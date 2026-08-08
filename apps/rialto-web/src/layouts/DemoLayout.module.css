@@ -73,9 +73,17 @@
    aria-expanded attribute — use that (not a GlobalNav internal, a public
    ARIA contract) to disable pointer events on the floating controls while
    the mobile menu is open, so it never swallows clicks meant for a menu
-   link. See #3939 follow-up. */
+   link. See #3939 follow-up.
+
+   Scoped to `nav[aria-label="Global navigation"]` (GlobalNav's own public
+   ARIA landmark), not a bare `button[aria-expanded][aria-controls]`
+   selector — that generic ARIA pattern also matches Select, Autocomplete,
+   Combobox, Collapsible, CommandPalette, and MasterOverride, so an
+   unscoped selector killed the floating controls whenever any of those
+   was open anywhere else on the page. See #3975. */
 @media (max-width: 767px) {
-  .root:has(button[aria-expanded="true"][aria-controls]) .floatingControls {
+  .root:has(nav[aria-label="Global navigation"] button[aria-expanded="true"][aria-controls])
+    .floatingControls {
     pointer-events: none;
   }
 }

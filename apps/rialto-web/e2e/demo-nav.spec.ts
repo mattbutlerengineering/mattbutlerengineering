@@ -51,6 +51,38 @@ test("mobile hamburger menu link is clickable through the floating controls at 3
   await expect(page).toHaveURL(/\/rialto\/$/);
 });
 
+// Regression coverage for #3975: the #3954 fix scoped pointer-events:none
+// to "any open button[aria-expanded][aria-controls]" — a generic ARIA
+// pattern several rialto components share (Select, Collapsible,
+// Autocomplete, Combobox, CommandPalette, MasterOverride). That silently
+// killed the floating controls whenever any of those was open elsewhere
+// on the page, not just GlobalNav's hamburger.
+test("floating controls remain clickable when an unrelated Collapsible is open at 375px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  // Pre-consent so the fixed-position cookie banner (unrelated to this
+  // regression) doesn't overlap the Collapsible trigger at this viewport.
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+  await page.goto("demos/drivers/new");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByRole("button", { name: "Additional Details" }).click();
+
+  const controls = page.getByTestId("demo-floating-controls");
+  const themeToggle = controls.getByLabel(/switch to (dark|light) mode/i);
+  await themeToggle.click();
+  await expect(themeToggle).toBeVisible();
+});
+
 test("all floating demo controls remain visible and clickable", async ({ page }) => {
   await page.goto("demos/login");
   await page.waitForLoadState("networkidle");
