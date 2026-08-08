@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-07T18:14:26.217Z",
+  "generated_at": "2026-08-08T02:00:58.610Z",
   "period": {
-    "start": "2026-07-31",
-    "end": "2026-08-07"
+    "start": "2026-08-01",
+    "end": "2026-08-08"
   },
   "sensors": {
     "acmm": {
@@ -37,7 +37,8 @@
       "available": false
     },
     "prCategoryMetrics": {
-      "available": false
+      "available": false,
+      "error": "Command failed: gh pr list --state all --limit 100 --json number,state,headRefName,mergedAt,closedAt,labels\nHTTP 403: This GraphQL query is not enabled for this session — only the pinned set of PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...` instead. (https://api.github.com/graphql)\n"
     },
     "agentCost": {
       "available": false
@@ -47,45 +48,57 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 823377,
-      "output_tokens": 1911,
-      "cache_creation_tokens": 85667,
-      "cache_hit_rate": 0.9057,
+      "cache_read_tokens": 175726617,
+      "output_tokens": 202552,
+      "cache_creation_tokens": 3131114,
+      "cache_hit_rate": 0.9824,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 22,
-          "output_tokens": 1911,
-          "cache_read_tokens": 823377,
-          "cache_creation_tokens": 85667
+          "input_tokens": 9189,
+          "output_tokens": 202552,
+          "cache_read_tokens": 175726617,
+          "cache_creation_tokens": 3131114
         }
       }
     },
     "ciHealth": {
-      "available": false
+      "available": true,
+      "total_runs": 30,
+      "completed": 28,
+      "passed": 14,
+      "failed": 0,
+      "pass_rate_pct": 50,
+      "most_recent": {
+        "conclusion": "skipped",
+        "createdAt": "2026-08-08T01:59:38Z",
+        "name": "claude",
+        "status": "completed"
+      }
     },
     "lighthouse": {
       "available": false
     },
     "issues": {
-      "available": false
+      "available": false,
+      "error": "Command failed: gh issue list --state all --limit 50 --json number,state,labels,createdAt,closedAt\nHTTP 403: This GraphQL query is not enabled for this session — only the pinned set of PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...` instead. (https://api.github.com/graphql)\n"
     },
     "issueFeedback": {
       "available": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
+      "total_logs": 15,
+      "logs_7d": 15,
+      "total_commits_7d": 300,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.003,
-      "total_lines_added_7d": 460241,
-      "lines_churned_7d": 1440,
+      "churn_rate": 0.002,
+      "total_lines_added_7d": 462560,
+      "lines_churned_7d": 1125,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -97,10 +110,15 @@
       "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
     },
     "e2eStability": {
-      "available": false
+      "available": true,
+      "consecutive_failures": 0,
+      "total_runs": 21,
+      "total_non_frontend_runs": 13,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (13 runs checked)"
     },
     "queueEfficiency": {
-      "available": false
+      "available": false,
+      "error": "Command failed: gh pr list --state all --limit 45 --json number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions\nHTTP 403: This GraphQL query is not enabled for this session — only the pinned set of PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...` instead. (https://api.github.com/graphql)\n"
     }
   },
   "thresholds": {
@@ -115,7 +133,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 5,
+    "sensors_available": 7,
     "sensors_total": 16,
     "regressions_detected": 0,
     "status": "healthy"
