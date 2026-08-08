@@ -1,15 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Eye, EyeOff } from "lucide-react";
-import {
-  Button,
-  Checkbox,
-  Divider,
-  Input,
-  useToast,
-  AuthMascot,
-} from "@mattbutlerengineering/rialto";
-import type { MascotState } from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Divider, Input, useToast } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";
 import styles from "./AuthLayout.module.css";
@@ -19,7 +11,6 @@ export function SignIn() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [mascotState, setMascotState] = useState<MascotState>("neutral");
   const [emailValue, setEmailValue] = useState("");
 
   async function handleSubmit(e: FormEvent) {
@@ -30,11 +21,7 @@ export function SignIn() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     setIsLoading(false);
-    setMascotState("success");
     toast({ title: "Signed in successfully", variant: "success" });
-
-    // Reset to neutral after celebration
-    setTimeout(() => setMascotState("neutral"), 1500);
   }
 
   return (
@@ -46,8 +33,6 @@ export function SignIn() {
         </Link>
       }
     >
-      <AuthMascot state={mascotState} progress={Math.min(emailValue.length / 20, 1)} />
-
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
           label="Email address"
@@ -56,12 +41,7 @@ export function SignIn() {
           autoComplete="email"
           disabled={isLoading}
           value={emailValue}
-          onChange={(e) => {
-            setEmailValue(e.target.value);
-            setMascotState("active");
-          }}
-          onFocus={() => setMascotState("active")}
-          onBlur={() => setMascotState("neutral")}
+          onChange={(e) => setEmailValue(e.target.value)}
         />
         <Input
           label="Password"
@@ -69,18 +49,13 @@ export function SignIn() {
           required
           autoComplete="current-password"
           disabled={isLoading}
-          onFocus={() => setMascotState("shy")}
-          onBlur={() => setMascotState("neutral")}
           endIcon={
             <Button
               variant="ghost"
               size="sm"
               type="button"
               className={styles.passwordToggle}
-              onClick={() => {
-                setShowPassword(!showPassword);
-                setMascotState(!showPassword ? "peek" : "shy");
-              }}
+              onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
