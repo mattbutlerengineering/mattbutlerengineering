@@ -188,7 +188,17 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
    If `needs-review` is present, the fast path is off-limits — fall through to step 3 (Reviewer sub-agent).
 
-   Only when `needs-review` is absent AND `isLowRiskPR(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
+   **Before the first classifier call this iteration, verify the built `@mbe/agent-core` dist is trustworthy.** Both `isLowRiskPR` and `reviewersForDiff` (step 4) run from the **built** `packages/agent-core/dist/` — gitignored, so a session inherits whatever the last build in this checkout produced. A stale dist doesn't error; it exports working functions that return confident, wrong (narrower) answers — on PR #3988 a 77-minute-stale dist made `reviewersForDiff` return `[]` for a diff that should have dispatched `e2e-selector-drift-reviewer` (#3989). Run once per session before trusting either function:
+
+   ```bash
+   node scripts/agent-core-build-freshness.mjs check
+   # exit 0 -> dist proven newer than every src/** file (rebuilt automatically if it wasn't) — safe to classify
+   # exit 1 -> still can't prove freshness after a rebuild attempt — FAIL CLOSED (see below)
+   ```
+
+   `exit 1` means: do **not** trust `isLowRiskPR`/`reviewersForDiff` for this PR at all. Skip the fast path unconditionally (fall through to step 3) and treat step 4's specialist gate as if every specialist reviewer applies — dispatch the full reviewer set rather than trusting an empty/narrow `reviewersForDiff` result. A dist that fails to prove itself fresh must never be read as "low risk" or "no specialists match".
+
+   Only when `needs-review` is absent, the freshness check exited 0, AND `isLowRiskPR(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
 
    ```bash
    gh pr merge <N> --auto --squash --delete-branch
@@ -250,7 +260,7 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    reviewer. Whatever verdict the mutating dispatch returned is invalid — it read a tree
    it had already altered.
 
-4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers. Apply the same before/after `git status --porcelain` guard from step 3 to each specialist dispatch — snapshot before, compare after, treat any mismatch as a failed review and re-dispatch rather than trusting a verdict from a reviewer that mutated the tree it read.
+4. **Diff-matched specialized review gate.** Reuses the same freshness check from step 2 — do not call `reviewersForDiff` again against an untrusted dist. For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers. Apply the same before/after `git status --porcelain` guard from step 3 to each specialist dispatch — snapshot before, compare after, treat any mismatch as a failed review and re-dispatch rather than trusting a verdict from a reviewer that mutated the tree it read.
 
 5. **On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar:
 
