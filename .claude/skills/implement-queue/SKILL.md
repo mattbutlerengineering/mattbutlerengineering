@@ -162,11 +162,23 @@ Once a worker opens a PR, the orchestrator waits for PR-level CI then gates befo
 
 For each PR opened by a worker (can overlap with remaining workers completing):
 
-1. **Wait for PR-level CI green.** Poll until CI Gate passes:
+1. **Wait for PR-level CI green — but first assert `CI Gate` actually exists.** `gh pr checks <N> --watch` reports `fail=0 pend=0` both when CI is genuinely green AND when the `pull_request` event never fired at all (a real, observed transient GitHub-side failure — see #3969; PR #3968 opened with zero `pull_request` runs, only an unrelated `pull_request_target` Dependabot skip, and sat `BLOCKED` with nothing red). Those two states are not the same and must not be conflated: classify the rollup with `classifyCiGateStatus` (`scripts/ci-gate-status.mjs`) before trusting a "green" read.
 
    ```bash
    gh pr checks <N> --watch
+   node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed"|"pending"|"gate-missing", "reason": "..."}
    ```
+
+   - `state: "green"` → proceed to step 2.
+   - `state: "failed"` → fix the failure (or `agent-failed` the linked issue if unfixable this iteration); do not enqueue.
+   - `state: "pending"` → keep polling; do not enqueue.
+   - `state: "gate-missing"` → **never enqueue.** Dispatch CI directly on the branch and re-run the classifier — this is the documented `workflow_dispatch` escape hatch `ci.yml` already carries a bare trigger for (see `check-ci-dispatch.mjs`):
+
+     ```bash
+     gh workflow run ci.yml --ref <branch>
+     ```
+
+     Then re-poll from the top of this step. Do not stall silently and do not treat the absence of failures as green.
 
 2. **Low-risk fast path.** `tier:*` labels do **not** gate this skill's merges — see [No tier hold](#no-tier-hold) below. Check the `needs-review` label, which still holds a PR:
 
