@@ -301,7 +301,7 @@ describe("handleHealthSystem", () => {
     };
   }
 
-  function makeBinding(name) {
+  function makeBinding(_name) {
     return {
       fetch: vi.fn(async () => new Response("ok", { status: 200 })),
     };

@@ -52,7 +52,7 @@ async function checkRateLimit(kv, pathname, ip, nowMs) {
 
   const key = rateLimitKey(rule.pattern, ip, nowMs);
 
-  let count = 0;
+  let count;
   try {
     const stored = await kv.get(key, "text");
     count = stored ? parseInt(stored, 10) : 0;

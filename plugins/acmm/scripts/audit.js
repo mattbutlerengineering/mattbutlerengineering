@@ -84,7 +84,7 @@ try {
       if (pkg.acmm.inherit !== undefined) acmmConfig.inherit = pkg.acmm.inherit;
     }
   }
-} catch (e) {
+} catch {
   // Ignore
 }
 
