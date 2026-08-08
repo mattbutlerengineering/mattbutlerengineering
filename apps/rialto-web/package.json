@@ -30,6 +30,7 @@
   ],
   "dependencies": {
     "@mattbutlerengineering/rialto": "workspace:*",
+    "@mbe/api-client": "workspace:*",
     "@mbe/observability": "workspace:^",
     "framer-motion": "^12.43.0",
     "lucide-react": "catalog:",
