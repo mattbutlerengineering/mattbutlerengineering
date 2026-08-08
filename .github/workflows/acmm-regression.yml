@@ -108,3 +108,17 @@ jobs:
         # actually exists, so a no-regression week stays a silent no-op.
         if: steps.create-pr.outputs.pull-request-number
         run: gh workflow run ci.yml --ref automation/acmm-regression
+
+      - name: Enable auto-merge
+        # auto-merge.yml (the workflow that would normally do this) never
+        # runs on this PR -- its own pull_request/check_suite triggers park
+        # at action_required for the same reason ci.yml's do (#3684), so it
+        # never reaches its own `gh pr merge --auto` call. Enable it directly
+        # here instead. This alone does not guarantee the merge lands: if
+        # `main` moves ahead of this branch before the dispatched CI run
+        # posts green, the scheduled automation-pr-rescue.yml pass brings it
+        # back up to date and re-dispatches CI (#3966).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+        run: gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --squash --delete-branch

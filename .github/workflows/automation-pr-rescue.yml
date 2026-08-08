@@ -1,0 +1,51 @@
+name: Automation PR Rescue
+
+# Scheduled follow-up pass for automation/* PRs that fall behind `main` after
+# creation (#3966). production-feedback.yml, drift-fix.yml, pr-metrics.yml,
+# and acmm-regression.yml each enable auto-merge on their own PR immediately
+# after opening it, but `main` is `strict`: a PR that falls behind hours
+# later (once a sibling PR merges) will not auto-merge until its branch is
+# brought up to date, and none of those workflows run again later in the day
+# to do that. This is that later pass — see scripts/rescue-automation-prs.mjs
+# for the selection/rescue logic (pure, unit-tested).
+#
+# `auto-qa-tune.yml` deliberately opens its PR without the `auto-merge` label
+# (see its own workflow comment: it touches .github/ and needs a human
+# merge) — the script's auto-merge-label filter excludes it for free, no
+# separate carve-out needed here.
+#
+# Deliberately mechanical, no `pnpm install` — the script only shells out to
+# `gh`, so a plain checkout + Node is enough.
+
+on:
+  schedule:
+    # Every 30 minutes, matching merge-queue.yml's fallback cadence.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Required for both `gh pr update-branch` and the `gh workflow run`
+  # re-dispatch the script performs on each rescued PR.
+  actions: write
+
+jobs:
+  rescue:
+    name: Rescue stale automation PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # AUTOMATION_PAT (#3684): see gotchas.md's CI section. Falls back to
+      # GITHUB_TOKEN until AUTOMATION_PAT is configured as a repo secret.
+      GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Rescue stale automation/* PRs
+        run: node scripts/rescue-automation-prs.mjs
