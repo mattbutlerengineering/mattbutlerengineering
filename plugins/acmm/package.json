@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "lint": "eslint .",
-    "test": "node --test \"scripts/__tests__/*.test.js\""
+    "test": "node --test \"scripts/__tests__/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage \"scripts/__tests__/*.test.js\""
   },
   "devDependencies": {
     "@mbe/config": "workspace:*"
