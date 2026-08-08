@@ -154,6 +154,11 @@
       "path": "infrastructure/worker"
     },
     {
+      "name": "@mbe/acmm",
+      "type": "package",
+      "path": "plugins/acmm"
+    },
+    {
       "name": "@mbe/scripts",
       "type": "package",
       "path": "scripts"
@@ -657,6 +662,11 @@
     },
     {
       "from": "@mbe/edge-worker",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/acmm",
       "to": "@mbe/config",
       "type": "devDependency"
     },

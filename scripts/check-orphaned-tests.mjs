@@ -66,13 +66,7 @@ export const IGNORE_DIRS = new Set([
  * reason naming the thing that *does* run it — an allowlist entry without a
  * runner is just an orphan with paperwork.
  */
-export const ALLOWLIST = [
-  {
-    prefix: "plugins/acmm/",
-    reason:
-      "node:test suite (286 tests), not vitest — turbo cannot run it as-is. Wiring tracked by #3912; remove this entry when the plugin becomes a workspace package.",
-  },
-];
+export const ALLOWLIST = [];
 
 /**
  * Collect test files under a directory, relative to `from`.

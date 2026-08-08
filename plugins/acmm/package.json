@@ -1,0 +1,13 @@
+{
+  "name": "@mbe/acmm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "test": "node --test \"scripts/__tests__/*.test.js\""
+  },
+  "devDependencies": {
+    "@mbe/config": "workspace:*"
+  }
+}

@@ -14,22 +14,4 @@ export default [
       "no-console": "off",
     },
   },
-  {
-    // ACMM plugin scripts are Node CLIs (audit/eval runners invoked by workflows) —
-    // same treatment as scripts/ above. Not yet a pnpm workspace package (#3912),
-    // so it has no eslint.config.js of its own and is linted via this root config.
-    files: ["plugins/acmm/**"],
-    languageOptions: {
-      globals: {
-        URL: "readonly",
-        clearTimeout: "readonly",
-        console: "readonly",
-        process: "readonly",
-        setTimeout: "readonly",
-      },
-    },
-    rules: {
-      "no-console": "off",
-    },
-  },
 ];
