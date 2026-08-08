@@ -9,7 +9,8 @@ test.beforeEach(async ({ page }) => {
 test("sidebar shows category sections", async ({ page }) => {
   const sidebar = page.locator("nav");
   await expect(sidebar.getByText("Forms")).toBeVisible();
-  await expect(sidebar.getByText("Navigation")).toBeVisible();
+  // Exact match — a substring match also hits the "Navigation Menu" nav link.
+  await expect(sidebar.getByText("Navigation", { exact: true })).toBeVisible();
   await expect(sidebar.getByText("Feedback")).toBeVisible();
 });
 
