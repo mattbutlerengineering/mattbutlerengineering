@@ -10,6 +10,7 @@ import {
   parseWorktreeListPorcelain,
   hasOpenPrForBranch,
   isWorktreeLive,
+  hasRecentFileActivity,
   removeWorktree,
 } from "../reap-worktrees.mjs";
 
@@ -127,6 +128,36 @@ describe("decideWorktreeReap", () => {
       branch: "worktree-agent-abc123",
       isLive: false,
       hasOpenPr: false,
+    });
+    expect(decision).toEqual({ eligible: true, reason: "eligible" });
+  });
+
+  // #3986: `isLive` (lsof) samples zero PIDs for long stretches of a
+  // worker's mid-implementation lifecycle (thinking, awaiting API response,
+  // streaming a reply — no child process holds a handle under the worktree
+  // path during any of that). A worker also has no PR until it finishes and
+  // pushes, so `hasOpenPr` is false for the entire pre-PR implementation
+  // phase too. Both gates can read false SIMULTANEOUSLY while the worker is
+  // unambiguously alive — this is the exact flicker the issue reports.
+  // `isRecentlyActive` is the third, independent gate that closes it.
+  test("refuses a worktree with recent filesystem activity even when isLive and hasOpenPr both read false (the flicker window)", () => {
+    const decision = decideWorktreeReap({
+      path: agentPath,
+      branch: "worktree-agent-abc123",
+      isLive: false,
+      hasOpenPr: false,
+      isRecentlyActive: true,
+    });
+    expect(decision).toEqual({ eligible: false, reason: "recent-activity" });
+  });
+
+  test("is eligible when not live, no open PR, and no recent activity — genuinely abandoned worktrees are still reaped", () => {
+    const decision = decideWorktreeReap({
+      path: agentPath,
+      branch: "worktree-agent-abc123",
+      isLive: false,
+      hasOpenPr: false,
+      isRecentlyActive: false,
     });
     expect(decision).toEqual({ eligible: true, reason: "eligible" });
   });
@@ -271,6 +302,62 @@ describe("isWorktreeLive", () => {
       throw err;
     };
     expect(isWorktreeLive("/some/worktree", { exec })).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasRecentFileActivity — the #3986 companion gate to isLive. Answers "has
+// this worktree been touched (edited, written to) within the staleness
+// window", independent of whether any process currently holds a handle
+// under it. Real fs against throwaway tmpdir fixtures, no injected fakes,
+// since mtime semantics are exactly what's under test.
+// ---------------------------------------------------------------------------
+
+describe("hasRecentFileActivity", () => {
+  let dir;
+
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    dir = undefined;
+  });
+
+  test("true when a file was modified within the staleness window", () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "reap-activity-"));
+    fs.writeFileSync(path.join(dir, "recent.txt"), "x");
+    expect(hasRecentFileActivity(dir, { nowMs: Date.now(), staleMs: 45 * 60 * 1000 })).toBe(true);
+  });
+
+  test("false when every file predates the staleness window", () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "reap-activity-"));
+    fs.writeFileSync(path.join(dir, "old.txt"), "x");
+    // Rather than fiddling with real file mtimes cross-platform, fast-forward
+    // "now" past the staleness window instead — same effect, deterministic.
+    const farFutureNow = Date.now() + 46 * 60 * 1000;
+    expect(hasRecentFileActivity(dir, { nowMs: farFutureNow, staleMs: 45 * 60 * 1000 })).toBe(
+      false
+    );
+  });
+
+  test("ignores activity inside skipped directories (node_modules, .git, etc.)", () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "reap-activity-"));
+    fs.mkdirSync(path.join(dir, "node_modules"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "node_modules", "recent.txt"), "x");
+    const farFutureNow = Date.now() + 46 * 60 * 1000;
+    expect(hasRecentFileActivity(dir, { nowMs: farFutureNow, staleMs: 45 * 60 * 1000 })).toBe(
+      false
+    );
+  });
+
+  test("finds recent activity nested several directories deep", () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "reap-activity-"));
+    const nested = path.join(dir, "scripts", "__tests__");
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(nested, "reap-worktrees.test.mjs"), "x");
+    expect(hasRecentFileActivity(dir, { nowMs: Date.now(), staleMs: 45 * 60 * 1000 })).toBe(true);
+  });
+
+  test("fails safe to true when the worktree path cannot be read at all", () => {
+    expect(hasRecentFileActivity("/nonexistent/does-not-exist-3986")).toBe(true);
   });
 });
 

@@ -11,11 +11,12 @@
  * six days (2026-08-01 → 2026-08-07), none with an open PR.
  *
  * This script enumerates `.claude/worktrees/agent-*` worktrees and applies
- * exactly two non-negotiable safety rails before a worktree is ever eligible
- * for removal: no live owning process, and no open PR on its branch. The
- * decision logic (`decideWorktreeReap`/`planReap`) is pure and unit-tested;
- * only the CLI helpers below it shell out to `git`/`gh`/`lsof`, always via
- * `execFileSync` with argv arrays (never string interpolation into a shell).
+ * three non-negotiable safety rails before a worktree is ever eligible for
+ * removal: no live owning process, no open PR on its branch, and no recent
+ * filesystem activity. The decision logic (`decideWorktreeReap`/`planReap`)
+ * is pure and unit-tested; only the CLI helpers below it shell out to
+ * `git`/`gh`/`lsof`, always via `execFileSync` with argv arrays (never
+ * string interpolation into a shell).
  *
  * What this deliberately does NOT check, and why:
  *
@@ -34,15 +35,35 @@
  * file is ever written for a worktree (the harness doesn't create one), so
  * there is no PID file to read. Liveness is instead derived directly from
  * the OS process table via `lsof -t +D <path>` — any process with an open
- * file handle (including cwd) under the worktree path counts as live. This
- * reuses `merge-train-lock.mjs`'s *spirit* (a liveness check gates reclaim,
- * and any ambiguous state fails safe toward refusal) rather than inventing
- * a second, divergent notion of liveness from scratch.
+ * file handle (including cwd) under the worktree path counts as live.
  *
- * Both liveness and open-PR checks fail SAFE: any error (missing `lsof`,
- * `gh` auth failure, network blip) is treated as "refuse to reap", never
- * as "safe to remove". A reaper that removes too little is an annoyance;
- * one that removes too much destroys in-flight work.
+ * #3986 REVISITS this "no lock file" choice, because `lsof -t +D` turned out
+ * NOT to measure what it needs to: a Claude Code subagent is never itself a
+ * process with a handle under its worktree path — only the transient
+ * `git`/`pnpm`/`node` children it spawns per tool call are, and between tool
+ * calls (thinking, awaiting an API response, streaming a reply) that count
+ * is genuinely zero. Sampled live against a mid-implementation worker, 5 of
+ * 12 five-second samples read `isLive: false` — close to a coin flip. Worse,
+ * a worker has no PR until it finishes and pushes, so `hasOpenPr` is also
+ * false for the entire pre-PR implementation phase: the two "independent"
+ * gates fail together precisely in the window with the most unpushed work
+ * to lose. A PID-file-based lock (adopting `merge-train-lock.mjs`'s actual
+ * mechanism) would fix this too, but needs the harness to write one when it
+ * spawns a worker — a change to how workers are dispatched, not just to this
+ * script. Instead: `isLive` is kept strictly as a *positive-only* signal
+ * (handles-present means live; handles-absent is never treated as dead on
+ * its own), and `isRecentlyActive` (`hasRecentFileActivity`) is added as an
+ * independent companion gate — true when any file under the worktree has an
+ * mtime within the last `ACTIVITY_STALE_MS` (45 min, matching
+ * `merge-train-lock.mjs`'s own staleness convention for "is the thing that
+ * owns this still working"). No lock file, no change to worker dispatch —
+ * just a second way to observe the same underlying fact `lsof` was trying
+ * (and failing) to observe on its own.
+ *
+ * All three checks fail SAFE: any error (missing `lsof`, `gh` auth failure,
+ * network blip, an unreadable worktree directory) is treated as "refuse to
+ * reap", never as "safe to remove". A reaper that removes too little is an
+ * annoyance; one that removes too much destroys in-flight work.
  *
  * Usage:
  *   node scripts/reap-worktrees.mjs                # honors env DRY_RUN (default "true")
@@ -50,6 +71,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,10 +101,13 @@ export function isAgentWorktreePath(worktreePath) {
 
 /**
  * Pure: the entire safety gate for one worktree. Refuses ANY worktree with
- * a live owning process or an open PR — checked in that order, since
- * removing an in-flight worker is the worse failure mode of the two.
+ * a live owning process, an open PR, or recent filesystem activity —
+ * checked in that order. `isRecentlyActive` (#3986) exists because `isLive`
+ * and `hasOpenPr` can BOTH read false simultaneously while a worker is
+ * unambiguously mid-implementation (see module header); it is the
+ * independent third signal that catches that window.
  *
- * @param {{path: string, branch: string|null, isLive: boolean, hasOpenPr: boolean}} worktree
+ * @param {{path: string, branch: string|null, isLive: boolean, hasOpenPr: boolean, isRecentlyActive?: boolean}} worktree
  * @returns {{eligible: boolean, reason: string}}
  */
 export function decideWorktreeReap(worktree) {
@@ -94,6 +119,9 @@ export function decideWorktreeReap(worktree) {
   }
   if (worktree.hasOpenPr) {
     return { eligible: false, reason: "open-pr" };
+  }
+  if (worktree.isRecentlyActive) {
+    return { eligible: false, reason: "recent-activity" };
   }
   return { eligible: true, reason: "eligible" };
 }
@@ -212,12 +240,85 @@ export function isWorktreeLive(worktreePath, { exec = execFileSync } = {}) {
   }
 }
 
+// #3986: staleness window for `hasRecentFileActivity`, matching the 45-min
+// convention `merge-train-lock.mjs`'s `DEFAULT_STALE_MS` already uses for
+// the same class of question ("is the thing that owns this still working").
+const ACTIVITY_STALE_MS = 45 * 60 * 1000;
+
+// Directories a worker never hand-edits, so activity inside them is not a
+// liveness signal — walking them would only cost time (node_modules can be
+// tens of thousands of files) without adding information.
+const ACTIVITY_SCAN_SKIP_DIRS = new Set([".git", "node_modules", ".turbo", "dist", "coverage"]);
+
+/**
+ * Side effect: true if any file under `worktreePath` (excluding
+ * `ACTIVITY_SCAN_SKIP_DIRS`) has an mtime within `staleMs` of `nowMs`
+ * (#3986). This is deliberately a filesystem signal, not a git-log one:
+ * during the pre-first-commit stretch of an implementation — exactly the
+ * window the flicker bug hits hardest — a worker's branch tip is still the
+ * worktree's initial commit, so `git log` has nothing recent to show even
+ * though the worker is actively editing. Depth-first with an early return on
+ * the first qualifying file, so the common "still active" case resolves
+ * without walking the whole tree; a genuinely abandoned worktree pays the
+ * full walk once per reaper run.
+ *
+ * Fails safe to `true` (refuse to reap) if `worktreePath` itself can't be
+ * read at all; a subtree that vanishes or is unreadable mid-scan is simply
+ * skipped, since that's not a liveness signal either way.
+ *
+ * @param {string} worktreePath
+ * @param {{nowMs?: number, staleMs?: number, readdirSync?: Function, statSync?: Function}} [opts]
+ * @returns {boolean}
+ */
+export function hasRecentFileActivity(
+  worktreePath,
+  {
+    nowMs = Date.now(),
+    staleMs = ACTIVITY_STALE_MS,
+    readdirSync = fs.readdirSync,
+    statSync = fs.statSync,
+  } = {}
+) {
+  const cutoff = nowMs - staleMs;
+  let rootEntries;
+  try {
+    rootEntries = readdirSync(worktreePath, { withFileTypes: true });
+  } catch {
+    return true;
+  }
+
+  const stack = [{ dir: worktreePath, entries: rootEntries }];
+  while (stack.length > 0) {
+    const { dir, entries } = stack.pop();
+    for (const entry of entries) {
+      if (ACTIVITY_SCAN_SKIP_DIRS.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        try {
+          stack.push({ dir: full, entries: readdirSync(full, { withFileTypes: true }) });
+        } catch {
+          // Subtree vanished or unreadable mid-scan — no signal either way.
+        }
+        continue;
+      }
+      try {
+        if (statSync(full).mtimeMs >= cutoff) return true;
+      } catch {
+        // File vanished between readdir and stat (e.g. a tool mid-write) —
+        // not a reliable signal, keep scanning.
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Side effect: builds the reap inventory — every agent worktree paired with
- * its live `isLive`/`hasOpenPr` signals — ready to hand to `planReap`.
+ * its live `isLive`/`hasOpenPr`/`isRecentlyActive` signals — ready to hand
+ * to `planReap`.
  *
  * @param {{cwd?: string, exec?: Function}} [opts]
- * @returns {Array<{path:string, branch:string|null, isLive:boolean, hasOpenPr:boolean}>}
+ * @returns {Array<{path:string, branch:string|null, isLive:boolean, hasOpenPr:boolean, isRecentlyActive:boolean}>}
  */
 export function buildReapInventory({ cwd = process.cwd(), exec = execFileSync } = {}) {
   return listWorktrees({ cwd, exec })
@@ -227,6 +328,7 @@ export function buildReapInventory({ cwd = process.cwd(), exec = execFileSync } 
       branch: w.branch,
       isLive: isWorktreeLive(w.path, { exec }),
       hasOpenPr: hasOpenPrForBranch(w.branch, { exec }),
+      isRecentlyActive: hasRecentFileActivity(w.path),
     }));
 }
 
