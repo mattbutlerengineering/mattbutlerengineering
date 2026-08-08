@@ -4,7 +4,7 @@
  * fake runner without spawning subprocesses.
  */
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { scoreRun } from "./score.js";
 
@@ -202,7 +202,6 @@ export async function defaultRunner(task, opts = {}) {
 
 function countDiffLines(worktreePath) {
   try {
-    const { execFileSync } = require("node:child_process");
     const out = execFileSync("git", ["-C", worktreePath, "diff", "--shortstat", "HEAD"], {
       encoding: "utf-8",
     });
@@ -216,7 +215,6 @@ function countDiffLines(worktreePath) {
 
 function listChangedFiles(worktreePath) {
   try {
-    const { execFileSync } = require("node:child_process");
     const out = execFileSync("git", ["-C", worktreePath, "diff", "--name-only", "HEAD"], {
       encoding: "utf-8",
     });

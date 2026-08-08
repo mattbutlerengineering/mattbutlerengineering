@@ -209,7 +209,7 @@ describe("Edge Router", () => {
       globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
 
       try {
-        const response = await edgeRouter.fetch(makeRequest(API_TEST_PATH), env);
+        await edgeRouter.fetch(makeRequest(API_TEST_PATH), env);
         expect(globalThis.fetch).toHaveBeenCalled();
         const calledRequest = globalThis.fetch.mock.calls[0][0];
         expect(calledRequest.url).toBe(`https://api.mattbutlerengineering.com${API_TEST_PATH}`);

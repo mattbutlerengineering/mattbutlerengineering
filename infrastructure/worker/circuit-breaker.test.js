@@ -6,7 +6,6 @@
 
 import { describe, it, expect, vi } from "vitest";
 import {
-  FAILURE_THRESHOLD,
   OPEN_DURATION_SECONDS,
   defaultState,
   getCircuitState,
