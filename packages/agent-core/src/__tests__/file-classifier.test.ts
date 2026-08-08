@@ -139,12 +139,25 @@ describe("isAutomationDefinitionFile", () => {
     expect(isAutomationDefinitionFile(".claude/skills/implement-queue/SKILL.md")).toBe(true));
   it("matches a Claude hook script", () =>
     expect(isAutomationDefinitionFile(".claude/hooks/secret-scan.mjs")).toBe(true));
+  // #3974: composite GitHub Actions invoked by workflows are executable
+  // automation too, not editor/repo config.
+  it("matches a composite GitHub Action definition", () =>
+    expect(isAutomationDefinitionFile(".github/actions/setup-workspace/action.yml")).toBe(true));
+  it("matches any composite action, not just setup-workspace", () =>
+    expect(
+      isAutomationDefinitionFile(".github/actions/report-deploy-health/action.yml")
+    ).toBe(true));
   it("does NOT match a non-workflow .github/ file", () =>
     expect(isAutomationDefinitionFile(".github/CODEOWNERS")).toBe(false));
   it("does NOT match a plain-docs .claude/rules/ file", () =>
     expect(isAutomationDefinitionFile(".claude/rules/gotchas.md")).toBe(false));
-  it("does NOT match .claude/settings.json", () =>
-    expect(isAutomationDefinitionFile(".claude/settings.json")).toBe(false));
+  // #3974: .claude/settings.json wires PreToolUse hooks (including the
+  // secret-scan guard) — it is executable automation, not editor config,
+  // even though it lives at the .claude/ top level alongside plain config.
+  it("matches .claude/settings.json", () =>
+    expect(isAutomationDefinitionFile(".claude/settings.json")).toBe(true));
+  it("does NOT match .claude/settings.local.json (only settings.json exactly)", () =>
+    expect(isAutomationDefinitionFile(".claude/settings.local.json")).toBe(false));
   it("does NOT match turbo.json", () =>
     expect(isAutomationDefinitionFile("turbo.json")).toBe(false));
   it("does NOT match source .ts", () =>
@@ -180,6 +193,16 @@ describe("isLowRiskFile", () => {
     expect(isLowRiskFile(".claude/hooks/secret-scan.mjs")).toBe(false));
   it("returns true for plain docs under .claude/rules/ (#3971)", () =>
     expect(isLowRiskFile(".claude/rules/gotchas.md")).toBe(true));
+  // #3974: composite GitHub Actions and .claude/settings.json are executable
+  // automation too — a PR touching only one must not bypass the review gate.
+  it("returns false for a composite GitHub Action definition (#3974)", () =>
+    expect(isLowRiskFile(".github/actions/setup-workspace/action.yml")).toBe(false));
+  it("returns false for .claude/settings.json (#3974)", () =>
+    expect(isLowRiskFile(".claude/settings.json")).toBe(false));
+  it("returns true for .claude/settings.local.json (not the exact automation file) (#3974)", () =>
+    expect(isLowRiskFile(".claude/settings.local.json")).toBe(true));
+  it("returns true for a non-automation .github/ file (#3974)", () =>
+    expect(isLowRiskFile(".github/CODEOWNERS")).toBe(true));
 });
 
 // ── isNonAuditableFile ──────────────────────────────────────────────────────

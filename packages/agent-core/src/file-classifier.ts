@@ -93,17 +93,20 @@ export const isBackendSourceFile = (f: string): boolean =>
  * True for executable CI/agent/skill definitions — never low-risk, even though
  * they live under the same .github/ and .claude/ prefixes isConfigFile treats
  * as low-risk editor/repo config. Deliberately narrower than isConfigFile:
- * only workflow files, agent definitions, skill definitions, and hook scripts
- * are excluded — plain docs under .claude/ (e.g. .claude/rules/gotchas.md)
- * and non-workflow .github/ files stay low-risk. Must win over isDocFile,
- * since .claude/skills/**\/SKILL.md is an executable definition despite its
- * .md extension. See #3971.
+ * only workflow files, composite actions, agent definitions, skill
+ * definitions, hook scripts, and the hook-wiring settings file are excluded —
+ * plain docs under .claude/ (e.g. .claude/rules/gotchas.md), non-automation
+ * .github/ files (e.g. CODEOWNERS), and .claude/settings.local.json stay
+ * low-risk. Must win over isDocFile, since .claude/skills/**\/SKILL.md is an
+ * executable definition despite its .md extension. See #3971, #3974.
  */
 export const isAutomationDefinitionFile = (f: string): boolean =>
   f.startsWith(".github/workflows/") ||
+  f.startsWith(".github/actions/") ||
   f.startsWith(".claude/agents/") ||
   f.startsWith(".claude/skills/") ||
-  f.startsWith(".claude/hooks/");
+  f.startsWith(".claude/hooks/") ||
+  f === ".claude/settings.json";
 
 // ── Composite predicates ────────────────────────────────────────────────────
 
