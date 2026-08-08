@@ -99,23 +99,20 @@ jobs:
             exit 0
           fi
 
-          # Check if author is a bot or trusted
-          TRUSTED_AUTHORS="github-actions[bot] dependabot[bot] renovate[bot] mbe-agent"
-          IS_TRUSTED=false
-          for trusted in $TRUSTED_AUTHORS; do
-            if [ "$AUTHOR" = "$trusted" ]; then
-              IS_TRUSTED=true
-              break
-            fi
-          done
-
-          # Also check if author ends with [bot]
-          if echo "$AUTHOR" | grep -q '\[bot\]$'; then
-            IS_TRUSTED=true
-          fi
+          # Trusted-author check is a pure, unit-tested decision in
+          # scripts/merge-queue-eligibility.mjs (#3871) — `gh pr view
+          # --json author` reports GitHub-App-authored PRs as `app/<slug>`
+          # (e.g. `app/github-actions`), not the legacy bracketed-suffix bot
+          # login format the old hand-rolled check compared against, which
+          # never matched. Do not re-inline a literal-string/bracket-suffix
+          # check here — that is exactly the drift that made this branch
+          # unreachable for the workflow's entire life.
+          AUTHOR_RESULT=$(node scripts/merge-queue-eligibility.mjs check-author --login "$AUTHOR")
+          echo "$AUTHOR_RESULT"
+          IS_TRUSTED=$(echo "$AUTHOR_RESULT" | jq -r '.trusted')
 
           if [ "$IS_TRUSTED" = "false" ]; then
-            echo "Skipping: Author '$AUTHOR' is not in trusted auto-merge list"
+            echo "::warning::Skipping: Author '$AUTHOR' is not in trusted auto-merge list (see scripts/merge-queue-eligibility.mjs TRUSTED_AUTOMATION_AUTHORS)"
             exit 0
           fi
 

@@ -77,6 +77,13 @@ vi.mock("../services/floor-plan.js", () => ({
   },
 }));
 
+// Mock the table-status service (GET /:id/table-statuses)
+vi.mock("../services/table-status.js", () => ({
+  tableStatusService: {
+    getSnapshot: vi.fn(),
+  },
+}));
+
 // Mock the database (needed for health check registration)
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -90,7 +97,9 @@ vi.mock("jose", () => ({
 }));
 
 import { venueService, venueGroupService } from "../services/venue.js";
+import { tableStatusService } from "../services/table-status.js";
 import { jwtVerify } from "jose";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
 const mockVenueGroup = {
   id: "group-123",
@@ -577,6 +586,66 @@ describe("Venue Routes", () => {
         expect(response.statusCode).toBe(404);
         const body = JSON.parse(response.body);
         expect(body.title).toBe("Not Found");
+      });
+    });
+
+    describe("GET /v1/venues/:id/table-statuses (#3931)", () => {
+      it("returns the venue's current table-status snapshot", async () => {
+        vi.mocked(tableStatusService.getSnapshot).mockResolvedValueOnce([
+          { tableId: "table-1", status: "seated" },
+          { tableId: "table-2", status: "available" },
+        ]);
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/venue-123/table-statuses",
+          headers: { "x-auth-bypass": "true" },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body);
+        expect(body.data).toEqual([
+          { tableId: "table-1", status: "seated" },
+          { tableId: "table-2", status: "available" },
+        ]);
+        expect(tableStatusService.getSnapshot).toHaveBeenCalledWith("venue-123");
+      });
+
+      it("returns 401 for an anonymous caller", async () => {
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/venue-123/table-statuses",
+        });
+
+        expect(response.statusCode).toBe(401);
+        expect(tableStatusService.getSnapshot).not.toHaveBeenCalled();
+      });
+
+      it("returns 403 when the caller has no access to the venue", async () => {
+        process.env = {
+          ...originalEnv,
+          AUTH_AUTHORITY: "https://test.auth0.com",
+          AUTH_AUDIENCE: "https://api.example.com",
+        };
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "GET",
+          url: "/api/v1/venues/venue-123/table-statuses",
+          headers: { authorization: "Bearer outsider-token" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        expect(tableStatusService.getSnapshot).not.toHaveBeenCalled();
+
+        await scopedApp.close();
+        process.env = originalEnv;
       });
     });
 

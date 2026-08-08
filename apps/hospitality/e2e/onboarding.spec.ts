@@ -1,5 +1,65 @@
 import { test, expect } from "./fixtures.js";
+import { test as base } from "@playwright/test";
+import { mockApi } from "./api-mocks.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
+
+base.describe("Zero-venue account redirect (#3889)", () => {
+  base("dashboard chrome never paints before landing on /onboarding", async ({ page }) => {
+    await mockApi(page);
+
+    // api-mocks.ts pre-seeds localStorage["mbe-hospitality-venue-id"] to
+    // keep the rest of the E2E suite deterministic (see its comment on
+    // that seed) — which means the suite is structurally incapable of
+    // exercising a true zero-venue account. Undo the seed and make the
+    // venues endpoint genuinely empty so this test hits the real race.
+    await page.addInitScript(() => {
+      localStorage.removeItem("mbe-hospitality-venue-id");
+    });
+
+    // DashboardLayoutInner sets window.__e2eChromePainted = true as soon as
+    // its full-chrome branch mounts, before any later redirect could unmount
+    // it (see DashboardLayout.tsx). Seed it to false before the app boots so
+    // a post-redirect read reflects whether chrome EVER painted, not merely
+    // whether it's absent right now. This is the fix for #3918:
+    // toHaveURL()/toHaveCount(0)/not.toBeVisible() are all web-first
+    // assertions that only observe state at (or after) the moment they
+    // resolve — a chrome flash that already ended still passes them. Reading
+    // a flag set the moment that branch mounts is immune to that: it can
+    // only be true if the forbidden branch ever rendered, no matter how
+    // quickly a subsequent redirect happens.
+    await page.addInitScript(() => {
+      (window as unknown as { __e2eChromePainted?: boolean }).__e2eChromePainted = false;
+    });
+    await page.route("**/api/v1/venues?*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: {
+            page: 1,
+            limit: 25,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          },
+        }),
+      })
+    );
+
+    await page.goto("");
+
+    // Sanity check: the redirect actually landed. Not the regression guard
+    // itself — see the flag read below for that.
+    await expect(page).toHaveURL(/\/onboarding/);
+
+    const chromePainted = await page.evaluate(
+      () => (window as unknown as { __e2eChromePainted?: boolean }).__e2eChromePainted
+    );
+    expect(chromePainted).toBe(false);
+  });
+});
 
 test.describe("Venue onboarding wizard", () => {
   test("page loads with the onboarding shell and step 1 (Basic Info)", async ({ mockedPage }) => {

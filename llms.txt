@@ -526,6 +526,13 @@
       }
     </item>
   </file>
+  <file path="packages/agent-core/src/adapters/cli-adapter-contract.ts">
+    <item priority="low">
+      interface CliAdapterContract {
+        name: string;
+      }
+    </item>
+  </file>
   <file path="packages/agent-core/src/adapters/cli-usage-parser.ts">
     <item priority="low">
       interface CliUsage {
@@ -570,7 +577,7 @@
   <file path="packages/agent-core/src/adapters/run-cli-adapter-session.ts">
     <item priority="high">
       export async function runCliAdapterSession(
-        cliAdapter: CliAdapterBase,
+        cliAdapter: CliAdapterContract,
         config: SessionConfig,
         onEvent?: SessionEventCallback,
         deps: PhaseDeps = createDefaultPhaseDeps(),
@@ -2713,6 +2720,14 @@
       export const OccasionSchema: unknown;
     </item>
   </file>
+  <file path="packages/types/src/schemas/table-status.ts">
+    <item priority="high">
+      export const TableDisplayStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TableStatusDeltaSchema: unknown;
+    </item>
+  </file>
   <file path="packages/types/src/schemas/user.ts">
     <item priority="high">
       export const UserPreferencesSchema: unknown;
@@ -3545,6 +3560,17 @@
     </item>
     <item priority="high">
       export function transitionTable(from: TableStatus, to: TableStatus): TableStatus { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/table-status.ts">
+    <item priority="high">
+      export function selectCurrentReservation(
+        reservations: readonly Reservation[],
+        now: Date
+      ): Reservation | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function getSnapshot(venueId: string, now: Date = new Date()): Promise<TableStatusDelta[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/table.ts">
@@ -5040,10 +5066,9 @@
         http: SyncHttp;
       }
     </item>
-    <item priority="low">
-      interface RestResult {
+    <item priority="high">
+      class GhAuthError {
         status: number;
-        json: unknown;
       }
     </item>
   </file>

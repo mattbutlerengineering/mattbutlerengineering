@@ -13,7 +13,7 @@
  *   node scripts/collect-ai-issue-feedback.mjs --json       # output raw JSON to stdout
  */
 
-import { createGhClient } from "@mbe/gh-client";
+import { createGhClient, describeGhError } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
 
 const FEEDBACK_PATH = resolvePath("ai-issue-feedback");
@@ -135,6 +135,35 @@ export function computeIssueBudget(category, rates) {
 }
 
 /**
+ * Queries closed issues with AI-associated labels (last 90 days), returning
+ * a result that distinguishes "the query ran and legitimately found nothing"
+ * from "the query itself failed" (e.g. an auth failure in Claude Code Remote
+ * sessions — #3937). Callers must not collapse both into the same "no data"
+ * shape, or a query failure silently reads as an empty result.
+ *
+ * @param {(args: string[]) => unknown[]} listIssues  `gh issue list` (ghClient.issue.list)
+ * @returns {{ ok: true, issues: object[] } | { ok: false, error: string }}
+ */
+export function queryClosedIssuesForFeedback(listIssues) {
+  const labelQuery = CATEGORIES.map((c) => `label:${c}`).join(" ");
+  try {
+    const issues = listIssues([
+      "--state",
+      "closed",
+      "--limit",
+      "200",
+      "--json",
+      ISSUE_JSON_FIELDS,
+      "--search",
+      labelQuery,
+    ]);
+    return { ok: true, issues };
+  } catch (err) {
+    return { ok: false, error: describeGhError(err) };
+  }
+}
+
+/**
  * Read the persisted feedback file.
  *
  * @returns {object | null}
@@ -153,42 +182,26 @@ export function readFeedbackFile() {
 
 const ghClient = createGhClient({ timeoutMs: 30_000 });
 
-function safe(fn, fallback = null) {
-  try {
-    return fn();
-  } catch {
-    return fallback;
-  }
-}
-
 export async function run() {
   const args = process.argv.slice(2);
   const DRY_RUN = args.includes("--dry-run");
   const JSON_ONLY = args.includes("--json");
 
   // Query closed issues with AI-associated labels (last 90 days)
-  const labelQuery = CATEGORIES.map((c) => `label:${c}`).join(" ");
-  const issuesRaw = safe(
-    () =>
-      ghClient.issue.list([
-        "--state",
-        "closed",
-        "--limit",
-        "200",
-        "--json",
-        ISSUE_JSON_FIELDS,
-        "--search",
-        labelQuery,
-      ]),
-    null
-  );
+  const result = queryClosedIssuesForFeedback((queryArgs) => ghClient.issue.list(queryArgs));
 
-  if (!issuesRaw) {
-    const error = { error: "Failed to query GitHub issues" };
+  if (!result.ok) {
+    // Persist the failure (not just log it) so the issueFeedback sensor can
+    // read `error` and report the auth-capability gap distinctly from "not
+    // yet collected" — a query failure must never look like empty data (#3937).
+    const errorFeedback = { collected_at: new Date().toISOString(), error: result.error };
     if (JSON_ONLY) {
-      process.stdout.write(JSON.stringify(error, null, 2) + "\n");
+      process.stdout.write(JSON.stringify(errorFeedback, null, 2) + "\n");
     } else {
-      console.error("[collect-ai-issue-feedback] Failed to query GitHub issues");
+      console.error(`[collect-ai-issue-feedback] Query failed: ${result.error}`);
+    }
+    if (!DRY_RUN) {
+      write("ai-issue-feedback", errorFeedback);
     }
     process.exit(1);
   }
@@ -196,7 +209,7 @@ export async function run() {
   // gh issue list --json does not expose linked PRs; classify by stateReason only.
   // COMPLETED → wontfix (or accepted if we could detect merged PRs),
   // NOT_PLANNED → rejected.
-  const issues = issuesRaw.map((issue) => ({ ...issue, linkedPrs: [] }));
+  const issues = result.issues.map((issue) => ({ ...issue, linkedPrs: [] }));
 
   const rates = computeCategoryRates(issues);
 

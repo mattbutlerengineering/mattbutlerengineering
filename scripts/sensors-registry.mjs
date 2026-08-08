@@ -37,6 +37,7 @@ import {
   QUEUE_EFFICIENCY_FPS_DROP,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
+import { describeGhError } from "@mbe/gh-client";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -144,25 +145,24 @@ function parseGitNumstat(root) {
  * `commits` field (needed for first-pass-success classification) and
  * normalises it to a `commitCount`.
  *
+ * Lets a thrown error (e.g. auth failure) propagate rather than swallowing it
+ * (#3937/#3946) — collectQueueEfficiency's own catch surfaces it via
+ * describeGhError, distinct from a legitimately empty result.
+ *
  * @param {import("@mbe/gh-client").GhClient} ghClient
- * @returns {Array<object> | null}
+ * @returns {Array<object>}
  */
 export function readQueueEfficiencyPrs(ghClient) {
-  const prs = safe(
-    () =>
-      // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
-      // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
-      ghClient.pr.list([
-        "--state",
-        "all",
-        "--limit",
-        "45",
-        "--json",
-        "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
-      ]),
-    null
-  );
-  if (!prs) return null;
+  // Limit to 45: GitHub's GraphQL caps nodes at 500k; the commits sub-field
+  // multiplies PRs × ~11k potential nodes per PR. 45 sits safely under that ceiling.
+  const prs = ghClient.pr.list([
+    "--state",
+    "all",
+    "--limit",
+    "45",
+    "--json",
+    "number,state,headRefName,createdAt,mergedAt,closedAt,labels,commits,additions,deletions",
+  ]);
   return prs.map((pr) => ({
     ...pr,
     commitCount: Array.isArray(pr.commits) ? pr.commits.length : (pr.commitCount ?? 1),
@@ -345,19 +345,21 @@ export const SENSORS = [
     id: "prCategoryMetrics",
     category: "quality",
     collect: ({ ghClient }) => {
-      const prs = safe(
-        () =>
-          ghClient.pr.list([
-            "--state",
-            "all",
-            "--limit",
-            "100",
-            "--json",
-            "number,state,headRefName,mergedAt,closedAt,labels",
-          ]),
-        null
-      );
-      if (!prs) return { available: false };
+      let prs;
+      try {
+        prs = ghClient.pr.list([
+          "--state",
+          "all",
+          "--limit",
+          "100",
+          "--json",
+          "number,state,headRefName,mergedAt,closedAt,labels",
+        ]);
+      } catch (err) {
+        // Distinguishable from "no PRs" (#3937) — a thrown error (e.g. auth
+        // failure) is a query failure, not an empty-but-valid result.
+        return { available: false, error: describeGhError(err) };
+      }
       return computePrCategoryMetrics(prs);
     },
     format: (data, name) => {
@@ -401,12 +403,19 @@ export const SENSORS = [
       confidence: "skip",
     }),
     collect: ({ ghClient }) => {
-      const runs = safe(
-        () =>
-          ghClient.workflow.runs(["--limit", "30", "--json", "status,conclusion,createdAt,name"]),
-        null
-      );
-      if (!runs) return { available: false };
+      let runs;
+      try {
+        runs = ghClient.workflow.runs([
+          "--limit",
+          "30",
+          "--json",
+          "status,conclusion,createdAt,name",
+        ]);
+      } catch (err) {
+        // Distinguishable from "no runs yet" (#3937) — a thrown error (e.g.
+        // auth failure) is a query failure, not an empty-but-valid result.
+        return { available: false, error: describeGhError(err) };
+      }
       if (runs.length === 0) return { available: false };
 
       const completed = runs.filter((r) => r.status === "completed");
@@ -518,19 +527,21 @@ export const SENSORS = [
     category: "quality",
     collect: ({ ghClient, now }) => {
       const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-      const issuesRaw = safe(
-        () =>
-          ghClient.issue.list([
-            "--state",
-            "all",
-            "--limit",
-            "50",
-            "--json",
-            "number,state,labels,createdAt,closedAt",
-          ]),
-        null
-      );
-      if (!issuesRaw) return { available: false };
+      let issuesRaw;
+      try {
+        issuesRaw = ghClient.issue.list([
+          "--state",
+          "all",
+          "--limit",
+          "50",
+          "--json",
+          "number,state,labels,createdAt,closedAt",
+        ]);
+      } catch (err) {
+        // Distinguishable from "no issues" (#3937) — a thrown error (e.g.
+        // auth failure) is a query failure, not an empty-but-valid result.
+        return { available: false, error: describeGhError(err) };
+      }
       const recentIssues = issuesRaw.filter((i) => new Date(i.createdAt) >= sevenDaysAgo);
       const recentClosed = issuesRaw.filter(
         (i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo
@@ -578,7 +589,12 @@ export const SENSORS = [
     category: "quality",
     collect: ({ root }) => {
       const data = safe(() => read("ai-issue-feedback", { root }));
-      if (!data || !data.categories) return { available: false };
+      if (!data) return { available: false };
+      // #3937: collect-ai-issue-feedback.mjs persists `{ error }` (instead of
+      // leaving the file unwritten) when the underlying query failed — surface
+      // that distinctly from "not yet collected".
+      if (data.error) return { available: false, error: data.error };
+      if (!data.categories) return { available: false };
 
       const categories = data.categories;
       const unhealthy = Object.entries(categories)
@@ -685,17 +701,19 @@ export const SENSORS = [
     id: "e2eStability",
     category: "availability",
     collect: ({ root, ghClient }) => {
-      const ghRuns = safe(
-        () =>
-          ghClient.workflow.runs([
-            "--limit",
-            "30",
-            "--json",
-            "conclusion,createdAt,headBranch,headSha",
-          ]),
-        null
-      );
-      if (!ghRuns) return { available: false };
+      let ghRuns;
+      try {
+        ghRuns = ghClient.workflow.runs([
+          "--limit",
+          "30",
+          "--json",
+          "conclusion,createdAt,headBranch,headSha",
+        ]);
+      } catch (err) {
+        // Distinguishable from "no runs yet" (#3937) — a thrown error (e.g.
+        // auth failure) is a query failure, not an empty-but-valid result.
+        return { available: false, error: describeGhError(err) };
+      }
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
       // head SHA not in the local object store — see resolveRunChangedPaths.

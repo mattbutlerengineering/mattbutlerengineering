@@ -294,3 +294,21 @@ None this run (queue and CI both healthy; `Release` failure already tracked by #
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
+## 2026-08-06 (learning-loop)
+
+**Sensors:** 5/16 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114 unchanged, code churn 0%)
+**Verifications:** 0 checked (no sensor-labeled issues closed in last 48h)
+**Sentry triage:** skipped (Sentry MCP tools disconnected mid-session, same as 2026-08-05)
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Threshold notes:** `verifications.jsonl` still has no entries in the last 30 days (latest prior entry remains 2026-06-20), so false-positive/fix-effectiveness rates aren't computable this run. `collect-ai-issue-feedback.mjs` failed again with the same recurring gap noted 2026-08-05 — default budget (3/category) used since `ai-issue-feedback.json` stayed empty. No action taken — zero regressions to triage this run, so the gap didn't block anything.
+
+## 2026-08-07 (learning-loop)
+
+**Sensors:** 5/16 available (acmm, prMetrics, ccusageCost, sessionLogs, codeChurn) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected in `sensor-report.json`'s regressions array, 0 issues created from it (status: Healthy — ACMM L5 96/114 unchanged, code churn 0%)
+**Verifications:** `verify-fixes.mjs` reported 0 checked ("no sensor-labeled issues closed in last 48h") — but this result is **unverifiable, not confirmed-zero**: cross-checked via `mcp__github__search_issues` and found 26 issues closed with sensor labels (`ci-fix`/`audit`/`bug`) since 2026-08-05, so the script's `ghClient.issue.list()` call almost certainly 401'd and its `safe()` wrapper silently returned the empty-list fallback (see Threshold notes). Did not hand-reimplement per-sensor verification for all 26 via MCP this run — out of scope; deferred to the fix below landing.
+**Sentry triage:** skipped (MCP server disconnected mid-check, reconnected after)
+**Skill proposals:** 0 (Friday, but `sessionLogs` shows 0 sessions/0 commits in last 7d — no pattern data to mine)
+**Threshold notes:** Root-caused the recurring `collect-ai-issue-feedback.mjs`/`verify-fixes.mjs` failure noted in this log on 2026-06-20, 07-30, 07-31, 08-01, 08-03, 08-05, 08-06 (8th consecutive occurrence) and **filed it as a dedicated tracked issue for the first time: #3937**. Root cause: `@mbe/gh-client`'s REST fallback (added by #3689 for `gh`-binary-less environments) authenticates with the shell's `GITHUB_TOKEN`/`GH_TOKEN`, which in Claude Code Remote sessions is scoped for git-over-HTTPS only and returns `401 Bad credentials` against `api.github.com` — only `mcp__github__*` tools have working GitHub auth here. Confirmed via direct repro this is the same failure class that produced a **false positive** in the 2026-06-20 `verifications.jsonl` entry (`"verified":true,"reason":"...gh CLI unavailable or error"`) and, today, a **false negative** in `verify-fixes.mjs`'s "no issues to verify" — the `safe()` wrapper masks auth failures as empty results in both directions. `ai-issue-feedback.json` stayed at `{}`; default budget (3/category) used, though it was moot (zero regressions to act on). Recommend: do not re-file this gap again in future runs — track via #3937 until it closes, then re-verify sensors come back online.

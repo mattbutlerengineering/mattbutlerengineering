@@ -1,6 +1,6 @@
 ---
 name: adr-compliance-reviewer
-description: Use this agent when a commit or PR touches code that might violate an active ADR. Reviews the change against `docs/adr/*.md` entries with status=active, going beyond the regex prohibited_patterns that `scripts/check-adr.js` already enforces to catch semantic violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
+description: Use this agent when a commit or PR touches code that might violate an active ADR. Reviews the change against `docs/adr/*.md` entries with status=active, going beyond the regex prohibited_patterns that `check-adr` already enforces to catch semantic violations (e.g., introducing `fetch` directly when an ADR mandates `@mbe/api-client`).
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -28,7 +28,7 @@ Do NOT hard-code this list in the review — always `ls docs/adr/ADR-*.md` and r
 
 ## What you catch that the regex script doesn't
 
-`scripts/check-adr.js` handles regex `prohibited_patterns`. You handle:
+`check-adr` (`tools/cli/src/commands/adr.ts`) handles regex `prohibited_patterns`. You handle:
 
 1. **Semantic use-the-right-abstraction violations.**
    - ADR-001 forbids Tailwind classes (regex). You catch: using inline `style={{}}` when a Rialto token token exists for that property. Example flag: `style={{ color: "#b0841e" }}` when `color: "var(--rialto-accent)"` is the canonical form.
@@ -47,6 +47,10 @@ Do NOT hard-code this list in the review — always `ls docs/adr/ADR-*.md` and r
 - Regex-matchable violations (the script already runs at commit time — don't duplicate).
 - Non-ADR style preferences. If it's not codified in an active ADR, it's not your call.
 - Plain bugs. That's `code-reviewer`'s job.
+
+## Read-only contract
+
+**Never mutate the main checkout.** No `git add`, `git checkout`, `git stash`, `git apply`, `git commit`, or any file write/redirect (`>`, `>>`) against the working tree you were dispatched into — you read and report, you do not change state. If you need the PR's code present on disk to check something concretely, use the worker's own worktree at `.claude/worktrees/agent-<taskId>/` — it is already checked out on the PR branch — never the main checkout. Before you finish, `git status --porcelain` in the main checkout must read byte-identical to how you found it.
 
 ## Output format
 

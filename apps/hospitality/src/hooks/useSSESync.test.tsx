@@ -4,7 +4,13 @@ import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
-import { SSESyncProvider, useSSESync, useSSEStatus, useSSEEventFeed } from "./useSSESync.js";
+import {
+  SSESyncProvider,
+  useSSESync,
+  useSSEStatus,
+  useSSEEventFeed,
+  useTableStatuses,
+} from "./useSSESync.js";
 
 /* ── Fake fetchEventSource ─────────────────────────────────────────
  *
@@ -78,6 +84,15 @@ vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenueId: "v1" }),
 }));
 
+const mockGetStatuses = vi.fn();
+// Stable reference across renders — mirrors useApiClient()'s real useMemo
+// (keyed on accessToken). A fresh object per call would re-trigger any
+// effect keyed on `api`.
+const mockApiClient = { tables: { getStatuses: mockGetStatuses } };
+vi.mock("./useApiClient.js", () => ({
+  useApiClient: () => mockApiClient,
+}));
+
 /* ── Wrappers ──────────────────────────────────────────────────── */
 
 function makeWrapper(queryClient?: QueryClient) {
@@ -98,6 +113,8 @@ beforeEach(() => {
   vi.mocked(useAuth).mockReturnValue({ accessToken: "test-access-token" } as never);
   vi.stubEnv("VITE_API_URL", "http://localhost:3000");
   vi.useFakeTimers();
+  mockGetStatuses.mockReset();
+  mockGetStatuses.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -166,6 +183,33 @@ describe("useSSEStatus — connection status via context", () => {
     expect(result.current.status.isConnected).toBe(false);
     expect(result.current.status.error).toBeInstanceOf(Error);
     expect(result.current.status.error?.message).toBe("SSE connection error");
+  });
+
+  it("reports connected again — and clears the error — once the scheduled reconnect opens", () => {
+    // Drives the floor plan canvas's staleness indicator: it derives
+    // isStale from !isConnected, so this is the exact round trip that
+    // must clear it (see FloorPlanCanvas's `isStale` prop).
+    const { result } = renderHook(() => ({ status: useSSEStatus(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    act(() => {
+      void simulateOpen();
+    });
+    act(() => {
+      simulateError();
+    });
+    expect(result.current.status.isConnected).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt opens a new connection
+    });
+    act(() => {
+      void simulateOpen();
+    });
+
+    expect(result.current.status.isConnected).toBe(true);
+    expect(result.current.status.error).toBeNull();
   });
 });
 
@@ -447,5 +491,250 @@ describe("useSSEEventFeed — event feed via context", () => {
     expect(result.current.feed).toHaveLength(1);
     expect(result.current.feed[0]?.type).toBe("table-status:changed");
     expect(result.current.feed[0]?.data).toEqual([{ tableId: "t1", status: "seated" }]);
+  });
+});
+
+describe("useTableStatuses — cumulative per-table status via context", () => {
+  it("starts empty", () => {
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
+
+    expect(result.current.tableStatuses.statuses.size).toBe(0);
+  });
+
+  it("records a table's status from a table-status:changed delta", () => {
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+  });
+
+  it("accumulates deltas for multiple tables across events", () => {
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:01Z",
+        data: [{ tableId: "t2", status: "needs-bussing" }],
+      });
+    });
+
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t2")).toBe("needs-bussing");
+  });
+
+  it("overwrites a table's previous status on a later delta (last write wins)", () => {
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
+
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:01Z",
+        data: [{ tableId: "t1", status: "available" }],
+      });
+    });
+
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
+  });
+
+  it("ignores unrelated event types", () => {
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
+
+    act(() => {
+      simulateEvent("table:updated", {
+        type: "table:updated",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: { id: "t1" },
+      });
+    });
+
+    expect(result.current.tableStatuses.statuses.size).toBe(0);
+  });
+});
+
+describe("useTableStatuses — reconnect resync (#3931)", () => {
+  it("replays a status change that happened during the outage once the reconnect resync lands", async () => {
+    mockGetStatuses.mockResolvedValueOnce([{ tableId: "t1", status: "available" }]);
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
+
+    // Connection drops — a status change happens during the outage. There is
+    // no delta for it (EventSource has no Last-Event-ID replay), so it would
+    // be lost without a resync.
+    act(() => {
+      simulateError();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    mockGetStatuses.mockResolvedValueOnce([{ tableId: "t1", status: "seated" }]);
+
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt
+    });
+    await act(async () => {
+      await simulateOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+  });
+
+  it("keeps isStale true after reconnect until the resync snapshot has actually landed", async () => {
+    let resolveSnapshot!: (deltas: { tableId: string; status: string }[]) => void;
+    const pending = new Promise<{ tableId: string; status: string }[]>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    mockGetStatuses.mockReturnValueOnce(pending);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    act(() => {
+      void simulateOpen();
+    });
+
+    // Reconnect flipped isConnected, but the resync fetch is still in flight —
+    // must NOT clear staleness on reconnect alone (the false-all-clear bug).
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    await act(async () => {
+      resolveSnapshot([]);
+      await pending;
+      await Promise.resolve();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
+  });
+
+  it("does not let a reconnect snapshot clobber a delta that landed while the fetch was in flight (#3948)", async () => {
+    mockGetStatuses.mockResolvedValueOnce([
+      { tableId: "t1", status: "available" },
+      { tableId: "t2", status: "available" },
+    ]);
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(false);
+
+    // Connection drops and reconnects — the resync snapshot fetch starts but
+    // has not resolved yet.
+    act(() => {
+      simulateError();
+    });
+
+    let resolveSnapshot!: (deltas: { tableId: string; status: string }[]) => void;
+    const pending = new Promise<{ tableId: string; status: string }[]>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    mockGetStatuses.mockReturnValueOnce(pending);
+
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt
+    });
+    act(() => {
+      void simulateOpen();
+    });
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    // A live delta for t1 lands while the snapshot fetch (captured before
+    // this delta existed) is still in flight.
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:02Z",
+        data: [{ tableId: "t1", status: "seated" }],
+      });
+    });
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+
+    // The in-flight snapshot resolves with server state captured before the
+    // delta above — it must not clobber the delta, but it should still land
+    // for tables it has no newer delta for.
+    await act(async () => {
+      resolveSnapshot([
+        { tableId: "t1", status: "available" },
+        { tableId: "t2", status: "dirty" },
+      ]);
+      await pending;
+      await Promise.resolve();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t2")).toBe("dirty");
   });
 });

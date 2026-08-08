@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useNavigate, useLocation, Outlet } from "react-router";
+import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import {
   Breadcrumb,
@@ -23,6 +23,7 @@ import type { NavItem } from "../nav-sections.js";
 import { VenueProvider } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
+import { LoadingPage } from "../pages/LoadingPage.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
@@ -64,24 +65,23 @@ function DashboardLayoutInner() {
   const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Readiness-based redirect guard
+  const path = location.pathname.replace(/^\/hospitality/, "");
+
+  // Single source of truth for the two render-time-gate branches below —
+  // computed once and reused by the instrumentation effect so the two can't
+  // silently drift apart.
+  const isLoadingGate = readiness.status === "loading";
+  const isNoVenueRedirectGate =
+    readiness.status === "no-venue" &&
+    !path.startsWith("/onboarding") &&
+    !path.startsWith("/callback");
+
+  // Readiness-based redirect guard for "setup" and "operational" statuses.
+  // "loading" and "no-venue" are handled by the render-time gate below
+  // instead of here: an effect runs after commit and paint, so routing those
+  // two through an effect would paint the full dashboard chrome for at least
+  // one frame before bouncing away (#3889).
   useEffect(() => {
-    const path = location.pathname.replace(/^\/hospitality/, "");
-
-    // Do not redirect while venue data is still loading — the real status
-    // is not yet known and an early redirect would be sticky (operational
-    // recovery only handles /setup and /, not /onboarding).
-    if (readiness.status === "loading") {
-      return;
-    }
-
-    if (readiness.status === "no-venue") {
-      if (!path.startsWith("/onboarding") && !path.startsWith("/callback")) {
-        navigate("/onboarding", { replace: true });
-      }
-      return;
-    }
-
     if (readiness.status === "setup") {
       const isOperationalPage = OPERATIONAL_ONLY_PATHS.some(
         (p) => path === p || path.startsWith(p + "/")
@@ -101,7 +101,22 @@ function DashboardLayoutInner() {
         navigate("/timeline", { replace: true });
       }
     }
-  }, [readiness.status, location.pathname, navigate]);
+  }, [readiness.status, path, navigate]);
+
+  // E2E-only instrumentation: records that the full-chrome branch below is
+  // about to render, rather than the loading/no-venue render-time gate
+  // (#3918). A plain render-body write here would violate React's render
+  // purity (and this repo's lint rule for it), so this reports the fact via
+  // an effect instead — mutating `window` directly is only safe from an
+  // effect. It stays a same-mount-cycle signal, not a return to
+  // effect-driven redirects: no navigate() call was reintroduced, and the
+  // gate branches below are unchanged. Mirrors the "test harness reads a
+  // window global" pattern of window.__e2eNoRetry in QueryProvider.tsx.
+  useEffect(() => {
+    if (!isLoadingGate && !isNoVenueRedirectGate) {
+      (window as unknown as { __e2eChromePainted?: boolean }).__e2eChromePainted = true;
+    }
+  }, [isLoadingGate, isNoVenueRedirectGate]);
 
   // Toggle theme between light and dark
   const toggleTheme = useCallback(() => {
@@ -210,6 +225,17 @@ function DashboardLayoutInner() {
 
     return items;
   }, [location.pathname, navigate]);
+
+  // Render-time gate: decide before painting any dashboard chrome, instead of
+  // in a post-commit effect (#3889). All hooks above must still run
+  // unconditionally on every render for the Rules of Hooks.
+  if (isLoadingGate) {
+    return <LoadingPage />;
+  }
+
+  if (isNoVenueRedirectGate) {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   return (
     <div className={styles.root} data-testid="dashboard-layout">

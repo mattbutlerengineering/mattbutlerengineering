@@ -176,13 +176,13 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
    If `needs-review` is present, the fast path is off-limits — fall through to step 3 (Reviewer sub-agent).
 
-   Only when `needs-review` is absent AND ALL changed files (`gh pr diff <N> --name-only`) are tests (`*.test.*`/`*.spec.*`), docs (`*.md`, `docs/**`), dependency manifests (`package.json`, lockfiles), or config (`.github/**`, `.claude/**`, `turbo.json`, `*.config.*`) — skip review and enqueue immediately:
+   Only when `needs-review` is absent AND `isLowRiskPR(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
 
    ```bash
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   (`isLowRiskPR` in `@mbe/agent-core` implements the file-glob check; `reviewersForDiff` is its sibling.) Move to the next PR.
+   `isLowRiskPR` requires **every** changed file to match `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts` — that predicate is the single source of truth for the allowlisted categories; this doc intentionally does not enumerate the globs so the two cannot drift apart (see #3887). `reviewersForDiff` is `isLowRiskPR`'s sibling. Move to the next PR.
 
 3. **Reviewer sub-agent (non-low-risk PRs).** Build `ReviewInput` from the PR diff and dispatch:
 
@@ -198,6 +198,17 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    for — on seeing one, it reads the missing region from disk via Read/Grep instead of
    guessing.
 
+   **Snapshot `git status --porcelain` before dispatch — a hard mismatch check, not a warning.**
+   Reviewer agents run with `isolation: "none"` in the main checkout and each carries a
+   "Read-only contract" (`.claude/agents/reviewer.md` and the seven specialist agent files)
+   telling it to point any code-execution need at the worker's own worktree
+   (`.claude/worktrees/agent-<taskId>/`, already checked out on the PR branch) instead of
+   touching the main tree. Don't just trust the instruction — verify it:
+
+   ```bash
+   BEFORE=$(git status --porcelain)
+   ```
+
    Dispatch via Agent tool with `subagent_type: "reviewer"`, `isolation: "none"`,
    model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
 
@@ -211,7 +222,23 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    load-bearing: a dispatch that never resolved is not a review, and recording it
    as `pass` is indistinguishable from a real one.
 
-4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`migration-reviewer`, `adr-compliance-reviewer`, `rialto-prop-drift-detector`, `dependency-update-reviewer`), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers.
+   **Immediately after the reviewer returns, compare:**
+
+   ```bash
+   AFTER=$(git status --porcelain)
+   [ "$BEFORE" = "$AFTER" ] || echo "MISMATCH — reviewer mutated the main checkout"
+   ```
+
+   A mismatch means the reviewer wrote to, staged, or otherwise changed the main
+   checkout — this is what happened in #3917, where a PR's changes were left staged
+   in the index one `git commit` away from landing on an unrelated branch. Treat a
+   mismatch as a **failed review, not a pass**: restore the tree to the `BEFORE` state
+   (inspect what changed first — `git diff`/`git status` — before discarding anything,
+   in case it overlaps work already in progress in this checkout), then re-dispatch the
+   reviewer. Whatever verdict the mutating dispatch returned is invalid — it read a tree
+   it had already altered.
+
+4. **Diff-matched specialized review gate.** For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers. Apply the same before/after `git status --porcelain` guard from step 3 to each specialist dispatch — snapshot before, compare after, treat any mismatch as a failed review and re-dispatch rather than trusting a verdict from a reviewer that mutated the tree it read.
 
 5. **On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar:
 
@@ -306,7 +333,7 @@ If CI fails on the updated branch: one fix attempt in the main session (small fi
 - **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
 - More `ready` issues and time/budget remain → back to Phase 0.
 - **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
-- **Persist telemetry before stopping:** if `metrics/queue-telemetry.jsonl` has uncommitted appended rows (`git diff --stat -- metrics/queue-telemetry.jsonl`), commit ONLY that path on a branch and open a PR titled `chore(metrics): queue telemetry <YYYY-MM-DD>` labeled `has-pr` (auto-merges via the low-risk fast path). Ephemeral cloud checkouts lose uncommitted rows forever.
+- **Persist telemetry before stopping:** if `metrics/queue-telemetry.jsonl` has uncommitted appended rows (`git diff --stat -- metrics/queue-telemetry.jsonl`), commit ONLY that path on a branch and open a PR titled `chore(metrics): queue telemetry <YYYY-MM-DD>` labeled `has-pr`. A PR that touches only `metrics/**` satisfies `isLowRiskPR` (see Phase 2 step 2) and auto-merges via the low-risk fast path — but only if every changed file is metrics-only; a mixed diff (e.g. also touching a non-allowlisted file) falls through to the reviewer gate like any other PR. Ephemeral cloud checkouts lose uncommitted rows forever.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
 Recurring use: `/loop 30m /implement-queue`.

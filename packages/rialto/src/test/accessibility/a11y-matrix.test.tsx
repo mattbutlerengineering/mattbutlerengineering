@@ -51,6 +51,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "DataTable",
   "DatePicker",
   "DateRange",
+  "DateRangePicker",
   "DepartureBoard",
   "Dialog",
   "DisabledTooltip",

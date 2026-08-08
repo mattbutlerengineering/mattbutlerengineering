@@ -8,6 +8,16 @@
   margin-bottom: var(--rialto-space-xl);
 }
 
+/* Heading defaults to the display scale (~4.3rem) sized for hero sections;
+   at that size the unbreakable word "Dashboard" doesn't fit a 360px mobile
+   viewport and overflows horizontally (see #3902). Match the StatusPage
+   pattern of scaling the h1 down for a dashboard-style page header. Scoped
+   to .container (not just .header) so the loading/error states, which
+   render the same heading without the .header wrapper, are covered too. */
+.container h1 {
+  font-size: var(--rialto-text-xl);
+}
+
 .subtitle {
   margin-top: var(--rialto-space-xs);
   color: var(--rialto-text-secondary);

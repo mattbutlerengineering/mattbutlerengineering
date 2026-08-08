@@ -45,6 +45,7 @@ import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
 import { DatePicker } from "../../components/DatePicker/DatePicker";
 import { DateRange } from "../../components/DateRange/DateRange";
+import { DateRangePicker } from "../../components/DateRangePicker/DateRangePicker";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Dialog } from "../../components/Dialog/Dialog";
 import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledTooltip";
@@ -143,6 +144,7 @@ export type BarrelExportName =
   | "DataTable"
   | "DatePicker"
   | "DateRange"
+  | "DateRangePicker"
   | "DepartureBoard"
   | "Dialog"
   | "DisabledTooltip"
@@ -223,9 +225,13 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <DatePicker label="Date" value={null} onChange={noop} />,
   },
   DateRange: {
+    element: <DateRange value={{ start: "2024-06-10", end: "2024-06-15" }} onChange={noop} />,
+  },
+  DateRangePicker: {
     element: (
-      <DateRange
-        value={{ start: new Date(2024, 5, 10), end: new Date(2024, 5, 15) }}
+      <DateRangePicker
+        label="Dates"
+        value={{ start: "2024-06-10", end: "2024-06-15" }}
         onChange={noop}
       />
     ),

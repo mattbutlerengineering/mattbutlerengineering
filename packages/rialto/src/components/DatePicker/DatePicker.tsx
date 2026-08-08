@@ -13,6 +13,8 @@ type Placement = "top" | "bottom" | "left" | "right";
  * containing an inline {@link Calendar}. Controlled via an ISO `yyyy-mm-dd`
  * string — no `Date` objects cross the public boundary. Selecting a date (or
  * pressing Escape) closes the popover and returns focus to the trigger.
+ * `Calendar` and `DateRange` share this same ISO-string vocabulary, per
+ * ADR-024 (`docs/adr/ADR-024-date-value-vocabulary.md`).
  *
  * @example
  * const [date, setDate] = useState<string | null>(null);

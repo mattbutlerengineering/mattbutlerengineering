@@ -68,7 +68,12 @@ export function formatSensorDisplay(sensors) {
   return getReportSensors().map((sensor) => {
     const key = sensor.reportKey ?? sensor.id;
     const data = sensors[key];
-    if (!data?.available) return `${key}: ⏭  not available`;
+    if (!data?.available) {
+      // A collector-reported `error` (e.g. GhAuthError — #3937) means the
+      // query itself failed, not that the sensor legitimately has no data.
+      // These must render as distinguishable lines, not both "not available".
+      return data?.error ? `${key}: ⏭  query failed — ${data.error}` : `${key}: ⏭  not available`;
+    }
     return typeof sensor.format === "function" ? sensor.format(data, key) : `${key}: available`;
   });
 }

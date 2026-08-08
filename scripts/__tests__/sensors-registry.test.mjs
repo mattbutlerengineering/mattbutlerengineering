@@ -20,6 +20,7 @@ import {
   resolveRunChangedPaths,
 } from "../sensors-registry.mjs";
 import { computeE2eStability } from "../collect-e2e-stability.mjs";
+import { GhAuthError } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -215,6 +216,40 @@ describe("sensors-registry", () => {
     });
   });
 
+  describe("issueFeedback sensor", () => {
+    // #3937: collect-ai-issue-feedback.mjs now persists `{ error }` instead of
+    // leaving the file unwritten on a query failure — the sensor must surface
+    // that distinctly from "not yet collected".
+    let tmpDir;
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it("reports the auth-capability gap distinctly when the persisted file records an error", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
+      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+      writeFileSync(
+        join(tmpDir, "metrics", "ai-issue-feedback.json"),
+        JSON.stringify({ collected_at: "2026-08-07T00:00:00Z", error: "GitHub auth failed" })
+      );
+
+      const sensor = SENSORS.find((s) => s.id === "issueFeedback");
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
+    });
+
+    it("reports plain unavailable (no error) when the file has simply never been written", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
+
+      const sensor = SENSORS.find((s) => s.id === "issueFeedback");
+
+      expect(sensor.collect({ root: tmpDir })).toEqual({ available: false });
+    });
+  });
+
   describe("domainActivity sensor", () => {
     let tmpDir;
 
@@ -324,17 +359,65 @@ describe("sensors-registry", () => {
       expect(result.total_prs).toBe(1);
     });
 
-    it("prCategoryMetrics reports unavailable when ghClient.pr.list throws", () => {
+    // #3946: same swallow #3937/#3944 fixed for ci/issues/issueFeedback — also
+    // found here on the grep sweep for remaining safe()-wrapped ghClient calls.
+    it("prCategoryMetrics reports the auth-capability gap distinctly when ghClient.pr.list throws GhAuthError", () => {
       const ghClient = {
         pr: {
           list: vi.fn().mockImplementation(() => {
-            throw new Error("gh not authenticated");
+            throw new GhAuthError("GET", "/repos/o/r/pulls", 401, "Bad credentials");
           }),
         },
       };
       const sensor = SENSORS.find((s) => s.id === "prCategoryMetrics");
 
+      const result = sensor.collect({ ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
+    });
+
+    // #3937: an auth failure (Claude Code Remote's REST fallback token isn't
+    // valid for direct api.github.com calls) must be distinguishable from a
+    // legitimately empty result — both used to collapse to the same
+    // `{ available: false }` "not applicable" shape via safe().
+    it("ci sensor reports the auth-capability gap distinctly when ghClient.workflow.runs throws GhAuthError", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockImplementation(() => {
+            throw new GhAuthError("GET", "/repos/o/r/actions/runs", 401, "Bad credentials");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
+    });
+
+    it("ci sensor reports plain unavailable (no error) when there are simply no runs yet", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
       expect(sensor.collect({ ghClient })).toEqual({ available: false });
+    });
+
+    it("issues sensor reports the auth-capability gap distinctly when ghClient.issue.list throws GhAuthError", () => {
+      const ghClient = {
+        issue: {
+          list: vi.fn().mockImplementation(() => {
+            throw new GhAuthError("GET", "/repos/o/r/issues", 401, "Bad credentials");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "issues");
+
+      const result = sensor.collect({ ghClient, now: new Date() });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
     });
 
     // readQueueEfficiencyPrs is exercised directly (rather than through the
@@ -364,29 +447,37 @@ describe("sensors-registry", () => {
       expect(result).toEqual([{ ...prs[0], commitCount: 2 }]);
     });
 
-    it("readQueueEfficiencyPrs returns null when ghClient.pr.list throws", () => {
+    // #3946: readQueueEfficiencyPrs used to swallow via safe() → null, which
+    // collectQueueEfficiency's own catch then collapsed to a bare
+    // `{ available: false }` — the same ci/issues/prCategoryMetrics swallow,
+    // found here on the grep sweep. Letting it throw (instead of swallowing)
+    // lets collectQueueEfficiency's catch surface `.error` via describeGhError.
+    it("readQueueEfficiencyPrs propagates ghClient.pr.list's thrown error instead of swallowing it", () => {
       const ghClient = {
         pr: {
           list: vi.fn().mockImplementation(() => {
-            throw new Error("gh not authenticated");
+            throw new GhAuthError("GET", "/repos/o/r/pulls", 401, "Bad credentials");
           }),
         },
       };
 
-      expect(readQueueEfficiencyPrs(ghClient)).toBeNull();
+      expect(() => readQueueEfficiencyPrs(ghClient)).toThrow(GhAuthError);
     });
 
-    it("queueEfficiency sensor.collect reports unavailable when ghClient.pr.list throws", () => {
+    it("queueEfficiency sensor.collect reports the auth-capability gap distinctly when ghClient.pr.list throws GhAuthError", () => {
       const ghClient = {
         pr: {
           list: vi.fn().mockImplementation(() => {
-            throw new Error("gh not authenticated");
+            throw new GhAuthError("GET", "/repos/o/r/pulls", 401, "Bad credentials");
           }),
         },
       };
       const sensor = SENSORS.find((s) => s.id === "queueEfficiency");
 
-      expect(sensor.collect({ ghClient, now: new Date() })).toEqual({ available: false });
+      const result = sensor.collect({ ghClient, now: new Date() });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
     });
 
     it("e2eStability collects runs via ghClient.workflow.runs", () => {
@@ -421,14 +512,28 @@ describe("sensors-registry", () => {
       expect(typeof result.available).toBe("boolean");
     });
 
-    it("e2eStability reports unavailable when ghClient.workflow.runs throws", () => {
+    // #3946: same swallow #3937/#3944 fixed for ci/issues/issueFeedback, still
+    // live in e2eStability — a thrown GhAuthError must be distinguishable from
+    // a legitimately empty result, both of which used to collapse to the same
+    // `{ available: false }` shape via safe().
+    it("e2eStability sensor reports the auth-capability gap distinctly when ghClient.workflow.runs throws GhAuthError", () => {
       const ghClient = {
         workflow: {
           runs: vi.fn().mockImplementation(() => {
-            throw new Error("gh not authenticated");
+            throw new GhAuthError("GET", "/repos/o/r/actions/runs", 401, "Bad credentials");
           }),
         },
       };
+      const sensor = SENSORS.find((s) => s.id === "e2eStability");
+
+      const result = sensor.collect({ root: process.cwd(), ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
+    });
+
+    it("e2eStability sensor reports plain unavailable (no error) when there are simply no runs yet", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
       expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({ available: false });

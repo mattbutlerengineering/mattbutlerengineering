@@ -30,6 +30,13 @@
       }
     </item>
   </file>
+  <file path="src/adapters/cli-adapter-contract.ts">
+    <item priority="low">
+      interface CliAdapterContract {
+        name: string;
+      }
+    </item>
+  </file>
   <file path="src/adapters/cli-usage-parser.ts">
     <item priority="low">
       interface CliUsage {
@@ -74,7 +81,7 @@
   <file path="src/adapters/run-cli-adapter-session.ts">
     <item priority="high">
       export async function runCliAdapterSession(
-        cliAdapter: CliAdapterBase,
+        cliAdapter: CliAdapterContract,
         config: SessionConfig,
         onEvent?: SessionEventCallback,
         deps: PhaseDeps = createDefaultPhaseDeps(),

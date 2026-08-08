@@ -96,7 +96,7 @@ Extended documentation for AI agents working on this app:
 
 ### Critical Constraints for Agents
 
-1. **All colors must use `var(--rialto-*)` tokens** — no hardcoded hex colors. The app is fully dark-mode compatible.
+1. **All colors must use `var(--rialto-*)` tokens** — no hardcoded hex colors. The app is fully dark-mode compatible. **Exception: Konva canvas fills** (`floor-plan/TableShape.tsx`) — canvas `fillStyle`/`stroke` need a literal color string and can't resolve `var(--rialto-*)`. Resolve the token at render time via `getComputedStyle(document.documentElement).getPropertyValue("--rialto-*")` instead of mirroring a hex, so the color tracks whichever theme (`data-theme`) is active; re-resolve on a `MutationObserver` watching `data-theme` so runtime theme switches repaint without a reload. Only fall back to a hardcoded hex when the custom property resolves empty (unloaded stylesheet, non-browser test env) — and keep any such fallback theme-keyed (light + dark) and covered by a drift-guard test that reads `packages/rialto/src/tokens/colors.css` directly (see `TableShape.test.tsx`), so a token change that isn't mirrored fails a test instead of silently going stale.
 2. **All UI elements must use Rialto components** — no raw `<button>`, `<input>`, `<select>` in pages.
 3. **All API calls must use `@mbe/api-client`** with `getAccessToken` — never raw `fetch` with manual auth.
 4. **SSE callbacks must use refs** — inline callbacks cause reconnection on every render.

@@ -104,6 +104,10 @@ OR
 
 If a test passes a prop that **looks intentional** but isn't on the props interface (e.g., the test passes `data-testid` and the component should forward it via `...props` spread but doesn't), suggest both: "Either update the test to remove the prop, OR update the component to extend `HTMLAttributes` so `data-*` flows through."
 
+## Read-only contract
+
+**Never mutate the main checkout.** No `git add`, `git checkout`, `git stash`, `git apply`, `git commit`, or any file write/redirect (`>`, `>>`) against the working tree you were dispatched into — you read and report, you do not change state. If you need the PR's component or test files present on disk beyond what was passed to you, use the worker's own worktree at `.claude/worktrees/agent-<taskId>/` — it is already checked out on the PR branch — never the main checkout. Before you finish, `git status --porcelain` in the main checkout must read byte-identical to how you found it.
+
 ## Output guarantee
 
 Emit findings in stable, machine-parseable format (one DRIFT block per issue) so a future automation can grep them. Always end with the count + binary summary so the caller can branch on green/red without parsing the body.

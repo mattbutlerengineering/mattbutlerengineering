@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createGhClient, markReady } from "@mbe/gh-client";
+import { createGhClient, markReady, describeGhError } from "@mbe/gh-client";
 import { run as runThresholdTuner } from "./threshold-tuner.mjs";
 import { getAllLabels } from "./sensors-registry.mjs";
 import { append, resolvePath } from "./metrics-store.mjs";
@@ -59,30 +59,46 @@ function readJson(path) {
 
 /* ── Find issues to verify ───────────────────────────── */
 
-function findClosedIssuesWithSensorLabels() {
-  const cutoff = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000);
+/**
+ * Queries closed issues carrying a sensor label, closed within the lookback
+ * window — returning a result that distinguishes "the query ran and
+ * legitimately found nothing" from "the query itself failed" (e.g. an auth
+ * failure in Claude Code Remote sessions — #3937). Callers must not collapse
+ * both into the same "nothing to verify" shape.
+ *
+ * @param {(args: string[]) => unknown[]} listIssues  `gh issue list` (ghClient.issue.list)
+ * @param {{ lookbackHours?: number, sensorLabels?: string[], now?: Date }} [opts]
+ * @returns {{ ok: true, issues: object[] } | { ok: false, error: string }}
+ */
+export function queryClosedIssuesWithSensorLabels(listIssues, opts = {}) {
+  const lookbackHours = opts.lookbackHours ?? LOOKBACK_HOURS;
+  const sensorLabels = opts.sensorLabels ?? SENSOR_LABELS;
+  const cutoff = new Date((opts.now ?? new Date()) - lookbackHours * 60 * 60 * 1000);
 
-  const issues = safe(
-    () =>
-      ghClient.issue.list([
-        "--state",
-        "closed",
-        "--limit",
-        "30",
-        "--json",
-        "number,title,labels,closedAt,body",
-      ]),
-    []
-  );
+  let issues;
+  try {
+    issues = listIssues([
+      "--state",
+      "closed",
+      "--limit",
+      "30",
+      "--json",
+      "number,title,labels,closedAt,body",
+    ]);
+  } catch (err) {
+    return { ok: false, error: describeGhError(err) };
+  }
 
-  return issues
+  const filtered = issues
     .filter((issue) => {
       if (!issue.closedAt) return false;
       if (new Date(issue.closedAt) < cutoff) return false;
       const labelNames = (issue.labels ?? []).map((l) => l.name);
-      return labelNames.some((l) => SENSOR_LABELS.includes(l));
+      return labelNames.some((l) => sensorLabels.includes(l));
     })
     .slice(0, MAX_VERIFICATIONS);
+
+  return { ok: true, issues: filtered };
 }
 
 /* ── Sensor-specific verifiers ───────────────────────── */
@@ -277,7 +293,18 @@ export function shouldActOnResult(result) {
 /* ── Main ────────────────────────────────────────────── */
 
 async function main() {
-  const issues = findClosedIssuesWithSensorLabels();
+  const result = queryClosedIssuesWithSensorLabels((args) => ghClient.issue.list(args), {
+    lookbackHours: LOOKBACK_HOURS,
+  });
+
+  if (!result.ok) {
+    // Must never look like "nothing to verify" (#3937) — an empty result and
+    // a failed query are different facts and need different operator action.
+    console.log(`\n❌ Could not verify fixes — query failed: ${result.error}\n`);
+    process.exit(1);
+  }
+
+  const issues = result.issues;
 
   if (issues.length === 0) {
     console.log(`\n✅ No sensor-labeled issues closed in the last ${LOOKBACK_HOURS}h to verify.\n`);

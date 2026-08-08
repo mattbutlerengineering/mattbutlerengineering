@@ -154,7 +154,7 @@
         name: "DateRange",
         include: false,
         description:
-          "Inline, locale-aware month grid for date-range selection. Controlled via value ({ start, end } Date objects, either endpoint nullable while picking) and onChange; the first activation sets the start, the second sets the end (endpoints auto-ordered, same-day allowed). Supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid with an in-progress range preview.",
+          "Inline, locale-aware month grid for date-range selection. Controlled via value ({ start, end } yyyy-mm-dd ISO strings, either endpoint nullable while picking) and onChange; the first activation sets the start, the second sets the end (endpoints auto-ordered, same-day allowed). Supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid with an in-progress range preview.",
       },
       DepartureBoard: {
         name: "DepartureBoard",
@@ -389,6 +389,8 @@
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
       }),
       DateRange: z.object({
+        min: z.string().optional(),
+        max: z.string().optional(),
         locale: z.string().optional(),
       }),
       DepartureBoard: z.object({

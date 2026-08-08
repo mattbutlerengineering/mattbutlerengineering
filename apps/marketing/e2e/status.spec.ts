@@ -20,9 +20,12 @@ test.describe("Status page", () => {
     await page.goto("/status");
 
     await expect(page.getByRole("heading", { name: "Static Sites" })).toBeVisible();
-    await expect(page.getByText("Marketing")).toBeVisible();
-    await expect(page.getByText("Hospitality")).toBeVisible();
-    await expect(page.getByText("Rialto")).toBeVisible();
+    // Scoped to #main-content: "Hospitality" also appears in nav/footer links
+    // outside main, which collide with an unscoped getByText in strict mode.
+    const main = page.locator("#main-content");
+    await expect(main.getByText("Marketing", { exact: true })).toBeVisible();
+    await expect(main.getByText("Hospitality", { exact: true })).toBeVisible();
+    await expect(main.getByText("Rialto", { exact: true })).toBeVisible();
   });
 
   test("shows overall status badge on load", async ({ page }) => {

@@ -181,10 +181,10 @@ llms-full.txt covers consuming the library in an application.
 
 ## Exports Map
 
-The `exports` field in `package.json` is auto-generated. Running `pnpm manifest` generates `dist/manifest.json` (component list), and `pnpm exports` rewrites the `exports` map in `package.json` to match the manifest. After adding a new component:
+The `exports` field in `package.json` is auto-generated. `pnpm build` runs `vite build && tsx scripts/generate-all.ts` — the latter parses components once and writes `registry.json`, `dist/manifest.json`, and the `package.json` exports map in a single pass. After adding a new component:
 
 1. Wire it up in `src/components/index.ts` (barrel export)
-2. Run `pnpm build` — which runs `vite build && pnpm manifest && pnpm exports` in sequence, regenerating both the manifest and the exports map
+2. Run `pnpm build` — regenerates `registry.json`, the manifest, and the exports map together
 3. If the exports map gets out of sync with the source (a common drift gotcha), run `pnpm exports` standalone to fix it
 
 `pnpm exports:check` validates the exports map without overwriting — useful in CI to catch drift.

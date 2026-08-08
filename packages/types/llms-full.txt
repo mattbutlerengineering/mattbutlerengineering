@@ -187,6 +187,18 @@
       "none",
     ]);
   </file>
+  <file path="src/schemas/table-status.ts">
+    export const TableDisplayStatusSchema = z.enum([
+      "available",
+      "seated",
+      "needs-bussing",
+      "reserved-soon",
+    ]);
+    export const TableStatusDeltaSchema = z.object({
+      tableId: z.string(),
+      status: TableDisplayStatusSchema,
+    });
+  </file>
   <file path="src/schemas/user.ts">
     export const UserPreferencesSchema = z.object({
       theme: z.enum(["light", "dark", "system"]).optional(),

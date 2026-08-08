@@ -476,6 +476,19 @@
           TableSchema
         );
       }
+    
+      /**
+       * Current derived status for every table in a venue — the resync snapshot
+       * an SSE client refetches on reconnect to replace `table-status:changed`
+       * deltas lost while disconnected (#3931).
+       */
+      async getStatuses(venueId: string): Promise<TableStatusDelta[]> {
+        return this.client.getOne<TableStatusDelta[]>(
+          `/api/v1/venues/${venueId}/table-statuses`,
+          undefined,
+          z.array(TableStatusDeltaSchema)
+        );
+      }
     }
   </file>
   <file path="src/users.ts">

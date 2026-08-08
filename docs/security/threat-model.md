@@ -290,7 +290,7 @@ diff-reviewer AI gate, PR auto-merge path.
   via regex without LLM cost.
 - The PR risk classifier (`pr-risk-classifier.ts`) flags high-risk PRs that are blocked
   from `dep-bump-merger.ts` fast-path auto-merge.
-- ADR compliance check (`check-adr.js`, CI `adr-check.yml`) blocks PRs introducing
+- ADR compliance check (`check-adr`, CI `adr-check.yml`) blocks PRs introducing
   prohibited architectural changes.
 - Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed`; `--no-verify` is
   explicitly forbidden in `docs/SECURITY-AI.md`.

@@ -59,6 +59,7 @@ vi.mock("./TableShape.js", () => ({
     onSelect,
     onDragStart,
     onDragEnd,
+    status,
   }: {
     table: Table;
     isSelected: boolean;
@@ -66,12 +67,14 @@ vi.mock("./TableShape.js", () => ({
     onSelect: (id: string) => void;
     onDragStart: (id: string) => void;
     onDragEnd: (id: string, x: number, y: number) => void;
+    status?: string;
   }) => (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       data-testid={`table-shape-${table.id}`}
       data-selected={isSelected}
       data-dragging={isDragging}
+      data-status={status}
       onClick={() => onSelect(table.id)}
       onMouseDown={() => onDragStart(table.id)}
       onMouseUp={() => onDragEnd(table.id, 120, 240)}
@@ -199,6 +202,35 @@ describe("FloorPlanCanvas", () => {
     });
   });
 
+  describe("live status threading", () => {
+    it("passes each table's status from tableStatuses to its TableShape", () => {
+      const tableStatuses = new Map([
+        ["t1", "seated"],
+        ["t2", "needs-bussing"],
+      ]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe("seated");
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBe(
+        "needs-bussing"
+      );
+    });
+
+    it("leaves status undefined for a table with no entry in tableStatuses", () => {
+      const tableStatuses = new Map([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} tableStatuses={tableStatuses} />);
+
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
+    });
+
+    it("leaves status undefined for every table when tableStatuses is omitted (no regression to editor-only usage)", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBeNull();
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
+    });
+  });
+
   describe("click handling", () => {
     it("marks the correct table as selected", () => {
       render(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" />);
@@ -295,6 +327,31 @@ describe("FloorPlanCanvas", () => {
       await user.keyboard("{Enter}");
 
       expect(onTableSelect).toHaveBeenCalledWith("t1");
+    });
+  });
+
+  describe("staleness indicator", () => {
+    it("shows a staleness indicator when isStale is true", () => {
+      render(<FloorPlanCanvas {...defaultProps} isStale />);
+      expect(screen.getByTestId("floor-plan-stale-indicator")).toBeDefined();
+    });
+
+    it("does not show a staleness indicator when isStale is false", () => {
+      render(<FloorPlanCanvas {...defaultProps} isStale={false} />);
+      expect(screen.queryByTestId("floor-plan-stale-indicator")).toBeNull();
+    });
+
+    it("does not show a staleness indicator when isStale is omitted (no regression to editor-only usage)", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.queryByTestId("floor-plan-stale-indicator")).toBeNull();
+    });
+
+    it("keeps rendering last-known table statuses while stale", () => {
+      const tableStatuses = new Map([["t1", "seated"]]);
+      render(<FloorPlanCanvas {...defaultProps} isStale tableStatuses={tableStatuses} />);
+
+      expect(screen.getByTestId("floor-plan-stale-indicator")).toBeDefined();
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe("seated");
     });
   });
 

@@ -40,6 +40,17 @@ vi.mock("../hooks/useApiClient.js", () => ({
   })),
 }));
 
+/* ── Mock useTableStatuses (SSESyncProvider isn't mounted in these tests) ── */
+
+const mockUseTableStatuses = vi.fn(() => ({
+  statuses: new Map<string, string>(),
+  isStale: false,
+}));
+
+vi.mock("../hooks/useSSESync.js", () => ({
+  useTableStatuses: () => mockUseTableStatuses(),
+}));
+
 /* ── Mock floor-plan components ───────────────────────────────── */
 
 const mockFloorPlanCanvasOnTableMove = vi.fn();
@@ -53,6 +64,8 @@ vi.mock("../components/floor-plan/index.js", () => ({
     selectedTableId,
     floorPlan: _fp,
     readOnly: _ro,
+    tableStatuses,
+    isStale,
   }: {
     tables: Table[];
     onTableMove: (id: string, x: number, y: number) => void;
@@ -60,12 +73,15 @@ vi.mock("../components/floor-plan/index.js", () => ({
     selectedTableId: string | null;
     floorPlan: FloorPlan;
     readOnly?: boolean;
+    tableStatuses?: ReadonlyMap<string, string>;
+    isStale?: boolean;
   }) => (
-    <div data-testid="floor-plan-canvas" data-selected={selectedTableId}>
+    <div data-testid="floor-plan-canvas" data-selected={selectedTableId} data-stale={isStale}>
       {tables.map((t) => (
         <button
           key={t.id}
           data-testid={`canvas-table-${t.id}`}
+          data-status={tableStatuses?.get(t.id)}
           onClick={() => {
             onTableMove(t.id, 200, 300);
             mockFloorPlanCanvasOnTableMove(t.id, 200, 300);
@@ -267,6 +283,7 @@ let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: false });
   const mod = await import("./FloorPlanEditorPage.js");
   FloorPlanEditorPage = mod.FloorPlanEditorPage;
 });
@@ -703,6 +720,45 @@ describe("FloorPlanEditorPage", () => {
 
       // Reset for other tests
       mockBlocker.mockReturnValue({ state: "unblocked" });
+    });
+  });
+
+  describe("live status", () => {
+    it("threads useTableStatuses' map through to the canvas for each table", async () => {
+      mockUseTableStatuses.mockReturnValue({
+        statuses: new Map([["table-a", "seated"]]),
+        isStale: false,
+      });
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      expect(tableButton.getAttribute("data-status")).toBe("seated");
+    });
+
+    it("leaves status undefined for a table with no live status data (no regression)", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      expect(tableButton.getAttribute("data-status")).toBeNull();
+    });
+
+    it("marks the canvas stale when useTableStatuses reports isStale", async () => {
+      mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: true });
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const canvas = await screen.findByTestId("floor-plan-canvas");
+      expect(canvas.getAttribute("data-stale")).toBe("true");
+    });
+
+    it("does not mark the canvas stale while the SSE connection is live", async () => {
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const canvas = await screen.findByTestId("floor-plan-canvas");
+      expect(canvas.getAttribute("data-stale")).toBe("false");
     });
   });
 });
