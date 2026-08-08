@@ -144,9 +144,9 @@ describe("isAutomationDefinitionFile", () => {
   it("matches a composite GitHub Action definition", () =>
     expect(isAutomationDefinitionFile(".github/actions/setup-workspace/action.yml")).toBe(true));
   it("matches any composite action, not just setup-workspace", () =>
-    expect(
-      isAutomationDefinitionFile(".github/actions/report-deploy-health/action.yml")
-    ).toBe(true));
+    expect(isAutomationDefinitionFile(".github/actions/report-deploy-health/action.yml")).toBe(
+      true
+    ));
   it("does NOT match a non-workflow .github/ file", () =>
     expect(isAutomationDefinitionFile(".github/CODEOWNERS")).toBe(false));
   it("does NOT match a plain-docs .claude/rules/ file", () =>
