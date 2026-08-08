@@ -30,7 +30,6 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Alert",
   "AppBar",
   "AspectRatio",
-  "AuthMascot",
   "Autocomplete",
   "Avatar",
   "Badge",

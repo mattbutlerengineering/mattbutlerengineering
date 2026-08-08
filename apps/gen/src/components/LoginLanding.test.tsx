@@ -50,9 +50,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </button>
   ),
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  AuthMascot: ({ state }: { state: string }) => (
-    <div data-testid="auth-mascot" data-state={state} />
-  ),
   RialtoProvider: ({
     children,
     vibe,
@@ -110,11 +107,6 @@ describe("LoginLanding", () => {
     fireEvent.click(tryIt);
     fireEvent.click(signInBtn);
     expect(signIn).toHaveBeenCalledTimes(2);
-  });
-
-  it("retains the AuthMascot brand element", () => {
-    render(<LoginLanding />);
-    expect(screen.getByTestId("auth-mascot")).toBeDefined();
   });
 
   it("scopes the transacting vibe to the auth surface", () => {

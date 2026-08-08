@@ -312,3 +312,49 @@ None this run (queue and CI both healthy; `Release` failure already tracked by #
 **Sentry triage:** skipped (MCP server disconnected mid-check, reconnected after)
 **Skill proposals:** 0 (Friday, but `sessionLogs` shows 0 sessions/0 commits in last 7d — no pattern data to mine)
 **Threshold notes:** Root-caused the recurring `collect-ai-issue-feedback.mjs`/`verify-fixes.mjs` failure noted in this log on 2026-06-20, 07-30, 07-31, 08-01, 08-03, 08-05, 08-06 (8th consecutive occurrence) and **filed it as a dedicated tracked issue for the first time: #3937**. Root cause: `@mbe/gh-client`'s REST fallback (added by #3689 for `gh`-binary-less environments) authenticates with the shell's `GITHUB_TOKEN`/`GH_TOKEN`, which in Claude Code Remote sessions is scoped for git-over-HTTPS only and returns `401 Bad credentials` against `api.github.com` — only `mcp__github__*` tools have working GitHub auth here. Confirmed via direct repro this is the same failure class that produced a **false positive** in the 2026-06-20 `verifications.jsonl` entry (`"verified":true,"reason":"...gh CLI unavailable or error"`) and, today, a **false negative** in `verify-fixes.mjs`'s "no issues to verify" — the `safe()` wrapper masks auth failures as empty results in both directions. `ai-issue-feedback.json` stayed at `{}`; default budget (3/category) used, though it was moot (zero regressions to act on). Recommend: do not re-file this gap again in future runs — track via #3937 until it closes, then re-verify sensors come back online.
+
+## 2026-08-08
+
+### Metrics (7d, audit+ci-fix)
+
+| Metric                 | Value                                                                                                                                                                                                                         | Target    | Status            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------- |
+| Created                | 82 (audit 34, ci-fix 48)                                                                                                                                                                                                      | -         | -                 |
+| Closed                 | 70 (audit 24, ci-fix 46)                                                                                                                                                                                                      | -         | -                 |
+| Closure Rate           | 85.4%                                                                                                                                                                                                                         | >80%      | 🟢                |
+| Time-to-Close          | mean 12.6h, median 6.8h                                                                                                                                                                                                       | <24h      | 🟢                |
+| Agent Success          | N/A — 0 open `has-pr`, 0 open `agent-failed` (nothing mid-flight to ratio); this run's own batch: 3/3 new-issue workers succeeded, 1 pre-existing flagged PR (#3954) escalated to `needs-review` after exhausting its 1 retry | >70%      | 🟢 (batch)        |
+| CI Pass                | 15 success / 0 failure / 3 cancelled (superseded runs, not failures) of last 20 `ci.yml` runs on `main`                                                                                                                       | >95%      | 🟢                |
+| Queue                  | 9 `ready`                                                                                                                                                                                                                     | <5        | 🟡                |
+| Stale (>7d)            | 0 (all 9 `ready` issues filed 2026-08-07, <1 day old)                                                                                                                                                                         | 0         | 🟢                |
+| Blocked (agent-failed) | 0                                                                                                                                                                                                                             | 0         | 🟢                |
+| Skipped (agent-skip)   | 0                                                                                                                                                                                                                             | 0         | 🟢                |
+| needs-review           | 4 open (#3939, #3763, #3560, #3546)                                                                                                                                                                                           | -         | -                 |
+| Daily/7d Spend         | unavailable — `.claude/agent-spend/sessions.jsonl` is empty (0 rows), same gap as every prior run                                                                                                                             | <$10/<$50 | tracked via #3695 |
+
+### This run's `/implement-queue` iteration
+
+Claimed 3 zone-independent `ready` issues (#3846 feature, #3938 feature, #3878 audit/perf) — deliberately skipped several higher-numbered audit issues (#3912/#3914/#3915/#3920/#3928/#3934/#3950/#3956) this round because the batch selector's known bug (#3934, itself in the ready queue) collapses all root/plugins-zone issues onto one shared global slot; picked file-disjoint issues by hand instead of trusting the buggy zone estimate. All 3 workers succeeded, passed review (9/10, 9/10, PASS+9/10 across general + specialist reviewers), and merged clean (PRs #3960, #3961, #3962). Two of three needed a manual merge assist: real merge conflicts on `metrics/ai-antipattern-baselines.json`'s `generatedAt` timestamp against a fast-moving `main` (trivial, resolved by taking the newer timestamp) — worth watching if it recurs, since it's a symptom of multiple same-day PRs regenerating the same metrics file.
+
+Also picked up a stale `has-pr` PR from a prior iteration (#3954, closes #3939) that had been flagged by the review gate: dispatched one retry per the retry policy. The retry fixed both original findings (a mobile-hamburger click-through regression, and a since-confirmed-false-positive on a test assertion) but introduced a new regression (an unscoped `:has()` CSS selector that also disables floating controls when unrelated Select/Collapsible components are open elsewhere on the same demo pages). Per the one-retry policy, labeled `needs-review` and left for a human rather than attempting a second automated fix.
+
+### Patterns
+
+- **Worker agents twice got stuck mid pre-push hook, self-reporting as "waiting for a monitor notification" that would never arrive.** Two of four workers this session (issues #3878 and the #3954 fix-retry) hit their turn/time limit while `pnpm regen`'s llms.txt packing step (a known slow step per gotchas.md § Build/pnpm/turbo) was still running in the foreground of a `git push`, and both ended their turn narrating that they'd wait for an async completion signal — but the push was a synchronous foreground command in their own turn, not a backgrounded task with a real notification channel. Required manual intervention both times (checking worktree state directly, re-running `git push` with a longer timeout, or resuming the agent with an explicit status report). Only 2 occurrences in 1 session — below this skill's 3-day-consistency bar for filing a meta-improvement issue — but worth a `/gotcha-harvest` pass to see if it's reproducible across sessions; if so, the likely fix is either a shorter regen timeout with an explicit background+poll pattern in the worker's own prompt, or documenting the expected multi-minute duration so workers don't mistake "still running" for "needs external notification."
+- Closure rate, time-to-close, and CI pass rate are all green and consistent with recent days — no regression signal.
+- Queue at 9 is yellow (5-10 band) but 0 stale and all filed within the last day — reflects yesterday's `mbe-doc-rot`/`mbe-weekly-improve` audit sweep output, not a backlog problem.
+
+### Recommendations
+
+- Next iteration: prioritize draining the root/plugins-zone audit cluster (#3912/#3914/#3915/#3920/#3928/#3934) now that #3934 (the zone-estimator bug itself) is in the queue — fixing it first would unblock proper zone-spread batching for the rest.
+- Consider `/gotcha-harvest` targeting this session for the pre-push-hook "phantom wait" pattern above.
+- No new `meta-improvement` issue filed this run (pattern below the 3-day bar; existing gaps #3695 and #3937 already tracked and unchanged).
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-08
+
+**queueEfficiency:** unavailable
+**Issues filed:** 0

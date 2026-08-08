@@ -5,7 +5,6 @@ import {
   Stack,
   Text,
   Button,
-  AuthMascot,
   RialtoProvider,
   useUIEnvironment,
 } from "@mattbutlerengineering/rialto";
@@ -87,10 +86,6 @@ export function LoginLanding() {
             </figcaption>
           </figure>
         </section>
-
-        <div className={styles.mascot}>
-          <AuthMascot state="peek" />
-        </div>
       </main>
     </RialtoProvider>
   );
