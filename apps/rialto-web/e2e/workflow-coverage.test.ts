@@ -11,8 +11,8 @@ const WORKFLOW_PATH = resolve(REPO_ROOT, ".github/workflows/rialto-web-e2e.yml")
 // that only ever ran locally — rialto-web-visual.yml scoped itself to
 // visual.spec.ts alone, so the other five (real assertions, zero CI
 // enforcement) could regress silently forever. This test makes that class
-// of gap structurally impossible to reintroduce: any e2e/*.spec.ts file
-// that isn't named literally in rialto-web-e2e.yml fails `pnpm test`.
+// of gap structurally impossible to reintroduce — every e2e/*.spec.ts file
+// not named literally in rialto-web-e2e.yml now fails `pnpm test`.
 describe("rialto-web e2e workflow coverage", () => {
   it("every e2e/*.spec.ts file is referenced by the CI workflow", () => {
     const specs = readdirSync(__dirname).filter((f) => f.endsWith(".spec.ts"));
