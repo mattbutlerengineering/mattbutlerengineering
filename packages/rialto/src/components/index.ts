@@ -99,4 +99,3 @@ export * from "./TapeChart";
 
 // ── Providers ──────────────────────────────────
 export * from "../providers";
-export * from "./AuthMascot";

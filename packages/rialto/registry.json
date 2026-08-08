@@ -218,25 +218,6 @@
       ]
     },
     {
-      "name": "AuthMascot",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "state",
-          "type": "MascotState | undefined",
-          "required": false,
-          "description": "Current mascot state"
-        },
-        {
-          "name": "progress",
-          "type": "number | undefined",
-          "required": false,
-          "description": "Progress for eye tracking (0-1)"
-        }
-      ],
-      "slots": []
-    },
-    {
       "name": "Autocomplete",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
@@ -2380,12 +2361,6 @@
           "reason": "Keyboard shortcut text; very compact"
         }
       ]
-    },
-    {
-      "name": "MascotState",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
     },
     {
       "name": "MasterOverride",

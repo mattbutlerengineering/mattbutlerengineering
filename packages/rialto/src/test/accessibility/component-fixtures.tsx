@@ -19,7 +19,6 @@ import { Accordion } from "../../components/Accordion/Accordion";
 import { Alert } from "../../components/Alert/Alert";
 import { AppBar } from "../../components/AppBar/AppBar";
 import { AspectRatio } from "../../components/AspectRatio/AspectRatio";
-import { AuthMascot } from "../../components/AuthMascot/AuthMascot";
 import { Autocomplete } from "../../components/Autocomplete/Autocomplete";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { Badge } from "../../components/Badge/Badge";
@@ -122,7 +121,6 @@ export type BarrelExportName =
   | "Alert"
   | "AppBar"
   | "AspectRatio"
-  | "AuthMascot"
   | "Autocomplete"
   | "Avatar"
   | "Badge"
@@ -255,10 +253,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         <div>Content</div>
       </AspectRatio>
     ),
-  },
-
-  AuthMascot: {
-    element: <AuthMascot state="neutral" />,
   },
 
   Autocomplete: {

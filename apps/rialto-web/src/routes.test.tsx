@@ -22,7 +22,6 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Input: () => <input />,
     Checkbox: () => <input type="checkbox" />,
     Divider: () => <hr />,
-    AuthMascot: () => null,
     Avatar: () => null,
     Badge: Pass,
     HoverCard: Pass,
