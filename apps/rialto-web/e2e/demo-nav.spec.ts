@@ -39,6 +39,18 @@ test("brand link remains clickable when switched to RTL", async ({ page }) => {
   await expect(page).toHaveURL(/\/rialto\/$/);
 });
 
+test("mobile hamburger menu link is clickable through the floating controls at 375px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("demos/login");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("link", { name: "Home" }).click();
+  await expect(page).toHaveURL(/\/rialto\/$/);
+});
+
 test("all floating demo controls remain visible and clickable", async ({ page }) => {
   await page.goto("demos/login");
   await page.waitForLoadState("networkidle");

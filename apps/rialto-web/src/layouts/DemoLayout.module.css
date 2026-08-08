@@ -65,3 +65,17 @@
   border-color: var(--rialto-accent);
   color: var(--rialto-accent);
 }
+
+/* GlobalNav's mobile menu renders in normal flow directly below its sticky
+   bar and shares the same vertical range as `.floatingControls` (fixed,
+   36px tall) below 768px. GlobalNav doesn't expose its open/closed state
+   via props, but its hamburger toggle button carries a standard
+   aria-expanded attribute — use that (not a GlobalNav internal, a public
+   ARIA contract) to disable pointer events on the floating controls while
+   the mobile menu is open, so it never swallows clicks meant for a menu
+   link. See #3939 follow-up. */
+@media (max-width: 767px) {
+  .root:has(button[aria-expanded="true"][aria-controls]) .floatingControls {
+    pointer-events: none;
+  }
+}
