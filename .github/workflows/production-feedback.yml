@@ -164,6 +164,53 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --ref automation/production-feedback
 
+      - name: Enable auto-merge
+        # auto-merge.yml (the workflow that would normally do this) never
+        # runs on this PR -- its own pull_request/check_suite triggers park
+        # at action_required for the same reason ci.yml's do (#3684), so it
+        # never reaches its own `gh pr merge --auto` call. Enable it here
+        # instead, but through the same eligibility gate auto-merge.yml
+        # consults (scripts/merge-queue-eligibility.mjs, --mode automation +
+        # check-author) rather than calling `gh pr merge --auto`
+        # unconditionally -- an ungated call would be a permanent bypass of
+        # the tier gate hardened after #3787/#3871 (flagged in #3972 review).
+        # That gate fails closed when no tier:* label is present, which is
+        # true for every automation/* PR today: tier-classifier only
+        # triggers on pull_request events, and this PR's commits are
+        # GITHUB_TOKEN/AUTOMATION_PAT-authored -- the same anti-recursion gap
+        # ci.yml has (#3684). So this step may not actually enable auto-merge
+        # until tier-classifier runs reliably on automation PRs; that is the
+        # gate's documented, safe-to-fail-closed behavior, not a bug here --
+        # a human merges via automation-pr-rescue.yml's stale-PR visibility
+        # in the meantime. This also does not guarantee the merge lands even
+        # when eligible: if `main` moves ahead of this branch before the
+        # dispatched CI run posts green, the scheduled
+        # automation-pr-rescue.yml pass brings it back up to date and
+        # re-dispatches CI (#3966).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          LABELS_CSV=$(gh pr view "$PR_NUMBER" --json labels -q '[.labels[].name] | join(",")')
+          RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS_CSV" --mode automation)
+          echo "$RESULT"
+          if [ "$(echo "$RESULT" | jq -r '.eligible')" != "true" ]; then
+            echo "::notice::Auto-merge not enabled for PR #$PR_NUMBER: $(echo "$RESULT" | jq -r '.reason')"
+            exit 0
+          fi
+
+          AUTHOR=$(gh pr view "$PR_NUMBER" --json author -q '.author.login')
+          AUTHOR_RESULT=$(node scripts/merge-queue-eligibility.mjs check-author --login "$AUTHOR")
+          echo "$AUTHOR_RESULT"
+          if [ "$(echo "$AUTHOR_RESULT" | jq -r '.trusted')" != "true" ]; then
+            echo "::notice::Auto-merge not enabled for PR #$PR_NUMBER: author '$AUTHOR' not in TRUSTED_AUTOMATION_AUTHORS"
+            exit 0
+          fi
+
+          echo "Enabling auto-merge for PR #$PR_NUMBER (squash)"
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+
       - name: Create issue on degraded health
         if: steps.health.outputs.degraded != ''
         env:

@@ -17,6 +17,22 @@ const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml")
 const AUTO_MERGE_WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/auto-merge.yml"), "utf8");
 const SKILL_MD = readFileSync(resolve(ROOT, ".claude/skills/implement-queue/SKILL.md"), "utf8");
 
+// The four opt-in automation-PR producers (#3966) — each opens a PR from an
+// automation/* branch and, since auto-merge.yml never runs on GITHUB_TOKEN/
+// AUTOMATION_PAT-authored PRs either (#3684), enables auto-merge itself.
+const PRODUCER_WORKFLOWS = {
+  "production-feedback.yml": readFileSync(
+    resolve(ROOT, ".github/workflows/production-feedback.yml"),
+    "utf8"
+  ),
+  "drift-fix.yml": readFileSync(resolve(ROOT, ".github/workflows/drift-fix.yml"), "utf8"),
+  "pr-metrics.yml": readFileSync(resolve(ROOT, ".github/workflows/pr-metrics.yml"), "utf8"),
+  "acmm-regression.yml": readFileSync(
+    resolve(ROOT, ".github/workflows/acmm-regression.yml"),
+    "utf8"
+  ),
+};
+
 // ---------------------------------------------------------------------------
 // isAutoMergeEligible — pure decision (#3787)
 //
@@ -432,3 +448,49 @@ describe("auto-merge.yml author-check wiring (#3871)", () => {
     expect(precedingSlice).toMatch(/::warning::/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Producer-workflow "Enable auto-merge" wiring (#3972 review) — each of the
+// four automation-PR producers used to call `gh pr merge --auto` directly,
+// unconditionally, right after creating its PR: a permanent, ungated bypass
+// of the same tier gate (and trusted-author check) auto-merge.yml enforces
+// for every other `auto-merge`-labeled PR. Each producer's own "Enable
+// auto-merge" step must now consult the identical CLI interface instead of
+// re-typing the check or skipping it.
+// ---------------------------------------------------------------------------
+
+describe.each(Object.entries(PRODUCER_WORKFLOWS))(
+  "%s Enable auto-merge wiring (#3972)",
+  (name, content) => {
+    it("invokes merge-queue-eligibility.mjs in automation mode before merging", () => {
+      expect(content).toMatch(/node scripts\/merge-queue-eligibility\.mjs check/);
+      expect(content).toMatch(/--mode automation/);
+    });
+
+    it("gates gh pr merge --auto on the eligibility result, not an unconditional call", () => {
+      // The step's own explanatory comment mentions `gh pr merge --auto` in
+      // prose before the real invocation, so match the actual run-line
+      // invocation (`gh pr merge "$PR_NUMBER"`) specifically, not any
+      // occurrence of the substring "gh pr merge".
+      const mergeAt = content.indexOf('gh pr merge "$PR_NUMBER"');
+      const eligibilityAt = content.indexOf("merge-queue-eligibility.mjs");
+      expect(mergeAt).toBeGreaterThan(-1);
+      expect(eligibilityAt).toBeGreaterThan(-1);
+      expect(mergeAt).toBeGreaterThan(eligibilityAt);
+    });
+
+    it("also consults the trusted-author check before merging", () => {
+      const checkAuthorAt = content.indexOf("merge-queue-eligibility.mjs check-author");
+      const mergeAt = content.indexOf('gh pr merge "$PR_NUMBER"');
+      expect(checkAuthorAt).toBeGreaterThan(-1);
+      expect(mergeAt).toBeGreaterThan(checkAuthorAt);
+    });
+
+    it("skips (does not fail the job) when ineligible", () => {
+      const enableStepAt = content.indexOf("- name: Enable auto-merge");
+      const nextStepAt = content.indexOf("\n      - name:", enableStepAt + 1);
+      const step = content.slice(enableStepAt, nextStepAt === -1 ? undefined : nextStepAt);
+      expect(step).toMatch(/exit 0/);
+    });
+  }
+);
