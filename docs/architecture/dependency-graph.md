@@ -68,6 +68,7 @@ flowchart TD
   marketing --> sentry
   marketing --> config
   rialto_web --> rialto
+  rialto_web --> api_client
   rialto_web --> observability
   rialto_web --> sentry
   rialto_web --> config

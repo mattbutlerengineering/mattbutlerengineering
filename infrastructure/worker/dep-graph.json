@@ -267,6 +267,11 @@
     },
     {
       "from": "@mbe/rialto-web",
+      "to": "@mbe/api-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
       "to": "@mbe/observability",
       "type": "dependency"
     },
