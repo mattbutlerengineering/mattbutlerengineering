@@ -23,7 +23,9 @@ test("typing in search filters sidebar links", async ({ page }) => {
 
   const linksAfter = await nav.getByRole("link").count();
   expect(linksAfter).toBeLessThan(linksBefore);
-  await expect(nav.getByRole("link", { name: /button/i })).toBeVisible();
+  // .first() — the filter also matches "IconButton", so more than one link
+  // legitimately contains "button".
+  await expect(nav.getByRole("link", { name: /button/i }).first()).toBeVisible();
 });
 
 test("clearing search restores all links", async ({ page }) => {

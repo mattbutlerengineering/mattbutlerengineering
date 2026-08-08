@@ -1,0 +1,102 @@
+name: Rialto Web E2E
+
+# Two independent Playwright suites for apps/rialto-web/e2e/, kept in
+# separate jobs so a visual-baseline diff and a functional regression stay
+# distinguishable failures:
+#   - visual:     e2e/visual.spec.ts only — screenshot comparison against the
+#                 /visual-test harness page. Baselines are Linux-CI-runner-
+#                 specific (see .claude/rules/gotchas.md); this job's
+#                 invocation and artifact are unchanged from before.
+#   - functional: every other e2e/*.spec.ts — accessibility, navigation,
+#                 search, theme, and component-interaction assertions.
+#                 Listed explicitly (never a glob), so a newly added spec
+#                 either gets wired in here deliberately or fails the
+#                 coverage check in apps/rialto-web/e2e/workflow-coverage.
+#                 test.ts (part of `pnpm --dir apps/rialto-web test`). See
+#                 #3955. demo-nav.spec.ts ships with #3954 — listing it here
+#                 ahead of that merge is a no-op (a missing spec path is
+#                 silently skipped by playwright) until the file lands, then
+#                 it starts running automatically.
+#
+# This is distinct from rialto-visual.yml, which runs the package-local
+# Storybook visual suite (packages/rialto/src/test/visual/**).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/rialto-web/**"
+      - "packages/rialto/src/**"
+  pull_request:
+    paths:
+      - "apps/rialto-web/**"
+      - "packages/rialto/src/**"
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    name: Visual Regression (rialto-web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build rialto (styles + dist export required by rialto-web)
+        run: pnpm build --filter @mattbutlerengineering/rialto
+      - name: Install Playwright browsers
+        run: pnpm --dir apps/rialto-web exec playwright install --with-deps chromium
+      - name: Run visual regression tests
+        # Invoke playwright directly (not the root `test:visual` script) so
+        # the run is scoped to visual.spec.ts only — the root script's args
+        # pass through a literal "--" that playwright doesn't strip, which
+        # causes it to fall back to running the whole apps/rialto-web/e2e/
+        # directory (functional specs included).
+        run: pnpm exec playwright test --config apps/rialto-web/playwright.config.ts apps/rialto-web/e2e/visual.spec.ts
+      - name: Upload diff artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rialto-web-visual-diffs
+          path: apps/rialto-web/e2e/test-results/
+          retention-days: 14
+
+  functional:
+    name: Functional (rialto-web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build rialto (styles + dist export required by rialto-web)
+        run: pnpm build --filter @mattbutlerengineering/rialto
+      - name: Install Playwright browsers
+        run: pnpm --dir apps/rialto-web exec playwright install --with-deps chromium
+      - name: Run functional e2e tests
+        # Explicit spec list — see the header comment above for why this is
+        # never a glob.
+        run: |
+          pnpm exec playwright test --config apps/rialto-web/playwright.config.ts \
+            apps/rialto-web/e2e/a11y-pages.spec.ts \
+            apps/rialto-web/e2e/interaction.spec.ts \
+            apps/rialto-web/e2e/navigation.spec.ts \
+            apps/rialto-web/e2e/search.spec.ts \
+            apps/rialto-web/e2e/theme.spec.ts \
+            apps/rialto-web/e2e/demo-nav.spec.ts
+      - name: Upload diff artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rialto-web-functional-diffs
+          path: apps/rialto-web/e2e/test-results/
+          retention-days: 14

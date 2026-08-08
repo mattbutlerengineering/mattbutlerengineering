@@ -5,7 +5,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Button page — clicking a button triggers visual feedback", async ({ page }) => {
-  await page.goto("/components/button");
+  // Relative navigation — an absolute path would drop the /rialto/ base
+  // from the configured baseURL and 404 against the dev server's hint page.
+  await page.goto("components/button");
   await page.waitForLoadState("networkidle");
 
   const button = page.getByRole("button", { name: /primary/i }).first();
@@ -14,7 +16,7 @@ test("Button page — clicking a button triggers visual feedback", async ({ page
 });
 
 test("Input page — typing in an input updates the value", async ({ page }) => {
-  await page.goto("/components/input");
+  await page.goto("components/input");
   await page.waitForLoadState("networkidle");
 
   const input = page.getByRole("textbox").first();
@@ -24,19 +26,25 @@ test("Input page — typing in an input updates the value", async ({ page }) => 
 });
 
 test("Toggle page — clicking a toggle switches state", async ({ page }) => {
-  await page.goto("/components/toggle");
+  await page.goto("components/toggle");
   await page.waitForLoadState("networkidle");
 
   const toggle = page.getByRole("switch").first();
   await expect(toggle).toBeVisible();
   const wasChecked = await toggle.isChecked();
-  await toggle.click();
+  // Rialto's Toggle renders the native input visually-hidden (sr-only) with a
+  // styled track/knob overlaying it, so Playwright's pointer click can't land
+  // on the input itself. Click the visible track label instead (associated
+  // via htmlFor) — a real user click, not a bypassed dispatchEvent, so this
+  // still fails if a CSS regression makes the track unclickable.
+  const toggleId = await toggle.getAttribute("id");
+  await page.locator(`label[for="${toggleId}"]`).first().click();
   const isNowChecked = await toggle.isChecked();
   expect(isNowChecked).toBe(!wasChecked);
 });
 
 test("Select page — opening a select shows options", async ({ page }) => {
-  await page.goto("/components/select");
+  await page.goto("components/select");
   await page.waitForLoadState("networkidle");
 
   const trigger = page.getByRole("combobox").first();
@@ -47,13 +55,17 @@ test("Select page — opening a select shows options", async ({ page }) => {
 });
 
 test("Checkbox page — checking a checkbox toggles its state", async ({ page }) => {
-  await page.goto("/components/checkbox-radio");
+  await page.goto("components/checkbox-radio");
   await page.waitForLoadState("networkidle");
 
   const checkbox = page.getByRole("checkbox").first();
   await expect(checkbox).toBeVisible();
   const wasChecked = await checkbox.isChecked();
-  await checkbox.click();
+  // Same sr-only-input pattern as Toggle above — click the visible label
+  // (box + text) that wraps the input via htmlFor, instead of bypassing
+  // actionability checks with dispatchEvent.
+  const checkboxId = await checkbox.getAttribute("id");
+  await page.locator(`label[for="${checkboxId}"]`).first().click();
   const isNowChecked = await checkbox.isChecked();
   expect(isNowChecked).toBe(!wasChecked);
 });
