@@ -94,14 +94,6 @@ describe("isLowRiskPR — dependency manifests", () => {
 // ── Config files ─────────────────────────────────────────────────────────────
 
 describe("isLowRiskPR — config files", () => {
-  it("returns true for a .github/ workflow file", () => {
-    expect(isLowRiskPR([".github/workflows/deploy-static.yml"])).toBe(true);
-  });
-
-  it("returns true for a .claude/ skill file", () => {
-    expect(isLowRiskPR([".claude/skills/ship-loop/SKILL.md"])).toBe(true);
-  });
-
   it("returns true for turbo.json", () => {
     expect(isLowRiskPR(["turbo.json"])).toBe(true);
   });
@@ -131,11 +123,69 @@ describe("isLowRiskPR — mixed low-risk files", () => {
       isLowRiskPR([
         "README.md",
         "src/utils.test.ts",
-        ".github/workflows/ci.yml",
+        "turbo.json",
         "package.json",
         "pnpm-lock.yaml",
       ])
     ).toBe(true);
+  });
+
+  // #3971: an otherwise-low-risk batch must still fall through to review if
+  // it also touches a workflow file.
+  it("returns false when an otherwise low-risk batch also touches a workflow file", () => {
+    expect(isLowRiskPR(["README.md", "src/utils.test.ts", ".github/workflows/ci.yml"])).toBe(false);
+  });
+});
+
+// ── Automation definition files (#3971) ──────────────────────────────────────
+// isLowRiskPR must never skip review for a PR that touches the executable
+// definitions of the review/merge gate itself — GitHub Actions workflows,
+// Claude agent/skill definitions, or hook scripts — even though those paths
+// also match the low-risk .github/.claude config allowlist.
+
+describe("isLowRiskPR — automation definition files", () => {
+  it("returns false for a GitHub Actions workflow file", () => {
+    expect(isLowRiskPR([".github/workflows/ci.yml"])).toBe(false);
+  });
+
+  it("returns false for any workflow file, not just ci.yml", () => {
+    expect(isLowRiskPR([".github/workflows/deploy-static.yml"])).toBe(false);
+  });
+
+  it("returns false for a Claude skill definition", () => {
+    expect(isLowRiskPR([".claude/skills/implement-queue/SKILL.md"])).toBe(false);
+  });
+
+  it("returns false for a Claude agent definition", () => {
+    expect(isLowRiskPR([".claude/agents/reviewer.md"])).toBe(false);
+  });
+
+  it("returns false for a Claude hook script", () => {
+    expect(isLowRiskPR([".claude/hooks/secret-scan.mjs"])).toBe(false);
+  });
+
+  it("returns true for plain docs under .claude/rules/ (docs stay low-risk)", () => {
+    expect(isLowRiskPR([".claude/rules/gotchas.md"])).toBe(true);
+  });
+
+  it("returns false for PR #3970's exact file list", () => {
+    expect(
+      isLowRiskPR([
+        ".claude/rules/gotchas.md",
+        ".github/workflows/rialto-web-e2e.yml",
+        ".github/workflows/rialto-web-visual.yml",
+        "apps/rialto-web/e2e/interaction.spec.ts",
+        "apps/rialto-web/e2e/navigation.spec.ts",
+        "apps/rialto-web/e2e/search.spec.ts",
+        "apps/rialto-web/e2e/theme.spec.ts",
+        "apps/rialto-web/e2e/workflow-coverage.test.ts",
+        "apps/rialto-web/vitest.config.ts",
+      ])
+    ).toBe(false);
+  });
+
+  it("returns false for the degenerate single-file case", () => {
+    expect(isLowRiskPR([".github/workflows/ci.yml"])).toBe(false);
   });
 });
 

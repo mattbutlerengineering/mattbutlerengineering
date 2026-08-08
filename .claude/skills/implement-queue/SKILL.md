@@ -168,7 +168,7 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    gh pr checks <N> --watch
    ```
 
-2. **Low-risk fast path.** `tier:*` labels do **not** gate this skill's merges — see [No tier hold](#no-tier-hold) below. A file-glob match alone is still not sufficient to skip review, though: a `.github/workflows/**` change (e.g. to `ci.yml` or `merge-queue.yml` itself) must not skip review just because it lives under `.github/**`. Check the `needs-review` label, which still holds a PR:
+2. **Low-risk fast path.** `tier:*` labels do **not** gate this skill's merges — see [No tier hold](#no-tier-hold) below. Check the `needs-review` label, which still holds a PR:
 
    ```bash
    gh pr view <N> --json labels -q '[.labels[].name]'   # → labelNames
