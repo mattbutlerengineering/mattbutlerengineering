@@ -32,11 +32,13 @@ test("Toggle page — clicking a toggle switches state", async ({ page }) => {
   const toggle = page.getByRole("switch").first();
   await expect(toggle).toBeVisible();
   const wasChecked = await toggle.isChecked();
-  // Rialto's Toggle renders the native input visually-hidden (sr-only) with
-  // a styled track/knob overlaying it, so Playwright's pointer click can't
-  // land on the input itself — dispatch a click event directly instead,
-  // which the browser still treats as a real user activation of the checkbox.
-  await toggle.dispatchEvent("click");
+  // Rialto's Toggle renders the native input visually-hidden (sr-only) with a
+  // styled track/knob overlaying it, so Playwright's pointer click can't land
+  // on the input itself. Click the visible track label instead (associated
+  // via htmlFor) — a real user click, not a bypassed dispatchEvent, so this
+  // still fails if a CSS regression makes the track unclickable.
+  const toggleId = await toggle.getAttribute("id");
+  await page.locator(`label[for="${toggleId}"]`).first().click();
   const isNowChecked = await toggle.isChecked();
   expect(isNowChecked).toBe(!wasChecked);
 });
@@ -59,8 +61,11 @@ test("Checkbox page — checking a checkbox toggles its state", async ({ page })
   const checkbox = page.getByRole("checkbox").first();
   await expect(checkbox).toBeVisible();
   const wasChecked = await checkbox.isChecked();
-  // Same sr-only-input pattern as Toggle above — dispatch the click directly.
-  await checkbox.dispatchEvent("click");
+  // Same sr-only-input pattern as Toggle above — click the visible label
+  // (box + text) that wraps the input via htmlFor, instead of bypassing
+  // actionability checks with dispatchEvent.
+  const checkboxId = await checkbox.getAttribute("id");
+  await page.locator(`label[for="${checkboxId}"]`).first().click();
   const isNowChecked = await checkbox.isChecked();
   expect(isNowChecked).toBe(!wasChecked);
 });
