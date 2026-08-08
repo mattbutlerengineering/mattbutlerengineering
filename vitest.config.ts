@@ -15,6 +15,6 @@ export default defineConfig({
     "apps/*/vitest.config.ts",
     "tools/*/vitest.config.ts",
     "scripts/vitest.config.mjs",
-    "infrastructure/worker/vitest.config.mjs",
+    "infrastructure/*/vitest.config.*",
   ],
 });
