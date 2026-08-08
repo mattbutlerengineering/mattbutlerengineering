@@ -89,14 +89,37 @@ export const isFrontendSourceFile = (f: string): boolean =>
 export const isBackendSourceFile = (f: string): boolean =>
   f.startsWith("services/") && !isTestFile(f) && !isDocFile(f) && !isConfigFile(f);
 
+/**
+ * True for executable CI/agent/skill definitions — never low-risk, even though
+ * they live under the same .github/ and .claude/ prefixes isConfigFile treats
+ * as low-risk editor/repo config. Deliberately narrower than isConfigFile:
+ * only workflow files, composite actions, agent definitions, skill
+ * definitions, hook scripts, and the hook-wiring settings file are excluded —
+ * plain docs under .claude/ (e.g. .claude/rules/gotchas.md), non-automation
+ * .github/ files (e.g. CODEOWNERS), and .claude/settings.local.json stay
+ * low-risk. Must win over isDocFile, since .claude/skills/**\/SKILL.md is an
+ * executable definition despite its .md extension. See #3971, #3974.
+ */
+export const isAutomationDefinitionFile = (f: string): boolean =>
+  f.startsWith(".github/workflows/") ||
+  f.startsWith(".github/actions/") ||
+  f.startsWith(".claude/agents/") ||
+  f.startsWith(".claude/skills/") ||
+  f.startsWith(".claude/hooks/") ||
+  f === ".claude/settings.json";
+
 // ── Composite predicates ────────────────────────────────────────────────────
 
 /**
  * True when a file is considered low-risk for auto-merge purposes:
- * tests, docs, config, dependency manifests, or metrics telemetry.
+ * tests, docs, config, dependency manifests, or metrics telemetry — but never
+ * an automation definition (see isAutomationDefinitionFile), which must
+ * always fall through to review regardless of which other category it
+ * also matches.
  */
 export const isLowRiskFile = (f: string): boolean =>
-  isTestFile(f) || isDocFile(f) || isConfigFile(f) || isDependencyFile(f) || isMetricsFile(f);
+  !isAutomationDefinitionFile(f) &&
+  (isTestFile(f) || isDocFile(f) || isConfigFile(f) || isDependencyFile(f) || isMetricsFile(f));
 
 /**
  * True when a file has no effect on any auditable surface (Lighthouse / smoke-audit).
