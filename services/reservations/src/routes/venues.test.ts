@@ -567,6 +567,7 @@ describe("Venue Routes", () => {
         const response = await app.inject({
           method: "GET",
           url: "/api/v1/venues/venue-123",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(response.statusCode).toBe(200);
@@ -581,11 +582,49 @@ describe("Venue Routes", () => {
         const response = await app.inject({
           method: "GET",
           url: "/api/v1/venues/nonexistent",
+          headers: { "x-auth-bypass": "true" },
         });
 
         expect(response.statusCode).toBe(404);
         const body = JSON.parse(response.body);
         expect(body.title).toBe("Not Found");
+      });
+
+      it("returns 401 for an anonymous caller (#4017)", async () => {
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/venue-123",
+        });
+
+        expect(response.statusCode).toBe(401);
+        expect(venueService.getById).not.toHaveBeenCalled();
+      });
+
+      it("returns 403 when the caller has no access to the venue (#4017)", async () => {
+        process.env = {
+          ...originalEnv,
+          AUTH_AUTHORITY: "https://test.auth0.com",
+          AUTH_AUDIENCE: "https://api.example.com",
+        };
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "GET",
+          url: "/api/v1/venues/venue-123",
+          headers: { authorization: "Bearer outsider-token" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        expect(venueService.getById).not.toHaveBeenCalled();
+
+        await scopedApp.close();
+        process.env = originalEnv;
       });
     });
 

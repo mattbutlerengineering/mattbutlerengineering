@@ -10734,11 +10734,16 @@
       }>(
         "/:id",
         {
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+          ],
           schema: {
             summary: "Get venue by ID",
             operationId: "getVenueById",
             description: "Retrieve a single venue by its unique identifier.",
             tags: ["Venues"],
+            security: [{ bearerAuth: [] }],
             params: {
               type: "object",
               properties: {
@@ -10756,6 +10761,14 @@
                 properties: {
                   data: { $ref: "Venue#" },
                 },
+              },
+              401: {
+                description: "Authentication required",
+                $ref: "Error#",
+              },
+              403: {
+                description: "Caller does not have access to this venue",
+                $ref: "Error#",
               },
               404: {
                 description: "Venue not found",
