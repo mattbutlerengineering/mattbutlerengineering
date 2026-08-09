@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-08T18:10:59.366Z",
+  "generated_at": "2026-08-09T01:56:14.865Z",
   "period": {
-    "start": "2026-08-01",
-    "end": "2026-08-08"
+    "start": "2026-08-02",
+    "end": "2026-08-09"
   },
   "sensors": {
     "acmm": {
@@ -11,7 +11,7 @@
       "level_name": "Semi-Automated",
       "criteria_met": 96,
       "criteria_total": 114,
-      "last_run": "2026-08-07T16:10:39.245Z"
+      "last_run": "2026-08-08T16:06:43.668Z"
     },
     "prMetrics": {
       "available": true,
@@ -48,17 +48,24 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 869561,
-      "output_tokens": 1844,
-      "cache_creation_tokens": 90339,
-      "cache_hit_rate": 0.9059,
+      "cache_read_tokens": 54128629,
+      "output_tokens": 98120,
+      "cache_creation_tokens": 1137862,
+      "cache_hit_rate": 0.9793,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 22,
-          "output_tokens": 1844,
-          "cache_read_tokens": 869561,
-          "cache_creation_tokens": 90339
+          "input_tokens": 3868,
+          "output_tokens": 98110,
+          "cache_read_tokens": 54017847,
+          "cache_creation_tokens": 1107823
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 42,
+          "output_tokens": 10,
+          "cache_read_tokens": 110782,
+          "cache_creation_tokens": 30039
         }
       }
     },
@@ -74,21 +81,22 @@
       "error": "GitHub auth failed (401) — REST fallback credential is not valid for direct API calls"
     },
     "issueFeedback": {
-      "available": false
+      "available": false,
+      "error": "GitHub auth failed (401) — REST fallback credential is not valid for direct API calls"
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
+      "total_logs": 7,
+      "logs_7d": 7,
+      "total_commits_7d": 126,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.002,
-      "total_lines_added_7d": 464401,
-      "lines_churned_7d": 970,
+      "total_lines_added_7d": 466739,
+      "lines_churned_7d": 1035,
       "window_days": 7,
       "churn_threshold": 0.3
     },
