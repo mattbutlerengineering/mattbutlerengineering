@@ -3012,6 +3012,15 @@
       webhookSecret: string | undefined;
     }
   </file>
+  <file path="services/reservations/src/config/unsubscribe-token.ts">
+    export interface UnsubscribeTokenConfig {
+      secret: string;
+    }
+    interface UnsubscribeTokenConfigInput {
+      nodeEnv: string | undefined;
+      secret: string | undefined;
+    }
+  </file>
   </section>
   <section priority="medium" role="constants">
   <file path="apps/hospitality/src/constants/auth.ts">

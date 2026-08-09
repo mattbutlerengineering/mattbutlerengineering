@@ -947,6 +947,19 @@
       }
     </item>
   </file>
+  <file path="services/reservations/src/config/unsubscribe-token.ts">
+    <item priority="low">
+      interface UnsubscribeTokenConfig {
+        secret: string;
+      }
+    </item>
+    <item priority="high">
+      interface UnsubscribeTokenConfigInput {
+        nodeEnv: string | undefined;
+        secret: string | undefined;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="constants">
   <file path="apps/hospitality/src/constants/auth.ts">
