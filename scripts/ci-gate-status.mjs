@@ -40,6 +40,36 @@
  * worker→train boundary, step 1, for how the orchestrator consumes all
  * three non-green states.
  *
+ * #4028: the `anyRunning` guard below (which exists so `CI Gate`'s normal
+ * "reports last" absence isn't misread as `gate-missing`, see #3991) also
+ * has the side effect of masking `gate-unattributed`: a dispatch-produced,
+ * already-successful `CI Gate` alongside ANY other rollup entry that never
+ * completes reports `pending` forever, not `gate-unattributed` — no
+ * re-dispatch, no human-escalation signal, a silent stall. That self-heals
+ * for a genuinely in-flight check (it eventually completes), but not for
+ * one permanently parked awaiting external approval (#3684's failure mode).
+ * The obvious-looking fix — check for `CI Gate` before checking `anyRunning`
+ * — was tested and REJECTED: measured live on PR #4027 while its own CI was
+ * healthily in flight (`gh pr checks 4027` showed 30 checks and zero named
+ * "CI Gate" — it's the last, dependent job, so for most of a normal run the
+ * rollup legitimately has no gate entry yet). Reordering would classify
+ * every PR that had ever been dispatched once as `gate-unattributed` for
+ * the whole duration of every subsequent healthy run — a false escalation
+ * on the happy path, worse than the rare permanent stall it fixes. Instead,
+ * `anyRunning` excludes only rollup entries that are structurally incapable
+ * of self-resolving: verified via introspection of GitHub's live GraphQL
+ * schema (2026-08-09) that `CheckStatusState` (the `.status` field) has no
+ * "ACTION_REQUIRED" member at all — that value exists solely on
+ * `CheckConclusionState` (`.conclusion`), which GitHub only ever populates
+ * once `status` is already `"COMPLETED"`, so a completed-but-action-required
+ * check was never the masking culprit (`status !== "COMPLETED"` already
+ * excludes it). The rollup-visible state for "blocked on an external
+ * approval, will not self-resolve" — e.g. an environment protection rule —
+ * is `status: "WAITING"` ("the check suite or run is in waiting state" per
+ * GitHub's own schema docs), unlike `IN_PROGRESS`/`QUEUED`/`REQUESTED`,
+ * which actively progress toward `COMPLETED` on their own. No clock, no new
+ * inputs — see `PARKED_CHECK_STATUSES` below.
+ *
  * Pure and network-free: takes an already-fetched `statusCheckRollup` array
  * (from `gh pr view --json statusCheckRollup`) and an already-fetched
  * head-SHA check-runs array (from `gh api repos/{owner}/{repo}/commits/
@@ -56,6 +86,16 @@ import { fileURLToPath } from "node:url";
 
 /** The sole required status check on `main` (green-main policy). */
 export const CI_GATE_CHECK_NAME = "CI Gate";
+
+/**
+ * `CheckStatusState` (GraphQL) values that represent a rollup entry parked
+ * on an external human action rather than actively progressing toward
+ * `COMPLETED` (#4028). Currently just `WAITING` — see module docstring for
+ * why `ACTION_REQUIRED` isn't listed here (it's a `conclusion`, requires
+ * `status === "COMPLETED"`, and is therefore already excluded below without
+ * needing this set at all).
+ */
+const PARKED_CHECK_STATUSES = new Set(["WAITING"]);
 
 /**
  * Resolve the winning check-run among possibly-duplicate same-named entries
@@ -109,7 +149,14 @@ export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns) {
     // is the expected state for the first several minutes of every PR's
     // CI run — not just the #3968 "CI never ran" failure mode. Only
     // conclude "never ran" when nothing else on the SHA is still running.
-    const anyRunning = rollup.some((check) => check?.status && check.status !== "COMPLETED");
+    // #4028: a check parked in PARKED_CHECK_STATUSES (e.g. WAITING on an
+    // external approval) is excluded — it isn't progressing toward
+    // COMPLETED on its own, so it must not mask a dispatch-produced CI Gate
+    // below as merely "pending".
+    const anyRunning = rollup.some(
+      (check) =>
+        check?.status && check.status !== "COMPLETED" && !PARKED_CHECK_STATUSES.has(check.status)
+    );
     if (anyRunning) {
       return {
         state: "pending",
