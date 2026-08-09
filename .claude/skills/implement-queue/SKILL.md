@@ -164,21 +164,25 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
 1. **Wait for PR-level CI green — but first assert `CI Gate` actually exists.** `gh pr checks <N> --watch` reports `fail=0 pend=0` both when CI is genuinely green AND when the `pull_request` event never fired at all (a real, observed transient GitHub-side failure — see #3969; PR #3968 opened with zero `pull_request` runs, only an unrelated `pull_request_target` Dependabot skip, and sat `BLOCKED` with nothing red). Those two states are not the same and must not be conflated: classify the rollup with `classifyCiGateStatus` (`scripts/ci-gate-status.mjs`) before trusting a "green" read.
 
+   `classifyCiGateStatus` reads **two sources**, not one: the PR's `statusCheckRollup` (what branch protection's merge evaluation actually reads) and the head SHA's raw check-runs API (`gh api repos/{owner}/{repo}/commits/{sha}/check-runs`, which also picks up `workflow_dispatch`-produced runs the rollup structurally cannot see). The CLI fetches both automatically:
+
    ```bash
    gh pr checks <N> --watch
-   node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed"|"pending"|"gate-missing", "reason": "..."}
+   node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed"|"pending"|"gate-missing"|"gate-unattributed", "reason": "..."}
    ```
 
    - `state: "green"` → proceed to step 2.
    - `state: "failed"` → fix the failure (or `agent-failed` the linked issue if unfixable this iteration); do not enqueue.
    - `state: "pending"` → keep polling; do not enqueue.
-   - `state: "gate-missing"` → **never enqueue.** Dispatch CI directly on the branch and re-run the classifier — this is the documented `workflow_dispatch` escape hatch `ci.yml` already carries a bare trigger for (see `check-ci-dispatch.mjs`):
+   - `state: "gate-missing"` → **never enqueue.** `CI Gate` is absent from _both_ the rollup and the head-SHA check-runs — genuinely no CI ran. Dispatch CI directly on the branch and re-run the classifier — this is the documented `workflow_dispatch` escape hatch `ci.yml` already carries a bare trigger for (see `check-ci-dispatch.mjs`):
 
      ```bash
      gh workflow run ci.yml --ref <branch>
      ```
 
      Then re-poll from the top of this step. Do not stall silently and do not treat the absence of failures as green.
+
+   - `state: "gate-unattributed"` → **never enqueue, and do NOT re-dispatch.** This means `CI Gate` genuinely ran (present in the head-SHA check-runs, possibly via a prior `workflow_dispatch`) but is absent from `statusCheckRollup` — the source branch protection's merge evaluation actually reads. Confirmed live on PR #4011 (#4023): `gh pr merge --auto` was accepted with a dispatch-produced `CI Gate: success` on the head SHA, and the PR sat `mergeStateStatus=BLOCKED` for 6+ minutes without merging. **The `workflow_dispatch` escape hatch above does NOT unblock a PR by itself** — it produces a check run neither the rollup nor branch protection counts, so dispatching again on a `gate-unattributed` PR cannot help; the new run is just as invisible. This state needs a human, or the separate (not-yet-implemented) fix of `ci.yml` publishing a commit _status_ named `CI Gate` in addition to the check run.
 
 2. **Low-risk fast path.** `tier:*` labels do **not** gate this skill's merges — see [No tier hold](#no-tier-hold) below. Check the `needs-review` label, which still holds a PR:
 
