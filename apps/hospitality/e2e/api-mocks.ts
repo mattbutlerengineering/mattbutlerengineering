@@ -1,6 +1,8 @@
 import type { Page, Route } from "@playwright/test";
 import { readFileSync } from "fs";
 import { join } from "path";
+import type { PublicVenue } from "@mbe/types";
+import { PublicVenueSchema } from "@mbe/types/schemas";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
@@ -33,6 +35,17 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
     contentType: "application/json",
     body: JSON.stringify({ data }),
   });
+}
+
+// GET /api/v1/venues/by-slug/:slug serves the curated PublicVenue
+// projection (#4022/#4031), not the full internal Venue. Parsing through
+// PublicVenueSchema (rather than hand-picking fields) means a future
+// widening of the schema is what changes this fixture, not a hand edit
+// (#4032). Exported so e2e/fixtures/public-venue-mock.test.ts can pin the
+// mock's shape to the type.
+export function buildPublicVenueFixture(): PublicVenue {
+  const venues = JSON.parse(loadFixture("venues-list"));
+  return PublicVenueSchema.parse(venues.data[0]);
 }
 
 export async function mockApi(page: Page): Promise<void> {
@@ -79,10 +92,9 @@ export async function mockApi(page: Page): Promise<void> {
 
   // Venues
   await page.route("**/api/v1/venues?*", (route) => jsonResponse(route, "venues-list"));
-  await page.route("**/api/v1/venues/by-slug/*", (route) => {
-    const venues = JSON.parse(loadFixture("venues-list"));
-    return jsonOk(route, venues.data[0]);
-  });
+  await page.route("**/api/v1/venues/by-slug/*", (route) =>
+    jsonOk(route, buildPublicVenueFixture())
+  );
   await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
     const method = route.request().method();
     const venues = JSON.parse(loadFixture("venues-list"));
