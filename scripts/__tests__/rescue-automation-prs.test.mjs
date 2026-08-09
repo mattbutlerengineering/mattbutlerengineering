@@ -301,6 +301,27 @@ describe("ensureAutoMerge CLI wiring (#3982 AC4)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// approveRuns CLI wiring (#4009) — the CLI's approveRuns callback delegates
+// entirely to approvePendingRuns (scripts/approve-automation-runs.mjs), so
+// that function's fail-open getPr()/listRuns() handling is inherited here
+// too; this asserts the delegation stays intact rather than being replaced
+// by an inline, unprotected duplicate of the gh calls.
+// ---------------------------------------------------------------------------
+
+describe("approveRuns CLI wiring (#4009)", () => {
+  it("the CLI's approveRuns callback delegates to the shared, fail-open approvePendingRuns", () => {
+    expect(SOURCE).toMatch(/from ["']\.\/approve-automation-runs\.mjs["']/);
+    const approveRunsAt = SOURCE.indexOf("approveRuns: async (number)");
+    const nextCallbackAt = SOURCE.indexOf("\n    dispatchCi:", approveRunsAt);
+    const callback = SOURCE.slice(
+      approveRunsAt,
+      nextCallbackAt === -1 ? undefined : nextCallbackAt
+    );
+    expect(callback).toMatch(/approvePendingRuns\(/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
