@@ -31,6 +31,17 @@
  * workflow comment); `selectPrsToRescue`'s label filter excludes it for
  * free, no separate carve-out needed.
  *
+ * #3982: `update-branch`'s merge commit is itself GITHUB_TOKEN/AUTOMATION_PAT
+ * -authored, so its own `pull_request` synchronize run parks at
+ * `action_required` (#3684) exactly like the PR's original commit did — the
+ * re-dispatched CI run's CI Gate check never appears without re-approving
+ * it. `runRescue` now also calls `approveRuns` after `updateBranch` (see
+ * `scripts/approve-automation-runs.mjs`) for that reason, and its CLI
+ * `ensureAutoMerge` callback is routed through
+ * `merge-queue-eligibility.mjs`'s `isAutomationMergeAllowed` instead of
+ * calling `gh pr merge --auto` unconditionally — closing the "not yet
+ * reconciled" bypass flagged in #3972 review.
+ *
  * Design: selection is a pure function (`selectPrsToRescue`), unit-tested
  * without the network (`scripts/__tests__/rescue-automation-prs.test.mjs`).
  * The GitHub mutations live behind injected callbacks in `runRescue`; the
@@ -46,25 +57,17 @@
 
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isAutomationMergeAllowed } from "./merge-queue-eligibility.mjs";
+import { approvePendingRuns } from "./approve-automation-runs.mjs";
+import { AUTOMATION_BRANCH_PREFIX, AUTOMATION_LABEL, hasLabel } from "./lib/automation-pr.mjs";
 
-/** Branch prefix every automation-PR producer opens its PR from. */
-export const AUTOMATION_BRANCH_PREFIX = "automation/";
-
-/**
- * Label the four opt-in producers (production-feedback, drift-fix,
- * pr-metrics, acmm-regression) apply to their PR. `auto-qa-tune.yml`
- * deliberately omits it — see the module doc comment above.
- */
-export const AUTOMATION_LABEL = "auto-merge";
+// Re-exported for existing callers/tests importing these from this module —
+// scripts/lib/automation-pr.mjs is the source of truth (extracted to break
+// a circular import with approve-automation-runs.mjs; see its doc comment).
+export { AUTOMATION_BRANCH_PREFIX, AUTOMATION_LABEL, hasLabel };
 
 /** `gh pr list --json` field set `selectPrsToRescue` needs. */
 export const PR_JSON_FIELDS = "number,headRefName,mergeStateStatus,isDraft,labels";
-
-/** True if `pr` carries `labelName` (supports `["x"]` or `[{name:"x"}]`). */
-function hasLabel(pr, labelName) {
-  const labels = pr?.labels ?? [];
-  return labels.some((label) => (typeof label === "string" ? label : label?.name) === labelName);
-}
 
 /**
  * Pure: selects open automation/* PRs that need a branch-update rescue.
@@ -90,13 +93,16 @@ export function selectPrsToRescue(prs) {
 }
 
 /**
- * Rescues the selected PRs: update-branch, re-dispatch CI on the new head
- * SHA, then re-assert auto-merge (idempotent — belt-and-suspenders in case
- * the producing workflow's own enable failed transiently).
+ * Rescues the selected PRs: update-branch, approve any resulting
+ * `action_required` runs (#3982 — the update-branch merge commit parks
+ * exactly like the PR's original commit did), re-dispatch CI on the new
+ * head SHA, then re-assert auto-merge (idempotent — belt-and-suspenders in
+ * case the producing workflow's own enable failed transiently).
  *
  * @param {{
  *   listPrs: () => Promise<Array>,
  *   updateBranch: (number:number) => Promise<void>,
+ *   approveRuns?: (number:number) => Promise<void>,
  *   dispatchCi: (headRefName:string) => Promise<void>,
  *   ensureAutoMerge: (number:number) => Promise<void>,
  *   dryRun?: boolean,
@@ -107,6 +113,7 @@ export function selectPrsToRescue(prs) {
 export async function runRescue({
   listPrs,
   updateBranch,
+  approveRuns = async () => {},
   dispatchCi,
   ensureAutoMerge,
   dryRun = false,
@@ -122,11 +129,13 @@ export async function runRescue({
       rescued.push(pr.number);
       continue;
     }
-    // Each PR's rescue is isolated: a transient updateBranch/dispatchCi/
-    // ensureAutoMerge failure on one PR must not abort the batch — without
-    // this, one flaky call skipped every remaining PR in the 30-minute pass.
+    // Each PR's rescue is isolated: a transient updateBranch/approveRuns/
+    // dispatchCi/ensureAutoMerge failure on one PR must not abort the batch
+    // — without this, one flaky call skipped every remaining PR in the
+    // 30-minute pass.
     try {
       await updateBranch(pr.number);
+      await approveRuns(pr.number);
       await dispatchCi(pr.headRefName);
       await ensureAutoMerge(pr.number);
       log(`rescued #${pr.number} (${pr.headRefName})`);
@@ -157,13 +166,82 @@ async function run() {
     updateBranch: async (number) => {
       execFileSync("gh", ["pr", "update-branch", String(number)], { stdio: "inherit" });
     },
+    approveRuns: async (number) => {
+      // The update-branch merge commit above is itself GITHUB_TOKEN/
+      // AUTOMATION_PAT-authored, so its own pull_request synchronize run
+      // parks at action_required (#3684) exactly like the PR's original
+      // commit did — see scripts/approve-automation-runs.mjs.
+      await approvePendingRuns({
+        getPr: async () =>
+          JSON.parse(
+            execFileSync(
+              "gh",
+              ["pr", "view", String(number), "--json", "headRefName,labels,author"],
+              {
+                encoding: "utf-8",
+              }
+            )
+          ),
+        listRuns: async (headRefName) =>
+          JSON.parse(
+            execFileSync(
+              "gh",
+              [
+                "run",
+                "list",
+                "--branch",
+                headRefName,
+                "--status",
+                "action_required",
+                "--json",
+                "databaseId,status",
+                "--limit",
+                "50",
+              ],
+              { encoding: "utf-8" }
+            )
+          ),
+        approveRun: async (runId) => {
+          execFileSync(
+            "gh",
+            ["api", "-X", "POST", `repos/{owner}/{repo}/actions/runs/${runId}/approve`],
+            { stdio: "inherit" }
+          );
+        },
+        log: (msg) => console.log(`[rescue-automation-prs] ${msg}`),
+      });
+    },
     dispatchCi: async (headRefName) => {
       execFileSync("gh", ["workflow", "run", "ci.yml", "--ref", headRefName], { stdio: "inherit" });
     },
     ensureAutoMerge: async (number) => {
-      // Isolation from a failure here (or in updateBranch/dispatchCi above)
-      // is handled once, generically, by runRescue's per-PR try/catch — no
-      // need to duplicate it at each callback.
+      // Routed through the same eligibility + trusted-author decision the
+      // four producer workflows consult (#3982 AC4) — a direct, unconditional
+      // `gh pr merge --auto` here would be a permanent bypass of the tier
+      // gate hardened after #3787/#3871/#3972 for every PR this script's
+      // BEHIND filter ever selects. Isolation from a failure here (or in
+      // updateBranch/approveRuns/dispatchCi above) is handled once,
+      // generically, by runRescue's per-PR try/catch.
+      const labelsCsv = execFileSync(
+        "gh",
+        ["pr", "view", String(number), "--json", "labels", "-q", '[.labels[].name] | join(",")'],
+        { encoding: "utf-8" }
+      ).trim();
+      const authorLogin = execFileSync(
+        "gh",
+        ["pr", "view", String(number), "--json", "author", "-q", ".author.login"],
+        { encoding: "utf-8" }
+      ).trim();
+      const decision = isAutomationMergeAllowed({
+        labelNames: labelsCsv ? labelsCsv.split(",") : [],
+        authorLogin,
+      });
+      if (!decision.eligible) {
+        console.log(
+          `[rescue-automation-prs] auto-merge not enabled for #${number}: ${decision.reason}`
+        );
+        return;
+      }
       execFileSync("gh", ["pr", "merge", String(number), "--auto", "--squash", "--delete-branch"], {
         stdio: "inherit",
       });

@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   selectPrsToRescue,
   runRescue,
@@ -6,6 +9,9 @@ import {
   AUTOMATION_LABEL,
   PR_JSON_FIELDS,
 } from "../rescue-automation-prs.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SOURCE = readFileSync(resolve(__dirname, "../rescue-automation-prs.mjs"), "utf8");
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -198,6 +204,99 @@ describe("runRescue", () => {
     expect(ensureAutoMerge).not.toHaveBeenCalledWith(1);
     expect(ensureAutoMerge).toHaveBeenCalledWith(2);
     expect(rescued).toEqual([2]);
+  });
+
+  // -------------------------------------------------------------------------
+  // approveRuns — #3982 AC2: update-branch pushes a new merge commit, which
+  // itself parks at action_required (#3684) exactly like the PR's original
+  // commit did. Without re-approving after update-branch, the re-dispatched
+  // CI run's own required CI Gate check never appears either.
+  // -------------------------------------------------------------------------
+
+  it("calls approveRuns for a selected PR after updateBranch and before dispatchCi", async () => {
+    const calls = [];
+    const updateBranch = vi.fn(async (number) => calls.push(`updateBranch:${number}`));
+    const approveRuns = vi.fn(async (number) => calls.push(`approveRuns:${number}`));
+    const dispatchCi = vi.fn(async (headRefName) => calls.push(`dispatchCi:${headRefName}`));
+    const ensureAutoMerge = vi.fn(async (number) => calls.push(`ensureAutoMerge:${number}`));
+
+    const rescued = await runRescue({
+      listPrs: async () => [makePr({ number: 1 })],
+      updateBranch,
+      approveRuns,
+      dispatchCi,
+      ensureAutoMerge,
+    });
+
+    expect(rescued).toEqual([1]);
+    expect(calls).toEqual([
+      "updateBranch:1",
+      "approveRuns:1",
+      "dispatchCi:automation/production-feedback",
+      "ensureAutoMerge:1",
+    ]);
+  });
+
+  it("defaults approveRuns to a no-op when the caller omits it (backward compatible)", async () => {
+    const rescued = await runRescue({
+      listPrs: async () => [makePr({ number: 1 })],
+      updateBranch: vi.fn().mockResolvedValue(undefined),
+      dispatchCi: vi.fn().mockResolvedValue(undefined),
+      ensureAutoMerge: vi.fn().mockResolvedValue(undefined),
+    });
+
+    expect(rescued).toEqual([1]);
+  });
+
+  it("a throwing approveRuns is isolated like the other per-PR steps", async () => {
+    const approveRuns = vi.fn().mockRejectedValue(new Error("approve failed"));
+    const dispatchCi = vi.fn().mockResolvedValue(undefined);
+    const ensureAutoMerge = vi.fn().mockResolvedValue(undefined);
+    const log = vi.fn();
+
+    const rescued = await runRescue({
+      listPrs: async () => [makePr({ number: 1 })],
+      updateBranch: vi.fn().mockResolvedValue(undefined),
+      approveRuns,
+      dispatchCi,
+      ensureAutoMerge,
+      log,
+    });
+
+    expect(rescued).toEqual([]);
+    expect(dispatchCi).not.toHaveBeenCalled();
+    expect(ensureAutoMerge).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("approve failed"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureAutoMerge CLI wiring (#3982 AC4) — the callback the CLI wires to
+// runRescue must route through the same eligibility + trusted-author gate
+// the four producer workflows consult (scripts/merge-queue-eligibility.mjs),
+// not call `gh pr merge --auto` unconditionally. An ungated call here is a
+// permanent bypass of the tier gate hardened after #3787/#3871/#3972: it
+// would apply to every PR the BEHIND filter ever selects, including a
+// future widening of that filter beyond BEHIND.
+// ---------------------------------------------------------------------------
+
+describe("ensureAutoMerge CLI wiring (#3982 AC4)", () => {
+  it("routes the CLI's ensureAutoMerge callback through the shared eligibility gate", () => {
+    expect(SOURCE).toMatch(/isAutomationMergeAllowed/);
+    expect(SOURCE).toMatch(/from ["']\.\/merge-queue-eligibility\.mjs["']/);
+  });
+
+  it("no longer calls gh pr merge unconditionally inside ensureAutoMerge", () => {
+    const ensureAutoMergeAt = SOURCE.indexOf("ensureAutoMerge: async (number)");
+    const nextCallbackAt = SOURCE.indexOf("\n    dryRun,", ensureAutoMergeAt);
+    const callback = SOURCE.slice(
+      ensureAutoMergeAt,
+      nextCallbackAt === -1 ? undefined : nextCallbackAt
+    );
+    const mergeAt = callback.indexOf('"pr", "merge", String(number)');
+    const decisionAt = callback.indexOf("isAutomationMergeAllowed");
+    expect(decisionAt).toBeGreaterThan(-1);
+    expect(mergeAt).toBeGreaterThan(decisionAt);
   });
 });
 
