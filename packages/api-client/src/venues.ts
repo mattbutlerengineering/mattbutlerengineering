@@ -3,6 +3,7 @@ import type {
   PaginatedResponse,
   Venue,
   VenueGroup,
+  PublicVenue,
   PublicVenueConfig,
   CreateVenueRequest,
   UpdateVenueRequest,
@@ -12,6 +13,7 @@ import type {
 import {
   VenueSchema,
   VenueGroupSchema,
+  PublicVenueSchema,
   PublicVenueConfigSchema,
   paginatedResponseSchema,
 } from "@mbe/types";
@@ -45,10 +47,16 @@ export class VenuesClient {
   }
 
   /**
-   * Get a venue by slug
+   * Get a venue's curated public projection by slug (safe for anonymous
+   * callers — used by the public booking widget). Omits `venueGroup`,
+   * `venueGroupId`, and the raw `settings` blob (#4022).
    */
-  async getBySlug(slug: string): Promise<Venue> {
-    return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`, undefined, VenueSchema);
+  async getBySlug(slug: string): Promise<PublicVenue> {
+    return this.client.getOne<PublicVenue>(
+      `/api/v1/venues/by-slug/${slug}`,
+      undefined,
+      PublicVenueSchema
+    );
   }
 
   /**

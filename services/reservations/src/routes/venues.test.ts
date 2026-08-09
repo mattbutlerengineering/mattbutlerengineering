@@ -9,6 +9,7 @@ vi.mock("../services/venue.js", () => ({
     listForMember: vi.fn(),
     getById: vi.fn(),
     getBySlug: vi.fn(),
+    getPublicBySlug: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -121,6 +122,15 @@ const mockVenue = {
   settings: null,
   createdAt: "2026-01-25T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
+};
+
+// Curated public projection returned by GET /v1/venues/by-slug/:slug (#4022) —
+// deliberately excludes venueGroup/venueGroupId, settings, and timestamps.
+const mockPublicVenue = {
+  id: "venue-123",
+  name: "Chez Panisse",
+  slug: "chez-panisse",
+  operatingHours: null,
 };
 
 const mockJWTPayload = {
@@ -689,8 +699,8 @@ describe("Venue Routes", () => {
     });
 
     describe("GET /v1/venues/by-slug/:slug", () => {
-      it("returns venue by slug", async () => {
-        vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      it("returns the curated public venue projection by slug", async () => {
+        vi.mocked(venueService.getPublicBySlug).mockResolvedValueOnce(mockPublicVenue);
 
         const response = await app.inject({
           method: "GET",
@@ -699,11 +709,40 @@ describe("Venue Routes", () => {
 
         expect(response.statusCode).toBe(200);
         const body = JSON.parse(response.body);
-        expect(body.data.slug).toBe("chez-panisse");
+        expect(body.data).toEqual(mockPublicVenue);
+        expect(venueService.getPublicBySlug).toHaveBeenCalledWith("chez-panisse");
+      });
+
+      it("excludes venueGroup, venueGroupId, and the raw settings blob (#4022)", async () => {
+        vi.mocked(venueService.getPublicBySlug).mockResolvedValueOnce(mockPublicVenue);
+
+        const response = await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/by-slug/chez-panisse",
+        });
+
+        const body = JSON.parse(response.body);
+        expect(body.data).not.toHaveProperty("venueGroup");
+        expect(body.data).not.toHaveProperty("venueGroupId");
+        expect(body.data).not.toHaveProperty("settings");
+        expect(body.data).not.toHaveProperty("createdAt");
+        expect(body.data).not.toHaveProperty("updatedAt");
+        expect(Object.keys(body.data).sort()).toEqual(["id", "name", "operatingHours", "slug"]);
+      });
+
+      it("does not call the internal, unprojected getBySlug", async () => {
+        vi.mocked(venueService.getPublicBySlug).mockResolvedValueOnce(mockPublicVenue);
+
+        await app.inject({
+          method: "GET",
+          url: "/api/v1/venues/by-slug/chez-panisse",
+        });
+
+        expect(venueService.getBySlug).not.toHaveBeenCalled();
       });
 
       it("returns 404 when venue slug not found", async () => {
-        vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+        vi.mocked(venueService.getPublicBySlug).mockResolvedValueOnce(null);
 
         const response = await app.inject({
           method: "GET",

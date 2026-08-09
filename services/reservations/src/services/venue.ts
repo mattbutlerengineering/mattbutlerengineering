@@ -3,6 +3,7 @@ import type {
   VenueGroup,
   VenueSettings,
   DepositType,
+  PublicVenue,
   PublicVenueConfig,
   CreateVenueRequest,
   UpdateVenueRequest,
@@ -257,6 +258,33 @@ export const venueService = {
       include: { venueGroup: true },
     });
     return venue ? mapPrismaVenue(venue) : null;
+  },
+
+  /**
+   * Returns the curated public {@link PublicVenue} projection by slug, or
+   * `null` when the venue does not exist. Used by the unauthenticated
+   * booking-widget entry point (`GET /api/v1/venues/by-slug/:slug`) so
+   * `venueGroup`/`venueGroupId` and the raw `settings` blob never leave the
+   * database row for an anonymous caller (#4022).
+   */
+  async getPublicBySlug(slug: string): Promise<PublicVenue | null> {
+    const venue = await prisma.venue.findFirst({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        operatingHours: true,
+      },
+    });
+    if (!venue) return null;
+
+    return {
+      id: venue.id,
+      name: venue.name,
+      slug: venue.slug,
+      operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
+    };
   },
 
   /**

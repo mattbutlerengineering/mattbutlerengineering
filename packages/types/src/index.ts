@@ -45,6 +45,7 @@ export { TABLE_VALID_TRANSITIONS } from "./reservation.js";
 export type {
   VenueGroup,
   Venue,
+  PublicVenue,
   OperatingHours,
   DaySchedule,
   VenueSettings,
