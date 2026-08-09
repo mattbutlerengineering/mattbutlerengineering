@@ -19,32 +19,9 @@ test.describe("Public booking flow — Add to Calendar", () => {
   test("downloads a working .ics and builds a well-formed Google Calendar link", async ({
     mockedPage,
   }) => {
-    // Override the global public-venue-config mock (which returns the
-    // internal Venue shape and lacks `deposit`, failing schema validation)
-    // with a full PublicVenueConfig — the "Add to Calendar" section only
-    // renders once this fetch succeeds.
-    await mockedPage.route("**/public/v1/venues/*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: jsonOk({
-          name: VENUE_NAME,
-          slug: VENUE_SLUG,
-          ianaTimezone: VENUE_TIMEZONE,
-          currencyCode: "USD",
-          operatingHours: null,
-          settings: {},
-          deposit: {
-            enabled: false,
-            depositType: null,
-            amountCents: null,
-            freeCancellationHours: null,
-            lateCancellationFeePercent: null,
-            noShowFeePercent: null,
-          },
-        }),
-      })
-    );
+    // The shared api-mocks.ts public-venue-config mock (#4035) already
+    // returns a schema-valid PublicVenueConfig with a disabled deposit for
+    // this venue — no per-test override needed.
 
     // The guest-recognition lookup fires on email blur — a multi-segment
     // path the single-segment glob above doesn't match. Stub it too so it
