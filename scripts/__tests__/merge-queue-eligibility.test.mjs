@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   isAutoMergeEligible,
   isAutomationAutoMergeEligible,
+  isAutomationMergeAllowed,
   isTrustedAutomationAuthor,
   BLOCKED_TIER_LABELS,
   TIER_LABEL_PREFIX,
@@ -324,6 +325,57 @@ describe("isAutomationAutoMergeEligible", () => {
     expect(result.eligible).toBe(false);
     expect(result.reason).toMatch(/tier:critical/);
     expect(result.reason).not.toMatch(/did not run/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isAutomationMergeAllowed — the combined tier + trusted-author decision
+// (#3982 AC4). scripts/rescue-automation-prs.mjs's ensureAutoMerge callback
+// used to call `gh pr merge --auto` unconditionally, bypassing both checks
+// — this is the single source of truth that closes that gap.
+// ---------------------------------------------------------------------------
+
+describe("isAutomationMergeAllowed", () => {
+  it("is eligible for auto-merge + tier:trivial from the trusted author", () => {
+    const result = isAutomationMergeAllowed({
+      labelNames: ["auto-merge", "tier:trivial"],
+      authorLogin: "app/github-actions",
+    });
+    expect(result.eligible).toBe(true);
+  });
+
+  it("is not eligible when the tier/label check fails, regardless of author", () => {
+    const result = isAutomationMergeAllowed({
+      labelNames: ["auto-merge"],
+      authorLogin: "app/github-actions",
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/tier:\*/);
+  });
+
+  it("is not eligible when tier/label passes but the author is untrusted", () => {
+    const result = isAutomationMergeAllowed({
+      labelNames: ["auto-merge", "tier:trivial"],
+      authorLogin: "mattbutlerengineering",
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/not in TRUSTED_AUTOMATION_AUTHORS/);
+  });
+
+  it("reports the tier reason, not the author reason, when both would fail", () => {
+    // Ordering guard, matching isAutomationAutoMergeEligible's own ordering
+    // guards: the more specific/earlier check should win the reported reason.
+    const result = isAutomationMergeAllowed({
+      labelNames: ["auto-merge", "tier:critical"],
+      authorLogin: "mattbutlerengineering",
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/tier:critical/);
+  });
+
+  it("treats missing input as ineligible", () => {
+    expect(isAutomationMergeAllowed().eligible).toBe(false);
+    expect(isAutomationMergeAllowed({}).eligible).toBe(false);
   });
 });
 

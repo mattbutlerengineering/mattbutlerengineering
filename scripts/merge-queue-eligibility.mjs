@@ -192,6 +192,38 @@ export function isTrustedAutomationAuthor(login) {
   return TRUSTED_AUTOMATION_AUTHORS.includes(login);
 }
 
+/**
+ * Combined automation-merge decision: tier/label eligibility AND trusted
+ * authorship in one call (#3982 AC4).
+ *
+ * The four producer workflows' own "Enable auto-merge" steps (#3972) run
+ * `isAutomationAutoMergeEligible` then `isTrustedAutomationAuthor` as two
+ * separate bash/node calls. `scripts/rescue-automation-prs.mjs`'s
+ * `ensureAutoMerge` callback used to skip both checks and call
+ * `gh pr merge --auto` unconditionally — a permanent bypass of the same
+ * gate, flagged in #3972 review as "not yet reconciled". This function is
+ * the single source of truth both call sites should use going forward so
+ * the two checks can't drift out of order or get skipped independently.
+ *
+ * @param {{labelNames?: string[], authorLogin?: string}} [input]
+ * @returns {{ eligible: boolean, reason: string }}
+ */
+export function isAutomationMergeAllowed({ labelNames = [], authorLogin } = {}) {
+  const tierDecision = isAutomationAutoMergeEligible(labelNames);
+  if (!tierDecision.eligible) {
+    return tierDecision;
+  }
+
+  if (!isTrustedAutomationAuthor(authorLogin)) {
+    return {
+      eligible: false,
+      reason: `author '${authorLogin ?? ""}' not in TRUSTED_AUTOMATION_AUTHORS`,
+    };
+  }
+
+  return { eligible: true, reason: tierDecision.reason };
+}
+
 function readFlag(args, name) {
   const idx = args.indexOf(name);
   return idx !== -1 ? args[idx + 1] : null;

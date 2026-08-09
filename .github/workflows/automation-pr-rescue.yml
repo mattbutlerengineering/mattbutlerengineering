@@ -14,6 +14,12 @@ name: Automation PR Rescue
 # merge) — the script's auto-merge-label filter excludes it for free, no
 # separate carve-out needed here.
 #
+# #3982: rescue-automation-prs.mjs also approves any action_required runs
+# the update-branch merge commit itself parks (#3684) — that commit is
+# GITHUB_TOKEN/AUTOMATION_PAT-authored too, so its pull_request synchronize
+# run needs the same unblock the PR's original commit needed. See
+# scripts/approve-automation-runs.mjs for the approval logic.
+#
 # Deliberately mechanical, no `pnpm install` — the script only shells out to
 # `gh`, so a plain checkout + Node is enough.
 
@@ -26,8 +32,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  # Required for both `gh pr update-branch` and the `gh workflow run`
-  # re-dispatch the script performs on each rescued PR.
+  # Required for `gh pr update-branch`, the `gh workflow run` re-dispatch,
+  # and the `gh api .../actions/runs/{id}/approve` calls the script performs
+  # on each rescued PR.
   actions: write
 
 jobs:
