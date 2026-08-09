@@ -1,8 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   buildGraph,
   classifyType,
   scanScriptsImports,
+  resolveGlob,
+  root,
   ENTRYPOINT_PACKAGES,
 } from "../dep-graph-discovery.mjs";
 
@@ -29,6 +33,32 @@ describe("classifyType", () => {
 
   it("defaults unknown paths to package", () => {
     expect(classifyType("unknown/thing")).toBe("package");
+  });
+});
+
+describe("resolveGlob", () => {
+  it("sorts wildcard-branch output canonically, independent of readdir order", () => {
+    // Real dirents for a real wildcard dir, so existsSync() checks inside
+    // resolveGlob still resolve — only the *order* readdir hands back is
+    // shuffled, simulating filesystem-dependent readdirSync iteration
+    // order (APFS vs. ext4) referenced in #4001.
+    const realEntries = readdirSync(join(root, "packages"), { withFileTypes: true });
+    const reversed = [...realEntries].reverse();
+    // A second, differently-shuffled order (not just the reverse) so a
+    // coincidental match between two orderings can't mask a missing sort.
+    const scrambled = [...realEntries].sort(() => 0.5 - Math.random());
+
+    const fromReversed = resolveGlob("packages/*", root, { readdir: () => reversed }).map(
+      (r) => r.wsDir
+    );
+    const fromScrambled = resolveGlob("packages/*", root, { readdir: () => scrambled }).map(
+      (r) => r.wsDir
+    );
+
+    const canonical = [...fromReversed].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+    expect(fromReversed).toEqual(canonical);
+    expect(fromScrambled).toEqual(canonical);
   });
 });
 
