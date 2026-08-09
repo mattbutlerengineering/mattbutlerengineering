@@ -15,11 +15,16 @@ import {
   updateTablePositionsBodyJsonSchema,
   assignTableBodyJsonSchema,
 } from "@mbe/types";
-import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
+import {
+  requireAuth,
+  requireVenueAccess,
+  hasPermission,
+  type VenueIdResolver,
+} from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
-import { venueIdFromBody } from "./venue-access.js";
+import { venueIdFromBody, venueIdFromParams } from "./venue-access.js";
 
 /** Resolves the venue owning a floor plan addressed by `:id` (→ 403 if absent). */
 const resolveFloorPlanVenueId: VenueIdResolver = async (request) => {
@@ -52,21 +57,44 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       schema: {
-        summary: "List floor plans",
-        description: "Returns a paginated list of floor plans for a venue.",
+        summary: "List floor plans visible to the caller",
+        description:
+          "Returns a paginated list of floor plans. Platform admins see floor plans " +
+          "for every venue; other callers are scoped to venues they are a member of. " +
+          "Optionally filter by venueId.",
         querystring: listFloorPlansQueryJsonSchema,
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { page, limit } = parsePaginationQuery(request.query);
-      return floorPlanService.list(page, limit, request.query.venueId);
+      const user = request.user;
+
+      // requireAuth guarantees an identity; this satisfies the type narrower
+      // and fails closed if the guard is ever removed.
+      if (!user) {
+        return reply
+          .code(401)
+          .send(createProblemDetails(401, "Unauthorized", "Authentication required"));
+      }
+
+      // Platform admins are scoped to every venue (matches requireVenueAccess,
+      // ADR-020); everyone else sees only floor plans for venues they belong to.
+      if (hasPermission(user, "admin")) {
+        return floorPlanService.list(page, limit, request.query.venueId);
+      }
+      return floorPlanService.listForMember(user.raw.sub, page, limit, request.query.venueId);
     }
   );
 
   fastify.get<{ Params: { venueId: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/venue/:venueId/active",
     {
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromParams),
+      ],
       schema: {
         summary: "Get active floor plan for venue",
         params: {
@@ -91,6 +119,10 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Params: { id: string }; Reply: ApiResponse<FloorPlan> | ProblemDetails }>(
     "/:id",
     {
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanVenueId),
+      ],
       schema: {
         summary: "Get floor plan by ID",
         params: {
