@@ -31,14 +31,14 @@ When you find a commit on `main` and aren't sure what caused it:
 
 In order of escalating reach:
 
-| Reach             | Action                                                                                                                                                                              |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One trigger       | Disable at https://claude.ai/code/routines/<trigger_id>                                                                                                                             |
-| All triggers      | Set every routine to `enabled: false` via the routines UI                                                                                                                           |
-| One label         | `gh label edit ready --description "PAUSED — no agent pickup"` (does not stop pickup, but signals intent)                                                                           |
-| All agent pickup  | Remove `ready` label from every issue: `gh issue list --label ready --json number --jq '.[].number' \| xargs -I{} gh issue edit {} --remove-label ready`                            |
-| Pre-commit hook   | The pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed`. Bypass with `git commit --no-verify` only when the hook itself is the problem, never to skip a real failure |
-| Production deploy | Static sites: revert in `apps/<site>/` and re-run `pnpm dlx wrangler@latest deploy`. Services: `doctl apps create-deployment $DO_APP_ID --wait` after reverting on `main`           |
+| Reach             | Action                                                                                                                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One trigger       | Disable at https://claude.ai/code/routines/<trigger_id>                                                                                                                                    |
+| All triggers      | Set every routine to `enabled: false` via the routines UI                                                                                                                                  |
+| One label         | `gh label edit ready --description "PAUSED — no agent pickup"` (does not stop pickup, but signals intent)                                                                                  |
+| All agent pickup  | Remove `ready` label from every issue: `gh issue list --label ready --json number --jq '.[].number' \| xargs -I{} gh issue edit {} --remove-label ready`                                   |
+| Commit hooks      | Pre-commit runs `eslint --fix` + `check-adr`; post-commit runs `pack-changed`. Bypass with `git commit --no-verify` only when the hook itself is the problem, never to skip a real failure |
+| Production deploy | Static sites: revert in `apps/<site>/` and re-run `pnpm dlx wrangler@latest deploy`. Services: `doctl apps create-deployment $DO_APP_ID --wait` after reverting on `main`                  |
 
 ## Review an agent session transcript
 

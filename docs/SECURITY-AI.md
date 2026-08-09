@@ -71,7 +71,7 @@ The agent **must not** do any of these, ever, regardless of prompt:
 ### Approval gates that cannot be bypassed
 
 1. The `ready → in-progress → has-pr` label state machine on issues. An agent picking up an issue must transition through these states; skipping is forbidden.
-2. The pre-commit hook (`eslint --fix`, `check-adr`, `pack-changed`). Failure means fix the cause and re-stage; never `--no-verify`.
+2. The commit hooks: pre-commit runs `eslint --fix` + `check-adr`, post-commit runs `pack-changed`. Failure means fix the cause and re-stage; never `--no-verify`.
 3. The `migration-reviewer` agent invocation on any PR touching `prisma/migrations/` or `prisma/schema.prisma`.
 4. The `adr-compliance-reviewer` agent invocation on PRs touching `services/`, `packages/`, or `apps/`.
 5. The destructive-migration script (`scripts/check-destructive-migrations.js`) on every commit that includes a Prisma migration.
