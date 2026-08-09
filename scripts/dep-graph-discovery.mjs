@@ -30,6 +30,13 @@ export const root = join(__dirname, "..");
 // zones in that vocabulary, so they stay as local checks below.
 const TYPE_BY_WORKSPACE_ROOT = { apps: "app", services: "service", packages: "package" };
 
+// readdirSync's iteration order is filesystem-dependent (APFS vs. ext4 make
+// no common ordering guarantee), so every readdirSync consumer below sorts
+// its output with this explicit, locale-independent comparator — never
+// localeCompare(), which is itself locale-sensitive and would just move the
+// non-determinism rather than remove it. See #4001.
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 // Packages with zero internal importers by design — invoked externally
 // (CLI bin, MCP server config, editor/build plugin) rather than imported by
 // another workspace package. Without this tag they're indistinguishable
@@ -98,16 +105,20 @@ export function discoverWorkspaceGlobs(repoRoot = root) {
  *
  * @param {string} glob
  * @param {string} [repoRoot] - Root the glob is resolved against.
+ * @param {{ readdir?: typeof readdirSync }} [io] - Injectable readdirSync, for tests.
  * @returns {{ pkgJsonPath: string; wsDir: string }[]}
  */
-export function resolveGlob(glob, repoRoot = root) {
+export function resolveGlob(glob, repoRoot = root, { readdir = readdirSync } = {}) {
   const results = [];
 
   if (glob.endsWith("/*")) {
     const parentDir = join(repoRoot, glob.slice(0, -2));
     if (!existsSync(parentDir)) return results;
 
-    for (const entry of readdirSync(parentDir, { withFileTypes: true })) {
+    const entries = [...readdir(parentDir, { withFileTypes: true })].sort((a, b) =>
+      byCodeUnit(a.name, b.name)
+    );
+    for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const pkgJsonPath = join(parentDir, entry.name, "package.json");
       if (existsSync(pkgJsonPath)) {
@@ -155,7 +166,12 @@ const INTERNAL_IMPORT_PATTERN =
 function collectSourceFiles(dir) {
   if (!existsSync(dir)) return [];
   const files = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+  // Sorted for the same cross-platform determinism reason as resolveGlob
+  // above — this ordering feeds scanScriptsImports' edge output.
+  const entries = [...readdirSync(dir, { withFileTypes: true })].sort((a, b) =>
+    byCodeUnit(a.name, b.name)
+  );
+  for (const entry of entries) {
     if (SCRIPTS_EXCLUDED_DIRS.has(entry.name)) continue;
     const entryPath = join(dir, entry.name);
     if (entry.isDirectory()) {
