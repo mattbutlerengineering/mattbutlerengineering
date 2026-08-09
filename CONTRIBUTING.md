@@ -37,7 +37,7 @@ Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in
    - `docs(adr): add ADR-013 for caching strategy`
    - `chore(deps): bump turbo to 2.x`
 
-3. Pre-commit hook runs `eslint --fix` + `check-adr` + `pack-changed`. The last one regenerates `llms.txt` files for affected packages — expect them to appear in `git status` after your commit lands; that's intentional. Don't `--no-verify`; if a hook fails, fix the underlying issue.
+3. Commit hooks: pre-commit runs `eslint --fix` + `check-adr`, then post-commit runs `pack-changed`. The post-commit step regenerates `llms.txt` files for affected packages — expect them to appear in `git status` after your commit lands; that's intentional. Don't `--no-verify`; if a hook fails, fix the underlying issue.
 
 4. Open a PR against `main`. Use the PR template — it has a security checklist; please complete it honestly. PRs that don't fill out the template will get a comment asking you to.
 
