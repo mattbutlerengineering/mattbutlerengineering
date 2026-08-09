@@ -242,6 +242,9 @@ describe("SSE Event Stream Integration", () => {
 describe("SSE stream venue authorization (issue #4016)", () => {
   let app: FastifyInstance;
 
+  const SCOPED_STREAM_URL = "/api/v1/events/stream?venueId=venue-1&testClose=100";
+  const UNSCOPED_STREAM_URL = "/api/v1/events/stream?testClose=100";
+
   const nonAdminPayload = (sub: string) => ({
     sub,
     email: "operator@example.com",
@@ -273,7 +276,7 @@ describe("SSE stream venue authorization (issue #4016)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/events/stream?venueId=venue-1&testClose=100",
+      url: SCOPED_STREAM_URL,
       headers: { authorization: "Bearer non-member-token" },
     });
 
@@ -294,7 +297,7 @@ describe("SSE stream venue authorization (issue #4016)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/events/stream?venueId=venue-1&testClose=100",
+      url: SCOPED_STREAM_URL,
       headers: { authorization: "Bearer member-token" },
     });
 
@@ -314,7 +317,7 @@ describe("SSE stream venue authorization (issue #4016)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/events/stream?testClose=100",
+      url: UNSCOPED_STREAM_URL,
       headers: { authorization: "Bearer no-venue-token" },
     });
 
@@ -339,7 +342,7 @@ describe("SSE stream venue authorization (issue #4016)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/events/stream?testClose=100",
+      url: UNSCOPED_STREAM_URL,
       headers: { authorization: "Bearer admin-token" },
     });
 
