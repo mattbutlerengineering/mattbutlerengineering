@@ -560,21 +560,22 @@ pnpm db:studio         # Open Prisma Studio
 
 ## Environment Variables
 
-| Variable                | Required   | Description                                             |
-| ----------------------- | ---------- | ------------------------------------------------------- |
-| `PORT`                  | No         | Service port (default: 3004)                            |
-| `LOG_LEVEL`             | No         | Logging level (default: info)                           |
-| `CORS_ORIGINS`          | No         | Comma-separated allowed origins                         |
-| `AUTH_AUTHORITY`        | Yes (prod) | Auth0 domain                                            |
-| `AUTH_AUDIENCE`         | Yes (prod) | Auth0 API identifier                                    |
-| `DATABASE_URL`          | Yes        | Postgres connection                                     |
-| `MANAGE_TOKEN_SECRET`   | Yes (prod) | HMAC secret for self-service manage/cancel tokens       |
-| `RESEND_API_KEY`        | No         | Resend API key — enables email notifications when set   |
-| `EMAIL_FROM`            | No         | From address for emails (default: reservations@m...com) |
-| `MANAGE_BASE_URL`       | No         | Base URL for manage/cancel links in emails              |
-| `SENTRY_DSN`            | No         | Sentry DSN for error tracking                           |
-| `STRIPE_SECRET_KEY`     | Yes (prod) | Stripe secret key — required when deposits are enabled  |
-| `STRIPE_WEBHOOK_SECRET` | Yes (prod) | Stripe webhook signing secret for HMAC verification     |
+| Variable                   | Required   | Description                                             |
+| -------------------------- | ---------- | ------------------------------------------------------- |
+| `PORT`                     | No         | Service port (default: 3004)                            |
+| `LOG_LEVEL`                | No         | Logging level (default: info)                           |
+| `CORS_ORIGINS`             | No         | Comma-separated allowed origins                         |
+| `AUTH_AUTHORITY`           | Yes (prod) | Auth0 domain                                            |
+| `AUTH_AUDIENCE`            | Yes (prod) | Auth0 API identifier                                    |
+| `DATABASE_URL`             | Yes        | Postgres connection                                     |
+| `MANAGE_TOKEN_SECRET`      | Yes (prod) | HMAC secret for self-service manage/cancel tokens       |
+| `RESEND_API_KEY`           | No         | Resend API key — enables email notifications when set   |
+| `EMAIL_FROM`               | No         | From address for emails (default: reservations@m...com) |
+| `MANAGE_BASE_URL`          | No         | Base URL for manage/cancel links in emails              |
+| `SENTRY_DSN`               | No         | Sentry DSN for error tracking                           |
+| `STRIPE_SECRET_KEY`        | Yes (prod) | Stripe secret key — required when deposits are enabled  |
+| `STRIPE_WEBHOOK_SECRET`    | Yes (prod) | Stripe webhook signing secret for HMAC verification     |
+| `UNSUBSCRIBE_TOKEN_SECRET` | Yes (prod) | HMAC secret for post-visit-email unsubscribe tokens     |
 
 ## Related Documentation
 

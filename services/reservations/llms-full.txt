@@ -20,6 +20,15 @@
       webhookSecret: string | undefined;
     }
   </file>
+  <file path="src/config/unsubscribe-token.ts">
+    export interface UnsubscribeTokenConfig {
+      secret: string;
+    }
+    interface UnsubscribeTokenConfigInput {
+      nodeEnv: string | undefined;
+      secret: string | undefined;
+    }
+  </file>
   </section>
   <section priority="medium" role="middleware">
   <file path="src/middleware/public-rate-limit.ts">
