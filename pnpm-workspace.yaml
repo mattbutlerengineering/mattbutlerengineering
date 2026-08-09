@@ -5,6 +5,7 @@ packages:
   - "tools/*"
   - "infrastructure/pulumi"
   - "infrastructure/worker"
+  - "plugins/acmm"
   - "scripts"
 
 catalog:
