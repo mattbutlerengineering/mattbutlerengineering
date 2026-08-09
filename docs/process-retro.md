@@ -238,18 +238,18 @@ grew to ~140 rows but `merged`, `ci_first_pass`, `rework_cycles` and `cost_usd` 
    call (Escalations, #3322) — but the _silence_ is a bug an agent can fix today:
    guard the publish step so a missing token fails loudly and once, instead of
    producing 197 red runs a week that everyone has learned to ignore. Filed as
-   **#4041**.
+   **#4042**.
 2. **Make backlog aging label-independent.** #3322 named a 30-day outage, asked for
    a maintainer decision in its own title, and was invisible to three consecutive
    weekly retros because it carries `ci-fix` rather than `ready-for-human`. Any
    detector that depends on the right label being applied by the filer will keep
    missing the issues that matter most. Detect on _behaviour_ — open, untouched,
-   past a threshold — not on labels. Filed as **#4042**.
+   past a threshold — not on labels. Filed as **#4043**.
 3. **Finish the sensor un-darkening that #3689 started.** `queueEfficiency` has
    reported `available: false` every single day since its fix landed, so the daily
    `/optimize-implement-queue` step measures nothing and this retro still cannot
    compute first-pass CI rate or rework cycles. Third week running. Filed as
-   **#4043**.
+   **#4044**.
 
 Deliberately **not** in the top 3: the automation-PR merge trap (cause #1). Five
 weeks of increasingly clever workarounds have not merged an automation PR reliably,
