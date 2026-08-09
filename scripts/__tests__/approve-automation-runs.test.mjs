@@ -200,6 +200,48 @@ describe("approvePendingRuns", () => {
     expect(approved).toEqual([2]);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("approve transient failure"));
   });
+
+  // #4009: getPr()/listRuns() were not wrapped in the same fail-open
+  // try/catch as approveRun(), so a transient gh-CLI error (5xx, rate limit,
+  // auth hiccup) propagated uncaught out of approvePendingRuns, failing the
+  // workflow step and skipping "Enable auto-merge" entirely.
+  it("degrades gracefully (returns [] and logs) instead of throwing when getPr throws", async () => {
+    const listRuns = vi.fn();
+    const approveRun = vi.fn();
+    const log = vi.fn();
+
+    const approved = await approvePendingRuns({
+      getPr: async () => {
+        throw new Error("gh pr view: transient 5xx");
+      },
+      listRuns,
+      approveRun,
+      log,
+    });
+
+    expect(approved).toEqual([]);
+    expect(listRuns).not.toHaveBeenCalled();
+    expect(approveRun).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("gh pr view: transient 5xx"));
+  });
+
+  it("degrades gracefully (returns [] and logs) instead of throwing when listRuns throws", async () => {
+    const approveRun = vi.fn();
+    const log = vi.fn();
+
+    const approved = await approvePendingRuns({
+      getPr: async () => makePr(),
+      listRuns: async () => {
+        throw new Error("gh run list: rate limited");
+      },
+      approveRun,
+      log,
+    });
+
+    expect(approved).toEqual([]);
+    expect(approveRun).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("gh run list: rate limited"));
+  });
 });
 
 // ---------------------------------------------------------------------------

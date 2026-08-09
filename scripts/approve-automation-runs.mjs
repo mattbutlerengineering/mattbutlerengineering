@@ -117,14 +117,32 @@ export async function approvePendingRuns({
   dryRun = false,
   log = () => {},
 }) {
-  const pr = await getPr();
+  // getPr()/listRuns() are wrapped the same way as approveRun() below: a
+  // transient gh-CLI error (5xx, rate limit, auth hiccup) here must not
+  // propagate uncaught — that would fail the calling workflow step and skip
+  // "Enable auto-merge" entirely (#4009).
+  let pr;
+  try {
+    pr = await getPr();
+  } catch (err) {
+    log(`failed to fetch PR: ${err.message}`);
+    return [];
+  }
+
   const decision = isAutomationPrApprovable(pr);
   if (!decision.approvable) {
     log(`skipping: ${decision.reason}`);
     return [];
   }
 
-  const runs = await listRuns(pr.headRefName);
+  let runs;
+  try {
+    runs = await listRuns(pr.headRefName);
+  } catch (err) {
+    log(`failed to list runs: ${err.message}`);
+    return [];
+  }
+
   const pending = selectActionRequiredRuns(runs);
   const approved = [];
 
