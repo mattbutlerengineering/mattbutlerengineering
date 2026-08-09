@@ -192,12 +192,6 @@ semgrep --config semgrep.yml --error .           # Custom rules
 semgrep --config "p/security-audit" --error .  # Semgrep registry rules
 ```
 
-### Skip in Emergencies
-
-```bash
-SKIP=semgrep git commit -m "emergency fix"
-```
-
 ## Model Governance
 
 To ensure cost-efficiency and technical integrity, follow this model tiering strategy:
