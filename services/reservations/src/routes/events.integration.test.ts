@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { Reservation } from "@mbe/types";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { reservationEvents } from "../services/events.js";
 
 /**
@@ -32,6 +33,7 @@ vi.mock("../services/database.js", async () => {
 
 // Dynamic import after mocks
 const { buildApp } = await import("../app.js");
+const { jwtVerify } = await import("jose");
 
 describe("SSE Event Stream Integration", () => {
   let app: FastifyInstance;
@@ -234,5 +236,114 @@ describe("SSE Event Stream Integration", () => {
       expect(response.body).toContain("event: guest:lapsing");
       expect(response.body).not.toContain("event: table-status:changed");
     });
+  });
+});
+
+describe("SSE stream venue authorization (issue #4016)", () => {
+  let app: FastifyInstance;
+
+  const nonAdminPayload = (sub: string) => ({
+    sub,
+    email: "operator@example.com",
+    permissions: ["staff"],
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    iat: Math.floor(Date.now() / 1000),
+  });
+
+  beforeEach(() => {
+    process.env.AUTH_AUTHORITY = "https://test.auth0.com";
+    process.env.AUTH_AUDIENCE = "https://api.test.com";
+    // The file-level jose mock above defaults jwtVerify to an admin payload —
+    // reset so each test here controls the caller's identity/role explicitly.
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  it("returns 403 when a non-admin caller is not a member of the requested venue", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: nonAdminPayload("auth0|non-member"),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/events/stream?venueId=venue-1&testClose=100",
+      headers: { authorization: "Bearer non-member-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(lookup).toHaveBeenCalledWith("auth0|non-member", "venue-1");
+  });
+
+  it("allows a non-admin caller who is a member of the requested venue (positive control)", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: nonAdminPayload("auth0|member-1"),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-1");
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/events/stream?venueId=venue-1&testClose=100",
+      headers: { authorization: "Bearer member-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain("event: connected");
+    expect(lookup).toHaveBeenCalledWith("auth0|member-1", "venue-1");
+  });
+
+  it("returns 403 for a non-admin caller who omits venueId — unscoped subscriptions are no longer allowed", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: nonAdminPayload("auth0|no-venue"),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/events/stream?testClose=100",
+      headers: { authorization: "Bearer no-venue-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("still allows an admin caller who omits venueId (unfiltered admin visibility unchanged)", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: {
+        sub: "auth0|platform-admin",
+        email: "admin@example.com",
+        permissions: ["admin"],
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+    app = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/events/stream?testClose=100",
+      headers: { authorization: "Bearer admin-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(lookup).not.toHaveBeenCalled();
   });
 });
