@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 vi.mock("../services/floor-plan.js", () => ({
   floorPlanService: {
     list: vi.fn(),
+    listForMember: vi.fn(),
     getById: vi.fn(),
     getActiveByVenueId: vi.fn(),
     create: vi.fn(),
@@ -91,6 +92,7 @@ vi.mock("jose", () => ({
 
 import { floorPlanService } from "../services/floor-plan.js";
 import { jwtVerify } from "jose";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
 const mockTable = {
   id: "table-123",
@@ -166,7 +168,7 @@ describe("Floor Plan Routes", () => {
   });
 
   describe("GET /api/v1/floor-plans", () => {
-    it("returns paginated list of floor plans", async () => {
+    it("returns paginated list of floor plans for a platform admin", async () => {
       vi.mocked(floorPlanService.list).mockResolvedValueOnce({
         data: [mockFloorPlan],
         pagination: {
@@ -182,6 +184,7 @@ describe("Floor Plan Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/floor-plans",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -189,9 +192,10 @@ describe("Floor Plan Routes", () => {
       expect(body.data).toHaveLength(1);
       expect(body.data[0].name).toBe("Main Dining");
       expect(body.pagination.total).toBe(1);
+      expect(floorPlanService.listForMember).not.toHaveBeenCalled();
     });
 
-    it("filters by venueId", async () => {
+    it("filters by venueId for a platform admin", async () => {
       vi.mocked(floorPlanService.list).mockResolvedValueOnce({
         data: [],
         pagination: {
@@ -207,9 +211,88 @@ describe("Floor Plan Routes", () => {
       await app.inject({
         method: "GET",
         url: "/api/v1/floor-plans?venueId=venue-123",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(floorPlanService.list).toHaveBeenCalledWith(1, 10, "venue-123");
+    });
+
+    it("returns 401 without auth", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans",
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(floorPlanService.list).not.toHaveBeenCalled();
+      expect(floorPlanService.listForMember).not.toHaveBeenCalled();
+    });
+
+    it("scopes the list to a non-admin caller's own venue memberships (#4015)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.listForMember).mockResolvedValueOnce({
+        data: [mockFloorPlan],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 1,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.data).toHaveLength(1);
+      // A non-admin must never receive the unscoped floor plan list.
+      expect(floorPlanService.list).not.toHaveBeenCalled();
+      expect(floorPlanService.listForMember).toHaveBeenCalledWith(
+        "auth0|user-123",
+        1,
+        10,
+        undefined
+      );
+    });
+
+    it("passes venueId through the membership-scoped query for a non-admin caller", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.listForMember).mockResolvedValueOnce({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
+
+      await app.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans?venueId=venue-123",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(floorPlanService.listForMember).toHaveBeenCalledWith(
+        "auth0|user-123",
+        1,
+        10,
+        "venue-123"
+      );
     });
   });
 
@@ -236,11 +319,43 @@ describe("Floor Plan Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/floor-plans/nonexistent",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
       const body = JSON.parse(response.body);
       expect(body.title).toBe("Not Found");
+    });
+
+    it("returns 401 for an anonymous caller (#4015)", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans/floor-plan-123",
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(floorPlanService.getById).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 when the caller has no access to the venue owning the floor plan (#4015)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+      const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+      await scopedApp.ready();
+
+      const response = await scopedApp.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans/floor-plan-123",
+        headers: { authorization: "Bearer outsider-token" },
+      });
+
+      expect(response.statusCode).toBe(403);
+
+      await scopedApp.close();
     });
   });
 
@@ -251,6 +366,7 @@ describe("Floor Plan Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/floor-plans/venue/venue-123/active",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(200);
@@ -264,9 +380,41 @@ describe("Floor Plan Routes", () => {
       const response = await app.inject({
         method: "GET",
         url: "/api/v1/floor-plans/venue/venue-123/active",
+        headers: { "x-auth-bypass": "true" },
       });
 
       expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 401 for an anonymous caller (#4015)", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans/venue/venue-123/active",
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(floorPlanService.getActiveByVenueId).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 when the caller has no access to the venue (#4015)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+      const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+      await scopedApp.ready();
+
+      const response = await scopedApp.inject({
+        method: "GET",
+        url: "/api/v1/floor-plans/venue/venue-123/active",
+        headers: { authorization: "Bearer outsider-token" },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(floorPlanService.getActiveByVenueId).not.toHaveBeenCalled();
+
+      await scopedApp.close();
     });
   });
 
