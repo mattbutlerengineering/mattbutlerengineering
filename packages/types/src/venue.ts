@@ -6,6 +6,23 @@ export interface VenueGroup {
   createdAt: string;
 }
 
+/**
+ * Curated public projection of `Venue` for the unauthenticated booking-widget
+ * entry point (`GET /api/v1/venues/by-slug/:slug`). Deliberately omits
+ * `venueGroup`/`venueGroupId`, the raw `settings` blob, and timestamps — an
+ * anonymous caller must never see them (#4022). Carries only what the public
+ * booking page actually reads: `id` (needed for the widget's venue-scoped
+ * calls), display `name`, `slug`, and `operatingHours` (checked via
+ * `hasOperatingHours`). Widget-specific settings (max party size, advance
+ * booking windows, etc.) come from the separate `PublicVenueConfig` endpoint.
+ */
+export interface PublicVenue {
+  id: string;
+  name: string;
+  slug: string;
+  operatingHours: OperatingHours | null;
+}
+
 export interface Venue {
   id: string;
   venueGroupId: string | null;

@@ -16,10 +16,10 @@ export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
   // Guests resolve the venue through the unauthenticated by-slug read
   // (getBySlug -> /api/v1/venues/by-slug/:slug), the endpoint dedicated to
-  // public booking URLs. It returns the full venue — including the id the
-  // booking widget needs for its venue-scoped calls — which the deposit-only
-  // public config endpoint deliberately withholds. The public client attaches
-  // no access token.
+  // public booking URLs. It returns a curated PublicVenue projection —
+  // including the id the booking widget needs for its venue-scoped calls —
+  // which the deposit-only public config endpoint deliberately withholds
+  // (#4022). The public client attaches no access token.
   const publicApiClient = usePublicApiClient({ baseUrl: BASE_URL, maxRetries: 0 });
 
   const activeHoldIdRef = useRef<string | null>(null);

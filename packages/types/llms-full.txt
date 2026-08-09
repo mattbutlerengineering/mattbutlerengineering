@@ -407,18 +407,11 @@
       settings: Record<string, unknown> | null;
       createdAt: string;
     }
-    export interface Venue {
+    export interface PublicVenue {
       id: string;
-      venueGroupId: string | null;
-      venueGroup?: VenueGroup;
       name: string;
       slug: string;
-      ianaTimezone: string;
-      currencyCode: string;
       operatingHours: OperatingHours | null;
-      settings: VenueSettings | null;
-      createdAt: string;
-      updatedAt: string;
     }
   </file>
   <file path="src/waitlist.ts">

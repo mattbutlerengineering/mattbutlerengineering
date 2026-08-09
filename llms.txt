@@ -5942,12 +5942,11 @@
       }
     </item>
     <item priority="low">
-      interface Venue {
+      interface PublicVenue {
         id: string;
-        venueGroupId: string | null;
-        venueGroup?: VenueGroup;
         name: string;
         slug: string;
+        operatingHours: OperatingHours | null;
       }
     </item>
   </file>

@@ -10428,6 +10428,8 @@
   </file>
   <file path="services/reservations/src/routes/venues.ts">
     export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addSchema(publicVenueJsonSchema);
+    
       // ============ VENUE GROUP ROUTES ============
     
       // List venue groups
@@ -10864,18 +10866,20 @@
         }
       );
     
-      // Get venue by slug (for public booking)
+      // Get venue by slug (unauthenticated — curated public projection, #4022).
+      // This is the booking widget's venue-resolution entry point; it must never
+      // return the internal Venue (venueGroup, venueGroupId, raw settings blob).
       fastify.get<{
         Params: { slug: string };
-        Reply: ApiResponse<Venue> | ProblemDetails;
+        Reply: ApiResponse<PublicVenue> | ProblemDetails;
       }>(
         "/by-slug/:slug",
         {
           schema: {
-            summary: "Get venue by slug",
+            summary: "Get public venue projection by slug",
             operationId: "getVenueBySlug",
             description:
-              "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
+              "Retrieve a venue's curated public projection by its URL-friendly slug. Used for public booking URLs.",
             tags: ["Venues"],
             params: {
               type: "object",
@@ -10892,7 +10896,7 @@
                 description: "Venue found",
                 type: "object",
                 properties: {
-                  data: { $ref: "Venue#" },
+                  data: { $ref: "PublicVenue#" },
                 },
               },
               404: {
@@ -10903,7 +10907,7 @@
           },
         },
         async (request, reply) => {
-          const venue = await venueService.getBySlug(request.params.slug);
+          const venue = await venueService.getPublicBySlug(request.params.slug);
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
           }
@@ -16251,10 +16255,16 @@
       }
     
       /**
-       * Get a venue by slug
+       * Get a venue's curated public projection by slug (safe for anonymous
+       * callers — used by the public booking widget). Omits `venueGroup`,
+       * `venueGroupId`, and the raw `settings` blob (#4022).
        */
-      async getBySlug(slug: string): Promise<Venue> {
-        return this.client.getOne<Venue>(`/api/v1/venues/by-slug/${slug}`, undefined, VenueSchema);
+      async getBySlug(slug: string): Promise<PublicVenue> {
+        return this.client.getOne<PublicVenue>(
+          `/api/v1/venues/by-slug/${slug}`,
+          undefined,
+          PublicVenueSchema
+        );
       }
     
       /**
@@ -18401,18 +18411,11 @@
       settings: Record<string, unknown> | null;
       createdAt: string;
     }
-    export interface Venue {
+    export interface PublicVenue {
       id: string;
-      venueGroupId: string | null;
-      venueGroup?: VenueGroup;
       name: string;
       slug: string;
-      ianaTimezone: string;
-      currencyCode: string;
       operatingHours: OperatingHours | null;
-      settings: VenueSettings | null;
-      createdAt: string;
-      updatedAt: string;
     }
   </file>
   <file path="packages/types/src/waitlist.ts">
