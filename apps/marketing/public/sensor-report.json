@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-09T01:56:14.865Z",
+  "generated_at": "2026-08-09T18:12:36.804Z",
   "period": {
     "start": "2026-08-02",
     "end": "2026-08-09"
@@ -48,24 +48,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 54128629,
-      "output_tokens": 98120,
-      "cache_creation_tokens": 1137862,
-      "cache_hit_rate": 0.9793,
+      "cache_read_tokens": 1068241,
+      "output_tokens": 2145,
+      "cache_creation_tokens": 92279,
+      "cache_hit_rate": 0.9205,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 3868,
-          "output_tokens": 98110,
-          "cache_read_tokens": 54017847,
-          "cache_creation_tokens": 1107823
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 42,
-          "output_tokens": 10,
-          "cache_read_tokens": 110782,
-          "cache_creation_tokens": 30039
+          "input_tokens": 26,
+          "output_tokens": 2145,
+          "cache_read_tokens": 1068241,
+          "cache_creation_tokens": 92279
         }
       }
     },
@@ -86,17 +79,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 7,
-      "logs_7d": 7,
-      "total_commits_7d": 126,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.002,
-      "total_lines_added_7d": 466739,
-      "lines_churned_7d": 1035,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 467302,
+      "lines_churned_7d": 388,
       "window_days": 7,
       "churn_threshold": 0.3
     },
