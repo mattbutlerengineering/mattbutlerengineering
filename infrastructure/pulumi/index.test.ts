@@ -73,6 +73,7 @@ const configEntries: Record<string, string> = {
   remediationWebhookSecret: "webhook-secret-123",
   e2eUserPassword: "test-password-123",
   manageTokenSecret: "manage-secret-test-value",
+  unsubscribeTokenSecret: "unsubscribe-secret-test-value",
 };
 
 for (const [key, value] of Object.entries(configEntries)) {
@@ -395,6 +396,19 @@ describe("Configuration Validation", () => {
       );
       expect(manageToken).toBeDefined();
       expect(manageToken.type).toBe("SECRET");
+    });
+
+    it("reservations-api has UNSUBSCRIBE_TOKEN_SECRET as SECRET when configured", () => {
+      const spec = getAppSpec();
+      const reservations = spec.services.find(
+        (s: { name: string }) => s.name === "reservations-api"
+      );
+      expect(reservations).toBeDefined();
+      const unsubscribeToken = reservations.envs.find(
+        (e: { key: string }) => e.key === "UNSUBSCRIBE_TOKEN_SECRET"
+      );
+      expect(unsubscribeToken).toBeDefined();
+      expect(unsubscribeToken.type).toBe("SECRET");
     });
   });
 
