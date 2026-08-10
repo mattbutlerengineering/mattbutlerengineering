@@ -46,14 +46,41 @@ jobs:
             echo "No pending changesets — nothing to release"
           fi
 
+      # This workflow has no valid npm publish credential configured (issue #3322,
+      # open, human-blocked — picking a registry/token is a maintainer decision
+      # and explicitly out of scope here). Without this guard, every push to main
+      # runs version -> build -> commit -> publish and fails at the last step with
+      # a 401, red for a reason nobody can fix from this workflow. That happened
+      # 370 consecutive times (issue #4042) and trained everyone to ignore the
+      # red X. The guard below detects the missing credential up front and skips
+      # straight to a warning instead of doing (and stranding) the version bump.
+      # Do NOT delete this guard to "fix" the red build — fix #3322 instead.
+      # CREDENTIAL_GUARD_START
+      - name: Check for publish credential
+        id: credential
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "has_credential=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_credential=false" >> "$GITHUB_OUTPUT"
+          fi
+      # CREDENTIAL_GUARD_END
+
+      - name: Warn on missing publish credential
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential != 'true'
+        run: |
+          echo "::warning::Skipping npm publish — no publish credential configured (secrets.NPM_TOKEN is empty). Tracked in #3322; this is a known, human-blocked gap, not a new failure."
+
       - name: Configure git identity
-        if: steps.changesets.outputs.has_changesets == 'true'
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Version packages
-        if: steps.changesets.outputs.has_changesets == 'true'
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -78,11 +105,11 @@ jobs:
           fi
 
       - name: Build rialto
-        if: steps.changesets.outputs.has_changesets == 'true'
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential == 'true'
         run: pnpm --filter @mattbutlerengineering/rialto build
 
       - name: Commit version bump
-        if: steps.changesets.outputs.has_changesets == 'true'
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential == 'true'
         run: |
           # Stage everything: bumped package.json, CHANGELOG.md, consumed changesets,
           # and any exports-map regeneration in packages/rialto/package.json (gotcha #3:
@@ -101,11 +128,11 @@ jobs:
           fi
 
       - name: Publish to npm
-        if: steps.changesets.outputs.has_changesets == 'true'
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm exec changeset publish
 
       - name: Push version commit and release tags
-        if: steps.changesets.outputs.has_changesets == 'true'
+        if: steps.changesets.outputs.has_changesets == 'true' && steps.credential.outputs.has_credential == 'true'
         run: git push --follow-tags
