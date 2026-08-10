@@ -160,27 +160,34 @@ jobs:
             exit 1
           fi
           echo "Triggering deployment for app $APP_ID"
-          # Retry to absorb transient DO build failures (BuildRateLimit from concurrent
-          # builds / the doctl+Pulumi dual-deploy race). create-deployment is safe to
+          # Retry to absorb transient DO failures (e.g. BuildRateLimit from concurrent
+          # builds / the doctl+Pulumi dual-deploy race) — create-deployment is safe to
           # re-issue: each call starts a fresh deployment and the latest one wins.
           #
-          # 5 attempts / up to 4 min backoff (was 3 attempts / up to 2 min): the two
-          # observed BuildRateLimit failures on 2026-08-09 (#4040) each exhausted the
-          # prior 3-attempt/60-120s schedule within ~20 min while a concurrent Pulumi
-          # Deploy run (which also touches this DO app) was in flight — the shorter
-          # schedule didn't give DO's build queue enough room to drain.
+          # 5 attempts / up to 4 min backoff (was 3 attempts / up to 2 min): a genuinely
+          # transient failure needs room for DO's build queue to drain around a
+          # concurrent Pulumi run; a deterministic failure (e.g. a crashing container)
+          # will exhaust these attempts too, so the warning below reports doctl's own
+          # output rather than guessing the cause — see #4069's discussion of #4040,
+          # where a prior version of this line hardcoded "likely transient DO
+          # BuildRateLimit" on every failed attempt regardless of the real error,
+          # which sent that incident's diagnosis in the wrong direction.
           MAX_ATTEMPTS=5
           for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            if doctl apps create-deployment "$APP_ID" --wait; then
+            DEPLOY_OUTPUT=$(doctl apps create-deployment "$APP_ID" --wait 2>&1)
+            DEPLOY_STATUS=$?
+            echo "$DEPLOY_OUTPUT"
+            if [ "$DEPLOY_STATUS" -eq 0 ]; then
               echo "Deployment succeeded on attempt $attempt"
               exit 0
             fi
             if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
-              echo "::warning::Deployment attempt $attempt failed (likely transient DO BuildRateLimit); retrying after backoff"
+              echo "::warning::Deployment attempt $attempt failed; retrying after backoff. doctl output: $(echo "$DEPLOY_OUTPUT" | tail -5 | tr '\n' ' ')"
               sleep $((attempt * 60 < 240 ? attempt * 60 : 240))
+            else
+              echo "::error::Deployment failed after $MAX_ATTEMPTS attempts. Last doctl output: $(echo "$DEPLOY_OUTPUT" | tail -10 | tr '\n' ' ')"
             fi
           done
-          echo "::error::Deployment failed after $MAX_ATTEMPTS attempts"
           exit 1
 
   verify:
