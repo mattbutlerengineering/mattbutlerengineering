@@ -95,6 +95,39 @@ export const floorPlanService = {
     };
   },
 
+  /**
+   * Same as {@link list}, scoped to venues the caller belongs to
+   * (`VenueMembership`). Used for non-admin callers of `GET /floor-plans` so
+   * they can never enumerate floor plans — including layoutJson — for a
+   * venue they are not a member of (#4015).
+   */
+  async listForMember(
+    userSub: string,
+    page: number,
+    limit: number,
+    venueId?: string
+  ): Promise<PaginatedResponse<FloorPlan>> {
+    const where: Prisma.FloorPlanWhereInput = {
+      venue: { memberships: { some: { userSub } } },
+      ...(venueId ? { venueId } : {}),
+    };
+
+    const [floorPlans, total] = await Promise.all([
+      prisma.floorPlan.findMany({
+        where,
+        ...paginate({ page, limit }),
+        orderBy: { name: "asc" },
+        include: { tables: true },
+      }),
+      prisma.floorPlan.count({ where }),
+    ]);
+
+    return {
+      data: floorPlans.map(mapPrismaFloorPlan),
+      pagination: toPaginationMeta(page, limit, total),
+    };
+  },
+
   async getById(id: string): Promise<FloorPlan | null> {
     const floorPlan = await prisma.floorPlan.findUnique({
       where: { id },

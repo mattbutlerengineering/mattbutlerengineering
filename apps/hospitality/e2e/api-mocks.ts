@@ -1,6 +1,8 @@
 import type { Page, Route } from "@playwright/test";
 import { readFileSync } from "fs";
 import { join } from "path";
+import type { PublicVenue, PublicVenueConfig } from "@mbe/types";
+import { PublicVenueSchema, PublicVenueConfigSchema } from "@mbe/types/schemas";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
@@ -32,6 +34,42 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
     status: 200,
     contentType: "application/json",
     body: JSON.stringify({ data }),
+  });
+}
+
+// GET /api/v1/venues/by-slug/:slug serves the curated PublicVenue
+// projection (#4022/#4031), not the full internal Venue. Parsing through
+// PublicVenueSchema (rather than hand-picking fields) means a future
+// widening of the schema is what changes this fixture, not a hand edit
+// (#4032). Exported so e2e/fixtures/public-venue-mock.test.ts can pin the
+// mock's shape to the type.
+export function buildPublicVenueFixture(): PublicVenue {
+  const venues = JSON.parse(loadFixture("venues-list"));
+  return PublicVenueSchema.parse(venues.data[0]);
+}
+
+// GET /public/v1/venues/:slug serves PublicVenueConfig, the unauthenticated
+// booking-widget config — a different (and stricter) shape than PublicVenue
+// above: it additionally requires a `deposit` object and an object-shaped
+// `settings`. No fixture carries deposit data, so it's synthesized here as
+// a disabled policy (all null/false) rather than hand-picked from an
+// existing fixture; the rest is narrowed from venues-list's first venue.
+// Parsing through PublicVenueConfigSchema means a future widening of the
+// schema is what changes this fixture, not a hand edit (#4035). Exported so
+// e2e/fixtures/public-venue-config-mock.test.ts can pin the mock's shape to
+// the type.
+export function buildPublicVenueConfigFixture(): PublicVenueConfig {
+  const venues = JSON.parse(loadFixture("venues-list"));
+  return PublicVenueConfigSchema.parse({
+    ...venues.data[0],
+    deposit: {
+      enabled: false,
+      depositType: null,
+      amountCents: null,
+      freeCancellationHours: null,
+      lateCancellationFeePercent: null,
+      noShowFeePercent: null,
+    },
   });
 }
 
@@ -79,10 +117,9 @@ export async function mockApi(page: Page): Promise<void> {
 
   // Venues
   await page.route("**/api/v1/venues?*", (route) => jsonResponse(route, "venues-list"));
-  await page.route("**/api/v1/venues/by-slug/*", (route) => {
-    const venues = JSON.parse(loadFixture("venues-list"));
-    return jsonOk(route, venues.data[0]);
-  });
+  await page.route("**/api/v1/venues/by-slug/*", (route) =>
+    jsonOk(route, buildPublicVenueFixture())
+  );
   await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
     const method = route.request().method();
     const venues = JSON.parse(loadFixture("venues-list"));
@@ -364,8 +401,7 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Public endpoints
-  await page.route("**/public/v1/venues/*", (route) => {
-    const venues = JSON.parse(loadFixture("venues-list"));
-    return jsonOk(route, venues.data[0]);
-  });
+  await page.route("**/public/v1/venues/*", (route) =>
+    jsonOk(route, buildPublicVenueConfigFixture())
+  );
 }

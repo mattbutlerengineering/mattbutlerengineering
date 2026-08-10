@@ -340,6 +340,47 @@ describe("venueService", () => {
     });
   });
 
+  describe("getPublicBySlug (#4022)", () => {
+    it("returns only the curated PublicVenue projection", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      const result = await venueService.getPublicBySlug("test-venue");
+
+      expect(result).toEqual({
+        id: "venue-1",
+        name: "Test Venue",
+        slug: "test-venue",
+        operatingHours: {
+          monday: { open: "11:00", close: "22:00" },
+          tuesday: { open: "11:00", close: "22:00" },
+          sunday: { open: "11:00", close: "22:00", closed: true },
+        },
+      });
+    });
+
+    it("selects only the projected columns from Prisma — never venueGroup or settings", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      await venueService.getPublicBySlug("test-venue");
+
+      expect(prisma.venue.findFirst).toHaveBeenCalledWith({
+        where: { slug: "test-venue" },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          operatingHours: true,
+        },
+      });
+    });
+
+    it("returns null when the venue does not exist", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(null as never);
+
+      expect(await venueService.getPublicBySlug("missing")).toBeNull();
+    });
+  });
+
   describe("getPolicyById", () => {
     it("returns the typed policy projection for the venue", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);

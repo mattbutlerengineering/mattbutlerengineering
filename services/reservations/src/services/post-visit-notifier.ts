@@ -1,9 +1,12 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import type { ThankYouEmailInput } from "@mbe/notifications";
 import { canContact } from "./contact-policy.js";
+import { getUnsubscribeTokenConfig } from "../config/unsubscribe-token.js";
 
-const UNSUBSCRIBE_SECRET =
-  process.env.UNSUBSCRIBE_TOKEN_SECRET || "dev-unsubscribe-secret-do-not-use-in-prod";
+const UNSUBSCRIBE_SECRET = getUnsubscribeTokenConfig({
+  nodeEnv: process.env.NODE_ENV,
+  secret: process.env.UNSUBSCRIBE_TOKEN_SECRET,
+}).secret;
 
 // ─── HMAC token for unsubscribe links ────────────────────────────────────────
 

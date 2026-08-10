@@ -1,4 +1,4 @@
-import type { Venue, UpdateVenueRequest } from "@mbe/types";
+import type { Venue, PublicVenue, UpdateVenueRequest } from "@mbe/types";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
@@ -35,14 +35,16 @@ export const useUpdateVenue = createMutationHook<{ venueId: string; data: Update
 });
 
 /* ── useVenueBySlug ──────────────────────────────────── */
+// `api.venues.getBySlug` resolves the curated public projection, not the
+// internal `Venue` — see PublicVenue (#4022).
 
 export interface UseVenueBySlugResult {
-  data: Venue | null | undefined;
+  data: PublicVenue | null | undefined;
   isLoading: boolean;
   error: Error | null;
 }
 
-const useVenueBySlugQuery = createQueryHook<Venue | null, { slug: string | undefined }>({
+const useVenueBySlugQuery = createQueryHook<PublicVenue | null, { slug: string | undefined }>({
   key: VENUE_BY_SLUG_QUERY_KEY,
   fetcher: async (params, api) => {
     if (!params?.slug) return null;
@@ -53,5 +55,5 @@ const useVenueBySlugQuery = createQueryHook<Venue | null, { slug: string | undef
 });
 
 export function useVenueBySlug(slug: string | undefined): UseVenueBySlugResult {
-  return useVenueBySlugQuery({ slug }) as QueryHookResult<Venue | null>;
+  return useVenueBySlugQuery({ slug }) as QueryHookResult<PublicVenue | null>;
 }

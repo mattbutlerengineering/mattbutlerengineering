@@ -38,6 +38,14 @@ export const VenueSchema = z.object({
   updatedAt: z.string(),
 });
 
+/** Curated public projection of `VenueSchema` — see `PublicVenue` (#4022). */
+export const PublicVenueSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  operatingHours: VenueSchema.shape.operatingHours,
+});
+
 export const PublicVenueDepositSchema = z.object({
   enabled: z.boolean(),
   depositType: z.enum(["flat", "per_person"]).nullable(),

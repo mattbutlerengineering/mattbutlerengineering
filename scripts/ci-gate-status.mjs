@@ -2,7 +2,8 @@
 
 /**
  * ci-gate-status.mjs — classify a PR's `CI Gate` state from its
- * `statusCheckRollup` (#3969).
+ * `statusCheckRollup`, cross-referenced against the head SHA's raw
+ * check-runs (#3969, #4023).
  *
  * A worker PR can open with ZERO `pull_request` workflow runs (a transient
  * GitHub event-delivery failure — ruled out as the GITHUB_TOKEN
@@ -17,16 +18,64 @@
  * indistinguishable from a genuinely green one unless the caller separately
  * asserts that a check named "CI Gate" exists at all. `classifyCiGateStatus`
  * makes that a fourth, explicit state (`gate-missing`) that can never be
- * conflated with `green` — see the `.claude/skills/implement-queue/
- * SKILL.md` Phase 2 worker→train boundary, step 1, for how the orchestrator
- * consumes it (recover via `gh workflow run ci.yml --ref <branch>`, the
- * same `workflow_dispatch` escape hatch `check-ci-dispatch.mjs` already
- * requires every PR-opening workflow to use).
+ * conflated with `green`.
+ *
+ * #4023: `statusCheckRollup` omits check runs produced by `workflow_dispatch`
+ * — the SKILL.md `gate-missing` recovery is exactly `gh workflow run ci.yml
+ * --ref <branch>`, so the recovery's own output is invisible to the rollup,
+ * and re-polling loops `gate-missing` forever. The obvious-looking fix —
+ * fall back to the head-SHA check-runs API and report `green` when it has a
+ * successful `CI Gate` — was tested and REJECTED: on PR #4011,
+ * `gh pr merge --auto` was accepted with a dispatch-produced `CI Gate:
+ * success` on the head SHA, and the PR sat `mergeStateStatus=BLOCKED` for 6+
+ * minutes and never merged. GitHub's own merge evaluation reads the rollup,
+ * not the check-runs API, so a dispatch-only "success" satisfies nothing.
+ * Reporting `green` there would silently green-light a PR GitHub will never
+ * merge — worse than the loop it would "fix". Instead, `gate-unattributed`
+ * is a third, distinct state: CI genuinely ran (so `gate-missing`'s
+ * re-dispatch recovery is pointless — another run is just as invisible to
+ * the rollup) but the PR is still not mergeable and still needs a human (or
+ * `ci.yml` publishing a commit *status*, tracked separately, out of scope
+ * here). See the `.claude/skills/implement-queue/SKILL.md` Phase 2
+ * worker→train boundary, step 1, for how the orchestrator consumes all
+ * three non-green states.
+ *
+ * #4028: the `anyRunning` guard below (which exists so `CI Gate`'s normal
+ * "reports last" absence isn't misread as `gate-missing`, see #3991) also
+ * has the side effect of masking `gate-unattributed`: a dispatch-produced,
+ * already-successful `CI Gate` alongside ANY other rollup entry that never
+ * completes reports `pending` forever, not `gate-unattributed` — no
+ * re-dispatch, no human-escalation signal, a silent stall. That self-heals
+ * for a genuinely in-flight check (it eventually completes), but not for
+ * one permanently parked awaiting external approval (#3684's failure mode).
+ * The obvious-looking fix — check for `CI Gate` before checking `anyRunning`
+ * — was tested and REJECTED: measured live on PR #4027 while its own CI was
+ * healthily in flight (`gh pr checks 4027` showed 30 checks and zero named
+ * "CI Gate" — it's the last, dependent job, so for most of a normal run the
+ * rollup legitimately has no gate entry yet). Reordering would classify
+ * every PR that had ever been dispatched once as `gate-unattributed` for
+ * the whole duration of every subsequent healthy run — a false escalation
+ * on the happy path, worse than the rare permanent stall it fixes. Instead,
+ * `anyRunning` excludes only rollup entries that are structurally incapable
+ * of self-resolving: verified via introspection of GitHub's live GraphQL
+ * schema (2026-08-09) that `CheckStatusState` (the `.status` field) has no
+ * "ACTION_REQUIRED" member at all — that value exists solely on
+ * `CheckConclusionState` (`.conclusion`), which GitHub only ever populates
+ * once `status` is already `"COMPLETED"`, so a completed-but-action-required
+ * check was never the masking culprit (`status !== "COMPLETED"` already
+ * excludes it). The rollup-visible state for "blocked on an external
+ * approval, will not self-resolve" — e.g. an environment protection rule —
+ * is `status: "WAITING"` ("the check suite or run is in waiting state" per
+ * GitHub's own schema docs), unlike `IN_PROGRESS`/`QUEUED`/`REQUESTED`,
+ * which actively progress toward `COMPLETED` on their own. No clock, no new
+ * inputs — see `PARKED_CHECK_STATUSES` below.
  *
  * Pure and network-free: takes an already-fetched `statusCheckRollup` array
- * (from `gh pr view --json statusCheckRollup`) and never shells out itself,
- * so it's unit-testable without mocking `gh`. The CLI below is a thin caller
- * that fetches the rollup and prints the classification as JSON.
+ * (from `gh pr view --json statusCheckRollup`) and an already-fetched
+ * head-SHA check-runs array (from `gh api repos/{owner}/{repo}/commits/
+ * {sha}/check-runs`) and never shells out itself, so it's unit-testable
+ * without mocking `gh`. The CLI below is a thin caller that fetches both and
+ * prints the classification as JSON.
  *
  * Usage:
  *   node scripts/ci-gate-status.mjs check --pr <N>
@@ -39,21 +88,58 @@ import { fileURLToPath } from "node:url";
 export const CI_GATE_CHECK_NAME = "CI Gate";
 
 /**
- * Pure classifier: given a PR's `statusCheckRollup` array, decide whether
- * its `CI Gate` check is green, failed, pending, or missing entirely.
+ * `CheckStatusState` (GraphQL) values that represent a rollup entry parked
+ * on an external human action rather than actively progressing toward
+ * `COMPLETED` (#4028). Currently just `WAITING` — see module docstring for
+ * why `ACTION_REQUIRED` isn't listed here (it's a `conclusion`, requires
+ * `status === "COMPLETED"`, and is therefore already excluded below without
+ * needing this set at all).
+ */
+const PARKED_CHECK_STATUSES = new Set(["WAITING"]);
+
+/**
+ * Resolve the winning check-run among possibly-duplicate same-named entries
+ * (a PR can accumulate one `CI Gate` check-run per `workflow_dispatch`).
+ * Most recent by `completed_at` (falling back to `started_at`) wins,
+ * regardless of array order or conclusion — so a later failure is never
+ * masked by an earlier success, and vice versa. ISO 8601 timestamps sort
+ * correctly as plain strings, so no Date parsing is needed.
  *
- * `gate-missing` is a distinct state from `green` — the caller (Phase 2's
- * worker→train boundary) must never enqueue a PR in this state; it must
- * dispatch CI and re-wait instead. Never throws: an unexpected input shape
- * (missing rollup, non-array) degrades to `gate-missing` rather than
- * propagating an error, since "I can't find CI Gate" is the correct
- * conclusion either way.
+ * @param {Array<{name?: string, completed_at?: string|null, started_at?: string|null}>} checkRuns
+ * @param {string} name
+ * @returns {object|null}
+ */
+function resolveLatestCheckRun(checkRuns, name) {
+  const matches = checkRuns.filter((run) => run?.name === name);
+  if (matches.length === 0) return null;
+
+  return matches.reduce((latest, run) => {
+    const latestTime = latest.completed_at ?? latest.started_at ?? "";
+    const runTime = run.completed_at ?? run.started_at ?? "";
+    return runTime > latestTime ? run : latest;
+  });
+}
+
+/**
+ * Pure classifier: given a PR's `statusCheckRollup` array and (optionally)
+ * its head SHA's raw check-runs array, decide whether its `CI Gate` check
+ * is green, failed, pending, missing entirely, or present-but-unattributed.
+ *
+ * `gate-missing` and `gate-unattributed` are both distinct from `green` —
+ * the caller (Phase 2's worker→train boundary) must never enqueue a PR in
+ * either state. `gate-missing` recovers via re-dispatch; `gate-unattributed`
+ * does not (see module docstring) and needs a human. Never throws: an
+ * unexpected input shape (missing/non-array rollup or check-runs) degrades
+ * toward `gate-missing` rather than propagating an error, since "I can't
+ * find a mergeable CI Gate" is the safe conclusion either way.
  *
  * @param {Array<{name?: string, context?: string, status?: string, conclusion?: string|null}>} [statusCheckRollup]
- * @returns {{ state: "green"|"failed"|"pending"|"gate-missing", reason: string }}
+ * @param {Array<{name?: string, status?: string, conclusion?: string|null, started_at?: string|null, completed_at?: string|null}>} [headShaCheckRuns]
+ * @returns {{ state: "green"|"failed"|"pending"|"gate-missing"|"gate-unattributed", reason: string }}
  */
-export function classifyCiGateStatus(statusCheckRollup) {
+export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns) {
   const rollup = Array.isArray(statusCheckRollup) ? statusCheckRollup : [];
+  const checkRuns = Array.isArray(headShaCheckRuns) ? headShaCheckRuns : [];
   // `statusCheckRollup` mixes two GraphQL shapes — CheckRun (`.name`) and
   // StatusContext (`.context`) — so match either (#3987 review follow-up).
   const gate = rollup.find((check) => (check?.name ?? check?.context) === CI_GATE_CHECK_NAME);
@@ -63,16 +149,46 @@ export function classifyCiGateStatus(statusCheckRollup) {
     // is the expected state for the first several minutes of every PR's
     // CI run — not just the #3968 "CI never ran" failure mode. Only
     // conclude "never ran" when nothing else on the SHA is still running.
-    const anyRunning = rollup.some((check) => check?.status && check.status !== "COMPLETED");
+    // #4028: a check parked in PARKED_CHECK_STATUSES (e.g. WAITING on an
+    // external approval) is excluded — it isn't progressing toward
+    // COMPLETED on its own, so it must not mask a dispatch-produced CI Gate
+    // below as merely "pending".
+    const anyRunning = rollup.some(
+      (check) =>
+        check?.status && check.status !== "COMPLETED" && !PARKED_CHECK_STATUSES.has(check.status)
+    );
     if (anyRunning) {
       return {
         state: "pending",
         reason: "CI is running but CI Gate has not reported yet",
       };
     }
+
+    // #4023: the rollup has no CI Gate, but a workflow_dispatch run may
+    // have produced one that the rollup structurally can't see. That run
+    // is real, but GitHub's merge evaluation ignores it exactly as this
+    // rollup does — so it must not classify as green, and re-dispatching
+    // again cannot help either (the new run is equally invisible).
+    const dispatched = resolveLatestCheckRun(checkRuns, CI_GATE_CHECK_NAME);
+    if (dispatched) {
+      const outcome =
+        dispatched.conclusion === "success"
+          ? "succeeded"
+          : `concluded ${dispatched.conclusion ?? "unknown"}`;
+      return {
+        state: "gate-unattributed",
+        reason:
+          `"${CI_GATE_CHECK_NAME}" ${outcome} on a workflow_dispatch run visible only in the ` +
+          `head-SHA check-runs API — it is absent from statusCheckRollup, the source GitHub's ` +
+          `merge evaluation reads, so this PR is NOT mergeable (confirmed on #4011: gh pr merge ` +
+          `--auto sat BLOCKED). Do not enqueue. Re-dispatching will not help — the new run is ` +
+          `just as invisible to the rollup. Needs a human or a ci.yml commit-status fix (#4023).`,
+      };
+    }
+
     return {
       state: "gate-missing",
-      reason: `no "${CI_GATE_CHECK_NAME}" check found on this SHA — CI likely never ran`,
+      reason: `no "${CI_GATE_CHECK_NAME}" check found on this SHA in the rollup or head-SHA check-runs — CI likely never ran`,
     };
   }
 
@@ -93,7 +209,13 @@ export function classifyCiGateStatus(statusCheckRollup) {
   };
 }
 
-/** CLI entry: fetches the rollup for `--pr <N>` and prints the classification. */
+/**
+ * CLI entry: fetches the rollup and head-SHA check-runs for `--pr <N>` and
+ * prints the classification. If the check-runs fetch fails (network/API
+ * error), degrades to rollup-only classification — the safe direction,
+ * since it can only under-report `gate-unattributed` as `gate-missing`,
+ * never mis-report `gate-unattributed`/`gate-missing` as `green`.
+ */
 function run() {
   const args = process.argv.slice(3);
   const prIdx = args.indexOf("--pr");
@@ -104,13 +226,43 @@ function run() {
     process.exit(1);
   }
 
-  const rollup = JSON.parse(
-    execFileSync("gh", ["pr", "view", prNumber, "--json", "statusCheckRollup"], {
+  const prView = JSON.parse(
+    execFileSync("gh", ["pr", "view", prNumber, "--json", "statusCheckRollup,headRefOid"], {
       encoding: "utf-8",
     })
-  ).statusCheckRollup;
+  );
 
-  console.log(JSON.stringify(classifyCiGateStatus(rollup)));
+  const checkRuns = fetchHeadShaCheckRuns(prView.headRefOid);
+
+  console.log(JSON.stringify(classifyCiGateStatus(prView.statusCheckRollup, checkRuns)));
+}
+
+/**
+ * Fetches the head SHA's raw check-runs (up to 100 — comfortably above the
+ * ~31-job CI suite even doubled by a couple of dispatches). Returns `[]` on
+ * any fetch failure rather than throwing, so a transient API error degrades
+ * to rollup-only classification instead of crashing the CLI.
+ *
+ * `per_page` is embedded in the URL, not passed via `-F` — `gh api` switches
+ * a GET to POST the moment any `-f`/`-F` field is present, and `POST
+ * .../check-runs` 404s (confirmed live against this repo while building this
+ * fix).
+ */
+function fetchHeadShaCheckRuns(headSha) {
+  try {
+    const response = JSON.parse(
+      execFileSync(
+        "gh",
+        ["api", `repos/{owner}/{repo}/commits/${headSha}/check-runs?per_page=100`],
+        {
+          encoding: "utf-8",
+        }
+      )
+    );
+    return Array.isArray(response.check_runs) ? response.check_runs : [];
+  } catch {
+    return [];
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

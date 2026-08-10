@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import type {
   Venue,
   VenueGroup,
+  PublicVenue,
   CreateVenueRequest,
   UpdateVenueRequest,
   CreateVenueGroupRequest,
@@ -19,6 +20,7 @@ import {
   listVenuesQueryJsonSchema,
   createVenueBodyJsonSchema,
   updateVenueBodyJsonSchema,
+  publicVenueJsonSchema,
 } from "@mbe/types";
 import {
   requireAuth,
@@ -41,6 +43,8 @@ const venueIdFromRouteId: VenueIdResolver = (request) => {
 };
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.addSchema(publicVenueJsonSchema);
+
   // ============ VENUE GROUP ROUTES ============
 
   // List venue groups
@@ -356,11 +360,16 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromRouteId),
+      ],
       schema: {
         summary: "Get venue by ID",
         operationId: "getVenueById",
         description: "Retrieve a single venue by its unique identifier.",
         tags: ["Venues"],
+        security: [{ bearerAuth: [] }],
         params: {
           type: "object",
           properties: {
@@ -378,6 +387,14 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               data: { $ref: "Venue#" },
             },
+          },
+          401: {
+            description: "Authentication required",
+            $ref: "Error#",
+          },
+          403: {
+            description: "Caller does not have access to this venue",
+            $ref: "Error#",
           },
           404: {
             description: "Venue not found",
@@ -464,18 +481,20 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // Get venue by slug (for public booking)
+  // Get venue by slug (unauthenticated — curated public projection, #4022).
+  // This is the booking widget's venue-resolution entry point; it must never
+  // return the internal Venue (venueGroup, venueGroupId, raw settings blob).
   fastify.get<{
     Params: { slug: string };
-    Reply: ApiResponse<Venue> | ProblemDetails;
+    Reply: ApiResponse<PublicVenue> | ProblemDetails;
   }>(
     "/by-slug/:slug",
     {
       schema: {
-        summary: "Get venue by slug",
+        summary: "Get public venue projection by slug",
         operationId: "getVenueBySlug",
         description:
-          "Retrieve a single venue by its URL-friendly slug. Used for public booking URLs.",
+          "Retrieve a venue's curated public projection by its URL-friendly slug. Used for public booking URLs.",
         tags: ["Venues"],
         params: {
           type: "object",
@@ -492,7 +511,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Venue found",
             type: "object",
             properties: {
-              data: { $ref: "Venue#" },
+              data: { $ref: "PublicVenue#" },
             },
           },
           404: {
@@ -503,7 +522,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const venue = await venueService.getBySlug(request.params.slug);
+      const venue = await venueService.getPublicBySlug(request.params.slug);
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
       }

@@ -7,12 +7,13 @@ import {
   type Reservation,
   type TableStatusDelta,
 } from "@mbe/types";
-import { requireAuth } from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess } from "@mbe/auth/fastify";
 import type { ReservationEvent } from "../services/events.js";
 import {
   SseConnectionManager,
   type SseConnectionConfig,
 } from "../services/sse-connection-manager.js";
+import { venueIdFromQuery } from "./venue-access.js";
 
 /** Shared connection manager — one per process. */
 const connectionManager = new SseConnectionManager();
@@ -90,14 +91,17 @@ export async function eventRoutes(fastify: FastifyInstance): Promise<void> {
   }>(
     "/stream",
     {
-      preHandler: requireAuth,
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+      ],
       schema: {
         summary: "Subscribe to real-time reservation events",
         operationId: "streamEvents",
         description:
           "Server-Sent Events (SSE) endpoint for real-time updates. " +
-          "Connect to receive live notifications of reservation changes, holds, and table updates. " +
-          "Optionally filter by venueId.",
+          "Requires venueId — the caller must be a member of that venue (or platform admin). " +
+          "Connect to receive live notifications of reservation changes, holds, and table updates.",
         tags: ["Events"],
         querystring: eventsStreamQueryJsonSchema,
         response: {
