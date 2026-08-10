@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-10T00:43:56.732Z",
+  "generated_at": "2026-08-10T18:14:26.038Z",
   "period": {
     "start": "2026-08-03",
     "end": "2026-08-10"
@@ -48,17 +48,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 21065613,
-      "output_tokens": 43959,
-      "cache_creation_tokens": 379616,
-      "cache_hit_rate": 0.9823,
+      "cache_read_tokens": 638368,
+      "output_tokens": 1974,
+      "cache_creation_tokens": 97505,
+      "cache_hit_rate": 0.8675,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 558,
-          "output_tokens": 43959,
-          "cache_read_tokens": 21065613,
-          "cache_creation_tokens": 379616
+          "input_tokens": 16,
+          "output_tokens": 1974,
+          "cache_read_tokens": 638368,
+          "cache_creation_tokens": 97505
         }
       }
     },
@@ -79,19 +79,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 1,
-      "logs_7d": 1,
-      "total_commits_7d": 8,
-      "unique_branches_7d": 1,
-      "branches_7d": [
-        "main"
-      ]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 467368,
-      "lines_churned_7d": 399,
+      "total_lines_added_7d": 467786,
+      "lines_churned_7d": 356,
       "window_days": 7,
       "churn_threshold": 0.3
     },

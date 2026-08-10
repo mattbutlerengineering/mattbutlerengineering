@@ -473,3 +473,20 @@ None (`agent-skip` count is 0).
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+## 2026-08-09 (learning-loop)
+
+**Sensors:** 5/16 available (acmm L5 96/114, prMetrics 77 AI PRs/30d @ 99% acceptance, ccusageCost $0, sessionLogs 0/7d, codeChurn 0.1%) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
+**Regressions:** 0 detected in `sensor-report.json`'s regressions array, 0 issues created (status: healthy, ACMM L5 96/114 unchanged from 08-08)
+**Verifications:** `verify-fixes.mjs` and `collect-ai-issue-feedback.mjs` both hard-failed with the same `GhAuthError` (401) as 08-08 — expected, this session type's `GITHUB_TOKEN`/`GH_TOKEN` is git-over-HTTPS-only (#3937, closed `completed`). Cross-checked manually via `mcp__github__search_issues`: 50 issues closed with sensor labels (`ci-fix`/`audit`/`bug`) since 2026-08-07, all `state_reason: completed` (none `wontfix`/`invalid`) — no reopens warranted. Noted issue #3985 ("persist-metrics.mjs hard-fails in Claude Code Remote sessions — no gh CLI, no REST fallback") closed 08-08 as completed; relevant to this run's own Step 6 persist call below.
+**Sentry triage:** MCP server flapped connect/disconnect repeatedly through this run; skipped rather than block on an unstable connection (optional step)
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** `verifications.jsonl` still has zero entries in the last 30 days (most recent 2026-06-20) — false-positive/fix-effectiveness rates not computable this run, same gap as 08-08. Fresh checkout needed `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/gh-client...` before `sensor-report.mjs` would even run (`ERR_MODULE_NOT_FOUND`) — expected for an ephemeral cloud checkout per the worktree gotchas, not a new issue.
+
+## 2026-08-10 (learning-loop)
+
+**Sensors:** 5/16 available (acmm L5 96/114, prMetrics 77 AI PRs/30d @ 99% acceptance, ccusageCost $0, sessionLogs 0/7d, codeChurn 0.1%) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable (same 401/gh-CLI-absent gap as every prior run this week)
+**Regressions:** 0 detected in `sensor-report.json`'s regressions array, 0 issues created (status: healthy, ACMM L5 96/114 unchanged since 08-08)
+**Verifications:** `verify-fixes.mjs` and `collect-ai-issue-feedback.mjs` both hard-failed with the same 401 `GhAuthError` as every prior day this week — expected, git-over-HTTPS-only credential in this session type. Cross-checked manually via `mcp__github__search_issues`: 31 issues closed with sensor labels (`ci-fix`/`audit`/`acmm`/`sentry`/`bug`) since 2026-08-08, all `state_reason: completed` (none `wontfix`/`invalid`) — no reopens warranted.
+**Sentry triage:** attempted via subagent — blocked, not skipped: `mcp__sentry__find_organizations` returned HTTP 403 "Host not in allowlist: sentry.io" (network egress restriction in this cloud environment, same class as the documented no-egress-to-production constraint for domain metrics). No org/project data retrieved, 0 issues created. Needs a human to add `sentry.io` to the environment's egress allowlist before this step can produce real results — not something a code fix resolves.
+**Skill proposals:** 0 (Monday — Friday-only)
+**Threshold notes:** `verifications.jsonl` still has zero entries in the last 30 days (most recent 2026-06-20) — false-positive/fix-effectiveness rates remain non-computable, same gap as every prior run. No new pattern to self-tune this run.

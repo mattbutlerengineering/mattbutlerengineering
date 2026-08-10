@@ -24,7 +24,7 @@
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.20.4",
     "@vitest/coverage-v8": "catalog:",
     "tsx": "^4.23.1",
     "typescript": "catalog:",
