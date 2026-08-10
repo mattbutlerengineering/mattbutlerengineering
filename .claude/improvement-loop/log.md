@@ -473,6 +473,7 @@ None (`agent-skip` count is 0).
 
 **queueEfficiency:** unavailable
 **Issues filed:** 0
+
 ## 2026-08-09 (learning-loop)
 
 **Sensors:** 5/16 available (acmm L5 96/114, prMetrics 77 AI PRs/30d @ 99% acceptance, ccusageCost $0, sessionLogs 0/7d, codeChurn 0.1%) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
