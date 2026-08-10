@@ -32,6 +32,7 @@ const cloudflareAccountId = config.require("cloudflareAccountId");
 const databaseUrl = config.requireSecret("databaseUrl");
 const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 const manageTokenSecret = config.getSecret("manageTokenSecret");
+const unsubscribeTokenSecret = config.getSecret("unsubscribeTokenSecret");
 
 // ── Observability (Grafana Cloud OTLP) ─────────────────────────────
 const otelEndpoint = config.get("otelEndpoint") ?? "";
@@ -205,6 +206,9 @@ const apiApp = new digitalocean.App(
           dockerfile: "services/reservations/Dockerfile",
           extraEnvs: [
             ...(manageTokenSecret ? [secretEnv("MANAGE_TOKEN_SECRET", manageTokenSecret)] : []),
+            ...(unsubscribeTokenSecret
+              ? [secretEnv("UNSUBSCRIBE_TOKEN_SECRET", unsubscribeTokenSecret)]
+              : []),
           ],
         }),
         apiService({
