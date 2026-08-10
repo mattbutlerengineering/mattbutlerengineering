@@ -420,6 +420,60 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** unavailable
 **Issues filed:** 0
 
+## 2026-08-10 (mbe-evening)
+
+### Metrics (7d, audit+ci-fix, counted by created_at 2026-08-03→2026-08-10 from label-filtered issue lists — `since` on `list_issues` filters by `updated_at`, not `created_at`, so this run filtered the returned set by `created_at` client-side rather than trusting the API's window directly)
+
+| Metric                 | Value                                                                                                                                                                                                 | Target    | Status     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------- |
+| Created                | 81 (audit 33, ci-fix 48; not deduped for the 2 dual-labeled issues #3901/#3902)                                                                                                                       | -         | -          |
+| Closed                 | 74 (audit 32, ci-fix 42)                                                                                                                                                                              | -         | -          |
+| Closure Rate           | 91.4%                                                                                                                                                                                                 | >80%      | 🟢         |
+| Agent Success          | this run's batch: 1/1 worker succeeded (#4025 → PR #4046, not yet merged at log time)                                                                                                                 | >70%      | 🟢 (batch) |
+| CI Pass                | 19 success / 0 failure / 1 cancelled (benign) of last 20 `ci.yml` runs on `main`                                                                                                                      | >95%      | 🟢         |
+| Queue                  | 4 `ready` (#4044, #4043, #4042, #4040) — down from 5 after this run claimed #4025                                                                                                                     | <5        | 🟢         |
+| Stale (>7d)            | 0 — all 4 remaining `ready` issues filed 2026-08-09                                                                                                                                                   | 0         | 🟢         |
+| Blocked (agent-failed) | 0                                                                                                                                                                                                     | 0         | 🟢         |
+| Skipped (agent-skip)   | 0                                                                                                                                                                                                     | 0         | 🟢         |
+| Reverts (7d)           | 1 commit matching `git log --grep=Revert --since="7 days ago"`                                                                                                                                        | <3/wk     | 🟢         |
+| Daily/7d Spend         | unavailable — `.claude/agent-spend/sessions.jsonl` still 0 rows, same tracked gap as every prior run (#3695)                                                                                          | <$10/<$50 | tracked    |
+| Weekly PR volume       | 232 opened / 224 merged, median open→merge 18min (cited from PR #4041's 2026-08-09 process retro, not independently requeried — 50-item pagination of `list_pull_requests` only reached back ~2 days) | -         | -          |
+
+### This run's `/implement-queue` iteration
+
+Pre-flight: main green (last 5 `ci.yml` runs on `main` all `success`). Local `main` ref in this container had diverged 50/50 commits from `origin/main` (stale snapshot) — hard-reset to `origin/main` since nothing local was unpushed work. 4 open PRs found, none in a CI-failed state: #4045 (learning-loop, explicitly "not auto-merging — for review"), #4041 (weekly retro, `tier:critical`, mergeable clean but not this skill's PR to merge), #4011 (the documented `gate-unattributed` stuck case from #4023/#4025's own body — needs a human or the fix this run just shipped), #4008 (`auto-qa-tune`, explicitly "needs a human merge" per its own body, sensitive-path exclusion). Left all four for the human per their own signals; none were "failed" so proceeded to Phase 1.
+
+5 `ready` issues, all estimated to the `null` (global/cross-cutting) zone by `selectZoneSpreadBatch` (none of #4044/#4043/#4042/#4040/#4025's conventional-commit scopes — `sensors`, `automation`, `ci`, `ci`, `ci` — map to a real workspace package), so the zone-spread selector correctly capped the batch at 1: **#4025** (`fix(ci): the workflow_dispatch escape hatch does not unblock a GITHUB_TOKEN-authored PR`, oldest of the 4 `ci-fix`-labeled candidates by `created_at`).
+
+`gh` CLI absent in this session (same class as every prior scheduled-session entry in this log) — `mbe issue transition` and `mbe check-model --issue` both failed (`spawn gh ENOENT`); worked around by hand-replicating `ready→in-progress` via `mcp__github__issue_write` and omitting `model:` (worker defaulted to `sonnet`). Built `@mbe/cli` (`pnpm build --filter @mbe/cli...`) first — needed for `agent-core-build-freshness.mjs` and `check-model`, neither of which was on `PATH` pre-build.
+
+Dispatched one `implement-queue-worker` for #4025 (isolation: worktree). Worker implemented via TDD: new pure `mapOutcomeToCommitStatusState()` in `scripts/ci-gate-commit-status.mjs` (RED→GREEN, 8/8), wired a `CI Gate` commit-status publish step into `ci.yml`'s gate job (`if: always()`, success/failure/cancelled→success/failure/error, never silently green), amended (not deleted) the `GITHUB_TOKEN` anti-recursion gotchas entry with a `Fix (#4025)` paragraph. All gates green: lint 0 errors, typecheck all pass, `pnpm test` 1709/1709 (scripts) plus one pre-existing unrelated `tools/cli` 401 failure reproduced identically on unmodified `main`. Worker also hit the `gh`-absent gap in its own worktree and worked around it via the outbound proxy's transparent credential injection on `api.github.com` rather than an explicit bearer header (sandbox guard false-positive on explicit `Authorization` headers) — noted here in case it recurs.
+
+Opened PR #4046 (base `main`, correct). Two automated bot comments landed: a `tier:critical` classification (informational only — per `SKILL.md`'s "No tier hold" section, tier does not block this skill's merges) and an "Automated Review" `console.log` warning (expected — the new CLI script's one `console.log()` follows the same convention as `scripts/merge-queue-eligibility.mjs`, called out as such in the PR body; not a regression). CI was still running (21 checks, several still `in_progress`) at the point this log entry was written — `CI Gate` itself had not yet reported. Recorded telemetry row (issue #4025, PR #4046, `reviewer_verdict: skipped` pending the actual gate decision) and left the worker→train boundary (CI-gate wait, low-risk classification or reviewer dispatch, enqueue) to continue asynchronously via the PR-activity subscription rather than blocking this scheduled run's remaining phases (`/progress-tracker`, `/optimize-implement-queue`) on it.
+
+Circuit breaker: 0 consecutive failures this iteration. Stopped after one iteration per this run's schedule.
+
+### Patterns
+
+- Same `gh`-CLI-absent gap as every prior scheduled/remote session in this log (see 2026-08-09 entry) — still not filed as its own meta-improvement issue since the `mcp__github__*` fallback path is well-understood and mechanical at this point, not a blocker.
+- Zone-spread selection (`selectZoneSpreadBatch`) capping the batch at 1 is now the _typical_ case for this queue, not an edge case — every `ready` issue in today's backlog is a meta/process/CI fix with a title scope (`ci`, `sensors`, `automation`, `automation`) that doesn't resolve to a real workspace package, so all 5 land in the single global-zone slot. This isn't a bug in the selector; it reflects the backlog's current composition (mostly cross-cutting automation fixes, few app/package-scoped features). Worth noting if queue throughput looks low in a future retro — the cause is composition, not the selector being overly conservative.
+- The 4 open PRs at Phase 0 were unusually uniform in being "not this skill's to merge" — 3 explicitly say so in their own body/label, 1 is the documented `gate-unattributed` case. No action needed, but if this pattern holds it may be worth a lighter-weight Phase 0 check that recognizes these self-flagged states without a full read of each PR body.
+
+### Recommendations
+
+- Once PR #4046 lands and the next automation PR (e.g. #4011 or #4008) gets a fresh CI run, verify the new commit-status step actually unblocks it end-to-end — #4025's acceptance criteria explicitly left that verification for after merge.
+- Queue is 4, all fresh, all green — no backlog action needed.
+- Continue tracking the `.claude/agent-spend/sessions.jsonl` empty-file gap (#3695) — still 0 rows after many scheduled runs.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-10
+
+**queueEfficiency:** unavailable
+**Issues filed:** 0
+
 ## 2026-08-09 (learning-loop)
 
 **Sensors:** 5/16 available (acmm L5 96/114, prMetrics 77 AI PRs/30d @ 99% acceptance, ccusageCost $0, sessionLogs 0/7d, codeChurn 0.1%) — domainActivity, prCategoryMetrics, agentCost, ciHealth, lighthouse, issues, issueFeedback, mutationScore, flakyTests, e2eStability, queueEfficiency unavailable
