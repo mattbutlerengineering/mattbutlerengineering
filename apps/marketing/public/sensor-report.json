@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-09T18:12:36.804Z",
+  "generated_at": "2026-08-10T18:14:26.038Z",
   "period": {
-    "start": "2026-08-02",
-    "end": "2026-08-09"
+    "start": "2026-08-03",
+    "end": "2026-08-10"
   },
   "sensors": {
     "acmm": {
@@ -11,7 +11,7 @@
       "level_name": "Semi-Automated",
       "criteria_met": 96,
       "criteria_total": 114,
-      "last_run": "2026-08-08T16:06:43.668Z"
+      "last_run": "2026-08-09T16:07:41.541Z"
     },
     "prMetrics": {
       "available": true,
@@ -48,17 +48,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1068241,
-      "output_tokens": 2145,
-      "cache_creation_tokens": 92279,
-      "cache_hit_rate": 0.9205,
+      "cache_read_tokens": 638368,
+      "output_tokens": 1974,
+      "cache_creation_tokens": 97505,
+      "cache_hit_rate": 0.8675,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 26,
-          "output_tokens": 2145,
-          "cache_read_tokens": 1068241,
-          "cache_creation_tokens": 92279
+          "input_tokens": 16,
+          "output_tokens": 1974,
+          "cache_read_tokens": 638368,
+          "cache_creation_tokens": 97505
         }
       }
     },
@@ -88,8 +88,8 @@
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 467302,
-      "lines_churned_7d": 388,
+      "total_lines_added_7d": 467786,
+      "lines_churned_7d": 356,
       "window_days": 7,
       "churn_threshold": 0.3
     },
