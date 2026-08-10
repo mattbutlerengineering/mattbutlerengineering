@@ -710,8 +710,26 @@ jobs:
         ai-antipattern-ratchet,
       ]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Needed to publish the commit status below (#4025) — the job-level
+      # grant is additive on top of the workflow's default contents:read.
+      statuses: write
     steps:
+      # Checkout is needed here (unlike a bare status-check job) because the
+      # "Publish CI Gate commit status" step below invokes the pure mapping
+      # in scripts/ci-gate-commit-status.mjs (#4025).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+      - name: Determine target SHA for commit status
+        # #4025: on `pull_request`, github.sha is the ephemeral merge commit
+        # (refs/pull/N/merge), not the PR's head SHA that branch protection
+        # evaluates required statuses against. Every other trigger this
+        # workflow supports (push, merge_group, workflow_dispatch) uses
+        # github.sha directly.
+        id: target-sha
+        run: echo "sha=${{ github.event.pull_request.head.sha || github.sha }}" >> "$GITHUB_OUTPUT"
       - name: Check required job results
+        id: gate-check
         env:
           DETECT_CHANGES: ${{ needs.detect-changes.result }}
           PREPARE: ${{ needs.prepare.result }}
@@ -742,3 +760,32 @@ jobs:
               exit 1
             fi
           done
+      - name: Publish CI Gate commit status
+        # #4025: a check RUN produced off the `pull_request` event is what
+        # branch protection's required-status evaluation normally reads —
+        # but a check run produced by a `workflow_dispatch` escape-hatch
+        # (used when GITHUB_TOKEN-authored PRs can't trigger `pull_request`
+        # at all, see the gotchas.md entry this closes) is invisible to
+        # both `statusCheckRollup` and that evaluation. A commit STATUS,
+        # published here via the REST statuses API, surfaces in both
+        # regardless of which event produced this run. Additive: the job
+        # above still reports the normal required check run unchanged.
+        #
+        # if: always() so this runs whether "Check required job results"
+        # passed, failed, or the job was cancelled — a red/cancelled CI run
+        # must never leave a stale green `CI Gate` status behind.
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.target-sha.outputs.sha }}
+          OUTCOME: ${{ steps.gate-check.outcome }}
+        run: |
+          STATE=$(node scripts/ci-gate-commit-status.mjs state --outcome "$OUTCOME")
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$STATE" \
+            -f context="CI Gate" \
+            -f description="CI Gate ${STATE}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
