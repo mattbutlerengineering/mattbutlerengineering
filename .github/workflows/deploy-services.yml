@@ -11,6 +11,13 @@ on:
       - "packages/auth/**"
       - "packages/agent-core/**"
       - "packages/observability/**"
+  # Lets a stuck deploy (e.g. exhausted retries from a transient DO
+  # BuildRateLimit — see the "Trigger deployment" retry loop below) be
+  # re-run without an unrelated code push. The deploys-unhealthy runbook
+  # (docs/runbooks/deploys-unhealthy.md) explicitly prescribes "trigger a
+  # manual redeploy" as a recovery step; this workflow had no way to do
+  # that (unlike the sibling pulumi-up.yml, which already has this).
+  workflow_dispatch:
 
 concurrency:
   group: deploy-services-${{ github.ref }}
@@ -147,17 +154,24 @@ jobs:
           # Retry to absorb transient DO build failures (BuildRateLimit from concurrent
           # builds / the doctl+Pulumi dual-deploy race). create-deployment is safe to
           # re-issue: each call starts a fresh deployment and the latest one wins.
-          for attempt in 1 2 3; do
+          #
+          # 5 attempts / up to 4 min backoff (was 3 attempts / up to 2 min): the two
+          # observed BuildRateLimit failures on 2026-08-09 (#4040) each exhausted the
+          # prior 3-attempt/60-120s schedule within ~20 min while a concurrent Pulumi
+          # Deploy run (which also touches this DO app) was in flight — the shorter
+          # schedule didn't give DO's build queue enough room to drain.
+          MAX_ATTEMPTS=5
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
             if doctl apps create-deployment "$APP_ID" --wait; then
               echo "Deployment succeeded on attempt $attempt"
               exit 0
             fi
-            if [ "$attempt" -lt 3 ]; then
+            if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
               echo "::warning::Deployment attempt $attempt failed (likely transient DO BuildRateLimit); retrying after backoff"
-              sleep $((attempt * 60))
+              sleep $((attempt * 60 < 240 ? attempt * 60 : 240))
             fi
           done
-          echo "::error::Deployment failed after 3 attempts"
+          echo "::error::Deployment failed after $MAX_ATTEMPTS attempts"
           exit 1
 
   verify:
