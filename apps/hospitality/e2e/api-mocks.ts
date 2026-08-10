@@ -73,6 +73,31 @@ export function buildPublicVenueConfigFixture(): PublicVenueConfig {
   });
 }
 
+// Deposit-enabled counterpart to buildPublicVenueConfigFixture() above (#4061).
+// The shared mockApi() default stays disabled — every spec that doesn't care
+// about deposits keeps hitting the cheap, banner-free branch. Specs that need
+// to exercise the enabled branch (CancelReservationDialog's fee banner,
+// useBookingFlow's SET_DEPOSIT_CONFIG dispatch) override the
+// **/public/v1/venues/* route with this fixture instead. Same
+// parse-through-the-schema approach as the disabled fixture, so a future
+// schema widening — not a hand edit — is what changes this. Exported so
+// e2e/fixtures/public-venue-config-deposit-enabled-mock.test.ts can pin the
+// mock's shape and the exact field values E2E fee-banner assertions depend on.
+export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig {
+  const venues = JSON.parse(loadFixture("venues-list"));
+  return PublicVenueConfigSchema.parse({
+    ...venues.data[0],
+    deposit: {
+      enabled: true,
+      depositType: "flat",
+      amountCents: 5000,
+      freeCancellationHours: 24,
+      lateCancellationFeePercent: 50,
+      noShowFeePercent: 100,
+    },
+  });
+}
+
 export async function mockApi(page: Page): Promise<void> {
   // Signal to QueryProvider to disable react-query retries so error states
   // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
