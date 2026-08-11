@@ -115,8 +115,10 @@ describe("findProductionThrowSecretNames — structural secret-name resolution",
 // (fail-open: an unprovisioned secret produced no finding). Correction
 // (#4107): both real call sites actually use the nested-if form
 // (`if (isProduction) { if (!secret) throw }`), not this compound `&&` form
-// directly — grepping the repo for `isProduction &&` / `=== "production" &&`
-// returns zero hits outside this test file. The compound shape is exercised
+// directly — grepping `services/**` for `isProduction &&` /
+// `=== "production" &&` returns zero hits. (The scanner's own source
+// mentions the form in a descriptive comment; no application call site
+// uses it.) The compound shape is exercised
 // here as hardening for an equivalent guard structure, not because it's
 // observed anywhere in the wild.
 describe("findProductionThrowSecretNames — compound && guard (#4085)", () => {
