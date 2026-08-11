@@ -37,6 +37,20 @@ describe("issue-zone", () => {
     });
   });
 
+  describe("issueZone — non-package scope aliases (#4079)", () => {
+    // These conventional-commit scopes are common in this repo's titles but
+    // are NOT literal workspace-package directory names, so the plain
+    // directory-scan SCOPE_ZONE_MAP can never discover them on its own.
+    test.each([
+      ["fix(ci): tighten the deploy-secret guard", ".github/workflows"],
+      ["chore(deps): bump a transitive dep", "root"],
+      ["fix(implement-queue): fix zone spread", "packages/agent-core"],
+      ["fix(automation): dispatch tier-classifier", ".github/workflows"],
+    ])("%s → %s", (title, expected) => {
+      expect(issueZone(issue(title))).toBe(expected);
+    });
+  });
+
   describe("issueZone — global (null) fallback", () => {
     test("unknown scope (not a workspace dir) → null", () => {
       // `tools/cli` is NOT under a merge-train workspace root (apps/packages/services).
@@ -217,6 +231,20 @@ describe("issue-zone", () => {
       expect(globals).toHaveLength(1);
     });
 
+    test("a genuinely unrecognized scope (#4079) still resolves null and is never co-scheduled twice", () => {
+      // `security` is named in #4079's own "why this matters" list as a
+      // common-but-unrecognized scope — it must stay unmapped, not be
+      // silently widened alongside ci/deps/implement-queue/automation.
+      const candidates = [
+        issue("fix(security): a", { number: 1 }), // null / global
+        issue("fix(security): b", { number: 2 }), // null / global
+        issue("refactor(rialto): c", { number: 3 }),
+      ];
+      expect(issueZone(candidates[0])).toBeNull();
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3 });
+      expect(batch.map((i) => i.number)).toEqual([1, 3]);
+    });
+
     test("respects the maxWorkers cap even when more distinct zones exist", () => {
       const candidates = [
         issue("refactor(rialto): a", { number: 1 }),
@@ -319,6 +347,47 @@ describe("issue-zone", () => {
       // #3840 takes the global slot, #3844 takes the (now-distinct) root
       // slot, #3931 is deferred (global slot already occupied).
       expect(batch.map((i) => i.number)).toEqual([3840, 3844]);
+    });
+
+    test("regression (#4079): a real 6-issue infra backlog spreads across 3 zones, not 1", () => {
+      // Real titles fetched via `gh issue view <N> --json title` for the
+      // exact backlog #4079 measured live: before the fix, every one of
+      // these collapsed to the same global (null) bucket and only the
+      // first was ever selected.
+      const candidates = [
+        issue(
+          "fix(implement-queue): low-risk fast path silently drops a diff-matched " +
+            "specialist reviewer (isLowRiskPR and reviewersForDiff can both fire)",
+          { number: 4063 }
+        ),
+        issue(
+          "fix(ci): make deploy-secret guard detect production throws by AST, not literal phrase match",
+          {
+            number: 4067,
+          }
+        ),
+        issue(
+          "fix(ci): tier-classifier never runs on automation PRs, so auto-merge gate refuses 100% of them",
+          { number: 4070 }
+        ),
+        issue("chore(deps): harden root pnpm.overrides — unbounded ranges + one dead entry", {
+          number: 4052,
+        }),
+        issue(
+          "chore(deps): evaluate framer-motion 13 upgrade (pinned ^12.43.0 catalog-wide, latest is 13.0.0)",
+          { number: 4053 }
+        ),
+        issue(
+          "fix(automation): detect stale human-blocked issues by behaviour, not by label — " +
+            "#3322 named a 30-day outage and was invisible to three consecutive retros",
+          { number: 4043 }
+        ),
+      ];
+      const batch = selectZoneSpreadBatch(candidates, { maxWorkers: 3 });
+      expect(batch).toHaveLength(3);
+      expect(batch.map((i) => i.number)).toEqual([4063, 4067, 4052]);
+      const zones = batch.map((i) => issueZone(i));
+      expect(new Set(zones).size).toBe(3); // all distinct
     });
   });
 

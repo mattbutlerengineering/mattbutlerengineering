@@ -81,6 +81,46 @@ function buildScopeZoneMap(repoRoot = REPO_ROOT) {
  */
 const SCOPE_ZONE_MAP = buildScopeZoneMap();
 
+/**
+ * Aliases for conventional-commit scopes that are common in this repo's
+ * titles (#4079) but aren't literal workspace-package directory names, so
+ * `buildScopeZoneMap`'s directory scan can never discover them on its own.
+ * Each value is a REPRESENTATIVE PATH, not a hand-typed zone string — the
+ * zone is always derived by running that path through merge-train-lock's own
+ * `zoneForPath`, so this can never drift into a second, divergent zone
+ * vocabulary (see module docstring).
+ *
+ * Deliberately narrow: only the scopes #4079's acceptance criteria name.
+ * A scope like `skills` stays unmapped (→ null) on purpose — it's genuinely
+ * cross-cutting (`.claude/skills/**` covers every skill), not one zone.
+ *
+ * @type {Record<string, string>}
+ */
+const EXTRA_SCOPE_PATHS = {
+  ci: ".github/workflows/ci.yml",
+  automation: ".github/workflows/drift-fix.yml",
+  deps: "package.json",
+  "implement-queue": "packages/agent-core/package.json",
+};
+
+/**
+ * Builds the alias scope→zone map from `EXTRA_SCOPE_PATHS`, reusing
+ * merge-train-lock's `zoneForPath` for every value.
+ * @returns {Map<string, string>}
+ */
+function buildExtraScopeZoneMap() {
+  const map = new Map();
+  for (const [scope, examplePath] of Object.entries(EXTRA_SCOPE_PATHS)) {
+    map.set(scope, zoneForPath(examplePath));
+  }
+  return map;
+}
+
+/**
+ * @type {Map<string, string>}
+ */
+const EXTRA_SCOPE_ZONE_MAP = buildExtraScopeZoneMap();
+
 // ---------------------------------------------------------------------------
 // Body-derived path fallback
 // ---------------------------------------------------------------------------
@@ -265,7 +305,9 @@ function parseScopes(title) {
 function titleZone(title) {
   const scopes = parseScopes(title);
   if (scopes.length === 0) return null;
-  const zones = new Set(scopes.map((s) => SCOPE_ZONE_MAP.get(s) ?? null));
+  const zones = new Set(
+    scopes.map((s) => SCOPE_ZONE_MAP.get(s) ?? EXTRA_SCOPE_ZONE_MAP.get(s) ?? null)
+  );
   return zones.size === 1 ? [...zones][0] : null;
 }
 

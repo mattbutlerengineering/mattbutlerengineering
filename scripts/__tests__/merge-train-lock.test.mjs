@@ -169,6 +169,22 @@ describe("merge-train-lock", () => {
       expect(zoneForPaths(["apps/hospitality/src/a.ts", "packages/rialto/src/b.ts"])).toBeNull();
     });
 
+    // #4079: .github is large/active enough (CI, automation workflows) to
+    // deserve its own zone rather than collapsing into the shared "root"
+    // bucket alongside every other non-workspace path (docs/, scripts/, ...).
+    test("derives .github/<x> zone from a changed path (#4079)", async () => {
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths([".github/workflows/ci.yml"])).toBe(".github/workflows");
+    });
+
+    test(".claude paths still fall back to the shared 'root' zone (#4079)", async () => {
+      // Unlike .github, .claude is NOT split into its own zone: .claude/skills/**
+      // is genuinely cross-cutting (every skill lives under one directory), so
+      // giving it a real zone would misrepresent same-zone collisions as safe.
+      const { zoneForPaths } = await import("../merge-train-lock.mjs");
+      expect(zoneForPaths([".claude/rules/gotchas.md"])).toBe("root");
+    });
+
     test("returns null for an empty changeset", async () => {
       const { zoneForPaths } = await import("../merge-train-lock.mjs");
       expect(zoneForPaths([])).toBeNull();
