@@ -10,13 +10,24 @@ name: tier-classifier
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: >-
+          PR number to classify. Used by the four automation producers
+          (production-feedback, drift-fix, pr-metrics, acmm-regression)
+          whose GITHUB_TOKEN/AUTOMATION_PAT-authored `pull_request` event
+          never reliably runs this workflow (#4070; see
+          .claude/rules/gotchas.md § CI).
+        required: true
+        type: string
 
 permissions:
   contents: read
   pull-requests: write
 
 concurrency:
-  group: tier-classifier-${{ github.event.pull_request.number }}
+  group: tier-classifier-${{ github.event.pull_request.number || github.event.inputs.pr }}
   cancel-in-progress: true
 
 jobs:
@@ -25,22 +36,37 @@ jobs:
     timeout-minutes: 5
     env:
       # Quoted env vars guard every untrusted input against shell injection.
-      PR_NUMBER: ${{ github.event.pull_request.number }}
-      PR_TITLE: ${{ github.event.pull_request.title }}
-      PR_BODY: ${{ github.event.pull_request.body }}
-      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
-      PR_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout (PR head)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
           fetch-depth: 0
+          # For a `pull_request` event this is the real PR head commit (not
+          # the ephemeral merge ref actions/checkout would otherwise use). For
+          # `workflow_dispatch` there is no `pull_request` payload, so this
+          # expression evaluates to an empty string; actions/checkout falls
+          # back to checking out `github.ref` in that case, which is exactly
+          # the ref the four automation producers pass via `--ref` when
+          # dispatching this workflow — i.e. still the PR's own head branch.
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Resolve PR metadata
+        # Needs the repo checked out above (it runs a script that lives in
+        # it). A `pull_request` event already carries title/body/base-ref/
+        # fork-status in its payload, but `workflow_dispatch` only carries
+        # the `pr` number input above — rather than branch the rest of this
+        # job on which fields the triggering event happened to supply, both
+        # paths resolve everything from the API by PR number here. See
+        # scripts/resolve-pr-metadata.mjs.
+        id: pr
+        run: node scripts/resolve-pr-metadata.mjs --pr "$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Compute base SHA and diff
         id: diff
+        env:
+          PR_BASE_REF: ${{ steps.pr.outputs.base_ref }}
         run: |
           base_sha=$(git merge-base "origin/${PR_BASE_REF}" HEAD)
           git diff --name-only "${base_sha}...HEAD" > /tmp/changed-files.txt
@@ -54,6 +80,9 @@ jobs:
         id: classify
         env:
           ADDED_LINES: ${{ steps.diff.outputs.added }}
+          PR_TITLE: ${{ steps.pr.outputs.title }}
+          PR_BODY: ${{ steps.pr.outputs.body }}
+          PR_IS_FORK: ${{ steps.pr.outputs.is_fork }}
         run: |
           node - <<'NODE'
           const fs = require('node:fs');
