@@ -1,0 +1,68 @@
+name: Stale Human-Blocked Issue Detector
+
+# Detects open issues that have been untouched for STALE_THRESHOLD_DAYS+
+# (14 by default), independent of which — if any — human-blocker label they
+# carry (#4043). The weekly retro's backlog-aging pass finds human-blocked
+# work with a fixed label query and misses exactly the issues a filer in a
+# hurry mislabeled or under-labeled (#3322: 30 days stale, carried only
+# `ci-fix`, invisible to three consecutive retros). This is additive — the
+# label-based query in docs/process-retro.md § Pass 2 is unchanged.
+#
+# Surfacing mechanism: applies `ready-for-human` directly to each qualifying
+# issue rather than a digest issue — see scripts/stale-human-blocked.mjs and
+# the PR description for the rationale.
+
+on:
+  schedule:
+    # Weekly, Sunday 15:23 UTC (off-minute to avoid fleet congestion) — ahead
+    # of mbe-weekly-retro (Sun 23:00 UTC), so a qualifying issue is already
+    # labeled `ready-for-human` by the time the retro's own label query runs.
+    - cron: "23 15 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report stale issues without changing labels"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write
+
+jobs:
+  detect-stale:
+    name: Detect Stale Human-Blocked Issues
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build gh-client
+        # scripts/stale-human-blocked.mjs imports @mbe/gh-client, whose
+        # package.json "exports" resolves to dist/index.js under Node — a
+        # bare `node scripts/...` run without this step throws
+        # ERR_MODULE_NOT_FOUND (see .claude/rules/gotchas.md § Build).
+        run: pnpm build --filter @mbe/gh-client
+
+      - name: Find and label stale human-blocked issues
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/stale-human-blocked.mjs --dry-run
+          else
+            node scripts/stale-human-blocked.mjs
+          fi
