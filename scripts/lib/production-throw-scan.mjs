@@ -15,9 +15,20 @@
  * textual coupling this detector exists to remove from the whole sentence
  * down to a single token — a rewording that drops the name from the message
  * (while still reading `process.env.<NAME>`) silently returned nothing.
- * Message-token extraction is now kept only as an *additional* signal, not
- * the sole mechanism — it is what still lets a fully unconditional throw
- * with no `process.env` reference at all resolve a name.
+ * Message-token extraction (`resolveMessageTokenNames`) is kept as an
+ * *additional* signal alongside structural resolution
+ * (`resolveStructuralSecretNames`), but it is NOT merely a rare fallback
+ * "mainly for unconditional throws": both real config files this detector
+ * scans (`manage-token.ts`, `unsubscribe-token.ts`) receive their secret and
+ * `NODE_ENV` values via dependency injection — `input.secret` /
+ * `input.nodeEnv` — rather than reading `process.env.<NAME>` directly, so
+ * `resolveStructuralSecretNames` has nothing to walk to and returns empty
+ * for them. For that dependency-injected shape, message-token extraction is
+ * the ONLY mechanism that resolves a name — the guarded throw's message
+ * text remains load-bearing, and rewording it to drop the name (while
+ * keeping the identical guard shape) silently returns nothing (#4107). See
+ * `findProductionThrowSecretNames — DI-pattern config shape` in
+ * `production-throw-scan.test.mjs` for the pinned reproduction.
  *
  * Invariant change: unlike the original regex (which matched the phrase
  * anywhere in a file, guarded or not), a throw gated behind a condition that
@@ -405,8 +416,15 @@ function collectMessageTextPieces(argNode, sourceFile) {
 
 /**
  * Message-token extraction: an *additional* signal on top of structural
- * resolution, not the sole mechanism. Kept mainly so a fully unconditional
- * throw with no `process.env` reference at all can still resolve a name.
+ * resolution, not merely a rare fallback. It is the ONLY mechanism that
+ * resolves a name in two real cases: (1) a fully unconditional throw with no
+ * `process.env` reference at all, and (2) — the shape both real config
+ * files this detector scans actually use — a dependency-injected config
+ * function whose secret/`NODE_ENV` values arrive via a parameter object
+ * (`input.secret` / `input.nodeEnv`) rather than a direct
+ * `process.env.<NAME>` read in the same file. `resolveStructuralSecretNames`
+ * has no `process.env` access to walk to in that DI shape, so for it the
+ * thrown message's text remains load-bearing for name resolution (#4107).
  *
  * @param {ts.Expression} argNode
  * @param {ts.SourceFile} sourceFile
