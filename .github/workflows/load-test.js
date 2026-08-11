@@ -16,13 +16,13 @@ const MARKETING_URL = __ENV.MARKETING_URL || "https://mattbutlerengineering.com"
 // driven by the K6_SCENARIO env var the workflow sets from its `scenario`
 // input. Falls back to running every scenario when unset/unknown.
 //
-// The edge Worker rate-limits every "/api/*" path to 100 req/60s per IP,
+// The edge Worker rate-limits every /api/* path to 100 req/60s per IP,
 // shared across ALL of them — see infrastructure/worker/rate-limiter.js.
 // One iteration below makes 5 requests into that shared bucket (users
 // health, reservations health, venues, availability, events); marketing
 // is a separate host and untouched by this limiter.
 //
-// `smoke` and `load` are sized (see #4108) so their aggregate "/api/*"
+// `smoke` and `load` are sized (see #4108) so their aggregate /api/*
 // request rate stays under the edge's 100 req/60s-per-IP budget — a
 // `ramping-vus`/`constant-vus` executor can't bound that: an executor's
 // `vus`/`stages` cap concurrency, not the aggregate request rate a CI
@@ -33,7 +33,7 @@ const MARKETING_URL = __ENV.MARKETING_URL || "https://mattbutlerengineering.com"
 // rate steady regardless of how many VUs k6 allocates to sustain it, so
 // the request-rate math below is exact rather than an estimate.
 const ALL_SCENARIOS = {
-  // 10 iterations/min * 5 = 50 "/api/*" req/min — 50% of budget.
+  // 10 iterations/min * 5 = 50 /api/* req/min — 50% of budget.
   smoke: {
     executor: "constant-arrival-rate",
     rate: 10,
@@ -43,7 +43,7 @@ const ALL_SCENARIOS = {
     maxVUs: 5,
     tags: { type: "smoke" },
   },
-  // Plateaus at 15 iterations/min * 5 = 75 "/api/*" req/min — 25% headroom
+  // Plateaus at 15 iterations/min * 5 = 75 /api/* req/min — 25% headroom
   // under the 100 req/60s budget. This is the scenario the weekly
   // scheduled run and the workflow's default execute, so it gets the
   // widest margin.
@@ -88,7 +88,7 @@ const ALL_SCENARIOS = {
 // over — it also means this check doubles as an auth-regression canary
 // (a 200 here would mean the endpoint went unintentionally public).
 // `events_list` hits a route reservations-api never registers (only
-// `/api/v1/events/stream` and a dev-only `/api/v1/events/test` exist) —
+// only /api/v1/events/stream and a dev-only /api/v1/events/test exist) —
 // tracked as a follow-up to point it at something real; 404 is what the
 // path being called actually, deterministically returns.
 const EXPECTED_API_STATUS = {
@@ -125,7 +125,7 @@ function isExpectedApiStatus(endpoint, status) {
  * above as a request failure. `http.expectedStatuses` tells k6 what this
  * specific request actually expects, so `http_req_failed` agrees with our
  * own `errors{endpoint:...}` check-derived metric instead of contradicting
- * it. Returns k6 http.get() params for a given "/api/*" endpoint.
+ * it. Returns k6 http.get() params for a given /api/* endpoint.
  */
 function apiRequestParams(endpoint) {
   return {
