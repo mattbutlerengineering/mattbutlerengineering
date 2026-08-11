@@ -18,14 +18,14 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-
-const REQUIRED_IN_PRODUCTION_RE = /([A-Z][A-Z0-9_]+) is required in production/g;
+import { findProductionThrowSecretNames } from "./lib/production-throw-scan.mjs";
 
 /**
- * Scans every non-test `.ts` file in `configDir` for the
- * `"<NAME> is required in production"` message thrown by config modules like
- * `getManageTokenConfig` / `getUnsubscribeTokenConfig`, and returns the
- * distinct secret names found.
+ * Scans every non-test `.ts` file in `configDir` for `throw new Error(...)`
+ * statements reachable under a production-environment guard (e.g. what
+ * `getManageTokenConfig` / `getUnsubscribeTokenConfig` do), and returns the
+ * distinct secret names referenced in those throws — detected via AST
+ * structure, not by matching a specific message phrase (#4067).
  *
  * @param {string} configDir - absolute path to a config directory
  * @returns {string[]}
@@ -35,8 +35,8 @@ export function findRequiredProductionSecrets(configDir) {
   for (const file of readdirSync(configDir)) {
     if (!file.endsWith(".ts") || file.endsWith(".test.ts")) continue;
     const source = readFileSync(join(configDir, file), "utf8");
-    for (const match of source.matchAll(REQUIRED_IN_PRODUCTION_RE)) {
-      names.add(match[1]);
+    for (const name of findProductionThrowSecretNames(source, file)) {
+      names.add(name);
     }
   }
   return [...names];

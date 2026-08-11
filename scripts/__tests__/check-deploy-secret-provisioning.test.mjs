@@ -79,7 +79,76 @@ describe("findRequiredProductionSecrets", () => {
       join(tmpDir, "foo-token.ts"),
       `
       // FOO_TOKEN_SECRET is required in production for signing.
-      throw new Error("FOO_TOKEN_SECRET is required in production. Set this env var.");
+      if (isProduction) {
+        throw new Error("FOO_TOKEN_SECRET is required in production. Set this env var.");
+      }
+      `
+    );
+
+    expect(findRequiredProductionSecrets(tmpDir)).toEqual(["FOO_TOKEN_SECRET"]);
+  });
+
+  // Wording-variant fixtures (#4067): the detector keys on AST structure
+  // (throw new Error(...) reachable under a production guard, referencing
+  // process.env.<NAME> in the enclosing scope), not on message phrasing —
+  // so a differently-worded throw for the same invariant must still be
+  // detected.
+  it("detects a throw worded 'Missing <NAME> in production.'", () => {
+    writeFileSync(
+      join(tmpDir, "foo-token.ts"),
+      `
+      interface Input { nodeEnv: string | undefined; secret: string | undefined; }
+      export function getFooTokenConfig(input: Input) {
+        const isProduction = input.nodeEnv === "production";
+        const secret = input.secret ?? "";
+        if (isProduction) {
+          if (!secret) {
+            throw new Error("Missing FOO_TOKEN_SECRET in production.");
+          }
+        }
+        return { secret };
+      }
+      `
+    );
+
+    expect(findRequiredProductionSecrets(tmpDir)).toEqual(["FOO_TOKEN_SECRET"]);
+  });
+
+  it("detects a throw worded '<NAME> must be set in production' via template literal", () => {
+    writeFileSync(
+      join(tmpDir, "foo-token.ts"),
+      `
+      interface Input { nodeEnv: string | undefined; secret: string | undefined; }
+      const NAME = "FOO_TOKEN_SECRET";
+      export function getFooTokenConfig(input: Input) {
+        const isProduction = input.nodeEnv === "production";
+        const secret = input.secret ?? "";
+        if (isProduction) {
+          if (!secret) {
+            throw new Error(\`\${NAME} must be set in production\`);
+          }
+        }
+        return { secret };
+      }
+      `
+    );
+
+    expect(findRequiredProductionSecrets(tmpDir)).toEqual(["FOO_TOKEN_SECRET"]);
+  });
+
+  it("detects a throw worded '<NAME> is required when NODE_ENV=production'", () => {
+    writeFileSync(
+      join(tmpDir, "foo-token.ts"),
+      `
+      export function getFooTokenConfig(input: { nodeEnv: string | undefined; secret: string | undefined }) {
+        const secret = input.secret ?? "";
+        if (process.env.NODE_ENV === "production") {
+          if (!secret) {
+            throw new Error("FOO_TOKEN_SECRET is required when NODE_ENV=production");
+          }
+        }
+        return { secret };
+      }
       `
     );
 
