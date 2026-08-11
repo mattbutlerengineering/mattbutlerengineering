@@ -497,3 +497,53 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** composite 0.947 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:13, size:m:5, size:l:2, size:s:10
 **Issues filed:** 0
+
+## 2026-08-11 (progress-tracker)
+
+### Metrics (7d window, 2026-08-04 → 2026-08-11)
+
+| Metric                                 | Value                                                                                                                             | Status                                                                             |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Created (audit+ci-fix)                 | ~81 (31 audit + 50 ci-fix, ci-fix list truncated at 50/52 by page size)                                                           | -                                                                                  |
+| Closed (audit+ci-fix)                  | ~72 (28 audit + 44 ci-fix)                                                                                                        | -                                                                                  |
+| Closure Rate                           | ~89%                                                                                                                              | 🟢 green (>80%)                                                                    |
+| Agent Success (this iteration)         | 3/3 issues → PR → merged (100%)                                                                                                   | 🟢                                                                                 |
+| CI Pass (main, last 30 completed runs) | 24 success / 0 failure / 6 cancelled (superseded by rapid pushes, not real failures) → 100% excluding cancellations               | 🟢 green (>95%)                                                                    |
+| Queue (open `ready`)                   | 6 (#4070, #4067, #4063, #4053, #4052, #4043)                                                                                      | 🟢 green (<5 is target; 6 is borderline yellow but all recently filed, none stale) |
+| In-progress (open)                     | 0                                                                                                                                 | 🟢                                                                                 |
+| Has-pr (open, unmerged)                | 0                                                                                                                                 | 🟢                                                                                 |
+| Blocked (agent-failed, open)           | 0                                                                                                                                 | 🟢                                                                                 |
+| Skipped (agent-skip, open)             | 0                                                                                                                                 | 🟢                                                                                 |
+| Merged PRs (recent window)             | ≥50 (last 50 merged-PR page all fall within 2026-08-08 → 2026-08-11; true 7d total is higher, not fully paginated this run)       | -                                                                                  |
+| Daily/7d/Cost-per-issue Spend          | not computed — `.claude/agent-spend/sessions.jsonl` requires a local read this session didn't perform; skip rather than fabricate | ⚪ N/A                                                                             |
+
+### This iteration (mbe-evening, one implement-queue pass)
+
+Claimed a zone-spread batch of 3 `ready` issues (#4044, #4047, #3836 — spanning global/root/apps-hospitality zones per `selectZoneSpreadBatch`), all three implemented via worktree workers, reviewed (universal `reviewer` + `e2e-selector-drift-reviewer` for the E2E PR), and merged:
+
+- #4047 → PR #4073 (check-model gh-client REST fallback) — reviewer pass 9/10, merged clean.
+- #3836 → PR #4074 (floor-plan-status E2E, part 5/5 of #3803) — first CI attempt caught a real deterministic bug (pixel-sampling hit a white text label, not the fill color); worker fixed with a +24px sample offset, CI passed, reviewer pass 9/10; the e2e-selector-drift-reviewer specialist then found one real gap (missing `page.unrouteAll` teardown, matching a previously-observed CI race in `realtime-collaboration.spec.ts`'s history) — worker applied the fix, re-verified, merged clean.
+- #4044 → PR #4075 (queueEfficiency sensor) — root-caused a two-layer bug (discarded error-reason field, plus Node's `fetch` ignoring `HTTP_PROXY`/`HTTPS_PROXY` in this proxied session type) and fixed both; reviewer pass 9/10, merged clean.
+
+Notable: one specialist-review catch (the e2e-selector-drift-reviewer finding on #4074) is exactly the kind of semantic gap CI can't catch — worth noting as the review-gate earning its keep this run, not just process overhead.
+
+### Patterns
+
+- Two of three issues claimed this iteration were themselves meta/process-improvement issues discovered by prior scheduled routines (#4044 by `mbe-weekly-retro`, #4047 by `mbe-evening` itself on 2026-08-10) — the self-discovery loop (routine finds a gap in itself → files issue → later routine fixes it) is working as designed.
+- `check-model`'s `gh`-less-session ENOENT gap (#4047) and `queueEfficiency`'s silent-catch-all gap (#4044) are both instances of the same root cause class already tracked in gotchas.md (`GITHUB_TOKEN`-authored automation / gh-less scheduled sessions) — the fixes narrow that gap further but a residual instance (#4067's deploy-secret-guard phrase-match) remains open and ready.
+- Queue composition is now mostly self-referential meta-improvement/ci-fix work (5 of 6 open `ready` issues) plus one dependency-evaluation audit finding (#4053) — very little product-feature backlog remains ready (`ready`+`feature` = 0 open right now); #3547/#3546 [Journey] issues are the oldest audit-labeled items open (11 days) and may be worth a closer look if they represent stalled feature discovery.
+
+### Recommendations
+
+- No new meta-improvement issue filed this run — no 3+ day recurring pattern surfaced beyond what's already tracked (#4067, #4063, #4070 already ready/open covering the residual CI-fix gaps).
+- Queue is healthy; no `/loop 15m /implement-queue` escalation warranted (queue=6, not >10).
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-11
+
+**queueEfficiency:** composite 0.938 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:6, size:s:12, size:xs:13, size:l:1
+**Issues filed:** 0
