@@ -12,3 +12,4 @@ export {
 } from "./label-machine.js";
 export type { LabelTransition, CoordinationLabel } from "./label-machine.js";
 export { GhAuthError, GhRateLimitError, describeGhError } from "./rest-http.js";
+export { MissingGithubTokenError } from "./rest-args.js";

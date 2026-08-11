@@ -15,7 +15,13 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { createGhClient, describeGhError } from "@mbe/gh-client";
+import {
+  createGhClient,
+  describeGhError,
+  GhAuthError,
+  GhRateLimitError,
+  MissingGithubTokenError,
+} from "@mbe/gh-client";
 import { read } from "./metrics-store.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
@@ -24,6 +30,35 @@ export const QUEUE_EFFICIENCY_FPS_DROP = 0.1;
 
 /** Worktree branch patterns used by implement-queue agents. */
 const WORKER_BRANCH_RE = /^worktree-agent-/;
+
+/**
+ * Stable reason code for an `available: false` result caused by readPrs()
+ * throwing — replaces the historic catch-all (#4044) so downstream consumers
+ * (`buildQueueEfficiencyProcessEntry`, the daily metrics row) can tell
+ * "the sensor couldn't run, and here's why" apart from a silent boolean.
+ *
+ * `gh-client`'s REST fallback (#3689) only ever engages when the `gh` binary
+ * is absent, so `MissingGithubTokenError` inherently means both "no gh
+ * binary" and "no credential" at once — there is no code path where those
+ * two are independently distinguishable, so they share one reason.
+ * `GhAuthError` is the credential-present-but-rejected case (#3937: a
+ * Claude Code Remote session's `GITHUB_TOKEN`/`GH_TOKEN` is scoped for
+ * git-over-HTTPS only, not direct REST API calls). A network failure
+ * (status 0) or an unparseable response body (a proxy intercepting the
+ * request with a non-JSON block page) both surface as "can't reach the real
+ * endpoint" and share `endpoint_unreachable`.
+ *
+ * @param {unknown} err
+ * @returns {string}
+ */
+export function classifyUnavailableReason(err) {
+  if (err instanceof MissingGithubTokenError) return "gh_binary_absent_no_credential";
+  if (err instanceof GhRateLimitError) return "rate_limited";
+  if (err instanceof GhAuthError) return "credential_rejected";
+  if (err instanceof SyntaxError) return "endpoint_unreachable";
+  if (err instanceof Error && /network error/i.test(err.message)) return "endpoint_unreachable";
+  return "query_error";
+}
 
 /**
  * An AI/worker PR is identified by:
@@ -248,12 +283,16 @@ function defaultReadTelemetry() {
  *   per-issue precise cost is preferred over the ccusage daily estimate.
  * @returns {{
  *   available: boolean,
+ *   reason?: string,
+ *   error?: string,
  *   composite?: number,
  *   sub_metrics?: object,
  *   distribution?: object,
  *   baseline?: object|null,
  *   regressions?: Array<object>,
  * }}
+ *   `reason` is a stable code (see {@link classifyUnavailableReason}) present
+ *   whenever `available` is false — never a bare `{ available: false }` (#4044).
  */
 export function collectQueueEfficiency(
   readPrs = defaultReadPrs,
@@ -267,9 +306,15 @@ export function collectQueueEfficiency(
   } catch (err) {
     // Distinguishable from "no PRs" (#3937/#3946) — a thrown error (e.g. auth
     // failure) is a query failure, not an empty-but-valid result.
-    return { available: false, error: describeGhError(err) };
+    return {
+      available: false,
+      reason: classifyUnavailableReason(err),
+      error: describeGhError(err),
+    };
   }
-  if (!Array.isArray(prs) || prs.length === 0) return { available: false };
+  if (!Array.isArray(prs) || prs.length === 0) {
+    return { available: false, reason: "no_data_in_range" };
+  }
 
   let ccusageData;
   try {
@@ -297,10 +342,10 @@ export function collectQueueEfficiency(
     return !isNaN(d) && d >= thirtyDaysAgo;
   });
 
-  if (mergedAiPrs.length === 0) return { available: false };
+  if (mergedAiPrs.length === 0) return { available: false, reason: "no_data_in_range" };
 
   const currentPrs = mergedAiPrs.filter((pr) => new Date(pr.mergedAt) >= sevenDaysAgo);
-  if (currentPrs.length === 0) return { available: false };
+  if (currentPrs.length === 0) return { available: false, reason: "no_data_in_range" };
 
   const currentCcusageDays = dailyEntries.filter((d) => new Date(d.period) >= sevenDaysAgo);
   // Pass telemetry rows for precise per-issue cost preference (falls back to ccusage).

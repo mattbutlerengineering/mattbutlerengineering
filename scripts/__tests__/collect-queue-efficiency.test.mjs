@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { GhAuthError, GhRateLimitError, MissingGithubTokenError } from "@mbe/gh-client";
 import { collectQueueEfficiency, defaultReadPrs } from "../collect-queue-efficiency.mjs";
 
 const TEST_NOW = new Date("2026-06-27T12:00:00Z");
@@ -85,17 +86,19 @@ const NO_CCUSAGE = () => null;
 // ── Tests ───────────────────────────────────────────────
 
 describe("collectQueueEfficiency", () => {
-  it("returns available:false when readPrs returns null", () => {
+  it("returns available:false with reason no_data_in_range when readPrs returns null", () => {
     const result = collectQueueEfficiency(() => null, NO_CCUSAGE, TEST_NOW);
     expect(result.available).toBe(false);
+    expect(result.reason).toBe("no_data_in_range");
   });
 
-  it("returns available:false when readPrs returns empty array", () => {
+  it("returns available:false with reason no_data_in_range when readPrs returns empty array", () => {
     const result = collectQueueEfficiency(() => [], NO_CCUSAGE, TEST_NOW);
     expect(result.available).toBe(false);
+    expect(result.reason).toBe("no_data_in_range");
   });
 
-  it("returns available:false when readPrs throws", () => {
+  it("returns available:false when readPrs throws, with a classified reason and the raw error message", () => {
     const result = collectQueueEfficiency(
       () => {
         throw new Error("gh not found");
@@ -104,19 +107,23 @@ describe("collectQueueEfficiency", () => {
       TEST_NOW
     );
     expect(result.available).toBe(false);
+    expect(result.reason).toBe("query_error");
+    expect(result.error).toBe("gh not found");
   });
 
-  it("returns available:false when all PRs are non-AI (no agent-authored/has-pr label, no worktree-agent- branch)", () => {
+  it("returns available:false with reason no_data_in_range when all PRs are non-AI (no agent-authored/has-pr label, no worktree-agent- branch)", () => {
     const result = collectQueueEfficiency(() => HUMAN_PRS, NO_CCUSAGE, TEST_NOW);
     expect(result.available).toBe(false);
+    expect(result.reason).toBe("no_data_in_range");
   });
 
-  it("returns available:false when merged AI PRs exist but none in current 7-day window", () => {
+  it("returns available:false with reason no_data_in_range when merged AI PRs exist but none in current 7-day window", () => {
     const oldPrs = [
       makePr({ number: 1, mergedAt: isoAgo(15) }), // 15 days ago — outside window
     ];
     const result = collectQueueEfficiency(() => oldPrs, NO_CCUSAGE, TEST_NOW);
     expect(result.available).toBe(false);
+    expect(result.reason).toBe("no_data_in_range");
   });
 
   it("returns available:true with composite + sub_metrics for current window", () => {
@@ -317,6 +324,98 @@ describe("collectQueueEfficiency", () => {
 
     const result = collectQueueEfficiency(() => [openPr], NO_CCUSAGE, TEST_NOW);
     expect(result.available).toBe(false);
+  });
+});
+
+// ── Unavailability reason classification (#4044) ────────────────────────────
+//
+// `available: false` used to be a catch-all — no way to tell "GitHub REST
+// rejected our credential" apart from "there was genuinely no PR activity
+// this week". Every unavailable path now carries a stable `reason` code so
+// downstream consumers (metrics/process-metrics.jsonl via
+// buildQueueEfficiencyProcessEntry) can distinguish them instead of hiding
+// the failure behind a bare boolean for weeks (#3689 → #4044).
+
+describe("collectQueueEfficiency — unavailability reason classification", () => {
+  it("classifies MissingGithubTokenError as gh_binary_absent_no_credential", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new MissingGithubTokenError();
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("gh_binary_absent_no_credential");
+  });
+
+  it("classifies GhAuthError as credential_rejected", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new GhAuthError("GET", "/repos/o/r/pulls", 401, "Bad credentials");
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("credential_rejected");
+  });
+
+  it("classifies GhRateLimitError as rate_limited", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new GhRateLimitError("GET", "/repos/o/r/pulls", 403, "API rate limit exceeded");
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("rate_limited");
+  });
+
+  it("classifies a network-error message (status 0) as endpoint_unreachable", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new Error(
+          "gh-client REST request failed (network error): GET /repos/o/r/pulls: ECONNREFUSED"
+        );
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("endpoint_unreachable");
+  });
+
+  it("classifies a SyntaxError (e.g. a proxy returning a non-JSON block page) as endpoint_unreachable", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new SyntaxError("Unexpected token 'T', \"This GitHub\"... is not valid JSON");
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("endpoint_unreachable");
+  });
+
+  it("classifies any other thrown error as query_error, preserving the raw message via `error`", () => {
+    const result = collectQueueEfficiency(
+      () => {
+        throw new Error("something unexpected");
+      },
+      NO_CCUSAGE,
+      TEST_NOW
+    );
+    expect(result.available).toBe(false);
+    expect(result.reason).toBe("query_error");
+    expect(result.error).toBe("something unexpected");
+  });
+
+  it("does not set a reason on an available:true result", () => {
+    const result = collectQueueEfficiency(() => CLEAN_PRS, NO_CCUSAGE, TEST_NOW);
+    expect(result.available).toBe(true);
+    expect(result.reason).toBeUndefined();
   });
 });
 
