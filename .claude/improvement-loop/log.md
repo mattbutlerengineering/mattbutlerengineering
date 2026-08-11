@@ -547,3 +547,13 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** composite 0.938 (baseline n/a) — healthy
 **Difficulty distribution:** size:m:6, size:s:12, size:xs:13, size:l:1
 **Issues filed:** 0
+
+## 2026-08-11 (learning-loop)
+
+**Sensors:** 10/16 available (domainActivity, agentCost, lighthouse, issueFeedback, mutationScore, flakyTests unavailable)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114, CI 90%, queueEfficiency composite 0.959)
+**Sentry triage:** skipped (SENTRY_ACCESS_TOKEN unset; MCP connection also flapped mid-run)
+**Verifications:** 5 checked, 3 verified (#4070, #4064, #4063 — CI pass rate 90%), 1 failed → reopened #4061 (Lighthouse inventory unavailable, needs a real site audit), 1 skipped (#4079, no verifier for `meta-improvement` label)
+**Skill proposals:** 0 (Tuesday — Friday-only)
+**Threshold notes:** fix-effectiveness 60% (3/5, >50% healthy); auto-tuner applied ci-fix 1→1.03 (headroom). `collect-ai-issue-feedback.mjs` and the `issueFeedback` sensor both failed GitHub REST auth (401/403) — this is the known, already-closed #3937 gap (Claude Code Remote session `GITHUB_TOKEN`/`GH_TOKEN` scoped for git-over-HTTPS only, not direct REST/Search API), not a new regression; same failure occurred yesterday too. Default issue-creation budget (3/category) used since feedback data is stale.
+**Note:** #4061's reopening is arguably a false failure of the verifier, not the fix — this cloud environment has no egress to production (#2920) so it can never independently confirm a Lighthouse-dependent fix. Worth a future skill tweak to skip (not fail) Lighthouse-gated verifications when running in a no-egress environment, rather than reopening.
