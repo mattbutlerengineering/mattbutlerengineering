@@ -98,6 +98,65 @@ export const CI_GATE_CHECK_NAME = "CI Gate";
 const PARKED_CHECK_STATUSES = new Set(["WAITING"]);
 
 /**
+ * `StatusState` (GraphQL) values that mean a commit status has not settled
+ * yet. A StatusContext carries `state` and NOTHING else describing progress
+ * — no `status`, no `conclusion` — so these are the only two values that
+ * must read as "still pending". Everything else (SUCCESS/FAILURE/ERROR, or
+ * any value GitHub adds later) is settled, and only SUCCESS is green.
+ */
+const UNSETTLED_STATUS_STATES = new Set(["PENDING", "EXPECTED"]);
+
+/**
+ * Normalize a `statusCheckRollup` entry to a shape-agnostic outcome.
+ *
+ * The rollup mixes two GraphQL types with DISJOINT completion vocabularies:
+ *
+ *   CheckRun       `.name`    + `.status` (CheckStatusState)
+ *                             + `.conclusion` (CheckConclusionState)
+ *   StatusContext  `.context` + `.state`  (StatusState)  ← no status/conclusion
+ *
+ * #3987 taught the finder to match a StatusContext by `.context`, but the
+ * completion logic still spoke only CheckRun. A real commit status therefore
+ * hit `gate.status !== "COMPLETED"` (undefined !== "COMPLETED") and reported
+ * `pending` — forever, since a settled commit status never grows a `status`
+ * field. That silently defeated #4025, whose entire purpose was to publish
+ * `CI Gate` as a commit status so it would count toward branch protection on
+ * automation PRs the `pull_request` event never fires for. Measured live on
+ * PR #4076: head SHA carried `CI Gate` commit status `SUCCESS`, the rollup
+ * showed it, and the classifier said `pending` — so Phase 2's "keep polling,
+ * do not enqueue" rule stalled the PR indefinitely with nothing red.
+ *
+ * Fails toward `failed`, never toward `green`: an unrecognized state is
+ * settled-but-not-success, so a value this code has never seen can never
+ * green-light a merge.
+ *
+ * @param {{__typename?: string, status?: string, state?: string, conclusion?: string|null}} gate
+ * @returns {{ settled: boolean, success: boolean, detail: string }}
+ */
+function describeGateOutcome(gate) {
+  const isStatusContext =
+    gate.__typename === "StatusContext" ||
+    (gate.status === undefined && typeof gate.state === "string");
+
+  if (isStatusContext) {
+    const state = typeof gate.state === "string" ? gate.state.toUpperCase() : undefined;
+    if (state === undefined || UNSETTLED_STATUS_STATES.has(state)) {
+      return { settled: false, success: false, detail: state ?? "pending" };
+    }
+    return { settled: true, success: state === "SUCCESS", detail: state };
+  }
+
+  if (gate.status !== "COMPLETED") {
+    return { settled: false, success: false, detail: gate.status ?? "pending" };
+  }
+  return {
+    settled: true,
+    success: gate.conclusion === "SUCCESS",
+    detail: gate.conclusion ?? "unknown",
+  };
+}
+
+/**
  * Resolve the winning check-run among possibly-duplicate same-named entries
  * (a PR can accumulate one `CI Gate` check-run per `workflow_dispatch`).
  * Most recent by `completed_at` (falling back to `started_at`) wins,
@@ -192,20 +251,25 @@ export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns) {
     };
   }
 
-  if (gate.status !== "COMPLETED") {
+  // Shape-agnostic: `gate` may be a CheckRun or a StatusContext, and the two
+  // describe completion with entirely different fields (see
+  // `describeGateOutcome`).
+  const outcome = describeGateOutcome(gate);
+
+  if (!outcome.settled) {
     return {
       state: "pending",
-      reason: `CI Gate is still ${gate.status ?? "pending"}`,
+      reason: `CI Gate is still ${outcome.detail}`,
     };
   }
 
-  if (gate.conclusion === "SUCCESS") {
+  if (outcome.success) {
     return { state: "green", reason: "CI Gate succeeded" };
   }
 
   return {
     state: "failed",
-    reason: `CI Gate concluded ${gate.conclusion ?? "unknown"}`,
+    reason: `CI Gate concluded ${outcome.detail}`,
   };
 }
 
