@@ -104,7 +104,7 @@ describe("findProductionThrowSecretNames — structural secret-name resolution",
   });
 
   it("throws loudly on unparseable input instead of silently returning an empty set", () => {
-    const malformed = "function f( { const x = ;";
+    const malformed = ")))";
     expect(() => findProductionThrowSecretNames(malformed, "probe.ts")).toThrow();
   });
 });
