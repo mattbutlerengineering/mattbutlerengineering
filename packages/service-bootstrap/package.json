@@ -27,7 +27,7 @@
     "@mbe/observability": "workspace:*",
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
-    "@scalar/fastify-api-reference": "^1.64.0",
+    "@scalar/fastify-api-reference": "^1.64.1",
     "fastify": "catalog:",
     "fastify-plugin": "^6.0.0"
   },
