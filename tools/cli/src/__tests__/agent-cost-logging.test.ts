@@ -63,14 +63,12 @@ vi.mock("@mbe/agent-core", () => ({
   },
 }));
 
-// Mock node:child_process (needed by fetchIssueForRouting inside agent.ts).
-vi.mock("node:child_process", () => {
-  const PROMISIFY_CUSTOM = Symbol.for("nodejs.util.promisify.custom");
-  const execFile = Object.assign(vi.fn(), {
-    [PROMISIFY_CUSTOM]: () => Promise.resolve({ stdout: "{}", stderr: "" }),
-  });
-  return { execFile };
-});
+// Mock @mbe/gh-client (needed by fetchIssueForRouting inside check-model.ts).
+vi.mock("@mbe/gh-client", () => ({
+  createGhClient: vi.fn(() => ({
+    issue: { view: () => ({}) },
+  })),
+}));
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
