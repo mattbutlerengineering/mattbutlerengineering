@@ -8,3 +8,4 @@
 {"date":"2026-08-08","sensor":"queueEfficiency","available":false}
 {"date":"2026-08-09","sensor":"queueEfficiency","available":false}
 {"date":"2026-08-10","sensor":"queueEfficiency","available":false}
+{"date":"2026-08-11","sensor":"queueEfficiency","available":true,"composite":0.947,"sub_metrics":{"issues_merged":30,"first_pass_success_rate":0.867,"median_time_to_merge_hours":0.3,"median_rework_cycles":0,"cost_per_issue_usd":0,"review_coverage":0.933},"regression_count":0}

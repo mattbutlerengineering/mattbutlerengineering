@@ -26,6 +26,21 @@ export type SyncHttp = (req: SyncHttpRequest) => SyncHttpResponse;
  * synchronously on that subprocess, the same way it already blocks on `gh`.
  * The request travels via stdin (not argv), so there is no argv-length limit
  * and no shell-escaping surface.
+ *
+ * `--no-warnings` + `NODE_USE_ENV_PROXY=1` (#4044): Node's global `fetch`
+ * does NOT honor `HTTP_PROXY`/`HTTPS_PROXY` by default — it opens a direct
+ * connection regardless of those env vars. In a Claude Code Remote/scheduled
+ * session, outbound HTTPS is routed through a pre-configured agent proxy;
+ * a direct connection reaches GitHub with a credential that's valid for
+ * git-over-HTTPS but rejected by the raw REST API (401 `GhAuthError`, #3937),
+ * while the *same* credential, routed through the configured proxy, is
+ * accepted. `NODE_USE_ENV_PROXY=1` turns on Node's built-in (still
+ * experimental — hence `--no-warnings` to keep stdout/stderr clean of the
+ * `EnvHttpProxyAgent` notice) support for those env vars. Verified end to
+ * end: this exact bridge, unchanged otherwise, went from a hard 401 to a
+ * real 200 with actual PR data once this was added. Outside a proxied
+ * session (plain local dev, CI) `HTTP_PROXY`/`HTTPS_PROXY` are unset, so
+ * this is a no-op — behavior is unchanged there.
  */
 const FETCH_BRIDGE_SCRIPT = `
 const chunks = [];
@@ -43,12 +58,37 @@ process.stdin.on("end", async () => {
 });
 `;
 
-export const defaultSyncHttp: SyncHttp = (req) => {
-  const out = execFileSync(process.execPath, ["-e", FETCH_BRIDGE_SCRIPT], {
-    input: JSON.stringify(req),
-    encoding: "utf-8",
-    timeout: 15_000,
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  return JSON.parse(out) as SyncHttpResponse;
-};
+/** Signature-compatible with execFileSync, for injection in tests. */
+export type SyncExecFn = (
+  cmd: string,
+  args: string[],
+  opts: {
+    input: string;
+    encoding: "utf-8";
+    timeout: number;
+    maxBuffer: number;
+    env: NodeJS.ProcessEnv;
+  }
+) => string;
+
+export interface SyncHttpOptions {
+  /** Injected exec function — defaults to node's execFileSync. Production callers should never pass one (mirrors exec-runner.ts's `runner` option). */
+  exec?: SyncExecFn;
+}
+
+export function createSyncHttp(opts: SyncHttpOptions = {}): SyncHttp {
+  const exec = opts.exec ?? (execFileSync as SyncExecFn);
+
+  return (req) => {
+    const out = exec(process.execPath, ["--no-warnings", "-e", FETCH_BRIDGE_SCRIPT], {
+      input: JSON.stringify(req),
+      encoding: "utf-8",
+      timeout: 15_000,
+      maxBuffer: 20 * 1024 * 1024,
+      env: { ...process.env, NODE_USE_ENV_PROXY: "1" },
+    });
+    return JSON.parse(out) as SyncHttpResponse;
+  };
+}
+
+export const defaultSyncHttp: SyncHttp = createSyncHttp();
