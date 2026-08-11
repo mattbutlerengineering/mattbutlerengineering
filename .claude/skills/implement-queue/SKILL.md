@@ -204,13 +204,13 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
    `exit 1` means: do **not** trust `isLowRiskPR`/`reviewersForDiff` for this PR at all. Skip the fast path unconditionally (fall through to step 3) and treat step 4's specialist gate as if every specialist reviewer applies — dispatch the full reviewer set rather than trusting an empty/narrow `reviewersForDiff` result. A dist that fails to prove itself fresh must never be read as "low risk" or "no specialists match".
 
-   Only when `needs-review` is absent, the freshness check exited 0, AND `isLowRiskPR(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
+   Only when `needs-review` is absent, the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
 
    ```bash
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
-   `isLowRiskPR` requires **every** changed file to match `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts` — that predicate is the single source of truth for the allowlisted categories; this doc intentionally does not enumerate the globs so the two cannot drift apart (see #3887). `reviewersForDiff` is `isLowRiskPR`'s sibling. Move to the next PR.
+   `qualifiesForLowRiskFastPath` requires **both** `isLowRiskPR(files)` **and** `reviewersForDiff(files).length === 0` — the specialist gate wins. `isLowRiskPR` and `reviewersForDiff` are independent functions over the same file list and can both fire on the same diff: a pure dependency bump (every file matches `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts`) can simultaneously match `dependency-update-reviewer` via `reviewersForDiff` (`packages/agent-core/src/pr-risk-classifier.ts`) — PR #4058 is exactly this shape. Calling `isLowRiskPR` alone would enqueue that PR with zero review, silently dropping the specialist its own sibling function selected (#4063). A low-risk-but-specialist-matched PR falls through to step 4 (specialists) even though step 3's universal reviewer is still skipped. This doc intentionally does not enumerate the underlying globs so the doc and the code cannot drift apart (see #3887, #3916) — `qualifiesForLowRiskFastPath` is the single composed predicate; reference it here rather than restating the two-part boolean. Move to the next PR.
 
 3. **Reviewer sub-agent (non-low-risk PRs).** Build `ReviewInput` from the PR diff and dispatch:
 
