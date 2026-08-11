@@ -109,6 +109,29 @@ describe("buildQueueEfficiencyProcessEntry", () => {
     });
   });
 
+  it("propagates the sensor's reason code instead of discarding it (#4044)", () => {
+    // Before #4044, this field was silently dropped — every unavailable row
+    // in metrics/process-metrics.jsonl looked identical no matter why the
+    // sensor failed to run, hiding a 3-week-long credential-scope failure.
+    const entry = buildQueueEfficiencyProcessEntry("2026-06-27", {
+      available: false,
+      reason: "credential_rejected",
+      error:
+        "GitHub auth failed (401) — REST fallback credential is not valid for direct API calls",
+    });
+    expect(entry).toMatchObject({
+      date: "2026-06-27",
+      sensor: "queueEfficiency",
+      available: false,
+      reason: "credential_rejected",
+    });
+  });
+
+  it("falls back to reason 'unknown' when the sensor result carries no reason", () => {
+    const entry = buildQueueEfficiencyProcessEntry("2026-06-27", { available: false });
+    expect(entry.reason).toBe("unknown");
+  });
+
   it("regression_count is 0 for healthy result", () => {
     const entry = buildQueueEfficiencyProcessEntry("2026-06-27", HEALTHY_RESULT);
     expect(entry.regression_count).toBe(0);
@@ -151,6 +174,15 @@ describe("buildOptimizeLogEntry", () => {
     const entry = buildOptimizeLogEntry("2026-06-27", { available: false }, 0);
     expect(entry).toMatch(/^## 2026-06-27/);
     expect(entry).toContain("unavailable");
+  });
+
+  it("includes the sensor's reason code when unavailable (#4044)", () => {
+    const entry = buildOptimizeLogEntry(
+      "2026-06-27",
+      { available: false, reason: "credential_rejected" },
+      0
+    );
+    expect(entry).toContain("credential_rejected");
   });
 });
 

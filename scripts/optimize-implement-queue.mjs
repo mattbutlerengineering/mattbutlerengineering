@@ -45,13 +45,23 @@ function xlFraction(distribution) {
  * Build a process-metrics JSONL entry from a queueEfficiency sensor result.
  * This entry is appended to the process-metrics store.
  *
+ * When the sensor is unavailable, the row carries the collector's `reason`
+ * code (see `classifyUnavailableReason` in `collect-queue-efficiency.mjs`)
+ * rather than a bare `available: false` — a bare boolean is what let this
+ * routine run for three weeks without a single usable number (#4044).
+ *
  * @param {string} date - ISO date (YYYY-MM-DD)
- * @param {{ available: boolean, composite?: number, sub_metrics?: object, regressions?: Array }} sensorResult
+ * @param {{ available: boolean, reason?: string, composite?: number, sub_metrics?: object, regressions?: Array }} sensorResult
  * @returns {object}
  */
 export function buildQueueEfficiencyProcessEntry(date, sensorResult) {
   if (!sensorResult?.available) {
-    return { date, sensor: "queueEfficiency", available: false };
+    return {
+      date,
+      sensor: "queueEfficiency",
+      available: false,
+      reason: sensorResult?.reason ?? "unknown",
+    };
   }
 
   return {
@@ -68,7 +78,7 @@ export function buildQueueEfficiencyProcessEntry(date, sensorResult) {
  * Build a dated markdown log entry for .claude/improvement-loop/log.md.
  *
  * @param {string} date - ISO date (YYYY-MM-DD)
- * @param {{ available: boolean, composite?: number, regressions?: Array, distribution?: object, baseline?: object }} sensorResult
+ * @param {{ available: boolean, reason?: string, composite?: number, regressions?: Array, distribution?: object, baseline?: object }} sensorResult
  * @param {number} issueCount - number of issues filed this run
  * @returns {string}
  */
@@ -77,7 +87,11 @@ export function buildOptimizeLogEntry(date, sensorResult, issueCount) {
   lines.push("");
 
   if (!sensorResult?.available) {
-    lines.push("**queueEfficiency:** unavailable");
+    // Carries the collector's reason code (#4044) — "unavailable" alone read
+    // identically whether GitHub rejected the credential, the endpoint was
+    // unreachable, or there was genuinely no PR activity this week.
+    const reason = sensorResult?.reason ?? "unknown";
+    lines.push(`**queueEfficiency:** unavailable (${reason})`);
     lines.push(`**Issues filed:** 0`);
     lines.push("");
     return lines.join("\n");
