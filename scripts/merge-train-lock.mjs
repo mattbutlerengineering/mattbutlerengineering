@@ -56,10 +56,20 @@ const DEFAULT_STALE_MS = 45 * 60 * 1000; // 45 minutes
 
 // Top-level workspace roots that define a "zone". A changed file under one of
 // these (e.g. apps/hospitality/...) belongs to the `<root>/<name>` zone.
+// Consumed elsewhere (dep-graph-discovery.mjs, regen-manifest.mjs) for real
+// pnpm-workspace classification — never add a non-pnpm-workspace root here.
 const WORKSPACE_ROOTS = ["apps", "packages", "services"];
 
+// Additional top-level trees that are large/active enough (CI + automation
+// workflows) to deserve their own `<root>/<name>` zone, same shape as
+// WORKSPACE_ROOTS, but kept as a SEPARATE constant: unlike WORKSPACE_ROOTS
+// this is consumed only by zoneForPath below, never by the pnpm-workspace
+// classifiers above. `.claude` is deliberately excluded — `.claude/skills/**`
+// is genuinely cross-cutting (see issue-zone.mjs's `skills` → null test).
+const EXTRA_ZONE_ROOTS = [".github"];
+
 // Zone used for any changed file that is NOT under a workspace root
-// (top-level config, docs/**, scripts/**, infrastructure/**, etc.).
+// (top-level config, docs/**, scripts/**, infrastructure/**, .claude/**, etc.).
 const ROOT_ZONE = "root";
 
 // ---------------------------------------------------------------------------
@@ -75,8 +85,9 @@ const ROOT_ZONE = "root";
  */
 function zoneForPath(filePath) {
   const segments = filePath.split("/");
-  if (segments.length >= 2 && WORKSPACE_ROOTS.includes(segments[0])) {
-    return `${segments[0]}/${segments[1]}`;
+  const root = segments[0];
+  if (segments.length >= 2 && (WORKSPACE_ROOTS.includes(root) || EXTRA_ZONE_ROOTS.includes(root))) {
+    return `${root}/${segments[1]}`;
   }
   return ROOT_ZONE;
 }
