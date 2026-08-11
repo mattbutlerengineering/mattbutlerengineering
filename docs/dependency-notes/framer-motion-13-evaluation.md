@@ -77,7 +77,7 @@ Evidence: 3 real changes total in the 12.43.0→13.1.0 diff, one inapplicable to
 **Land this PR first, then re-run/rebase #4058.** Once this PR merges:
 
 - The catalog `framer-motion: "^13.1.0"` entry, `apps/rialto-web/package.json`'s `catalog:` reference, and `packages/rialto`'s widened peer range will already be on `main`.
-- #4058's framer-motion/motion-dom/motion-utils hunks become redundant (Dependabot will need to re-diff against the new `main`, likely dropping those 3 lines from its `pnpm-lock.yaml`/`pnpm-workspace.yaml` diff on next update, or the PR can be closed and re-opened by Dependabot on its next scheduled run).
+- #4058 will go **conflicted**, not silently redundant. It independently targets `framer-motion@^13.0.0` (not `^13.1.0`) and edits the same lines this PR does in `pnpm-workspace.yaml` and `apps/rialto-web/package.json`, so merging this first produces a real textual merge conflict on those two files plus the related `pnpm-lock.yaml` resolution blocks — GitHub will mark #4058 unmergeable in the interim. `.github/dependabot.yml` sets no explicit `rebase-strategy`, so the default `auto` applies and Dependabot re-syncs the PR against the new base rather than waiting for its Monday schedule. Expect it to self-resolve; do not read the intermediate conflicted state as a failure.
 - The other 31 updates in #4058 were never blocked by anything except this one — they can proceed as soon as the PR is rebased past this merge. No changes needed to those hunks.
 
 Do not strip framer-motion out of #4058 by hand — simplest path is this dedicated PR merges first (small, single-purpose, fully gated) and #4058 gets refreshed by Dependabot afterward.
