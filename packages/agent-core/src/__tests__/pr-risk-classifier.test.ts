@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isLowRiskPR } from "../pr-risk-classifier.js";
+import { isLowRiskPR, qualifiesForLowRiskFastPath } from "../pr-risk-classifier.js";
 
 // ── Test files ──────────────────────────────────────────────────────────────
 
@@ -262,5 +262,58 @@ describe("isLowRiskPR — edge cases", () => {
 
   it("returns true for deeply nested test file", () => {
     expect(isLowRiskPR(["services/users/src/__tests__/users.test.ts"])).toBe(true);
+  });
+});
+
+// ── qualifiesForLowRiskFastPath ─────────────────────────────────────────────
+// Motivated by #4063: isLowRiskPR and reviewersForDiff are independent
+// functions over the same file list and can both fire — the fast path must
+// require BOTH isLowRiskPR AND an empty reviewersForDiff result, or it
+// silently drops a diff-matched specialist (e.g. dependency-update-reviewer
+// on a pure package.json/pnpm-lock.yaml/pnpm-workspace.yaml bump).
+
+describe("qualifiesForLowRiskFastPath", () => {
+  // Exact 20 changed paths from PR #4058 (`gh pr diff 4058 --name-only`) — a
+  // production-deps bump that is isLowRiskPR === true (every file is a
+  // package.json/pnpm-lock.yaml/pnpm-workspace.yaml) but also matches
+  // dependency-update-reviewer via reviewersForDiff.
+  const pr4058Files = [
+    "apps/hospitality/package.json",
+    "apps/marketing/package.json",
+    "apps/rialto-web/package.json",
+    "infrastructure/pulumi/package.json",
+    "package.json",
+    "packages/agent-core/package.json",
+    "packages/agent-test-utils/package.json",
+    "packages/config/package.json",
+    "packages/jobs/package.json",
+    "packages/mcp-server/package.json",
+    "packages/rialto-catalog/package.json",
+    "packages/rialto-plugin/package.json",
+    "packages/rialto/package.json",
+    "packages/service-bootstrap/package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "services/agent/package.json",
+    "services/reservations/package.json",
+    "services/users/package.json",
+    "tools/cli/package.json",
+  ];
+
+  it("returns false for PR #4058's exact dependency-bump file list, even though isLowRiskPR is true", () => {
+    expect(isLowRiskPR(pr4058Files)).toBe(true);
+    expect(qualifiesForLowRiskFastPath(pr4058Files)).toBe(false);
+  });
+
+  it("returns true for a metrics-only diff", () => {
+    expect(qualifiesForLowRiskFastPath(["metrics/queue-telemetry.jsonl"])).toBe(true);
+  });
+
+  it("returns false for a high-risk source file", () => {
+    expect(qualifiesForLowRiskFastPath(["src/routes.ts"])).toBe(false);
+  });
+
+  it("returns false for an empty file list", () => {
+    expect(qualifiesForLowRiskFastPath([])).toBe(false);
   });
 });

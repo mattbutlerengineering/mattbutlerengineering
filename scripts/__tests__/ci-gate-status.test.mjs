@@ -139,21 +139,62 @@ describe("ci-gate-status", () => {
       expect(result.state).toBe("gate-missing");
     });
 
-    test("CI Gate present as a StatusContext (.context, not .name) and SUCCESS -> green", async () => {
+    // #4025 made ci.yml publish a commit *status* named "CI Gate" alongside
+    // the check run, because commit statuses (unlike check runs) surface in
+    // statusCheckRollup and in branch protection's required-check evaluation
+    // regardless of which event produced them. A commit status arrives as a
+    // GraphQL StatusContext, whose completion vocabulary is `state`
+    // (StatusState: EXPECTED | PENDING | SUCCESS | FAILURE | ERROR) — it has
+    // NO `status` and NO `conclusion`. The fixtures below are the shape
+    // measured live off PR #4076's head SHA, not a hand-built hybrid.
+    test("CI Gate as a real StatusContext (state, no status/conclusion) and SUCCESS -> green", async () => {
       const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
 
       const rollup = [
         {
           __typename: "StatusContext",
           context: "CI Gate",
-          status: "COMPLETED",
-          conclusion: "SUCCESS",
+          state: "SUCCESS",
+          startedAt: "2026-08-11T02:14:37Z",
+          targetUrl: "https://github.com/o/r/actions/runs/31451056532",
         },
       ];
 
       const result = classifyCiGateStatus(rollup);
 
       expect(result.state).toBe("green");
+    });
+
+    test.each([
+      ["FAILURE", "failed"],
+      ["ERROR", "failed"],
+    ])("CI Gate StatusContext state=%s -> %s", async (state, expected) => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+
+      const rollup = [{ __typename: "StatusContext", context: "CI Gate", state }];
+
+      expect(classifyCiGateStatus(rollup).state).toBe(expected);
+    });
+
+    test.each([["PENDING"], ["EXPECTED"]])(
+      "CI Gate StatusContext state=%s -> pending (never green)",
+      async (state) => {
+        const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+
+        const rollup = [{ __typename: "StatusContext", context: "CI Gate", state }];
+
+        expect(classifyCiGateStatus(rollup).state).toBe("pending");
+      }
+    );
+
+    // Guards the direction that matters: a commit status must never be read
+    // as green unless it genuinely succeeded.
+    test("unknown StatusContext state -> failed, never green", async () => {
+      const { classifyCiGateStatus } = await import("../ci-gate-status.mjs");
+
+      const rollup = [{ __typename: "StatusContext", context: "CI Gate", state: "WEIRD" }];
+
+      expect(classifyCiGateStatus(rollup).state).toBe("failed");
     });
 
     test("empty rollup (no checks at all) -> gate-missing, not green", async () => {

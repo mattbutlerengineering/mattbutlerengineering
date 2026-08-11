@@ -109,6 +109,19 @@ jobs:
         if: steps.create-pr.outputs.pull-request-number
         run: gh workflow run ci.yml --ref automation/acmm-regression
 
+      - name: Dispatch tier-classifier on the automation branch
+        # tier-classifier.yml only triggers on `pull_request`, and this PR's
+        # commits are GITHUB_TOKEN/AUTOMATION_PAT-authored -- the same
+        # anti-recursion gap ci.yml has (#3684) -- so it never reliably lands
+        # a tier:* label on its own, and the Enable auto-merge step below
+        # fails closed without one (#4070). tier-classifier.yml now accepts
+        # the same workflow_dispatch escape hatch ci.yml already does.
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: gh workflow run tier-classifier.yml --ref automation/acmm-regression -f pr="$PR_NUMBER"
+
       - name: Approve pending automation workflow runs
         # #3684/#3982: the dispatch step above produces a workflow_dispatch
         # CI run, but that is a DIFFERENT run than the PR's own required
@@ -128,6 +141,18 @@ jobs:
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
         run: node scripts/approve-automation-runs.mjs approve --pr "$PR_NUMBER"
+
+      - name: Wait for tier-classifier label
+        # workflow_dispatch above is fire-and-forget -- the call returns once
+        # GitHub accepts it, not once the dispatched run (and its tier:*
+        # label write) finishes. Without waiting, Enable auto-merge below
+        # would read labels before the label lands and fail closed every
+        # time, defeating the dispatch (#4070).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: node scripts/wait-for-tier-label.mjs --pr "$PR_NUMBER"
 
       - name: Enable auto-merge
         # auto-merge.yml (the workflow that would normally do this) never
