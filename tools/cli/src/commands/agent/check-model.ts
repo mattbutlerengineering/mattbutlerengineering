@@ -1,13 +1,11 @@
 import { Command } from "commander";
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type { TelemetryRow } from "@mbe/agent-core";
 import { routeModelWithReason, estimateIssueTokens } from "@mbe/agent-core";
+import { createGhClient } from "@mbe/gh-client";
+import type { GhClient } from "@mbe/gh-client";
 import { resolveIssueModel } from "../../resolve-issue-model.js";
-
-const execFileAsync = promisify(execFile);
 
 /** Absolute path to the per-issue queue telemetry log (JSONL). */
 const QUEUE_TELEMETRY_PATH = join(
@@ -52,16 +50,14 @@ interface FetchedIssue {
   labels: string[];
 }
 
-/** Fetch an issue's routing-relevant fields via the gh CLI. */
-async function fetchIssueForRouting(issueNumber: string): Promise<FetchedIssue> {
-  const { stdout } = await execFileAsync("gh", [
-    "issue",
-    "view",
-    issueNumber,
-    "--json",
-    "title,body,labels",
-  ]);
-  const raw = JSON.parse(stdout) as {
+/**
+ * Fetch an issue's routing-relevant fields via `@mbe/gh-client` — the same
+ * exec→REST fallback `issue.ts`'s `transitionIssue` already uses (#3689),
+ * instead of shelling to `gh` directly and hitting a raw `spawn gh ENOENT`
+ * in `gh`-less sessions.
+ */
+export function fetchIssueForRouting(issueNumber: string, client: GhClient): FetchedIssue {
+  const raw = client.issue.view(Number(issueNumber), ["--json", "title,body,labels"]) as {
     title: string;
     body: string | null;
     labels: { name: string }[];
@@ -80,7 +76,7 @@ export const checkModelCommand = new Command("check-model")
     "--issue <number>",
     "Resolve the model for a GitHub issue (fetched via gh), honoring its agent frontmatter; prints the model ID to stdout"
   )
-  .action(async (directive: string | undefined, options: { issue?: string }) => {
+  .action((directive: string | undefined, options: { issue?: string }) => {
     // Issue mode: machine-readable. Tier on stdout, context on stderr, so the
     // implement-queue skill can capture stdout directly into Agent(model:).
     // The Agent/Task tool's `model` parameter is a tier-only enum
@@ -89,7 +85,7 @@ export const checkModelCommand = new Command("check-model")
     if (options.issue) {
       let issue: FetchedIssue;
       try {
-        issue = await fetchIssueForRouting(options.issue);
+        issue = fetchIssueForRouting(options.issue, createGhClient());
       } catch (err) {
         console.error(
           `check-model: cannot fetch issue #${options.issue}: ${(err as Error).message}`

@@ -50,16 +50,14 @@ vi.mock("@mbe/agent-core", () => ({
 // Controllable stdout for the `gh issue view` call inside fetchIssueForRouting.
 const ghState = vi.hoisted(() => ({ stdout: "" }));
 
-// Mock node:child_process so check-model --issue does not actually shell out.
-// promisify(execFile) honours the custom-promisify symbol, so we supply one
-// that resolves to the { stdout, stderr } shape the command destructures.
-vi.mock("node:child_process", () => {
-  const PROMISIFY_CUSTOM = Symbol.for("nodejs.util.promisify.custom");
-  const execFile = Object.assign(vi.fn(), {
-    [PROMISIFY_CUSTOM]: () => Promise.resolve({ stdout: ghState.stdout, stderr: "" }),
-  });
-  return { execFile };
-});
+// Mock @mbe/gh-client so check-model --issue does not actually shell out to
+// (or REST-fetch from) GitHub — fetchIssueForRouting reads issue.view()'s
+// return value, same shape `gh issue view --json title,body,labels` prints.
+vi.mock("@mbe/gh-client", () => ({
+  createGhClient: vi.fn(() => ({
+    issue: { view: () => JSON.parse(ghState.stdout) },
+  })),
+}));
 
 describe("agent command", () => {
   const originalFetch = globalThis.fetch;
