@@ -9,8 +9,9 @@
  *
  * `TableShape` renders to a Konva `<canvas>`, not the DOM — there is no
  * element to assert a CSS color against. This spec samples the actual
- * rendered pixel at the table's center via `canvas.getContext("2d")
- * .getImageData()` instead, and compares it before/after the transition.
+ * rendered pixel near the table's center (offset off the white label text —
+ * see `SAMPLE_POINT` below) via `canvas.getContext("2d").getImageData()`
+ * instead, and compares it before/after the transition.
  *
  * Architecture limitation (same as `realtime-collaboration.spec.ts`):
  * `page.route()`'s `route.fulfill()` is a one-shot response, so the SSE
@@ -37,8 +38,18 @@ const CANVAS_WIDTH = 800;
 
 // tbl_e2e_001's shapeMetadata position (e2e/fixtures/tables-list.json /
 // floor-plans-list.json) — TableShape centers the shape's Konva Group on
-// this point regardless of shape/size, so it's a stable sample point.
+// this point regardless of shape/size.
 const TABLE_CENTER = { x: 100, y: 100 };
+
+// Sample point deliberately offset from TABLE_CENTER, not the center itself.
+// TableShape.tsx draws the table-number and capacity <Text> labels in solid
+// white, both horizontally centered on the group's origin (widths 40 and 30,
+// so ±20/±15px from center) — sampling dead center reads the anti-aliased
+// label glyph, not the fill, which is exactly why the original version of
+// this spec always got back opaque white ([255,255,255,255]) regardless of
+// status. +24px clears both label boxes while staying well inside the
+// square's 60×60 fill (half-width 30, minus stroke/corner-radius margin).
+const SAMPLE_POINT = { x: TABLE_CENTER.x + 24, y: TABLE_CENTER.y };
 
 const SSE_TIMEOUT_MS = 5_000; // matches realtime-collaboration.spec.ts's headroom
 
@@ -54,7 +65,7 @@ async function mockTableStatuses(page: Page, status: "available" | "seated"): Pr
   );
 }
 
-/** Reads the rendered pixel at TABLE_CENTER from the Konva scene canvas.
+/** Reads the rendered pixel at SAMPLE_POINT from the Konva scene canvas.
  * Skips Konva's off-screen hit-graph canvas (kept `display: none` unless a
  * drag interaction appends it) by picking the first visible <canvas>. */
 async function sampleTableColor(page: Page): Promise<Rgba> {
@@ -74,7 +85,7 @@ async function sampleTableColor(page: Page): Promise<Rgba> {
       const { data } = ctx.getImageData(px, py, 1, 1);
       return [data[0], data[1], data[2], data[3]] as [number, number, number, number];
     },
-    { x: TABLE_CENTER.x, y: TABLE_CENTER.y, canvasWidth: CANVAS_WIDTH }
+    { x: SAMPLE_POINT.x, y: SAMPLE_POINT.y, canvasWidth: CANVAS_WIDTH }
   );
 }
 
