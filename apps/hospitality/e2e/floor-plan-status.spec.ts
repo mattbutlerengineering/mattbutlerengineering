@@ -90,6 +90,16 @@ async function sampleTableColor(page: Page): Promise<Rgba> {
 }
 
 test.describe("Floor plan: live table status colors (#3803)", () => {
+  // Drain in-flight route handlers before teardown — the SSE-stream mock's
+  // handler calls page.evaluate in-page, and a request landing on it as the
+  // test ends throws "page.evaluate: Test ended." and fails the test (run
+  // 29116315283). Same remedy as fixtures.ts's mockedPage and
+  // realtime-collaboration.spec.ts; this spec navigates twice (goto +
+  // reload), doubling exposure to the race.
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
   test("table shape re-colors when a table-status:changed event fires", async ({ page }) => {
     await mockApi(page);
     await mockTableStatuses(page, "available");
