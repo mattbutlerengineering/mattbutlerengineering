@@ -79,9 +79,7 @@ describe("findRequiredProductionSecrets", () => {
       join(tmpDir, "foo-token.ts"),
       `
       // FOO_TOKEN_SECRET is required in production for signing.
-      if (isProduction) {
-        throw new Error("FOO_TOKEN_SECRET is required in production. Set this env var.");
-      }
+      throw new Error("FOO_TOKEN_SECRET is required in production. Set this env var.");
       `
     );
 
