@@ -110,9 +110,15 @@ describe("findProductionThrowSecretNames — structural secret-name resolution",
 });
 
 // #4085: `isProductionGuardExpr` didn't descend into `&&` operands, so the
-// idiomatic one-line collapse of the nested guard shape — the exact shape
-// both real call sites (manage-token.ts, unsubscribe-token.ts) use — was
-// silently dropped (fail-open: an unprovisioned secret produced no finding).
+// idiomatic collapsed form of the nested guard shape used at
+// `manage-token.ts` / `unsubscribe-token.ts` was silently dropped
+// (fail-open: an unprovisioned secret produced no finding). Correction
+// (#4107): both real call sites actually use the nested-if form
+// (`if (isProduction) { if (!secret) throw }`), not this compound `&&` form
+// directly — grepping the repo for `isProduction &&` / `=== "production" &&`
+// returns zero hits outside this test file. The compound shape is exercised
+// here as hardening for an equivalent guard structure, not because it's
+// observed anywhere in the wild.
 describe("findProductionThrowSecretNames — compound && guard (#4085)", () => {
   it("compound_AND — resolves the secret from `if (isProduction && !secret) throw`", () => {
     const source = `
@@ -185,5 +191,52 @@ describe("findProductionThrowSecretNames — compound || guard is NOT recognized
       }
     `;
     expect(findProductionThrowSecretNames(source, "probe.ts")).toEqual(new Set());
+  });
+});
+
+// #4107: `resolveStructuralSecretNames()` walks ancestor `if` conditions
+// back to a `process.env.<NAME>` read — but both real config files this
+// detector scans (`manage-token.ts`, `unsubscribe-token.ts`) never reference
+// `process.env` directly. They receive `secret`/`nodeEnv` via a parameter
+// object (dependency injection); the actual `process.env.<NAME>` read lives
+// in the caller, outside the scanned file. Structural resolution therefore
+// finds nothing for this shape, and detection depends entirely on the
+// secret name surviving in the thrown message text — a documented,
+// deliberate limitation (see the module + `resolveMessageTokenNames`
+// docstrings), pinned here so it fails loudly instead of silently if
+// resolution behavior ever changes.
+describe("findProductionThrowSecretNames — DI-pattern config shape (#4107, known limitation)", () => {
+  const diShapeSource = (throwMessage) => `
+    interface FooTokenConfigInput {
+      nodeEnv: string | undefined;
+      secret: string | undefined;
+    }
+    export function getFooTokenConfig(input: FooTokenConfigInput) {
+      const isProduction = input.nodeEnv === "production";
+      const secret = input.secret ?? "";
+      if (isProduction) {
+        if (!secret) {
+          throw new Error(${JSON.stringify(throwMessage)});
+        }
+      }
+      return { secret };
+    }
+  `;
+
+  it("resolves the name only because it survives in the message — matches manage-token.ts / unsubscribe-token.ts shape", () => {
+    const source = diShapeSource(
+      "FOO_TOKEN_SECRET is required in production. Set this environment variable."
+    );
+    expect(findProductionThrowSecretNames(source, "foo-token.ts")).toEqual(
+      new Set(["FOO_TOKEN_SECRET"])
+    );
+  });
+
+  it("returns empty when the message drops the name — the DI boundary is not bridged (documented miss, #4107)", () => {
+    // Same guard shape as above, reworded to drop the secret name from the
+    // message while keeping the identical structure — the concrete failing
+    // input from #4107.
+    const source = diShapeSource("Missing required secret in production. Check config.");
+    expect(findProductionThrowSecretNames(source, "foo-token.ts")).toEqual(new Set());
   });
 });
