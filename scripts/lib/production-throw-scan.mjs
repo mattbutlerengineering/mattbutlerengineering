@@ -89,6 +89,30 @@ function isProductionGuardExpr(node) {
           : undefined;
       return !!literal && literal.text !== "production";
     }
+    if (operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+      // `A && B` is a production guard when EITHER operand (recursively)
+      // is one: && requires BOTH operands true for the whole expression to
+      // be true, so the whole expression being true PROVES the
+      // production-check operand was true too — i.e. we ARE in
+      // production. This is what collapses the idiomatic one-line
+      // `if (isProduction && !secret) throw` (and its operand-reversed /
+      // nested-in-parens variants — #4085) into the same "production
+      // guard" classification as the equivalent nested-if form.
+      return isProductionGuardExpr(left) || isProductionGuardExpr(right);
+    }
+    if (operatorToken.kind === ts.SyntaxKind.BarBarToken) {
+      // Deliberately NOT symmetric with `&&` (#4085). `A || B` being true
+      // proves nothing about either individual operand — the whole
+      // expression can be true purely via the unrelated operand, with the
+      // production-check operand false. Recognizing `isProduction || flag`
+      // as a production guard would classify a throw that can fire for
+      // reasons that have nothing to do with production as
+      // "production-reachable" on structurally unsound grounds. Fail
+      // conservatively: an `||` operand alone never establishes
+      // production-reachability, even if a throw genuinely gated only by
+      // `isProduction || flag` is then missed as a result.
+      return false;
+    }
   }
   return false;
 }
