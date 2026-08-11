@@ -66,6 +66,17 @@ jobs:
             --format=esm \
             --outfile=infrastructure/worker/dist/edge-router.js
 
+      # The runner image ships a preinstalled Pulumi and the steps below call it
+      # straight off PATH. On 2026-08-11 the ubuntu24 image went 20260720.247 ->
+      # 20260810.271, taking Pulumi 3.253.0 -> 3.256.0, whose S3 blob layer sends
+      # upload checksums Cloudflare R2 rejects (InvalidDigest on the lock-file
+      # PutObject) — production infra deploys broke for hours with zero repo
+      # changes. Pin so the runner image cannot pick the version that deploys prod.
+      - name: Pin Pulumi CLI
+        run: |
+          curl -fsSL https://get.pulumi.com | sh -s -- --version 3.253.0
+          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
       - name: Pulumi Cancel + Clear Pending Operations
         run: |
           cd infrastructure/pulumi
@@ -93,6 +104,7 @@ jobs:
       - name: Pulumi Refresh (Sync state with cloud)
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
+          pulumi-version: 3.253.0
           command: refresh
           stack-name: prod
           work-dir: infrastructure/pulumi
@@ -111,6 +123,7 @@ jobs:
       - name: Pulumi Up
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
+          pulumi-version: 3.253.0
           command: up
           stack-name: prod
           work-dir: infrastructure/pulumi
