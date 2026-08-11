@@ -21,8 +21,8 @@
  * transition event — the "before" and "after" states are two connections
  * to the same table, not one continuous session.
  *
- * The GET `/api/v1/venues/:id/table-statuses` resync snapshot (fetched on
- * every `connected` transition — see `useTableStatuses`) is re-mocked
+ * The GET table-statuses resync snapshot (see `mockTableStatuses` below,
+ * fetched on every `connected` transition — see `useTableStatuses`) is re-mocked
  * alongside the SSE event for each state so the snapshot and the live
  * delta always agree; leaving them out of sync would race exactly the
  * class of bug #3948 documents.
