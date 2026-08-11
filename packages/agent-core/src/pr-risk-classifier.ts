@@ -121,3 +121,16 @@ export function reviewersForDiff(files: readonly string[]): string[] {
  * explicit allowlist (see #3916).
  */
 export const DIFF_REVIEWER_NAMES: readonly string[] = DIFF_REVIEWERS.map((r) => r.name);
+
+/**
+ * Returns `true` only when a PR qualifies for implement-queue's low-risk
+ * fast path (skip review, enqueue immediately). `isLowRiskPR` and
+ * `reviewersForDiff` are independent functions over the same file list and
+ * can both fire on the same diff — e.g. a pure dependency bump (every file
+ * matches `isLowRiskFile`) that also matches `dependency-update-reviewer`.
+ * The fast path must never enqueue a PR whose own specialist gate matched a
+ * reviewer; the specialist wins. See #4063.
+ */
+export function qualifiesForLowRiskFastPath(files: readonly string[]): boolean {
+  return isLowRiskPR(files) && reviewersForDiff(files).length === 0;
+}
