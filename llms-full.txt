@@ -4936,6 +4936,11 @@
       const ref = useRef<HTMLDivElement>(null);
       const inView = useInView(ref, { margin: margin as `${number}px`, once });
       const hasRevealedRef = useRef(false);
+      const [fallbackElapsed, setFallbackElapsed] = useState(false);
+    
+      // Derived during render from the three reveal routes — never mirrored back
+      // into state from an effect, which would re-render into the same effect.
+      const revealed = Boolean(shouldReduceMotion) || inView || fallbackElapsed;
     
       useEffect(() => {
         if (shouldReduceMotion) {
@@ -4950,9 +4955,12 @@
       }, [inView, controls, shouldReduceMotion]);
     
       // Timeout fallback: ensure content becomes visible for crawlers and
-      // environments where IntersectionObserver may not trigger.
+      // environments where IntersectionObserver may not trigger. The state write
+      // happens on a timer, and this effect does not depend on `fallbackElapsed`,
+      // so it cannot re-run itself.
       useEffect(() => {
         const timer = setTimeout(() => {
+          setFallbackElapsed(true);
           if (!hasRevealedRef.current) {
             hasRevealedRef.current = true;
             controls.start("visible");
@@ -4962,7 +4970,7 @@
         return () => clearTimeout(timer);
       }, [controls, fallbackTimeout]);
     
-      return { ref, controls };
+      return { ref, controls, revealed };
     }
   </file>
   <file path="packages/rialto/src/hooks/useThemeState.ts">

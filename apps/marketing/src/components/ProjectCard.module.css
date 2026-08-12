@@ -1,8 +1,44 @@
+/* Owns the lift, because the Card itself cannot: Rialto's `tilt` makes Framer
+   write an inline `transform` on the Card element, and an inline style beats
+   any stylesheet rule. The shadows below stay on the Card — `box-shadow` is
+   untouched by that inline transform. */
+.tactile {
+  transition: transform var(--rialto-duration-slow) var(--rialto-ease-precision);
+}
+
+.tactile:hover,
+.tactile:has(:focus-visible) {
+  transform: translateY(-3px);
+}
+
+.tactile:active {
+  transform: translateY(-1px);
+}
+
 .card {
   padding: var(--rialto-space-lg);
   min-height: 280px;
   display: flex;
   flex-direction: column;
+}
+
+/* Keyboard focus earns the same raise as the pointer; a press recesses it. */
+.tactile:has(:focus-visible) .card {
+  box-shadow: var(--rialto-shadow-luminous);
+}
+
+.tactile:active .card {
+  box-shadow: var(--rialto-shadow-pressed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tactile,
+  .tactile:hover,
+  .tactile:has(:focus-visible),
+  .tactile:active {
+    transition: none;
+    transform: none;
+  }
 }
 
 .title {
@@ -40,8 +76,8 @@
   line-height: 1;
   cursor: pointer;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background var(--rialto-duration-standard) var(--rialto-ease-precision),
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .buttonLink:hover {
