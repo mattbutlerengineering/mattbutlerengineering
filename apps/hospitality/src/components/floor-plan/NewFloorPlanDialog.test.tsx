@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
+import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { NewFloorPlanDialog } from "./NewFloorPlanDialog.js";
 
 vi.mock("./NewFloorPlanDialog.module.css", () => ({
@@ -140,5 +141,61 @@ describe("NewFloorPlanDialog", () => {
     await userEvent.type(screen.getByLabelText(/Name/), "   ");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     expect(screen.getByText("Floor plan name is required.")).toBeDefined();
+  });
+
+  describe("accessibility (focus trap + return focus)", () => {
+    it("traps Tab focus within the dialog", () => {
+      const { container } = render(<NewFloorPlanDialog {...defaultProps} />);
+      const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+
+      last.focus();
+      fireEvent.keyDown(document.activeElement!, { key: "Tab" });
+      expect(document.activeElement).toBe(first);
+
+      fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true });
+      expect(document.activeElement).toBe(last);
+    });
+
+    it("returns focus to the trigger element when closed via Cancel", () => {
+      const trigger = document.createElement("button");
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      render(<NewFloorPlanDialog {...defaultProps} />);
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(document.activeElement).toBe(trigger);
+      document.body.removeChild(trigger);
+    });
+
+    it("returns focus to the trigger element on Escape", () => {
+      const trigger = document.createElement("button");
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { container } = render(<NewFloorPlanDialog {...defaultProps} />);
+      const overlay = container.firstChild as HTMLElement;
+      fireEvent.keyDown(overlay, { key: "Escape" });
+
+      expect(defaultProps.onClose).toHaveBeenCalled();
+      expect(document.activeElement).toBe(trigger);
+      document.body.removeChild(trigger);
+    });
+
+    it("returns focus when closed via backdrop click", () => {
+      const trigger = document.createElement("button");
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { container } = render(<NewFloorPlanDialog {...defaultProps} />);
+      const overlay = container.firstChild as HTMLElement;
+      fireEvent.click(overlay);
+
+      expect(defaultProps.onClose).toHaveBeenCalled();
+      expect(document.activeElement).toBe(trigger);
+      document.body.removeChild(trigger);
+    });
   });
 });

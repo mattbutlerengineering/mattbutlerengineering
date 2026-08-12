@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CreateReservationRequest, Table } from "@mbe/types";
 import styles from "./NewReservationDialog.module.css";
 
@@ -56,6 +57,21 @@ export function NewReservationDialog({
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+  }, []);
+
+  const handleClose = useCallback(() => {
+    previouslyFocusedRef.current?.focus();
+    onClose();
+  }, [onClose]);
+
+  useFocusTrap(panelRef, true);
+  useEscapeKey(handleClose, true);
 
   const {
     register,
@@ -129,14 +145,22 @@ export function NewReservationDialog({
   const validationError =
     errors.guestName?.message ?? errors.date?.message ?? errors.startTime?.message ?? error;
 
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) handleClose();
+  };
+
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="new-reservation-dialog-title"
-    >
-      <div className={styles.dialog}>
+    // Escape is handled globally via useEscapeKey; this backdrop click is a
+    // pointer-only affordance equivalent to the Cancel button already in the dialog.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+    <div className={styles.overlay} onClick={handleOverlayClick}>
+      <div
+        ref={panelRef}
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-reservation-dialog-title"
+      >
         <form noValidate onSubmit={handleSubmit(onFormSubmit)}>
           <Stack gap="lg">
             <div className={styles.header}>
@@ -227,7 +251,7 @@ export function NewReservationDialog({
             </Stack>
 
             <div className={styles.actions}>
-              <Button variant="secondary" type="button" onClick={onClose} disabled={isLoading}>
+              <Button variant="secondary" type="button" onClick={handleClose} disabled={isLoading}>
                 Cancel
               </Button>
               <Button
