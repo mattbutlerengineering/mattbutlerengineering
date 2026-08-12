@@ -562,20 +562,20 @@ None (`agent-skip` count is 0).
 
 ### Metrics (7d window, ~2026-08-05 → 2026-08-12)
 
-| Metric                                 | Value                                                                                                      | Status                  |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| Created (audit, 7d)                     | ~33                                                                                                            | -                        |
-| Closed (audit, 7d)                      | ~32                                                                                                            | -                        |
-| Closure Rate (audit)                    | ~97%                                                                                                           | 🟢 green (>80%)          |
-| Created/Closed (ci-fix, 7d)             | not fully paginated (54 total touched, 2 pages read); high churn, majority closed same-day                    | -                        |
-| CI Pass (main, last 30 completed runs)  | 24 success / 0 failure / 6 cancelled (superseded-by-rapid-push, not real failures) → 100% excluding cancels    | 🟢 green (>95%)          |
-| Queue (open `ready`)                    | 0                                                                                                              | 🟢 green (<5)            |
-| In-progress (open)                      | 0                                                                                                              | 🟢                       |
-| Has-pr (open, unmerged)                 | 1 (#4117 → PR #4118, Pulumi CLI pin, CI in progress at end of this iteration)                                  | 🟢                       |
-| Blocked (agent-failed, open)            | 0                                                                                                              | 🟢                       |
-| Skipped (agent-skip, open)              | 0                                                                                                              | 🟢                       |
-| Reverts (7d)                            | 0                                                                                                              | 🟢                       |
-| Daily/7d/Cost-per-issue Spend           | `.claude/agent-spend/sessions.jsonl` still empty (0 lines) — same gap as open issue #3695 (3rd+ occurrence)    | ⚪ N/A, already tracked  |
+| Metric                                 | Value                                                                                                       | Status                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Created (audit, 7d)                    | ~33                                                                                                         | -                       |
+| Closed (audit, 7d)                     | ~32                                                                                                         | -                       |
+| Closure Rate (audit)                   | ~97%                                                                                                        | 🟢 green (>80%)         |
+| Created/Closed (ci-fix, 7d)            | not fully paginated (54 total touched, 2 pages read); high churn, majority closed same-day                  | -                       |
+| CI Pass (main, last 30 completed runs) | 24 success / 0 failure / 6 cancelled (superseded-by-rapid-push, not real failures) → 100% excluding cancels | 🟢 green (>95%)         |
+| Queue (open `ready`)                   | 0                                                                                                           | 🟢 green (<5)           |
+| In-progress (open)                     | 0                                                                                                           | 🟢                      |
+| Has-pr (open, unmerged)                | 1 (#4117 → PR #4118, Pulumi CLI pin, CI in progress at end of this iteration)                               | 🟢                      |
+| Blocked (agent-failed, open)           | 0                                                                                                           | 🟢                      |
+| Skipped (agent-skip, open)             | 0                                                                                                           | 🟢                      |
+| Reverts (7d)                           | 0                                                                                                           | 🟢                      |
+| Daily/7d/Cost-per-issue Spend          | `.claude/agent-spend/sessions.jsonl` still empty (0 lines) — same gap as open issue #3695 (3rd+ occurrence) | ⚪ N/A, already tracked |
 
 ### This iteration (mbe-evening, one implement-queue pass)
 
