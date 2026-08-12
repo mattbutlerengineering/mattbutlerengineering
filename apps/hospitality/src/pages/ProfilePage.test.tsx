@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @eslint-react/no-array-index-key */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -394,6 +394,60 @@ describe("ProfilePage", () => {
       await user.click(screen.getByText("Edit Profile"));
       const revertedInput = screen.getByPlaceholderText("Your name") as HTMLInputElement;
       expect(revertedInput.value).toBe("Test User");
+    });
+  });
+
+  describe("unmount cleanup", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("clears the pending success-banner timer on unmount so it cannot fire afterward", async () => {
+      mockApiClient.users.update.mockResolvedValue({ ...mockUser, name: "Updated" });
+
+      const user = userEvent.setup();
+      const { unmount } = renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByText("Edit Profile")).toBeDefined();
+      });
+
+      await user.click(screen.getByText("Edit Profile"));
+
+      vi.useFakeTimers();
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+      fireEvent.click(screen.getByText("Save Changes"));
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId("alert-success")).toBeDefined();
+
+      // Identify the success-banner's own 3s timer (by its unique delay) so this
+      // assertion isn't confounded by unrelated timers (e.g. query cache GC).
+      const successTimeoutCallIndex = setTimeoutSpy.mock.calls.findIndex(
+        ([, delay]) => delay === 3000
+      );
+      expect(successTimeoutCallIndex).toBeGreaterThanOrEqual(0);
+      const successTimeoutId = setTimeoutSpy.mock.results[successTimeoutCallIndex]?.value;
+
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+
+      unmount();
+
+      // The success-banner timer must be cleared as part of unmount, not left
+      // pending to fire (and reach for `window`) after the component is gone.
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(successTimeoutId);
+
+      expect(() => {
+        act(() => {
+          vi.advanceTimersByTime(3001);
+        });
+      }).not.toThrow();
     });
   });
 

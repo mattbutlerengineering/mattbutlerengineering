@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage.js";
 import { useAuth } from "@mbe/auth/react";
 import type { AuthUser, JWTPayload } from "@mbe/auth";
@@ -514,6 +514,62 @@ describe("SettingsPage", () => {
       await waitFor(() => {
         expect(screen.getByText("Network error")).toBeDefined();
       });
+    });
+  });
+
+  describe("unmount cleanup", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("clears the pending success-message timer on unmount so it cannot fire afterward", async () => {
+      mockApiClient.users.updatePreferences.mockResolvedValue({
+        ...defaultUser,
+        preferences: { theme: "dark" },
+      });
+
+      const { unmount } = renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("select-Theme")).toBeDefined();
+      });
+
+      vi.useFakeTimers();
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+      fireEvent.change(screen.getByTestId("select-Theme"), {
+        target: { value: "dark" },
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText("Settings saved")).toBeDefined();
+
+      // Identify the success-message's own 3s timer (by its unique delay) so this
+      // assertion isn't confounded by unrelated timers (e.g. query cache GC).
+      const successTimeoutCallIndex = setTimeoutSpy.mock.calls.findIndex(
+        ([, delay]) => delay === 3000
+      );
+      expect(successTimeoutCallIndex).toBeGreaterThanOrEqual(0);
+      const successTimeoutId = setTimeoutSpy.mock.results[successTimeoutCallIndex]?.value;
+
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+
+      unmount();
+
+      // The success-message timer must be cleared as part of unmount, not left
+      // pending to fire (and reach for `window`) after the component is gone.
+      expect(clearTimeoutSpy).toHaveBeenCalledWith(successTimeoutId);
+
+      expect(() => {
+        act(() => {
+          vi.advanceTimersByTime(3001);
+        });
+      }).not.toThrow();
     });
   });
 
