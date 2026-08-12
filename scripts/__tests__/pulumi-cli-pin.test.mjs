@@ -47,6 +47,29 @@ describe("pulumi-up.yml Pulumi CLI pin", () => {
     }
   });
 
+  it("installs the pin before anything that shells out to pulumi", () => {
+    // Presence of the pin is not sufficient: `GITHUB_PATH` only affects steps
+    // *after* the one that writes it. A `Pin Pulumi CLI` step sitting below the
+    // Cancel step would satisfy every other assertion here while the Cancel step
+    // still resolved the runner image's floating pulumi off PATH — silently
+    // reproducing the outage this guard exists to prevent.
+    const lines = WORKFLOW.split("\n");
+    const stepIndex = (name) => {
+      const i = lines.findIndex((l) => l.trim() === `- name: ${name}`);
+      if (i === -1) throw new Error(`pulumi-up.yml has no step named ${name}`);
+      return i;
+    };
+
+    const pinIndex = stepIndex("Pin Pulumi CLI");
+    for (const consumer of [
+      "Pulumi Cancel + Clear Pending Operations",
+      "Pulumi Refresh (Sync state with cloud)",
+      "Pulumi Up",
+    ]) {
+      expect(pinIndex).toBeLessThan(stepIndex(consumer));
+    }
+  });
+
   it("leaves no Pulumi invocation resolving to a floating version", () => {
     expect(WORKFLOW).not.toMatch(/pulumi-version:\s*["']?\^?3["']?\s*$/);
     expect(WORKFLOW).not.toMatch(/pulumi-version:\s*["']?latest["']?\s*$/);
