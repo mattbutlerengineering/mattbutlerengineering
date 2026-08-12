@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -102,6 +102,15 @@ export function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const successMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successMessageTimeoutRef.current !== null) {
+        clearTimeout(successMessageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Venue defaults (localStorage-backed)
   const [defaultDuration, setDefaultDuration] = useState(() =>
@@ -123,7 +132,13 @@ export function SettingsPage() {
 
         await updatePreferencesMutation.mutateAsync({ [key]: value });
         setSuccessMessage("Settings saved");
-        setTimeout(() => setSuccessMessage(null), 3000);
+        if (successMessageTimeoutRef.current !== null) {
+          clearTimeout(successMessageTimeoutRef.current);
+        }
+        successMessageTimeoutRef.current = setTimeout(() => {
+          successMessageTimeoutRef.current = null;
+          setSuccessMessage(null);
+        }, 3000);
       } catch (err) {
         if (err instanceof ApiClientError) {
           const detail = err.problemDetails.detail;

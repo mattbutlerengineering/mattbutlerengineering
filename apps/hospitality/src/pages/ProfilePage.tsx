@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@mbe/auth/react";
 import {
@@ -61,10 +61,19 @@ export function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const saveSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { handleSubmit, watch, reset, setValue } = useForm<ProfileFormData>({
     defaultValues: { name: "", picture: "" },
   });
+
+  useEffect(() => {
+    return () => {
+      if (saveSuccessTimeoutRef.current !== null) {
+        clearTimeout(saveSuccessTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const watchedName = watch("name");
   const watchedPicture = watch("picture");
@@ -85,7 +94,13 @@ export function ProfilePage() {
       });
       setIsEditing(false);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      if (saveSuccessTimeoutRef.current !== null) {
+        clearTimeout(saveSuccessTimeoutRef.current);
+      }
+      saveSuccessTimeoutRef.current = setTimeout(() => {
+        saveSuccessTimeoutRef.current = null;
+        setSaveSuccess(false);
+      }, 3000);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
