@@ -10,3 +10,4 @@
 {"date":"2026-08-10","sensor":"queueEfficiency","available":false}
 {"date":"2026-08-11","sensor":"queueEfficiency","available":true,"composite":0.947,"sub_metrics":{"issues_merged":30,"first_pass_success_rate":0.867,"median_time_to_merge_hours":0.3,"median_rework_cycles":0,"cost_per_issue_usd":0,"review_coverage":0.933},"regression_count":0}
 {"date":"2026-08-11","sensor":"queueEfficiency","available":true,"composite":0.938,"sub_metrics":{"issues_merged":32,"first_pass_success_rate":0.844,"median_time_to_merge_hours":0.4,"median_rework_cycles":0,"cost_per_issue_usd":0,"review_coverage":0.941},"regression_count":0}
+{"date":"2026-08-12","sensor":"queueEfficiency","available":true,"composite":0.952,"sub_metrics":{"issues_merged":33,"first_pass_success_rate":0.879,"median_time_to_merge_hours":0.3,"median_rework_cycles":0,"cost_per_issue_usd":0,"review_coverage":0.813},"regression_count":0}
