@@ -25,6 +25,20 @@ vi.mock("../components/factory/FactorySection.js", () => ({
 vi.mock("../components/Navbar.js", () => ({
   Navbar: () => <nav data-testid="navbar" />,
 }));
+// Entrance choreography is out of scope here — this file pins section order.
+// `HomePage.motion.test.tsx` renders the real primitives to check the reveals.
+vi.mock("framer-motion", () => ({
+  motion: new Proxy(
+    {},
+    {
+      get: () => {
+        const MotionComponent = ({ children }: MockProps) => <div>{children}</div>;
+        return MotionComponent;
+      },
+    }
+  ),
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Footer: ({ children }: MockProps) => <footer>{children}</footer>,
   Heading: ({ children }: MockProps) => <h2>{children}</h2>,
@@ -32,6 +46,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children }: MockProps) => <button>{children}</button>,
   Card: ({ children }: MockProps) => <div>{children}</div>,
   Stack: ({ children }: MockProps) => <div>{children}</div>,
+  useScrollReveal: () => ({ ref: vi.fn(), controls: { start: vi.fn(), set: vi.fn() } }),
+  staggerReveal: { container: {}, item: {} },
 }));
 
 function renderHomePage() {
