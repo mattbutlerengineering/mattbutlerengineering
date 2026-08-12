@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
+import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
 import styles from "./CancelReservationDialog.module.css";
 
@@ -31,6 +32,21 @@ export function CancelReservationDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+  }, []);
+
+  const handleClose = useCallback(() => {
+    previouslyFocusedRef.current?.focus();
+    onClose();
+  }, [onClose]);
+
+  useFocusTrap(panelRef, true);
+  useEscapeKey(handleClose, true);
+
   const displayName = guestName ?? "Guest";
 
   const handleConfirm = async () => {
@@ -44,14 +60,22 @@ export function CancelReservationDialog({
     }
   };
 
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) handleClose();
+  };
+
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="cancel-dialog-title"
-    >
-      <div className={styles.dialog}>
+    // Escape is handled globally via useEscapeKey; this backdrop click is a
+    // pointer-only affordance equivalent to the Keep Reservation button already in the dialog.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+    <div className={styles.overlay} onClick={handleOverlayClick}>
+      <div
+        ref={panelRef}
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cancel-dialog-title"
+      >
         <Stack gap="lg">
           <div className={styles.header}>
             <Text variant="display" id="cancel-dialog-title">
@@ -93,7 +117,7 @@ export function CancelReservationDialog({
           </Stack>
 
           <div className={styles.actions}>
-            <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+            <Button variant="secondary" onClick={handleClose} disabled={isLoading}>
               Keep Reservation
             </Button>
             <Button

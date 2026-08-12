@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Heading, Input, Text } from "@mattbutlerengineering/rialto";
+import { useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CreateTableRequest } from "@mbe/types";
 import { SHAPE_DEFAULTS, CANVAS_CENTER } from "./floor-plan-geometry.js";
 import styles from "./AddTableDialog.module.css";
@@ -25,6 +26,20 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+  }, []);
+
+  const handleClose = useCallback(() => {
+    previouslyFocusedRef.current?.focus();
+    onClose();
+  }, [onClose]);
+
+  useFocusTrap(panelRef, true);
+
   const {
     register,
     handleSubmit,
@@ -35,13 +50,13 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      handleClose();
     }
   };
 
   const handleOverlayKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Escape") {
-      onClose();
+      handleClose();
     }
   };
 
@@ -80,10 +95,10 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
-      <div className={styles.dialog} role="dialog" aria-modal="true">
+      <div ref={panelRef} className={styles.dialog} role="dialog" aria-modal="true">
         <div className={styles.dialogHeader}>
           <Heading className={styles.dialogTitle}>Add Table</Heading>
-          <Button className={styles.closeButton} onClick={onClose} aria-label="Close dialog">
+          <Button className={styles.closeButton} onClick={handleClose} aria-label="Close dialog">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -177,7 +192,7 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
             <Button
               type="button"
               className={styles.cancelButton}
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
             >
               Cancel

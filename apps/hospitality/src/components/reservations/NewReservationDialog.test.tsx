@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { NewReservationDialog } from "./NewReservationDialog.js";
 import type { Table } from "@mbe/types";
 
@@ -229,5 +230,60 @@ describe("NewReservationDialog", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
 
     resolvePromise!(undefined);
+  });
+
+  describe("accessibility (focus trap + return focus)", () => {
+    it("traps Tab focus within the dialog", () => {
+      const { container } = render(<NewReservationDialog {...defaultProps} />);
+      const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+
+      last.focus();
+      fireEvent.keyDown(document.activeElement!, { key: "Tab" });
+      expect(document.activeElement).toBe(first);
+
+      fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true });
+      expect(document.activeElement).toBe(last);
+    });
+
+    it("returns focus to the trigger element when closed via Cancel", () => {
+      const trigger = document.createElement("button");
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      render(<NewReservationDialog {...defaultProps} />);
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(document.activeElement).toBe(trigger);
+      document.body.removeChild(trigger);
+    });
+
+    it("closes and returns focus on Escape key", () => {
+      const trigger = document.createElement("button");
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      render(<NewReservationDialog {...defaultProps} />);
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(defaultProps.onClose).toHaveBeenCalledOnce();
+      expect(document.activeElement).toBe(trigger);
+      document.body.removeChild(trigger);
+    });
+
+    it("returns focus when closed via backdrop click", () => {
+      const trigger = document.createElement("button");
+      document.body.appendChild(trigger);
+      trigger.focus();
+
+      const { container } = render(<NewReservationDialog {...defaultProps} />);
+      const overlay = container.firstChild as HTMLElement;
+      fireEvent.click(overlay);
+
+      expect(defaultProps.onClose).toHaveBeenCalledOnce();
+      expect(document.activeElement).toBe(trigger);
+      document.body.removeChild(trigger);
+    });
   });
 });
