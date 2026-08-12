@@ -1,4 +1,13 @@
-import { forwardRef, useState, useRef, useCallback, useId, type ReactNode } from "react";
+import {
+  forwardRef,
+  useState,
+  useRef,
+  useCallback,
+  useId,
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+} from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { precision } from "../../tokens/motion";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -59,17 +68,26 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
       right: "translateY(-50%)",
     };
 
+    // Inject aria-describedby onto the actual focusable trigger (matching
+    // DropdownMenu's cloneElement pattern) — screen readers only announce
+    // aria-describedby for the element that currently has DOM focus, and
+    // the wrapper div below never receives focus.
+    const trigger = isValidElement(children)
+      ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+          "aria-describedby": open ? tooltipId : undefined,
+        })
+      : children;
+
     return (
       <div
         ref={ref}
         className={cn(styles.wrapper, className)}
-        aria-describedby={open ? tooltipId : undefined}
         onMouseEnter={show}
         onMouseLeave={hide}
         onFocus={showOnFocus ? show : undefined}
         onBlur={showOnFocus ? hide : undefined}
       >
-        {children}
+        {trigger}
         <AnimatePresence>
           {open && (
             <motion.div
