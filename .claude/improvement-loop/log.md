@@ -557,3 +557,47 @@ None (`agent-skip` count is 0).
 **Skill proposals:** 0 (Tuesday — Friday-only)
 **Threshold notes:** fix-effectiveness 60% (3/5, >50% healthy); auto-tuner applied ci-fix 1→1.03 (headroom). `collect-ai-issue-feedback.mjs` and the `issueFeedback` sensor both failed GitHub REST auth (401/403) — this is the known, already-closed #3937 gap (Claude Code Remote session `GITHUB_TOKEN`/`GH_TOKEN` scoped for git-over-HTTPS only, not direct REST/Search API), not a new regression; same failure occurred yesterday too. Default issue-creation budget (3/category) used since feedback data is stale.
 **Note:** #4061's reopening is arguably a false failure of the verifier, not the fix — this cloud environment has no egress to production (#2920) so it can never independently confirm a Lighthouse-dependent fix. Worth a future skill tweak to skip (not fail) Lighthouse-gated verifications when running in a no-egress environment, rather than reopening.
+
+## 2026-08-12 (progress-tracker)
+
+### Metrics (7d window, ~2026-08-05 → 2026-08-12)
+
+| Metric                                 | Value                                                                                                      | Status                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| Created (audit, 7d)                     | ~33                                                                                                            | -                        |
+| Closed (audit, 7d)                      | ~32                                                                                                            | -                        |
+| Closure Rate (audit)                    | ~97%                                                                                                           | 🟢 green (>80%)          |
+| Created/Closed (ci-fix, 7d)             | not fully paginated (54 total touched, 2 pages read); high churn, majority closed same-day                    | -                        |
+| CI Pass (main, last 30 completed runs)  | 24 success / 0 failure / 6 cancelled (superseded-by-rapid-push, not real failures) → 100% excluding cancels    | 🟢 green (>95%)          |
+| Queue (open `ready`)                    | 0                                                                                                              | 🟢 green (<5)            |
+| In-progress (open)                      | 0                                                                                                              | 🟢                       |
+| Has-pr (open, unmerged)                 | 1 (#4117 → PR #4118, Pulumi CLI pin, CI in progress at end of this iteration)                                  | 🟢                       |
+| Blocked (agent-failed, open)            | 0                                                                                                              | 🟢                       |
+| Skipped (agent-skip, open)              | 0                                                                                                              | 🟢                       |
+| Reverts (7d)                            | 0                                                                                                              | 🟢                       |
+| Daily/7d/Cost-per-issue Spend           | `.claude/agent-spend/sessions.jsonl` still empty (0 lines) — same gap as open issue #3695 (3rd+ occurrence)    | ⚪ N/A, already tracked  |
+
+### This iteration (mbe-evening, one implement-queue pass)
+
+`ready` backlog was empty — nothing to claim or dispatch. The only open PR, #4118 (`fix(ci): pin Pulumi CLI so the runner image can't pick prod's deploy toolchain`, closes #4117), was mid-CI-run at the time of this check (latest commit `0283293a` added a test hardening the pin-ordering assertion after review feedback). Left it to repo automation (Auto-Merge Policy, tier-classifier already green on this branch) rather than polling further, since it predates this session and is fully covered by existing merge-train tooling. No workers dispatched, so no new `metrics/queue-telemetry.jsonl` rows to commit this iteration.
+
+### Patterns
+
+- Backlog emptying out to 0 `ready` issues (down from 6 the prior day) reflects a very active previous 24h of implement-queue iterations (see PR list: ~45 merged PRs since 2026-08-10T19:00Z) clearing the queue faster than new work is filed — not a stall.
+- CI health remains excellent (100% non-cancelled pass rate on main); the one real infra incident this week (#4117, Pulumi/R2 checksum break from an unpinned CLI on a runner-image bump) was root-caused and fixed same-day by an autonomous PR, now finishing its own CI run.
+- `agent-spend/sessions.jsonl` empty gap persists; already tracked by open issue #3695 — not re-filed.
+
+### Recommendations
+
+- No new meta-improvement issue filed — no fresh 3+ day recurring pattern found beyond what's already open (#3695 spend telemetry, #3855 revert-attribution).
+- Queue is empty; no `/loop` escalation needed. Next iteration should re-check whether new `ready` issues have been filed (feature/audit/ci-fix producers) before another implement-queue pass is worth running.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-12
+
+**queueEfficiency:** composite 0.952 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:14, size:xl:1, size:xs:11, size:m:4, size:l:3
+**Issues filed:** 0
