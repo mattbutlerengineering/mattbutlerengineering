@@ -156,31 +156,49 @@ describe("Tooltip", () => {
     expect(screen.getByRole("tooltip")).toContainElement(screen.getByText("Bold tooltip"));
   });
 
-  it("sets aria-describedby on wrapper when tooltip is open", () => {
+  it("sets aria-describedby on the trigger, not the wrapper, when tooltip is open", () => {
     vi.useFakeTimers();
     render(
       <Tooltip content="Describe me" delay={0}>
         <button>Hover me</button>
       </Tooltip>
     );
-    const wrapper = screen.getByRole("button").parentElement!;
-    expect(wrapper).not.toHaveAttribute("aria-describedby");
+    const trigger = screen.getByRole("button");
+    const wrapper = trigger.parentElement!;
+    expect(trigger).not.toHaveAttribute("aria-describedby");
     hoverIn(wrapper, 0);
     const tooltip = screen.getByRole("tooltip");
-    expect(wrapper).toHaveAttribute("aria-describedby", tooltip.id);
+    expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
+    expect(wrapper).not.toHaveAttribute("aria-describedby");
   });
 
-  it("clears aria-describedby when tooltip closes", () => {
+  it("clears aria-describedby on the trigger when tooltip closes", () => {
     vi.useFakeTimers();
     render(
       <Tooltip content="Describe me" delay={0}>
         <button>Hover me</button>
       </Tooltip>
     );
-    const wrapper = screen.getByRole("button").parentElement!;
+    const trigger = screen.getByRole("button");
+    const wrapper = trigger.parentElement!;
     hoverIn(wrapper, 0);
-    expect(wrapper).toHaveAttribute("aria-describedby");
+    expect(trigger).toHaveAttribute("aria-describedby");
     hoverOut(wrapper);
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("injects aria-describedby onto the actual trigger element via cloneElement", () => {
+    vi.useFakeTimers();
+    render(
+      <Tooltip content="Cloned trigger" delay={0}>
+        <button>trigger</button>
+      </Tooltip>
+    );
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    const wrapper = trigger.parentElement!;
+    hoverIn(wrapper, 0);
+    const tooltip = screen.getByRole("tooltip");
+    expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
     expect(wrapper).not.toHaveAttribute("aria-describedby");
   });
 
