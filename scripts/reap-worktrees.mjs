@@ -2,7 +2,8 @@
 
 /**
  * reap-worktrees.mjs — decision logic + CLI runner that reclaims leaked
- * implement-queue agent worktrees (#3950).
+ * implement-queue agent worktrees (#3950) AND hand-created worktrees
+ * (#4122) living in the same `.claude/worktrees/` directory.
  *
  * Claude Code `isolation: "worktree"` only auto-removes a worktree that is
  * *unchanged*. Every successful implement-queue worker commits, so its
@@ -10,11 +11,36 @@
  * in `/implement-queue` reclaimed it either. 132 worktrees accumulated in
  * six days (2026-08-01 → 2026-08-07), none with an open PR.
  *
- * This script enumerates `.claude/worktrees/agent-*` worktrees and applies
- * three non-negotiable safety rails before a worktree is ever eligible for
- * removal: no live owning process, no open PR on its branch, and no recent
- * filesystem activity. The decision logic (`decideWorktreeReap`/`planReap`)
- * is pure and unit-tested; only the CLI helpers below it shell out to
+ * #4122: the original agent-only filter left hand-created worktrees (a
+ * human running `git worktree add` directly, outside implement-queue)
+ * PERMANENTLY invisible to this script, regardless of age or merge state —
+ * observed live at `Considered: 3` of 15 (later 22) real worktrees. Fixing
+ * that is NOT simply widening the glob: `removeWorktree`'s throw-on-unsafe
+ * guard exists because a hand-created worktree may hold uncommitted human
+ * work that is not reconstructible from any PR, unlike an agent worktree.
+ * The decided policy (Matt, 2026-08-12): a hand-created worktree is only
+ * ever removable on POSITIVE merged-branch evidence — `gh pr list --head
+ * <branch> --state all` reporting a non-null `mergedAt` (`hasMergedPr`,
+ * see `hasMergedPrForBranch`) — never on git ancestry (see below) and never
+ * assumed when that evidence is simply absent. No evidence ⇒ retained,
+ * fail closed. `classifyWorktreeCategory` is the named-state mechanism that
+ * keeps this straight: "agent" (original rules, unchanged), "hand-created"
+ * (original rules PLUS the merge-evidence requirement), and "out-of-tree"
+ * (registered somewhere other than this repo's `.claude/worktrees/` — never
+ * examined at all, always refused unconditionally). Separately, a directory
+ * can exist on disk under `.claude/worktrees/` without being a REGISTERED
+ * git worktree at all (observed live: `agent-ac0d717e0bdebd347`, on branch
+ * `main`, absent from `git worktree list`) — `findUnregisteredOnDiskWorktrees`
+ * surfaces that case distinctly; `git worktree remove` is never attempted
+ * against it, only `git worktree prune` is suggested (never auto-run).
+ *
+ * This script enumerates every worktree registered under this repo's
+ * `.claude/worktrees/` ("agent" + "hand-created") and applies the shared
+ * safety rails before ANY of them is eligible for removal: no live owning
+ * process, no open PR on its branch, and no recent filesystem activity —
+ * "hand-created" additionally requires the merge evidence above. The
+ * decision logic (`decideWorktreeReap`/`planReap`/`buildReapReport`) is
+ * pure and unit-tested; only the CLI helpers below it shell out to
  * `git`/`gh`/`lsof`, always via `execFileSync` with argv arrays (never
  * string interpolation into a shell).
  *
@@ -28,8 +54,10 @@
  *   - Git ancestry ("merged into main"). PRs in this repo are squash-merged,
  *     so a worker branch's tip commit is never literally an ancestor of
  *     `main` even after a real merge (see `branch-cleanup.mjs`'s
- *     `hasMergedPr` for the same lesson applied to branch cleanup). "No
- *     open PR" is the correct, server-side signal instead.
+ *     `hasMergedPr` for the same lesson applied to branch cleanup). "Has a
+ *     merged PR reported by `gh`" is the correct, server-side signal
+ *     instead — used as a REFUSAL signal for "agent" (open PR) and as the
+ *     REQUIRED positive-eligibility signal for "hand-created" (merged PR).
  *
  * "Live owning process" definition: unlike `merge-train-lock.mjs`, no lock
  * file is ever written for a worktree (the harness doesn't create one), so
@@ -100,19 +128,78 @@ export function isAgentWorktreePath(worktreePath) {
 }
 
 /**
- * Pure: the entire safety gate for one worktree. Refuses ANY worktree with
- * a live owning process, an open PR, or recent filesystem activity —
- * checked in that order. `isRecentlyActive` (#3986) exists because `isLive`
- * and `hasOpenPr` can BOTH read false simultaneously while a worker is
- * unambiguously mid-implementation (see module header); it is the
- * independent third signal that catches that window.
+ * Pure (#4122): true when `worktreePath` IS a direct leaf directory under
+ * `.claude/worktrees/` — agent-prefixed OR hand-created, never a nested
+ * file, never the main checkout, never a worktree registered somewhere else
+ * entirely (a sibling checkout, a tmp dir). This is the widened predicate
+ * that makes hand-created worktrees visible to the reaper's inventory at
+ * all; `isAgentWorktreePath` (above) stays narrower and still gates what
+ * `removeWorktree` may touch without further evidence.
  *
- * @param {{path: string, branch: string|null, isLive: boolean, hasOpenPr: boolean, isRecentlyActive?: boolean}} worktree
+ * @param {string} worktreePath
+ * @returns {boolean}
+ */
+export function isInTreeWorktreePath(worktreePath) {
+  const resolved = path.resolve(worktreePath).split(path.sep).join("/");
+  const segments = resolved.split("/").filter(Boolean);
+  const idx = segments.lastIndexOf("worktrees");
+  if (idx < 1 || segments[idx - 1] !== ".claude") return false;
+  const leaf = segments[idx + 1];
+  return typeof leaf === "string" && idx + 2 === segments.length;
+}
+
+/**
+ * Pure (#4122): classifies a worktree path into the three non-overlapping
+ * categories the reaper reasons about:
+ *
+ *   - "agent": `.claude/worktrees/agent-*` — implement-queue-spawned,
+ *     reconstructible from its PR. Existing `decideWorktreeReap` rules
+ *     (no live process, no open PR, no recent activity) apply unchanged.
+ *   - "hand-created": `.claude/worktrees/<anything else>` — may hold
+ *     uncommitted human work. Only removable on POSITIVE merged-branch
+ *     evidence (a merged PR reported by `gh`), never on ancestry or
+ *     dirtiness (see module header). No evidence ⇒ retained, fail closed.
+ *   - "out-of-tree": registered somewhere other than this repo's
+ *     `.claude/worktrees/` (a sibling checkout, a tmp dir, etc.) — reported
+ *     for visibility only. Never examined (no isLive/hasOpenPr/hasMergedPr
+ *     lookups are performed for these) and never eligible for removal.
+ *
+ * @param {string} worktreePath
+ * @returns {"agent"|"hand-created"|"out-of-tree"}
+ */
+export function classifyWorktreeCategory(worktreePath) {
+  if (isAgentWorktreePath(worktreePath)) return "agent";
+  if (isInTreeWorktreePath(worktreePath)) return "hand-created";
+  return "out-of-tree";
+}
+
+/**
+ * Pure (#4122): the entire safety gate for one worktree, now category-aware
+ * via `classifyWorktreeCategory`. Refuses ANY worktree with a live owning
+ * process, an open PR, or recent filesystem activity — checked in that
+ * order, for BOTH the "agent" and "hand-created" categories.
+ * `isRecentlyActive` (#3986) exists because `isLive` and `hasOpenPr` can
+ * BOTH read false simultaneously while a worker is unambiguously
+ * mid-implementation (see module header); it is the independent third
+ * signal that catches that window.
+ *
+ * Beyond those three shared refusals:
+ *   - "agent" worktrees are eligible once they clear all three (unchanged).
+ *   - "hand-created" worktrees need ONE more thing: `hasMergedPr === true`
+ *     — positive, server-side evidence that the branch's PR merged. Missing
+ *     or `false` evidence retains the worktree (`no-merge-evidence`); this
+ *     never falls back to inferring "probably fine" from any other signal.
+ *   - "out-of-tree" worktrees are refused unconditionally, before any of
+ *     the above checks even run — they are never examined, by design, so a
+ *     never-examined worktree can never read as "eligible".
+ *
+ * @param {{path: string, branch: string|null, isLive: boolean, hasOpenPr: boolean, isRecentlyActive?: boolean, hasMergedPr?: boolean}} worktree
  * @returns {{eligible: boolean, reason: string}}
  */
 export function decideWorktreeReap(worktree) {
-  if (!isAgentWorktreePath(worktree.path)) {
-    return { eligible: false, reason: "not-agent-worktree" };
+  const category = classifyWorktreeCategory(worktree.path);
+  if (category === "out-of-tree") {
+    return { eligible: false, reason: "out-of-tree" };
   }
   if (worktree.isLive) {
     return { eligible: false, reason: "live-session" };
@@ -122,6 +209,11 @@ export function decideWorktreeReap(worktree) {
   }
   if (worktree.isRecentlyActive) {
     return { eligible: false, reason: "recent-activity" };
+  }
+  if (category === "hand-created") {
+    return worktree.hasMergedPr === true
+      ? { eligible: true, reason: "eligible-merged" }
+      : { eligible: false, reason: "no-merge-evidence" };
   }
   return { eligible: true, reason: "eligible" };
 }
@@ -171,6 +263,34 @@ export function parseWorktreeListPorcelain(raw) {
   return entries;
 }
 
+/**
+ * Pure (#4122): given the registered worktree paths (from `git worktree
+ * list`) and the leaf directory names actually present on disk under
+ * `.claude/worktrees/`, returns the leaf names that exist on disk but are
+ * NOT registered — a state distinct from "hand-created but unmerged": there
+ * is no branch or PR to reason about at all (observed live:
+ * `agent-ac0d717e0bdebd347`, on branch `main`, absent from `git worktree
+ * list`). `git worktree remove` is never the right tool here — only
+ * `git worktree prune` is — and this script never runs either automatically
+ * for this category; it only surfaces it in the summary.
+ *
+ * @param {string[]} registeredPaths - `worktree` paths from `git worktree list --porcelain`
+ * @param {string[]} onDiskLeafNames - leaf directory names under `.claude/worktrees`
+ * @param {string} worktreesRootAbsPath - absolute path to `.claude/worktrees`
+ * @returns {string[]}
+ */
+export function findUnregisteredOnDiskWorktrees(
+  registeredPaths,
+  onDiskLeafNames,
+  worktreesRootAbsPath
+) {
+  const registeredSet = new Set(
+    (registeredPaths ?? []).map((p) => path.resolve(p).split(path.sep).join("/"))
+  );
+  const root = path.resolve(worktreesRootAbsPath).split(path.sep).join("/");
+  return (onDiskLeafNames ?? []).filter((leaf) => !registeredSet.has(`${root}/${leaf}`));
+}
+
 // ---------------------------------------------------------------------------
 // Side-effecting helpers — every git/gh/lsof call takes an injectable
 // `exec` (defaults to `execFileSync`) so the logic above stays testable
@@ -212,6 +332,36 @@ export function hasOpenPrForBranch(branch, { exec = execFileSync } = {}) {
     return Array.isArray(prs) && prs.length > 0;
   } catch {
     return true;
+  }
+}
+
+/**
+ * Side effect (#4122): true only when GitHub reports at least one PR for
+ * `branch` with a non-null `mergedAt` — positive, server-side evidence,
+ * chosen specifically because this repo squash-merges (a branch tip is
+ * never literally an ancestor of `main`, so `git merge-base --is-ancestor`
+ * would false-negative every real merge; see `branch-cleanup.mjs`'s
+ * `hasMergedPr` for the same lesson applied to branch cleanup). Fails safe
+ * to `false` — no evidence, including on error or a missing/null branch
+ * name — because absence of proof of a merge is not proof of absence of
+ * one; the caller (`decideWorktreeReap`) treats `false` as "retain".
+ *
+ * @param {string|null} branch
+ * @param {{exec?: Function}} [opts]
+ * @returns {boolean}
+ */
+export function hasMergedPrForBranch(branch, { exec = execFileSync } = {}) {
+  if (!branch) return false;
+  try {
+    const raw = exec(
+      "gh",
+      ["pr", "list", "--head", branch, "--state", "all", "--json", "number,mergedAt"],
+      { encoding: "utf8" }
+    );
+    const prs = JSON.parse(raw);
+    return Array.isArray(prs) && prs.some((pr) => pr.mergedAt != null);
+  } catch {
+    return false;
   }
 }
 
@@ -313,47 +463,78 @@ export function hasRecentFileActivity(
 }
 
 /**
- * Side effect: builds the reap inventory — every agent worktree paired with
- * its live `isLive`/`hasOpenPr`/`isRecentlyActive` signals — ready to hand
- * to `planReap`.
+ * Side effect (#4122): builds the reap inventory over BOTH "agent" and
+ * "hand-created" in-tree worktrees (widened from the old agent-only
+ * filter), each paired with its `isLive`/`hasOpenPr`/`isRecentlyActive`
+ * signals plus its category, ready to hand to `planReap`. "out-of-tree"
+ * worktrees never enter this inventory at all — they are reported
+ * separately by the caller, never queried here.
+ *
+ * `hasMergedPr` is fetched (one `gh` call) ONLY for a "hand-created"
+ * worktree that has already cleared the live/open-pr/recent-activity
+ * refusals — those refusals decide the outcome regardless of merge
+ * evidence, so fetching it earlier would just be a wasted API call. It
+ * stays `undefined` for every "agent" worktree, which never looks at it.
  *
  * @param {{cwd?: string, exec?: Function}} [opts]
- * @returns {Array<{path:string, branch:string|null, isLive:boolean, hasOpenPr:boolean, isRecentlyActive:boolean}>}
+ * @returns {Array<{path:string, branch:string|null, category:string, isLive:boolean, hasOpenPr:boolean, isRecentlyActive:boolean, hasMergedPr?:boolean}>}
  */
 export function buildReapInventory({ cwd = process.cwd(), exec = execFileSync } = {}) {
   return listWorktrees({ cwd, exec })
-    .filter((w) => isAgentWorktreePath(w.path))
-    .map((w) => ({
-      path: w.path,
-      branch: w.branch,
-      isLive: isWorktreeLive(w.path, { exec }),
-      hasOpenPr: hasOpenPrForBranch(w.branch, { exec }),
-      isRecentlyActive: hasRecentFileActivity(w.path),
-    }));
+    .filter((w) => isInTreeWorktreePath(w.path))
+    .map((w) => {
+      const category = classifyWorktreeCategory(w.path);
+      const isLive = isWorktreeLive(w.path, { exec });
+      const hasOpenPr = hasOpenPrForBranch(w.branch, { exec });
+      const isRecentlyActive = hasRecentFileActivity(w.path);
+      const needsMergeEvidence =
+        category === "hand-created" && !isLive && !hasOpenPr && !isRecentlyActive;
+      const hasMergedPr = needsMergeEvidence ? hasMergedPrForBranch(w.branch, { exec }) : undefined;
+      return {
+        path: w.path,
+        branch: w.branch,
+        category,
+        isLive,
+        hasOpenPr,
+        isRecentlyActive,
+        hasMergedPr,
+      };
+    });
 }
 
 /**
  * Guard used independently of `decideWorktreeReap` — `removeWorktree` never
- * shells a destructive git call without re-validating the path itself,
- * even if a caller bypassed the plan.
+ * shells a destructive git call without re-validating the worktree itself,
+ * even if a caller bypassed the plan. #4122 widens this DELIBERATELY and
+ * NARROWLY: an "agent" path is still always safe (unchanged); a
+ * "hand-created" path is safe ONLY when the exact call carries
+ * `hasMergedPr === true` — never inferred from the path shape alone, and
+ * never satisfied by any other field on `worktree`. Every other category
+ * ("out-of-tree", or "hand-created" without that exact evidence) still
+ * throws, hard, with no override.
+ *
+ * @param {{path:string, hasMergedPr?: boolean}} worktree
  */
-function assertSafeWorktreePath(worktreePath) {
-  if (!isAgentWorktreePath(worktreePath)) {
-    throw new Error(`refusing to remove non-agent-worktree path: ${worktreePath}`);
-  }
+function assertSafeWorktreeRemoval(worktree) {
+  const category = classifyWorktreeCategory(worktree.path);
+  if (category === "agent") return;
+  if (category === "hand-created" && worktree.hasMergedPr === true) return;
+  throw new Error(
+    `refusing to remove non-agent-worktree path without positive merge evidence: ${worktree.path}`
+  );
 }
 
 /**
  * Side effect: removes a worktree (`git worktree remove --force`) and
  * deletes its local branch (`git branch -D`). Always force-removes: see the
  * module header for why dirtiness/ancestry are not blockers here. Re-checks
- * `isAgentWorktreePath` itself as a defense-in-depth guard.
+ * safety via `assertSafeWorktreeRemoval` as a defense-in-depth guard.
  *
- * @param {{path:string, branch:string|null}} worktree
+ * @param {{path:string, branch:string|null, hasMergedPr?: boolean}} worktree
  * @param {{cwd?: string, exec?: Function}} [opts]
  */
 export function removeWorktree(worktree, { cwd = process.cwd(), exec = execFileSync } = {}) {
-  assertSafeWorktreePath(worktree.path);
+  assertSafeWorktreeRemoval(worktree);
   exec("git", ["worktree", "remove", "--force", worktree.path], { cwd, stdio: "inherit" });
   if (worktree.branch) {
     try {
@@ -364,30 +545,92 @@ export function removeWorktree(worktree, { cwd = process.cwd(), exec = execFileS
   }
 }
 
-function formatSummary(plan, dryRun) {
+/**
+ * Pure (#4122): the anti-conflation report AC1 requires. `plan.considered`
+ * only ever reflects worktrees `decideWorktreeReap` actually examined
+ * (agent + hand-created, in-tree); this combines it with the two counts
+ * that are deliberately NEVER examined by this script at all — registered
+ * "out-of-tree" worktrees, and directories that exist on disk under
+ * `.claude/worktrees/` but never registered with git — so `examined: N`
+ * can never be misread as "everything on disk was looked at".
+ *
+ * @param {{considered:number, toReap:Array, retained:Array}} plan
+ * @param {{outOfTreeCount?:number, unregisteredOnDisk?:string[]}} [context]
+ * @returns {{examined:number, eligible:number, retained:number, outOfTree:number, unregisteredOnDisk:string[]}}
+ */
+export function buildReapReport(plan, { outOfTreeCount = 0, unregisteredOnDisk = [] } = {}) {
+  return {
+    examined: plan.considered,
+    eligible: plan.toReap.length,
+    retained: plan.retained.length,
+    outOfTree: outOfTreeCount,
+    unregisteredOnDisk: [...unregisteredOnDisk],
+  };
+}
+
+function formatSummary(plan, report, dryRun) {
   const lines = [
     "=== Worktree Reap ===",
     `Mode: ${dryRun ? "DRY RUN" : "LIVE"}`,
-    `Considered: ${plan.considered}`,
-    `Eligible for removal: ${plan.toReap.length}`,
-    "",
+    `Examined (agent + hand-created, in .claude/worktrees/): ${report.examined}`,
+    `  Eligible for removal: ${report.eligible}`,
+    `  Retained: ${report.retained}`,
+    `Out-of-tree (registered elsewhere — reported only, never examined): ${report.outOfTree}`,
+    `On-disk but unregistered (run \`git worktree prune\` — never auto-run): ${report.unregisteredOnDisk.length}`,
   ];
+  for (const leaf of report.unregisteredOnDisk) {
+    lines.push(`  - ${leaf}`);
+  }
+  lines.push("");
   for (const worktree of plan.toReap) {
     lines.push(
-      `${dryRun ? "[DRY RUN] Would remove" : "Removing"}: ${worktree.path} (${worktree.branch})`
+      `${dryRun ? "[DRY RUN] Would remove" : "Removing"}: ${worktree.path} (${worktree.branch}, ${worktree.category})`
     );
   }
   return lines.join("\n");
+}
+
+/**
+ * Side effect: leaf directory names present on disk directly under
+ * `<cwd>/.claude/worktrees/`. Returns an empty array if the directory
+ * doesn't exist at all — not every checkout has ever had a worktree.
+ */
+function listOnDiskWorktreeLeafNames(worktreesRootAbsPath) {
+  try {
+    return fs
+      .readdirSync(worktreesRootAbsPath, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  } catch {
+    return [];
+  }
 }
 
 async function main() {
   const dryRun = (process.env.DRY_RUN ?? "true") === "true";
   const cwd = process.cwd();
 
+  const allRegistered = listWorktrees({ cwd });
+  const outOfTreeCount = allRegistered.filter(
+    (w) => classifyWorktreeCategory(w.path) === "out-of-tree"
+  ).length;
+
+  const worktreesRoot = path.join(cwd, ".claude", "worktrees");
+  const onDiskLeafNames = listOnDiskWorktreeLeafNames(worktreesRoot);
+  const inTreeRegisteredPaths = allRegistered
+    .filter((w) => isInTreeWorktreePath(w.path))
+    .map((w) => w.path);
+  const unregisteredOnDisk = findUnregisteredOnDiskWorktrees(
+    inTreeRegisteredPaths,
+    onDiskLeafNames,
+    worktreesRoot
+  );
+
   const worktrees = buildReapInventory({ cwd });
   const plan = planReap(worktrees);
+  const report = buildReapReport(plan, { outOfTreeCount, unregisteredOnDisk });
 
-  console.log(formatSummary(plan, dryRun));
+  console.log(formatSummary(plan, report, dryRun));
 
   if (!dryRun) {
     for (const worktree of plan.toReap) {
@@ -402,7 +645,7 @@ async function main() {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
     const { appendFileSync } = await import("node:fs");
-    appendFileSync(summaryPath, `\n${formatSummary(plan, dryRun)}\n`);
+    appendFileSync(summaryPath, `\n${formatSummary(plan, report, dryRun)}\n`);
   }
 }
 

@@ -359,13 +359,13 @@ If CI fails on the updated branch: one fix attempt in the main session (small fi
 ## Phase 4: Loop or Stop
 
 - **Release every merge-train lock you acquired** (`releaseMergeTrainLock({ zone })` from `scripts/merge-train-lock.mjs`, once per zone you locked in Phase 3) before looping or stopping. (A crash leaves a lock for the 45-min staleness reclaim; releasing explicitly frees the next session immediately.)
-- **Reap merged workers' worktrees.** A successful worker's worktree is never auto-removed (Claude Code's `isolation: "worktree"` only reclaims an _unchanged_ worktree, and every successful worker commits) — #3950. After Phase 3 merges, run the reaper to reclaim any now-eligible `.claude/worktrees/agent-*` worktree:
+- **Reap merged workers' worktrees.** A successful worker's worktree is never auto-removed (Claude Code's `isolation: "worktree"` only reclaims an _unchanged_ worktree, and every successful worker commits) — #3950. After Phase 3 merges, run the reaper to reclaim any now-eligible `.claude/worktrees/*` worktree — both `agent-*` and hand-created:
 
   ```bash
   DRY_RUN=false node scripts/reap-worktrees.mjs
   ```
 
-  Its safety gate (`decideWorktreeReap` in `scripts/reap-worktrees.mjs`) refuses any worktree with an open PR or a live owning process — see the module header for the liveness definition. Dry-run by default; safe to run every iteration, a no-op when nothing is eligible.
+  Its safety gate (`decideWorktreeReap` in `scripts/reap-worktrees.mjs`) refuses any worktree with an open PR or a live owning process — see the module header for the liveness definition. A hand-created worktree additionally needs positive merged-PR evidence (`gh pr list --state merged`, never git ancestry — PRs squash-merge) before it's eligible; no evidence means it's retained, fail closed (#4122). Worktrees registered outside `.claude/worktrees/`, or present on disk but never registered with git, are reported in the summary but never touched. Dry-run by default; safe to run every iteration, a no-op when nothing is eligible.
 
 - More `ready` issues and time/budget remain → back to Phase 0.
 - **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
