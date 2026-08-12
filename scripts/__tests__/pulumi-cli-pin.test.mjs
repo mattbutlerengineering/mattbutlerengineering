@@ -26,7 +26,8 @@ describe("pulumi-up.yml Pulumi CLI pin", () => {
     // checksums Cloudflare R2 rejects (`InvalidDigest` on the lock-file PutObject).
     // Production infra deploys went down for hours with zero repo changes. Pinning is
     // what stops the runner image deciding which Pulumi deploys production.
-    expect(WORKFLOW).toMatch(new RegExp(`--version\\s+${PINNED_VERSION.replace(/\./g, "\\.")}`));
+    const installed = WORKFLOW.match(/--version\s+(\S+)/)?.[1];
+    expect(installed).toBe(PINNED_VERSION);
     expect(WORKFLOW).toMatch(/\$HOME\/\.pulumi\/bin"? >> "?\$GITHUB_PATH/);
   });
 
@@ -40,10 +41,15 @@ describe("pulumi-up.yml Pulumi CLI pin", () => {
     // default is `^3`, which resolves to latest and reintroduces the exact float
     // this pin exists to remove.
     expect(pins).toHaveLength(actionSteps.length);
+    // Compared by exact equality rather than an interpolated regex: building a
+    // pattern from a version string means hand-escaping it, which CodeQL flags
+    // (js/incomplete-sanitization) and which would silently mis-match anyway.
     for (const pin of pins) {
-      expect(pin).toMatch(
-        new RegExp(`pulumi-version:\\s*["']?${PINNED_VERSION.replace(/\./g, "\\.")}["']?\\s*$`)
-      );
+      const value = pin
+        .split("pulumi-version:")[1]
+        .trim()
+        .replace(/^["']|["']$/g, "");
+      expect(value).toBe(PINNED_VERSION);
     }
   });
 
