@@ -27,11 +27,65 @@ import {
   shouldCloseRevertPr,
   selectRevertPrsToClose,
   runCloseStaleRevertPrs,
+  extractAuditGhsaIds,
+  classifyCulpritFailure,
+  buildAuditCiFixTitle,
+  buildAuditCiFixBody,
+  extractAuditCiFixGhsaIds,
+  findPriorAuditCiFixIssue,
 } from "../revert-watchdog.mjs";
 
 const SHA = "abc1234def5678901234567890123456789abcd";
 const OTHER_SHA = "def5678901234567890123456789abcd1234abc";
 const CULPRIT_SHA = "1234abcd5678901234567890123456789abcdef";
+
+// ---------------------------------------------------------------------------
+// Real-incident fixtures (#3855) — captured verbatim (trimmed) via
+// `gh run view <id> --log-failed` and `gh api .../check-runs` against the
+// live #3728/#3734/#3737 incident: culprit 79c8203a's `CI Gate` genuinely
+// failed, but solely because the Build job's `pnpm repo-audit` step hit a
+// freshly-published `brace-expansion` advisory (GHSA-rgw5-rvv9-x895) — not
+// because of #3728's diff. Its parent, e35528dc, has no `CI Gate` check-run
+// at all (confirmed live: `check_runs` for that sha never includes a
+// `CI Gate` entry).
+// ---------------------------------------------------------------------------
+
+const REAL_CULPRIT_SHA = "79c8203ab004d7bad6ea422d9a26d985813b1225";
+const REAL_PARENT_SHA = "e35528dc957c5a01aba5236a90a8b149ae5d3d33";
+
+const REAL_AUDIT_FAILURE_LOG = `Build\tUNKNOWN STEP\t2026-08-03T17:30:43.4314538Z ##[group]Run pnpm repo-audit
+Build\tUNKNOWN STEP\t2026-08-03T17:30:43.4315102Z pnpm repo-audit
+Build\tUNKNOWN STEP\t2026-08-03T17:30:43.8310762Z > mattbutlerengineering@ repo-audit /home/runner/work/mattbutlerengineering/mattbutlerengineering
+Build\tUNKNOWN STEP\t2026-08-03T17:30:43.8315080Z > node scripts/check-circular-deps.js && ... && pnpm check:boundaries && pnpm audit --audit-level=high
+Build\tUNKNOWN STEP\t2026-08-03T17:30:49.0415794Z ✔ no dependency violations found (2136 modules, 4944 dependencies cruised)
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8663875Z ┌─────────────────────┬────────────────────────────────────────────────────────┐
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8665101Z │ high                │ brace-expansion: DoS via unbounded intermediate        │
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8666168Z │                     │ arrays, bypassing the CVE-2026-14257 mitigation        │
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8668143Z │ Package             │ brace-expansion                                        │
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8670129Z │ Vulnerable versions │ >=4.0.0 <5.0.9                                         │
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8672872Z │ Patched versions    │ >=5.0.9                                                │
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8689910Z │ More info           │ https://github.com/advisories/GHSA-rgw5-rvv9-x895      │
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8691133Z └─────────────────────┴────────────────────────────────────────────────────────┘
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8691859Z 4 vulnerabilities found
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8692665Z Severity: 1 low | 1 moderate | 2 high (1 ignored)
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.8872790Z  ELIFECYCLE  Command failed with exit code 1.
+Build\tUNKNOWN STEP\t2026-08-03T17:30:51.9096961Z ##[error]Process completed with exit code 1.
+CI Gate\tUNKNOWN STEP\t2026-08-03T17:36:17.0510564Z ##[error]Required job failed or was cancelled
+CI Gate\tUNKNOWN STEP\t2026-08-03T17:36:17.0529083Z ##[error]Process completed with exit code 1.`;
+
+// The real e35528dc `check_runs` response never includes a `CI Gate` entry
+// (unlike every other commit in this repo's recent history) — trimmed to the
+// fields extractCheckRunConclusion() reads.
+const REAL_PARENT_CHECK_RUNS_NO_CI_GATE = [
+  { name: "dispatch", conclusion: "skipped" },
+  { name: "Evaluate Auto-Merge Eligibility", conclusion: "success" },
+  { name: "ADR compliance", conclusion: "success" },
+  { name: "Gitleaks Secret Scan", conclusion: "success" },
+  { name: "Regenerate Generated Files", conclusion: "success" },
+  { name: "Release @mattbutlerengineering/rialto", conclusion: "failure" },
+  { name: "Analyze (javascript-typescript)", conclusion: "success" },
+  { name: "Analyze (actions)", conclusion: "success" },
+];
 
 // ---------------------------------------------------------------------------
 // buildBrokenMainTitle / buildBrokenMainBody — unchanged issue format (#2958)
@@ -696,6 +750,254 @@ describe("resolveRevertAction — required-check gate (#3743)", () => {
     });
 
     expect(result.action).toBe("issue-and-revert");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractAuditGhsaIds — pure extraction of GHSA advisory IDs out of a
+// `pnpm audit` / `pnpm repo-audit` failure log (#3855)
+// ---------------------------------------------------------------------------
+
+describe("extractAuditGhsaIds", () => {
+  it("extracts the GHSA id from the real 79c8203a pnpm repo-audit failure log", () => {
+    expect(extractAuditGhsaIds(REAL_AUDIT_FAILURE_LOG)).toEqual(["GHSA-rgw5-rvv9-x895"]);
+  });
+
+  it("dedupes a repeated GHSA id", () => {
+    const log = "GHSA-aaaa-bbbb-cccc found again: GHSA-aaaa-bbbb-cccc";
+    expect(extractAuditGhsaIds(log)).toEqual(["GHSA-aaaa-bbbb-cccc"]);
+  });
+
+  it("extracts multiple distinct GHSA ids", () => {
+    const log = "GHSA-aaaa-bbbb-cccc and GHSA-dddd-eeee-ffff";
+    expect(extractAuditGhsaIds(log)).toEqual(["GHSA-aaaa-bbbb-cccc", "GHSA-dddd-eeee-ffff"]);
+  });
+
+  it("returns [] for empty or nullish input", () => {
+    expect(extractAuditGhsaIds("")).toEqual([]);
+    expect(extractAuditGhsaIds(null)).toEqual([]);
+    expect(extractAuditGhsaIds(undefined)).toEqual([]);
+  });
+
+  it("returns [] for a log with no advisory findings", () => {
+    expect(extractAuditGhsaIds("PASS: no dependency violations found")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyCulpritFailure — pure attribution classification for a culprit's
+// required-check failure (#3855): distinguishes a genuine diff-caused break
+// from a diff-independent `pnpm audit` advisory, and never conflates "no
+// evidence found" (inconclusive) with "positively diff-independent".
+// ---------------------------------------------------------------------------
+
+describe("classifyCulpritFailure", () => {
+  it("classifies the real 79c8203a audit-only log as diff-independent", () => {
+    const result = classifyCulpritFailure({
+      logText: REAL_AUDIT_FAILURE_LOG,
+      failingTestPaths: [],
+    });
+    expect(result).toBe("diff-independent");
+  });
+
+  it("classifies as attributable when real vitest FAIL evidence exists, regardless of log content", () => {
+    const result = classifyCulpritFailure({
+      logText: REAL_AUDIT_FAILURE_LOG,
+      failingTestPaths: ["services/users/src/__tests__/health.test.ts"],
+    });
+    expect(result).toBe("attributable");
+  });
+
+  it("classifies as attributable when no GHSA findings are present in the log", () => {
+    const result = classifyCulpritFailure({
+      logText: "FAIL services/users/src/__tests__/health.test.ts > breaks",
+      failingTestPaths: [],
+    });
+    expect(result).toBe("attributable");
+  });
+
+  it("classifies as inconclusive when no log text is available (never conflated with diff-independent)", () => {
+    expect(classifyCulpritFailure({ logText: null, failingTestPaths: [] })).toBe("inconclusive");
+    expect(classifyCulpritFailure({ logText: "", failingTestPaths: [] })).toBe("inconclusive");
+    expect(classifyCulpritFailure({ logText: undefined, failingTestPaths: [] })).toBe(
+      "inconclusive"
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveRevertAction — diff-independent audit attribution (#3855): a real
+// `pnpm audit` advisory finding on the culprit's own CI Gate failure must
+// abstain (no revert, no broken-main issue) rather than walk the baseline
+// and fall into the pre-existing overlap check's blind spot (audit output
+// carries no `FAIL <path>` lines, so pathsAreDisjoint() always no-ops here).
+// ---------------------------------------------------------------------------
+
+describe("resolveRevertAction — diff-independent audit attribution (#3855)", () => {
+  it("reproduces the #3734/#3737 false positive: real 79c8203a audit-only failure -> skip, carrying the GHSA id, without ever walking the baseline", async () => {
+    const getParentSha = vi.fn(async () => REAL_PARENT_SHA);
+    const getChangedFiles = vi.fn(async () => []);
+
+    const result = await resolveRevertAction({
+      culpritSha: REAL_CULPRIT_SHA,
+      parentSha: REAL_PARENT_SHA,
+      prNumber: 3728,
+      getConclusionForSha: async (sha) => (sha === REAL_CULPRIT_SHA ? "failure" : null),
+      getParentSha,
+      getFailingTestPaths: async () => [],
+      getChangedFiles,
+      getCulpritLogText: async () => REAL_AUDIT_FAILURE_LOG,
+    });
+
+    expect(result.action).toBe("skip");
+    expect(result.ghsaIds).toEqual(["GHSA-rgw5-rvv9-x895"]);
+    expect(getParentSha).not.toHaveBeenCalled();
+    expect(getChangedFiles).not.toHaveBeenCalled();
+  });
+
+  it("still walks the baseline and can revert when the culprit log has no audit evidence (regression: unaffected by the new check)", async () => {
+    const conclusionsBySha = { [CULPRIT_SHA]: "failure", [SHA]: "success" };
+
+    const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async (sha) => conclusionsBySha[sha],
+      getParentSha: async () => null,
+      getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
+      getChangedFiles: async () => ["services/users/src/routes/health.ts"],
+      getCulpritLogText: async () => null,
+    });
+
+    expect(result.action).toBe("issue-and-revert");
+  });
+
+  it("omitting getCulpritLogText entirely preserves pre-#3855 behavior (defaults to inconclusive, not diff-independent)", async () => {
+    const conclusionsBySha = { [CULPRIT_SHA]: "failure", [SHA]: "success" };
+
+    const result = await resolveRevertAction({
+      culpritSha: CULPRIT_SHA,
+      parentSha: SHA,
+      prNumber: 42,
+      getConclusionForSha: async (sha) => conclusionsBySha[sha],
+      getParentSha: async () => null,
+      getFailingTestPaths: async () => ["services/users/src/__tests__/health.test.ts"],
+      getChangedFiles: async () => ["services/users/src/routes/health.ts"],
+    });
+
+    expect(result.action).toBe("issue-and-revert");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveRevertAction — inconclusive baseline abstains (#3855): the real
+// e35528dc parent shape (no `CI Gate` check-run at all) must never be read
+// as "predates = false". It must keep walking further back and, if no
+// conclusive baseline is ever found, abstain from a revert.
+// ---------------------------------------------------------------------------
+
+describe("resolveRevertAction — inconclusive baseline abstains (#3855)", () => {
+  it("extractCheckRunConclusion returns null for the real e35528dc check-runs shape (no CI Gate entry)", () => {
+    expect(
+      extractCheckRunConclusion(REAL_PARENT_CHECK_RUNS_NO_CI_GATE, REQUIRED_CHECK_NAME)
+    ).toBeNull();
+  });
+
+  it("walks past the real e35528dc shape (no CI Gate check-run) and abstains from a revert when no conclusive baseline is ever found", async () => {
+    const checkRunsBySha = { [REAL_PARENT_SHA]: REAL_PARENT_CHECK_RUNS_NO_CI_GATE };
+    const getParentSha = vi.fn(async (sha) => `${sha}-older`);
+
+    const result = await resolveRevertAction({
+      culpritSha: REAL_CULPRIT_SHA,
+      parentSha: REAL_PARENT_SHA,
+      prNumber: 3728,
+      getConclusionForSha: async (sha) => {
+        if (sha === REAL_CULPRIT_SHA) return "failure";
+        const checkRuns = checkRunsBySha[sha];
+        return checkRuns ? extractCheckRunConclusion(checkRuns, REQUIRED_CHECK_NAME) : null; // every older ancestor: no CI Gate run found either
+      },
+      getParentSha,
+      getFailingTestPaths: async () => [],
+      getChangedFiles: async () => [],
+      getCulpritLogText: async () => null, // no audit evidence -> falls through to baseline walk
+    });
+
+    expect(result.action).toBe("issue-only");
+    expect(getParentSha).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ci-fix issue builders (#3855) — filed in place of a broken-main issue when
+// resolveRevertAction() classifies the culprit's failure as diff-independent.
+// ---------------------------------------------------------------------------
+
+describe("buildAuditCiFixTitle", () => {
+  it("names the GHSA id in the title", () => {
+    expect(buildAuditCiFixTitle(["GHSA-rgw5-rvv9-x895"])).toContain("GHSA-rgw5-rvv9-x895");
+  });
+
+  it("joins multiple GHSA ids", () => {
+    const title = buildAuditCiFixTitle(["GHSA-aaaa-bbbb-cccc", "GHSA-dddd-eeee-ffff"]);
+    expect(title).toContain("GHSA-aaaa-bbbb-cccc");
+    expect(title).toContain("GHSA-dddd-eeee-ffff");
+  });
+});
+
+describe("buildAuditCiFixBody", () => {
+  it("names the culprit sha and the GHSA id, and explains why no revert was proposed", () => {
+    const body = buildAuditCiFixBody(REAL_CULPRIT_SHA, ["GHSA-rgw5-rvv9-x895"]);
+    expect(body).toContain(REAL_CULPRIT_SHA);
+    expect(body).toContain("GHSA-rgw5-rvv9-x895");
+    expect(body).toContain("No revert");
+  });
+});
+
+describe("extractAuditCiFixGhsaIds", () => {
+  it("round-trips the GHSA ids out of a title built by buildAuditCiFixTitle", () => {
+    const title = buildAuditCiFixTitle(["GHSA-rgw5-rvv9-x895", "GHSA-aaaa-bbbb-cccc"]);
+    expect(extractAuditCiFixGhsaIds({ title })).toEqual([
+      "GHSA-rgw5-rvv9-x895",
+      "GHSA-aaaa-bbbb-cccc",
+    ]);
+  });
+
+  it("returns [] for a title with no GHSA ids", () => {
+    expect(extractAuditCiFixGhsaIds({ title: "some unrelated issue" })).toEqual([]);
+  });
+
+  it("returns [] for a missing title", () => {
+    expect(extractAuditCiFixGhsaIds({})).toEqual([]);
+    expect(extractAuditCiFixGhsaIds(null)).toEqual([]);
+  });
+});
+
+describe("findPriorAuditCiFixIssue", () => {
+  it("returns null when there are no candidates", () => {
+    expect(findPriorAuditCiFixIssue([], ["GHSA-rgw5-rvv9-x895"])).toBeNull();
+  });
+
+  it("returns the matching issue's number regardless of GHSA id order", () => {
+    const candidates = [
+      { number: 11, title: buildAuditCiFixTitle(["GHSA-aaaa-bbbb-cccc"]) },
+      {
+        number: 22,
+        title: buildAuditCiFixTitle(["GHSA-dddd-eeee-ffff", "GHSA-rgw5-rvv9-x895"]),
+      },
+    ];
+    expect(
+      findPriorAuditCiFixIssue(candidates, ["GHSA-rgw5-rvv9-x895", "GHSA-dddd-eeee-ffff"])
+    ).toBe(22);
+  });
+
+  it("returns null when no candidate's GHSA set matches", () => {
+    const candidates = [{ number: 11, title: buildAuditCiFixTitle(["GHSA-aaaa-bbbb-cccc"]) }];
+    expect(findPriorAuditCiFixIssue(candidates, ["GHSA-rgw5-rvv9-x895"])).toBeNull();
+  });
+
+  it("treats a nullish candidates array as empty", () => {
+    expect(findPriorAuditCiFixIssue(null, ["GHSA-rgw5-rvv9-x895"])).toBeNull();
+    expect(findPriorAuditCiFixIssue(undefined, ["GHSA-rgw5-rvv9-x895"])).toBeNull();
   });
 });
 

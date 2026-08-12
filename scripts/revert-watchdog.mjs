@@ -348,15 +348,58 @@ export async function walkToBaseline({
   return null;
 }
 
+const GHSA_ID_PATTERN = /GHSA-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}/g;
+
+/**
+ * Pure: extracts the unique GHSA advisory IDs referenced in a `pnpm audit` /
+ * `pnpm repo-audit` failure log (the "More info" line's advisories URL).
+ * Best-effort, same shape as `extractFailingTestPaths` — a log with no
+ * advisory findings yields `[]`.
+ */
+export function extractAuditGhsaIds(logText) {
+  if (!logText) return [];
+  return [...new Set(String(logText).match(GHSA_ID_PATTERN) ?? [])];
+}
+
+/**
+ * Pure: classifies the culprit's required-check (`CI Gate`) failure as
+ * attributable to its diff, diff-independent, or inconclusive (#3855) — a
+ * `pnpm audit` advisory can red `CI Gate` from a freshly-published,
+ * zero-code-change CVE (see gotchas.md § Dependencies), and the pre-existing
+ * baseline/overlap pipeline has no way to catch that: audit output carries
+ * no `FAIL <path>` lines, so `pathsAreDisjoint` always no-ops on it.
+ *
+ *   - `"attributable"`: real vitest FAIL evidence exists (`failingTestPaths`
+ *     is non-empty) — a genuine code-caused signal exists regardless of what
+ *     else is in the log; proceed to the baseline pipeline unchanged.
+ *   - `"diff-independent"`: no test-failure evidence, and the log itself
+ *     carries `pnpm audit` GHSA findings — abstain from revert/broken-main.
+ *   - `"inconclusive"`: no log text to classify with (expired run, fetch
+ *     failure, or simply not wired by the caller) — falls through to the
+ *     pre-#3855 pipeline exactly as before. Never conflated with a positive
+ *     `"diff-independent"` finding.
+ */
+export function classifyCulpritFailure({ logText, failingTestPaths = [] }) {
+  if (failingTestPaths.length > 0) return "attributable";
+  if (!logText) return "inconclusive";
+  return extractAuditGhsaIds(logText).length > 0 ? "diff-independent" : "attributable";
+}
+
 /**
  * Top-level orchestrator: first verifies the required status check
  * (`CI Gate`) actually failed on the culprit commit itself (#3743) — a
  * `workflow_run.conclusion === "failure"` trigger is a rollup of the whole
  * "CI" workflow and can fire from a non-required job (CodeQL, Container
- * Security Scan, etc.) failing while `CI Gate` passed. Only when that's
- * confirmed does it resolve the baseline, then — only for a green baseline,
- * where the overlap check is actually relevant — fetch the failing test
- * paths and the culprit PR's changed files to decide the final action.
+ * Security Scan, etc.) failing while `CI Gate` passed. Next, it classifies
+ * the culprit's own failure log (#3855) — a real `pnpm audit` advisory
+ * finding with no test-failure evidence is diff-independent (the CVE
+ * database updated, not the diff) and abstains immediately, before ever
+ * walking the baseline, since the baseline/overlap pipeline has no way to
+ * catch this case (audit output carries no `FAIL <path>` lines). Only past
+ * both of those gates does it resolve the baseline, then — only for a green
+ * baseline, where the overlap check is actually relevant — fetch the
+ * failing test paths and the culprit PR's changed files to decide the final
+ * action.
  *
  * `getConclusionForSha` is deliberately reused for both the culprit check
  * and the ancestor walk — both ask the same question ("did the required
@@ -370,10 +413,11 @@ export async function walkToBaseline({
  *   getParentSha: (sha:string) => Promise<string|null>,
  *   getFailingTestPaths: () => Promise<string[]>,
  *   getChangedFiles: (prNumber:number|string) => Promise<string[]>,
+ *   getCulpritLogText?: () => Promise<string|null>,
  *   cap?: number,
  *   log?: (msg:string) => void,
  * }} deps
- * @returns {Promise<{action:"skip"|"issue-only"|"issue-and-revert", reason:string}>}
+ * @returns {Promise<{action:"skip"|"issue-only"|"issue-and-revert", reason:string, ghsaIds?:string[]}>}
  */
 export async function resolveRevertAction({
   culpritSha,
@@ -383,6 +427,7 @@ export async function resolveRevertAction({
   getParentSha,
   getFailingTestPaths,
   getChangedFiles,
+  getCulpritLogText = async () => null,
   cap = BASELINE_WALK_CAP,
   log = () => {},
 }) {
@@ -391,6 +436,21 @@ export async function resolveRevertAction({
     return {
       action: "skip",
       reason: `required check '${REQUIRED_CHECK_NAME}' passed on the culprit commit — the workflow-run failure was in a non-required job, not attributing`,
+    };
+  }
+
+  const culpritLogText = await getCulpritLogText();
+  const attribution = classifyCulpritFailure({
+    logText: culpritLogText,
+    failingTestPaths: extractFailingTestPaths(culpritLogText),
+  });
+
+  if (attribution === "diff-independent") {
+    const ghsaIds = extractAuditGhsaIds(culpritLogText);
+    return {
+      action: "skip",
+      reason: `required check '${REQUIRED_CHECK_NAME}' failure is diff-independent — pnpm audit surfaced ${ghsaIds.join(", ")}, not caused by this commit's diff; file a ci-fix issue instead of attributing`,
+      ghsaIds,
     };
   }
 
@@ -406,6 +466,61 @@ export async function resolveRevertAction({
   ]);
 
   return decideBaselineAction({ baseline, failingTestPaths, changedFiles });
+}
+
+// ---------------------------------------------------------------------------
+// ci-fix issue builders (#3855)
+//
+// resolveRevertAction()'s "diff-independent" outcome still returns
+// action:"skip" — the pre-existing three-state action contract, and the
+// value the untouched revert-watchdog.yml already reads to suppress both
+// the broken-main issue and the revert PR (#3743's `skip` branch). The
+// `ghsaIds` field is what distinguishes this "skip, but go file a narrower
+// issue instead" case from an ordinary "nothing to do" skip; checkBaseline()
+// below is the only reader of that field. Titles/bodies are pure and
+// unit-tested the same way buildBrokenMainTitle/Body are; the GitHub
+// mutation lives in fileAuditCiFixIssue(), which reuses fileIssue()'s
+// dedupe-by-ledger decision exactly like createIssue() does.
+// ---------------------------------------------------------------------------
+
+/** Pure: builds the ci-fix issue title naming the GHSA id(s) an audit-only `CI Gate` failure surfaced (#3855). */
+export function buildAuditCiFixTitle(ghsaIds) {
+  return `ci-fix: pnpm audit flagged ${ghsaIds.join(", ")} (diff-independent CI Gate failure)`;
+}
+
+/** Pure: builds the ci-fix issue body naming the culprit commit and GHSA id(s), and the reason no revert was proposed. */
+export function buildAuditCiFixBody(sha, ghsaIds) {
+  return `\`CI Gate\` failed at commit ${sha} solely because \`pnpm audit\` (run via \`pnpm repo-audit\`) reported ${ghsaIds.join(", ")} — a freshly-published transitive CVE, not this commit's diff.
+
+Per .claude/rules/gotchas.md § Dependencies, this is expected: the advisory database updates live and can red \`main\` with zero code change. No revert was proposed and no broken-main issue was filed for this commit.
+
+**Fix:** add a scoped \`pnpm.overrides\` entry for the patched version, or — if no override is possible — \`pnpm.auditConfig.ignoreGhsas\` alongside this tracking issue.`;
+}
+
+const AUDIT_CI_FIX_TITLE_PATTERN =
+  /^ci-fix: pnpm audit flagged (.+) \(diff-independent CI Gate failure\)$/;
+
+/** Pure: extracts the GHSA id(s) out of a ci-fix issue's title, or `[]` if it doesn't match. */
+export function extractAuditCiFixGhsaIds(issue) {
+  const match = AUDIT_CI_FIX_TITLE_PATTERN.exec(issue?.title ?? "");
+  return match ? match[1].split(", ") : [];
+}
+
+/**
+ * Pure: finds a prior audit ci-fix issue among candidates whose GHSA set
+ * matches `ghsaIds` exactly (order-independent) — the same dedupe-lookup
+ * role `findPriorBrokenMainIssue` plays for broken-main issues.
+ *
+ * @param {Array<{number: number, title: string}>} candidates
+ * @param {string[]} ghsaIds
+ * @returns {number | null}
+ */
+export function findPriorAuditCiFixIssue(candidates, ghsaIds) {
+  const key = [...ghsaIds].sort().join(",");
+  const match = (candidates ?? []).find(
+    (issue) => extractAuditCiFixGhsaIds(issue).slice().sort().join(",") === key
+  );
+  return match ? match.number : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -564,23 +679,24 @@ function getParentShaViaGit(sha) {
 }
 
 /**
- * Failing test file paths for a CI run, via `gh run view --log-failed`.
- * Best-effort: any failure to fetch/parse the log (run too old, log
- * expired, network hiccup) yields `[]` — "no evidence of overlap", which
- * `decideBaselineAction` already treats as "not disjoint" (fail-safe: don't
- * downgrade a genuine revert just because the log was unavailable).
+ * Raw `gh run view --log-failed` text for a CI run. Best-effort: any failure
+ * to fetch (run too old, log expired, network hiccup) yields `null`. Shared
+ * by `checkBaseline`'s failing-test-paths overlap check and the culprit-log
+ * fetch that feeds `classifyCulpritFailure` (#3855) — both ask about the
+ * same failing run, so `checkBaseline` fetches it once and passes the text
+ * to `extractFailingTestPaths` directly rather than going through a second
+ * wrapper.
  */
-function getFailingTestPathsViaGh(runId) {
-  if (!runId) return [];
+function fetchRunLogViaGh(runId) {
+  if (!runId) return null;
   try {
-    const log = execFileSync("gh", ["run", "view", runId, "--log-failed"], {
+    return execFileSync("gh", ["run", "view", runId, "--log-failed"], {
       encoding: "utf-8",
       timeout: 30_000,
       maxBuffer: 10 * 1024 * 1024,
     });
-    return extractFailingTestPaths(log);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -714,12 +830,75 @@ async function closeRecovered(ghClient, args) {
 }
 
 /**
+ * Files (or dedupes against) the ci-fix issue for a diff-independent `pnpm
+ * audit` CI Gate failure (#3855). Mirrors createIssue()'s dedupe pattern —
+ * search-by-label, look up a prior match via the pure finder, feed both into
+ * fileIssue() — but scoped to the `ci-fix` label and matched by GHSA set
+ * instead of culprit sha (a rerun for the *same commit* would find the
+ * *same* GHSA set, but a later commit hitting the same still-unfixed
+ * advisory should also dedupe against it).
+ */
+function fileAuditCiFixIssue(ghClient, sha, ghsaIds) {
+  const title = buildAuditCiFixTitle(ghsaIds);
+  const body = buildAuditCiFixBody(sha, ghsaIds);
+  const dedupeKey = [...ghsaIds].sort().join(",");
+
+  let candidates = [];
+  try {
+    candidates = ghClient.issue.list([
+      "--label",
+      "ci-fix",
+      "--state",
+      "all",
+      "--json",
+      "number,title",
+    ]);
+  } catch (err) {
+    console.error(
+      `[revert-watchdog] ci-fix issue search failed, proceeding as no-match: ${err.message}`
+    );
+  }
+  const priorNumber = findPriorAuditCiFixIssue(candidates, ghsaIds);
+  const ledger = priorNumber !== null ? { [dedupeKey]: priorNumber } : {};
+
+  const result = fileIssue(
+    { title, body, labels: ["ci-fix", COORDINATION_LABELS.READY], dedupeKey },
+    ledger,
+    {
+      getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+      createIssue: () =>
+        parseIssueNumberFromUrl(
+          ghClient.issue.create([
+            "--title",
+            title,
+            "--body",
+            body,
+            "--label",
+            "ci-fix",
+            "--label",
+            COORDINATION_LABELS.READY,
+          ])
+        ),
+      reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    }
+  );
+
+  console.error(`[revert-watchdog] ci-fix issue: ${result.action} #${result.issueNumber}`);
+}
+
+/**
  * Resolves the baseline/blame decision for a culprit commit and prints it as
  * a single-line JSON object (`{action, reason}`) for the workflow to parse
  * with `jq`. `--sha` is the culprit commit; its parent is where the baseline
  * walk starts. `--run-id` (the failing CI run's database id) and `--pr` are
  * optional — omitting either just means the overlap check runs with no
  * evidence, which is never treated as grounds to downgrade a revert.
+ *
+ * When the result is diff-independent (#3855 — `result.ghsaIds` is
+ * present), the returned `action` is still `"skip"` so the untouched
+ * `revert-watchdog.yml` correctly suppresses both the broken-main issue and
+ * the revert PR; a narrower ci-fix issue naming the GHSA(s) is filed here
+ * instead, as a side effect, before printing the result.
  */
 async function checkBaseline(ghClient, args) {
   const sha = readFlag(args, "--sha");
@@ -731,6 +910,15 @@ async function checkBaseline(ghClient, args) {
     process.exit(1);
   }
 
+  // Fetched once, shared between the overlap check's failing-test-paths and
+  // the diff-independent-audit classifier's raw log — both ask about the
+  // same failing run.
+  let cachedLog;
+  const fetchLogOnce = () => {
+    if (cachedLog === undefined) cachedLog = fetchRunLogViaGh(runId);
+    return cachedLog;
+  };
+
   const result = await resolveRevertAction({
     culpritSha: sha,
     parentSha: getParentShaViaGit(sha),
@@ -740,7 +928,8 @@ async function checkBaseline(ghClient, args) {
     // CI Gate with advisory jobs in the same workflow run.
     getConclusionForSha: async (candidateSha) => getRequiredCheckConclusionViaGh(candidateSha),
     getParentSha: async (candidateSha) => getParentShaViaGit(candidateSha),
-    getFailingTestPaths: async () => getFailingTestPathsViaGh(runId),
+    getFailingTestPaths: async () => extractFailingTestPaths(fetchLogOnce()),
+    getCulpritLogText: async () => fetchLogOnce(),
     getChangedFiles: async () => {
       if (!pr) return [];
       const view = ghClient.pr.view(Number(pr), ["--json", "files"]);
@@ -748,6 +937,10 @@ async function checkBaseline(ghClient, args) {
     },
     log: (msg) => console.error(`[revert-watchdog] ${msg}`),
   });
+
+  if (result.ghsaIds?.length) {
+    fileAuditCiFixIssue(ghClient, sha, result.ghsaIds);
+  }
 
   console.log(JSON.stringify(result));
 }
