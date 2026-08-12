@@ -31,6 +31,7 @@ export function ProjectsSection() {
 
           <motion.div
             ref={ref}
+            data-reveal="projects"
             className={styles.projectGrid}
             variants={staggerReveal.container}
             initial="hidden"

@@ -14,12 +14,18 @@ import { formatMeasuredAt } from "../utils/formatters";
 import styles from "../pages/HomePage.module.css";
 
 /** Counters, in descending order of how much they say about how this repo is built. */
-const COUNTERS: readonly { readonly value: number; readonly label: string }[] = [
+const COUNTERS = [
   { value: REPO_STATS.agentPrsMerged, label: "Agent-authored PRs merged" },
   { value: REPO_STATS.totalPrsMerged, label: "Pull requests merged" },
   { value: REPO_STATS.rialtoComponents, label: "Rialto components" },
   { value: REPO_STATS.testFiles, label: "Test files" },
-];
+].map((counter) => ({
+  ...counter,
+  // Pinned to the counted figure's digit count, so the zero shown before the
+  // reveal fills exactly the reel cells the final figure will: starting the
+  // count changes the digits, never the layout.
+  formatOptions: { minimumIntegerDigits: String(counter.value).length },
+}));
 
 const NARROW_VIEWPORT_QUERY = "(max-width: 640px)";
 
@@ -53,7 +59,7 @@ function useIsNarrowViewport(): boolean {
  * build time, with the measurement date attached so the claim stays checkable.
  */
 export function ProofStrip() {
-  const { ref, controls } = useScrollReveal();
+  const { ref, controls, revealed } = useScrollReveal();
   const isNarrowViewport = useIsNarrowViewport();
 
   return (
@@ -71,6 +77,7 @@ export function ProofStrip() {
 
           <motion.div
             ref={ref}
+            data-reveal="proof"
             className={styles.metricsGrid}
             variants={staggerReveal.container}
             initial="hidden"
@@ -81,7 +88,11 @@ export function ProofStrip() {
                 <Card variant="flat">
                   <Stack gap="2xs" align="center">
                     <div className={styles.metricValue}>
-                      <Odometer value={counter.value} size={isNarrowViewport ? "md" : "lg"} />
+                      <Odometer
+                        value={revealed ? counter.value : 0}
+                        formatOptions={counter.formatOptions}
+                        size={isNarrowViewport ? "md" : "lg"}
+                      />
                     </div>
                     <Text variant="label" color="secondary">
                       {counter.label}

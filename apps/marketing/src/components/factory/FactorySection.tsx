@@ -62,6 +62,7 @@ export function FactorySection() {
 
             <motion.div
               ref={ref}
+              data-reveal="machinery"
               className={styles.stageGrid}
               variants={staggerReveal.container}
               initial="hidden"

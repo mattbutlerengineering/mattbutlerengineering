@@ -52,6 +52,7 @@ export function ContactSection() {
           </div>
           <motion.div
             ref={ref}
+            data-reveal="contact"
             variants={staggerReveal.container}
             initial="hidden"
             animate={controls}

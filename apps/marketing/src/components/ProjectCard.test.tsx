@@ -1,6 +1,9 @@
+/// <reference types="node" />
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { ProjectCard } from "./ProjectCard.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -75,5 +78,57 @@ describe("ProjectCard", () => {
       name: "Test Project (opens in new tab)",
     });
     expect(link).toBeInTheDocument();
+  });
+});
+
+/* ── Tactile affordance ───────────────────────────────────────── */
+// Rialto's `Card` already declares a hover lift, but `tilt` makes Framer write
+// an inline `transform` on that same element — and an inline style beats any
+// stylesheet rule, so the lift never lands on a project card. The lift
+// therefore belongs to a wrapper Framer does not drive; the shadows stay on the
+// Card (`box-shadow` is not part of the inline transform). jsdom applies no
+// stylesheet, so these are read off the CSS module the browser actually loads.
+
+// Resolved from `process.cwd()` (vitest runs from apps/marketing) — Vite
+// statically rewrites `new URL(literal, import.meta.url)` into an asset-URL
+// transform, which does not survive as a readable file path.
+const CARD_CSS = readFileSync(
+  resolve(process.cwd(), "src/components/ProjectCard.module.css"),
+  "utf-8"
+);
+
+/** Declarations of the first rule whose selector list contains `selector`. */
+function ruleBody(css: string, selector: string): string {
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const [, selectors = "", body = ""] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (selectors.split(",").some((entry) => entry.trim() === selector)) return body;
+  }
+  return "";
+}
+
+describe("ProjectCard tactile affordance", () => {
+  it("lifts the card off the page on hover", () => {
+    expect(ruleBody(CARD_CSS, ".tactile:hover")).toMatch(/transform:\s*translateY\(-[1-9]/);
+  });
+
+  it("gives keyboard focus the same lift a pointer gets, via focus-visible", () => {
+    expect(ruleBody(CARD_CSS, ".tactile:has(:focus-visible)")).toMatch(
+      /transform:\s*translateY\(-[1-9]/
+    );
+    expect(ruleBody(CARD_CSS, ".tactile:has(:focus-visible) .card")).toMatch(
+      /var\(--rialto-shadow-/
+    );
+  });
+
+  it("presses back down with the Rialto pressed shadow", () => {
+    expect(ruleBody(CARD_CSS, ".tactile:active")).toMatch(/transform:\s*translateY\(/);
+    expect(ruleBody(CARD_CSS, ".tactile:active .card")).toContain("var(--rialto-shadow-pressed)");
+  });
+
+  it("drops the movement, keeping the shadows, under prefers-reduced-motion", () => {
+    const reducedMotion = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]*)\n\}/.exec(
+      CARD_CSS
+    )?.[1];
+    expect(reducedMotion).toMatch(/transform:\s*none/);
   });
 });
