@@ -124,11 +124,16 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
                 <Text
                   variant="label"
                   color="secondary"
+                  id="walkin-party-size-label"
                   style={{ marginBottom: "var(--rialto-space-xs)" }}
                 >
                   Party Size
                 </Text>
-                <div className={styles.partySizeRow}>
+                <div
+                  className={styles.partySizeRow}
+                  role="group"
+                  aria-labelledby="walkin-party-size-label"
+                >
                   {PARTY_SIZE_OPTIONS.map((size) => (
                     <Button
                       key={size}

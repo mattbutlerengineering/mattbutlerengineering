@@ -97,6 +97,11 @@ describe("WalkInDialog", () => {
     expect(dialog.getAttribute("aria-modal")).toBe("true");
   });
 
+  it("should group party size buttons under an accessible group name", () => {
+    render(<WalkInDialog {...defaultProps} />);
+    expect(screen.getByRole("group", { name: /party size/i })).toBeDefined();
+  });
+
   it("should render party size buttons 1 through 8", () => {
     render(<WalkInDialog {...defaultProps} />);
     for (let i = 1; i <= 8; i++) {
