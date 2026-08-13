@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-13T05:39:51.087Z",
+  "generatedAt": "2026-08-13T20:36:46.513Z",
   "patterns": {
     "magicTimeouts": {
       "count": 31,
@@ -14,7 +14,7 @@
       "description": "Test functions containing no expect() calls"
     },
     "hardcodedRoutes": {
-      "count": 621,
+      "count": 626,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
