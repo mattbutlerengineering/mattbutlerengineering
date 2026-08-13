@@ -39,7 +39,16 @@ describe("deleteVenue", () => {
   });
 
   it("reports ok: false and the real 409 status instead of discarding it", async () => {
-    mockFetchOnce(409);
+    // A 409 now triggers one cleanup-and-retry (see the dedicated tests below);
+    // stub the full sequence so this test still isolates status surfacing.
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) })
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ data: [] }) })
+        .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) })
+    );
 
     const result = await deleteVenue("token", "venue-1");
 
@@ -52,6 +61,58 @@ describe("deleteVenue", () => {
     const result = await deleteVenue("token", "venue-1");
 
     expect(result).toEqual({ ok: false, status: 500 });
+  });
+
+  it("on 409, deletes the venue's floor plans (the onboarding-created blocker) and retries once", async () => {
+    const floorPlan = { id: "floor-plan-1" };
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        // 1. initial delete -> blocked by dependents
+        .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) })
+        // 2. list floor plans for the venue
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ data: [floorPlan] }),
+        })
+        // 3. delete that floor plan (cascades its tables server-side)
+        .mockResolvedValueOnce({ ok: true, status: 204, json: () => Promise.resolve({}) })
+        // 4. retry the venue delete -> succeeds now that the blocker is gone
+        .mockResolvedValueOnce({ ok: true, status: 204, json: () => Promise.resolve({}) })
+    );
+
+    const result = await deleteVenue("token", "venue-1");
+
+    expect(result).toEqual({ ok: true, status: 204 });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(4);
+    expect(vi.mocked(fetch)).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("/api/v1/floor-plans?venueId=venue-1"),
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(vi.mocked(fetch)).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining("/api/v1/floor-plans/floor-plan-1"),
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  it("on 409, retries only once and reports the final status when dependents remain (e.g. real guest/reservation data)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) })
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({ data: [] }) })
+        .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) })
+    );
+
+    const result = await deleteVenue("token", "venue-1");
+
+    expect(result).toEqual({ ok: false, status: 409 });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -71,6 +132,13 @@ describe("sweepSyntheticVenues", () => {
         ok: true,
         status: 200,
         json: () => Promise.resolve({ data: [venue] }),
+      } as never)
+      .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) } as never)
+      // cleanup-and-retry: floor-plan list comes back empty, retried delete still 409
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ data: [] }),
       } as never)
       .mockResolvedValueOnce({ ok: false, status: 409, json: () => Promise.resolve({}) } as never);
 

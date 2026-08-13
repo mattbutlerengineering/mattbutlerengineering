@@ -64,16 +64,47 @@ export interface DeleteVenueResult {
 }
 
 /**
+ * Deletes every floor plan on the venue (best-effort). Onboarding always
+ * creates a default floor plan (#4152), and `floorPlanService.delete` already
+ * cascades that plan's own tables server-side — so clearing floor plans is
+ * enough to unblock the venue delete for a synthetic-journey venue, without
+ * touching the venue-delete API's dependents semantics for real venues.
+ */
+async function deleteVenueFloorPlans(accessToken: string, venueId: string): Promise<void> {
+  const response = await apiRequest(
+    accessToken,
+    `/api/v1/floor-plans?venueId=${venueId}&limit=100`,
+    "GET"
+  );
+  if (!response.ok) return; // best-effort — the retried delete below surfaces the real status either way
+  const payload = (await response.json()) as { data?: { id: string }[] };
+  for (const floorPlan of payload.data ?? []) {
+    await apiRequest(accessToken, `/api/v1/floor-plans/${floorPlan.id}`, "DELETE");
+  }
+}
+
+/**
  * Deletes a venue. `ok` is true when the venue is gone (204) or was already
- * gone (404); false for any other status (e.g. 409 because the venue picked
- * up tables or reservations). `status` is always the real HTTP status, so the
- * caller can report *why* a delete failed rather than just that it did.
+ * gone (404); false for any other status. `status` is always the real HTTP
+ * status, so the caller can report *why* a delete failed rather than just
+ * that it did.
+ *
+ * A 409 (has tables/reservations) triggers one cleanup-and-retry: delete the
+ * venue's floor plans, then retry the delete once. This clears the blocker
+ * onboarding always creates, so a completed journey doesn't leak a synthetic
+ * venue into prod (#4152). If dependents remain after that (e.g. real guest
+ * or reservation data unexpectedly attached), the retried delete's own
+ * status is reported — cleanup never masks a genuine conflict.
  */
 export async function deleteVenue(
   accessToken: string,
   venueId: string
 ): Promise<DeleteVenueResult> {
-  const response = await apiRequest(accessToken, `/api/v1/venues/${venueId}`, "DELETE");
+  let response = await apiRequest(accessToken, `/api/v1/venues/${venueId}`, "DELETE");
+  if (response.status === 409) {
+    await deleteVenueFloorPlans(accessToken, venueId);
+    response = await apiRequest(accessToken, `/api/v1/venues/${venueId}`, "DELETE");
+  }
   const status = response.status;
   return { ok: status === 204 || status === 404, status };
 }
