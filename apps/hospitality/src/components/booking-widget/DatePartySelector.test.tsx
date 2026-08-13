@@ -21,18 +21,8 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       </div>
     );
   },
-  Button: ({
-    children,
-    onClick,
-    disabled,
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-    disabled?: boolean;
-  }) => (
-    <button onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
+  Button: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => (
+    <button {...props}>{children}</button>
   ),
 }));
 
@@ -53,6 +43,11 @@ describe("DatePartySelector", () => {
     render(<DatePartySelector {...defaultProps} />);
     expect(screen.getByLabelText("Date")).toBeDefined();
     expect(screen.getByText("Party Size")).toBeDefined();
+  });
+
+  it("groups party size buttons under an accessible group name", () => {
+    render(<DatePartySelector {...defaultProps} />);
+    expect(screen.getByRole("group", { name: /party size/i })).toBeDefined();
   });
 
   it("renders party size buttons 1-8 by default", () => {

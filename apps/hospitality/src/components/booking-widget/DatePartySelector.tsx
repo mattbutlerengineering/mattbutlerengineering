@@ -77,10 +77,12 @@ export function DatePartySelector({
       )}
 
       <div className={styles.field}>
-        <span className={styles.label}>Party Size</span>
-        <div className={styles.partyGrid}>
+        <span className={styles.label} id="party-size-label">
+          Party Size
+        </span>
+        <div className={styles.partyGrid} role="group" aria-labelledby="party-size-label">
           {partySizes.map((size) => (
-            <button
+            <Button
               key={size}
               type="button"
               aria-pressed={partySize === size}
@@ -91,7 +93,7 @@ export function DatePartySelector({
               ].join(" ")}
             >
               {size}
-            </button>
+            </Button>
           ))}
         </div>
         {partySize > maxPartySize && (
