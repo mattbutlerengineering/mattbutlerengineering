@@ -103,6 +103,26 @@ describe("Odometer", () => {
       expect(status).toHaveTextContent("3");
     });
 
+    it("names TWO nodes, so consumers must scope by role rather than by label", () => {
+      // The two tests above are both intentional, and together they mean the
+      // accessible name appears on the role-less wrapper AND on the
+      // role="status" region. A query by name alone therefore matches two
+      // elements, which is a Playwright strict-mode failure in E2E.
+      //
+      // This bit the venue journey the moment it got far enough to assert on
+      // the dashboard: `getByLabel("Today's Reservations")` resolved to 2
+      // elements. apps/hospitality's StatRow unit tests mock Odometer down to
+      // a single node, so nothing below the E2E layer could catch it.
+      //
+      // If a future change makes the name single-sourced, this test fails and
+      // the E2E locators that rely on `getByRole("status", { name })` should
+      // be revisited at the same time.
+      render(<Odometer value={3} locale="en-US" aria-label="Today's Reservations" />);
+
+      expect(screen.getAllByLabelText("Today's Reservations")).toHaveLength(2);
+      expect(screen.getByRole("status", { name: "Today's Reservations" })).toHaveTextContent("3");
+    });
+
     it("has no axe violations when labeled", async () => {
       const { container } = render(
         <Odometer value={128540} locale="en-US" aria-label="Total signups" />
