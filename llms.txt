@@ -3617,6 +3617,9 @@
   </file>
   <file path="services/reservations/src/services/venue.ts">
     <item priority="low">
+      type VenueDeleteOutcome = "deleted" | "not_found" | "has_dependents";
+    </item>
+    <item priority="low">
       interface VenuePolicy {
         id: string;
         slug: string;
@@ -3624,19 +3627,6 @@
         depositEnabled: boolean;
         depositType: DepositType | null;
       }
-    </item>
-    <item priority="medium">
-      function mapVenuePolicy(row: {
-        id: string;
-        slug: string;
-        currencyCode: string;
-        depositEnabled: boolean;
-        depositType: DepositType | null;
-        depositAmountCents: number | null;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      }): VenuePolicy { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/waitlist-notifier.ts">
@@ -4940,12 +4930,7 @@
       export function isPrismaNotFound(err: unknown): boolean { /* ... */ }
     </item>
     <item priority="high">
-      interface SlowQuery {
-        model: string;
-        operation: string;
-        duration: number;
-        timestamp: number;
-      }
+      export function isPrismaForeignKeyViolation(err: unknown): boolean { /* ... */ }
     </item>
   </file>
   <file path="packages/database/src/list-utils.ts">

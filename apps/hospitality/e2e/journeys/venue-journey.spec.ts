@@ -114,8 +114,12 @@ test("venue onboarding journey against the live site", async ({ page }) => {
         (venue) => venue.name === venueName
       );
       for (const venue of created) {
-        const deleted = await deleteVenue(accessToken, venue.id);
-        if (!deleted) throw new Error(`Venue ${venue.name} (${venue.id}) could not be deleted`);
+        const result = await deleteVenue(accessToken, venue.id);
+        if (!result.ok) {
+          throw new Error(
+            `Venue ${venue.name} (${venue.id}) could not be deleted (HTTP ${result.status})`
+          );
+        }
       }
       expect(
         (await listSyntheticVenues(accessToken)).some((venue) => venue.name === venueName)

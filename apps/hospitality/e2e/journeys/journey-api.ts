@@ -57,28 +57,40 @@ export async function listSyntheticVenues(accessToken: string): Promise<VenueSum
   return (payload.data ?? []).filter((venue) => venue.name?.startsWith(SYNTHETIC_VENUE_PREFIX));
 }
 
+/** Result of a delete attempt — carries the real status so a refusal is diagnosable (#4152). */
+export interface DeleteVenueResult {
+  ok: boolean;
+  status: number;
+}
+
 /**
- * Deletes a venue. Returns true when the venue is gone (204) or was already
- * gone (404); false when the API refused (e.g. 409 because the venue picked up
- * tables or reservations), so the caller can surface it rather than swallow it.
+ * Deletes a venue. `ok` is true when the venue is gone (204) or was already
+ * gone (404); false for any other status (e.g. 409 because the venue picked
+ * up tables or reservations). `status` is always the real HTTP status, so the
+ * caller can report *why* a delete failed rather than just that it did.
  */
-export async function deleteVenue(accessToken: string, venueId: string): Promise<boolean> {
+export async function deleteVenue(
+  accessToken: string,
+  venueId: string
+): Promise<DeleteVenueResult> {
   const response = await apiRequest(accessToken, `/api/v1/venues/${venueId}`, "DELETE");
-  return response.status === 204 || response.status === 404;
+  const status = response.status;
+  return { ok: status === 204 || status === 404, status };
 }
 
 /**
  * Removes leftovers from previously aborted runs. Prod data hygiene: an
- * interrupted journey must never accumulate junk venues. Returns the names it
- * could not delete so the journey can report them as friction.
+ * interrupted journey must never accumulate junk venues. Returns the names
+ * (with the HTTP status that blocked each one) it could not delete, so the
+ * journey can report them as friction.
  */
 export async function sweepSyntheticVenues(accessToken: string): Promise<string[]> {
   const leftovers = await listSyntheticVenues(accessToken);
   const undeleted: string[] = [];
 
   for (const venue of leftovers) {
-    const deleted = await deleteVenue(accessToken, venue.id);
-    if (!deleted) undeleted.push(venue.name);
+    const result = await deleteVenue(accessToken, venue.id);
+    if (!result.ok) undeleted.push(`${venue.name} (HTTP ${result.status})`);
   }
 
   return undeleted;

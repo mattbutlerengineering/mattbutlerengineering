@@ -5,12 +5,7 @@
       export function isPrismaNotFound(err: unknown): boolean { /* ... */ }
     </item>
     <item priority="high">
-      interface SlowQuery {
-        model: string;
-        operation: string;
-        duration: number;
-        timestamp: number;
-      }
+      export function isPrismaForeignKeyViolation(err: unknown): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/list-utils.ts">

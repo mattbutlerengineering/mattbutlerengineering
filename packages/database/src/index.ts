@@ -28,6 +28,21 @@ export function isPrismaNotFound(err: unknown): boolean {
   );
 }
 
+/**
+ * Returns true when `err` is a Prisma "foreign key constraint failed" error
+ * (code P2003) — raised when a delete is blocked by a required relation with
+ * the default `onDelete: Restrict` behavior (e.g. a Venue with Guest,
+ * FloorPlan, or ReservationHold rows still pointing at it).
+ */
+export function isPrismaForeignKeyViolation(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2003"
+  );
+}
+
 const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000;
 const MAX_SLOW_QUERIES = 10;
