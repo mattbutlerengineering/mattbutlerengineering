@@ -39,10 +39,26 @@ export async function authenticateAgainstLiveSite(page: Page): Promise<string> {
   return tokens.access_token;
 }
 
-async function apiRequest(accessToken: string, path: string, method: string): Promise<Response> {
+/**
+ * Fastify runs its content-type parser on every method, DELETE included. A
+ * request that declares `Content-Type: application/json` with a zero-length
+ * body is rejected with `FST_ERR_CTP_EMPTY_JSON_BODY` (HTTP 400) before the
+ * route handler ever executes (#4153) — so only set the header when there is
+ * an actual body to describe.
+ */
+async function apiRequest(
+  accessToken: string,
+  path: string,
+  method: string,
+  body?: unknown
+): Promise<Response> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+
   return fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 }
 

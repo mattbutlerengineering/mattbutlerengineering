@@ -99,6 +99,20 @@ describe("deleteVenue", () => {
     );
   });
 
+  it("does not send a Content-Type header on the bodyless DELETE (#4153)", async () => {
+    // Fastify's content-type parser rejects a DELETE that declares
+    // application/json with a zero-length body (FST_ERR_CTP_EMPTY_JSON_BODY,
+    // HTTP 400) before the route handler ever runs. No call site here sends
+    // a body, so the header must not be set.
+    mockFetchOnce(204);
+
+    await deleteVenue("token", "venue-1");
+
+    const [, options] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    const headers = options.headers as Record<string, string>;
+    expect(headers).not.toHaveProperty("Content-Type");
+  });
+
   it("on 409, retries only once and reports the final status when dependents remain (e.g. real guest/reservation data)", async () => {
     vi.stubGlobal(
       "fetch",
