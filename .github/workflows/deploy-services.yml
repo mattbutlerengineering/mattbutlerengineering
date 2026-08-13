@@ -174,8 +174,20 @@ jobs:
           # which sent that incident's diagnosis in the wrong direction.
           MAX_ATTEMPTS=5
           for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            DEPLOY_OUTPUT=$(doctl apps create-deployment "$APP_ID" --wait 2>&1)
-            DEPLOY_STATUS=$?
+            # Assignment inside an `if` condition, NOT bare: GitHub runs this
+            # step as `bash -e`, where a bare `DEPLOY_OUTPUT=$(doctl ...)` is a
+            # simple command that aborts the whole step the moment doctl exits
+            # non-zero. Written that way, the loop below never reached attempt
+            # 2, and neither the `echo "$DEPLOY_OUTPUT"` nor the ::warning:: /
+            # ::error:: lines ever ran — every failed deploy logged a bare
+            # `exit code 1` with no doctl output at all, which is what made
+            # #4040 take #4064 and #4069 to diagnose. Guarded by
+            # scripts/__tests__/workflow-set-e-assignment.test.mjs.
+            if DEPLOY_OUTPUT=$(doctl apps create-deployment "$APP_ID" --wait 2>&1); then
+              DEPLOY_STATUS=0
+            else
+              DEPLOY_STATUS=$?
+            fi
             echo "$DEPLOY_OUTPUT"
             if [ "$DEPLOY_STATUS" -eq 0 ]; then
               echo "Deployment succeeded on attempt $attempt"
