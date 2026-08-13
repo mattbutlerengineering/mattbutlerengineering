@@ -601,3 +601,53 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** composite 0.952 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:14, size:xl:1, size:xs:11, size:m:4, size:l:3
 **Issues filed:** 0
+
+## 2026-08-13 (progress-tracker)
+
+### Metrics (7d window, ~2026-08-06 → 2026-08-13)
+
+| Metric                                 | Value                                                                                                                                                                                                  | Status                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| Created (audit, 7d)                    | ~33                                                                                                                                                                                                    | -                       |
+| Closed (audit, 7d)                     | ~31                                                                                                                                                                                                    | -                       |
+| Closure Rate (audit)                   | ~94%                                                                                                                                                                                                   | 🟢 green (>80%)         |
+| Created/Closed (ci-fix, 7d)            | 50 touched in one page (creation window entirely inside 7d — more exist further back, not fully paginated), 46 closed                                                                                  | 🟢 ~92%, high churn     |
+| CI Pass (main, last 29 completed runs) | 24 success / 1 failure / 4 cancelled (superseded-by-rapid-push, not real failures) → 96% excluding cancels                                                                                             | 🟢 green (>95%)         |
+| Queue (open `ready`)                   | 0 (claimed and merged the sole ready issue, #4134, this iteration)                                                                                                                                     | 🟢 green (<5)           |
+| In-progress (open)                     | 0                                                                                                                                                                                                      | 🟢                      |
+| Has-pr (open, unmerged)                | 0                                                                                                                                                                                                      | 🟢                      |
+| Blocked (agent-failed, open)           | 0                                                                                                                                                                                                      | 🟢                      |
+| Skipped (agent-skip, open)             | 0                                                                                                                                                                                                      | 🟢                      |
+| Merged PRs (sample)                    | 50-PR page window spans only ~2026-08-11T02:20Z → 2026-08-13T01:16Z — very high merge velocity, mostly automation (production-feedback, queue-telemetry, acmm-daily-audit, dependabot) plus real fixes | -                       |
+| Daily/7d/Cost-per-issue Spend          | `.claude/agent-spend/sessions.jsonl` still empty (0 lines) — same gap as open issue #3695 (4th+ occurrence)                                                                                            | ⚪ N/A, already tracked |
+
+### This iteration (mbe-evening, one implement-queue pass)
+
+Claimed the sole `ready` issue, #4134 (a11y: party-size button groups missing `role="group"`/`aria-labelledby` in `DatePartySelector.tsx` and `WalkInDialog.tsx`). Worker (sonnet tier) completed TDD, gates, and opened PR #4145 in ~22 min. The worker's worktree branch turned out to be forked from a git history with **zero common ancestor** with current `origin/main` (two disjoint ~50-commit histories, same rough size — consistent with a full history rewrite of `main` sometime after the worktree was provisioned this session, not a real merge conflict). `git merge` correctly refused ("unrelated histories"). Recovered by extracting the worker's own diff (`git diff <old-parent>..<worker-tip>`), replaying it cleanly onto a fresh branch cut from current `origin/main`, re-running all gates (lint/typecheck/target+full test suite/check-adr/check-deps/regen --check) and force-pushing. One pre-existing, unrelated test failure (`e2e/fixtures/public-venue-mock.test.ts`) was confirmed to also fail on a clean `main` checkout — not caused by this change, left alone (out of scope, surgical-changes principle). CI Gate went green on the rebased commit; Reviewer subagent (haiku tier) scored 9/10, verdict pass, no specialist reviewers matched (`reviewersForDiff` empty). Merged via squash. Issue #4134 closed automatically; relabeled `has-pr` (was stuck on stale `in-progress`).
+
+Telemetry row appended for #4134/#4145 (`ci_first_pass: false`, `rework_cycles: 1` — the rebase-and-repush counts as one). Committed on `chore/queue-telemetry-2026-08-13`, opened PR #4146 (metrics-only, `isLowRiskPR`/`qualifiesForLowRiskFastPath` both true, auto-merge enabled by repo automation, tier:trivial).
+
+`gh`/`hub` CLI is not installed in this Claude Code Remote session — all GitHub reads/writes went through `mcp__github__*` tools instead; `mbe`/`node scripts/*.mjs` invocations that shell out to `gh` internally (e.g. `scripts/ci-gate-status.mjs`, `scripts/reap-worktrees.mjs`) fail or fail-closed here. `reap-worktrees.mjs` correctly retained both worktrees (dry-run) since it can't get merged-PR evidence without `gh` — left as-is per its documented fail-closed design, not forced.
+
+### Patterns
+
+- **Same-session worktree history discontinuity is new and worth watching.** This is the first observed case of a worker's git worktree having literally zero shared ancestor with `origin/main` fetched moments later, inside a single session. Previous "worktree PR targets wrong base" gotchas (gotchas.md) are about wrong branch, not disjoint history — this is a different failure class. If it recurs, it likely warrants a `gotcha-harvest` entry and/or a pre-flight check in `implement-queue-worker` (`git merge-base HEAD origin/main || <handle unrelated-history case>`) before opening a PR, rather than discovering it via a failed CI check as happened here.
+- CI health remains excellent (96% non-cancelled pass rate on main, cancellations are concurrency-superseded runs from rapid pushes, not real failures).
+- ci-fix churn remains high (50+ in the visible page, likely more before that) but closure rate is strong (~92%) — mostly same-day self-fixes of the queue's own tooling (implement-queue, CI gate classification, reap-worktrees, automation PR rescue), consistent with prior week's pattern.
+- `agent-spend/sessions.jsonl` empty gap persists (now several consecutive days); already tracked by open issue #3695 — not re-filed, per the max-2-meta/run and duplicate-avoidance rules.
+- `gh` CLI unavailability in Claude Code Remote sessions continues to be a source of friction for scripts written assuming it exists (`ci-gate-status.mjs`, `reap-worktrees.mjs`) — mirrors the already-fixed class of gotcha at #3937/#3985 (gh-client REST fallback gaps), but these two specific scripts still shell out to the `gh` binary directly rather than through `@mbe/gh-client`'s REST fallback. Worth a `claude-automation-recommender` look if this keeps costing manual MCP-tool workarounds.
+
+### Recommendations
+
+- No new meta-improvement issue filed this iteration — the worktree unrelated-history incident is a one-off (single occurrence) and the `gh`-CLI-dependency friction, while real, needs a second occurrence before filing to avoid duplicate/premature issues (per the pattern-3+-days rule); noting both here for `gotcha-harvest`/`claude-automation-recommender` to pick up if they recur.
+- Queue is empty again; next iteration should re-check for new `ready` issues before another implement-queue pass.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-13
+
+**queueEfficiency:** composite 0.945 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:6, size:m:3, size:s:14, size:l:5, size:xl:1
+**Issues filed:** 0
