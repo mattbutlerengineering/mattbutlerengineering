@@ -92,7 +92,16 @@ test("venue onboarding journey against the live site", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     // Mounts only once useDashboardStatsQuery resolves (HomePage renders
     // Skeletons while loading) — covered by the config's 30 s expect timeout.
-    await expect(page.getByLabel("Today's Reservations")).toBeVisible();
+    //
+    // Scoped by ROLE, not by label alone: rialto's Odometer deliberately puts
+    // the accessible name on BOTH its wrapper div and its inner
+    // role="status" live region (Odometer.test.tsx locks in both halves of
+    // that contract), so `getByLabel("Today's Reservations")` resolves to two
+    // nodes and fails Playwright strict mode. The wrapper is role-less, so
+    // naming the status region picks exactly one. apps/hospitality's own
+    // StatRow unit tests mock Odometer down to a single node, which is why
+    // this only ever reproduces against the real DOM.
+    await expect(page.getByRole("status", { name: "Today's Reservations" })).toBeVisible();
   });
 
   // Runs even when the wizard broke: the venue may already exist in prod. The
