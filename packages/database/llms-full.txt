@@ -9,11 +9,13 @@
         (err as { code: string }).code === "P2025"
       );
     }
-    interface SlowQuery {
-      model: string;
-      operation: string;
-      duration: number;
-      timestamp: number;
+    export function isPrismaForeignKeyViolation(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2003"
+      );
     }
   </file>
   <file path="src/list-utils.ts">

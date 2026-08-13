@@ -877,6 +877,9 @@
   </file>
   <file path="src/services/venue.ts">
     <item priority="low">
+      type VenueDeleteOutcome = "deleted" | "not_found" | "has_dependents";
+    </item>
+    <item priority="low">
       interface VenuePolicy {
         id: string;
         slug: string;
@@ -884,19 +887,6 @@
         depositEnabled: boolean;
         depositType: DepositType | null;
       }
-    </item>
-    <item priority="medium">
-      function mapVenuePolicy(row: {
-        id: string;
-        slug: string;
-        currencyCode: string;
-        depositEnabled: boolean;
-        depositType: DepositType | null;
-        depositAmountCents: number | null;
-        freeCancellationHours: number | null;
-        lateCancellationFeePercent: number | null;
-        noShowFeePercent: number | null;
-      }): VenuePolicy { /* ... */ }
     </item>
   </file>
   <file path="src/services/waitlist-notifier.ts">
