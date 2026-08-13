@@ -770,7 +770,7 @@ describe("Venue Routes", () => {
           payload: mockJWTPayload,
           protectedHeader: { alg: "RS256" },
         } as never);
-        vi.mocked(venueService.delete).mockResolvedValueOnce(true);
+        vi.mocked(venueService.delete).mockResolvedValueOnce("deleted");
 
         const response = await app.inject({
           method: "DELETE",
@@ -789,7 +789,7 @@ describe("Venue Routes", () => {
           payload: mockJWTPayload,
           protectedHeader: { alg: "RS256" },
         } as never);
-        vi.mocked(venueService.delete).mockResolvedValueOnce(false);
+        vi.mocked(venueService.delete).mockResolvedValueOnce("not_found");
 
         const response = await app.inject({
           method: "DELETE",
@@ -800,6 +800,24 @@ describe("Venue Routes", () => {
         });
 
         expect(response.statusCode).toBe(404);
+      });
+
+      it("returns 409 when the venue has dependent rows (Guest/FloorPlan/ReservationHold FK)", async () => {
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: mockJWTPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.delete).mockResolvedValueOnce("has_dependents");
+
+        const response = await app.inject({
+          method: "DELETE",
+          url: "/api/v1/venues/venue-with-guests",
+          headers: {
+            "x-auth-bypass": "true",
+          },
+        });
+
+        expect(response.statusCode).toBe(409);
       });
     });
   });

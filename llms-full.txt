@@ -10937,9 +10937,20 @@
           },
         },
         async (request, reply) => {
-          const deleted = await venueService.delete(request.params.id);
-          if (!deleted) {
+          const outcome = await venueService.delete(request.params.id);
+          if (outcome === "not_found") {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+          }
+          if (outcome === "has_dependents") {
+            return reply
+              .code(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Conflict",
+                  "Venue has tables or reservations and cannot be deleted"
+                )
+              );
           }
           return reply.code(204).send();
         }
@@ -13408,6 +13419,7 @@
     }
   </file>
   <file path="services/reservations/src/services/venue.ts">
+    export type VenueDeleteOutcome = "deleted" | "not_found" | "has_dependents";
     export interface VenuePolicy {
       id: string;
       slug: string;
@@ -13418,29 +13430,6 @@
       freeCancellationHours: number | null;
       lateCancellationFeePercent: number | null;
       noShowFeePercent: number | null;
-    }
-    function mapVenuePolicy(row: {
-      id: string;
-      slug: string;
-      currencyCode: string;
-      depositEnabled: boolean;
-      depositType: DepositType | null;
-      depositAmountCents: number | null;
-      freeCancellationHours: number | null;
-      lateCancellationFeePercent: number | null;
-      noShowFeePercent: number | null;
-    }): VenuePolicy {
-      return {
-        id: row.id,
-        slug: row.slug,
-        currencyCode: row.currencyCode,
-        depositEnabled: row.depositEnabled,
-        depositType: row.depositType,
-        depositAmountCents: row.depositAmountCents,
-        freeCancellationHours: row.freeCancellationHours,
-        lateCancellationFeePercent: row.lateCancellationFeePercent,
-        noShowFeePercent: row.noShowFeePercent,
-      };
     }
   </file>
   <file path="services/reservations/src/services/waitlist-notifier.ts">
@@ -16165,11 +16154,13 @@
         (err as { code: string }).code === "P2025"
       );
     }
-    interface SlowQuery {
-      model: string;
-      operation: string;
-      duration: number;
-      timestamp: number;
+    export function isPrismaForeignKeyViolation(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2003"
+      );
     }
   </file>
   <file path="packages/database/src/list-utils.ts">

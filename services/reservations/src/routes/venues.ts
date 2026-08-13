@@ -596,9 +596,20 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const deleted = await venueService.delete(request.params.id);
-      if (!deleted) {
+      const outcome = await venueService.delete(request.params.id);
+      if (outcome === "not_found") {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+      }
+      if (outcome === "has_dependents") {
+        return reply
+          .code(409)
+          .send(
+            createProblemDetails(
+              409,
+              "Conflict",
+              "Venue has tables or reservations and cannot be deleted"
+            )
+          );
       }
       return reply.code(204).send();
     }

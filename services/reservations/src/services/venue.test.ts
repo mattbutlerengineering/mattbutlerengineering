@@ -599,16 +599,29 @@ describe("venueService", () => {
   });
 
   describe("delete", () => {
-    it("returns true on success", async () => {
+    it("returns 'deleted' on success", async () => {
       vi.mocked(prisma.venue.delete).mockResolvedValueOnce(undefined as never);
 
-      expect(await venueService.delete("venue-1")).toBe(true);
+      expect(await venueService.delete("venue-1")).toBe("deleted");
     });
 
-    it("returns false for P2025", async () => {
+    it("returns 'not_found' for P2025", async () => {
       vi.mocked(prisma.venue.delete).mockRejectedValueOnce({ code: "P2025" } as never);
 
-      expect(await venueService.delete("missing")).toBe(false);
+      expect(await venueService.delete("missing")).toBe("not_found");
+    });
+
+    it("returns 'has_dependents' for P2003 (FK constraint from Guest/FloorPlan/ReservationHold)", async () => {
+      vi.mocked(prisma.venue.delete).mockRejectedValueOnce({ code: "P2003" } as never);
+
+      expect(await venueService.delete("venue-with-guests")).toBe("has_dependents");
+    });
+
+    it("rethrows any other error", async () => {
+      const unexpected = new Error("connection reset");
+      vi.mocked(prisma.venue.delete).mockRejectedValueOnce(unexpected as never);
+
+      await expect(venueService.delete("venue-1")).rejects.toThrow("connection reset");
     });
   });
 });

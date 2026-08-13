@@ -10,9 +10,21 @@ import type {
   UpdateVenueGroupRequest,
   PaginatedResponse,
 } from "@mbe/types";
-import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
+import {
+  paginate,
+  toPaginationMeta,
+  isPrismaNotFound,
+  isPrismaForeignKeyViolation,
+} from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+
+/**
+ * Outcome of {@link venueService.delete} — distinguishes "gone" from "blocked
+ * by a required relation" so the route can return the documented 409 instead
+ * of an unhandled 500 (#4152).
+ */
+export type VenueDeleteOutcome = "deleted" | "not_found" | "has_dependents";
 
 /**
  * Typed projection of a venue's deposit & cancellation policy, plus the
@@ -405,12 +417,13 @@ export const venueService = {
     }
   },
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string): Promise<VenueDeleteOutcome> {
     try {
       await prisma.venue.delete({ where: { id } });
-      return true;
+      return "deleted";
     } catch (err: unknown) {
-      if (isPrismaNotFound(err)) return false;
+      if (isPrismaNotFound(err)) return "not_found";
+      if (isPrismaForeignKeyViolation(err)) return "has_dependents";
       throw err;
     }
   },
