@@ -140,9 +140,7 @@
       "logs_7d": 3,
       "total_commits_7d": 25,
       "unique_branches_7d": 1,
-      "branches_7d": [
-        "chore/queue-telemetry-2026-08-13"
-      ]
+      "branches_7d": ["chore/queue-telemetry-2026-08-13"]
     },
     "codeChurn": {
       "available": true,
