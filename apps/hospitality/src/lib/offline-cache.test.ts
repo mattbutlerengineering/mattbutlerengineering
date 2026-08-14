@@ -77,12 +77,8 @@ describe("offline-cache: reservations", () => {
   });
 
   it("keeps reservations cached under different venueIds separate", async () => {
-    await setCachedReservations("venue-1", "2026-08-15", [
-      makeReservation({ id: "res-1" }),
-    ]);
-    await setCachedReservations("venue-2", "2026-08-15", [
-      makeReservation({ id: "res-2" }),
-    ]);
+    await setCachedReservations("venue-1", "2026-08-15", [makeReservation({ id: "res-1" })]);
+    await setCachedReservations("venue-2", "2026-08-15", [makeReservation({ id: "res-2" })]);
 
     const venue1Result = await getCachedReservations("venue-1", "2026-08-15");
     const venue2Result = await getCachedReservations("venue-2", "2026-08-15");
@@ -111,12 +107,8 @@ describe("offline-cache: floor plan snapshot", () => {
 
 describe("offline-cache: evictStaleEntries", () => {
   it("removes reservation entries cached under a different date and leaves today's intact", async () => {
-    await setCachedReservations("venue-1", "2026-08-14", [
-      makeReservation({ date: "2026-08-14" }),
-    ]);
-    await setCachedReservations("venue-1", "2026-08-15", [
-      makeReservation({ date: "2026-08-15" }),
-    ]);
+    await setCachedReservations("venue-1", "2026-08-14", [makeReservation({ date: "2026-08-14" })]);
+    await setCachedReservations("venue-1", "2026-08-15", [makeReservation({ date: "2026-08-15" })]);
 
     await evictStaleEntries("2026-08-15");
 

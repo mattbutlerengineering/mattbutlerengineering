@@ -68,10 +68,7 @@ export async function getCachedReservations(
   date: string
 ): Promise<Reservation[] | null> {
   const db = await getDb();
-  const entry = await db.get(
-    RESERVATIONS_STORE,
-    reservationsKey(venueId, date)
-  );
+  const entry = await db.get(RESERVATIONS_STORE, reservationsKey(venueId, date));
   return entry?.reservations ?? null;
 }
 
