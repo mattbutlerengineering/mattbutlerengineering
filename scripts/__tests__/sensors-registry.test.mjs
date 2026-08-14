@@ -220,25 +220,54 @@ describe("sensors-registry", () => {
     // #3937: collect-ai-issue-feedback.mjs now persists `{ error }` instead of
     // leaving the file unwritten on a query failure — the sensor must surface
     // that distinctly from "not yet collected".
+    // #4211: the error branch dropped `collected_at`, so a persisted failure
+    // read as current no matter how old it was. It must now propagate
+    // `collected_at` and an explicit `stale` flag, without ever letting a
+    // failure collapse into looking like "not yet collected" (#3937).
     let tmpDir;
+
+    const writeFixture = (data) => {
+      tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
+      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+      writeFileSync(join(tmpDir, "metrics", "ai-issue-feedback.json"), JSON.stringify(data));
+      return SENSORS.find((s) => s.id === "issueFeedback");
+    };
 
     afterEach(() => {
       rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it("reports the auth-capability gap distinctly when the persisted file records an error", () => {
-      tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      writeFileSync(
-        join(tmpDir, "metrics", "ai-issue-feedback.json"),
-        JSON.stringify({ collected_at: "2026-08-07T00:00:00Z", error: "GitHub auth failed" })
-      );
+    it("reports the auth-capability gap with collected_at and stale:false when the failure is fresh", () => {
+      const now = new Date("2026-08-14T12:00:00Z");
+      const sensor = writeFixture({
+        collected_at: "2026-08-14T00:00:00Z", // 12h before `now` — well under the 48h threshold
+        error: "GitHub auth failed",
+      });
 
-      const sensor = SENSORS.find((s) => s.id === "issueFeedback");
-      const result = sensor.collect({ root: tmpDir });
+      const result = sensor.collect({ root: tmpDir, now });
+
+      expect(result).toEqual({
+        available: false,
+        error: "GitHub auth failed",
+        collected_at: "2026-08-14T00:00:00Z",
+        stale: false,
+      });
+    });
+
+    it("flags stale:true when the persisted failure is older than the staleness threshold", () => {
+      const now = new Date("2026-08-14T12:00:00Z");
+      const sensor = writeFixture({
+        collected_at: "2026-08-11T18:21:51.050Z", // >48h before `now` — mirrors the observed #4211 case
+        error:
+          "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
+      });
+
+      const result = sensor.collect({ root: tmpDir, now });
 
       expect(result.available).toBe(false);
       expect(result.error).toMatch(/auth/i);
+      expect(result.collected_at).toBe("2026-08-11T18:21:51.050Z");
+      expect(result.stale).toBe(true);
     });
 
     it("reports plain unavailable (no error) when the file has simply never been written", () => {
@@ -246,7 +275,7 @@ describe("sensors-registry", () => {
 
       const sensor = SENSORS.find((s) => s.id === "issueFeedback");
 
-      expect(sensor.collect({ root: tmpDir })).toEqual({ available: false });
+      expect(sensor.collect({ root: tmpDir, now: new Date() })).toEqual({ available: false });
     });
   });
 

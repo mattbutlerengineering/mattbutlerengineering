@@ -236,6 +236,26 @@ export function buildE2eRuns(ghRuns, resolveChangedPaths) {
 }
 
 /**
+ * Past this age, a persisted issueFeedback failure is reported as `stale`
+ * rather than current (#4211 — a 403 from 2026-08-11 was still reading as
+ * "now" on 2026-08-14). collect-ai-issue-feedback.mjs is run once daily via
+ * the mbe-learning-loop routine (docs/scheduled-tasks.md); 48h is 2x that
+ * cadence, so one missed scheduled run doesn't falsely flag a still-fresh
+ * failure, while a real multi-day gap (the observed case) still trips it.
+ */
+export const ISSUE_FEEDBACK_STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * @param {string | null} collectedAt
+ * @param {Date} now
+ * @returns {boolean}
+ */
+function isIssueFeedbackStale(collectedAt, now) {
+  if (!collectedAt) return true;
+  return now - new Date(collectedAt) > ISSUE_FEEDBACK_STALE_THRESHOLD_MS;
+}
+
+/**
  * Registry of all known sensors.
  *
  * metricKeys entries use the sensor's default category unless an override is provided.
@@ -587,13 +607,23 @@ export const SENSORS = [
   {
     id: "issueFeedback",
     category: "quality",
-    collect: ({ root }) => {
+    collect: ({ root, now }) => {
       const data = safe(() => read("ai-issue-feedback", { root }));
       if (!data) return { available: false };
       // #3937: collect-ai-issue-feedback.mjs persists `{ error }` (instead of
       // leaving the file unwritten) when the underlying query failed — surface
-      // that distinctly from "not yet collected".
-      if (data.error) return { available: false, error: data.error };
+      // that distinctly from "not yet collected". #4211: also propagate the
+      // persisted `collected_at` and an explicit `stale` flag, so a failure
+      // from a prior run can't be mistaken for a current one.
+      if (data.error) {
+        const collectedAt = data.collected_at ?? null;
+        return {
+          available: false,
+          error: data.error,
+          collected_at: collectedAt,
+          stale: isIssueFeedbackStale(collectedAt, now),
+        };
+      }
       if (!data.categories) return { available: false };
 
       const categories = data.categories;
