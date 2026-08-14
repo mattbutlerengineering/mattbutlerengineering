@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   ENDPOINT_METRIC_TAGS,
@@ -108,8 +110,8 @@ describe("computeEndpointStatus", () => {
   });
 
   it("reports 'not-run' when the endpoint's submetrics exist but have zero requests", () => {
-    const metrics = makeEndpointMetric({ tag: "venues_list", passes: 0, fails: 0, p95: 0 });
-    const result = computeEndpointStatus(metrics, "venues_list");
+    const metrics = makeEndpointMetric({ tag: "users_health", passes: 0, fails: 0, p95: 0 });
+    const result = computeEndpointStatus(metrics, "users_health");
     expect(result.status).toBe("not-run");
     expect(result.requests).toBe(0);
   });
@@ -174,12 +176,29 @@ describe("buildEndpointStatuses", () => {
 
   it("marks an endpoint absent from the summary as 'not-run' without touching the others", () => {
     const summary = makeAllPassingSummary();
-    delete summary.metrics["errors{endpoint:events_list}"];
-    delete summary.metrics["api_latency{endpoint:events_list}"];
+    delete summary.metrics["errors{endpoint:reservations_health}"];
+    delete summary.metrics["api_latency{endpoint:reservations_health}"];
 
     const statuses = buildEndpointStatuses(summary);
-    expect(statuses.events.status).toBe("not-run");
+    expect(statuses["reservations-api"].status).toBe("not-run");
     expect(statuses.marketing.status).toBe("passed");
+  });
+
+  // Drift guard: ENDPOINT_METRIC_TAGS is the summary's view of which endpoints
+  // exist, and load-test.js is the only thing that actually produces them. When
+  // #4114 removed three checks from load-test.js, this map still listed them —
+  // every results.json would have reported three phantom endpoints as "not-run"
+  // forever. Compare the two directly so the next removal can't drift silently.
+  it("stays in sync with the endpoint tags load-test.js declares", () => {
+    const workflowScript = readFileSync(
+      join(import.meta.dirname, "../../.github/workflows/load-test.js"),
+      "utf8"
+    );
+    const declared = [
+      ...new Set([...workflowScript.matchAll(/\{endpoint:([a-z_]+)\}/g)].map((m) => m[1])),
+    ];
+    expect(declared.length).toBeGreaterThan(0);
+    expect(Object.values(ENDPOINT_METRIC_TAGS).sort()).toEqual(declared.sort());
   });
 
   it("throws a clear error for a malformed summary", () => {
