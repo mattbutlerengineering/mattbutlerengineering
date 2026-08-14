@@ -1996,10 +1996,16 @@
             return;
           }
     
-          // Read baseline before appending the current run so the most recent prior
-          // entry is used, not the one we're about to write.
+          // Read baseline before appending the current run so the most recent
+          // prior entry is used, not the one we're about to write. Scoped to
+          // this run's own adapter (#4218 rework) — comparing cost across
+          // adapters is meaningless, and a $0 baseline from a structurally
+          // cost-blind adapter (gemini) must never silently disable the gate
+          // for a different adapter's genuine cost.
           const costBaseline =
-            options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
+            options.maxCostRegression !== undefined
+              ? loadCostBaseline(findLogFile(), adapterType)
+              : null;
     
           const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
           const report = await runEvalSuite(tasks, {
@@ -2015,7 +2021,7 @@
             return;
           }
     
-          persistReport(report);
+          persistReport(report, adapterType);
           emitReport(report, options.json);
     
           if (options.calibrate) {

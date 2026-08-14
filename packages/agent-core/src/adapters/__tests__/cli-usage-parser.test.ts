@@ -46,16 +46,17 @@ describe("parseGeminiUsage", () => {
   // #4208: numTurns must be derived from real subprocess activity, never a
   // hardcoded 0. `stats.models[*].api.totalRequests` is the real field Gemini
   // CLI's own JSON formatter emits for this — verified against the installed
-  // @google/gemini-cli@0.46.0 package: `uiTelemetryService.getMetrics()`
-  // (packages/core/src/telemetry/uiTelemetry.ts) feeds `JsonFormatter.format`
-  // (packages/core/src/output/json-formatter.ts) as the `stats` field, and
-  // `createInitialModelMetrics()` gives each model an `api.totalRequests`
-  // counter incremented once per model API call — i.e. once per turn. A live
-  // successful capture could not be obtained in this environment (the
-  // account behind the locally-installed CLI returns `IneligibleTierError`,
-  // a server-side account-tier deprecation unrelated to missing
-  // credentials), so this fixture reproduces that real, cited schema rather
-  // than inventing a plausible-looking shape.
+  // @google/gemini-cli@0.49.0 package's bundled CLI output (`UiTelemetryService`,
+  // whose upstream source is `packages/core/src/telemetry/uiTelemetry.ts`),
+  // which feeds its JSON formatter's `stats` field. `api.totalRequests` is
+  // incremented on both a successful API call and a failed/retried one, so
+  // it counts API-call attempts, not strictly logical turns — see the
+  // caveat in cli-usage-parser.ts. A live successful capture could not be
+  // obtained in this environment (the account behind the locally-installed
+  // CLI returns `IneligibleTierError`, a server-side account-tier
+  // deprecation unrelated to missing credentials), so this fixture
+  // reproduces that real, cited schema rather than inventing a
+  // plausible-looking shape.
   it("sums api.totalRequests across models into numTurns", () => {
     const stdout = JSON.stringify({
       session_id: "abc123",

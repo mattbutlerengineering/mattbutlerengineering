@@ -43,10 +43,19 @@ function safeJsonParse(text: string): unknown {
 // costUsd is always left undefined here.
 //
 // `stats.models[*].api.totalRequests` is a real signal for turn count: it is
-// `uiTelemetryService.getMetrics()`'s per-model API-call counter (verified
-// against the installed @google/gemini-cli package's own
-// packages/core/src/telemetry/uiTelemetry.ts), incremented once per model
-// API call — i.e. once per turn. Summed across models, never fabricated.
+// `UiTelemetryService`'s per-model API-call counter (its symbols are present
+// in the installed @google/gemini-cli@0.49.0 package's bundled CLI output —
+// upstream source is `packages/core/src/telemetry/uiTelemetry.ts`, but the
+// published package ships only the bundled/minified form, not that path
+// verbatim). It is NOT a strict 1:1 with logical turns: the bundle's
+// `processApiResponse` (a successful call) AND `processApiError` (a failed
+// or retried call) both increment it, so a retried/errored API call inflates
+// the count above the true turn count. That inflation is harmless for this
+// module's one real consumer — it only ever moves the value away from the
+// `{turns: 0, costUsd: 0}` shape `taskDidNotRun` checks for, never toward it
+// — but treat it as "API-call attempts", not an exact turn count, if you use
+// it elsewhere. Summed across models, never fabricated (absent, not a
+// hardcoded 0, when no model reports it).
 
 const GeminiModelMetricsSchema = z.object({
   tokens: z

@@ -356,8 +356,12 @@ describe("agent eval command", () => {
   describe("--max-cost-regression", () => {
     it("exits 0 when cost is within threshold versus baseline", async () => {
       // baseline meanCostUsd = 0.10; current session costUsd = 0.11 (10% up, threshold 20%)
+      // adapter: "claude" — the run below defaults to --adapter claude too, so
+      // this is a same-adapter baseline (#4218 rework: baselines are scoped
+      // per adapter).
       const baseline = {
         runId: "prev",
+        adapter: "claude",
         tasks: [],
         aggregate: {
           total: 1,
@@ -382,6 +386,7 @@ describe("agent eval command", () => {
       // baseline meanCostUsd = 0.10; current session costUsd = 0.25 (150% up, threshold 20%)
       const baseline = {
         runId: "prev",
+        adapter: "claude",
         tasks: [],
         aggregate: {
           total: 1,
@@ -425,6 +430,54 @@ describe("agent eval command", () => {
       await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
 
       expect(process.exitCode).toBe(0);
+    });
+  });
+
+  describe("cross-adapter baseline poisoning (#4218 rework)", () => {
+    // Exercises the real persistReport -> loadCostBaseline round trip
+    // through three genuine command invocations against a stateful fake
+    // log file (appendFileSync/readFileSync share real content) — not a
+    // canned baseline fixture. This is deliberately NOT shaped like the
+    // reviewer-flagged tautological test on the original #4208 PR (which
+    // stubbed runAgentSession and stayed green even with the fix reverted):
+    // reverting the adapter-scoping fix in agent-eval.ts must turn this RED,
+    // because it is the actual production loadCostBaseline/persistReport
+    // code being exercised, not a re-assertion of a mocked baseline.
+    it("does not let a $0 gemini report become claude's cost-regression baseline", async () => {
+      let fakeLog = "";
+      mockAppendFileSync.mockImplementation((_path: unknown, data: unknown) => {
+        fakeLog += String(data);
+      });
+      mockReadFileSync.mockImplementation(() => fakeLog);
+      mockLoadSuite.mockResolvedValue([task]);
+
+      // 1. A genuine claude run establishes a real, non-zero baseline.
+      mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 0.1, numTurns: 5 }));
+      await agentEvalCommand.parseAsync(["--adapter", "claude"], { from: "user" });
+      expect(process.exitCode).toBe(0);
+
+      // 2. A genuine gemini run — real turns (#4208), structurally-$0 cost —
+      // is no longer a non-run, so it persists and becomes the newest line
+      // in the shared log file.
+      mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 0, numTurns: 7 }));
+      await agentEvalCommand.parseAsync(["--adapter", "gemini"], { from: "user" });
+      expect(process.exitCode).toBe(0);
+
+      // 3. claude's cost genuinely spikes. Unfixed: loadCostBaseline reads
+      // the last line in the file regardless of adapter, i.e. gemini's $0
+      // entry -> checkCostRegression(baseline === 0) short-circuits "no
+      // regression" -> exit 0, hiding a real 4900% cost spike. Fixed: the
+      // baseline is scoped to claude's own prior entry ($0.10), so the gate
+      // fires.
+      mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 5, numTurns: 5 }));
+      await agentEvalCommand.parseAsync(
+        ["--adapter", "claude", "--max-cost-regression", "20"],
+        { from: "user" }
+      );
+
+      expect(process.exitCode).toBe(1);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toMatch(/cost regression/i);
     });
   });
 });
