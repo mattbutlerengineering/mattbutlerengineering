@@ -1,0 +1,184 @@
+name: Pulumi R2 Checksum Validation
+
+# workflow_dispatch ONLY - never push, pull_request, or schedule. This
+# workflow exists to empirically answer #4119: does Pulumi CLI 3.256.0+
+# write to this R2 state backend cleanly once
+# AWS_REQUEST_CHECKSUM_CALCULATION / AWS_RESPONSE_CHECKSUM_VALIDATION are
+# set to `when_required`? It performs a REAL Pulumi state write (that's the
+# only way to reproduce the InvalidDigest bug from #4117/#4118), so it must
+# be triggered deliberately by a maintainer, and it must NEVER touch
+# production Pulumi state - see the "Resolve + Guard Scratch Bucket" job,
+# which hard-fails if the resolved bucket is blank or is the production
+# bucket.
+on:
+  workflow_dispatch:
+    inputs:
+      pulumi_version:
+        description: "Pulumi CLI version to validate (must be >= 3.256.0)"
+        required: false
+        default: "3.256.0"
+        type: string
+      scratch_bucket:
+        description: >-
+          Scratch R2 bucket name for this run. Falls back to the
+          PULUMI_SCRATCH_STATE_BUCKET secret if left blank. Must NOT be the
+          production state bucket - the workflow hard-fails if it resolves
+          to it.
+        required: false
+        type: string
+
+concurrency:
+  group: pulumi-r2-checksum-validation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Resolve + Guard Scratch Bucket
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      bucket: ${{ steps.resolve.outputs.bucket }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+
+      # This is the most important step in the whole workflow: it must
+      # hard-fail (never silently fall back to the production backend) if
+      # the resolved bucket is blank, unresolved, or the prod state bucket
+      # itself. See scripts/pulumi-r2-validation-guard.mjs for the
+      # unit-tested guard logic and scripts/__tests__/pulumi-r2-validation-guard.test.mjs
+      # for its coverage.
+      - name: Resolve scratch bucket and validate Pulumi version floor
+        id: resolve
+        env:
+          INPUT_BUCKET: ${{ inputs.scratch_bucket }}
+          SECRET_BUCKET: ${{ secrets.PULUMI_SCRATCH_STATE_BUCKET }}
+          PULUMI_VERSION_INPUT: ${{ inputs.pulumi_version }}
+        run: |
+          BUCKET=$(node scripts/pulumi-r2-validation-guard.mjs check-bucket --input "$INPUT_BUCKET" --secret "$SECRET_BUCKET")
+          node scripts/pulumi-r2-validation-guard.mjs check-version --version "$PULUMI_VERSION_INPUT"
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+
+  validate-with-fix:
+    name: "Arm: WITH checksum env vars (the fix under test)"
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The env vars under test, set at JOB level so both the `pulumi login`/
+    # `pulumi stack init` raw run: steps and anything the pulumi CLI shells
+    # out to inherit them - matching the job-level placement #4119 requires
+    # of the real fix in pulumi-up.yml.
+    env:
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    outputs:
+      outcome: ${{ steps.run-arm.outputs.outcome }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+
+      - name: Install Pulumi CLI under test
+        env:
+          PULUMI_VERSION_INPUT: ${{ inputs.pulumi_version }}
+        run: |
+          curl -fsSL https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION_INPUT"
+          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Run validation arm (with fix)
+        id: run-arm
+        env:
+          BACKEND_URL: "s3://${{ needs.guard.outputs.bucket }}?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+        run: |
+          bash scripts/run-pulumi-r2-validation-arm.sh with-fix "$BACKEND_URL" "$RUNNER_TEMP/pulumi-r2-validation-with-fix"
+
+  validate-without-fix:
+    name: "Arm: WITHOUT checksum env vars (control, expected to reproduce the bug)"
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Deliberately no AWS_REQUEST_CHECKSUM_CALCULATION / AWS_RESPONSE_CHECKSUM_VALIDATION
+    # here - this arm is the control, run at the runner image's default
+    # behavior to confirm the InvalidDigest failure actually reproduces.
+    # continue-on-error so an EXPECTED failure here never reds out the
+    # overall workflow run - only the "with fix" arm's result does that.
+    continue-on-error: true
+    outputs:
+      outcome: ${{ steps.run-arm.outputs.outcome }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+
+      - name: Install Pulumi CLI under test
+        env:
+          PULUMI_VERSION_INPUT: ${{ inputs.pulumi_version }}
+        run: |
+          curl -fsSL https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION_INPUT"
+          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Run validation arm (without fix - control)
+        id: run-arm
+        env:
+          BACKEND_URL: "s3://${{ needs.guard.outputs.bucket }}?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+        run: |
+          bash scripts/run-pulumi-r2-validation-arm.sh without-fix "$BACKEND_URL" "$RUNNER_TEMP/pulumi-r2-validation-without-fix"
+
+  report:
+    name: Report Verdict
+    needs: [validate-with-fix, validate-without-fix]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize both arms and set the overall verdict
+        env:
+          WITH_OUTCOME: ${{ needs.validate-with-fix.outputs.outcome }}
+          WITHOUT_OUTCOME: ${{ needs.validate-without-fix.outputs.outcome }}
+        run: |
+          {
+            echo "## Pulumi/R2 checksum validation (#4119)"
+            echo ""
+            echo "| Arm | Checksum env vars | Result |"
+            echo "|---|---|---|"
+            echo "| With fix | \`when_required\` | ${WITH_OUTCOME:-unknown} |"
+            echo "| Without fix (control) | runner default | ${WITHOUT_OUTCOME:-unknown} |"
+            echo ""
+            if [ "$WITH_OUTCOME" = "pass" ]; then
+              echo "**Verdict: the checksum env vars fix the R2 InvalidDigest failure on this Pulumi version.** Raising/removing the pulumi-up.yml 3.253.0 pin is a safe follow-up."
+            else
+              echo "**Verdict: the checksum env vars did NOT confirm-fix the R2 InvalidDigest failure (or the run errored before producing a result).** Keep the pulumi-up.yml 3.253.0 pin; investigate further before retrying."
+            fi
+            if [ "$WITHOUT_OUTCOME" = "pass" ]; then
+              echo ""
+              echo "_Note: the control arm (no env vars) also passed - the InvalidDigest failure was not reproduced on this Pulumi version/runner image combination. Treat the comparison as inconclusive rather than as confirming causation._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$WITH_OUTCOME" != "pass" ]; then
+            exit 1
+          fi
