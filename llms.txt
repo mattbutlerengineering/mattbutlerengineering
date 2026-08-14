@@ -3386,7 +3386,7 @@
     </item>
     <item priority="low">
       interface NotifierRuntime {
-        redisUrl: string;
+        redisUrl: string | null;
         scheduler: NotifierScheduler;
         smsAdapter: SmsPort | null;
       }

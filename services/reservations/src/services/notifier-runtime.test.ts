@@ -113,4 +113,78 @@ describe("createNotifierRuntime", () => {
     const runtime = createNotifierRuntime();
     expect(runtime.smsAdapter).toBeNull();
   });
+
+  describe("production REDIS_URL guard (#4172)", () => {
+    let errorSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      errorSpy.mockRestore();
+    });
+
+    it("does NOT fall back to redis://localhost:6379 when NODE_ENV=production and REDIS_URL is unset", () => {
+      process.env.NODE_ENV = "production";
+
+      const runtime = createNotifierRuntime();
+
+      expect(runtime.redisUrl).toBeNull();
+    });
+
+    it("logs an error-level message naming REDIS_URL when NODE_ENV=production and REDIS_URL is unset", () => {
+      process.env.NODE_ENV = "production";
+
+      createNotifierRuntime();
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("REDIS_URL"));
+    });
+
+    it("does NOT open a Redis connection when scheduling in production with REDIS_URL unset", async () => {
+      process.env.NODE_ENV = "production";
+      const runtime = createNotifierRuntime();
+
+      await expect(
+        runtime.scheduler.schedule(JOB_TYPES.WAITLIST_EXPIRY, { waitlistEntryId: "e1" }, 1, "j")
+      ).rejects.toThrow(/REDIS_URL/);
+      expect(jobSchedulerCtor).not.toHaveBeenCalled();
+    });
+
+    it("uses the provided REDIS_URL unchanged when NODE_ENV=production and REDIS_URL is set", async () => {
+      process.env.NODE_ENV = "production";
+      process.env.REDIS_URL = "redis://prod-host:6379";
+
+      const runtime = createNotifierRuntime();
+
+      expect(runtime.redisUrl).toBe("redis://prod-host:6379");
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      await runtime.scheduler.schedule(
+        JOB_TYPES.WAITLIST_EXPIRY,
+        { waitlistEntryId: "e1" },
+        1,
+        "j"
+      );
+      expect(jobSchedulerCtor).toHaveBeenCalledWith({ redisUrl: "redis://prod-host:6379" });
+    });
+
+    it("defaults REDIS_URL to redis://localhost:6379 unchanged when NODE_ENV=development and REDIS_URL is unset", () => {
+      process.env.NODE_ENV = "development";
+
+      const runtime = createNotifierRuntime();
+
+      expect(runtime.redisUrl).toBe("redis://localhost:6379");
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it("defaults REDIS_URL to redis://localhost:6379 unchanged when NODE_ENV=test and REDIS_URL is unset", () => {
+      process.env.NODE_ENV = "test";
+
+      const runtime = createNotifierRuntime();
+
+      expect(runtime.redisUrl).toBe("redis://localhost:6379");
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+  });
 });
