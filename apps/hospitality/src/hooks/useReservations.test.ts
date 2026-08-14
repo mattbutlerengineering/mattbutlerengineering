@@ -8,11 +8,20 @@ import type { Reservation, PaginatedResponse } from "@mbe/types";
 /* ── Mocks ──────────────────────────────────────────── */
 
 const mockList = vi.fn();
+const mockGetCachedReservations = vi.fn();
+const mockSetCachedReservations = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
     reservations: { list: mockList },
   }),
+}));
+
+vi.mock("../lib/offline-cache.js", () => ({
+  getCachedReservations: (venueId: string, date: string) =>
+    mockGetCachedReservations(venueId, date),
+  setCachedReservations: (venueId: string, date: string, reservations: unknown) =>
+    mockSetCachedReservations(venueId, date, reservations),
 }));
 
 /* ── Helpers ────────────────────────────────────────── */
@@ -71,6 +80,8 @@ function createWrapper() {
 describe("useReservations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCachedReservations.mockResolvedValue(null);
+    mockSetCachedReservations.mockResolvedValue(undefined);
   });
 
   it("returns loading state initially", () => {
@@ -100,6 +111,19 @@ describe("useReservations", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("caches reservations in offline storage on successful fetch", async () => {
+    const reservations = [makeReservation({ id: "r1" }), makeReservation({ id: "r2" })];
+    mockList.mockResolvedValue(makePaginatedResponse(reservations));
+
+    renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(mockSetCachedReservations).toHaveBeenCalledWith("v1", "2026-01-15", reservations);
+    });
+  });
+
   it("returns error state on failure", async () => {
     mockList.mockRejectedValue(new Error("Network error"));
 
@@ -114,6 +138,25 @@ describe("useReservations", () => {
     expect(result.current.error).toBeInstanceOf(Error);
     expect(result.current.error?.message).toBe("Network error");
     expect(result.current.data).toBeUndefined();
+    expect(result.current.isFromCache).toBe(false);
+  });
+
+  it("falls back to cached data on fetch failure when a cache entry exists", async () => {
+    const cachedReservations = [makeReservation({ id: "cached-1" })];
+    mockList.mockRejectedValue(new Error("Network error"));
+    mockGetCachedReservations.mockResolvedValue(cachedReservations);
+
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isFromCache).toBe(true);
+    });
+
+    expect(mockGetCachedReservations).toHaveBeenCalledWith("v1", "2026-01-15");
+    expect(result.current.data).toEqual(cachedReservations);
+    expect(result.current.error).toBeNull();
   });
 
   it("passes params to api client", async () => {
