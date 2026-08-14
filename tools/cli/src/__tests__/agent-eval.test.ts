@@ -249,17 +249,20 @@ describe("agent eval command", () => {
     });
   });
 
-  describe("cost-absent CLI-adapter path (option (a): surfaced as a non-run)", () => {
+  describe("gemini CLI-adapter path (#4208: real numTurns, cost still structurally absent)", () => {
     // Gemini's CliUsage never carries a cost figure (cli-usage-parser.ts:
-    // "Gemini CLI's stats never carry a USD figure") and the shared
-    // CLI-subprocess session runner (run-cli-adapter-session.ts) always
-    // reports numTurns: 0 for gemini/opencode. So a genuine gemini
-    // SessionResult is `{ costUsd: 0, numTurns: 0 }` — identical in shape to
-    // the no-credentials case above. taskDidNotRun/suiteDidNotRun already
-    // treat that as a non-run, which is exactly what forbids a silent
-    // `costUsd: 0` from ever reaching a persisted baseline or
-    // --max-cost-regression comparison for this adapter.
-    it("reports a non-run (not a scored $0 baseline) when the gemini adapter never populates cost/turns", async () => {
+    // "Gemini CLI's stats never carry a USD figure") — that is a permanent,
+    // structural property of the Gemini CLI's own JSON output and out of
+    // scope here. Prior to #4208, the shared CLI-subprocess session runner
+    // (run-cli-adapter-session.ts) ALSO always reported numTurns: 0 for
+    // gemini/opencode regardless of what actually happened, so a genuinely
+    // successful gemini run was indistinguishable from a credential-less one:
+    // both produced `{ costUsd: 0, numTurns: 0 }`. #4208 fixed numTurns to be
+    // derived from real subprocess activity (see
+    // packages/agent-core/src/adapters/cli-usage-parser.ts), so only the
+    // genuine "nothing happened" case still looks like this — a real gemini
+    // run now reports real turns even though costUsd stays 0.
+    it("still reports a non-run when the gemini adapter genuinely never ran (no credentials — 0 turns, $0 cost)", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 0 }));
 
@@ -269,6 +272,18 @@ describe("agent eval command", () => {
 
       expect(process.exitCode).toBe(2);
       expect(mockAppendFileSync).not.toHaveBeenCalled();
+    });
+
+    it("scores a successful gemini run instead of treating it as a non-run, even though costUsd stays 0", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 7 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "gemini", "--max-cost-regression", "20"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).not.toBe(2);
+      expect(mockAppendFileSync).toHaveBeenCalled();
     });
   });
 

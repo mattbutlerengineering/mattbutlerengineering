@@ -538,6 +538,7 @@
       interface CliUsage {
         costUsd?: number;
         tokenUsage?: TokenUsage;
+        numTurns?: number;
       }
     </item>
     <item priority="medium">
