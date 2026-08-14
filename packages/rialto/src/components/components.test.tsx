@@ -76,10 +76,12 @@ describe("Smoke tests — every component renders without crashing", () => {
 
   it("Accordion", () => {
     render(<Accordion items={[{ id: "1", title: "Section 1", content: "Content 1" }]} />);
+    expect(screen.getByText("Section 1")).toBeInTheDocument();
   });
 
   it("Alert", () => {
     render(<Alert>Something happened</Alert>);
+    expect(screen.getByText("Something happened")).toBeInTheDocument();
   });
 
   it("AspectRatio", () => {
@@ -88,6 +90,7 @@ describe("Smoke tests — every component renders without crashing", () => {
         <div>Content</div>
       </AspectRatio>
     );
+    expect(screen.getByText("Content")).toBeInTheDocument();
   });
 
   it("Avatar", () => {
@@ -110,6 +113,7 @@ describe("Smoke tests — every component renders without crashing", () => {
 
   it("AvatarGroup", () => {
     render(<AvatarGroup avatars={[{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }]} />);
+    expect(screen.getByLabelText("Alice")).toBeInTheDocument();
   });
 
   it("Badge", () => {
@@ -171,10 +175,16 @@ describe("Smoke tests — every component renders without crashing", () => {
         items={[{ id: "a", label: "Action", onSelect: noop }]}
       />
     );
+    // Closed contract: the palette dialog and its items are absent from the a11y tree.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Action")).toBeNull();
   });
 
   it("ConfirmDialog", () => {
     render(<ConfirmDialog open={false} onConfirm={noop} onCancel={noop} title="Delete?" />);
+    // Closed contract: the dialog and its title are absent from the a11y tree.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Delete?")).toBeNull();
   });
 
   it("ContextMenu", () => {
@@ -200,10 +210,14 @@ describe("Smoke tests — every component renders without crashing", () => {
 
   it("Dialog", () => {
     render(<Dialog open={false} onClose={noop} title="Test" />);
+    // Closed contract: the dialog and its title are absent from the a11y tree.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Test")).toBeNull();
   });
 
   it("Divider", () => {
     render(<Divider />);
+    expect(screen.getByRole("separator")).toBeInTheDocument();
   });
 
   it("Drawer", () => {
@@ -212,6 +226,9 @@ describe("Smoke tests — every component renders without crashing", () => {
         Drawer content
       </Drawer>
     );
+    // Closed contract: the drawer dialog and its content are absent from the a11y tree.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Drawer content")).toBeNull();
   });
 
   it("DropdownMenu", () => {
@@ -265,6 +282,7 @@ describe("Smoke tests — every component renders without crashing", () => {
 
   it("Meter", () => {
     render(<Meter value={60} label="Usage" />);
+    expect(screen.getByRole("meter", { name: "Usage" })).toHaveAttribute("aria-valuenow", "60");
   });
 
   it("Navbar", () => {
@@ -284,10 +302,13 @@ describe("Smoke tests — every component renders without crashing", () => {
 
   it("Pagination", () => {
     render(<Pagination page={1} totalPages={5} onChange={noop} />);
+    expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute("aria-current", "page");
   });
 
   it("PinInput", () => {
     render(<PinInput label="Code" />);
+    expect(screen.getByRole("group", { name: "Code" })).toBeInTheDocument();
   });
 
   it("Popover", () => {
@@ -297,10 +318,15 @@ describe("Smoke tests — every component renders without crashing", () => {
 
   it("Progress", () => {
     render(<Progress value={50} aria-label="Loading" />);
+    expect(screen.getByRole("progressbar", { name: "Loading" })).toHaveAttribute(
+      "aria-valuenow",
+      "50"
+    );
   });
 
   it("Spinner", () => {
     render(<Spinner label="Loading" />);
+    expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
   });
 
   it("ScrollArea", () => {
@@ -336,6 +362,7 @@ describe("Smoke tests — every component renders without crashing", () => {
         ]}
       />
     );
+    expect(screen.getByRole("combobox", { name: "Color" })).toBeInTheDocument();
   });
 
   it("Sidebar", () => {
@@ -344,7 +371,11 @@ describe("Smoke tests — every component renders without crashing", () => {
   });
 
   it("Skeleton", () => {
-    render(<Skeleton width={200} height={20} />);
+    const { container } = render(<Skeleton width={200} height={20} />);
+    // Skeleton is intentionally aria-hidden (a decorative loading placeholder),
+    // so its rendering contract is verified via the dimensions derived from props.
+    const placeholder = container.querySelector('[aria-hidden="true"]');
+    expect(placeholder).toHaveStyle({ width: "200px", height: "20px" });
   });
 
   it("SkeletonGroup", () => {
@@ -354,10 +385,12 @@ describe("Smoke tests — every component renders without crashing", () => {
         <Skeleton width={150} height={20} />
       </SkeletonGroup>
     );
+    expect(screen.getByRole("status", { name: "Loading content" })).toBeInTheDocument();
   });
 
   it("Slider", () => {
     render(<Slider min={0} max={100} value={50} onChange={noop} />);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "50");
   });
 
   it("Stack", () => {
@@ -432,6 +465,8 @@ describe("Smoke tests — every component renders without crashing", () => {
         </AnimatedTag>
       </TagGroup>
     );
+    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getByText("B")).toBeInTheDocument();
   });
 
   it("Text", () => {
