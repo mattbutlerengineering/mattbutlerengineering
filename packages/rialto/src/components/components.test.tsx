@@ -2,8 +2,11 @@
  * Smoke tests for all Rialto components.
  * Each test verifies the component renders without crashing.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+
+// jsdom does not implement scrollIntoView; CommandPalette calls it when open.
+Element.prototype.scrollIntoView = vi.fn();
 
 /* ── Components ─────────────────────────────── */
 import { AppBar } from "./AppBar/AppBar";
@@ -180,11 +183,33 @@ describe("Smoke tests — every component renders without crashing", () => {
     expect(screen.queryByText("Action")).toBeNull();
   });
 
+  it("CommandPalette open", () => {
+    render(
+      <CommandPalette
+        open
+        onOpenChange={noop}
+        items={[{ id: "a", label: "Action", onSelect: noop }]}
+      />
+    );
+    // Open contract: the palette dialog and its items are present in the a11y tree —
+    // distinguishes "correctly closed" from "renders nothing regardless of `open`".
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Action")).toBeInTheDocument();
+  });
+
   it("ConfirmDialog", () => {
     render(<ConfirmDialog open={false} onConfirm={noop} onCancel={noop} title="Delete?" />);
     // Closed contract: the dialog and its title are absent from the a11y tree.
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByText("Delete?")).toBeNull();
+  });
+
+  it("ConfirmDialog open", () => {
+    render(<ConfirmDialog open onConfirm={noop} onCancel={noop} title="Delete?" />);
+    // Open contract: the dialog and its title are present in the a11y tree —
+    // distinguishes "correctly closed" from "renders nothing regardless of `open`".
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Delete?")).toBeInTheDocument();
   });
 
   it("ContextMenu", () => {
@@ -215,6 +240,14 @@ describe("Smoke tests — every component renders without crashing", () => {
     expect(screen.queryByText("Test")).toBeNull();
   });
 
+  it("Dialog open", () => {
+    render(<Dialog open onClose={noop} title="Test" />);
+    // Open contract: the dialog and its title are present in the a11y tree —
+    // distinguishes "correctly closed" from "renders nothing regardless of `open`".
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Test")).toBeInTheDocument();
+  });
+
   it("Divider", () => {
     render(<Divider />);
     expect(screen.getByRole("separator")).toBeInTheDocument();
@@ -229,6 +262,18 @@ describe("Smoke tests — every component renders without crashing", () => {
     // Closed contract: the drawer dialog and its content are absent from the a11y tree.
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByText("Drawer content")).toBeNull();
+  });
+
+  it("Drawer open", () => {
+    render(
+      <Drawer open onClose={noop}>
+        Drawer content
+      </Drawer>
+    );
+    // Open contract: the drawer dialog and its content are present in the a11y tree —
+    // distinguishes "correctly closed" from "renders nothing regardless of `open`".
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Drawer content")).toBeInTheDocument();
   });
 
   it("DropdownMenu", () => {
