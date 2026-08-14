@@ -5081,6 +5081,14 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/offline-cache.ts">
+    export type FloorPlanSnapshot = FloorPlan[];
+    interface ReservationsCacheEntry {
+      venueId: string;
+      date: string;
+      reservations: Reservation[];
+    }
+  </file>
   <file path="apps/hospitality/src/lib/sse-client.ts">
     export type FetchEventSourceFn = typeof fetchEventSource;
     export interface SseClientOptions {
