@@ -84,6 +84,33 @@ describe("check-ai-antipatterns", () => {
       expect(count).toBeGreaterThanOrEqual(1);
     });
 
+    test("does not flag a node:test file whose blocks assert via assert.equal()", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "add.test.js"),
+        [
+          'import { test } from "node:test";',
+          'import assert from "node:assert/strict";',
+          'test("adds numbers", () => {',
+          "  assert.equal(1 + 1, 2);",
+          "});",
+          "",
+        ].join("\n")
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "noopTestAssertions");
+      expect(count).toBe(0);
+    });
+
+    test("flags a test block with neither expect() nor any assertion", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "widget.test.tsx"),
+        ['test("renders without crashing", () => {', "  render(<Widget />);", "});", ""].join("\n")
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "noopTestAssertions");
+      expect(count).toBe(1);
+    });
+
     test("skips node_modules, dist, and generated directories", async () => {
       fs.mkdirSync(path.join(tmpDir, "node_modules", "pkg"), { recursive: true });
       fs.writeFileSync(
@@ -95,6 +122,46 @@ describe("check-ai-antipatterns", () => {
       const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
       const count = scanForPattern(tmpDir, "magicTimeouts");
       expect(count).toBe(0);
+    });
+  });
+
+  // ── blockHasAssertion ──────────────────────────────────────────────────────
+  // Pure fixture-string tests for the classification noopTestAssertions relies
+  // on — no filesystem, no shelling out to the whole check (issue #4197).
+
+  describe("blockHasAssertion", () => {
+    test("recognizes vitest expect()", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      expect(blockHasAssertion('"does a thing", () => { expect(1).toBe(1); }')).toBe(true);
+    });
+
+    test("recognizes a node:test block using assert.equal(...)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"adds numbers", () => { assert.equal(1 + 1, 2); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes bare assert(...)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      expect(blockHasAssertion('"truthy check", () => { assert(result); }')).toBe(true);
+    });
+
+    test("recognizes the node:test TestContext form t.assert.ok(...)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"context assert", (t) => { t.assert.ok(result); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("does not recognize a block with neither expect() nor any assertion", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"renders without crashing", () => { render(<Widget />); }';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("does not recognize a custom throw-based helper (documented limitation)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"schemas match", () => { assertKeysMatch("User", zodKeys, jsonKeys); }';
+      expect(blockHasAssertion(block)).toBe(false);
     });
   });
 
