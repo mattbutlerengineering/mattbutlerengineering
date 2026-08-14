@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type * as AgentCore from "@mbe/agent-core";
 
 const mockLoadSuite = vi.fn();
-const mockRunSession = vi.fn();
+const mockRunAgentSession = vi.fn();
+const mockResolveSessionAdapter = vi.fn();
 const mockAppendFileSync = vi.fn();
 const mockMkdirSync = vi.fn();
 const mockExistsSync = vi.fn();
@@ -13,13 +14,23 @@ const mockReadFileSync = vi.fn();
 // vi.mock factories below are hoisted above this import by vitest.
 import { agentEvalCommand } from "../commands/agent-eval.js";
 
-// Keep the real harness/scorer/types; stub only the suite loader + agent run.
+// Keep the real harness/scorer/types; stub only the suite loader + the
+// adapter-resolved session seam (resolveSessionAdapter + runAgentSession —
+// the same seam `mbe agent run` uses, per #4199). Note: `runSession` (the
+// raw SDK entry point) is deliberately NOT mocked here anymore — agent-eval
+// no longer calls it directly, and ClaudeAdapter imports it via a relative
+// path internal to @mbe/agent-core, so mocking the package's `runSession`
+// export would silently no-op against the adapter-routed call.
 vi.mock("@mbe/agent-core", async (orig) => {
   const actual = await orig<typeof AgentCore>();
   return {
     ...actual,
     loadSuite: (...a: unknown[]) => mockLoadSuite(...a),
-    runSession: (...a: unknown[]) => mockRunSession(...a),
+    resolveSessionAdapter: (...a: unknown[]) => {
+      mockResolveSessionAdapter(...a);
+      return { name: String(a[0]), runSession: () => {} };
+    },
+    runAgentSession: (...a: unknown[]) => mockRunAgentSession(...a),
   };
 });
 
@@ -86,7 +97,7 @@ describe("agent eval command", () => {
 
   it("runs the suite and prints a report", async () => {
     mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(fakeSession());
+    mockRunAgentSession.mockResolvedValue(fakeSession());
 
     await agentEvalCommand.parseAsync(["--task", "t1"], { from: "user" });
 
@@ -99,7 +110,7 @@ describe("agent eval command", () => {
 
   it("emits JSON with --json", async () => {
     mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(fakeSession());
+    mockRunAgentSession.mockResolvedValue(fakeSession());
 
     await agentEvalCommand.parseAsync(["--json"], { from: "user" });
 
@@ -121,7 +132,7 @@ describe("agent eval command", () => {
   it("exits 1 when pass rate is below --threshold", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     // Over budget → withinBudget false → task fails → pass rate 0
-    mockRunSession.mockResolvedValue(fakeSession({ costUsd: 99 }));
+    mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 99 }));
 
     await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
 
@@ -131,7 +142,7 @@ describe("agent eval command", () => {
   it("still exits 1 via --threshold and records the entry for a genuine (non-zero-turn) low score", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     // Genuine run: real turns/cost, but over budget → fails rubric → low score
-    mockRunSession.mockResolvedValue(fakeSession({ costUsd: 99, numTurns: 12 }));
+    mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 99, numTurns: 12 }));
 
     await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
 
@@ -146,7 +157,7 @@ describe("agent eval command", () => {
 
     it("persists the report and excludes the non-run task from the aggregate, without a NO_RUN exit code", async () => {
       mockLoadSuite.mockResolvedValue([taskA, taskB, taskC]);
-      mockRunSession.mockImplementation(async (config: { taskDescription: string }) => {
+      mockRunAgentSession.mockImplementation(async (config: { taskDescription: string }) => {
         // "a" never ran: 0 turns / $0 cost, e.g. a broken fixtureRef.
         if (config.taskDescription === "fix a") return fakeSession({ numTurns: 0, costUsd: 0 });
         return fakeSession();
@@ -186,7 +197,7 @@ describe("agent eval command", () => {
 
     it("exits non-zero (distinct from --threshold's exit 1), names the missing prerequisite, and does not persist when every task reports 0 turns / $0 cost", async () => {
       mockLoadSuite.mockResolvedValue([task]);
-      mockRunSession.mockResolvedValue(fakeSession({ numTurns: 0, costUsd: 0 }));
+      mockRunAgentSession.mockResolvedValue(fakeSession({ numTurns: 0, costUsd: 0 }));
 
       await agentEvalCommand.parseAsync(["--threshold", "50"], { from: "user" });
 
@@ -198,9 +209,72 @@ describe("agent eval command", () => {
     });
   });
 
+  describe("--adapter selection", () => {
+    it.each([["auto"], ["claude"], ["gemini"], ["opencode"]] as const)(
+      "resolves the %s adapter and passes it to runAgentSession",
+      async (adapter) => {
+        mockLoadSuite.mockResolvedValue([task]);
+        mockRunAgentSession.mockResolvedValue(fakeSession());
+
+        await agentEvalCommand.parseAsync(["--adapter", adapter], { from: "user" });
+
+        expect(mockResolveSessionAdapter).toHaveBeenCalledWith(adapter);
+        expect(mockRunAgentSession).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ adapter: expect.objectContaining({ name: adapter }) })
+        );
+        expect(process.exitCode).toBe(0);
+      }
+    );
+
+    it("defaults to the claude adapter, matching `mbe agent run`'s default", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession());
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(mockResolveSessionAdapter).toHaveBeenCalledWith("claude");
+    });
+
+    it("rejects an invalid --adapter value without touching the resolver", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+
+      await agentEvalCommand.parseAsync(["--adapter", "bogus"], { from: "user" });
+
+      expect(process.exitCode).toBe(1);
+      expect(mockResolveSessionAdapter).not.toHaveBeenCalled();
+      expect(mockRunAgentSession).not.toHaveBeenCalled();
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toMatch(/invalid adapter/i);
+    });
+  });
+
+  describe("cost-absent CLI-adapter path (option (a): surfaced as a non-run)", () => {
+    // Gemini's CliUsage never carries a cost figure (cli-usage-parser.ts:
+    // "Gemini CLI's stats never carry a USD figure") and the shared
+    // CLI-subprocess session runner (run-cli-adapter-session.ts) always
+    // reports numTurns: 0 for gemini/opencode. So a genuine gemini
+    // SessionResult is `{ costUsd: 0, numTurns: 0 }` — identical in shape to
+    // the no-credentials case above. taskDidNotRun/suiteDidNotRun already
+    // treat that as a non-run, which is exactly what forbids a silent
+    // `costUsd: 0` from ever reaching a persisted baseline or
+    // --max-cost-regression comparison for this adapter.
+    it("reports a non-run (not a scored $0 baseline) when the gemini adapter never populates cost/turns", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 0 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "gemini", "--max-cost-regression", "20"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).toBe(2);
+      expect(mockAppendFileSync).not.toHaveBeenCalled();
+    });
+  });
+
   it("appends the EvalReport as JSONL after each run", async () => {
     mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(fakeSession());
+    mockRunAgentSession.mockResolvedValue(fakeSession());
 
     await agentEvalCommand.parseAsync([], { from: "user" });
 
@@ -216,7 +290,7 @@ describe("agent eval command", () => {
 
   it("creates the log directory when it does not exist", async () => {
     mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(fakeSession());
+    mockRunAgentSession.mockResolvedValue(fakeSession());
     mockExistsSync.mockReturnValue(false);
 
     await agentEvalCommand.parseAsync([], { from: "user" });
@@ -228,7 +302,7 @@ describe("agent eval command", () => {
   it("prints calibration summary with --calibrate", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     // costUsd 0.2, maxCostUsd 1 → withinBudget true → task passes
-    mockRunSession.mockResolvedValue(
+    mockRunAgentSession.mockResolvedValue(
       fakeSession({ evaluation: { passed: true, confidence: 0.9, reasoning: "ok" } })
     );
 
@@ -245,7 +319,7 @@ describe("agent eval command", () => {
 
   it("calibration summary omits 'without self-eval' line when all tasks have self-eval", async () => {
     mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(
+    mockRunAgentSession.mockResolvedValue(
       fakeSession({ evaluation: { passed: true, confidence: 0.9, reasoning: "ok" } })
     );
 
@@ -257,7 +331,7 @@ describe("agent eval command", () => {
 
   it("resolves --suite cost to the cost eval suite directory", async () => {
     mockLoadSuite.mockResolvedValue([task]);
-    mockRunSession.mockResolvedValue(fakeSession());
+    mockRunAgentSession.mockResolvedValue(fakeSession());
 
     await agentEvalCommand.parseAsync(["--suite", "cost", "--task", "t1"], { from: "user" });
 
@@ -282,7 +356,7 @@ describe("agent eval command", () => {
       };
       mockReadFileSync.mockReturnValue(JSON.stringify(baseline) + "\n");
       mockLoadSuite.mockResolvedValue([task]);
-      mockRunSession.mockResolvedValue(fakeSession({ costUsd: 0.11 }));
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0.11 }));
 
       await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
 
@@ -306,7 +380,7 @@ describe("agent eval command", () => {
       };
       mockReadFileSync.mockReturnValue(JSON.stringify(baseline) + "\n");
       mockLoadSuite.mockResolvedValue([task]);
-      mockRunSession.mockResolvedValue(fakeSession({ costUsd: 0.25 }));
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0.25 }));
 
       await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
 
@@ -321,7 +395,7 @@ describe("agent eval command", () => {
         throw Object.assign(new Error("no such file"), { code: "ENOENT" });
       });
       mockLoadSuite.mockResolvedValue([task]);
-      mockRunSession.mockResolvedValue(fakeSession());
+      mockRunAgentSession.mockResolvedValue(fakeSession());
 
       await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
 
@@ -331,7 +405,7 @@ describe("agent eval command", () => {
     it("exits 0 when eval-reports.jsonl is empty (no valid baseline)", async () => {
       mockReadFileSync.mockReturnValue("");
       mockLoadSuite.mockResolvedValue([task]);
-      mockRunSession.mockResolvedValue(fakeSession());
+      mockRunAgentSession.mockResolvedValue(fakeSession());
 
       await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
 
