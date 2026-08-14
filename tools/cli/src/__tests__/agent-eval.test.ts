@@ -470,10 +470,9 @@ describe("agent eval command", () => {
       // baseline is scoped to claude's own prior entry ($0.10), so the gate
       // fires.
       mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 5, numTurns: 5 }));
-      await agentEvalCommand.parseAsync(
-        ["--adapter", "claude", "--max-cost-regression", "20"],
-        { from: "user" }
-      );
+      await agentEvalCommand.parseAsync(["--adapter", "claude", "--max-cost-regression", "20"], {
+        from: "user",
+      });
 
       expect(process.exitCode).toBe(1);
       const errOut = errSpy.mock.calls.flat().join("\n");
