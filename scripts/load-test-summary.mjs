@@ -29,9 +29,6 @@ export const ENDPOINT_METRIC_TAGS = {
   marketing: "marketing_home",
   "users-api": "users_health",
   "reservations-api": "reservations_health",
-  venues: "venues_list",
-  availability: "availability_check",
-  events: "events_list",
 };
 
 /** Allowed p95 latency increase over baseline before a regression is flagged. */
