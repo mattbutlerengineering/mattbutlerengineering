@@ -8,6 +8,7 @@ import { CancelReservationDialog } from "../components/timeline/CancelReservatio
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
 import { GuestCard } from "../components/crm/GuestCard.js";
+import { OfflineBanner } from "../components/OfflineBanner.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
@@ -214,6 +215,8 @@ export function TimelinePage() {
     isLoading,
     fetchError,
     stats,
+    isFromCache,
+    lastSyncedAt,
     seatGuest,
     cancelReservation,
     updateReservation,
@@ -397,6 +400,8 @@ export function TimelinePage() {
           </div>
         </div>
       </div>
+
+      {(isFromCache || !isConnected) && <OfflineBanner lastSyncedAt={lastSyncedAt} />}
 
       {/* Main content */}
       <div className={styles.content}>

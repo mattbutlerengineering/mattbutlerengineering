@@ -287,6 +287,8 @@ function makeTimelineData(overrides: Partial<UseTimelineDataResult> = {}): UseTi
     isLoading: false,
     fetchError: null,
     stats: { confirmed: 1, pending: 0, totalCovers: 4, total: 1 },
+    isFromCache: false,
+    lastSyncedAt: undefined,
     seatGuest: vi.fn().mockResolvedValue(defaultReservation),
     cancelReservation: vi.fn().mockResolvedValue(undefined),
     updateReservation: vi.fn().mockResolvedValue(defaultReservation),
@@ -923,6 +925,43 @@ describe("TimelinePage", () => {
       renderPage();
       await waitFor(() => {
         expect(screen.getByText("Offline")).toBeDefined();
+      });
+    });
+  });
+
+  describe("offline banner", () => {
+    it("is absent when data is fresh and connected", async () => {
+      vi.mocked(useSSEStatus).mockReturnValue({ isConnected: true, error: null });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ isFromCache: false, lastSyncedAt: undefined })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.queryByTestId("offline-banner")).toBeNull();
+    });
+
+    it("renders when reservations were served from the offline cache", async () => {
+      vi.mocked(useSSEStatus).mockReturnValue({ isConnected: true, error: null });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ isFromCache: true, lastSyncedAt: 1_700_000_000_000 })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("offline-banner")).toBeDefined();
+      });
+      expect(screen.getByTestId("offline-banner").getAttribute("role")).toBe("status");
+    });
+
+    it("renders when the SSE connection is down, even with fresh (non-cached) data", async () => {
+      vi.mocked(useSSEStatus).mockReturnValue({ isConnected: false, error: null });
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ isFromCache: false, lastSyncedAt: 1_700_000_000_000 })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("offline-banner")).toBeDefined();
       });
     });
   });

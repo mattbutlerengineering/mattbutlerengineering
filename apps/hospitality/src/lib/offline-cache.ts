@@ -21,6 +21,15 @@ interface ReservationsCacheEntry {
   venueId: string;
   date: string;
   reservations: Reservation[];
+  /** Epoch ms this entry was written — surfaced to callers as the
+   * "last synced" timestamp for the offline/stale-data banner. */
+  cachedAt: number;
+}
+
+/** Reservations cache read result — the payload plus when it was cached. */
+export interface CachedReservations {
+  reservations: Reservation[];
+  cachedAt: number;
 }
 
 interface FloorPlanCacheEntry {
@@ -69,10 +78,11 @@ function todayDateKey(): string {
 export async function getCachedReservations(
   venueId: string,
   date: string
-): Promise<Reservation[] | null> {
+): Promise<CachedReservations | null> {
   const db = await getDb();
   const entry = await db.get(RESERVATIONS_STORE, reservationsKey(venueId, date));
-  return entry?.reservations ?? null;
+  if (entry === undefined) return null;
+  return { reservations: entry.reservations, cachedAt: entry.cachedAt };
 }
 
 export async function setCachedReservations(
@@ -81,7 +91,7 @@ export async function setCachedReservations(
   reservations: Reservation[]
 ): Promise<void> {
   const db = await getDb();
-  const entry: ReservationsCacheEntry = { venueId, date, reservations };
+  const entry: ReservationsCacheEntry = { venueId, date, reservations, cachedAt: Date.now() };
   await db.put(RESERVATIONS_STORE, entry, reservationsKey(venueId, date));
 }
 
