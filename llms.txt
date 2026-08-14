@@ -2011,7 +2011,7 @@
   <section priority="medium" role="lib">
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     <item priority="low">
-      type FloorPlanSnapshot = FloorPlan[];
+      type FloorPlanSnapshot = TableStatusDelta[];
     </item>
     <item priority="high">
       interface ReservationsCacheEntry {

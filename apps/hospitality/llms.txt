@@ -461,7 +461,7 @@
   <section priority="medium" role="lib">
   <file path="src/lib/offline-cache.ts">
     <item priority="low">
-      type FloorPlanSnapshot = FloorPlan[];
+      type FloorPlanSnapshot = TableStatusDelta[];
     </item>
     <item priority="high">
       interface ReservationsCacheEntry {
