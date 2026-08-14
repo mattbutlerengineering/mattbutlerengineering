@@ -18,15 +18,18 @@
  *    stack, so `setOffline` has no effect on them (verified empirically —
  *    a routed fetch still resolves under `setOffline(true)`). It DOES still
  *    block any genuinely unmocked request (e.g. a full page navigation's
- *    document/asset fetches against the real Vite dev server), so this spec
- *    never calls `page.reload()`/`page.goto()` while offline is active —
- *    only SPA-internal client-side navigation (sidebar nav buttons, the
- *    floor-plan card), which issues no new document/asset request. The
- *    genuine failures that drive the cached-view assertions come from
- *    `route.abort()` on the two REST endpoints; `context.setOffline()` is
- *    still called for semantic fidelity to the scenario ("the device went
- *    offline") and because it's what the issue asks for, but the
- *    deterministic mechanism is the explicit abort.
+ *    document/asset fetches against the real Vite dev server). The one
+ *    `page.reload()` this spec performs (Phase 2, see note 2) therefore
+ *    happens BEFORE `context.setOffline(true)` is set — reload first, then
+ *    go offline once the reload has settled — everything else is
+ *    SPA-internal client-side navigation (sidebar nav buttons, the
+ *    floor-plan card), which issues no new document/asset request and is
+ *    safe under `setOffline(true)`. The genuine failures that drive the
+ *    cached-view assertions come from `route.abort()` on the two REST
+ *    endpoints; `context.setOffline()` is still called for semantic
+ *    fidelity to the scenario ("the device went offline") and because it's
+ *    what the issue asks for, but the deterministic mechanism is the
+ *    explicit abort.
  *
  * 2. The banner/indicator condition is `isFromCache || !isConnected`
  *    (`TimelinePage`) / `isStale` (`FloorPlanCanvas`, itself
@@ -34,17 +37,23 @@
  *    `useTableStatuses` in `src/hooks/useSSESync.tsx`). This spec never
  *    disconnects the mocked SSE stream (`isConnected` stays `true`
  *    throughout) and instead genuinely exercises the `isFromCache`/
- *    `syncedEpoch!==connectionEpoch` halves: aborting the REST route and
- *    then forcing a real refetch (via unmount+remount through SPA
- *    navigation, since react-query's `staleTime: 0` refetches on mount)
- *    makes each hook's own error path run — `useReservations` reads its
- *    IndexedDB fallback and returns `isFromCache: true`;
- *    `useTableStatuses` reads its own IndexedDB fallback and, because the
- *    fresh fetch never advanced `syncedEpoch`, computes `isStale: true`.
- *    A second, isolated test below (`SSE disconnected...`) exercises the
- *    `!isConnected` half on its own, with reservations fetching
- *    successfully, so both halves of the OR are independently proven
- *    rather than only ever co-occurring.
+ *    `syncedEpoch!==connectionEpoch` halves. react-query's `staleTime` is
+ *    `30_000` (`src/providers/QueryProvider.tsx`), so a mere SPA-nav
+ *    unmount+remount is NOT enough to force a refetch of `useReservations`'s
+ *    still-fresh Phase 1 query — it would keep serving Phase 1's data
+ *    straight out of the in-memory `QueryClient` without ever touching the
+ *    aborted route. Phase 2 instead uses `page.reload()`, which discards the
+ *    `QueryClient` entirely, forcing a genuine (and, thanks to the abort
+ *    above, genuinely failing) fetch — that's what makes `useReservations`
+ *    read its IndexedDB fallback and return `isFromCache: true`.
+ *    `useTableStatuses` is plain `useState`/`useEffect`, not react-query, so
+ *    it has no such staleTime gate — its own component state genuinely
+ *    resets on the `FloorPlanEditorPage` unmount/remount (SPA nav is enough
+ *    there), and it computes `isStale: true` because the fresh fetch never
+ *    advanced `syncedEpoch`. A second, isolated test below (`SSE
+ *    disconnected...`) exercises the `!isConnected` half on its own, with
+ *    reservations fetching successfully, so both halves of the OR are
+ *    independently proven rather than only ever co-occurring.
  *
  * 3. Cache priming is awaited deterministically by polling the real
  *    IndexedDB store (`readCachedReservationsCount`/
@@ -253,11 +262,17 @@ test.describe("Offline-first shell (#4189)", () => {
     // ── Phase 2: offline — cached data must still render ─────────────
     await abortReservations(page);
     await abortTableStatuses(page);
-    await context.setOffline(true);
 
+    // Navigate to Timeline, then reload — see file header note 2 for why a
+    // plain SPA-nav remount can't force `useReservations` to hit the
+    // (aborted) network. `context.setOffline(true)` is deferred until after
+    // the reload settles: setting it before the reload would also block the
+    // reload's own unmocked document/asset requests (file header note 1).
     await navigateToTimeline(page);
+    await page.reload();
     await expect(page.getByTestId("offline-banner")).toBeVisible();
     await expect(page.getByTestId("reservation-block-res_e2e_001")).toContainText("Alice Johnson");
+    await context.setOffline(true);
 
     await navigateToFloorPlanEditor(page);
     await expect(page.getByTestId("floor-plan-stale-indicator")).toBeVisible();

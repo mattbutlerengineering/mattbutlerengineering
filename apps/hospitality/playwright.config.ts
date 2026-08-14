@@ -5,7 +5,13 @@ export default defineConfig({
   // journeys/ runs against the LIVE site and writes production data — it is
   // driven only by .github/workflows/venue-journey.yml via
   // playwright.journey.config.ts, never by the PR-time E2E suite.
-  testIgnore: ["**/fixtures/*.test.ts", "**/journeys/**"],
+  //
+  // workflow-coverage.test.ts is a vitest-only file (run via
+  // apps/hospitality's vitest.config.ts, not Playwright) that happens to sit
+  // in e2e/ and match Playwright's default testMatch. Excluded by exact
+  // filename — NOT a blanket "**/*.test.ts" — because a11y.test.ts is a real
+  // Playwright spec that also uses .test.ts naming and must stay collected.
+  testIgnore: ["**/fixtures/*.test.ts", "**/journeys/**", "**/workflow-coverage.test.ts"],
   outputDir: "./e2e/test-results",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
