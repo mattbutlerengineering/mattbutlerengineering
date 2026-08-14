@@ -193,28 +193,34 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // Wire lapsed-guest monitor with lifecycle hooks
   const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
 
-  // Wire the in-process job worker (issue #3078 / ADR-019): dequeues the
-  // BOOKING_REMINDER / DAY_OF_REMINDER / WAITLIST_EXPIRY jobs enqueued via the
-  // JobScheduler and delivers them through the notification dispatcher +
-  // waitlist re-notify path. Handlers are built eagerly (pure closures);
-  // worker construction — which opens the Redis consumer — is deferred to
-  // onReady so buildApp() stays side-effect-free.
-  const jobWorker = createReservationJobWorker({
-    redisUrl: notifierRuntime.redisUrl,
-    handlers: createReservationJobHandlers({
-      getReservation: (id) => services.reservationService.getById(id),
-      getVenue: (id) => services.venueService.getById(id),
-      dispatcher: notificationPort,
-      generateManageToken,
-      handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
-    }),
-  });
-
   if (process.env.NODE_ENV !== "test") {
     fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
     fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
-    fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
-    fastify.addHook("onClose", async () => jobWorker.stop());
+
+    // Wire the in-process job worker (issue #3078 / ADR-019): dequeues the
+    // BOOKING_REMINDER / DAY_OF_REMINDER / WAITLIST_EXPIRY jobs enqueued via
+    // the JobScheduler and delivers them through the notification dispatcher +
+    // waitlist re-notify path. Handlers are built eagerly (pure closures);
+    // worker construction — which opens the Redis consumer — is deferred to
+    // onReady so buildApp() stays side-effect-free.
+    //
+    // notifierRuntime.redisUrl is null when NODE_ENV=production and REDIS_URL
+    // is unset (#4172) — starting the worker against a bogus URL would
+    // silently fail to consume anything, so skip it entirely instead.
+    if (notifierRuntime.redisUrl) {
+      const jobWorker = createReservationJobWorker({
+        redisUrl: notifierRuntime.redisUrl,
+        handlers: createReservationJobHandlers({
+          getReservation: (id) => services.reservationService.getById(id),
+          getVenue: (id) => services.venueService.getById(id),
+          dispatcher: notificationPort,
+          generateManageToken,
+          handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+        }),
+      });
+      fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
+      fastify.addHook("onClose", async () => jobWorker.stop());
+    }
   }
 
   // AppError serialization is handled centrally by errorHandlerPlugin →
