@@ -28,6 +28,16 @@ const useReservationsQuery = createQueryHook<Reservation[], UseReservationsParam
   },
 });
 
+/** The `(venueId, date)` a cache entry was fetched for — see `cachedFallback` below. */
+interface CachedFallbackEntry {
+  key: string;
+  reservations: Reservation[];
+}
+
+function fallbackKey(venueId: string, date: string): string {
+  return `${venueId}::${date}`;
+}
+
 /**
  * Wraps the raw query hook with the offline-cache read/write side of the
  * hospitality offline-first shell: successful fetches are cached under
@@ -40,8 +50,10 @@ export function useReservations(
   const query = useReservationsQuery(params);
   const venueId = params?.venueId;
   const date = params?.date;
+  const currentKey =
+    venueId !== undefined && date !== undefined ? fallbackKey(venueId, date) : undefined;
 
-  const [cachedFallback, setCachedFallback] = useState<Reservation[] | undefined>(undefined);
+  const [cachedFallback, setCachedFallback] = useState<CachedFallbackEntry | undefined>(undefined);
 
   useEffect(() => {
     if (query.data === undefined || venueId === undefined || date === undefined) return;
@@ -51,14 +63,13 @@ export function useReservations(
   }, [query.data, venueId, date]);
 
   useEffect(() => {
-    // Gated on `query.error !== null` below the returned data is only ever
-    // read while an error is present, so a stale value here after a
-    // successful refetch is harmless — no reset-on-success branch needed.
     if (query.error === null || venueId === undefined || date === undefined) return;
     let cancelled = false;
+    const key = fallbackKey(venueId, date);
     getCachedReservations(venueId, date)
       .then((cached) => {
-        if (!cancelled) setCachedFallback(cached ?? undefined);
+        if (cancelled) return;
+        setCachedFallback(cached !== null ? { key, reservations: cached } : undefined);
       })
       // Best-effort read — leave the original fetch error surfaced as-is.
       .catch(() => undefined);
@@ -67,9 +78,20 @@ export function useReservations(
     };
   }, [query.error, venueId, date]);
 
-  if (query.error !== null && cachedFallback !== undefined) {
+  // Render-time guard: `cachedFallback` can lag behind `(venueId, date)`
+  // switching faster than the async cache lookup above resolves (or simply
+  // holding the previous key's value while today's hasn't fetched yet).
+  // Requiring the stored key to match the current one — rather than
+  // resetting the state in an effect — makes a stale-key render
+  // unrepresentable regardless of how the two race.
+  const fallbackData =
+    cachedFallback !== undefined && cachedFallback.key === currentKey
+      ? cachedFallback.reservations
+      : undefined;
+
+  if (query.error !== null && fallbackData !== undefined) {
     return {
-      data: cachedFallback,
+      data: fallbackData,
       isLoading: false,
       error: null,
       refetch: query.refetch,
