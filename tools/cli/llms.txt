@@ -94,11 +94,11 @@
     </item>
   </file>
   <file path="src/commands/agent-eval.ts">
+    <item priority="medium">
+      function isAdapterType(value: string): value is AdapterType { /* ... */ }
+    </item>
     <item priority="high">
       export const agentEvalCommand: unknown;
-    </item>
-    <item priority="medium">
-      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
     </item>
   </file>
   <file path="src/commands/agent-frontmatter.ts">

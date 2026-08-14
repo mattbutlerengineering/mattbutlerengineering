@@ -4,7 +4,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from "node:fs";
 import {
-  runSession,
+  runAgentSession,
+  resolveSessionAdapter,
   runEvalSuite,
   loadSuite,
   calibrate,
@@ -13,6 +14,7 @@ import {
   suiteDidNotRun,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
+  type AdapterType,
   type SessionConfig,
   type Task,
   type TaskRunner,
@@ -30,19 +32,29 @@ const execFileAsync = promisify(execFile);
 // apart from "the agent never ran" (no credentials / missing prerequisite).
 const NO_RUN_EXIT_CODE = 2;
 
+// Same three backends `mbe agent run --adapter` accepts, resolved through the
+// same agent-core seam (#4199) — see adapter-resolution.ts.
+const VALID_ADAPTERS: readonly AdapterType[] = ["auto", "claude", "gemini", "opencode"];
+
+function isAdapterType(value: string): value is AdapterType {
+  return (VALID_ADAPTERS as readonly string[]).includes(value);
+}
+
 /**
  * `mbe agent eval` — run the golden-task suite through the agent and score it.
  *
  * The agent invocation + post-run verification (the {@link TaskRunner}) is the
- * integration seam: it runs the real `runSession` and executes the fixture's
- * verify scripts. The scoring/aggregation core it feeds is unit-tested in
- * @mbe/agent-core.
+ * integration seam: it resolves an adapter via `resolveSessionAdapter` and
+ * runs it through `runAgentSession` — the same seam `mbe agent run` uses
+ * (#4199) — then executes the fixture's verify scripts. The
+ * scoring/aggregation core it feeds is unit-tested in @mbe/agent-core.
  */
 export const agentEvalCommand = new Command("eval")
   .description("Run the golden-task eval suite through the agent and score the results")
   .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
   .option("--task <id>", "Run only the task with this id")
   .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
+  .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
   .option("--json", "Emit the EvalReport as JSON", false)
   .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
   .option(
@@ -55,11 +67,21 @@ export const agentEvalCommand = new Command("eval")
       suite: string;
       task?: string;
       model: string;
+      adapter: string;
       json: boolean;
       threshold?: string;
       maxCostRegression?: string;
       calibrate: boolean;
     }) => {
+      if (!isAdapterType(options.adapter)) {
+        console.error(
+          `Invalid adapter: "${options.adapter}". Must be one of: ${VALID_ADAPTERS.join(", ")}`
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const adapterType = options.adapter;
+
       const repoPath = resolve(process.cwd());
       const suiteDir = resolve(repoPath, resolveSuitePath(options.suite));
 
@@ -77,7 +99,7 @@ export const agentEvalCommand = new Command("eval")
       const costBaseline =
         options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
 
-      const runTask = makeAgentTaskRunner(repoPath, options.model);
+      const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
       const report = await runEvalSuite(tasks, {
         runId: `eval-${process.pid}`,
         only: options.task,
@@ -86,7 +108,7 @@ export const agentEvalCommand = new Command("eval")
 
       if (suiteDidNotRun(report)) {
         emitReport(report, options.json);
-        console.error(`\n${noRunMessage()}`);
+        console.error(`\n${noRunMessage(adapterType)}`);
         process.exitCode = NO_RUN_EXIT_CODE;
         return;
       }
@@ -134,12 +156,18 @@ function emitReport(report: EvalReport, json: boolean): void {
 /**
  * Names the most likely missing prerequisite for a suite where every task
  * reported 0 turns / $0 cost — the agent adapter never actually ran.
+ *
+ * `auto`/`claude` route through the Claude SDK, which needs
+ * `ANTHROPIC_API_KEY`; the gemini/opencode CLI-subprocess adapters have a
+ * different, adapter-specific reason a run can look like this (see the
+ * cost-absent comment on {@link makeAgentTaskRunner}), so the diagnostic
+ * doesn't finger a credential that adapter never needed.
  */
-function noRunMessage(): string {
-  if (!process.env["ANTHROPIC_API_KEY"]) {
+function noRunMessage(adapterType: AdapterType): string {
+  if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
     return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
   }
-  return "No task executed: every task reported 0 turns and $0.00 cost. This is not a scored regression — the suite never ran.";
+  return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
 }
 
 function findLogFile(): string {
@@ -184,8 +212,31 @@ function persistReport(report: EvalReport): void {
   appendFileSync(logFile, JSON.stringify(record) + "\n");
 }
 
-/** Builds the live runner: run the agent on a task, then verify its branch. */
-function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
+/**
+ * Builds the live runner: run the agent (via the resolved adapter) on a
+ * task, then verify its branch.
+ *
+ * Cost-absent CLI adapters (#4199, option (a) — surfaced as a non-run
+ * rather than a silent $0): Gemini's `CliUsage` never carries a cost figure
+ * (see `parseGeminiUsage` in cli-usage-parser.ts — "Gemini CLI's stats never
+ * carry a USD figure"), and the shared CLI-subprocess session runner
+ * (`runCliAdapterSession` in agent-core) always reports `numTurns: 0` for
+ * both the gemini and opencode adapters. So a genuinely-executed gemini task
+ * still yields `session.costUsd === 0 && session.numTurns === 0` — the exact
+ * shape `taskDidNotRun`/`suiteDidNotRun` (agent-core/eval/run-detection.ts)
+ * already treat as "the suite never ran". That existing check is what keeps
+ * a gemini run from ever silently persisting a $0 baseline or passing
+ * `--max-cost-regression` on a meaningless comparison; no separate handling
+ * is needed here. OpenCode's costUsd, by contrast, is genuinely populated
+ * from its `step_finish` events, so it is never a silent zero.
+ */
+function makeAgentTaskRunner(
+  repoPath: string,
+  model: string,
+  adapterType: AdapterType
+): TaskRunner {
+  const adapter = resolveSessionAdapter(adapterType);
+
   return async (task: Task): Promise<TaskRunResult> => {
     const config: SessionConfig = {
       taskDescription: task.prompt,
@@ -199,7 +250,7 @@ function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
       feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
     };
 
-    const session = await runSession(config, () => {});
+    const session = await runAgentSession(config, { adapter, onEvent: () => {} });
 
     const withinBudget =
       session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;
