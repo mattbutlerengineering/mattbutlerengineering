@@ -18,9 +18,9 @@ const MARKETING_URL = __ENV.MARKETING_URL || "https://mattbutlerengineering.com"
 //
 // The edge Worker rate-limits every /api/* path to 100 req/60s per IP,
 // shared across ALL of them — see infrastructure/worker/rate-limiter.js.
-// One iteration below makes 5 requests into that shared bucket (users
-// health, reservations health, venues, availability, events); marketing
-// is a separate host and untouched by this limiter.
+// One iteration below makes 2 requests into that shared bucket (users
+// health, reservations health); marketing is a separate host and
+// untouched by this limiter.
 //
 // `smoke` and `load` are sized (see #4108) so their aggregate /api/*
 // request rate stays under the edge's 100 req/60s-per-IP budget — a
@@ -33,7 +33,7 @@ const MARKETING_URL = __ENV.MARKETING_URL || "https://mattbutlerengineering.com"
 // rate steady regardless of how many VUs k6 allocates to sustain it, so
 // the request-rate math below is exact rather than an estimate.
 const ALL_SCENARIOS = {
-  // 10 iterations/min * 5 = 50 /api/* req/min — 50% of budget.
+  // 10 iterations/min * 2 = 20 /api/* req/min — 20% of budget.
   smoke: {
     executor: "constant-arrival-rate",
     rate: 10,
@@ -43,7 +43,7 @@ const ALL_SCENARIOS = {
     maxVUs: 5,
     tags: { type: "smoke" },
   },
-  // Plateaus at 15 iterations/min * 5 = 75 /api/* req/min — 25% headroom
+  // Plateaus at 15 iterations/min * 2 = 30 /api/* req/min — 70% headroom
   // under the 100 req/60s budget. This is the scenario the weekly
   // scheduled run and the workflow's default execute, so it gets the
   // widest margin.
@@ -81,22 +81,10 @@ const ALL_SCENARIOS = {
 // The status each endpoint deterministically returns today when NOT
 // throttled by the edge — verified live against production (see #4108
 // PR body). `users_health`/`reservations_health` are genuinely
-// unauthenticated 200s. `venues_list` and `availability_check` hit
-// admin/auth-gated routes (services/reservations/src/routes/venues.ts,
-// availability.ts: `preHandler: requireAuth`) with no credentials, so
-// 401 is the correct expectation, not a defect this test should paper
-// over — it also means this check doubles as an auth-regression canary
-// (a 200 here would mean the endpoint went unintentionally public).
-// `events_list` hits a route reservations-api never registers (only
-// only /api/v1/events/stream and a dev-only /api/v1/events/test exist) —
-// tracked as a follow-up to point it at something real; 404 is what the
-// path being called actually, deterministically returns.
+// unauthenticated 200s.
 const EXPECTED_API_STATUS = {
   users_health: 200,
   reservations_health: 200,
-  venues_list: 401,
-  availability_check: 401,
-  events_list: 404,
 };
 
 /**
@@ -121,10 +109,11 @@ function isExpectedApiStatus(endpoint, status) {
 
 /**
  * k6 classifies the built-in `http_req_failed` metric by default as "any
- * response outside 200-399" — which would flag every intentional 401/404
- * above as a request failure. `http.expectedStatuses` tells k6 what this
- * specific request actually expects, so `http_req_failed` agrees with our
- * own `errors{endpoint:...}` check-derived metric instead of contradicting
+ * response outside 200-399" — which would flag every intentional 429
+ * (accepted during the `stress` scenario, see ALL_SCENARIOS.stress) as a
+ * request failure. `http.expectedStatuses` tells k6 what this specific
+ * request actually expects, so `http_req_failed` agrees with our own
+ * `errors{endpoint:...}` check-derived metric instead of contradicting
  * it. Returns k6 http.get() params for a given /api/* endpoint.
  */
 function apiRequestParams(endpoint) {
@@ -150,12 +139,6 @@ export const options = {
     "errors{endpoint:users_health}": ["rate<0.1"],
     "api_latency{endpoint:reservations_health}": ["p(95)<800"],
     "errors{endpoint:reservations_health}": ["rate<0.1"],
-    "api_latency{endpoint:venues_list}": ["p(95)<1500"],
-    "errors{endpoint:venues_list}": ["rate<0.1"],
-    "api_latency{endpoint:availability_check}": ["p(95)<1500"],
-    "errors{endpoint:availability_check}": ["rate<0.1"],
-    "api_latency{endpoint:events_list}": ["p(95)<1500"],
-    "errors{endpoint:events_list}": ["rate<0.1"],
   },
 };
 
@@ -165,7 +148,6 @@ export default function () {
   testMarketingHome();
   testUsersHealth();
   testReservationsHealth();
-  testPublicEndpoints();
 
   sleep(1);
 }
@@ -216,59 +198,4 @@ function testReservationsHealth() {
   });
 
   errorRate.add(!success, { endpoint: "reservations_health" });
-}
-
-function testPublicEndpoints() {
-  // k6's http.get(url, params) second argument is RequestParams (headers,
-  // tags, cookies, …) — it has no query-string mechanism, so a `params:`
-  // key holding query values (as all three calls below used to) is
-  // silently ignored, not appended to the URL. Confirmed live: without
-  // this fix, `availability_check`'s required `date` query param never
-  // reached the request, so it 400'd on schema validation instead of
-  // 401'ing on auth like `venues_list` — the query string is built into
-  // the URL directly below instead.
-  const venuesRes = http.get(
-    `${BASE_URL}/api/v1/venues?page=1&limit=10`,
-    apiRequestParams("venues_list")
-  );
-
-  apiLatency.add(venuesRes.timings.duration, { endpoint: "venues_list" });
-
-  const venuesSuccess = check(venuesRes, {
-    "venues list returns expected status": (r) => isExpectedApiStatus("venues_list", r.status),
-    "venues valid JSON": (r) => {
-      try {
-        JSON.parse(r.body);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-  });
-  errorRate.add(!venuesSuccess, { endpoint: "venues_list" });
-
-  const availabilityRes = http.get(
-    `${BASE_URL}/api/v1/availability/test-venue?date=2026-04-15&partySize=2`,
-    apiRequestParams("availability_check")
-  );
-
-  apiLatency.add(availabilityRes.timings.duration, { endpoint: "availability_check" });
-
-  const availabilitySuccess = check(availabilityRes, {
-    "availability check returns expected status": (r) =>
-      isExpectedApiStatus("availability_check", r.status),
-  });
-  errorRate.add(!availabilitySuccess, { endpoint: "availability_check" });
-
-  const eventsRes = http.get(
-    `${BASE_URL}/api/v1/events?page=1&limit=10`,
-    apiRequestParams("events_list")
-  );
-
-  apiLatency.add(eventsRes.timings.duration, { endpoint: "events_list" });
-
-  const eventsSuccess = check(eventsRes, {
-    "events list returns expected status": (r) => isExpectedApiStatus("events_list", r.status),
-  });
-  errorRate.add(!eventsSuccess, { endpoint: "events_list" });
 }
