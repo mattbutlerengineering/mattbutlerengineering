@@ -2009,6 +2009,18 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/offline-cache.ts">
+    <item priority="low">
+      type FloorPlanSnapshot = FloorPlan[];
+    </item>
+    <item priority="high">
+      interface ReservationsCacheEntry {
+        venueId: string;
+        date: string;
+        reservations: Reservation[];
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/sse-client.ts">
     <item priority="low">
       type FetchEventSourceFn = typeof fetchEventSource;
