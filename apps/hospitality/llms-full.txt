@@ -597,7 +597,7 @@
   </section>
   <section priority="medium" role="lib">
   <file path="src/lib/offline-cache.ts">
-    export type FloorPlanSnapshot = FloorPlan[];
+    export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
       venueId: string;
       date: string;

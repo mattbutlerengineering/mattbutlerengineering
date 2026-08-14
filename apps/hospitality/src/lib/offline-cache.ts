@@ -10,9 +10,12 @@
  */
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { Reservation, FloorPlan } from "@mbe/types";
+import type { Reservation, TableStatusDelta } from "@mbe/types";
 
-export type FloorPlanSnapshot = FloorPlan[];
+/** Per-table status snapshot, as fetched by `api.tables.getStatuses` and
+ * cached for offline fallback rendering by `FloorPlanCanvas` — see
+ * `useTableStatuses()`. */
+export type FloorPlanSnapshot = TableStatusDelta[];
 
 interface ReservationsCacheEntry {
   venueId: string;

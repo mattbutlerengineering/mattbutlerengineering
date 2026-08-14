@@ -38,17 +38,7 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
 }
 
 function makeFloorPlanSnapshot(): FloorPlanSnapshot {
-  return [
-    {
-      id: "fp-1",
-      venueId: "venue-1",
-      name: "Main Room",
-      isActive: true,
-      layoutJson: { width: 800, height: 600 },
-      createdAt: "2026-08-14T00:00:00.000Z",
-      updatedAt: "2026-08-14T00:00:00.000Z",
-    },
-  ];
+  return [{ tableId: "table-1", status: "seated" }];
 }
 
 beforeEach(() => {
