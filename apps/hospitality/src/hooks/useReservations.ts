@@ -18,6 +18,14 @@ export interface UseReservationsResult {
   refetch: () => void;
   /** True when `data` was served from the offline cache after a fetch failure. */
   isFromCache: boolean;
+  /**
+   * Epoch ms `data` was last confirmed synced with the server — the moment
+   * it was written to the offline cache, whether that write just happened
+   * (fresh fetch) or happened in the past (the entry now being served as
+   * `isFromCache` fallback). `undefined` until a successful fetch or cache
+   * read has resolved for the current `(venueId, date)`.
+   */
+  lastSyncedAt: number | undefined;
 }
 
 const useReservationsQuery = createQueryHook<Reservation[], UseReservationsParams>({
@@ -28,10 +36,12 @@ const useReservationsQuery = createQueryHook<Reservation[], UseReservationsParam
   },
 });
 
-/** The `(venueId, date)` a cache entry was fetched for — see `cachedFallback` below. */
-interface CachedFallbackEntry {
+/** The `(venueId, date)` a cache entry was fetched/written for — see
+ * `cachedFallback`/`lastWrite` below. */
+interface KeyedCacheEntry {
   key: string;
   reservations: Reservation[];
+  cachedAt: number;
 }
 
 function fallbackKey(venueId: string, date: string): string {
@@ -53,10 +63,14 @@ export function useReservations(
   const currentKey =
     venueId !== undefined && date !== undefined ? fallbackKey(venueId, date) : undefined;
 
-  const [cachedFallback, setCachedFallback] = useState<CachedFallbackEntry | undefined>(undefined);
+  const [cachedFallback, setCachedFallback] = useState<KeyedCacheEntry | undefined>(undefined);
+  const [lastWrite, setLastWrite] = useState<KeyedCacheEntry | undefined>(undefined);
 
   useEffect(() => {
     if (query.data === undefined || venueId === undefined || date === undefined) return;
+    const key = fallbackKey(venueId, date);
+    const cachedAt = Date.now();
+    setLastWrite({ key, reservations: query.data, cachedAt });
     // Best-effort write — a cache failure (e.g. IndexedDB unavailable) must
     // never block rendering the freshly-fetched data.
     void setCachedReservations(venueId, date, query.data).catch(() => undefined);
@@ -69,7 +83,11 @@ export function useReservations(
     getCachedReservations(venueId, date)
       .then((cached) => {
         if (cancelled) return;
-        setCachedFallback(cached !== null ? { key, reservations: cached } : undefined);
+        setCachedFallback(
+          cached !== null
+            ? { key, reservations: cached.reservations, cachedAt: cached.cachedAt }
+            : undefined
+        );
       })
       // Best-effort read — leave the original fetch error surfaced as-is.
       .catch(() => undefined);
@@ -78,24 +96,25 @@ export function useReservations(
     };
   }, [query.error, venueId, date]);
 
-  // Render-time guard: `cachedFallback` can lag behind `(venueId, date)`
-  // switching faster than the async cache lookup above resolves (or simply
-  // holding the previous key's value while today's hasn't fetched yet).
-  // Requiring the stored key to match the current one — rather than
-  // resetting the state in an effect — makes a stale-key render
+  // Render-time guard: `cachedFallback`/`lastWrite` can lag behind
+  // `(venueId, date)` switching faster than the async cache lookup above
+  // resolves (or simply holding the previous key's value while today's
+  // hasn't fetched yet). Requiring the stored key to match the current one —
+  // rather than resetting the state in an effect — makes a stale-key render
   // unrepresentable regardless of how the two race.
-  const fallbackData =
-    cachedFallback !== undefined && cachedFallback.key === currentKey
-      ? cachedFallback.reservations
-      : undefined;
+  const fallbackEntry =
+    cachedFallback !== undefined && cachedFallback.key === currentKey ? cachedFallback : undefined;
+  const freshEntry =
+    lastWrite !== undefined && lastWrite.key === currentKey ? lastWrite : undefined;
 
-  if (query.error !== null && fallbackData !== undefined) {
+  if (query.error !== null && fallbackEntry !== undefined) {
     return {
-      data: fallbackData,
+      data: fallbackEntry.reservations,
       isLoading: false,
       error: null,
       refetch: query.refetch,
       isFromCache: true,
+      lastSyncedAt: fallbackEntry.cachedAt,
     };
   }
 
@@ -105,6 +124,7 @@ export function useReservations(
     error: query.error,
     refetch: query.refetch,
     isFromCache: false,
+    lastSyncedAt: freshEntry?.cachedAt,
   };
 }
 

@@ -602,6 +602,9 @@
       venueId: string;
       date: string;
       reservations: Reservation[];
+      /** Epoch ms this entry was written — surfaced to callers as the
+       * "last synced" timestamp for the offline/stale-data banner. */
+      cachedAt: number;
     }
   </file>
   <file path="src/lib/sse-client.ts">

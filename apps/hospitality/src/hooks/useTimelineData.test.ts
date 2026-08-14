@@ -194,6 +194,19 @@ describe("useTimelineData", () => {
       expect(mockReservationsList).not.toHaveBeenCalled();
       expect(mockTablesList).not.toHaveBeenCalled();
     });
+
+    it("exposes isFromCache=false and a lastSyncedAt once reservations fetch succeeds", async () => {
+      mockReservationsList.mockResolvedValue({ data: [makeReservation()] });
+      mockTablesList.mockResolvedValue({ data: [] });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await waitFor(() => expect(result.current.lastSyncedAt).toBeDefined());
+      expect(result.current.isFromCache).toBe(false);
+    });
   });
 
   describe("mutation: seatGuest", () => {

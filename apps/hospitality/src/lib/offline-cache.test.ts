@@ -57,7 +57,17 @@ describe("offline-cache: reservations", () => {
     await setCachedReservations("venue-1", "2026-08-15", reservations);
     const result = await getCachedReservations("venue-1", "2026-08-15");
 
-    expect(result).toEqual(reservations);
+    expect(result?.reservations).toEqual(reservations);
+  });
+
+  it("stamps the entry with the epoch ms it was written at", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-15T12:34:00.000Z"));
+
+    await setCachedReservations("venue-1", "2026-08-15", [makeReservation()]);
+    const result = await getCachedReservations("venue-1", "2026-08-15");
+
+    expect(result?.cachedAt).toBe(new Date("2026-08-15T12:34:00.000Z").getTime());
   });
 
   it("returns null when nothing is cached for the venueId+date", async () => {
@@ -73,8 +83,8 @@ describe("offline-cache: reservations", () => {
     const venue1Result = await getCachedReservations("venue-1", "2026-08-15");
     const venue2Result = await getCachedReservations("venue-2", "2026-08-15");
 
-    expect(venue1Result?.[0]?.id).toBe("res-1");
-    expect(venue2Result?.[0]?.id).toBe("res-2");
+    expect(venue1Result?.reservations[0]?.id).toBe("res-1");
+    expect(venue2Result?.reservations[0]?.id).toBe("res-2");
   });
 });
 

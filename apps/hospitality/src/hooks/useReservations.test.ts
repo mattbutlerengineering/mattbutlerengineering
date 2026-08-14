@@ -25,6 +25,10 @@ vi.mock("../lib/offline-cache.js", () => ({
     mockSetCachedReservations(venueId, date, reservations),
 }));
 
+function cachedEntry(reservations: Reservation[], cachedAt = 1_700_000_000_000) {
+  return { reservations, cachedAt };
+}
+
 /* ── Helpers ────────────────────────────────────────── */
 
 function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
@@ -145,7 +149,7 @@ describe("useReservations", () => {
   it("falls back to cached data on fetch failure when a cache entry exists", async () => {
     const cachedReservations = [makeReservation({ id: "cached-1" })];
     mockList.mockRejectedValue(new Error("Network error"));
-    mockGetCachedReservations.mockResolvedValue(cachedReservations);
+    mockGetCachedReservations.mockResolvedValue(cachedEntry(cachedReservations, 1_700_000_000_000));
 
     const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
       wrapper: createWrapper(),
@@ -158,6 +162,33 @@ describe("useReservations", () => {
     expect(mockGetCachedReservations).toHaveBeenCalledWith("v1", "2026-01-15");
     expect(result.current.data).toEqual(cachedReservations);
     expect(result.current.error).toBeNull();
+    expect(result.current.lastSyncedAt).toBe(1_700_000_000_000);
+  });
+
+  it("exposes lastSyncedAt for a fresh (non-cached) fetch", async () => {
+    const reservations = [makeReservation({ id: "r1" })];
+    mockList.mockResolvedValue(makePaginatedResponse(reservations));
+
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.lastSyncedAt).toBeDefined();
+    });
+
+    expect(result.current.isFromCache).toBe(false);
+    expect(typeof result.current.lastSyncedAt).toBe("number");
+  });
+
+  it("lastSyncedAt is undefined before any successful fetch or cache read", () => {
+    mockList.mockReturnValue(new Promise(() => {})); // never resolves
+
+    const { result } = renderHook(() => useReservations({ date: "2026-01-15", venueId: "v1" }), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.lastSyncedAt).toBeUndefined();
   });
 
   it("passes params to api client", async () => {
@@ -203,7 +234,7 @@ describe("useReservations", () => {
     const cachedReservationsA = [makeReservation({ id: "cached-a-1", guestName: "Alice VenueA" })];
     mockList.mockRejectedValue(new Error("Network error"));
     mockGetCachedReservations.mockImplementation((venueId: string) =>
-      Promise.resolve(venueId === "venue-a" ? cachedReservationsA : null)
+      Promise.resolve(venueId === "venue-a" ? cachedEntry(cachedReservationsA) : null)
     );
 
     const history: Array<{ venueId: string | undefined; result: UseReservationsResult }> = [];
