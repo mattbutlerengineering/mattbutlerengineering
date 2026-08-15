@@ -549,19 +549,22 @@ export function useTableStatuses(): UseTableStatusesResult {
 
   const isStale = !isConnected || syncedEpoch !== connectionEpoch;
 
-  // Render-time guard: only fall back to the cache while there's no live
-  // data yet for the current connection cycle (`isStale` covers "we haven't
-  // actually synced"; `statuses.size === 0` covers "no live deltas have
-  // accumulated either"), and only when the cached entry was read for the
-  // *current* venueId — never a lagging read for a venue the caller has
-  // since switched away from. This makes a wrong-venue render structurally
-  // unrepresentable rather than relying on an effect to reset it in time.
+  // Render-time guard: while no resync has landed for the current connection
+  // cycle (`isStale`) and the cached entry was read for the *current*
+  // venueId (never a lagging read for a venue the caller has since switched
+  // away from — that key comparison is what makes a wrong-venue render
+  // structurally unrepresentable, rather than relying on an effect to reset
+  // it in time), treat the cache as the base layer and overlay `statuses` on
+  // top of it. `statuses` is a delta a live SSE event *updates* the fallback
+  // with, not something that wholesale *replaces* it (#4216) — the stream
+  // can keep delivering deltas while the snapshot fetch itself is failing,
+  // and those deltas are strictly newer than the cached read.
   const effectiveStatuses =
-    isStale &&
-    statuses.size === 0 &&
-    cachedFallback !== undefined &&
-    cachedFallback.venueId === selectedVenueId
-      ? new Map(cachedFallback.snapshot.map((delta) => [delta.tableId, delta.status]))
+    isStale && cachedFallback !== undefined && cachedFallback.venueId === selectedVenueId
+      ? new Map([
+          ...cachedFallback.snapshot.map((delta) => [delta.tableId, delta.status] as const),
+          ...statuses,
+        ])
       : statuses;
 
   return { statuses: effectiveStatuses, isStale };

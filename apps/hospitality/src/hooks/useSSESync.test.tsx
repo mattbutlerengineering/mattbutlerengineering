@@ -916,4 +916,51 @@ describe("useTableStatuses — offline cache (#4187)", () => {
     expect(leaked).toBe(false);
     expect(result.current.statuses.has("table-a-1")).toBe(false);
   });
+
+  it("merges a live table-status:changed delta over the cached fallback instead of discarding the rest of the snapshot (#4216)", async () => {
+    // Reproduces #4216: a 5-table cached fallback is active (offline, no
+    // resync has landed this connection cycle); one live delta for a single
+    // table arrives on the still-connected SSE stream. The other 4 cached
+    // tables must remain visible, and the updated table must reflect the
+    // *live* value, not the stale cached one.
+    mockGetStatuses.mockRejectedValue(new Error("network error"));
+    mockGetCachedFloorPlanSnapshot.mockResolvedValueOnce([
+      { tableId: "t1", status: "available" },
+      { tableId: "t2", status: "seated" },
+      { tableId: "t3", status: "available" },
+      { tableId: "t4", status: "needs-bussing" },
+      { tableId: "t5", status: "seated" },
+    ]);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+
+    // Sanity: cached fallback active for all 5 tables before any live delta.
+    expect(result.current.tableStatuses.statuses.size).toBe(5);
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    // A single live delta lands for t3 — a different status than the cache.
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t3", status: "occupied" }],
+      });
+    });
+
+    expect(result.current.tableStatuses.statuses.size).toBe(5);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
+    expect(result.current.tableStatuses.statuses.get("t2")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t3")).toBe("occupied");
+    expect(result.current.tableStatuses.statuses.get("t4")).toBe("needs-bussing");
+    expect(result.current.tableStatuses.statuses.get("t5")).toBe("seated");
+  });
 });
