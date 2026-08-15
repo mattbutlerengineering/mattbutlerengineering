@@ -1272,6 +1272,16 @@
       return device.saveData ? reducedDataOverrides : {};
     }
   </file>
+  <file path="src/providers/reduced-motion.ts">
+    export const reducedMotionOverrides: VibeOverrides = {
+      "--rialto-duration-fast": "0s",
+      "--rialto-duration-standard": "0s",
+      "--rialto-duration-slow": "0s",
+    };
+    export function deriveReducedMotionOverrides(device: DeviceContext): VibeOverrides {
+      return device.reducedMotion ? reducedMotionOverrides : {};
+    }
+  </file>
   <file path="src/providers/useDeviceContext.ts">
     export interface DeviceContext {
       pointer: "fine" | "coarse";

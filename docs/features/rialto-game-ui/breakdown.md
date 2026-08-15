@@ -1,0 +1,111 @@
+---
+stage: decompose
+run: feature:rialto-game-ui
+date: 2026-08-15
+---
+
+# Breakdown: Game-UI vibe for Rialto
+
+Progress lives in the checkboxes below — Implement checks items off as their
+acceptance criteria are met.
+
+No tracker mirror: this breakdown is the only state. GitHub issue #3978 holds
+the originating idea, not the work items.
+
+## Milestone 1: Mechanism lands, provably a no-op
+
+Demonstrable at the boundary: three new unit-tested primitives exist and
+nothing anywhere renders differently. This milestone is what makes the PRD's
+"no unopted surface changes" criterion testable instead of hoped-for.
+
+- [x] **Reduced-motion adapter** — new `packages/rialto/src/providers/reduced-motion.ts`, sibling of `reduced-data.ts`, deriving `VibeOverrides` from `device.reducedMotion`.
+  - Accept: returns `{}` when `reducedMotion` is false (byte-identical composition to today); returns `0s` for `--rialto-duration-fast|standard|slow` when true; pure and total, unit-tested both branches.
+  - Blocked by: —
+- [ ] **Provider composition + precedence** — wire the adapter into `RialtoProvider`'s merge chain.
+  - Accept: order is preset → reduced-data → reduced-motion → explicit `vibeOverrides`; a test asserts reduced-motion beats a preset's duration AND loses to an explicit override; every existing `RialtoProvider` test passes unmodified.
+  - Blocked by: Reduced-motion adapter
+- [ ] **`useMotionPreset()` hook** — new providers hook resolving framer-motion configs from vibe + `device.reducedMotion`.
+  - Accept: reads `UIEnvironmentContext` via `useContext` directly; rendered **outside** a provider it returns the `tokens/motion.ts` statics and does **not** throw (regression test for external npm consumers); under `reducedMotion` durations resolve to 0 and springs to instant.
+  - Blocked by: —
+- [ ] **ADR decision recorded** — "Motion presets resolve through context, not imported constants" (owner's call, see `architecture.md`).
+  - Accept: either an ADR exists in `docs/adr/` with a status, or the decision to skip it is recorded in this file's Notes with a date. Not left implicit.
+  - Blocked by: —
+
+## Milestone 2: The game vibe exists and is selectable
+
+Demonstrable at the boundary: flip the rialto showcase to `game` and the
+components that already read motion tokens visibly shift.
+
+- [ ] **`game` preset** — add the preset to `vibes.ts` and the member to the `VibeName` union.
+  - Accept: `Record<VibeName, VibeOverrides>` compiles (the type forces the preset to exist); `vibes.game` is non-empty; `default`, `transacting`, and `presenting` are byte-identical to before.
+  - Blocked by: **Design gap — colour-token list** (see below)
+- [ ] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.
+  - Accept: the showcase vibe switcher offers `game`; existing showcase tests pass. (The `Record` type does not catch this list — it is a separate literal.)
+  - Blocked by: `game` preset
+- [ ] **Game-tuned motion configs** — `useMotionPreset()` returns different configs when the active vibe is `game`.
+  - Accept: unit test asserts game configs differ from default configs, and that `reducedMotion` still wins over `game`.
+  - Blocked by: `useMotionPreset()` hook, `game` preset
+
+## Milestone 3: HUD components respond to the vibe
+
+Demonstrable at the boundary: under `game` the ten HUD components retime;
+under `default` they are indistinguishable from today.
+
+- [ ] **CSS duration backfill (bounded, value-preserving)** — tokenize hardcoded durations in `StatusLED`, `Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `DataTable`, `Card`, `Stat`, `Progress`, `TapeChart` only.
+  - Accept: every changed declaration maps exactly `0.1s → --rialto-duration-fast`, `0.15s → --rialto-duration-standard`, `0.2s → --rialto-duration-slow`; **no `0.3s` declaration is touched** (no matching token exists, and inventing one would change default-vibe output); no component outside the ten is modified; existing visual baselines pass unmodified.
+  - Blocked by: —
+- [ ] **framer-motion call sites → hook** — the six HUD components driving motion in JS (`Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `Card`, `Progress`) resolve configs from `useMotionPreset()` instead of importing statics.
+  - Accept: each of the six still renders standalone with no provider present (test per component); default-vibe motion is unchanged; no other component's imports are touched.
+  - Blocked by: `useMotionPreset()` hook
+
+## Milestone 4: The route exists
+
+Demonstrable at the boundary: walk the whole primary flow from `ux.md` by hand.
+
+- [ ] **`useTelemetryFeed()`** — route-local hook producing deterministic mock frames and the `FeedState` machine.
+  - Accept: same `seed` produces the same frame sequence; `frozen: true` resolves one fixed frame and never ticks; every `FeedState` variant (`connecting`/`empty`/`live`/`hold`/`stale`) is reachable in unit tests; the clock derives from frame `t`, never `Date.now()`.
+  - Blocked by: —
+- [ ] **Telemetry HUD route** — `/demos/telemetry` rendering the four regions of the `ux.md` wireframe (status strip, zone table, vitals rail, event ticker), inside `DemoLayout` and registered in the demo nav.
+  - Accept: all four regions render; the route appears in the demo nav alongside Sign In / Dashboard / Drivers / Layouts; `?frozen=1` pins the feed; the live row highlight follows `activeZoneId`.
+  - Blocked by: `useTelemetryFeed()`, `game` preset
+- [ ] **Route-local vibe switch** — toggle between `game` and `default`, mirroring `ThemeToggle`'s placement and immediacy.
+  - Accept: toggling swaps the vibe with no reload and no confirmation; the choice does **not** persist across navigation and is not written to storage; no other route can observe it.
+  - Blocked by: Telemetry HUD route
+- [ ] **Empty, loading, and stale states** — per `ux.md`.
+  - Accept: the HUD frame never blanks; `connecting` shows skeleton value slots, `empty` shows STANDBY with placeholder glyphs, `stale` retains last-known values dimmed and labelled with their capture timestamp; zero layout shift between the three and `live`.
+  - Blocked by: Telemetry HUD route
+
+## Milestone 5: Gates
+
+Demonstrable at the boundary: CI is green on the real gates, baselines committed.
+
+- [ ] **A11y coverage** — the route joins `apps/rialto-web/e2e/a11y-pages.spec.ts`.
+  - Accept: zero violations; every control reachable by keyboard in reading order; screen-reader announcements at parity with the same components under the default vibe.
+  - Blocked by: Telemetry HUD route
+- [ ] **Reduced-motion spec** — assert the designed reduced-motion presentation, not a blanket animation kill-switch.
+  - Accept: with `prefers-reduced-motion: reduce` emulated, the route renders the same regions and the same values; duration tokens resolve to `0s`; the spec asserts that nothing is _removed_ — no state, value, or event is reachable only through motion.
+  - Blocked by: Telemetry HUD route, Provider composition + precedence
+- [ ] **Visual baselines** — the frozen route joins `visual.spec.ts`.
+  - Accept: baselines are pulled from the Linux CI artifact, **never rendered on macOS**; the spec screenshots `?frozen=1`; every pre-existing baseline in the repo is unmodified.
+  - Blocked by: Empty/loading/stale states, CSS duration backfill
+- [ ] **CI wiring** — new specs listed by explicit full path in `.github/workflows/rialto-web-e2e.yml`.
+  - Accept: `apps/rialto-web/e2e/workflow-coverage.test.ts` passes; each new spec is listed by full path, never by glob.
+  - Blocked by: A11y coverage, Reduced-motion spec, Visual baselines
+- [ ] **Contrast verification** — every colour token the `game` preset overrides, in both themes.
+  - Accept: WCAG AA documented for each overridden colour token under `data-theme="light"` and `data-theme="dark"`; if the preset overrides no colour tokens, that is recorded explicitly rather than left unstated.
+  - Blocked by: `game` preset
+
+## Design gaps found
+
+- **Which colour tokens the `game` preset overrides is unspecified.**
+  `architecture.md` lists "state-color token overrides" among the preset's
+  responsibilities, but names none — and all three existing vibes override
+  **zero** colour tokens (spacing, radii, and weight only). Two PRD success
+  criteria depend on the answer: WCAG AA in both themes, and no visual change
+  to unopted surfaces. Routing back to Architect for a concrete token list
+  (which may legitimately be "none"). Blocks item **`game` preset**; nothing
+  else in Milestone 1 is affected, so Milestone 1 can proceed in parallel.
+
+## Notes
+
+_Deviations discovered during Implement get logged here, dated._
