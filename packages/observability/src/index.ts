@@ -3,7 +3,7 @@ export type { OtelConfig } from "./sdk.js";
 
 export { createRequestIdMiddleware, getRequestId, logWithRequestId } from "./request-id.js";
 
-export { createReadinessTracker, registerStandardChecks } from "./readiness.js";
+export { createReadinessTracker, registerStandardChecks, buildJwksUrl } from "./readiness.js";
 
 export {
   errorRatePlugin_,
