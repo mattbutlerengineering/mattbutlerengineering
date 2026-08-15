@@ -25,11 +25,12 @@
  *    SPA-internal client-side navigation (sidebar nav buttons, the
  *    floor-plan card), which issues no new document/asset request and is
  *    safe under `setOffline(true)`. The genuine failures that drive the
- *    cached-view assertions come from `route.abort()` on the two REST
- *    endpoints; `context.setOffline()` is still called for semantic
- *    fidelity to the scenario ("the device went offline") and because it's
- *    what the issue asks for, but the deterministic mechanism is the
- *    explicit abort.
+ *    cached-view assertions come from failing the two REST endpoints with
+ *    an explicit 500 (see `failReservations` — a `route.abort()` is retried
+ *    by `@mbe/api-client` for ~7s and never surfaces inside the assertion
+ *    window); `context.setOffline()` is still called for semantic fidelity
+ *    to the scenario ("the device went offline") and because it's what the
+ *    issue asks for, but the deterministic mechanism is the forced 500.
  *
  * 2. The banner/indicator condition is `isFromCache || !isConnected`
  *    (`TimelinePage`) / `isStale` (`FloorPlanCanvas`, itself
@@ -125,8 +126,22 @@ async function mockReservationsSuccess(page: Page, guestNameOverride?: string): 
   );
 }
 
-async function abortReservations(page: Page): Promise<void> {
-  await page.route("**/api/v1/reservations?*", (route) => route.abort());
+/** Fails the reservations list with a 500 — NOT `route.abort()`. `@mbe/api-client`
+ * retries any `TypeError` (which is what an aborted fetch surfaces as) 3x with
+ * exponential backoff (1s/2s/4s, `BASE_BACKOFF_MS` in `packages/api-client/src/client.ts`),
+ * and `window.__e2eNoRetry` only disables react-query's retries, not that layer's. An
+ * aborted request therefore stays pending ~7s — past Playwright's 5s expect timeout — so
+ * the query never reaches the error state that drives the cache fallback. 500 is absent
+ * from `RETRYABLE_STATUS_CODES` (502/503/504 only), so it surfaces immediately. Same
+ * reason `dashboard.spec.ts`'s error-state test uses a 500. */
+async function failReservations(page: Page): Promise<void> {
+  await page.route("**/api/v1/reservations?*", (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: '{"error":"offline"}',
+    })
+  );
 }
 
 async function mockTableStatusesSuccess(page: Page, status: "available" | "seated"): Promise<void> {
@@ -139,8 +154,17 @@ async function mockTableStatusesSuccess(page: Page, status: "available" | "seate
   );
 }
 
-async function abortTableStatuses(page: Page): Promise<void> {
-  await page.route(/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, (route) => route.abort());
+/** Fails the table-statuses snapshot with a 500, for the same reason as
+ * `failReservations` above — `useTableStatuses` fetches through the same
+ * retrying `@mbe/api-client`. */
+async function failTableStatuses(page: Page): Promise<void> {
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: '{"error":"offline"}',
+    })
+  );
 }
 
 /** Reads a value straight out of the app's own IndexedDB cache
@@ -260,8 +284,8 @@ test.describe("Offline-first shell (#4189)", () => {
     await waitForFloorPlanSnapshotCached(page);
 
     // ── Phase 2: offline — cached data must still render ─────────────
-    await abortReservations(page);
-    await abortTableStatuses(page);
+    await failReservations(page);
+    await failTableStatuses(page);
 
     // Navigate to Timeline, then reload — see file header note 2 for why a
     // plain SPA-nav remount can't force `useReservations` to hit the
