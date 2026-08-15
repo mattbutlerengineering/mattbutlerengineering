@@ -43,14 +43,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
+      - uses: ./.github/actions/setup-workspace
 
       - name: Run audit with --apply
         # Files deduplicated issues for next-level gaps. Exits 0 even
-        # when gaps exist — this workflow is diagnostic, not gating.
+        # when gaps exist — this workflow is diagnostic, not gating. No
+        # build step needed: audit.js's only bare import (`prettier`,
+        # reached via ./state.js) is a plain npm package, already resolvable
+        # from node_modules once setup-workspace installs — not a workspace
+        # package requiring `tsc`.
         run: node plugins/acmm/scripts/audit.js --apply --label ready
 
       - name: Echo summary
