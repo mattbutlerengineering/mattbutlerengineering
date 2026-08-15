@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import type * as ObservabilityModule from "@mbe/observability";
 import {
   createServiceApp,
   validateCorsOrigins,
@@ -28,20 +29,27 @@ vi.mock("@mbe/auth/fastify", () => ({
   authPlugin: vi.fn().mockImplementation(async () => {}),
   getAuthPluginOptionsFromEnv: vi.fn().mockReturnValue({}),
 }));
-vi.mock("@mbe/observability", () => ({
-  createRequestIdMiddleware: vi.fn().mockReturnValue(vi.fn().mockImplementation(async () => {})),
-  errorRatePlugin_: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
-    fastify.decorate("getErrorRates", () => ({ endpoints: [], degraded: false }));
-  }),
-  createRateLimitMonitor: vi.fn().mockReturnValue({
-    recordHit: vi.fn(),
-    getSnapshot: vi.fn().mockReturnValue({
-      stats: { hits_last_hour: 0, blocked_ips: 0 },
-      isDegraded: false,
+vi.mock("@mbe/observability", async (importOriginal) => {
+  // Keep real exports (e.g. buildJwksUrl, used transitively by
+  // validate-startup-config.ts — see #4200) and only override the plugin
+  // factories that would otherwise require a real server/network.
+  const actual = await importOriginal<typeof ObservabilityModule>();
+  return {
+    ...actual,
+    createRequestIdMiddleware: vi.fn().mockReturnValue(vi.fn().mockImplementation(async () => {})),
+    errorRatePlugin_: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
+      fastify.decorate("getErrorRates", () => ({ endpoints: [], degraded: false }));
     }),
-    reset: vi.fn(),
-  }),
-}));
+    createRateLimitMonitor: vi.fn().mockReturnValue({
+      recordHit: vi.fn(),
+      getSnapshot: vi.fn().mockReturnValue({
+        stats: { hits_last_hour: 0, blocked_ips: 0 },
+        isDegraded: false,
+      }),
+      reset: vi.fn(),
+    }),
+  };
+});
 vi.mock("@mbe/sentry/node", () => ({
   sentryFastifyPlugin: vi.fn().mockImplementation(async () => {}),
 }));

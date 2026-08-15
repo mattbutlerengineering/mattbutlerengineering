@@ -122,11 +122,11 @@
     </item>
   </file>
   <file path="src/validate-startup-config.ts">
-    <item priority="high">
-      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
-    </item>
     <item priority="medium">
       function describeShape(value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseUrlOrNull(value: string): URL | null { /* ... */ }
     </item>
   </file>
   </section>

@@ -5667,11 +5667,11 @@
     </item>
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">
-    <item priority="high">
-      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
-    </item>
     <item priority="medium">
       function describeShape(value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseUrlOrNull(value: string): URL | null { /* ... */ }
     </item>
   </file>
   <file path="packages/supply-chain-scanner/src/collect-files.ts">
