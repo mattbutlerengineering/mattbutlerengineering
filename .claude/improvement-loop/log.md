@@ -651,3 +651,55 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** composite 0.945 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:6, size:m:3, size:s:14, size:l:5, size:xl:1
 **Issues filed:** 0
+
+## 2026-08-15 (mbe-evening, progress-tracker)
+
+### Metrics (7d window, ~2026-08-08 → 2026-08-15; merged-PR sample only covers ~2026-08-12T22:03Z → 2026-08-15T00:26Z due to the 50-row page limit — real 7d volume is higher)
+
+| Metric                                | Value                                                                                                                                                                           | Status                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Open `audit` issues                   | 7 (4 are >7d stale: #3276 since 07-10, #3547 since 07-31, #3657 since 08-02, #3921 since 08-07)                                                                                 | 🟡 stale backlog forming    |
+| Open `ci-fix` issues                  | 4 (#4208 has-pr/needs-review; #4141 unpatchable CVE, external block; #3322/#3253 `ready-for-human`, stale >7d)                                                                  | 🟡                          |
+| Queue (open `ready`)                  | 0                                                                                                                                                                               | 🟢 green (<5)               |
+| In-progress (open)                    | 2 (#4196, #4200 — both claimed 2026-08-14T17:2x, last updated 20:13, no linked PR after 4+ hours)                                                                               | 🟡 possible orphaned claims |
+| Has-pr (open, unmerged)               | 3 (#4208, #4189 — both correctly parked `needs-review`, retry budget exhausted; #4199 — has-pr label but **zero** linked PRs, `state_reason: reopened`, looks stale/mislabeled) | 🟡                          |
+| Blocked (agent-failed, open)          | 0                                                                                                                                                                               | 🟢                          |
+| Skipped (agent-skip, open)            | 0                                                                                                                                                                               | 🟢                          |
+| CI Gate (main + all open PRs checked) | green throughout — main's latest push (e88ab927) and all 4 pre-existing open PRs showed `CI Gate: success`                                                                      | 🟢 green (>95%)             |
+| Reverts (7d)                          | 0                                                                                                                                                                               | 🟢                          |
+| Daily/7d/Cost-per-issue Spend         | `.claude/agent-spend/sessions.jsonl` still 0 lines — same gap as open issue #3695                                                                                               | ⚪ N/A, already tracked     |
+
+### This iteration (mbe-evening, one implement-queue pass)
+
+Zero `ready` issues existed at Phase 1 — nothing new to claim. All of this iteration's work was clearing the open-PR backlog left from the prior (2026-08-14 late-evening) session:
+
+- **#4221** (`chore(metrics): queue telemetry 2026-08-14`, metrics-only) — qualified for the low-risk fast path (`isLowRiskPR` true, `reviewersForDiff` empty). CI was already green/clean, so merged directly (auto-merge is a no-op on an already-mergeable PR — same behavior observed on 2026-08-13).
+- **#4222** (`fix(hospitality): merge live SSE deltas over cached floor-plan fallback`, closes #4216) — not low-risk (app code). Dispatched the Reviewer sub-agent (haiku), which independently re-ran the hospitality test suite, reverted the fix locally to confirm the new regression test goes RED on old code, and checked the venue-isolation guard and `Map` spread-order correctness. Verdict: pass, 9/10, no issues. No diff-matched specialists applied (`reviewersForDiff` empty). Merged.
+- **#4218** and **#4220** — confirmed still correctly parked on `needs-review` from the prior session (both hit `flag`/`block` verdicts twice — retry budget exhausted per the Reviewer Contract's retry policy). Left untouched; these need a human or a fresh targeted session, not another implement-queue pass.
+
+No workers were dispatched this iteration (no `ready` issues to claim), so no telemetry rows were appended and no merge-train locks were acquired. `git status --porcelain` clean throughout; the Reviewer sub-agent's worktree (`isolation: worktree`) did not mutate the main checkout (verified before/after).
+
+`gh`/`hub` CLI remains absent in this Claude Code Remote session; all GitHub reads/writes went through `mcp__github__*` tools. Unlike 2026-08-13, this session _did_ have a working local checkout with `pnpm`/`node`/`turbo` — `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/cli...` succeeded, so `scripts/agent-core-build-freshness.mjs` and the `isLowRiskPR`/`reviewersForDiff` classifiers ran genuinely (not skipped), unlike the fully-`gh`-blocked path noted in the 08-13 entry.
+
+### Patterns
+
+- **Queue emptiness is now a recurring state, not a one-off** — 08-13's progress-tracker entry also closed with "queue is empty again." Ideation/decomposition may not be keeping pace with implement-queue's drain rate; worth a `/ideate` and `/decompose` health check if this persists through another iteration.
+- **Two issues (#4196, #4200) have sat `in-progress` for 4+ hours with no linked PR.** Both are same-day audit-follow-up fixes (JWKS dev-tenant hardcoding, env-sync blind spot) claimed at 17:2x, last touched 20:13, never producing a PR. This doesn't match the `agent-failed`/`agent-skip` label pattern `auto-retry-stale.mjs` watches for — it's a claimed-but-silently-abandoned state that no existing automation reclaims. Single-day observation; not yet filing a meta-improvement issue per the pattern-3+-days rule, but flagging for `gotcha-harvest`/`claude-automation-recommender` if it recurs.
+- **#4199 carries `has-pr` with zero linked PRs and `state_reason: reopened`.** PR #4206 (merged 2026-08-14T19:00, "route mbe agent eval through the AdapterType resolver") looks related by title but isn't recorded as closing it, and the issue was reopened after — label likely went stale during a mid-session correction. Worth a manual look; not auto-corrected here (read-only pass).
+- CI health remains excellent — every PR and main push checked this session showed `CI Gate: success`.
+
+### Recommendations
+
+- Manually re-triage #4199's `has-pr` label (verify whether #4206 or a follow-up actually addresses it; if not, it may need to go back to `ready`).
+- If #4196/#4200 are still `in-progress` with no PR next iteration, treat as confirmed pattern and consider extending `auto-retry-stale.mjs`'s selection rule (or a new check) to cover stale `in-progress` claims, not just `agent-failed`.
+- Next iteration should re-check for new `ready` issues before another implement-queue pass; consider whether `/ideate`/`/decompose` need a nudge given two consecutive empty-queue days.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-15
+
+**queueEfficiency:** composite 1.000 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:6, size:m:6, size:xs:12, size:l:1
+**Issues filed:** 0
