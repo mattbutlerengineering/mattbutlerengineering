@@ -94,10 +94,16 @@ export const agentEvalCommand = new Command("eval")
         return;
       }
 
-      // Read baseline before appending the current run so the most recent prior
-      // entry is used, not the one we're about to write.
+      // Read baseline before appending the current run so the most recent
+      // prior entry is used, not the one we're about to write. Scoped to
+      // this run's own adapter (#4218 rework) — comparing cost across
+      // adapters is meaningless, and a $0 baseline from a structurally
+      // cost-blind adapter (gemini) must never silently disable the gate
+      // for a different adapter's genuine cost.
       const costBaseline =
-        options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
+        options.maxCostRegression !== undefined
+          ? loadCostBaseline(findLogFile(), adapterType)
+          : null;
 
       const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
       const report = await runEvalSuite(tasks, {
@@ -113,7 +119,7 @@ export const agentEvalCommand = new Command("eval")
         return;
       }
 
-      persistReport(report);
+      persistReport(report, adapterType);
       emitReport(report, options.json);
 
       if (options.calibrate) {
@@ -176,39 +182,64 @@ function findLogFile(): string {
 }
 
 /**
- * Reads the most recent entry from eval-reports.jsonl and returns its
- * meanCostUsd, or null when the file is absent, empty, or unparseable.
+ * Reads the most recent entry from eval-reports.jsonl *tagged with the given
+ * adapter* and returns its meanCostUsd, or null when no such entry exists
+ * (file absent/empty, no line for this adapter, or that line's cost is
+ * unparseable).
+ *
+ * Scoped by adapter (#4218 rework): comparing cost across adapters is
+ * meaningless regardless of value, and — concretely — gemini's `CliUsage`
+ * never carries a cost figure (see `parseGeminiUsage` in
+ * cli-usage-parser.ts), so an unscoped "last entry in the file" read let a
+ * genuine gemini run's $0 report silently become any other adapter's
+ * baseline, permanently short-circuiting `checkCostRegression`'s
+ * `baseline === 0` case regardless of how far that other adapter's real
+ * spend moved. A line with no `adapter` field at all (a pre-#4218 legacy
+ * row) is never treated as a match for any adapter — the safe direction is
+ * "no baseline", not "assume it matches".
  */
-function loadCostBaseline(logFile: string): number | null {
+function loadCostBaseline(logFile: string, adapterType: AdapterType): number | null {
+  let lines: string[];
   try {
-    const content = readFileSync(logFile, "utf8");
-    const lines = content
+    lines = readFileSync(logFile, "utf8")
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean);
-    if (lines.length === 0) return null;
-    const last = lines[lines.length - 1];
-    if (last === undefined) return null;
-    const parsed = JSON.parse(last) as { aggregate?: { meanCostUsd?: unknown } };
-    const cost = parsed?.aggregate?.meanCostUsd;
-    return typeof cost === "number" ? cost : null;
   } catch {
     return null;
   }
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (line === undefined) continue;
+    try {
+      const parsed = JSON.parse(line) as {
+        adapter?: unknown;
+        aggregate?: { meanCostUsd?: unknown };
+      };
+      if (parsed.adapter !== adapterType) continue;
+      const cost = parsed.aggregate?.meanCostUsd;
+      return typeof cost === "number" ? cost : null;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 /**
  * Appends the report to a JSONL file in metrics/ — mirrors the `mbe stats` record pattern.
- * Each line is a complete {@link EvalReport} enriched with a timestamp.
+ * Each line is a complete {@link EvalReport} enriched with a timestamp and
+ * the adapter it ran under (see {@link loadCostBaseline}).
  */
-function persistReport(report: EvalReport): void {
+function persistReport(report: EvalReport, adapterType: AdapterType): void {
   const root = findMonorepoRoot(process.cwd());
   const logDir = join(root, "metrics");
   const logFile = join(logDir, "eval-reports.jsonl");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
   }
-  const record = { ...report, timestamp: new Date().toISOString() };
+  const record = { ...report, timestamp: new Date().toISOString(), adapter: adapterType };
   appendFileSync(logFile, JSON.stringify(record) + "\n");
 }
 
@@ -216,19 +247,27 @@ function persistReport(report: EvalReport): void {
  * Builds the live runner: run the agent (via the resolved adapter) on a
  * task, then verify its branch.
  *
- * Cost-absent CLI adapters (#4199, option (a) — surfaced as a non-run
- * rather than a silent $0): Gemini's `CliUsage` never carries a cost figure
- * (see `parseGeminiUsage` in cli-usage-parser.ts — "Gemini CLI's stats never
- * carry a USD figure"), and the shared CLI-subprocess session runner
- * (`runCliAdapterSession` in agent-core) always reports `numTurns: 0` for
- * both the gemini and opencode adapters. So a genuinely-executed gemini task
- * still yields `session.costUsd === 0 && session.numTurns === 0` — the exact
- * shape `taskDidNotRun`/`suiteDidNotRun` (agent-core/eval/run-detection.ts)
- * already treat as "the suite never ran". That existing check is what keeps
- * a gemini run from ever silently persisting a $0 baseline or passing
- * `--max-cost-regression` on a meaningless comparison; no separate handling
- * is needed here. OpenCode's costUsd, by contrast, is genuinely populated
- * from its `step_finish` events, so it is never a silent zero.
+ * Cost-absent CLI adapters (#4199, option (a)): Gemini's `CliUsage` never
+ * carries a cost figure (see `parseGeminiUsage` in cli-usage-parser.ts —
+ * "Gemini CLI's stats never carry a USD figure") — that is a permanent,
+ * structural property of the Gemini CLI's own JSON output, unlike
+ * OpenCode's costUsd, which is genuinely populated from its `step_finish`
+ * events and so is never a silent zero.
+ *
+ * Prior to #4208, the shared CLI-subprocess session runner
+ * (`runCliAdapterSession` in agent-core) ALSO always reported `numTurns: 0`
+ * for gemini/opencode, so a genuinely-executed gemini task was
+ * indistinguishable from a non-run — both were `{ costUsd: 0, numTurns: 0 }`,
+ * the exact shape `taskDidNotRun`/`suiteDidNotRun`
+ * (agent-core/eval/run-detection.ts) treat as "the suite never ran". #4208
+ * fixed numTurns to be derived from real subprocess activity, so a genuine
+ * gemini run now has real turns and DOES reach `persistReport` — costUsd
+ * stays structurally 0, but the run is no longer treated as a non-run.
+ * That means a gemini run's $0 report is a real, persistable baseline entry
+ * for *gemini itself* — it must never be read as a baseline for a different
+ * adapter's genuine cost. `loadCostBaseline`/`persistReport` (#4218 rework)
+ * tag every persisted report with its adapter and only match same-adapter
+ * baselines for exactly this reason.
  */
 function makeAgentTaskRunner(
   repoPath: string,

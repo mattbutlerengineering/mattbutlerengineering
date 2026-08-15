@@ -45,6 +45,8 @@ export interface AdapterResult {
   readonly costUsd?: number;
   /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
   readonly tokenUsage?: TokenUsage;
+  /** Turn count, when the backend reports it. Undefined when the CLI exposes no turn signal (#4208). */
+  readonly numTurns?: number;
 }
 
 // ── Adapter state (for multi-adapter rotation / cooldown) ───────────

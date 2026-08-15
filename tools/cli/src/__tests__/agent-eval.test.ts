@@ -249,17 +249,20 @@ describe("agent eval command", () => {
     });
   });
 
-  describe("cost-absent CLI-adapter path (option (a): surfaced as a non-run)", () => {
+  describe("gemini CLI-adapter path (#4208: real numTurns, cost still structurally absent)", () => {
     // Gemini's CliUsage never carries a cost figure (cli-usage-parser.ts:
-    // "Gemini CLI's stats never carry a USD figure") and the shared
-    // CLI-subprocess session runner (run-cli-adapter-session.ts) always
-    // reports numTurns: 0 for gemini/opencode. So a genuine gemini
-    // SessionResult is `{ costUsd: 0, numTurns: 0 }` — identical in shape to
-    // the no-credentials case above. taskDidNotRun/suiteDidNotRun already
-    // treat that as a non-run, which is exactly what forbids a silent
-    // `costUsd: 0` from ever reaching a persisted baseline or
-    // --max-cost-regression comparison for this adapter.
-    it("reports a non-run (not a scored $0 baseline) when the gemini adapter never populates cost/turns", async () => {
+    // "Gemini CLI's stats never carry a USD figure") — that is a permanent,
+    // structural property of the Gemini CLI's own JSON output and out of
+    // scope here. Prior to #4208, the shared CLI-subprocess session runner
+    // (run-cli-adapter-session.ts) ALSO always reported numTurns: 0 for
+    // gemini/opencode regardless of what actually happened, so a genuinely
+    // successful gemini run was indistinguishable from a credential-less one:
+    // both produced `{ costUsd: 0, numTurns: 0 }`. #4208 fixed numTurns to be
+    // derived from real subprocess activity (see
+    // packages/agent-core/src/adapters/cli-usage-parser.ts), so only the
+    // genuine "nothing happened" case still looks like this — a real gemini
+    // run now reports real turns even though costUsd stays 0.
+    it("still reports a non-run when the gemini adapter genuinely never ran (no credentials — 0 turns, $0 cost)", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 0 }));
 
@@ -269,6 +272,18 @@ describe("agent eval command", () => {
 
       expect(process.exitCode).toBe(2);
       expect(mockAppendFileSync).not.toHaveBeenCalled();
+    });
+
+    it("scores a successful gemini run instead of treating it as a non-run, even though costUsd stays 0", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ costUsd: 0, numTurns: 7 }));
+
+      await agentEvalCommand.parseAsync(["--adapter", "gemini", "--max-cost-regression", "20"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).not.toBe(2);
+      expect(mockAppendFileSync).toHaveBeenCalled();
     });
   });
 
@@ -341,8 +356,12 @@ describe("agent eval command", () => {
   describe("--max-cost-regression", () => {
     it("exits 0 when cost is within threshold versus baseline", async () => {
       // baseline meanCostUsd = 0.10; current session costUsd = 0.11 (10% up, threshold 20%)
+      // adapter: "claude" — the run below defaults to --adapter claude too, so
+      // this is a same-adapter baseline (#4218 rework: baselines are scoped
+      // per adapter).
       const baseline = {
         runId: "prev",
+        adapter: "claude",
         tasks: [],
         aggregate: {
           total: 1,
@@ -367,6 +386,7 @@ describe("agent eval command", () => {
       // baseline meanCostUsd = 0.10; current session costUsd = 0.25 (150% up, threshold 20%)
       const baseline = {
         runId: "prev",
+        adapter: "claude",
         tasks: [],
         aggregate: {
           total: 1,
@@ -410,6 +430,53 @@ describe("agent eval command", () => {
       await agentEvalCommand.parseAsync(["--max-cost-regression", "20"], { from: "user" });
 
       expect(process.exitCode).toBe(0);
+    });
+  });
+
+  describe("cross-adapter baseline poisoning (#4218 rework)", () => {
+    // Exercises the real persistReport -> loadCostBaseline round trip
+    // through three genuine command invocations against a stateful fake
+    // log file (appendFileSync/readFileSync share real content) — not a
+    // canned baseline fixture. This is deliberately NOT shaped like the
+    // reviewer-flagged tautological test on the original #4208 PR (which
+    // stubbed runAgentSession and stayed green even with the fix reverted):
+    // reverting the adapter-scoping fix in agent-eval.ts must turn this RED,
+    // because it is the actual production loadCostBaseline/persistReport
+    // code being exercised, not a re-assertion of a mocked baseline.
+    it("does not let a $0 gemini report become claude's cost-regression baseline", async () => {
+      let fakeLog = "";
+      mockAppendFileSync.mockImplementation((_path: unknown, data: unknown) => {
+        fakeLog += String(data);
+      });
+      mockReadFileSync.mockImplementation(() => fakeLog);
+      mockLoadSuite.mockResolvedValue([task]);
+
+      // 1. A genuine claude run establishes a real, non-zero baseline.
+      mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 0.1, numTurns: 5 }));
+      await agentEvalCommand.parseAsync(["--adapter", "claude"], { from: "user" });
+      expect(process.exitCode).toBe(0);
+
+      // 2. A genuine gemini run — real turns (#4208), structurally-$0 cost —
+      // is no longer a non-run, so it persists and becomes the newest line
+      // in the shared log file.
+      mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 0, numTurns: 7 }));
+      await agentEvalCommand.parseAsync(["--adapter", "gemini"], { from: "user" });
+      expect(process.exitCode).toBe(0);
+
+      // 3. claude's cost genuinely spikes. Unfixed: loadCostBaseline reads
+      // the last line in the file regardless of adapter, i.e. gemini's $0
+      // entry -> checkCostRegression(baseline === 0) short-circuits "no
+      // regression" -> exit 0, hiding a real 4900% cost spike. Fixed: the
+      // baseline is scoped to claude's own prior entry ($0.10), so the gate
+      // fires.
+      mockRunAgentSession.mockResolvedValueOnce(fakeSession({ costUsd: 5, numTurns: 5 }));
+      await agentEvalCommand.parseAsync(["--adapter", "claude", "--max-cost-regression", "20"], {
+        from: "user",
+      });
+
+      expect(process.exitCode).toBe(1);
+      const errOut = errSpy.mock.calls.flat().join("\n");
+      expect(errOut).toMatch(/cost regression/i);
     });
   });
 });

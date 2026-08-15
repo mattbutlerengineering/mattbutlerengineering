@@ -1258,6 +1258,12 @@
     export interface CliUsage {
       readonly costUsd?: number;
       readonly tokenUsage?: TokenUsage;
+      /**
+       * Turn count, when the CLI backend reports a real signal for it. Absent
+       * (never a fabricated 0 or 1) when the backend emits nothing usable — see
+       * `run-cli-adapter-session.ts` for how absence is handled (#4208).
+       */
+      readonly numTurns?: number;
     }
     function safeJsonParse(text: string): unknown {
       try {
@@ -1383,7 +1389,13 @@
           success: adapterResult.success,
           sessionId: cliAdapter.name,
           costUsd: adapterResult.costUsd ?? 0,
-          numTurns: 0,
+          // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
+          // for how each adapter derives it); 0 only when genuinely absent. 0 is
+          // deliberate here, not a fabricated guess: paired with $0 cost it is
+          // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
+          // detect a run that never happened, which is the correct classification
+          // for "the CLI produced no usable signal at all".
+          numTurns: adapterResult.numTurns ?? 0,
         };
     
         const breach = shouldHaltForBudget(
@@ -1485,6 +1497,10 @@
     
       const costUsd = adapterResult?.costUsd ?? 0;
       const tokenUsage = adapterResult?.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
+      // Real signal when reported (#4208); 0 only when genuinely absent — see the
+      // resultSummary comment above for why 0 is the correct fallback, not a
+      // fabricated guess.
+      const numTurns = adapterResult?.numTurns ?? 0;
     
       // Record spend through the single seam — the ONLY spend write for a
       // gemini/opencode run, mirroring session-runner's write for the claude
@@ -1510,7 +1526,7 @@
         costUsd,
         tokenUsage,
         durationMs: adapterResult?.durationMs ?? 0,
-        numTurns: 0,
+        numTurns,
         resultText: "",
         errors,
         ...(failureCategory ? { failureCategory } : {}),
@@ -1980,10 +1996,16 @@
             return;
           }
     
-          // Read baseline before appending the current run so the most recent prior
-          // entry is used, not the one we're about to write.
+          // Read baseline before appending the current run so the most recent
+          // prior entry is used, not the one we're about to write. Scoped to
+          // this run's own adapter (#4218 rework) — comparing cost across
+          // adapters is meaningless, and a $0 baseline from a structurally
+          // cost-blind adapter (gemini) must never silently disable the gate
+          // for a different adapter's genuine cost.
           const costBaseline =
-            options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
+            options.maxCostRegression !== undefined
+              ? loadCostBaseline(findLogFile(), adapterType)
+              : null;
     
           const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
           const report = await runEvalSuite(tasks, {
@@ -1999,7 +2021,7 @@
             return;
           }
     
-          persistReport(report);
+          persistReport(report, adapterType);
           emitReport(report, options.json);
     
           if (options.calibrate) {
@@ -14495,6 +14517,8 @@
       readonly costUsd?: number;
       /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
       readonly tokenUsage?: TokenUsage;
+      /** Turn count, when the backend reports it. Undefined when the CLI exposes no turn signal (#4208). */
+      readonly numTurns?: number;
     }
   </file>
   <file path="packages/agent-core/src/context-budget.ts">
