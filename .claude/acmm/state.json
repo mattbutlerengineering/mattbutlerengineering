@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-08-14T16:17:57.302Z",
+  "lastRun": "2026-08-15T15:16:35.225Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -1147,7 +1147,10 @@
         "details": "Auto-rollback completes the autonomous loop: the system detects regressions from its own PRs (via post-deploy checks) and creates revert PRs automatically. Without this, L6 autonomy is one-directional — the system can break things but not fix them.",
         "detection": {
           "type": "active",
-          "pattern": [".github/workflows/auto-rollback.yml", "docs/acmm/auto-rollback.md"],
+          "pattern": [
+            ".github/workflows/auto-rollback.yml",
+            "docs/acmm/auto-rollback.md"
+          ],
           "maxAgeDays": 365
         }
       }
