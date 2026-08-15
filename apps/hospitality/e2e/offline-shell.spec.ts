@@ -18,13 +18,17 @@
  *    stack, so `setOffline` has no effect on them (verified empirically —
  *    a routed fetch still resolves under `setOffline(true)`). It DOES still
  *    block any genuinely unmocked request (e.g. a full page navigation's
- *    document/asset fetches against the real Vite dev server). The one
- *    `page.reload()` this spec performs (Phase 2, see note 2) therefore
- *    happens BEFORE `context.setOffline(true)` is set — reload first, then
- *    go offline once the reload has settled — everything else is
- *    SPA-internal client-side navigation (sidebar nav buttons, the
- *    floor-plan card), which issues no new document/asset request and is
- *    safe under `setOffline(true)`. The genuine failures that drive the
+ *    document/asset fetches against the real Vite dev server). Two
+ *    consequences, both load-bearing for Phase 2's ordering: the one
+ *    `page.reload()` this spec performs happens BEFORE
+ *    `context.setOffline(true)`, and so does the navigation to the floor
+ *    plan. SPA-internal navigation is only asset-free for chunks already
+ *    loaded — every page here is a `React.lazy()` import (`src/main.tsx`),
+ *    and the reload discards them, so the first post-reload visit to
+ *    `FloorPlansPage`/`FloorPlanEditorPage` fetches a chunk that
+ *    `setOffline(true)` would block (the page then hangs in Suspense and
+ *    the floor-plan card never appears). So: reload, then navigate, then go
+ *    offline. The genuine failures that drive the
  *    cached-view assertions come from failing the two REST endpoints with
  *    an explicit 500 (see `failReservations` — a `route.abort()` is retried
  *    by `@mbe/api-client` for ~7s and never surfaces inside the assertion
@@ -296,9 +300,17 @@ test.describe("Offline-first shell (#4189)", () => {
     await page.reload();
     await expect(page.getByTestId("offline-banner")).toBeVisible();
     await expect(page.getByTestId("reservation-block-res_e2e_001")).toContainText("Alice Johnson");
-    await context.setOffline(true);
 
+    // Reach the floor plan BEFORE going offline. `FloorPlansPage` and
+    // `FloorPlanEditorPage` are `React.lazy()` chunks (see `src/main.tsx`) and
+    // the `page.reload()` above discarded them, so navigating there issues a
+    // real chunk request to the dev server — unmocked, and genuinely blocked by
+    // `context.setOffline(true)` (SPA-internal nav is only asset-free for
+    // chunks already loaded). The stale indicator is driven by the forced 500
+    // on table-statuses, not by `setOffline`, so asserting it after the toggle
+    // tests the same thing.
     await navigateToFloorPlanEditor(page);
+    await context.setOffline(true);
     await expect(page.getByTestId("floor-plan-stale-indicator")).toBeVisible();
     // The table itself (from the `floor-plans-list`/`tables-list` fixtures,
     // always mocked-successful) keeps rendering regardless of status data.
