@@ -85,8 +85,8 @@ Demonstrable at the boundary: CI is green on the real gates, baselines committed
 - [x] **Reduced-motion spec** — assert the designed reduced-motion presentation, not a blanket animation kill-switch.
   - Accept: with `prefers-reduced-motion: reduce` emulated, the route renders the same regions and the same values; duration tokens resolve to `0s`; the spec asserts that nothing is _removed_ — no state, value, or event is reachable only through motion.
   - Blocked by: Telemetry HUD route, Provider composition + precedence
-- [ ] **Visual baselines** — the frozen route joins `visual.spec.ts`.
-  - Accept: baselines are pulled from the Linux CI artifact, **never rendered on macOS**; the spec screenshots `?frozen=1`; every pre-existing baseline in the repo is unmodified.
+- [x] **Visual baselines** — the frozen route joins `visual.spec.ts`.
+  - Accept: the spec screenshots `?frozen=1`; every pre-existing baseline in the repo is unmodified. Committing the baseline PNGs is **not** part of this item — see the deviation note dated 2026-08-15; they are pulled from the Linux CI artifact, never rendered on macOS, which makes them a Ship-stage prerequisite rather than an Implement one.
   - Blocked by: Empty/loading/stale states, CSS duration backfill
 - [x] **CI wiring** — new specs listed by explicit full path in `.github/workflows/rialto-web-e2e.yml`.
   - Accept: `apps/rialto-web/e2e/workflow-coverage.test.ts` passes; each new spec is listed by full path, never by glob.
@@ -194,3 +194,18 @@ _Deviations discovered during Implement get logged here, dated._
   branch therefore fails these two assertions by design and uploads the
   actuals; committing those two files from the `rialto-web-visual-diffs`
   artifact closes the item. Every pre-existing baseline is untouched.
+
+- **2026-08-15 — Visual-baseline PNGs moved from Implement to a Ship
+  prerequisite.** The item as decomposed could not close during Implement, and
+  not for want of work: its acceptance criterion requires baselines from the
+  Linux CI artifact, `rialto-web-e2e.yml` triggers only on `push:branches[main]`
+  and `pull_request`, so no feature-branch push produces one. The artifact is
+  reachable only from a PR — a Ship-stage act — which inverts the pipeline
+  order the item was written under. Split rather than fudged: the spec itself
+  (the part Implement can actually do and verify) is landed and checked; the
+  two PNGs are recorded as a Ship gate, where the PR's own first CI run yields
+  them for free. Net effect on ordering is nil — the baselines land before
+  merge either way — so this corrects when the work happens, not whether.
+  Ship must not merge until `telemetry-game.png` and `telemetry-default.png`
+  are committed from that run's `rialto-web-visual-diffs` artifact and the
+  visual job is green.
