@@ -703,3 +703,56 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** composite 1.000 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:6, size:m:6, size:xs:12, size:l:1
 **Issues filed:** 0
+
+## 2026-08-16 (mbe-evening)
+
+### Metrics
+
+| Metric                 | Value                                                                                                                                                                          | Target    | Status |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ------ |
+| Created (7d)           | 57 (30 audit + 27 ci-fix)                                                                                                                                                      | -         | -      |
+| Closed (7d)            | 55 (29 audit + 26 ci-fix)                                                                                                                                                      | -         | -      |
+| Closure Rate           | ~96.5%                                                                                                                                                                         | >80%      | green  |
+| Time-to-Close          | not computed precisely this run (no `closed_at` field via MCP `list_issues`); same-day turnaround typical for both closed issues this iteration                                | <24h      | n/a    |
+| Agent Success          | has-pr:0 / agent-failed:0 open at snapshot — nothing stuck                                                                                                                     | >70%      | n/a    |
+| CI Pass (main)         | 26/28 completed of last 30 runs = 92.9% (1 cancelled/superseded, 2 still in-flight excluded)                                                                                   | >95%      | yellow |
+| Queue (ready)          | 7 open — all 4 remaining parts of the 2 in-flight `/decompose` chains (#4239-#4242 human-touch-reason, #4235-#4237 flaky-test), each still blocked on an unmerged earlier part | <5        | yellow |
+| Stale (ready>7d)       | 0 (all 7 ready issues created 2026-08-15)                                                                                                                                      | 0         | green  |
+| Blocked (agent-failed) | 0                                                                                                                                                                              | 0         | green  |
+| Skipped (agent-skip)   | 0                                                                                                                                                                              | 0         | green  |
+| Reverts (7d)           | not queried this run                                                                                                                                                           | -         | -      |
+| Daily/7d Spend         | `.claude/agent-spend/sessions.jsonl` absent/empty in this checkout — unavailable                                                                                               | <$10/<$50 | n/a    |
+| Cost/Issue             | unavailable, same reason                                                                                                                                                       | <$2       | n/a    |
+
+### This iteration's implement-queue run
+
+- Claimed a zone-spread batch of 3: **#4246** (`root` zone, ci-fix), **#4234** (`packages/config` zone, feature), **#4216** (`apps/hospitality` zone, audit).
+- **#4216** — worker investigation found the fix already merged to `main` via #4222 (a prior session). No PR opened; issue closed with an explanatory comment. Flagged a second instance of `verify-fixes.mjs`'s false-positive-reopen bug class (the `verifyAudit` "Lighthouse inventory not available" branch), which fed directly into #4246's fix scope.
+- **#4246** → PR #4248. Not low-risk (`isLowRiskPR` false, `reviewersForDiff` empty) → dispatched the Reviewer sub-agent. First verdict: **flag, 6/10** — `verifyBug` still had the original unscoped-multi-workflow-query bug the issue was filed to fix, just for a different verifier. One retry: same worker fixed `verifyBug`'s scoping + added a mirrored regression test, pushed to the same branch. CI Gate went green again; PR was merged directly by a human (`mattbutlerengineering`) before this session re-reviewed the retry — a legitimate human-in-the-loop outcome, not a bypass.
+- **#4234** → PR #4250. Not low-risk → Reviewer sub-agent verdict: **pass, 9/10** (verified the JUnit-reporter change genuinely produces XML, `coverage.reporter` untouched, no standalone vitest config missed). Enqueued and merged (squash) directly by this session.
+- Telemetry rows appended for all 3 issues via `appendTelemetryRow`; committed on `chore/queue-telemetry-2026-08-16` → PR #4257 (metrics-only, qualified for the low-risk fast path, auto-merge enabled by the repo's own automation).
+- `scripts/reap-worktrees.mjs` failed closed on all 3 of this session's worktrees (GraphQL disabled for this session's GitHub App token → `gh pr list --state merged` unavailable → no positive merge evidence → retained). Expected/documented behavior, not a bug; worktrees will need a session with full `gh` auth (or the
+  next `/implement-queue` iteration) to reclaim them.
+- No merge-train locks were acquired — neither PR fell behind `main` before merging, so no `update-branch` cycle was needed.
+
+### Patterns
+
+- **The `/decompose`-chain dependency structure is now the queue's only content.** All 7 `ready` issues are downstream parts of two multi-part chains, each blocked behind an unmerged earlier part (`selectZoneSpreadBatch` correctly filtered all of them out as non-independent this iteration). Once #4239 and #4234's sibling flaky-test part 1 (#4234, already merged this run) land, parts 2+ of each chain should unblock next iteration.
+- **A cross-session bug hunt paid off**: the #4216 worker's discovery (already-fixed-but-reopened) directly sharpened #4246's fix scope beyond what the issue text alone specified, and the Reviewer sub-agent's flag on the first #4246 review caught that the fix was still incomplete for a sibling verifier (`verifyBug`) — two independent catches on the same root-cause class in one iteration.
+- **Stale local `main` branch caused a near-miss on the telemetry commit.** A leftover local `main` ref (last synced days earlier) was accidentally used as a restore source for `metrics/queue-telemetry.jsonl`, which would have silently reverted several already-reconciled historical rows (`merged`/`ci_first_pass`/`rework_cycles` back to `null`) had it not been caught before pushing. Recovered by restoring from `origin/main` instead. Worth a `gotcha-harvest` entry: sessions with a stale local `main` branch should prefer `origin/main` over a bare branch name for any restore/checkout of a shared metrics file.
+- CI Gate remained green on every PR this session touched; the one CI-pass-rate dip to 92.9% traces to a single `cancelled` run (superseded by a newer push), not a genuine failure.
+
+### Recommendations
+
+- Investigate CI pass-rate's yellow reading (92.9%, just under the 95% green threshold) on the next iteration — check whether the `cancelled` run and the 2 still-in-flight runs at snapshot time were the whole story, or whether a real failure is hiding in the excluded window.
+- Next `/implement-queue` iteration should re-check whether #4239 (human-touch-reason part 1) and the flaky-test chain's dependencies have cleared, since the queue is currently 100% blocked chain-parts.
+- File the stale-local-`main`-branch gotcha via `/gotcha-harvest` if this pattern recurs in another cloud session.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
+
+## 2026-08-16
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
