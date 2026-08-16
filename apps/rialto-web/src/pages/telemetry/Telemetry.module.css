@@ -1,5 +1,13 @@
 .page {
   padding: var(--rialto-space-xl);
+  /* DemoLayout's floating controls are `position: fixed` at
+     `top: calc(--rialto-space-3xl + --rialto-space-md)` with
+     `inset-inline-start: --rialto-space-md`, and they sit at
+     `--rialto-z-overlay` — above any page content, by design. Sibling demos
+     clear that band with a PageHeader; this route opens straight onto the
+     status strip, so it reserves the space itself. Without this the LIVE
+     flag, lap, and position sit underneath the shell's buttons on landing. */
+  padding-block-start: calc(var(--rialto-space-4xl) + var(--rialto-space-lg));
 }
 
 /* The frame is the point — it holds its shape across every feed state. */

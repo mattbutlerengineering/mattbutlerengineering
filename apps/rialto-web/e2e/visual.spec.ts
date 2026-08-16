@@ -104,7 +104,28 @@ for (const id of darkSections) {
  * that quietly flattens one into the other should fail a baseline.
  */
 test.describe("telemetry HUD", () => {
+  // Tall enough to hold the whole HUD without scrolling. Playwright scrolls an
+  // element into view before screenshotting it, and DemoLayout's controls are
+  // `position: fixed` — so on a short viewport they ride down over the HUD and
+  // land in the frame. Fitting the element removes the scroll, and with it the
+  // overlay.
+  test.use({ viewport: { width: 1280, height: 1000 } });
+
   test.beforeEach(async ({ page }) => {
+    // Pre-consent: the cookie banner is `position: fixed` and paints over the
+    // bottom of the HUD, so without this the baselines capture the banner
+    // instead of the event ticker — and any future change to its copy would
+    // break these screenshots for reasons that have nothing to do with the
+    // HUD. Same pattern as demo-nav.spec.ts.
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "rialto-cookie-consent",
+        JSON.stringify({
+          consented: true,
+          preferences: { essential: true, analytics: true, functional: true, marketing: true },
+        })
+      );
+    });
     await page.goto("demos/telemetry?frozen=1");
     await page.waitForLoadState("networkidle");
   });
