@@ -192,6 +192,38 @@ describe("verifyCiFix", () => {
     expect(result.confidence).toBe("skip");
     expect(shouldActOnResult(result)).toBe(false);
   });
+
+  // ---------------------------------------------------------------------
+  // #4246 (second reopening, 2026-08-16): the CI-workflow scoping fix
+  // above closed the "unrelated noise" gap but left one more — a query
+  // that *succeeds* yet returns zero *completed* CI-workflow runs (e.g.
+  // the REST-fallback path filters by workflow name only after applying
+  // `--limit`, so a burst of unrelated automation runs can crowd every CI
+  // run out of the last N results) computed `0/0 = 0%` and reported a
+  // confident "still low: 0%" — which reopened this very issue again.
+  // Zero completed runs is missing data, not a regression; must abstain.
+  // ---------------------------------------------------------------------
+
+  it("abstains (does not comment or reopen) when zero completed CI runs are found", () => {
+    const result = verifyCiFix(depsWithRuns([]));
+
+    expect(result.verified).toBe(false);
+    expect(result.reason).not.toContain("still low");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
+  });
+
+  it("abstains when runs are returned but none have finished yet (all in_progress/queued)", () => {
+    const runs = [
+      { status: "in_progress", conclusion: null },
+      { status: "queued", conclusion: null },
+    ];
+    const result = verifyCiFix(depsWithRuns(runs));
+
+    expect(result.verified).toBe(false);
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -343,6 +375,16 @@ describe("verifyBug", () => {
 
     expect(result.verified).toBe(false);
     expect(result.reason).toBe("Could not verify — CI unavailable");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
+  });
+
+  // Sibling of verifyCiFix's #4246 zero-completed-runs fix above — same
+  // missing-data-is-not-a-regression invariant.
+  it("abstains (does not comment or reopen) when no completed CI run is found", () => {
+    const result = verifyBug(depsWithRuns([]));
+
+    expect(result.verified).toBe(false);
     expect(result.confidence).toBe("skip");
     expect(shouldActOnResult(result)).toBe(false);
   });
