@@ -17,6 +17,8 @@ export default defineConfig({
     },
   },
   test: {
+    reporters: ["default", "junit"],
+    outputFile: { junit: "test-results/junit-storybook.xml" },
     projects: [
       {
         extends: true,

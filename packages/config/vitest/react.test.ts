@@ -45,6 +45,15 @@ describe("defineVitestConfig (react preset)", () => {
     });
   });
 
+  it("enables the default + junit reporters with a test-results.xml output file", () => {
+    const config = defineVitestConfig({
+      coverage: { include: ["src/**/*.tsx"], exclude: [], thresholds: { lines: 70 } },
+    });
+
+    expect(config.test?.reporters).toEqual(["default", "junit"]);
+    expect(config.test?.outputFile).toEqual({ junit: "test-results/junit.xml" });
+  });
+
   it("deep-merges extend for top-level css config alongside the react plugin", () => {
     const config = defineVitestConfig({
       coverage: { include: ["src/**/*.tsx"], exclude: [], thresholds: { lines: 70 } },
