@@ -51,7 +51,7 @@ components that already read motion tokens visibly shift.
 Demonstrable at the boundary: under `game` the ten HUD components retime;
 under `default` they are indistinguishable from today.
 
-- [ ] **CSS duration backfill (bounded, value-preserving)** — tokenize hardcoded durations in `StatusLED`, `Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `DataTable`, `Card`, `Stat`, `Progress`, `TapeChart` only.
+- [x] **CSS duration backfill (bounded, value-preserving)** — tokenize hardcoded durations in `StatusLED`, `Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `DataTable`, `Card`, `Stat`, `Progress`, `TapeChart` only.
   - Accept: every changed declaration maps exactly `0.1s → --rialto-duration-fast`, `0.15s → --rialto-duration-standard`, `0.2s → --rialto-duration-slow`; **no `0.3s` declaration is touched** (no matching token exists, and inventing one would change default-vibe output); no component outside the ten is modified; existing visual baselines pass unmodified.
   - Blocked by: —
 - [ ] **framer-motion call sites → hook** — the six HUD components driving motion in JS (`Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `Card`, `Progress`) resolve configs from `useMotionPreset()` instead of importing statics.
