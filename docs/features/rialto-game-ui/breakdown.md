@@ -209,3 +209,12 @@ _Deviations discovered during Implement get logged here, dated._
   Ship must not merge until `telemetry-game.png` and `telemetry-default.png`
   are committed from that run's `rialto-web-visual-diffs` artifact and the
   visual job is green.
+
+- **2026-08-15 — route lives at `pages/telemetry/`, not `pages/demos/telemetry/`.**
+  `architecture.md` specifies the latter. Every sibling demo in this app —
+  `pages/dashboard`, `pages/drivers`, `pages/auth` — uses `pages/<name>/`, and
+  the route prefix is applied by `routes.tsx` (`path: "demos"`), not by the
+  directory tree, so the architecture doc mis-stated the existing convention
+  rather than proposing a new one. Built to match the codebase. Logged because
+  a reader diffing the doc against the tree would otherwise find an
+  unexplained mismatch with no way to tell which side is wrong.
