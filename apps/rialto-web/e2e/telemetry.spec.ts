@@ -104,3 +104,40 @@ test.describe("keyboard", () => {
     await expect(page.locator('[data-feed-state="stale"]')).toHaveCount(0);
   });
 });
+
+test.describe("response latency", () => {
+  /**
+   * The PRD's headline criterion — "a visible state change within 100 ms" — is
+   * a property of the resolved CSS, not of any one interaction, so it is
+   * measured across every element the HUD renders rather than by driving one
+   * control. Two things can break it: a `transition-delay`, which defers the
+   * change outright, and a duration over budget. Both are read from computed
+   * style, so a literal that skipped tokenization is caught the same as a
+   * mis-set token — that is how this test found `SegmentedControl`'s
+   * hardcoded 150ms, which no vibe could retime.
+   */
+  test("no element on the route defers or overruns the 100ms budget", async ({ page }) => {
+    await page.goto(ROUTE);
+    await page.waitForLoadState("networkidle");
+
+    const worst = await page.evaluate(() => {
+      const ms = (value: string) =>
+        value
+          .split(",")
+          .map((part) => (part.trim().endsWith("ms") ? parseFloat(part) : parseFloat(part) * 1000))
+          .filter((n) => !Number.isNaN(n));
+
+      const delays: number[] = [];
+      const durations: number[] = [];
+      for (const el of Array.from(document.querySelectorAll("[data-feed-state] *"))) {
+        const style = getComputedStyle(el);
+        delays.push(...ms(style.transitionDelay));
+        durations.push(...ms(style.transitionDuration));
+      }
+      return { maxDelay: Math.max(0, ...delays), maxDuration: Math.max(0, ...durations) };
+    });
+
+    expect(worst.maxDelay).toBe(0);
+    expect(worst.maxDuration).toBeLessThanOrEqual(100);
+  });
+});

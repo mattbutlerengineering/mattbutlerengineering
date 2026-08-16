@@ -38,6 +38,7 @@ const HUD_COMPONENTS = [
   "Stat",
   "Progress",
   "TapeChart",
+  "SegmentedControl",
 ] as const;
 
 /** Token values as declared in `tokens/shadows.css`, in milliseconds. */
