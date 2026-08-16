@@ -26,6 +26,7 @@ const PAGES_TO_AUDIT = [
   { name: "Notification Center", path: "/examples/notification-center" },
   { name: "Invoice", path: "/examples/invoice" },
   { name: "Checkout", path: "/examples/checkout" },
+  { name: "Telemetry HUD", path: "/demos/telemetry?frozen=1" },
 ];
 
 for (const { name, path } of PAGES_TO_AUDIT) {

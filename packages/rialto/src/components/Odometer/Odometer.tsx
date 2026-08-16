@@ -1,6 +1,6 @@
 import { forwardRef, useMemo, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { springGentle, reduced } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { SplitFlap } from "../SplitFlap";
 import styles from "./Odometer.module.css";
@@ -79,6 +79,7 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
     ref
   ) => {
     const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
 
     const formatted = useMemo(
       () => new Intl.NumberFormat(locale, formatOptions).format(value),
@@ -102,7 +103,7 @@ export const Odometer = forwardRef<HTMLDivElement, OdometerProps>(
           aria-hidden="true"
           initial={shouldReduceMotion ? false : { scale: 0.98, opacity: 0.85 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={shouldReduceMotion ? reduced : springGentle}
+          transition={motionPreset.springGentle}
         >
           {tokens.map((token, i) =>
             token.kind === "digits" ? (

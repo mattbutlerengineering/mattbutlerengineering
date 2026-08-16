@@ -538,6 +538,7 @@
       interface CliUsage {
         costUsd?: number;
         tokenUsage?: TokenUsage;
+        numTurns?: number;
       }
     </item>
     <item priority="medium">
@@ -728,11 +729,11 @@
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-eval.ts">
+    <item priority="medium">
+      function isAdapterType(value: string): value is AdapterType { /* ... */ }
+    </item>
     <item priority="high">
       export const agentEvalCommand: unknown;
-    </item>
-    <item priority="medium">
-      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
     </item>
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
@@ -2009,6 +2010,19 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/offline-cache.ts">
+    <item priority="low">
+      type FloorPlanSnapshot = TableStatusDelta[];
+    </item>
+    <item priority="high">
+      interface ReservationsCacheEntry {
+        venueId: string;
+        date: string;
+        reservations: Reservation[];
+        cachedAt: number;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/sse-client.ts">
     <item priority="low">
       type FetchEventSourceFn = typeof fetchEventSource;
@@ -2199,6 +2213,14 @@
       export function deriveReducedDataOverrides(device: DeviceContext): VibeOverrides { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/providers/reduced-motion.ts">
+    <item priority="high">
+      export const reducedMotionOverrides: VibeOverrides;
+    </item>
+    <item priority="high">
+      export function deriveReducedMotionOverrides(device: DeviceContext): VibeOverrides { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/providers/useDeviceContext.ts">
     <item priority="low">
       interface DeviceContext {
@@ -2218,6 +2240,19 @@
       }
     </item>
   </file>
+  <file path="packages/rialto/src/providers/useMotionPreset.ts">
+    <item priority="low">
+      interface InstantTransition {
+        duration: 0;
+      }
+    </item>
+    <item priority="low">
+      interface EasedTransition {
+        duration: number;
+        ease: readonly [number, number, number, number];
+      }
+    </item>
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
@@ -2232,7 +2267,7 @@
   </file>
   <file path="packages/rialto/src/providers/vibes.ts">
     <item priority="low">
-      type VibeName = "default" | "transacting" | "presenting";
+      type VibeName = "default" | "transacting" | "presenting" | "game";
     </item>
     <item priority="low">
       type VibeOverrides = Record<string, string>;
@@ -3386,7 +3421,7 @@
     </item>
     <item priority="low">
       interface NotifierRuntime {
-        redisUrl: string;
+        redisUrl: string | null;
         scheduler: NotifierScheduler;
         smsAdapter: SmsPort | null;
       }
@@ -5653,11 +5688,11 @@
     </item>
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">
-    <item priority="high">
-      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
-    </item>
     <item priority="medium">
       function describeShape(value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseUrlOrNull(value: string): URL | null { /* ... */ }
     </item>
   </file>
   <file path="packages/supply-chain-scanner/src/collect-files.ts">
@@ -6054,6 +6089,28 @@
   <file path="tools/cli/src/token-counter.ts">
     <item priority="high">
       export function countTokens(text: string): number { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="telemetry">
+  <file path="apps/rialto-web/src/pages/telemetry/useTelemetryFeed.ts">
+    <item priority="low">
+      interface TelemetryZone {
+        id: string;
+        zone: string;
+        speed: number;
+        best: number;
+        delta: number;
+      }
+    </item>
+    <item priority="low">
+      interface TelemetryVitals {
+        throttle: number;
+        brake: number;
+        fuel: number;
+        tyreFL: number;
+        tyreFR: number;
+      }
     </item>
   </file>
   </section>

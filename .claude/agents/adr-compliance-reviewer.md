@@ -20,9 +20,9 @@ Active ADRs — read each in full before reviewing:
 - **ADR-001** Design System Unification — Rialto + CSS Modules only, no Tailwind utility classes
 - **ADR-002** API Versioning / API Error Format — all routes under `/api/v1/*`, errors in RFC 7807 problem-details envelope
 - **ADR-003** Auth / Error Handling — use `@mbe/auth` middleware, never hand-roll JWT verification
-- **ADR-004** Edge Routing / Health Checks — health routes at `/health`, edge router owns CDN cache bypass for SPA routes
 - **ADR-005** Service Authentication / Agent Worktree Isolation — agent work happens in isolated worktrees, services auth via internal tokens
-- **ADR-006** Edge Routing Architecture — specific conventions for Cloudflare Workers routing
+- **ADR-009** Health Check Patterns — two-tier health checks: per-service `/health` (Tier 1), system-wide aggregation at `/health/system` on the edge (Tier 2)
+- **ADR-011** Edge Routing Architecture — Cloudflare Worker (`edge-router`) owns routing, security headers, and CDN cache bypass for static-site traffic via Service Bindings
 
 Do NOT hard-code this list in the review — always `ls docs/adr/ADR-*.md` and read the live files. ADRs are added over time; the list above is a snapshot.
 
@@ -39,7 +39,7 @@ Do NOT hard-code this list in the review — always `ls docs/adr/ADR-*.md` and r
    - ADR-002's RFC 7807 format requires fields `type`, `title`, `status`, `instance`. Check that new error responses include them, not just that they return 4xx.
 
 3. **Edge cases the regex can't reach.**
-   - ADR-004's "edge router bypasses CDN for SPA routes" — you check the worker route config when an SPA route is added.
+   - ADR-011's "Service Bindings skip the CDN cache" for static-site traffic — you check the worker route config (`routes-config.json`) when a static-site/SPA route is added.
    - ADR-005's "agent work in worktrees" — you flag if new agent code tries to operate on the main checkout.
 
 ## What you do NOT check

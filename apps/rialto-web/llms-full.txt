@@ -22,6 +22,7 @@
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
+      telemetry: `${DEMOS_BASE}/telemetry`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
@@ -176,6 +177,28 @@
           window.scrollTo(0, 0);
         }
       }, [pathname, hash, navigationType, containerRef]);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="telemetry">
+  <file path="src/pages/telemetry/useTelemetryFeed.ts">
+    export interface TelemetryZone extends Record<string, unknown> {
+      id: string;
+      zone: string;
+      /** km/h on the current pass. */
+      speed: number;
+      /** km/h, session best for this zone. */
+      best: number;
+      /** `speed - best` — negative is off the pace. */
+      delta: number;
+    }
+    export interface TelemetryVitals {
+      /** All 0–1. */
+      throttle: number;
+      brake: number;
+      fuel: number;
+      tyreFL: number;
+      tyreFR: number;
     }
   </file>
   </section>

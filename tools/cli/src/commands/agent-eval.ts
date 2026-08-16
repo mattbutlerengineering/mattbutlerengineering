@@ -4,7 +4,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from "node:fs";
 import {
-  runSession,
+  runAgentSession,
+  resolveSessionAdapter,
   runEvalSuite,
   loadSuite,
   calibrate,
@@ -13,6 +14,7 @@ import {
   suiteDidNotRun,
   DEFAULT_SESSION_CONFIG,
   DEFAULT_FEEDBACK_LOOP_CONFIG,
+  type AdapterType,
   type SessionConfig,
   type Task,
   type TaskRunner,
@@ -30,19 +32,29 @@ const execFileAsync = promisify(execFile);
 // apart from "the agent never ran" (no credentials / missing prerequisite).
 const NO_RUN_EXIT_CODE = 2;
 
+// Same three backends `mbe agent run --adapter` accepts, resolved through the
+// same agent-core seam (#4199) — see adapter-resolution.ts.
+const VALID_ADAPTERS: readonly AdapterType[] = ["auto", "claude", "gemini", "opencode"];
+
+function isAdapterType(value: string): value is AdapterType {
+  return (VALID_ADAPTERS as readonly string[]).includes(value);
+}
+
 /**
  * `mbe agent eval` — run the golden-task suite through the agent and score it.
  *
  * The agent invocation + post-run verification (the {@link TaskRunner}) is the
- * integration seam: it runs the real `runSession` and executes the fixture's
- * verify scripts. The scoring/aggregation core it feeds is unit-tested in
- * @mbe/agent-core.
+ * integration seam: it resolves an adapter via `resolveSessionAdapter` and
+ * runs it through `runAgentSession` — the same seam `mbe agent run` uses
+ * (#4199) — then executes the fixture's verify scripts. The
+ * scoring/aggregation core it feeds is unit-tested in @mbe/agent-core.
  */
 export const agentEvalCommand = new Command("eval")
   .description("Run the golden-task eval suite through the agent and score the results")
   .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
   .option("--task <id>", "Run only the task with this id")
   .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
+  .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
   .option("--json", "Emit the EvalReport as JSON", false)
   .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
   .option(
@@ -55,11 +67,21 @@ export const agentEvalCommand = new Command("eval")
       suite: string;
       task?: string;
       model: string;
+      adapter: string;
       json: boolean;
       threshold?: string;
       maxCostRegression?: string;
       calibrate: boolean;
     }) => {
+      if (!isAdapterType(options.adapter)) {
+        console.error(
+          `Invalid adapter: "${options.adapter}". Must be one of: ${VALID_ADAPTERS.join(", ")}`
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const adapterType = options.adapter;
+
       const repoPath = resolve(process.cwd());
       const suiteDir = resolve(repoPath, resolveSuitePath(options.suite));
 
@@ -72,12 +94,18 @@ export const agentEvalCommand = new Command("eval")
         return;
       }
 
-      // Read baseline before appending the current run so the most recent prior
-      // entry is used, not the one we're about to write.
+      // Read baseline before appending the current run so the most recent
+      // prior entry is used, not the one we're about to write. Scoped to
+      // this run's own adapter (#4218 rework) — comparing cost across
+      // adapters is meaningless, and a $0 baseline from a structurally
+      // cost-blind adapter (gemini) must never silently disable the gate
+      // for a different adapter's genuine cost.
       const costBaseline =
-        options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
+        options.maxCostRegression !== undefined
+          ? loadCostBaseline(findLogFile(), adapterType)
+          : null;
 
-      const runTask = makeAgentTaskRunner(repoPath, options.model);
+      const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
       const report = await runEvalSuite(tasks, {
         runId: `eval-${process.pid}`,
         only: options.task,
@@ -86,12 +114,12 @@ export const agentEvalCommand = new Command("eval")
 
       if (suiteDidNotRun(report)) {
         emitReport(report, options.json);
-        console.error(`\n${noRunMessage()}`);
+        console.error(`\n${noRunMessage(adapterType)}`);
         process.exitCode = NO_RUN_EXIT_CODE;
         return;
       }
 
-      persistReport(report);
+      persistReport(report, adapterType);
       emitReport(report, options.json);
 
       if (options.calibrate) {
@@ -134,12 +162,18 @@ function emitReport(report: EvalReport, json: boolean): void {
 /**
  * Names the most likely missing prerequisite for a suite where every task
  * reported 0 turns / $0 cost — the agent adapter never actually ran.
+ *
+ * `auto`/`claude` route through the Claude SDK, which needs
+ * `ANTHROPIC_API_KEY`; the gemini/opencode CLI-subprocess adapters have a
+ * different, adapter-specific reason a run can look like this (see the
+ * cost-absent comment on {@link makeAgentTaskRunner}), so the diagnostic
+ * doesn't finger a credential that adapter never needed.
  */
-function noRunMessage(): string {
-  if (!process.env["ANTHROPIC_API_KEY"]) {
+function noRunMessage(adapterType: AdapterType): string {
+  if ((adapterType === "claude" || adapterType === "auto") && !process.env["ANTHROPIC_API_KEY"]) {
     return "No task executed: ANTHROPIC_API_KEY is not set, so the agent adapter has no credentials to run. This is not a scored regression — the suite never ran.";
   }
-  return "No task executed: every task reported 0 turns and $0.00 cost. This is not a scored regression — the suite never ran.";
+  return `No task executed: every task reported 0 turns and $0.00 cost via the "${adapterType}" adapter. This is not a scored regression — the suite never ran.`;
 }
 
 function findLogFile(): string {
@@ -148,44 +182,100 @@ function findLogFile(): string {
 }
 
 /**
- * Reads the most recent entry from eval-reports.jsonl and returns its
- * meanCostUsd, or null when the file is absent, empty, or unparseable.
+ * Reads the most recent entry from eval-reports.jsonl *tagged with the given
+ * adapter* and returns its meanCostUsd, or null when no such entry exists
+ * (file absent/empty, no line for this adapter, or that line's cost is
+ * unparseable).
+ *
+ * Scoped by adapter (#4218 rework): comparing cost across adapters is
+ * meaningless regardless of value, and — concretely — gemini's `CliUsage`
+ * never carries a cost figure (see `parseGeminiUsage` in
+ * cli-usage-parser.ts), so an unscoped "last entry in the file" read let a
+ * genuine gemini run's $0 report silently become any other adapter's
+ * baseline, permanently short-circuiting `checkCostRegression`'s
+ * `baseline === 0` case regardless of how far that other adapter's real
+ * spend moved. A line with no `adapter` field at all (a pre-#4218 legacy
+ * row) is never treated as a match for any adapter — the safe direction is
+ * "no baseline", not "assume it matches".
  */
-function loadCostBaseline(logFile: string): number | null {
+function loadCostBaseline(logFile: string, adapterType: AdapterType): number | null {
+  let lines: string[];
   try {
-    const content = readFileSync(logFile, "utf8");
-    const lines = content
+    lines = readFileSync(logFile, "utf8")
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean);
-    if (lines.length === 0) return null;
-    const last = lines[lines.length - 1];
-    if (last === undefined) return null;
-    const parsed = JSON.parse(last) as { aggregate?: { meanCostUsd?: unknown } };
-    const cost = parsed?.aggregate?.meanCostUsd;
-    return typeof cost === "number" ? cost : null;
   } catch {
     return null;
   }
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (line === undefined) continue;
+    try {
+      const parsed = JSON.parse(line) as {
+        adapter?: unknown;
+        aggregate?: { meanCostUsd?: unknown };
+      };
+      if (parsed.adapter !== adapterType) continue;
+      const cost = parsed.aggregate?.meanCostUsd;
+      return typeof cost === "number" ? cost : null;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 /**
  * Appends the report to a JSONL file in metrics/ — mirrors the `mbe stats` record pattern.
- * Each line is a complete {@link EvalReport} enriched with a timestamp.
+ * Each line is a complete {@link EvalReport} enriched with a timestamp and
+ * the adapter it ran under (see {@link loadCostBaseline}).
  */
-function persistReport(report: EvalReport): void {
+function persistReport(report: EvalReport, adapterType: AdapterType): void {
   const root = findMonorepoRoot(process.cwd());
   const logDir = join(root, "metrics");
   const logFile = join(logDir, "eval-reports.jsonl");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });
   }
-  const record = { ...report, timestamp: new Date().toISOString() };
+  const record = { ...report, timestamp: new Date().toISOString(), adapter: adapterType };
   appendFileSync(logFile, JSON.stringify(record) + "\n");
 }
 
-/** Builds the live runner: run the agent on a task, then verify its branch. */
-function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
+/**
+ * Builds the live runner: run the agent (via the resolved adapter) on a
+ * task, then verify its branch.
+ *
+ * Cost-absent CLI adapters (#4199, option (a)): Gemini's `CliUsage` never
+ * carries a cost figure (see `parseGeminiUsage` in cli-usage-parser.ts —
+ * "Gemini CLI's stats never carry a USD figure") — that is a permanent,
+ * structural property of the Gemini CLI's own JSON output, unlike
+ * OpenCode's costUsd, which is genuinely populated from its `step_finish`
+ * events and so is never a silent zero.
+ *
+ * Prior to #4208, the shared CLI-subprocess session runner
+ * (`runCliAdapterSession` in agent-core) ALSO always reported `numTurns: 0`
+ * for gemini/opencode, so a genuinely-executed gemini task was
+ * indistinguishable from a non-run — both were `{ costUsd: 0, numTurns: 0 }`,
+ * the exact shape `taskDidNotRun`/`suiteDidNotRun`
+ * (agent-core/eval/run-detection.ts) treat as "the suite never ran". #4208
+ * fixed numTurns to be derived from real subprocess activity, so a genuine
+ * gemini run now has real turns and DOES reach `persistReport` — costUsd
+ * stays structurally 0, but the run is no longer treated as a non-run.
+ * That means a gemini run's $0 report is a real, persistable baseline entry
+ * for *gemini itself* — it must never be read as a baseline for a different
+ * adapter's genuine cost. `loadCostBaseline`/`persistReport` (#4218 rework)
+ * tag every persisted report with its adapter and only match same-adapter
+ * baselines for exactly this reason.
+ */
+function makeAgentTaskRunner(
+  repoPath: string,
+  model: string,
+  adapterType: AdapterType
+): TaskRunner {
+  const adapter = resolveSessionAdapter(adapterType);
+
   return async (task: Task): Promise<TaskRunResult> => {
     const config: SessionConfig = {
       taskDescription: task.prompt,
@@ -199,7 +289,7 @@ function makeAgentTaskRunner(repoPath: string, model: string): TaskRunner {
       feedbackLoop: DEFAULT_FEEDBACK_LOOP_CONFIG,
     };
 
-    const session = await runSession(config, () => {});
+    const session = await runAgentSession(config, { adapter, onEvent: () => {} });
 
     const withinBudget =
       session.costUsd <= task.budget.maxCostUsd && session.numTurns <= task.budget.maxTurns;

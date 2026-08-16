@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Progress.module.css";
 
@@ -26,6 +26,7 @@ export interface ProgressProps extends HTMLAttributes<HTMLDivElement> {
 export const Progress = forwardRef<HTMLDivElement, ProgressProps>(
   ({ value, label, showValue, size = "md", className, "aria-label": ariaLabel, ...props }, ref) => {
     const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
     const determinate = value !== undefined;
     const clamped = determinate ? Math.min(100, Math.max(0, value)) : 0;
 
@@ -57,7 +58,7 @@ export const Progress = forwardRef<HTMLDivElement, ProgressProps>(
               className={styles.fill}
               initial={shouldReduceMotion ? { scaleX: clamped / 100 } : { scaleX: 0 }}
               animate={{ scaleX: clamped / 100 }}
-              transition={precision}
+              transition={motionPreset.precision}
             />
           ) : (
             <div className={styles.indeterminate} />

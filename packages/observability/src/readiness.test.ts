@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createReadinessTracker, registerStandardChecks } from "./readiness.js";
+import { createReadinessTracker, registerStandardChecks, buildJwksUrl } from "./readiness.js";
 
 describe("createReadinessTracker", () => {
   it("returns not ready when no checks are registered", async () => {
@@ -254,6 +254,82 @@ describe("registerStandardChecks", () => {
     expect(mockFetch).toHaveBeenCalledWith(
       "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json",
       expect.anything()
+    );
+  });
+
+  // Regression coverage for #4200: registerStandardChecks used to resolve its
+  // JWKS URL from AUTH0_JWKS_URL (or a hardcoded dev tenant) unconditionally,
+  // with no production guard — unlike checkAuth0 in @mbe/service-bootstrap's
+  // health.ts (see resolveJwksUrl there, fixed by #4195). Any future caller
+  // that doesn't pass auth0Url would silently probe the dev tenant in prod
+  // with a green check. The dev-tenant fallback must be refused in production.
+  it("refuses the dev tenant fallback in production and fails the auth check with an actionable message", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    delete process.env.AUTH0_JWKS_URL;
+    delete process.env.AUTH_AUTHORITY;
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    const tracker = createReadinessTracker();
+
+    try {
+      registerStandardChecks(tracker, { prisma: mockPrisma, fetchFn: mockFetch });
+      const snapshot = await tracker.evaluate();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(snapshot.checks[1]).toEqual({
+        name: "auth",
+        status: "error",
+        message: "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)",
+      });
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+
+  it("uses AUTH_AUTHORITY to derive the JWKS URL in production when configured", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    delete process.env.AUTH0_JWKS_URL;
+    process.env.AUTH_AUTHORITY = "https://prod-tenant.us.auth0.com";
+    const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ "?column?": 1 }]) };
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    const tracker = createReadinessTracker();
+
+    try {
+      registerStandardChecks(tracker, { prisma: mockPrisma, fetchFn: mockFetch });
+      const snapshot = await tracker.evaluate();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://prod-tenant.us.auth0.com/.well-known/jwks.json",
+        expect.anything()
+      );
+      expect(snapshot.checks[1]).toEqual({ name: "auth", status: "ok" });
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+      delete process.env.AUTH_AUTHORITY;
+    }
+  });
+});
+
+describe("buildJwksUrl", () => {
+  it("returns undefined when the authority is undefined", () => {
+    expect(buildJwksUrl(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined when the authority is an empty string", () => {
+    expect(buildJwksUrl("")).toBeUndefined();
+  });
+
+  it("appends the JWKS path to an authority without a trailing slash", () => {
+    expect(buildJwksUrl("https://tenant.us.auth0.com")).toBe(
+      "https://tenant.us.auth0.com/.well-known/jwks.json"
+    );
+  });
+
+  it("strips a single trailing slash so the JWKS URL never doubles it", () => {
+    expect(buildJwksUrl("https://tenant.us.auth0.com/")).toBe(
+      "https://tenant.us.auth0.com/.well-known/jwks.json"
     );
   });
 });

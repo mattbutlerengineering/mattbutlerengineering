@@ -1,6 +1,6 @@
 # Vibes
 
-Vibes shift Rialto's design language to match user intent. They work by overriding CSS custom properties on a container `<div>` — child components adapt automatically via the CSS cascade with zero runtime cost. The override map (`VibeOverrides`, a `Record<string, string>` of `--rialto-*` properties) is a real seam: **two adapters** feed it — a static `vibe` preset chosen by the caller, and a device-driven **reduced-data adapter** derived at runtime from `device.saveData`. Both produce the same kind of override map, so they compose through one path.
+Vibes shift Rialto's design language to match user intent. They work by overriding CSS custom properties on a container `<div>` — child components adapt automatically via the CSS cascade with zero runtime cost. The override map (`VibeOverrides`, a `Record<string, string>` of `--rialto-*` properties) is a real seam: **three adapters** feed it — a static `vibe` preset chosen by the caller, and two device-driven adapters derived at runtime from `device.saveData` (**reduced-data**) and `device.reducedMotion` (**reduced-motion**). All three produce the same kind of override map, so they compose through one path.
 
 ---
 
@@ -80,13 +80,27 @@ import { deriveReducedDataOverrides, reducedDataOverrides } from "rialto/provide
 
 ### Composition & precedence
 
-`RialtoProvider` merges both adapters plus the caller's explicit overrides into one inline `style`, in **low → high precedence** (later wins):
+`RialtoProvider` merges all three adapters plus the caller's explicit overrides into one inline `style`, in **low → high precedence** (later wins):
 
 1. **`vibe` preset** — the static design-language adapter.
-2. **reduced-data overrides** — the device-driven adapter (`device.saveData`).
-3. **explicit `vibeOverrides`** — the caller's fine-tuning, always the final say.
+2. **reduced-data overrides** — device-driven (`device.saveData`).
+3. **reduced-motion overrides** — device-driven (`device.reducedMotion`). Ranks above the preset deliberately: a vibe must never be able to re-impose motion on a user who asked for less of it.
+4. **explicit `vibeOverrides`** — the caller's fine-tuning, always the final say.
 
-So Save-Data tightens even a loose preset like `presenting` (step 2 wins over step 1), but a caller can still pin any single token through `vibeOverrides` (step 3 wins over step 2). When every source is empty — `default` vibe, Save-Data off, no overrides — no inline `style` is applied at all.
+So Save-Data tightens even a loose preset like `presenting` (step 2 wins over step 1), and reduced motion zeroes a preset's durations (step 3 wins over step 1), but a caller can still pin any single token through `vibeOverrides` (step 4 wins over everything). When every source is empty — `default` vibe, Save-Data off, reduced motion off, no overrides — no inline `style` is applied at all.
+
+### The Reduced-Motion Adapter
+
+The third adapter derives from `device.reducedMotion` — the browser's `prefers-reduced-motion: reduce` signal. When it is on, the duration scale collapses to `0s` and **nothing else changes**.
+
+That restraint is the design. Motion is one channel of feedback, not the whole language: at zero duration a transition lands in a single frame instead of travelling, while the tokens that carry state through contrast, weight, and border are untouched — so an action still visibly answers. Easing tokens are left alone too; inert at zero duration, and clobbering them would lose information for no benefit.
+
+```ts
+// reducedMotionOverrides — --rialto-duration-fast | -standard | -slow, all "0s"
+// deriveReducedMotionOverrides(device) — returns it when device.reducedMotion is true, else {}
+```
+
+**CSS is only half of it.** Custom properties cannot reach motion driven from JavaScript — a `framer-motion` config is a plain object. For that channel, components call `useMotionPreset()`, which resolves `precision` / `spring` / `springGentle` from the same signal and collapses them to `{ duration: 0 }` under reduced motion (springs are dropped, not shortened — a fast spring still overshoots). See ADR-025.
 
 ---
 
@@ -190,7 +204,7 @@ Any `--rialto-*` token works. The most impactful ones for vibes:
 
 ## Architecture Notes
 
-- Two adapters feed the override map behind one `VibeOverrides` interface: the `vibe` **preset** maps are build-time constants (static objects, not computed), while the **reduced-data** adapter derives its overrides at runtime from `device.saveData`
+- Three adapters feed the override map behind one `VibeOverrides` interface: the `vibe` **preset** maps are build-time constants (static objects, not computed), while the **reduced-data** and **reduced-motion** adapters derive their overrides at runtime from `device.saveData` and `device.reducedMotion`
 - The `<div>` wrapper applies overrides as inline `style` — no extra CSS files generated
 - `useUIEnvironment()` provides the active vibe name for conditional logic (rarely needed — the cascade handles most cases)
 - Vibes compose with dark mode: `data-theme` handles colors, vibes handle spacing/radii/weight

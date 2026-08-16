@@ -101,6 +101,15 @@ describe("defineVitestConfig (node preset)", () => {
     expect(config.test?.coverage?.thresholds).toEqual({ lines: 80 });
   });
 
+  it("enables the default + junit reporters with a test-results.xml output file", () => {
+    const config = defineVitestConfig({
+      coverage: { include: ["src/**/*.ts"], exclude: [], thresholds: { lines: 80 } },
+    });
+
+    expect(config.test?.reporters).toEqual(["default", "junit"]);
+    expect(config.test?.outputFile).toEqual({ junit: "test-results/junit.xml" });
+  });
+
   it("merges extend for vite-level config (resolve.alias)", () => {
     const config = defineVitestConfig({
       coverage: { include: ["src/**/*.ts"], exclude: [], thresholds: { lines: 80 } },

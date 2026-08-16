@@ -596,6 +596,17 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/offline-cache.ts">
+    export type FloorPlanSnapshot = TableStatusDelta[];
+    interface ReservationsCacheEntry {
+      venueId: string;
+      date: string;
+      reservations: Reservation[];
+      /** Epoch ms this entry was written — surfaced to callers as the
+       * "last synced" timestamp for the offline/stale-data banner. */
+      cachedAt: number;
+    }
+  </file>
   <file path="src/lib/sse-client.ts">
     export type FetchEventSourceFn = typeof fetchEventSource;
     export interface SseClientOptions {

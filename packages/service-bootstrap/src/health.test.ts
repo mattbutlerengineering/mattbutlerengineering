@@ -122,8 +122,9 @@ describe("checkAuth0", () => {
     }
   });
 
-  it("falls back to dev URL when AUTH0_JWKS_URL env var is unset", async () => {
+  it("falls back to dev URL outside production when nothing is configured", async () => {
     delete process.env.AUTH0_JWKS_URL;
+    delete process.env.AUTH_AUTHORITY;
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
 
     await checkAuth0();
@@ -131,5 +132,81 @@ describe("checkAuth0", () => {
       "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json",
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
+  });
+});
+
+/**
+ * Regression coverage for the false-green /health signal: `checkAuth0` used to
+ * resolve its JWKS URL from `AUTH0_JWKS_URL` only, and `AUTH0_JWKS_URL` is set
+ * nowhere in this repo or its infrastructure. Every production service
+ * therefore probed the hardcoded dev tenant instead of the authority it
+ * actually validates tokens against (`AUTH_AUTHORITY`), so /health could report
+ * auth0 "ok" while the real authority was unreachable.
+ *
+ * The URL now derives from `AUTH_AUTHORITY` via the same `buildJwksUrl`
+ * contract the /ready probe and startup validation already share, and the dev
+ * fallback is refused in production.
+ */
+describe("checkAuth0 JWKS URL resolution", () => {
+  const originalFetch = globalThis.fetch;
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    delete process.env.AUTH0_JWKS_URL;
+    delete process.env.AUTH_AUTHORITY;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("derives the JWKS URL from AUTH_AUTHORITY when AUTH0_JWKS_URL is unset", async () => {
+    process.env.AUTH_AUTHORITY = "https://prod-tenant.us.auth0.com";
+
+    await checkAuth0();
+
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
+      "https://prod-tenant.us.auth0.com/.well-known/jwks.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+  });
+
+  it("prefers an explicit AUTH0_JWKS_URL over AUTH_AUTHORITY", async () => {
+    process.env.AUTH0_JWKS_URL = "https://override.us.auth0.com/.well-known/jwks.json";
+    process.env.AUTH_AUTHORITY = "https://prod-tenant.us.auth0.com";
+
+    await checkAuth0();
+
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
+      "https://override.us.auth0.com/.well-known/jwks.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+  });
+
+  it("never probes the dev tenant in production", async () => {
+    process.env.NODE_ENV = "production";
+
+    const result = await checkAuth0();
+
+    expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
+    expect(result.status).toBe("degraded");
+    expect(result.message).toContain("AUTH_AUTHORITY");
+  });
+
+  it("uses the production authority in production rather than degrading", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.AUTH_AUTHORITY = "https://prod-tenant.us.auth0.com";
+
+    const result = await checkAuth0();
+
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
+      "https://prod-tenant.us.auth0.com/.well-known/jwks.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+    expect(result.status).toBe("ok");
   });
 });

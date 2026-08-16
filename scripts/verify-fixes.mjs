@@ -33,6 +33,11 @@ const MAX_VERIFICATIONS = 5;
 
 const SENSOR_LABELS = getAllLabels();
 
+// Name of the workflow (`.github/workflows/ci.yml`'s `name:`) whose `CI
+// Gate` job is the thing a `ci-fix` fix actually targets. Same constant
+// value already used by `revert-watchdog.mjs`'s `getMainConclusion`.
+const CI_WORKFLOW_NAME = "CI";
+
 const ghClient = createGhClient();
 
 function safe(fn, fallback = null) {
@@ -104,6 +109,13 @@ export function queryClosedIssuesWithSensorLabels(listIssues, opts = {}) {
 /* ── Sensor-specific verifiers ───────────────────────── */
 
 /**
+ * Verifies a `ci-fix` issue against the `CI` workflow specifically — not an
+ * unscoped "last N runs on main" aggregate. #4211/#4208: an unscoped query
+ * counts unrelated automation workflows (`claude`, `Revert RCA Detection`,
+ * `Auto-Merge Policy`, `Synthetic Monitoring`, …) toward "CI pass rate",
+ * so a dip in one of THOSE reopened already-fixed, already-verified issues
+ * with zero connection to what the fix actually touched.
+ *
  * @param {VerifyDeps} deps
  */
 export function verifyCiFix(deps) {
@@ -114,12 +126,18 @@ export function verifyCiFix(deps) {
         "10",
         "--branch",
         "main",
+        "--workflow",
+        CI_WORKFLOW_NAME,
         "--json",
         "status,conclusion,createdAt",
       ]),
     null
   );
-  if (!runs) return { verified: false, reason: "Could not query CI runs" };
+  if (!runs) {
+    // A query failure is data being unavailable, not evidence the fix
+    // regressed — must abstain, not read as a definite "not verified".
+    return { verified: false, reason: "Could not query CI runs", confidence: "skip" };
+  }
   const completed = runs.filter((r) => r.status === "completed");
   const passed = completed.filter((r) => r.conclusion === "success");
   const passRate = completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 0;
@@ -143,7 +161,9 @@ export function verifyCiFix(deps) {
 export function verifyAcmm(issueTitle, deps) {
   const statePath = resolve(ROOT, ".claude", "acmm", "state.json");
   const state = safe(() => deps.readJson(statePath));
-  if (!state) return { verified: false, reason: "ACMM state not available" };
+  // A read failure is data being unavailable, not evidence the fix
+  // regressed — must abstain, not read as a definite "not verified".
+  if (!state) return { verified: false, reason: "ACMM state not available", confidence: "skip" };
 
   const checks = state.checks ?? {};
   const criterionMatch = issueTitle.match(/acmm:([a-z0-9-]+)/i);
@@ -182,9 +202,13 @@ export function verifyAudit(issueTitle, issueBody, deps) {
   const inv = safe(() => deps.readJson(invPath));
 
   if (!inv) {
+    // #4207: a read failure is data being unavailable, not evidence the fix
+    // regressed — must abstain, not read as a definite "not verified" that
+    // reopens an already-fixed, already-verified issue.
     return {
       verified: false,
       reason: "Lighthouse inventory not available — run a site audit first",
+      confidence: "skip",
     };
   }
 
@@ -222,15 +246,33 @@ export function verifySentry() {
 }
 
 /**
+ * Same unscoped-query class #4211/#4208 demonstrated for verifyCiFix: a dip
+ * in an unrelated workflow (Synthetic Monitoring, Revert RCA Detection, …)
+ * on `main` must not reopen a `bug`-labeled issue whose actual fix is fine.
+ * Scoped to the `CI` workflow for the same reason verifyCiFix is.
+ *
  * @param {VerifyDeps} deps
  */
 export function verifyBug(deps) {
   const runs = safe(
     () =>
-      deps.listWorkflowRuns(["--limit", "5", "--branch", "main", "--json", "status,conclusion"]),
+      deps.listWorkflowRuns([
+        "--limit",
+        "5",
+        "--branch",
+        "main",
+        "--workflow",
+        CI_WORKFLOW_NAME,
+        "--json",
+        "status,conclusion",
+      ]),
     null
   );
-  if (!runs) return { verified: false, reason: "Could not verify — CI unavailable" };
+  // A query failure is data being unavailable, not evidence the fix
+  // regressed — must abstain, not read as a definite "not verified".
+  if (!runs) {
+    return { verified: false, reason: "Could not verify — CI unavailable", confidence: "skip" };
+  }
 
   const latestCompleted = runs.find((r) => r.status === "completed");
 

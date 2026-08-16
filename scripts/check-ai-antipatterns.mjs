@@ -31,7 +31,8 @@ const PATTERN_DESCRIPTIONS = {
   magicTimeouts:
     "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)",
   emptyCatch: "Empty catch blocks that swallow errors silently",
-  noopTestAssertions: "Test functions containing no expect() calls",
+  noopTestAssertions:
+    "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())",
   hardcodedRoutes: "Hardcoded /api/... route strings instead of route constants",
   anyType: "TypeScript `as any` casts or `: any` type annotations",
   consoleLogs: "console.log() calls in production (non-test) source files",
@@ -73,6 +74,31 @@ function countMatches(content, regex) {
   return matches ? matches.length : 0;
 }
 
+/**
+ * Recognizes an assertion call inside a test block's body. This is a
+ * heuristic substring/regex rule, not a parser — it looks for a call to a
+ * name that starts with `expect`, `assert`, or `t.assert` (the node:test
+ * `TestContext` assertion namespace, e.g. `t.assert.ok(...)`), optionally
+ * followed by `.method` (`assert.equal(...)`, `t.assert.deepStrictEqual(...)`).
+ *
+ * Known blind spots (intentional — see issue #4197, not fixed here):
+ *   - Custom throw-based assertion helpers (e.g. a local `assertKeysMatch()`
+ *     that throws on mismatch) are invisible to this rule; it only
+ *     recognizes calls literally named expect/assert/t.assert.
+ *   - Other assertion libraries/styles (chai `.should`, `.to.equal(...)`
+ *     chains, custom matcher DSLs) are not recognized.
+ *   - A variable merely *named* `assert` that isn't an assertion library
+ *     (e.g. a local `assert()` guard helper) would false-positive.
+ *
+ * @param {string} block - test block body text (as sliced by the caller)
+ * @returns {boolean}
+ */
+const ASSERTION_CALL_RE = /\b(?:expect|assert|t\.assert)(?:\.\w+)*\s*\(/;
+
+export function blockHasAssertion(block) {
+  return ASSERTION_CALL_RE.test(block);
+}
+
 /** Pattern scanner implementations, keyed by pattern name. */
 const SCANNERS = {
   magicTimeouts(files) {
@@ -98,7 +124,8 @@ const SCANNERS = {
   },
 
   noopTestAssertions(files) {
-    // Test files with it/test functions that contain no expect() call
+    // Test files with it/test functions that contain no recognized assertion
+    // call. See blockHasAssertion() above for exactly what counts.
     let total = 0;
     const testFiles = files.filter(isTestFile);
     for (const f of testFiles) {
@@ -109,7 +136,7 @@ const SCANNERS = {
       for (let i = 1; i < testBlocks.length; i++) {
         const block = testBlocks[i];
         // Grab up to the next test block start or end of file
-        if (!block.includes("expect(")) {
+        if (!blockHasAssertion(block)) {
           total++;
         }
       }
