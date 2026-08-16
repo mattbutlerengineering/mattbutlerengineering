@@ -648,6 +648,14 @@
       export function deriveReducedDataOverrides(device: DeviceContext): VibeOverrides { /* ... */ }
     </item>
   </file>
+  <file path="src/providers/reduced-motion.ts">
+    <item priority="high">
+      export const reducedMotionOverrides: VibeOverrides;
+    </item>
+    <item priority="high">
+      export function deriveReducedMotionOverrides(device: DeviceContext): VibeOverrides { /* ... */ }
+    </item>
+  </file>
   <file path="src/providers/useDeviceContext.ts">
     <item priority="low">
       interface DeviceContext {
@@ -667,6 +675,19 @@
       }
     </item>
   </file>
+  <file path="src/providers/useMotionPreset.ts">
+    <item priority="low">
+      interface InstantTransition {
+        duration: 0;
+      }
+    </item>
+    <item priority="low">
+      interface EasedTransition {
+        duration: number;
+        ease: readonly [number, number, number, number];
+      }
+    </item>
+  </file>
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {
@@ -681,7 +702,7 @@
   </file>
   <file path="src/providers/vibes.ts">
     <item priority="low">
-      type VibeName = "default" | "transacting" | "presenting";
+      type VibeName = "default" | "transacting" | "presenting" | "game";
     </item>
     <item priority="low">
       type VibeOverrides = Record<string, string>;

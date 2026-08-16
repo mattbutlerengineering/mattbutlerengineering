@@ -30,6 +30,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-022](ADR-022-vibe-adapter-seam.md)                           | Earn the Vibe Seam with a Second (Reduced-Data) Adapter                  | active                  | 2026-07-11 |
 | [ADR-023](ADR-023-merge-train-batch-composition.md)               | Zone-Spread Merge-Train Batch Composition                                | active                  | 2026-07-11 |
 | [ADR-024](ADR-024-date-value-vocabulary.md)                       | Unified ISO-String Date-Value Vocabulary (Calendar/DatePicker/DateRange) | active                  | 2026-08-06 |
+| [ADR-025](ADR-025-motion-presets-through-context.md)              | Resolve Motion Presets Through Context, Not Imported Constants           | active                  | 2026-08-15 |
 
 ## Format
 

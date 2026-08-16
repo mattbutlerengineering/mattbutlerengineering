@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { precision } from "../../tokens/motion";
+import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import styles from "./Meter.module.css";
 
@@ -50,6 +50,7 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
     ref
   ) => {
     const shouldReduceMotion = useReducedMotion();
+    const motionPreset = useMotionPreset();
     const range = max - min;
     const fraction = range > 0 ? Math.min(1, Math.max(0, (value - min) / range)) : 0;
     const percent = Math.round(fraction * 100);
@@ -78,7 +79,7 @@ export const Meter = forwardRef<HTMLDivElement, MeterProps>(
             className={fillClass}
             initial={shouldReduceMotion ? { scaleX: fraction } : { scaleX: 0 }}
             animate={{ scaleX: fraction }}
-            transition={precision}
+            transition={motionPreset.precision}
           />
         </div>
       </div>

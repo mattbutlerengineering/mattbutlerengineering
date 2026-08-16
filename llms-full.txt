@@ -3231,6 +3231,7 @@
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
+      telemetry: `${DEMOS_BASE}/telemetry`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
@@ -5029,12 +5030,13 @@
     } {
       const elRef = useRef<HTMLDivElement | null>(null);
       const shouldReduceMotion = useReducedMotion();
+      const motionPreset = useMotionPreset();
     
       const rotateX = useMotionValue(0);
       const rotateY = useMotionValue(0);
     
-      const springX = useSpring(rotateX, springTilt);
-      const springY = useSpring(rotateY, springTilt);
+      const springX = useSpring(rotateX, motionPreset.tilt);
+      const springY = useSpring(rotateY, motionPreset.tilt);
     
       const ref = useCallback((el: HTMLDivElement | null) => {
         elRef.current = el;
@@ -6060,6 +6062,16 @@
       return device.saveData ? reducedDataOverrides : {};
     }
   </file>
+  <file path="packages/rialto/src/providers/reduced-motion.ts">
+    export const reducedMotionOverrides: VibeOverrides = {
+      "--rialto-duration-fast": "0s",
+      "--rialto-duration-standard": "0s",
+      "--rialto-duration-slow": "0s",
+    };
+    export function deriveReducedMotionOverrides(device: DeviceContext): VibeOverrides {
+      return device.reducedMotion ? reducedMotionOverrides : {};
+    }
+  </file>
   <file path="packages/rialto/src/providers/useDeviceContext.ts">
     export interface DeviceContext {
       pointer: "fine" | "coarse";
@@ -6075,6 +6087,15 @@
       noMatchValue: DeviceContext[keyof DeviceContext];
     }
   </file>
+  <file path="packages/rialto/src/providers/useMotionPreset.ts">
+    export interface InstantTransition {
+      duration: 0;
+    }
+    export interface EasedTransition {
+      duration: number;
+      ease: readonly [number, number, number, number];
+    }
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;
@@ -6084,7 +6105,7 @@
     export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
   </file>
   <file path="packages/rialto/src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
+    export type VibeName = "default" | "transacting" | "presenting" | "game";
     export type VibeOverrides = Record<string, string>;
   </file>
   </section>
@@ -18830,6 +18851,28 @@
     export function countTokens(text: string): number {
       if (text.length === 0) return 0;
       return Math.ceil(text.length / CHARS_PER_TOKEN);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="telemetry">
+  <file path="apps/rialto-web/src/pages/telemetry/useTelemetryFeed.ts">
+    export interface TelemetryZone extends Record<string, unknown> {
+      id: string;
+      zone: string;
+      /** km/h on the current pass. */
+      speed: number;
+      /** km/h, session best for this zone. */
+      best: number;
+      /** `speed - best` — negative is off the pace. */
+      delta: number;
+    }
+    export interface TelemetryVitals {
+      /** All 0–1. */
+      throttle: number;
+      brake: number;
+      fuel: number;
+      tyreFL: number;
+      tyreFR: number;
     }
   </file>
   </section>

@@ -37,4 +37,5 @@ export const DEMO_PAGES: readonly NavItem[] = [
   { id: "drivers", label: "Drivers CRUD", path: DEMO_ROUTES.drivers },
   { id: "teams", label: "Team Create", path: DEMO_ROUTES.teamCreate },
   { id: "layouts", label: "Layout Demo", path: DEMO_ROUTES.layouts },
+  { id: "telemetry", label: "Telemetry HUD", path: DEMO_ROUTES.telemetry },
 ] as const;

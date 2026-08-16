@@ -128,6 +128,12 @@ function handleChange() {
 function ensureListeners() {
   if (mqls) return;
   if (typeof window === "undefined") return;
+  // jsdom ships no `matchMedia`, and rialto publishes to a registry — so a
+  // consumer's test environment may render a component here without ever
+  // stubbing it. Fall back to the defaults rather than crash, the same
+  // fail-open the SSR guard above takes: no media-query support available
+  // means no signal to read, not an error.
+  if (typeof window.matchMedia !== "function") return;
 
   mqls = QUERIES.map((entry) => window.matchMedia(entry.query)) as MqlTuple;
   snapshot = computeSnapshot();
