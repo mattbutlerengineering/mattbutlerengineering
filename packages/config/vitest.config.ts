@@ -5,6 +5,8 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["vitest/**/*.test.ts", "eslint/**/*.test.ts"],
+    reporters: ["default", "junit"],
+    outputFile: { junit: "test-results/junit.xml" },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
