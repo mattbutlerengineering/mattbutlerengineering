@@ -4,3 +4,4 @@ export { reducedDataOverrides, deriveReducedDataOverrides } from "./reduced-data
 export { reducedMotionOverrides, deriveReducedMotionOverrides } from "./reduced-motion";
 export { RialtoProvider, type RialtoProviderProps } from "./RialtoProvider";
 export { useUIEnvironment, type UIEnvironment } from "./useUIEnvironment";
+export { useMotionPreset, type MotionPreset } from "./useMotionPreset";

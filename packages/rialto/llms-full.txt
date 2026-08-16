@@ -1297,6 +1297,19 @@
       noMatchValue: DeviceContext[keyof DeviceContext];
     }
   </file>
+  <file path="src/providers/useMotionPreset.ts">
+    export interface InstantTransition {
+      duration: 0;
+    }
+    export interface MotionPreset {
+      /** Standard UI transitions, hover states, small movements. */
+      precision: typeof precision | InstantTransition;
+      /** Toggles, AI elements, high-interaction components. */
+      spring: typeof spring | InstantTransition;
+      /** Larger movements — dialog entrances, card expansions. */
+      springGentle: typeof springGentle | InstantTransition;
+    }
+  </file>
   <file path="src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;

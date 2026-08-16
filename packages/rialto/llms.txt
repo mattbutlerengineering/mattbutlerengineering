@@ -675,6 +675,20 @@
       }
     </item>
   </file>
+  <file path="src/providers/useMotionPreset.ts">
+    <item priority="low">
+      interface InstantTransition {
+        duration: 0;
+      }
+    </item>
+    <item priority="low">
+      interface MotionPreset {
+        precision: typeof precision | InstantTransition;
+        spring: typeof spring | InstantTransition;
+        springGentle: typeof springGentle | InstantTransition;
+      }
+    </item>
+  </file>
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
       interface UIEnvironment {

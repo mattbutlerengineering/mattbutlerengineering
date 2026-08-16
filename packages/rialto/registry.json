@@ -2609,6 +2609,12 @@
       ]
     },
     {
+      "name": "MotionPreset",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "NavItem",
       "description": "A single navigation link or a parent that contains nested child links.\nItems with `children` render as dropdown triggers; leaf items render as plain links.",
       "importPath": "@mattbutlerengineering/rialto",

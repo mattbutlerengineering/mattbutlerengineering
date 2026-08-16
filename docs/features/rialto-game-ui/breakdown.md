@@ -24,8 +24,8 @@ nothing anywhere renders differently. This milestone is what makes the PRD's
 - [x] **Provider composition + precedence** — wire the adapter into `RialtoProvider`'s merge chain.
   - Accept: order is preset → reduced-data → reduced-motion → explicit `vibeOverrides`; a test asserts reduced-motion loses to an explicit override; every existing `RialtoProvider` test passes unmodified. (The "beats a preset's duration" half moved to Milestone 2 — see Notes 2026-08-15.)
   - Blocked by: Reduced-motion adapter
-- [ ] **`useMotionPreset()` hook** — new providers hook resolving framer-motion configs from vibe + `device.reducedMotion`.
-  - Accept: reads `UIEnvironmentContext` via `useContext` directly; rendered **outside** a provider it returns the `tokens/motion.ts` statics and does **not** throw (regression test for external npm consumers); under `reducedMotion` durations resolve to 0 and springs to instant.
+- [x] **`useMotionPreset()` hook** — new providers hook resolving framer-motion configs from vibe + `device.reducedMotion`.
+  - Accept: rendered **outside** a provider it returns the `tokens/motion.ts` statics and does **not** throw (regression test for external npm consumers); under `reducedMotion` durations resolve to 0 and springs to instant, standalone as well as under a provider. (The `useContext(UIEnvironmentContext)` read moved to Milestone 2 — see Notes 2026-08-15.)
   - Blocked by: —
 - [ ] **ADR decision recorded** — "Motion presets resolve through context, not imported constants" (owner's call, see `architecture.md`).
   - Accept: either an ADR exists in `docs/adr/` with a status, or the decision to skip it is recorded in this file's Notes with a date. Not left implicit.
@@ -120,6 +120,19 @@ _Deviations discovered during Implement get logged here, dated._
   order is unobservable too. The assertion moved to the `game` preset item,
   which is where a preset first carries durations. The half that _is_
   observable now — explicit `vibeOverrides` beating reduced-motion — is tested.
+- **2026-08-15 — the hook reads the device signal, not the context (yet).** The
+  item asked for a `useContext(UIEnvironmentContext)` read. That clause existed
+  to keep the hook away from `useUIEnvironment()`, which throws outside a
+  provider — and reading `useDeviceContext()` instead satisfies the intent more
+  strongly: it is a provider-free `useSyncExternalStore` hook, so reduced motion
+  is honoured even with no provider in the tree (tested). Nothing in this item
+  needs the active vibe, and adding an unused context read would be dead code.
+  The context read lands in Milestone 2's game-tuned-configs item, which is the
+  first thing that actually needs `vibe`.
+- **2026-08-15 — exported interfaces land in `registry.json`.** Exporting the
+  `MotionPreset` interface added a 152nd registry entry with `props: []`. This
+  is pre-existing behaviour, not a regression: `UIEnvironment` is already in
+  there on the same terms. Regenerate rather than "fix" it.
 - **2026-08-15 — `registry.json` is generated from provider JSDoc.** Editing
   `RialtoProvider`'s doc comment (two → three adapters) drifted the committed
   `registry.json`, failing three artifact-drift specs. Regenerate with
