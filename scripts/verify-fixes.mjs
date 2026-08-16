@@ -139,8 +139,20 @@ export function verifyCiFix(deps) {
     return { verified: false, reason: "Could not query CI runs", confidence: "skip" };
   }
   const completed = runs.filter((r) => r.status === "completed");
+  if (completed.length === 0) {
+    // #4246 (second reopening): zero completed CI-workflow runs among the
+    // last N queried computed `0/0 = 0%` and read as a confident "still
+    // low" — reopening this issue a second time. No completed runs is
+    // missing data (every recent run still in flight, or a pagination gap
+    // in the CI-workflow filter), not evidence of a regression — abstain.
+    return {
+      verified: false,
+      reason: "No completed CI runs found to verify against",
+      confidence: "skip",
+    };
+  }
   const passed = completed.filter((r) => r.conclusion === "success");
-  const passRate = completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 0;
+  const passRate = Math.round((passed.length / completed.length) * 100);
 
   if (passRate >= 90) {
     return {
@@ -275,8 +287,17 @@ export function verifyBug(deps) {
   }
 
   const latestCompleted = runs.find((r) => r.status === "completed");
+  if (!latestCompleted) {
+    // Same missing-data-is-not-a-regression invariant as verifyCiFix's
+    // #4246 fix above — no completed run yet is not evidence of a failure.
+    return {
+      verified: false,
+      reason: "No completed CI runs found to verify against",
+      confidence: "skip",
+    };
+  }
 
-  if (latestCompleted?.conclusion === "success") {
+  if (latestCompleted.conclusion === "success") {
     return {
       verified: true,
       reason: "Latest CI run on main passed after fix merged",
@@ -285,7 +306,7 @@ export function verifyBug(deps) {
   }
   return {
     verified: false,
-    reason: `Latest CI run: ${latestCompleted?.conclusion ?? "unknown"}`,
+    reason: `Latest CI run: ${latestCompleted.conclusion}`,
     confidence: "medium",
   };
 }
