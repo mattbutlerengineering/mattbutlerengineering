@@ -39,8 +39,8 @@ components that already read motion tokens visibly shift.
 - [x] **`game` preset** — add the preset to `vibes.ts` and the member to the `VibeName` union.
   - Accept: `Record<VibeName, VibeOverrides>` compiles (the type forces the preset to exist); `vibes.game` is non-empty; `default`, `transacting`, and `presenting` are byte-identical to before; **a test asserts the reduced-motion adapter's `0s` durations beat the `game` preset's duration tokens** (moved from Milestone 1 — no preset carried a duration token until this item).
   - Blocked by: — (design gap resolved 2026-08-15: no colour tokens)
-- [ ] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.
-  - Accept: the showcase vibe switcher offers `game`; existing showcase tests pass. (The `Record` type does not catch this list — it is a separate literal.)
+- [x] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.
+  - Accept: a test asserts the switcher list covers **every** `VibeName`, not merely that `game` is present — the `Record` type never checks this literal, so any future vibe would otherwise ship unreachable from the only place it can be tried by hand.
   - Blocked by: `game` preset
 - [ ] **Game-tuned motion configs** — `useMotionPreset()` returns different configs when the active vibe is `game`.
   - Accept: unit test asserts game configs differ from default configs, and that `reducedMotion` still wins over `game`.

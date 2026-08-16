@@ -17,10 +17,13 @@ const THEMES: ReadonlyArray<{ label: string; value: ThemeMode }> = [
   { label: "Dark", value: "dark" },
 ];
 
-const VIBES: ReadonlyArray<{ label: string; value: VibeName }> = [
+/** Exported so a test can assert it covers every `VibeName` — the type system
+ *  checks the `vibes` preset map, but never this list. */
+export const VIBES: ReadonlyArray<{ label: string; value: VibeName }> = [
   { label: "Default", value: "default" },
   { label: "Transacting", value: "transacting" },
   { label: "Presenting", value: "presenting" },
+  { label: "Game", value: "game" },
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
