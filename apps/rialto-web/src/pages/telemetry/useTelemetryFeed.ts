@@ -15,7 +15,8 @@ import { useEffect, useMemo, useState } from "react";
 
 /* ── Types ───────────────────────────────────── */
 
-export interface TelemetryZone {
+/** Extends `Record<string, unknown>` because it is a `DataTable` row type. */
+export interface TelemetryZone extends Record<string, unknown> {
   id: string;
   zone: string;
   /** km/h on the current pass. */

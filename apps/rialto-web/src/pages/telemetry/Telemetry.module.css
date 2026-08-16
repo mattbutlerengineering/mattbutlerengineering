@@ -1,0 +1,97 @@
+.page {
+  padding: var(--rialto-space-xl);
+}
+
+/* The frame is the point — it holds its shape across every feed state. */
+.hud {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--rialto-space-md);
+  border: 1px solid var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-recessed);
+  padding: var(--rialto-space-md);
+}
+
+.statusStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-lg);
+  padding-block-end: var(--rialto-space-sm);
+  border-block-end: 1px solid var(--rialto-border);
+}
+
+.statusFlag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.systemMeter {
+  inline-size: 8rem;
+}
+
+.statusControls {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--rialto-space-md);
+}
+
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.zoneTable {
+  min-inline-size: 0;
+  overflow-x: auto;
+}
+
+.vitalsRail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding-inline-start: var(--rialto-space-md);
+  border-inline-start: 1px solid var(--rialto-border);
+}
+
+@media (max-width: 900px) {
+  .vitalsRail {
+    padding-inline-start: 0;
+    border-inline-start: none;
+  }
+}
+
+.focal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  margin-block-start: var(--rialto-space-md);
+  padding: var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface);
+}
+
+.deltaUp {
+  color: var(--rialto-success);
+}
+
+.deltaDown {
+  color: var(--rialto-error);
+}
+
+.ticker {
+  padding-block-start: var(--rialto-space-sm);
+  border-block-start: 1px solid var(--rialto-border);
+  overflow-x: auto;
+}
