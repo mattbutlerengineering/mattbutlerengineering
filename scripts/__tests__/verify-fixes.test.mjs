@@ -107,6 +107,57 @@ describe("verifyCiFix", () => {
     expect(result.reason).toContain("90%");
   });
 
+  // ---------------------------------------------------------------------
+  // #4246: verifyCiFix used to read the last 10 workflow runs on `main`
+  // with NO workflow-name filter, so a dip in unrelated automation
+  // workflows (`claude`, `Revert RCA Detection`, `Auto-Merge Policy`,
+  // `Synthetic Monitoring`, …) reopened already-fixed, already-verified
+  // `ci-fix` issues (#4211, #4208). It must query only the `CI` workflow
+  // (whose `CI Gate` job is the actual thing a `ci-fix` fix targets).
+  // ---------------------------------------------------------------------
+
+  it("scopes the workflow-run query to the CI workflow, not all workflows on main", () => {
+    let capturedArgs = null;
+    const deps = {
+      listWorkflowRuns: (args) => {
+        capturedArgs = args;
+        return Array(10).fill({ status: "completed", conclusion: "success" });
+      },
+      readJson: () => {
+        throw new Error("readJson should not be called by this verifier");
+      },
+    };
+
+    verifyCiFix(deps);
+
+    expect(capturedArgs).toContain("--workflow");
+    expect(capturedArgs[capturedArgs.indexOf("--workflow") + 1]).toBe("CI");
+  });
+
+  it("reproduces the false-positive shape: a merged, CI-green fix must not be reopened by a dip in unrelated-workflow noise", () => {
+    // Simulates real `gh run list --workflow CI` filtering: the CI-scoped
+    // view is clean (the fix's own workflow is healthy), while an unscoped
+    // query mixing in unrelated automation workflows would read as a dip
+    // below the 90% threshold — exactly the shape observed on #4211 (80%)
+    // and #4208 (67%).
+    const ciOnlyRuns = Array(10).fill({ status: "completed", conclusion: "success" });
+    const unscopedNoisyRuns = [
+      ...Array(6).fill({ status: "completed", conclusion: "success" }),
+      ...Array(4).fill({ status: "completed", conclusion: "failure" }), // unrelated workflow noise
+    ];
+    const deps = {
+      listWorkflowRuns: (args) => (args.includes("--workflow") ? ciOnlyRuns : unscopedNoisyRuns),
+      readJson: () => {
+        throw new Error("readJson should not be called by this verifier");
+      },
+    };
+
+    const result = verifyCiFix(deps);
+
+    expect(result.verified).toBe(true);
+    expect(result.reason).toContain("CI pass rate on main");
+  });
+
   it("does not verify when CI pass rate is below 90%", () => {
     const runs = [
       ...Array(8).fill({ status: "completed", conclusion: "success" }),
@@ -130,11 +181,16 @@ describe("verifyCiFix", () => {
     expect(result.verified).toBe(true);
   });
 
-  it("does not verify when CI runs cannot be queried", () => {
+  it("abstains (does not comment or reopen) when CI runs cannot be queried", () => {
+    // A query failure is data being unavailable, not evidence of a
+    // regression — same class of bug as #4207 below. Must abstain, not
+    // read as a definite "not verified" that triggers a reopen.
     const result = verifyCiFix(depsThatThrowOnRuns());
 
     expect(result.verified).toBe(false);
     expect(result.reason).toBe("Could not query CI runs");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
   });
 });
 
@@ -174,11 +230,13 @@ describe("verifyAcmm", () => {
     expect(result.reason).toContain("1/2");
   });
 
-  it("does not verify when ACMM state is unavailable", () => {
+  it("abstains (does not comment or reopen) when ACMM state is unavailable", () => {
     const result = verifyAcmm("fix acmm:foo-bar gap", depsThatThrowOnRead());
 
     expect(result.verified).toBe(false);
     expect(result.reason).toBe("ACMM state not available");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
   });
 });
 
@@ -216,11 +274,17 @@ describe("verifyAudit", () => {
     expect(result.reason).toContain("below 0.9");
   });
 
-  it("does not verify when the inventory is unavailable", () => {
+  // #4246 / #4207: an `audit`-labeled issue ("Dialog/Drawer/CommandPalette/
+  // ConfirmDialog closed-state assertions") was reopened with the reason
+  // "Lighthouse inventory not available — run a site audit first" — a data
+  // availability failure, not evidence the fix regressed. It must abstain.
+  it("abstains (does not comment or reopen) when the inventory is unavailable", () => {
     const result = verifyAudit("Fix perf", "no url here", depsThatThrowOnRead());
 
     expect(result.verified).toBe(false);
     expect(result.reason).toContain("run a site audit first");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
   });
 
   it("abstains with low confidence when the issue body has no matching surface", () => {
@@ -274,11 +338,13 @@ describe("verifyBug", () => {
     expect(result.reason).toContain("failure");
   });
 
-  it("does not verify when CI runs cannot be queried", () => {
+  it("abstains (does not comment or reopen) when CI runs cannot be queried", () => {
     const result = verifyBug(depsThatThrowOnRuns());
 
     expect(result.verified).toBe(false);
     expect(result.reason).toBe("Could not verify — CI unavailable");
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
   });
 });
 
@@ -299,6 +365,22 @@ describe("verifyIssue — routes injected deps to the matching verifier", () => 
     const result = verifyIssue(issueWith("acmm"), depsWithJson(state));
 
     expect(result.confidence).toBe("low");
+  });
+
+  // #4216: an implement-queue review-gate issue that merely carried a stray
+  // `audit` label (it was never an actual site-audit finding) got routed
+  // through verifyAudit anyway, hit the same "Lighthouse inventory not
+  // available" branch as #4207, and was reopened. Fixed by the same
+  // confidence: "skip" change verified above — routing an `audit`-labeled
+  // issue to verifyAudit is safe now regardless of whether it's a genuine
+  // Lighthouse finding, because "no inventory" always abstains rather than
+  // acting.
+  it("routes audit through verifyAudit and abstains when Lighthouse data is unavailable, even for a stray audit label (#4216)", () => {
+    const result = verifyIssue(issueWith("audit"), depsThatThrowOnRead());
+
+    expect(result.verified).toBe(false);
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
   });
 });
 
