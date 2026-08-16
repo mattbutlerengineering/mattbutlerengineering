@@ -9469,7 +9469,8 @@
       };
     }
     export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> {
-      return request.user?.email ?? null;
+      if (request.user?.emailVerified !== true) return null;
+      return request.user.email ?? null;
     }
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
@@ -11485,7 +11486,8 @@
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
-      const email = request.user?.email;
+      if (request.user?.emailVerified !== true) return null;
+      const email = request.user.email;
       if (!email) return null;
       const user = await userService.getByEmail(email);
       return user?.id ?? null;
