@@ -257,6 +257,27 @@ describe("User Routes", () => {
       expect(response.statusCode).toBe(401);
     });
 
+    it("returns 401 when the JWT email is not verified (resolveCurrentUserId returns null)", async () => {
+      // Ownership here is keyed on email, not the JWT subject — an unverified
+      // email must not resolve an identity, or a caller could register with
+      // a victim's email and pass ownership checks for the victim's account.
+      // Note: permissions must NOT include "admin" — admins bypass identity check.
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, email_verified: false, permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.mocked(userService.getByEmail).mockResolvedValue(mockUser);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/user-123",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { name: "New Name" },
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
     it("updates user", async () => {
       const updatedUser = { ...mockUser, name: "Updated Name" };
       vi.mocked(userService.update).mockResolvedValueOnce(updatedUser);

@@ -51,9 +51,9 @@ describe("resolveReservationGuestEmail", () => {
 });
 
 describe("resolveCurrentUserEmail", () => {
-  it("returns the authenticated user email", async () => {
+  it("returns the authenticated user email when verified", async () => {
     const request = {
-      user: { id: "auth0|123", email: "user@example.com" },
+      user: { id: "auth0|123", email: "user@example.com", emailVerified: true },
     } as unknown as FastifyRequest;
 
     const result = await resolveCurrentUserEmail(request);
@@ -61,9 +61,29 @@ describe("resolveCurrentUserEmail", () => {
     expect(result).toBe("user@example.com");
   });
 
+  it("returns null when the email is not verified", async () => {
+    const request = {
+      user: { id: "auth0|123", email: "user@example.com", emailVerified: false },
+    } as unknown as FastifyRequest;
+
+    const result = await resolveCurrentUserEmail(request);
+
+    expect(result).toBe(null);
+  });
+
+  it("returns null when emailVerified is absent from the JWT (fail closed)", async () => {
+    const request = {
+      user: { id: "auth0|123", email: "user@example.com" },
+    } as unknown as FastifyRequest;
+
+    const result = await resolveCurrentUserEmail(request);
+
+    expect(result).toBe(null);
+  });
+
   it("returns null when user has no email", async () => {
     const request = {
-      user: { id: "auth0|123" },
+      user: { id: "auth0|123", emailVerified: true },
     } as unknown as FastifyRequest;
 
     const result = await resolveCurrentUserEmail(request);
