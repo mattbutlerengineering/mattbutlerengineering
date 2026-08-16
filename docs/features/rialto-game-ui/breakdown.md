@@ -68,10 +68,10 @@ Demonstrable at the boundary: walk the whole primary flow from `ux.md` by hand.
 - [x] **Telemetry HUD route** — `/demos/telemetry` rendering the four regions of the `ux.md` wireframe (status strip, zone table, vitals rail, event ticker), inside `DemoLayout` and registered in the demo nav.
   - Accept: all four regions render; the route appears in the demo nav alongside Sign In / Dashboard / Drivers / Layouts; `?frozen=1` pins the feed; the live row highlight follows `activeZoneId`.
   - Blocked by: `useTelemetryFeed()`, `game` preset
-- [ ] **Route-local vibe switch** — toggle between `game` and `default`, mirroring `ThemeToggle`'s placement and immediacy.
+- [x] **Route-local vibe switch** — toggle between `game` and `default`, mirroring `ThemeToggle`'s placement and immediacy.
   - Accept: toggling swaps the vibe with no reload and no confirmation; the choice does **not** persist across navigation and is not written to storage; no other route can observe it.
   - Blocked by: Telemetry HUD route
-- [ ] **Empty, loading, and stale states** — per `ux.md`.
+- [x] **Empty, loading, and stale states** — per `ux.md`.
   - Accept: the HUD frame never blanks; `connecting` shows skeleton value slots, `empty` shows STANDBY with placeholder glyphs, `stale` retains last-known values dimmed and labelled with their capture timestamp; zero layout shift between the three and `live`.
   - Blocked by: Telemetry HUD route
 
@@ -152,3 +152,20 @@ _Deviations discovered during Implement get logged here, dated._
   later sweep doesn't "finish the job" by breaking it. `MotionPreset` gained a
   `tilt` member (a `useSpring` config, no `type` field, so not a
   `SpringTransition`) to carry Card's tilt.
+- **2026-08-15 — degraded states are reachable by query param, not by control.**
+  `ux.md` walks the evaluator through holding the feed and losing it, but with
+  no network behind the page neither state can occur on its own, and the item
+  list carries no demo control to force them. `?feed=empty|hold|stale` is the
+  minimal way in: deterministic, linkable, and drivable from the E2E specs
+  Milestone 5 needs. Reconnect is a real inline control, per `ux.md`'s own
+  error-state line — and inline rather than an alert block because an alert
+  adds height, which would break the zero-layout-shift criterion this same item
+  is accepted on.
+- **2026-08-15 — a second vibe switcher exists, unguarded.** Milestone 2's
+  coverage test asserts the _rialto showcase_ switcher lists every `VibeName`.
+  `apps/rialto-web`'s `DemoLayout` has its own hardcoded vibe `<select>` with
+  three hand-written `<option>`s, and `game` is not among them — so `game` is
+  unreachable from the demo shell's control even though the route-local switch
+  offers it. Left alone deliberately: the PRD scopes this run to one vibe and
+  one route, and widening the shell control would expose `game` on every demo
+  page. Worth a follow-up, not a fix here.
