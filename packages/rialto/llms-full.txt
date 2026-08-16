@@ -1319,7 +1319,7 @@
     export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
   </file>
   <file path="src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
+    export type VibeName = "default" | "transacting" | "presenting" | "game";
     export type VibeOverrides = Record<string, string>;
   </file>
   </section>

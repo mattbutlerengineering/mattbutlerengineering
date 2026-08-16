@@ -36,7 +36,7 @@ nothing anywhere renders differently. This milestone is what makes the PRD's
 Demonstrable at the boundary: flip the rialto showcase to `game` and the
 components that already read motion tokens visibly shift.
 
-- [ ] **`game` preset** — add the preset to `vibes.ts` and the member to the `VibeName` union.
+- [x] **`game` preset** — add the preset to `vibes.ts` and the member to the `VibeName` union.
   - Accept: `Record<VibeName, VibeOverrides>` compiles (the type forces the preset to exist); `vibes.game` is non-empty; `default`, `transacting`, and `presenting` are byte-identical to before; **a test asserts the reduced-motion adapter's `0s` durations beat the `game` preset's duration tokens** (moved from Milestone 1 — no preset carried a duration token until this item).
   - Blocked by: — (design gap resolved 2026-08-15: no colour tokens)
 - [ ] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.

@@ -703,7 +703,7 @@
   </file>
   <file path="src/providers/vibes.ts">
     <item priority="low">
-      type VibeName = "default" | "transacting" | "presenting";
+      type VibeName = "default" | "transacting" | "presenting" | "game";
     </item>
     <item priority="low">
       type VibeOverrides = Record<string, string>;
