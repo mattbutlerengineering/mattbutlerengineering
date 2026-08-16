@@ -54,7 +54,7 @@ under `default` they are indistinguishable from today.
 - [x] **CSS duration backfill (bounded, value-preserving)** — tokenize hardcoded durations in `StatusLED`, `Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `DataTable`, `Card`, `Stat`, `Progress`, `TapeChart` only.
   - Accept: every changed declaration maps exactly `0.1s → --rialto-duration-fast`, `0.15s → --rialto-duration-standard`, `0.2s → --rialto-duration-slow`; **no `0.3s` declaration is touched** (no matching token exists, and inventing one would change default-vibe output); no component outside the ten is modified; existing visual baselines pass unmodified.
   - Blocked by: —
-- [ ] **framer-motion call sites → hook** — the six HUD components driving motion in JS (`Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `Card`, `Progress`) resolve configs from `useMotionPreset()` instead of importing statics.
+- [x] **framer-motion call sites → hook** — the six HUD components driving motion in JS (`Meter`, `Odometer`, `SplitFlap`, `DepartureBoard`, `Card`, `Progress`) resolve configs from `useMotionPreset()` instead of importing statics.
   - Accept: each of the six still renders standalone with no provider present (test per component); default-vibe motion is unchanged; no other component's imports are touched.
   - Blocked by: `useMotionPreset()` hook
 
@@ -140,3 +140,15 @@ _Deviations discovered during Implement get logged here, dated._
   `pnpm --dir packages/rialto build:registry` after any JSDoc edit on an
   exported component; the diff is one line but the drift specs are not
   optional.
+- **2026-08-15 — four call sites, not six.** The item named six components
+  "driving motion in JS". Measured: only three import motion statics directly
+  (`Meter`, `Progress`, `Odometer`), and `Card` does so at one remove through
+  `hooks/useTilt.ts` — four conversions, and `useTilt` has exactly one consumer
+  so converting it touches no other component. The other two cannot be
+  converted, and shouldn't be: `SplitFlap` times its flip from its own
+  `flipInterval` prop and `DepartureBoard` its cycle from `holdMs`. Those are
+  caller contracts, not tokens — routing them through the preset would let the
+  vibe silently override what a consumer passed. A test pins that boundary so a
+  later sweep doesn't "finish the job" by breaking it. `MotionPreset` gained a
+  `tilt` member (a `useSpring` config, no `type` field, so not a
+  `SpringTransition`) to carry Card's tilt.
