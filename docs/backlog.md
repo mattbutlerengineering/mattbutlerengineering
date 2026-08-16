@@ -3,6 +3,7 @@
 Advisory inbox for ideas, not run state. Ordering is the prioritization —
 top of file is proposed first. One line per seed.
 
+- Pass `VITE_SENTRY_DSN` to the rialto-web and marketing builds in `deploy-static.yml` — only the hospitality build receives it, so both other sites ship the Sentry SDK with `enabled: false` and report nothing (from: feature:rialto-game-ui)
 - Assert the accessibility tree of a running page as a gate, not just axe rules — both majors in the game-UI run (duplicate status announcement, meters reporting a false 0) were invisible to axe, 2707 unit tests, typecheck, and lint (from: feature:rialto-game-ui)
 - Extend the 100ms latency budget from one route to the whole catalog — `SegmentedControl`'s untokenized `0.15s` existed everywhere and was only ever caught because one route measured computed style (from: feature:rialto-game-ui)
 - Give `Meter` an indeterminate state — `role="meter"` requires `aria-valuenow`, so a meter with no data currently reports a definite 0 where the truth is "unknown" (from: feature:rialto-game-ui)
