@@ -114,11 +114,10 @@ export function StatusStrip({
   return (
     <section className={styles.statusStrip} aria-label="Session status">
       <div className={styles.statusFlag}>
-        <StatusLED
-          variant={STATUS_VARIANT[feed.kind]}
-          pulse={pulsing}
-          label={STATUS_LABEL[feed.kind]}
-        />
+        {/* Decorative: the text beside it carries the status. Giving the LED
+            a label would take `role="img"` with the same word as its
+            accessible name and announce the status twice. */}
+        <StatusLED variant={STATUS_VARIANT[feed.kind]} pulse={pulsing} />
         <Text variant="label">{label}</Text>
       </div>
       <Text variant="label">

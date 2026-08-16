@@ -141,3 +141,22 @@ test.describe("response latency", () => {
     expect(worst.maxDuration).toBeLessThanOrEqual(100);
   });
 });
+
+test.describe("announcements", () => {
+  /**
+   * The status is carried by visible text, so the LED beside it is decoration.
+   * A `StatusLED` given a `label` takes `role="img"` with that label as its
+   * accessible name, which puts the same word in the tree twice — a screen
+   * reader reads "LIVE LIVE", and in the stale state "STALE, STALE captured
+   * 00:00". axe cannot catch it: both nodes are individually valid.
+   */
+  test("announces the feed status once, not twice", async ({ page }) => {
+    await page.goto("demos/telemetry?feed=stale");
+    await page.waitForLoadState("networkidle");
+
+    const strip = page.getByRole("region", { name: "Session status" });
+
+    await expect(strip.getByText(/STALE/)).toHaveCount(1);
+    await expect(strip.getByRole("img")).toHaveCount(0);
+  });
+});
