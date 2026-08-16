@@ -28,7 +28,7 @@ describe("recognizeGuest", () => {
     vi.clearAllMocks();
   });
 
-  it("returns recognized guest with first name, visit count, and last visit (no phone)", async () => {
+  it("returns recognized guest with first name, visit count, and preferences flag (no phone)", async () => {
     vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(mockVenue as never);
     vi.mocked(prisma.guest.findUnique).mockResolvedValueOnce({
       id: "guest-1",
@@ -39,7 +39,6 @@ describe("recognizeGuest", () => {
       notes: null,
       visitCount: 7,
       lifetimeSpend: null,
-      lastVisit: new Date("2026-05-01T18:00:00Z"),
       tags: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -52,7 +51,6 @@ describe("recognizeGuest", () => {
       firstName: "Jane",
       visitCount: 7,
       hasPreferences: false,
-      lastVisit: "2026-05-01T18:00:00.000Z",
     });
   });
 
@@ -67,7 +65,6 @@ describe("recognizeGuest", () => {
       notes: null,
       visitCount: 7,
       lifetimeSpend: null,
-      lastVisit: new Date("2026-05-01T18:00:00Z"),
       tags: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -89,7 +86,6 @@ describe("recognizeGuest", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
   });
 
@@ -104,7 +100,6 @@ describe("recognizeGuest", () => {
       notes: "Prefers corner table",
       visitCount: 12,
       lifetimeSpend: null,
-      lastVisit: new Date("2026-05-10T20:00:00Z"),
       tags: ["VIP", "window-seat"],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -117,7 +112,6 @@ describe("recognizeGuest", () => {
       firstName: "VIP",
       visitCount: 12,
       hasPreferences: true,
-      lastVisit: "2026-05-10T20:00:00.000Z",
     });
   });
 
@@ -132,7 +126,6 @@ describe("recognizeGuest", () => {
       notes: "Allergic to peanuts",
       visitCount: 3,
       lifetimeSpend: null,
-      lastVisit: new Date("2026-04-15T19:00:00Z"),
       tags: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -145,7 +138,6 @@ describe("recognizeGuest", () => {
       firstName: "Noted",
       visitCount: 3,
       hasPreferences: true,
-      lastVisit: "2026-04-15T19:00:00.000Z",
     });
   });
 
@@ -160,7 +152,6 @@ describe("recognizeGuest", () => {
       notes: null,
       visitCount: 0,
       lifetimeSpend: null,
-      lastVisit: null,
       tags: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -173,7 +164,6 @@ describe("recognizeGuest", () => {
       firstName: "New",
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
   });
 
@@ -188,7 +178,6 @@ describe("recognizeGuest", () => {
       notes: "Internal notes",
       visitCount: 2,
       lifetimeSpend: 1500,
-      lastVisit: new Date("2026-03-01T18:00:00Z"),
       tags: ["VIP"],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -204,5 +193,8 @@ describe("recognizeGuest", () => {
     expect(result).not.toHaveProperty("lifetimeSpend");
     expect(result).not.toHaveProperty("tags");
     expect(result).not.toHaveProperty("venueId");
+    // lastVisit is a precise, unauthenticated-disclosable date the booking
+    // widget never reads — dropped from the public response entirely.
+    expect(result).not.toHaveProperty("lastVisit");
   });
 });

@@ -6,7 +6,6 @@ const UNRECOGNIZED: GuestRecognition = {
   firstName: null,
   visitCount: 0,
   hasPreferences: false,
-  lastVisit: null,
 };
 
 function extractFirstName(fullName: string): string {
@@ -43,6 +42,5 @@ export async function recognizeGuest(venueId: string, email: string): Promise<Gu
     firstName: extractFirstName(guest.name),
     visitCount: guest.visitCount,
     hasPreferences: hasGuestPreferences(guest),
-    lastVisit: guest.lastVisit?.toISOString() ?? null,
   };
 }

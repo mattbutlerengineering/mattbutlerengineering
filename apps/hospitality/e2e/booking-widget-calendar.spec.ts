@@ -35,7 +35,6 @@ test.describe("Public booking flow — Add to Calendar", () => {
           firstName: null,
           visitCount: 0,
           hasPreferences: false,
-          lastVisit: null,
         }),
       })
     );
