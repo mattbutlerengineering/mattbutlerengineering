@@ -20,6 +20,12 @@ open by construction — the Linux visual baselines and the design-system
 owner's side-by-side verdict. Neither is a defect; both are work that cannot
 happen on this machine.
 
+**Amendment 2026-08-16 — one of those two gates has closed.** PRD-6's CI half
+finished and passed; the tally is now six criteria passing on evidence and one
+human gate outstanding. The original PARTIAL below is left as written — it was
+an accurate account of what could be proven on 2026-08-15, and the point of
+recording an open gate is to be able to show later that it closed.
+
 ## Criteria & evidence
 
 ### PRD-1 — Every interactive element on the demo route produces a visible state change within 100 ms
@@ -163,6 +169,24 @@ reachable only through motion.
   `0.15s` is `--rialto-duration-standard`'s default — so it cannot move a
   default-vibe pixel.
 
+- **Amendment 2026-08-16 — closed to PASS.** "It finishes in CI" finished.
+  The visual job has now rendered these baselines on two independent Linux
+  runners and matched both times: once on PR #4252, and again on the `push`
+  event for the merge commit `a3822cb58`, which is the authoritative run on
+  `main`:
+  ```
+  $ gh run view 31921962333 --json jobs
+  success  Visual Regression (rialto-web)   2026-08-16T02:30:51Z
+  success  Functional (rialto-web)          2026-08-16T02:31:14Z
+  ```
+  The second run matters more than the first. The two new baselines were
+  committed from a CI artifact rather than rendered locally, so a single green
+  run could not distinguish "these are correct" from "these happen to match the
+  one runner that produced them". A second runner, on a different event, at a
+  different commit, agreeing pixel-for-pixel, is what rules that out — and the
+  same run re-proved the "unmodified" half by passing all 46 pre-existing
+  baselines untouched.
+
 ### PRD-7 — The design-system owner records a yes/no verdict on "feels different and more alive"
 
 - Check: none possible.
@@ -222,7 +246,9 @@ The standing gate now closes that hole for this route.
   `telemetry-default.png` do not exist yet by design — they are pulled from the
   PR's first `rialto-web-visual-diffs` artifact. Recorded as a Ship gate in
   `breakdown.md` (2026-08-15). Ship must not merge until both are committed
-  from that artifact and the visual job is green.
+  from that artifact and the visual job is green. **Closed 2026-08-16:** both were
+  committed and the visual job is green on `main` — see the PRD-6 amendment
+  above. The only gate still open in this run is PRD-7.
 - **The design-system owner's verdict (PRD-7).** A human judgement, by design.
 - **Cross-browser behaviour.** Every E2E result above is Chromium only, which
   is what `playwright.config.ts` runs. Firefox and WebKit are unexercised for
