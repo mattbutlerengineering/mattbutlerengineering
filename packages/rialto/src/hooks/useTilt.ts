@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useMotionValue, useSpring, useReducedMotion, type MotionStyle } from "framer-motion";
-import { springTilt } from "../tokens/motion";
+import { useMotionPreset } from "../providers/useMotionPreset";
 
 const NOOP_STYLE: MotionStyle = {};
 const noop = () => {};
@@ -16,12 +16,13 @@ export function useTilt(
 } {
   const elRef = useRef<HTMLDivElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
+  const motionPreset = useMotionPreset();
 
   const rotateX = useMotionValue(0);
   const rotateY = useMotionValue(0);
 
-  const springX = useSpring(rotateX, springTilt);
-  const springY = useSpring(rotateY, springTilt);
+  const springX = useSpring(rotateX, motionPreset.tilt);
+  const springY = useSpring(rotateY, motionPreset.tilt);
 
   const ref = useCallback((el: HTMLDivElement | null) => {
     elRef.current = el;

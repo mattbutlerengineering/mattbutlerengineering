@@ -27,7 +27,7 @@
 import { useContext, useMemo } from "react";
 import { useDeviceContext } from "./useDeviceContext";
 import { UIEnvironmentContext } from "./useUIEnvironment";
-import { precision, spring, springGentle } from "../tokens/motion";
+import { precision, spring, springGentle, springTilt } from "../tokens/motion";
 
 /* ── Types ───────────────────────────────────── */
 
@@ -40,6 +40,13 @@ export interface InstantTransition {
 export interface EasedTransition {
   duration: number;
   ease: readonly [number, number, number, number];
+}
+
+/** A `useSpring` config, the shape `tokens/motion.springTilt` has. */
+export interface SpringOptions {
+  stiffness: number;
+  damping: number;
+  mass: number;
 }
 
 /** A spring transition, the shape `tokens/motion.spring` has. */
@@ -57,6 +64,8 @@ export interface MotionPreset {
   spring: SpringTransition | InstantTransition;
   /** Larger movements — dialog entrances, card expansions. */
   springGentle: SpringTransition | InstantTransition;
+  /** Cursor-tracking tilt — a `useSpring` config, not a transition. */
+  tilt: SpringOptions;
 }
 
 /* ── Constants ───────────────────────────────── */
@@ -67,9 +76,13 @@ const REDUCED_PRESET: MotionPreset = {
   precision: INSTANT,
   spring: INSTANT,
   springGentle: INSTANT,
+  // Tilt has no instant form — a spring that settles in zero time is not a
+  // spring. Reduced motion switches tilt off at the source instead: `useTilt`
+  // returns a no-op style before it ever reads this value.
+  tilt: springTilt,
 };
 
-const STANDARD_PRESET: MotionPreset = { precision, spring, springGentle };
+const STANDARD_PRESET: MotionPreset = { precision, spring, springGentle, tilt: springTilt };
 
 /**
  * Game-vibe motion: faster attack, stiffer springs, less mass. The
@@ -82,6 +95,7 @@ const GAME_PRESET: MotionPreset = {
   precision: { duration: 0.09, ease: [0.16, 1, 0.3, 1] as const },
   spring: { type: "spring" as const, stiffness: 600, damping: 30, mass: 0.6 },
   springGentle: { type: "spring" as const, stiffness: 320, damping: 26, mass: 0.8 },
+  tilt: { stiffness: 500, damping: 22, mass: 0.35 },
 };
 
 /* ── Hook ────────────────────────────────────── */
