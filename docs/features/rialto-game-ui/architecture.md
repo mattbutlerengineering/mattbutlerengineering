@@ -39,8 +39,15 @@ the identical override map it composes today.
 ### `vibes.game` preset — `packages/rialto/src/providers/vibes.ts`
 
 - Responsibility: the static CSS-side design language — density, radii,
-  weight, duration, easing, and state-color token overrides that make the
-  game vibe visually distinct.
+  weight, duration, and easing token overrides that make the game vibe
+  visually distinct.
+- **Colour: none.** Resolved 2026-08-15, after Decompose flagged the original
+  wording ("state-color token overrides") as unspecified. The preset overrides
+  **zero** colour tokens, matching `default`, `transacting`, and `presenting`,
+  which override none either. Colour remains the theme's job (`data-theme`),
+  so the vibe composes with light and dark instead of fighting them, and the
+  PRD's WCAG-AA-in-both-themes criterion is satisfied by the existing theme
+  palettes rather than by a new contrast surface.
 - Collaborators: `RialtoProvider` (consumes), `VibeName` union (extends).
 - Note: `vibes` is typed `Record<VibeName, VibeOverrides>`, so adding the
   union member is compile-enforced to add the preset. `showcase/App.tsx`
@@ -192,15 +199,15 @@ already carries zone/speed/best/delta rows.
 
 ## Traceability — PRD success criteria → design
 
-| Criterion                              | Where it lands                                                                                        |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Visible feedback under 100 ms          | `game` preset duration tokens + `useMotionPreset` + HUD backfill                                      |
-| A11y suite passes, zero exceptions     | Route joins `a11y-pages.spec.ts`; no component APIs change                                            |
-| WCAG AA in light and dark              | Any state-color token the `game` preset overrides is verified under both `data-theme` values          |
-| Keyboard / SR parity with default vibe | Guaranteed by construction — same components, same DOM, only tokens differ                            |
-| Reduced-motion presentation, asserted  | `deriveReducedMotionOverrides` + `useMotionPreset` reduced branch, both unit-tested; route-level spec |
-| No unopted surface changes             | Opt-in `vibe` prop; backfill is value-preserving; existing baselines must pass unmodified             |
-| Owner side-by-side verdict             | Process gate at Verify — the vibe switch is the instrument                                            |
+| Criterion                              | Where it lands                                                                                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visible feedback under 100 ms          | `game` preset duration tokens + `useMotionPreset` + HUD backfill                                                                                               |
+| A11y suite passes, zero exceptions     | Route joins `a11y-pages.spec.ts`; no component APIs change                                                                                                     |
+| WCAG AA in light and dark              | Preset overrides no colour tokens; contrast is inherited from the existing theme palettes, and the run records that explicitly rather than leaving it unstated |
+| Keyboard / SR parity with default vibe | Guaranteed by construction — same components, same DOM, only tokens differ                                                                                     |
+| Reduced-motion presentation, asserted  | `deriveReducedMotionOverrides` + `useMotionPreset` reduced branch, both unit-tested; route-level spec                                                          |
+| No unopted surface changes             | Opt-in `vibe` prop; backfill is value-preserving; existing baselines must pass unmodified                                                                      |
+| Owner side-by-side verdict             | Process gate at Verify — the vibe switch is the instrument                                                                                                     |
 
 ## Decisions & alternatives
 

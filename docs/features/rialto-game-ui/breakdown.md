@@ -27,8 +27,8 @@ nothing anywhere renders differently. This milestone is what makes the PRD's
 - [x] **`useMotionPreset()` hook** — new providers hook resolving framer-motion configs from vibe + `device.reducedMotion`.
   - Accept: rendered **outside** a provider it returns the `tokens/motion.ts` statics and does **not** throw (regression test for external npm consumers); under `reducedMotion` durations resolve to 0 and springs to instant, standalone as well as under a provider. (The `useContext(UIEnvironmentContext)` read moved to Milestone 2 — see Notes 2026-08-15.)
   - Blocked by: —
-- [ ] **ADR decision recorded** — "Motion presets resolve through context, not imported constants" (owner's call, see `architecture.md`).
-  - Accept: either an ADR exists in `docs/adr/` with a status, or the decision to skip it is recorded in this file's Notes with a date. Not left implicit.
+- [x] **ADR decision recorded** — "Motion presets resolve through context, not imported constants" (owner's call, see `architecture.md`).
+  - Accept: `docs/adr/ADR-025-motion-presets-through-context.md` exists with `status: active` and is indexed in `docs/adr/README.md`.
   - Blocked by: —
 
 ## Milestone 2: The game vibe exists and is selectable
@@ -38,7 +38,7 @@ components that already read motion tokens visibly shift.
 
 - [ ] **`game` preset** — add the preset to `vibes.ts` and the member to the `VibeName` union.
   - Accept: `Record<VibeName, VibeOverrides>` compiles (the type forces the preset to exist); `vibes.game` is non-empty; `default`, `transacting`, and `presenting` are byte-identical to before; **a test asserts the reduced-motion adapter's `0s` durations beat the `game` preset's duration tokens** (moved from Milestone 1 — no preset carried a duration token until this item).
-  - Blocked by: **Design gap — colour-token list** (see below)
+  - Blocked by: — (design gap resolved 2026-08-15: no colour tokens)
 - [ ] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.
   - Accept: the showcase vibe switcher offers `game`; existing showcase tests pass. (The `Record` type does not catch this list — it is a separate literal.)
   - Blocked by: `game` preset
@@ -92,19 +92,20 @@ Demonstrable at the boundary: CI is green on the real gates, baselines committed
   - Accept: `apps/rialto-web/e2e/workflow-coverage.test.ts` passes; each new spec is listed by full path, never by glob.
   - Blocked by: A11y coverage, Reduced-motion spec, Visual baselines
 - [ ] **Contrast verification** — every colour token the `game` preset overrides, in both themes.
-  - Accept: WCAG AA documented for each overridden colour token under `data-theme="light"` and `data-theme="dark"`; if the preset overrides no colour tokens, that is recorded explicitly rather than left unstated.
+  - Accept: a test asserts `vibes.game` contains **no** `--rialto-color-*` token, matching the decision recorded in `architecture.md` — the criterion is now a guard against colour creeping in later, not a contrast audit.
   - Blocked by: `game` preset
 
 ## Design gaps found
 
-- **Which colour tokens the `game` preset overrides is unspecified.**
-  `architecture.md` lists "state-color token overrides" among the preset's
-  responsibilities, but names none — and all three existing vibes override
-  **zero** colour tokens (spacing, radii, and weight only). Two PRD success
-  criteria depend on the answer: WCAG AA in both themes, and no visual change
-  to unopted surfaces. Routing back to Architect for a concrete token list
-  (which may legitimately be "none"). Blocks item **`game` preset**; nothing
-  else in Milestone 1 is affected, so Milestone 1 can proceed in parallel.
+- ~~**Which colour tokens the `game` preset overrides is unspecified.**~~
+  **Resolved 2026-08-15 — the answer is none.** `architecture.md` had listed
+  "state-color token overrides" among the preset's responsibilities while
+  naming none, and all three existing vibes override zero colour tokens.
+  Architect now records the decision explicitly: the `game` preset overrides
+  **no** colour tokens, colour stays the theme's job, and the WCAG-AA criterion
+  is satisfied by the existing light/dark palettes. The contrast-verification
+  item became a guard test asserting no colour token creeps in. Unblocks the
+  `game` preset item.
 
 ## Notes
 
