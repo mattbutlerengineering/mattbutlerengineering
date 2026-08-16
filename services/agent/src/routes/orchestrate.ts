@@ -55,15 +55,21 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
             },
             maxBudgetPerSession: {
               type: "number",
+              minimum: 0.01,
+              maximum: 10.0,
               description: "Budget cap per child session in USD",
             },
             maxTurnsPerSession: {
               type: "number",
+              minimum: 1,
+              maximum: 200,
               description: "Max turns per child session",
             },
             baseBranch: { type: "string" },
             maxConcurrentSessions: {
               type: "number",
+              minimum: 1,
+              maximum: 10,
               description: "Max child sessions to run in parallel",
             },
           },

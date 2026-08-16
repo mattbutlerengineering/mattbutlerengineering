@@ -283,5 +283,47 @@ describe("Orchestrate Routes", () => {
 
       expect(response.statusCode).toBe(400);
     });
+
+    it("returns 400 for maxBudgetPerSession above the per-session cap", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          taskDescription: "Task",
+          maxBudgetPerSession: 999999,
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it("returns 400 for maxTurnsPerSession above the per-session cap", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          taskDescription: "Task",
+          maxTurnsPerSession: 100000,
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it("returns 400 for maxConcurrentSessions above the cap", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: {
+          taskDescription: "Task",
+          maxConcurrentSessions: 999999,
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
   });
 });
