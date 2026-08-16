@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import { RialtoProvider } from "@mattbutlerengineering/rialto";
 import { Telemetry } from "./Telemetry";
 
 // jsdom has no matchMedia; rialto's device context and framer-motion both read it.
@@ -18,12 +20,21 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
+// The route always renders inside DemoLayout's provider in production, and it
+// reads the resolved theme from that environment.
 function renderRoute(search = "") {
   return render(
     <MemoryRouter initialEntries={[`/demos/telemetry${search}`]}>
-      <Telemetry />
+      <RialtoProvider theme="dark">
+        <Telemetry />
+      </RialtoProvider>
     </MemoryRouter>
   );
+}
+
+function hudVibeStyle(container: HTMLElement): string {
+  const hud = container.querySelector("[data-feed-state]");
+  return hud?.closest("div[style]")?.getAttribute("style") ?? "";
 }
 
 describe("Telemetry HUD", () => {
@@ -77,5 +88,40 @@ describe("Telemetry HUD", () => {
       "data-feed-state",
       "connecting"
     );
+  });
+});
+
+describe("route-local vibe switch", () => {
+  it("lands under the game vibe", () => {
+    const { container } = renderRoute("?frozen=1");
+
+    expect(screen.getByRole("radio", { name: "Game" })).toBeChecked();
+    expect(hudVibeStyle(container)).toContain("0.09s");
+  });
+
+  it("swaps the vibe immediately, with no confirmation step", async () => {
+    const user = userEvent.setup();
+    const { container } = renderRoute("?frozen=1");
+
+    await user.click(screen.getByRole("radio", { name: "Default" }));
+
+    expect(screen.getByRole("radio", { name: "Default" })).toBeChecked();
+    expect(hudVibeStyle(container)).not.toContain("0.09s");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the choice off storage and out of every other route", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderRoute("?frozen=1");
+
+    await user.click(screen.getByRole("radio", { name: "Default" }));
+
+    expect(window.localStorage.length).toBe(0);
+
+    // Navigating away and back is a fresh mount — the switch does not survive it.
+    unmount();
+    renderRoute("?frozen=1");
+
+    expect(screen.getByRole("radio", { name: "Game" })).toBeChecked();
   });
 });

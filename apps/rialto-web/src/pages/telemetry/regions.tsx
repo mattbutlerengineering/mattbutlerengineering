@@ -15,10 +15,12 @@ import {
   DepartureBoard,
   Meter,
   Odometer,
+  SegmentedControl,
   Stat,
   StatusLED,
   Text,
 } from "@mattbutlerengineering/rialto";
+import type { VibeName } from "@mattbutlerengineering/rialto";
 import type { FeedState, TelemetryFrame, TelemetryZone } from "./useTelemetryFeed";
 import styles from "./Telemetry.module.css";
 
@@ -187,5 +189,36 @@ export function EventTicker({ frame, frozen }: { frame: TelemetryFrame | null; f
     <footer className={styles.ticker} aria-label="Event feed">
       <DepartureBoard phrases={shown} size="sm" charset="full" />
     </footer>
+  );
+}
+
+/* ── Vibe switch ─────────────────────────────── */
+
+/** The two vibes this route offers. The rest of the catalog is out of scope here. */
+const VIBE_SEGMENTS = [
+  { id: "game", label: "Game" },
+  { id: "default", label: "Default" },
+];
+
+/**
+ * The route's whole pitch: flip this and watch the same screen change
+ * character. Local state only — the choice is deliberately not persisted and
+ * not visible to any other route.
+ */
+export function VibeSwitch({
+  value,
+  onChange,
+}: {
+  value: VibeName;
+  onChange: (vibe: VibeName) => void;
+}) {
+  return (
+    <SegmentedControl
+      segments={VIBE_SEGMENTS}
+      value={value}
+      onChange={(id) => onChange(id as VibeName)}
+      size="sm"
+      aria-label="Vibe"
+    />
   );
 }
