@@ -2480,7 +2480,8 @@
       };
     }
     export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> {
-      return request.user?.email ?? null;
+      if (request.user?.emailVerified !== true) return null;
+      return request.user.email ?? null;
     }
   </file>
   <file path="src/routes/reservations.ts">
