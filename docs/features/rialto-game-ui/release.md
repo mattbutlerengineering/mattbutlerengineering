@@ -114,6 +114,26 @@ page logs no errors.
 A full-page screenshot confirms the layout fix survived to production: the HUD
 clears the demo shell's floating controls, and the status strip reads cleanly.
 
+`main`'s own push-event CI on the merge commit is green across every job
+that this change can reach:
+
+```
+$ gh run list --limit 60 --json ... | select(.headSha=="a3822cb58...")
+success  push          Rialto Web E2E     31921962333
+success  push          ADR check          31921962345
+success  push          Release            31921962324
+success  workflow_run  Post-Deploy Check  31922039169
+success  workflow_run  Pulumi Deploy      31922039189
+```
+
+`Rialto Web E2E` is the one worth naming: both of its jobs passed
+(`Visual Regression` and `Functional`), which is the second independent Linux
+runner to agree with the two committed baselines and the first to do so on
+`main` rather than on the PR. That closes PRD-6 — see the 2026-08-16 amendment
+in `verification.md`. `Post-Deploy Check` ran its own Playwright smoke against
+the deployed surface and passed, independently of the manual smoke recorded
+above.
+
 ## Open
 
 - **Design-system owner verdict** — PRD success criterion 7, still unmet. It is
