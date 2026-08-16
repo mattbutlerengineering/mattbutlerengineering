@@ -21,8 +21,8 @@ nothing anywhere renders differently. This milestone is what makes the PRD's
 - [x] **Reduced-motion adapter** — new `packages/rialto/src/providers/reduced-motion.ts`, sibling of `reduced-data.ts`, deriving `VibeOverrides` from `device.reducedMotion`.
   - Accept: returns `{}` when `reducedMotion` is false (byte-identical composition to today); returns `0s` for `--rialto-duration-fast|standard|slow` when true; pure and total, unit-tested both branches.
   - Blocked by: —
-- [ ] **Provider composition + precedence** — wire the adapter into `RialtoProvider`'s merge chain.
-  - Accept: order is preset → reduced-data → reduced-motion → explicit `vibeOverrides`; a test asserts reduced-motion beats a preset's duration AND loses to an explicit override; every existing `RialtoProvider` test passes unmodified.
+- [x] **Provider composition + precedence** — wire the adapter into `RialtoProvider`'s merge chain.
+  - Accept: order is preset → reduced-data → reduced-motion → explicit `vibeOverrides`; a test asserts reduced-motion loses to an explicit override; every existing `RialtoProvider` test passes unmodified. (The "beats a preset's duration" half moved to Milestone 2 — see Notes 2026-08-15.)
   - Blocked by: Reduced-motion adapter
 - [ ] **`useMotionPreset()` hook** — new providers hook resolving framer-motion configs from vibe + `device.reducedMotion`.
   - Accept: reads `UIEnvironmentContext` via `useContext` directly; rendered **outside** a provider it returns the `tokens/motion.ts` statics and does **not** throw (regression test for external npm consumers); under `reducedMotion` durations resolve to 0 and springs to instant.
@@ -37,7 +37,7 @@ Demonstrable at the boundary: flip the rialto showcase to `game` and the
 components that already read motion tokens visibly shift.
 
 - [ ] **`game` preset** — add the preset to `vibes.ts` and the member to the `VibeName` union.
-  - Accept: `Record<VibeName, VibeOverrides>` compiles (the type forces the preset to exist); `vibes.game` is non-empty; `default`, `transacting`, and `presenting` are byte-identical to before.
+  - Accept: `Record<VibeName, VibeOverrides>` compiles (the type forces the preset to exist); `vibes.game` is non-empty; `default`, `transacting`, and `presenting` are byte-identical to before; **a test asserts the reduced-motion adapter's `0s` durations beat the `game` preset's duration tokens** (moved from Milestone 1 — no preset carried a duration token until this item).
   - Blocked by: **Design gap — colour-token list** (see below)
 - [ ] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.
   - Accept: the showcase vibe switcher offers `game`; existing showcase tests pass. (The `Record` type does not catch this list — it is a separate literal.)
@@ -109,3 +109,20 @@ Demonstrable at the boundary: CI is green on the real gates, baselines committed
 ## Notes
 
 _Deviations discovered during Implement get logged here, dated._
+
+- **2026-08-15 — precedence assertion moved M1 → M2.** The provider-composition
+  item's criterion asked for a test proving reduced-motion outranks a vibe
+  preset's duration. That is unverifiable at Milestone 1: `default`,
+  `transacting`, and `presenting` override spacing, radii, and weight only —
+  **no existing preset sets a duration token**, so the preset-vs-adapter
+  ordering has nothing to observe. `deriveReducedDataOverrides` and
+  `deriveReducedMotionOverrides` emit disjoint token sets, so their relative
+  order is unobservable too. The assertion moved to the `game` preset item,
+  which is where a preset first carries durations. The half that _is_
+  observable now — explicit `vibeOverrides` beating reduced-motion — is tested.
+- **2026-08-15 — `registry.json` is generated from provider JSDoc.** Editing
+  `RialtoProvider`'s doc comment (two → three adapters) drifted the committed
+  `registry.json`, failing three artifact-drift specs. Regenerate with
+  `pnpm --dir packages/rialto build:registry` after any JSDoc edit on an
+  exported component; the diff is one line but the drift specs are not
+  optional.

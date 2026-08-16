@@ -3166,7 +3166,7 @@
     },
     {
       "name": "RialtoProvider",
-      "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides composed from two adapters behind one\n  interface: the active `vibe` preset and a reduced-data adapter driven by\n  `device.saveData` (tightens spacing when the user prefers reduced data)\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
+      "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides composed from three adapters behind one\n  interface: the active `vibe` preset, a reduced-data adapter driven by\n  `device.saveData` (tightens spacing when the user prefers reduced data),\n  and a reduced-motion adapter driven by `device.reducedMotion` (collapses\n  the duration scale when the user prefers reduced motion)\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

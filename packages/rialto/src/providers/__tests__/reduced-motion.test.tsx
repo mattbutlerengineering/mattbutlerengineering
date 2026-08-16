@@ -1,5 +1,14 @@
+import { render } from "@testing-library/react";
+import { RialtoProvider, type RialtoProviderProps } from "../RialtoProvider";
 import { deriveReducedMotionOverrides, reducedMotionOverrides } from "../reduced-motion";
-import type { DeviceContext } from "../useDeviceContext";
+import { useDeviceContext, type DeviceContext } from "../useDeviceContext";
+
+/* ── Mock the device hook so tests drive `device.reducedMotion` directly ──
+ * The real matchMedia → reducedMotion path is covered in useDeviceContext.test.ts;
+ * here we isolate the composition wiring inside RialtoProvider. */
+vi.mock("../useDeviceContext", () => ({
+  useDeviceContext: vi.fn(),
+}));
 
 const baseDevice: DeviceContext = {
   pointer: "fine",
@@ -8,6 +17,14 @@ const baseDevice: DeviceContext = {
   colorScheme: "light",
   saveData: false,
 };
+
+function setDevice(overrides: Partial<DeviceContext>): void {
+  vi.mocked(useDeviceContext).mockReturnValue({ ...baseDevice, ...overrides });
+}
+
+beforeEach(() => {
+  setDevice({});
+});
 
 /* ── The adapter itself (pure) ───────────────── */
 
@@ -60,5 +77,58 @@ describe("deriveReducedMotionOverrides — the reduced-motion vibe adapter", () 
     const second = deriveReducedMotionOverrides(device);
     expect(first).toEqual(second);
     expect(device.reducedMotion).toBe(true);
+  });
+});
+
+/* ── Wired through RialtoProvider (the second consumer) ── */
+
+describe("RialtoProvider — reduced-motion composition", () => {
+  function renderProvider(
+    props: Partial<Pick<RialtoProviderProps, "vibe" | "vibeOverrides" | "theme">>
+  ): HTMLElement {
+    const { container } = render(
+      <RialtoProvider {...props}>
+        <span>content</span>
+      </RialtoProvider>
+    );
+    return container.firstElementChild as HTMLElement;
+  }
+
+  it("applies zeroed durations when device.reducedMotion is true", () => {
+    setDevice({ reducedMotion: true });
+    const wrapper = renderProvider({});
+    expect(wrapper.style.getPropertyValue("--rialto-duration-fast")).toBe("0s");
+    expect(wrapper.style.getPropertyValue("--rialto-duration-standard")).toBe("0s");
+    expect(wrapper.style.getPropertyValue("--rialto-duration-slow")).toBe("0s");
+  });
+
+  it("applies no overrides when reduced motion is off and no vibe is set", () => {
+    setDevice({ reducedMotion: false });
+    const wrapper = renderProvider({});
+    expect(wrapper.getAttribute("style")).toBeNull();
+  });
+
+  it("leaves a vibe preset's non-duration tokens intact", () => {
+    setDevice({ reducedMotion: true });
+    const wrapper = renderProvider({ vibe: "presenting" });
+    expect(wrapper.style.getPropertyValue("--rialto-duration-standard")).toBe("0s");
+    // presenting's own tokens are untouched by the motion adapter
+    expect(wrapper.style.getPropertyValue("--rialto-space-md")).toBe("20px");
+    expect(wrapper.style.getPropertyValue("--rialto-radius-soft")).toBe("14px");
+  });
+
+  it("composes alongside the reduced-data adapter when both signals are on", () => {
+    setDevice({ reducedMotion: true, saveData: true });
+    const wrapper = renderProvider({});
+    expect(wrapper.style.getPropertyValue("--rialto-duration-fast")).toBe("0s");
+    expect(wrapper.style.getPropertyValue("--rialto-space-md")).toBe("12px");
+  });
+
+  it("lets explicit vibeOverrides win over reduced-motion (caller has the final say)", () => {
+    setDevice({ reducedMotion: true });
+    const wrapper = renderProvider({
+      vibeOverrides: { "--rialto-duration-standard": "0.4s" },
+    });
+    expect(wrapper.style.getPropertyValue("--rialto-duration-standard")).toBe("0.4s");
   });
 });
