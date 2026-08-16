@@ -246,12 +246,26 @@ export function verifySentry() {
 }
 
 /**
+ * Same unscoped-query class #4211/#4208 demonstrated for verifyCiFix: a dip
+ * in an unrelated workflow (Synthetic Monitoring, Revert RCA Detection, …)
+ * on `main` must not reopen a `bug`-labeled issue whose actual fix is fine.
+ * Scoped to the `CI` workflow for the same reason verifyCiFix is.
+ *
  * @param {VerifyDeps} deps
  */
 export function verifyBug(deps) {
   const runs = safe(
     () =>
-      deps.listWorkflowRuns(["--limit", "5", "--branch", "main", "--json", "status,conclusion"]),
+      deps.listWorkflowRuns([
+        "--limit",
+        "5",
+        "--branch",
+        "main",
+        "--workflow",
+        CI_WORKFLOW_NAME,
+        "--json",
+        "status,conclusion",
+      ]),
     null
   );
   // A query failure is data being unavailable, not evidence the fix

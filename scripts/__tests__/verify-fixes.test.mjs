@@ -346,6 +346,42 @@ describe("verifyBug", () => {
     expect(result.confidence).toBe("skip");
     expect(shouldActOnResult(result)).toBe(false);
   });
+
+  it("scopes the workflow-run query to the CI workflow, not all workflows on main", () => {
+    let capturedArgs = null;
+    const deps = {
+      listWorkflowRuns: (args) => {
+        capturedArgs = args;
+        return [{ status: "completed", conclusion: "success" }];
+      },
+      readJson: () => {
+        throw new Error("readJson should not be called by this verifier");
+      },
+    };
+
+    verifyBug(deps);
+
+    expect(capturedArgs).toContain("--workflow");
+    expect(capturedArgs[capturedArgs.indexOf("--workflow") + 1]).toBe("CI");
+  });
+
+  it("reproduces the false-positive shape: a bug-labeled issue with clean CI-workflow history must not be reopened by a dip in unrelated-workflow noise", () => {
+    // Mirrors the verifyCiFix regression test above — same false-positive
+    // class (#4211/#4208), same fix, sibling verifier.
+    const ciOnlyRuns = [{ status: "completed", conclusion: "success" }];
+    const unscopedNoisyRuns = [{ status: "completed", conclusion: "failure" }]; // unrelated workflow noise
+    const deps = {
+      listWorkflowRuns: (args) => (args.includes("--workflow") ? ciOnlyRuns : unscopedNoisyRuns),
+      readJson: () => {
+        throw new Error("readJson should not be called by this verifier");
+      },
+    };
+
+    const result = verifyBug(deps);
+
+    expect(result.verified).toBe(true);
+    expect(result.reason).toContain("passed after fix merged");
+  });
 });
 
 // ---------------------------------------------------------------------------
