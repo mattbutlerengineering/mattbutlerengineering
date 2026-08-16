@@ -62,10 +62,10 @@ under `default` they are indistinguishable from today.
 
 Demonstrable at the boundary: walk the whole primary flow from `ux.md` by hand.
 
-- [ ] **`useTelemetryFeed()`** — route-local hook producing deterministic mock frames and the `FeedState` machine.
+- [x] **`useTelemetryFeed()`** — route-local hook producing deterministic mock frames and the `FeedState` machine.
   - Accept: same `seed` produces the same frame sequence; `frozen: true` resolves one fixed frame and never ticks; every `FeedState` variant (`connecting`/`empty`/`live`/`hold`/`stale`) is reachable in unit tests; the clock derives from frame `t`, never `Date.now()`.
   - Blocked by: —
-- [ ] **Telemetry HUD route** — `/demos/telemetry` rendering the four regions of the `ux.md` wireframe (status strip, zone table, vitals rail, event ticker), inside `DemoLayout` and registered in the demo nav.
+- [x] **Telemetry HUD route** — `/demos/telemetry` rendering the four regions of the `ux.md` wireframe (status strip, zone table, vitals rail, event ticker), inside `DemoLayout` and registered in the demo nav.
   - Accept: all four regions render; the route appears in the demo nav alongside Sign In / Dashboard / Drivers / Layouts; `?frozen=1` pins the feed; the live row highlight follows `activeZoneId`.
   - Blocked by: `useTelemetryFeed()`, `game` preset
 - [ ] **Route-local vibe switch** — toggle between `game` and `default`, mirroring `ThemeToggle`'s placement and immediacy.
