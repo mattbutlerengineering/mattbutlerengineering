@@ -112,7 +112,7 @@ export function StatusStrip({
       : STATUS_LABEL[feed.kind];
 
   return (
-    <header className={styles.statusStrip} aria-label="Session status">
+    <section className={styles.statusStrip} aria-label="Session status">
       <div className={styles.statusFlag}>
         <StatusLED
           variant={STATUS_VARIANT[feed.kind]}
@@ -147,7 +147,7 @@ export function StatusStrip({
         )}
         {children}
       </div>
-    </header>
+    </section>
   );
 }
 
@@ -193,7 +193,7 @@ export function ZoneTable({ frame, kind }: { frame: TelemetryFrame | null; kind:
   ];
 
   return (
-    <section className={styles.zoneTable} aria-label="Zone times">
+    <section className={styles.zoneTable} aria-label="Zones">
       <DataTable
         columns={columns}
         data={frame?.zones ?? PLACEHOLDER_ZONES}
@@ -262,9 +262,9 @@ export function EventTicker({ frame, frozen }: { frame: TelemetryFrame | null; f
   const shown = frozen ? phrases.slice(0, 1) : phrases;
 
   return (
-    <footer className={styles.ticker} aria-label="Event feed">
+    <section className={styles.ticker} aria-label="Event feed">
       <DepartureBoard phrases={shown} size="sm" charset="full" />
-    </footer>
+    </section>
   );
 }
 

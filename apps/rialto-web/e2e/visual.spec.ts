@@ -91,3 +91,35 @@ for (const id of darkSections) {
     });
   });
 }
+
+/* ── Telemetry HUD (own route) ─────────────────── */
+
+/**
+ * The HUD is its own route, not a section of the /visual-test harness, so it
+ * needs its own navigation. `?frozen=1` pins the feed to a single deterministic
+ * frame — without it the values, the ticker, and the active-zone marker all
+ * move between runs and no baseline could ever match.
+ *
+ * Both vibes are captured: the diff between them IS the feature, so a change
+ * that quietly flattens one into the other should fail a baseline.
+ */
+test.describe("telemetry HUD", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("demos/telemetry?frozen=1");
+    await page.waitForLoadState("networkidle");
+  });
+
+  test("game vibe", async ({ page }) => {
+    await expect(page.locator("[data-feed-state]")).toHaveScreenshot("telemetry-game.png", {
+      timeout: 15_000,
+    });
+  });
+
+  test("default vibe", async ({ page }) => {
+    await page.getByRole("radio", { name: "Default" }).click();
+
+    await expect(page.locator("[data-feed-state]")).toHaveScreenshot("telemetry-default.png", {
+      timeout: 15_000,
+    });
+  });
+});

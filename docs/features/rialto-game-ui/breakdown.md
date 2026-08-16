@@ -79,19 +79,19 @@ Demonstrable at the boundary: walk the whole primary flow from `ux.md` by hand.
 
 Demonstrable at the boundary: CI is green on the real gates, baselines committed.
 
-- [ ] **A11y coverage** — the route joins `apps/rialto-web/e2e/a11y-pages.spec.ts`.
+- [x] **A11y coverage** — the route joins `apps/rialto-web/e2e/a11y-pages.spec.ts`.
   - Accept: zero violations; every control reachable by keyboard in reading order; screen-reader announcements at parity with the same components under the default vibe.
   - Blocked by: Telemetry HUD route
-- [ ] **Reduced-motion spec** — assert the designed reduced-motion presentation, not a blanket animation kill-switch.
+- [x] **Reduced-motion spec** — assert the designed reduced-motion presentation, not a blanket animation kill-switch.
   - Accept: with `prefers-reduced-motion: reduce` emulated, the route renders the same regions and the same values; duration tokens resolve to `0s`; the spec asserts that nothing is _removed_ — no state, value, or event is reachable only through motion.
   - Blocked by: Telemetry HUD route, Provider composition + precedence
 - [ ] **Visual baselines** — the frozen route joins `visual.spec.ts`.
   - Accept: baselines are pulled from the Linux CI artifact, **never rendered on macOS**; the spec screenshots `?frozen=1`; every pre-existing baseline in the repo is unmodified.
   - Blocked by: Empty/loading/stale states, CSS duration backfill
-- [ ] **CI wiring** — new specs listed by explicit full path in `.github/workflows/rialto-web-e2e.yml`.
+- [x] **CI wiring** — new specs listed by explicit full path in `.github/workflows/rialto-web-e2e.yml`.
   - Accept: `apps/rialto-web/e2e/workflow-coverage.test.ts` passes; each new spec is listed by full path, never by glob.
   - Blocked by: A11y coverage, Reduced-motion spec, Visual baselines
-- [ ] **Contrast verification** — every colour token the `game` preset overrides, in both themes.
+- [x] **Contrast verification** — every colour token the `game` preset overrides, in both themes.
   - Accept: a test asserts `vibes.game` contains **no** `--rialto-color-*` token, matching the decision recorded in `architecture.md` — the criterion is now a guard against colour creeping in later, not a contrast audit.
   - Blocked by: `game` preset
 
@@ -169,3 +169,28 @@ _Deviations discovered during Implement get logged here, dated._
   offers it. Left alone deliberately: the PRD scopes this run to one vibe and
   one route, and widening the shell control would expose `game` on every demo
   page. Worth a follow-up, not a fix here.
+
+- **2026-08-15 — `SegmentedControl` drops `aria-label`; e2e asserts behaviour
+  instead.** The reduced-motion spec first asserted the vibe switch by
+  `getByRole("radiogroup", { name: "Vibe" })`, which passes in jsdom and fails
+  in a real browser. `SegmentedControl.tsx` spreads `{...props}` onto its outer
+  wrapper (line 93) while `role="radiogroup"` sits on an inner element (line
+  98), so a caller's `aria-label` lands on a `<div>` with no role and the
+  radiogroup is left unnamed. That is a rialto defect, not a route defect —
+  every consumer that labels a `SegmentedControl` is silently unlabelled. Not
+  fixed here: it touches a shipped component's DOM outside this run's scope,
+  and the run's own criterion ("every control reachable by keyboard in reading
+  order") is satisfied. `telemetry.spec.ts` now asserts the radios directly —
+  visibility, checked state, and arrow-key movement between them — with a
+  comment naming the defect. Worth its own issue.
+
+- **2026-08-15 — Visual baselines: spec landed, baselines deliberately absent.**
+  `visual.spec.ts` now screenshots `demos/telemetry?frozen=1` in both vibes
+  (`telemetry-game.png`, `telemetry-default.png`), scoped to the
+  `[data-feed-state]` element so the demo shell's chrome cannot flake the
+  frame. No baseline PNG is committed, because the item's own acceptance
+  criterion forbids the only thing this machine can produce: baselines must
+  come from the Linux CI artifact, never from macOS. The first CI run on this
+  branch therefore fails these two assertions by design and uploads the
+  actuals; committing those two files from the `rialto-web-visual-diffs`
+  artifact closes the item. Every pre-existing baseline is untouched.

@@ -41,10 +41,10 @@ describe("Telemetry HUD", () => {
   it("renders all four regions", () => {
     renderRoute("?frozen=1");
 
-    expect(screen.getByRole("banner", { name: "Session status" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Zone times" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Session status" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Zones" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Vitals" })).toBeInTheDocument();
-    expect(screen.getByRole("contentinfo", { name: "Event feed" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Event feed" })).toBeInTheDocument();
   });
 
   it("marks the current zone, and only that zone", () => {
@@ -71,13 +71,13 @@ describe("Telemetry HUD", () => {
         "data-feed-state",
         "live"
       );
-      const before = screen.getByRole("region", { name: "Zone times" }).textContent;
+      const before = screen.getByRole("region", { name: "Zones" }).textContent;
 
       act(() => {
         vi.advanceTimersByTime(30_000);
       });
 
-      expect(screen.getByRole("region", { name: "Zone times" }).textContent).toBe(before);
+      expect(screen.getByRole("region", { name: "Zones" }).textContent).toBe(before);
     });
   });
 
@@ -129,7 +129,7 @@ describe("route-local vibe switch", () => {
 describe("feed states", () => {
   function rowCounts(container: HTMLElement) {
     return {
-      zones: container.querySelectorAll('[aria-label="Zone times"] tbody tr').length,
+      zones: container.querySelectorAll('[aria-label="Zones"] tbody tr').length,
       vitals: container.querySelectorAll("[data-vital]").length,
     };
   }
