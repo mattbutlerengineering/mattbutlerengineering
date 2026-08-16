@@ -42,7 +42,7 @@ components that already read motion tokens visibly shift.
 - [x] **Showcase vibe list** — add `game` to the `VIBES` array in `packages/rialto/src/showcase/App.tsx`.
   - Accept: a test asserts the switcher list covers **every** `VibeName`, not merely that `game` is present — the `Record` type never checks this literal, so any future vibe would otherwise ship unreachable from the only place it can be tried by hand.
   - Blocked by: `game` preset
-- [ ] **Game-tuned motion configs** — `useMotionPreset()` returns different configs when the active vibe is `game`.
+- [x] **Game-tuned motion configs** — `useMotionPreset()` returns different configs when the active vibe is `game`.
   - Accept: unit test asserts game configs differ from default configs, and that `reducedMotion` still wins over `game`.
   - Blocked by: `useMotionPreset()` hook, `game` preset
 

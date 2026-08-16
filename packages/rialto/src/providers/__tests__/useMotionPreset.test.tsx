@@ -4,6 +4,7 @@ import { RialtoProvider } from "../RialtoProvider";
 import { useMotionPreset } from "../useMotionPreset";
 import { useDeviceContext, type DeviceContext } from "../useDeviceContext";
 import { precision, spring, springGentle } from "../../tokens/motion";
+import { vibes } from "../vibes";
 
 vi.mock("../useDeviceContext", () => ({
   useDeviceContext: vi.fn(),
@@ -64,6 +65,35 @@ describe("useMotionPreset — the JS motion channel", () => {
       expect(preset).not.toHaveProperty("type");
       expect(preset).not.toHaveProperty("stiffness");
     }
+  });
+
+  it("returns game-tuned configs under the game vibe", () => {
+    const { result } = renderHook(() => useMotionPreset(), {
+      wrapper: ({ children }) => <RialtoProvider vibe="game">{children}</RialtoProvider>,
+    });
+    expect(result.current.precision).not.toEqual(precision);
+    expect(result.current.spring).not.toEqual(spring);
+    expect(result.current.springGentle).not.toEqual(springGentle);
+  });
+
+  /* The two channels must speak the same language: a JS-driven transition and
+   * a CSS-driven one under the same vibe should not disagree about how fast
+   * "standard" is. */
+  it("keeps the JS channel in step with the game preset's CSS duration scale", () => {
+    const { result } = renderHook(() => useMotionPreset(), {
+      wrapper: ({ children }) => <RialtoProvider vibe="game">{children}</RialtoProvider>,
+    });
+    const cssStandard = Number(String(vibes.game["--rialto-duration-standard"]).replace("s", ""));
+    expect(result.current.precision).toMatchObject({ duration: cssStandard });
+  });
+
+  it("lets reduced motion win over the game vibe", () => {
+    setDevice({ reducedMotion: true });
+    const { result } = renderHook(() => useMotionPreset(), {
+      wrapper: ({ children }) => <RialtoProvider vibe="game">{children}</RialtoProvider>,
+    });
+    expect(result.current.precision).toEqual({ duration: 0 });
+    expect(result.current.spring).toEqual({ duration: 0 });
   });
 
   it("honours reduced motion even with no provider in the tree", () => {

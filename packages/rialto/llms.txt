@@ -682,10 +682,9 @@
       }
     </item>
     <item priority="low">
-      interface MotionPreset {
-        precision: typeof precision | InstantTransition;
-        spring: typeof spring | InstantTransition;
-        springGentle: typeof springGentle | InstantTransition;
+      interface EasedTransition {
+        duration: number;
+        ease: readonly [number, number, number, number];
       }
     </item>
   </file>

@@ -24,8 +24,9 @@
  * consumers, dressed as a feature.
  */
 
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { useDeviceContext } from "./useDeviceContext";
+import { UIEnvironmentContext } from "./useUIEnvironment";
 import { precision, spring, springGentle } from "../tokens/motion";
 
 /* ── Types ───────────────────────────────────── */
@@ -35,13 +36,27 @@ export interface InstantTransition {
   duration: 0;
 }
 
+/** A duration+easing transition, the shape `tokens/motion.precision` has. */
+export interface EasedTransition {
+  duration: number;
+  ease: readonly [number, number, number, number];
+}
+
+/** A spring transition, the shape `tokens/motion.spring` has. */
+export interface SpringTransition {
+  type: "spring";
+  stiffness: number;
+  damping: number;
+  mass: number;
+}
+
 export interface MotionPreset {
   /** Standard UI transitions, hover states, small movements. */
-  precision: typeof precision | InstantTransition;
+  precision: EasedTransition | InstantTransition;
   /** Toggles, AI elements, high-interaction components. */
-  spring: typeof spring | InstantTransition;
+  spring: SpringTransition | InstantTransition;
   /** Larger movements — dialog entrances, card expansions. */
-  springGentle: typeof springGentle | InstantTransition;
+  springGentle: SpringTransition | InstantTransition;
 }
 
 /* ── Constants ───────────────────────────────── */
@@ -56,6 +71,19 @@ const REDUCED_PRESET: MotionPreset = {
 
 const STANDARD_PRESET: MotionPreset = { precision, spring, springGentle };
 
+/**
+ * Game-vibe motion: faster attack, stiffer springs, less mass. The
+ * `precision` duration deliberately matches the `game` preset's
+ * `--rialto-duration-standard` (0.09s) and its easing matches
+ * `--rialto-ease-precision`, so a JS-driven transition and a CSS-driven one
+ * under the same vibe do not disagree about how fast "standard" is.
+ */
+const GAME_PRESET: MotionPreset = {
+  precision: { duration: 0.09, ease: [0.16, 1, 0.3, 1] as const },
+  spring: { type: "spring" as const, stiffness: 600, damping: 30, mass: 0.6 },
+  springGentle: { type: "spring" as const, stiffness: 320, damping: 26, mass: 0.8 },
+};
+
 /* ── Hook ────────────────────────────────────── */
 
 /**
@@ -67,8 +95,13 @@ const STANDARD_PRESET: MotionPreset = { precision, spring, springGentle };
  */
 export function useMotionPreset(): MotionPreset {
   const device = useDeviceContext();
-  return useMemo(
-    () => (device.reducedMotion ? REDUCED_PRESET : STANDARD_PRESET),
-    [device.reducedMotion]
-  );
+  // Read the context directly rather than through useUIEnvironment(), which
+  // throws with no provider above it. Absent context simply means the default
+  // vibe — see the no-throw contract above.
+  const vibe = useContext(UIEnvironmentContext)?.vibe ?? "default";
+
+  return useMemo(() => {
+    if (device.reducedMotion) return REDUCED_PRESET;
+    return vibe === "game" ? GAME_PRESET : STANDARD_PRESET;
+  }, [device.reducedMotion, vibe]);
 }

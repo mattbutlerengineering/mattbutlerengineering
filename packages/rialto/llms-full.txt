@@ -1301,13 +1301,9 @@
     export interface InstantTransition {
       duration: 0;
     }
-    export interface MotionPreset {
-      /** Standard UI transitions, hover states, small movements. */
-      precision: typeof precision | InstantTransition;
-      /** Toggles, AI elements, high-interaction components. */
-      spring: typeof spring | InstantTransition;
-      /** Larger movements — dialog entrances, card expansions. */
-      springGentle: typeof springGentle | InstantTransition;
+    export interface EasedTransition {
+      duration: number;
+      ease: readonly [number, number, number, number];
     }
   </file>
   <file path="src/providers/useUIEnvironment.ts">
