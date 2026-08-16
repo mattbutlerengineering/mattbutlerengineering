@@ -32,6 +32,31 @@ describe("issueList", () => {
     expect(result).toEqual([expect.objectContaining({ number: 1, title: "issue", state: "OPEN" })]);
   });
 
+  it("keeps paginating past PR-heavy pages to satisfy --limit with real issues (#4244)", () => {
+    const http = vi
+      .fn()
+      .mockReturnValueOnce({
+        status: 200,
+        body: JSON.stringify(
+          Array.from({ length: 100 }, (_, i) => ({
+            number: i,
+            title: `pr ${i}`,
+            state: "open",
+            pull_request: {},
+          }))
+        ),
+      })
+      .mockReturnValueOnce({
+        status: 200,
+        body: JSON.stringify([
+          { number: 200, title: "real issue", state: "open", labels: [], created_at: "2026-01-01" },
+        ]),
+      });
+    const result = issueList(makeCtx(http), parseArgs(["--state", "all", "--limit", "1"]));
+    expect(result).toEqual([expect.objectContaining({ number: 200, title: "real issue" })]);
+    expect(http).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the Search API when --search is given", () => {
     const http = vi.fn().mockReturnValue({
       status: 200,
