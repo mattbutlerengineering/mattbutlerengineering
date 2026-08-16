@@ -37,7 +37,7 @@
 /* ── Sortable header ─────────────────────────── */
 .sortable {
   cursor: pointer;
-  transition: color 0.1s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .sortable:hover {
@@ -106,7 +106,7 @@
 
 /* ── Row hover ───────────────────────────────── */
 .tr {
-  transition: background 0.1s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .tr:hover {

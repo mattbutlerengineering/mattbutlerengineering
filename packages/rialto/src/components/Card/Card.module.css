@@ -5,8 +5,8 @@
   padding: var(--rialto-space-lg);
   box-shadow: var(--rialto-shadow-sm);
   transition:
-    box-shadow 0.2s var(--rialto-ease-precision),
-    transform 0.2s var(--rialto-ease-precision);
+    box-shadow var(--rialto-duration-slow) var(--rialto-ease-precision),
+    transform var(--rialto-duration-slow) var(--rialto-ease-precision);
   position: relative;
 }
 
@@ -80,7 +80,7 @@
       rgb(196 146 42 / 0.06) 0%,
       transparent 50%
     );
-  transition: opacity 0.2s var(--rialto-ease-precision);
+  transition: opacity var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .card[data-tilt]:hover::after,
