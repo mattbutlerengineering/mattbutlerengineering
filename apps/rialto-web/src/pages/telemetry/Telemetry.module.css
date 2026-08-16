@@ -95,3 +95,28 @@
   border-block-start: 1px solid var(--rialto-border);
   overflow-x: auto;
 }
+
+/* Stale values are retained and dimmed — never cleared. */
+.hud[data-dimmed] .body {
+  opacity: 0.6;
+}
+
+.slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-inline-size: 2rem;
+}
+
+.vitalRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+/* Holds its height across the odometer, its skeleton, and its placeholder. */
+.focal {
+  min-block-size: 9rem;
+  justify-content: center;
+}

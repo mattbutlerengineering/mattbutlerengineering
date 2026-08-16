@@ -89,6 +89,15 @@ const ZONES: ReadonlyArray<{ id: string; zone: string; best: number }> = [
   { id: "z8", zone: "Main Straight", best: 331 },
 ];
 
+/** The table's shape before any session data — same rows, no values. */
+export const PLACEHOLDER_ZONES: TelemetryZone[] = ZONES.map(({ id, zone }) => ({
+  id,
+  zone,
+  speed: 0,
+  best: 0,
+  delta: 0,
+}));
+
 const EVENT_LABELS = [
   "Sector purple",
   "DRS enabled",
@@ -176,8 +185,11 @@ export function useTelemetryFeed({
   paused = false,
   degraded = false,
 }: TelemetryFeedOptions): FeedState {
-  // `null` means no frame has arrived yet.
-  const [index, setIndex] = useState<number | null>(frozen ? 0 : null);
+  // `null` means no frame has arrived yet. A feed that will never tick —
+  // frozen, held, or degraded from the start — resolves its frame immediately:
+  // there is nothing to wait for, and `hold`/`stale` are states *about* a
+  // frame, so they cannot be entered without one.
+  const [index, setIndex] = useState<number | null>(frozen || paused || degraded ? 0 : null);
 
   const ticking = started && !frozen && !paused && !degraded;
 

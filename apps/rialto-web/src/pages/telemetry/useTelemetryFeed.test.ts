@@ -80,6 +80,16 @@ describe("useTelemetryFeed", () => {
     expect(result.current).toEqual(first);
   });
 
+  it("resolves a frame immediately when it will never tick", () => {
+    const { result } = renderHook(() =>
+      useTelemetryFeed({ seed: SEED, frozen: false, degraded: true, intervalMs: INTERVAL })
+    );
+
+    // `stale` is a state about a frame — it cannot be entered without one.
+    expect(result.current.kind).toBe("stale");
+    expect(result.current.kind === "stale" && result.current.since).toBe(0);
+  });
+
   it("reports empty before the feed has started", () => {
     const { result } = renderHook(() =>
       useTelemetryFeed({ seed: SEED, frozen: false, started: false, intervalMs: INTERVAL })

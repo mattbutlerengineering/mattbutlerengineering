@@ -27,24 +27,43 @@ export function Telemetry() {
   // any other page, nothing to reset afterwards.
   const [vibe, setVibe] = useState<VibeName>("game");
 
+  // Reconnecting returns to the primary flow, per `ux.md` — it does not
+  // rewrite the URL, so a reload still reproduces the state it was asked for.
+  const [reconnected, setReconnected] = useState(false);
+
   // Inherit the demo shell's resolved theme rather than re-resolving it. A
   // nested provider left on "system" would swap the HUD's tokens to the OS
   // scheme and fight the demo's own theme control.
   const { theme } = useUIEnvironment();
 
-  const feed = useTelemetryFeed({ seed: SESSION_SEED, frozen });
+  // `?feed=` drops the HUD straight into a designed state. The evaluator can
+  // walk the degraded flow without waiting for a failure that, with no network
+  // behind this page, would never come.
+  const forcedFeed = reconnected ? null : searchParams.get("feed");
+
+  const feed = useTelemetryFeed({
+    seed: SESSION_SEED,
+    frozen,
+    started: forcedFeed !== "empty",
+    paused: forcedFeed === "hold",
+    degraded: forcedFeed === "stale",
+  });
   const frame = feed.kind === "connecting" || feed.kind === "empty" ? null : feed.frame;
 
   return (
     <RialtoProvider vibe={vibe} theme={theme}>
       <div className={styles.page}>
-        <div className={styles.hud} data-feed-state={feed.kind}>
-          <StatusStrip feed={feed} frame={frame}>
+        <div
+          className={styles.hud}
+          data-feed-state={feed.kind}
+          data-dimmed={feed.kind === "stale" ? "" : undefined}
+        >
+          <StatusStrip feed={feed} frame={frame} onReconnect={() => setReconnected(true)}>
             <VibeSwitch value={vibe} onChange={setVibe} />
           </StatusStrip>
           <div className={styles.body}>
-            <ZoneTable frame={frame} />
-            <VitalsRail frame={frame} />
+            <ZoneTable frame={frame} kind={feed.kind} />
+            <VitalsRail frame={frame} kind={feed.kind} />
           </div>
           <EventTicker frame={frame} frozen={frozen} />
         </div>

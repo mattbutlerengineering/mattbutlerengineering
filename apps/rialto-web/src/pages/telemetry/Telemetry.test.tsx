@@ -125,3 +125,48 @@ describe("route-local vibe switch", () => {
     expect(screen.getByRole("radio", { name: "Game" })).toBeChecked();
   });
 });
+
+describe("feed states", () => {
+  function rowCounts(container: HTMLElement) {
+    return {
+      zones: container.querySelectorAll('[aria-label="Zone times"] tbody tr').length,
+      vitals: container.querySelectorAll("[data-vital]").length,
+    };
+  }
+
+  it("stands by with placeholder glyphs, never blank slots", () => {
+    renderRoute("?feed=empty");
+
+    expect(screen.getByText("STANDBY")).toBeInTheDocument();
+    expect(screen.getAllByText("––").length).toBeGreaterThan(0);
+  });
+
+  it("shows skeleton value slots while connecting", () => {
+    const { container } = renderRoute();
+
+    expect(container.querySelectorAll("[data-skeleton-slot]").length).toBeGreaterThan(0);
+  });
+
+  it("retains stale values, dimmed and labelled with their capture time", () => {
+    const { container } = renderRoute("?feed=stale");
+
+    expect(screen.getByText(/STALE/)).toBeInTheDocument();
+    // The capture time comes from the frame clock, so it is stable.
+    expect(screen.getByText(/captured 00:00/)).toBeInTheDocument();
+    expect(container.querySelector('[data-feed-state="stale"]')).toHaveAttribute("data-dimmed");
+    expect(screen.getByRole("button", { name: /reconnect/i })).toBeInTheDocument();
+  });
+
+  it("keeps the frame identical across every state", () => {
+    const live = rowCounts(renderRoute("?frozen=1").container);
+    const empty = rowCounts(renderRoute("?feed=empty").container);
+    const connecting = rowCounts(renderRoute().container);
+    const stale = rowCounts(renderRoute("?feed=stale").container);
+
+    expect(live.zones).toBeGreaterThan(0);
+    expect(live.vitals).toBeGreaterThan(0);
+    expect(empty).toEqual(live);
+    expect(connecting).toEqual(live);
+    expect(stale).toEqual(live);
+  });
+});
