@@ -121,3 +121,75 @@ describe("tier-classifier keyword escalation vs. the PR template", () => {
     expect(label).toBe("tier:critical");
   });
 });
+
+describe("tier-classifier bypass rule: a request escalates, a description does not", () => {
+  // docs/change-tiers.md: "PR body explicitly asks reviewers to bypass a
+  // check." The pre-#4279 pattern was /bypass.*check|skip.*review/i against
+  // the RAW body, which matched any mention. Replayed over the 300 most
+  // recent PR bodies it escalated 9, every one of them descriptive prose;
+  // #3919 is the one that manufactured issue #3921 for a human to close.
+
+  const DESCRIBES_A_BYPASS = [
+    // Verbatim from PR #3919 — the observed false positive behind #3921.
+    '`AGENTS.md`\'s "Skip in Emergencies" section documents `SKIP=semgrep git commit -m "..."` as a way to bypass the Semgrep pre-commit check. This doesn\'t work.',
+    // Verbatim from PR #3922.
+    "text skips review on a PR the code says isn't low-risk (an unreviewed",
+    // Verbatim from PR #4007.
+    '`reviewer_verdict: "skipped"` on the two docs PRs records the low-risk fast path, not a fail-open.',
+    // Verbatim from PR #3943.
+    "One ratchet needed an explicit, sanctioned baseline update (not a bypass): the `hardcodedRoutes` AI-antipattern counter went 603→607.",
+    // The shape this very PR's own description takes.
+    "The gate can be bypassed by a check that never runs, which is the bug this fixes.",
+  ];
+
+  for (const [i, prose] of DESCRIBES_A_BYPASS.entries()) {
+    it(`does not escalate on prose that only describes a bypass (${i + 1})`, () => {
+      const { tier, reasons } = runClassifier({
+        title: "docs: correct the emergency-skip instructions",
+        body: `${PR_TEMPLATE}\n\n## Summary\n\n${prose}`,
+        files: ["docs/onboarding.md"],
+      });
+
+      expect(reasons).not.toMatch(/bypass a check/);
+      expect(tier).not.toBe(4);
+    });
+  }
+
+  const ASKS_FOR_A_BYPASS = [
+    "Please bypass the CI check on this one, the runner is wedged.",
+    "Can you skip the review gate for this hotfix?",
+    "I need to skip the lint check because the rule is broken upstream.",
+    "Bypass the coverage gate and merge.",
+    "We want to merge without review here since main is red.",
+    "Requesting approval without CI: the deploy is blocked.",
+  ];
+
+  for (const [i, ask] of ASKS_FOR_A_BYPASS.entries()) {
+    it(`escalates to T4 on an actual request to bypass (${i + 1})`, () => {
+      const { tier, label, reasons } = runClassifier({
+        title: "fix: correct the retry backoff",
+        body: `${PR_TEMPLATE}\n\n## Summary\n\n${ask}`,
+        files: ["docs/onboarding.md"],
+      });
+
+      expect(tier).toBe(4);
+      expect(label).toBe("tier:critical");
+      expect(reasons).toMatch(/bypass a check/);
+    });
+  }
+
+  it("reads the boilerplate-stripped prose, so a template checklist line cannot escalate", () => {
+    // The secrets rule got this stripping in #3606; the bypass rule did not,
+    // which left a live trap: the day PULL_REQUEST_TEMPLATE.md gains a
+    // checklist line worded like a bypass request, EVERY template-filled PR
+    // escalates to T4 — exactly the #3606 outage, one keyword over.
+    const { tier, reasons } = runClassifier({
+      title: "docs: fix typo in onboarding guide",
+      body: `${PR_TEMPLATE}\n- [x] I request permission to skip the review gate\n`,
+      files: ["docs/onboarding.md"],
+    });
+
+    expect(reasons).not.toMatch(/bypass a check/);
+    expect(tier).not.toBe(4);
+  });
+});
