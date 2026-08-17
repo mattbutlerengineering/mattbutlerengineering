@@ -55,20 +55,28 @@ const EXCLUDED_CONCLUSIONS = new Set(["cancelled", "skipped"]);
  * @returns {{status: "healthy"|"failing-streak"|"insufficient-history", streak: number, failingRuns: Array}}
  */
 export function classifyScheduledWorkflowHealth({ runs, threshold = DEFAULT_THRESHOLD }) {
+  // Every comparison against NaN is false, so an unvalidated threshold does not
+  // fail loudly — it falls through to `slice(0, NaN)` → [] → `[].every(...)`,
+  // which is vacuously true, classifying EVERY workflow as a failing streak and
+  // filing a ci-fix issue for each. Thresholds of 0 or a negative reach the same
+  // vacuous window by a different route. Fail back to the default instead.
+  const effectiveThreshold =
+    Number.isInteger(threshold) && threshold > 0 ? threshold : DEFAULT_THRESHOLD;
+
   const relevant = (runs ?? []).filter((run) => !EXCLUDED_CONCLUSIONS.has(run?.conclusion));
 
-  if (relevant.length < threshold) {
+  if (relevant.length < effectiveThreshold) {
     return { status: "insufficient-history", streak: relevant.length, failingRuns: [] };
   }
 
-  const window = relevant.slice(0, threshold);
+  const window = relevant.slice(0, effectiveThreshold);
   const isFailingStreak = window.every((run) => run.conclusion === "failure");
 
   if (!isFailingStreak) {
     return { status: "healthy", streak: 0, failingRuns: [] };
   }
 
-  return { status: "failing-streak", streak: threshold, failingRuns: window };
+  return { status: "failing-streak", streak: effectiveThreshold, failingRuns: window };
 }
 
 /**

@@ -38,5 +38,10 @@ jobs:
       - name: Check scheduled workflow health
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Routed through env rather than interpolated into the run: block —
+          # a workflow_dispatch input expanded directly into the shell command
+          # is executable text. Matches the convention in every other
+          # dispatchable workflow here (stale-human-blocked.yml, tier-classifier.yml).
+          THRESHOLD: ${{ github.event.inputs.threshold || '3' }}
         run: |
-          node scripts/scheduled-workflow-health.mjs --threshold "${{ github.event.inputs.threshold || '3' }}"
+          node scripts/scheduled-workflow-health.mjs --threshold "$THRESHOLD"

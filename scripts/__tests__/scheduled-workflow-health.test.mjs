@@ -97,6 +97,41 @@ describe("classifyScheduledWorkflowHealth", () => {
     ];
     expect(classifyScheduledWorkflowHealth({ runs }).status).toBe("failing-streak");
   });
+
+  // A non-numeric --threshold reaches this function as NaN, and every
+  // comparison against NaN is false: `relevant.length < NaN` does not
+  // short-circuit to insufficient-history, `slice(0, NaN)` yields [], and
+  // `[].every(...)` is vacuously true — so an unguarded NaN classifies EVERY
+  // scheduled workflow as failing and files a ci-fix issue for each of them.
+  // Threshold 0 reaches the same vacuous-truth path by a different route.
+  it.each([
+    ["NaN (a non-numeric --threshold)", Number.NaN],
+    ["zero", 0],
+    ["negative", -1],
+    ["fractional", 2.5],
+  ])("never reports failing-streak on a vacuous window: threshold %s", (_label, threshold) => {
+    const runs = [
+      { conclusion: "success", url: "u1" },
+      { conclusion: "success", url: "u2" },
+      { conclusion: "success", url: "u3" },
+      { conclusion: "success", url: "u4" },
+    ];
+    expect(classifyScheduledWorkflowHealth({ runs, threshold }).status).not.toBe("failing-streak");
+  });
+
+  it("falls back to DEFAULT_THRESHOLD when threshold is not a positive integer", () => {
+    const runs = [
+      { conclusion: "failure", url: "u1" },
+      { conclusion: "failure", url: "u2" },
+    ];
+    // Two failures is below DEFAULT_THRESHOLD (3), so the fallback must read
+    // as insufficient-history rather than as a streak of length NaN/0.
+    expect(classifyScheduledWorkflowHealth({ runs, threshold: Number.NaN })).toEqual({
+      status: "insufficient-history",
+      streak: 2,
+      failingRuns: [],
+    });
+  });
 });
 
 describe("hasScheduleTrigger", () => {
