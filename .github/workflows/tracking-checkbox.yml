@@ -1,0 +1,45 @@
+name: Tracking Checklist
+
+# Keeps a tracking issue's markdown task list in sync with its children
+# (#4316). `.claude/skills/decompose/SKILL.md` writes the tracking issue's
+# `- [ ] #N — <title>` list once and never revisits it, and nothing else
+# wrote those boxes either — so a tracking issue read 0% done for the whole
+# life of the feature. Closing #4102 found 16/16 children CLOSED and 0/16
+# boxes ticked.
+#
+# The decision lives in scripts/tick-tracking-checkbox.mjs (pure +
+# unit-tested); this workflow is the I/O shell. It reads the plain markdown
+# task list deliberately — NOT a GraphQL sub-issue relationship — because
+# the markdown list is the artifact humans and /ideate actually read, and
+# it is the one that was going stale.
+
+on:
+  issues:
+    types: [closed, reopened]
+
+# Issue bodies only. No contents, no pull-requests, no actions.
+permissions:
+  issues: write
+
+# One run per issue: a rapid close→reopen must not race two PATCHes against
+# the same tracking body.
+concurrency:
+  group: tracking-checkbox-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  sync-checklist:
+    name: Sync Tracking Checklist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Tick or untick the child's checkbox
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          node scripts/tick-tracking-checkbox.mjs \
+            --issue "${{ github.event.issue.number }}" \
+            ${{ github.event.action == 'closed' && '--closed' || '' }}
