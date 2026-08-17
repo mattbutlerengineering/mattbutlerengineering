@@ -9,11 +9,23 @@
       rel="preload"
       as="style"
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300;1,9..40,400&family=DM+Mono:wght@300;400&family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500&display=swap"
-      onload="
-        this.onload = null;
-        this.rel = 'stylesheet';
-      "
+      data-font-stylesheet
     />
+    <script>
+      // Swap the preloaded font stylesheet to rel="stylesheet" once it loads.
+      // Uses a nonce'd script (the edge injects the CSP nonce into <script>
+      // tags) instead of an inline event-handler attribute, which would violate
+      // nonce-based script-src CSP. Runs during head parse so the listener is
+      // attached before the preload resolves.
+      (function () {
+        var link = document.querySelector("link[data-font-stylesheet]");
+        if (link) {
+          link.addEventListener("load", function () {
+            link.rel = "stylesheet";
+          });
+        }
+      })();
+    </script>
     <noscript>
       <link
         rel="stylesheet"
