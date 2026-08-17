@@ -15,7 +15,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 
 ## Pre-push / typecheck
 
-- **Vitest does NOT typecheck** — tests can pass with completely wrong types. Pre-push hook now runs `turbo typecheck` before `turbo test`. If you add test mocks, they must match the actual interface shape (e.g. `SessionResult` needs `status`/`sessionId`/`branchName`, not `success`/`stuck`/`outputs`)
+- **Vitest does NOT typecheck** — tests can pass with completely wrong types. If you add test mocks, they must match the actual interface shape (e.g. `SessionResult` needs `status`/`sessionId`/`branchName`, not `success`/`stuck`/`outputs`). **Nothing catches this before push:** this bullet used to end "Pre-push hook now runs `turbo typecheck` before `turbo test`", and that has been false since #2811 (`perf(hooks): scope pre-commit semgrep to staged files and drop pre-push affected-test gate`) deliberately removed the gate. `.husky/pre-push` runs exactly four things — the destructive-migration check, the AI-antipattern ratchet, a gated CLI build + `pnpm regen`, and `pnpm regen --check` — no typecheck and no tests. A stale claim like this is worse than no claim: it reads as a safety net, so a wrong-typed mock gets pushed on the belief that a green push means a green typecheck, and CI is the first thing that actually disagrees. Run `pnpm typecheck` yourself before pushing (or `pnpm turbo typecheck --filter='...[HEAD]'` for just the affected packages), and treat CI — not the hook — as the gate.
 - **Worktree agents must run `pnpm typecheck` before declaring done.** Agents that only run `pnpm test` will miss type errors that break CI. This is the #2 recurring CI failure pattern after the missing `pnpm install` pattern
 
 ## Build / pnpm / turbo
