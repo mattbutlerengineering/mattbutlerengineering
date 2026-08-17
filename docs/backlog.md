@@ -3,6 +3,7 @@
 Advisory inbox for ideas, not run state. Ordering is the prioritization —
 top of file is proposed first. One line per seed.
 
+- Fix the CSP-blocked font preload in `apps/rialto-web/index.html` — the inline `onload="this.rel='stylesheet'"` violates `script-src`, so the Google Fonts stylesheet is never promoted, `document.fonts.size` is 0 in production, and the design system's own showcase renders in `system-ui` instead of DM Sans / Bricolage Grotesque (from: feature:rialto-game-ui)
 - Decide whether production gets a Redis instance at all — `REDIS_URL` is unset in prod, so booking reminders, waitlist expiry, and post-visit notifications have never been scheduled there; the service boots degraded by design and nothing tracks the decision (from: #3763)
 - Improve `human_touch_reason` classifier precision — 10 of 11 in-window classifications land on `other`, so the taxonomy is live and correct but says almost nothing about _why_ a human intervened (from: #4241)
 - Pass `VITE_SENTRY_DSN` to the rialto-web and marketing builds in `deploy-static.yml` — only the hospitality build receives it, so both other sites ship the Sentry SDK with `enabled: false` and report nothing (from: feature:rialto-game-ui)
@@ -17,3 +18,9 @@ top of file is proposed first. One line per seed.
 - Offer the `game` vibe in DemoLayout's own vibe switcher — it hand-rolls three `<option>`s and `game` is not among them (from: feature:rialto-game-ui)
 - Document that explicit `vibeOverrides` outrank the reduced-motion adapter, so a consumer can re-impose motion on a user who asked for less (from: feature:rialto-game-ui)
 - Cover the `hold` feed state at route level — the hook branch is tested, the rendering is not (from: feature:rialto-game-ui)
+- Close the tracker loop on every run — `idea.md` records `origin: github-issue #3978` in one direction only, so the run consumed the issue, shipped, and left it with zero comments and its human-verdict gate unanswered (from: feature:rialto-game-ui)
+- Make deferred findings leave the run directory as issues — `review.md` deferred 2 majors and 3 minors and `release.md` lists 3 open items, none of which exist as GitHub issues, including two real defects in shipped components that affect every consumer (from: feature:rialto-game-ui)
+- Fix or remove the failing Cloudflare Insights beacon — `static.cloudflareinsights.com/beacon.min.js` returns `ERR_CONNECTION_REFUSED` on every page load, so the one analytics channel that is actually injected collects nothing (from: feature:rialto-game-ui)
+- Extend the post-deploy smoke suite to the routes features actually ship — `tests/smoke/smoke.spec.ts` hits `/rialto` but no `/rialto/demos/*` route, so a green Post-Deploy Check says nothing about a newly shipped demo (from: feature:rialto-game-ui)
+- Give a human-verdict acceptance criterion an owner, a notification, and a deadline — PRD-7 was the sole gate for this run's central claim and sat unanswered 28 hours after ship with nothing tracking it (from: feature:rialto-game-ui)
+- Add a live-surface probe to Ship's post-release step — 15 minutes of probing the deployed page found a CSP violation, a dead analytics beacon, and zero loaded web fonts, none of which any local gate can see (from: feature:rialto-game-ui)
