@@ -18,6 +18,10 @@ export interface Segment {
  * Pill-style toggle for switching between a small set of mutually exclusive options.
  * A spring-animated indicator slides behind the active segment. Implements `role="radiogroup"`.
  *
+ * `aria-label` / `aria-labelledby` are routed to the inner element carrying
+ * `role="radiogroup"` rather than the outer wrapper — a name on the wrapper
+ * leaves the radiogroup itself unnamed, which axe does not flag.
+ *
  * @example
  * <SegmentedControl
  *   segments={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }]}
@@ -35,7 +39,19 @@ export interface SegmentedControlProps extends Omit<HTMLAttributes<HTMLDivElemen
 }
 
 export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps>(
-  ({ segments, value, onChange, size = "md", className, ...props }, ref) => {
+  (
+    {
+      segments,
+      value,
+      onChange,
+      size = "md",
+      className,
+      "aria-label": ariaLabel,
+      "aria-labelledby": ariaLabelledBy,
+      ...props
+    },
+    ref
+  ) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const segmentRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
     const shouldReduceMotion = useReducedMotion();
@@ -96,6 +112,8 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
           ref={containerRef}
           className={styles.track}
           role="radiogroup"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           tabIndex={-1}
           onKeyDown={handleKeyDown}
         >
