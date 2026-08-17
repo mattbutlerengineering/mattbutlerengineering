@@ -1,6 +1,6 @@
 {
   "schema": "acmm-metrics/v1",
-  "generatedAt": "2026-08-10T07:03:08.503Z",
+  "generatedAt": "2026-08-17T06:26:57.342Z",
   "level": 5,
   "levelName": "Semi-Automated",
   "role": "Operator",
@@ -176,6 +176,48 @@
       "level": 5,
       "detected": 96,
       "total": 99
+    },
+    {
+      "date": "2026-08-10",
+      "level": 5,
+      "detected": 96,
+      "total": 99
+    },
+    {
+      "date": "2026-08-11",
+      "level": 5,
+      "detected": 96,
+      "total": 99
+    },
+    {
+      "date": "2026-08-12",
+      "level": 5,
+      "detected": 96,
+      "total": 99
+    },
+    {
+      "date": "2026-08-13",
+      "level": 5,
+      "detected": 96,
+      "total": 99
+    },
+    {
+      "date": "2026-08-14",
+      "level": 5,
+      "detected": 96,
+      "total": 99
+    },
+    {
+      "date": "2026-08-15",
+      "level": 5,
+      "detected": 96,
+      "total": 99
+    },
+    {
+      "date": "2026-08-16",
+      "level": 5,
+      "detected": 96,
+      "total": 99
     }
   ],
   "recentAgentChanges": [],
@@ -205,7 +247,7 @@
       "level": 5,
       "name": "auto-qa-tuning-history",
       "passed": true,
-      "value": 3,
+      "value": 5,
       "threshold": 1
     },
     {
