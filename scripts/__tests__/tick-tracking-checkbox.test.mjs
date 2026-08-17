@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 
-import { tickTrackingCheckbox, planTrackingUpdates } from "../tick-tracking-checkbox.mjs";
+import {
+  tickTrackingCheckbox,
+  planTrackingUpdates,
+  parseCliArgs,
+} from "../tick-tracking-checkbox.mjs";
 
 const BODY = `## Summary
 
@@ -146,5 +150,37 @@ describe("planTrackingUpdates", () => {
 
   it("handles an empty tracking list", () => {
     expect(planTrackingUpdates({ number: 4185, isTracking: false, closed: true }, [])).toEqual([]);
+  });
+});
+
+describe("parseCliArgs", () => {
+  it("reads the issue number, and defaults both flags off", () => {
+    expect(parseCliArgs(["--issue", "4185"])).toEqual({
+      number: 4185,
+      closed: false,
+      dryRun: false,
+    });
+  });
+
+  it("reads --closed and --dry-run in any order", () => {
+    expect(parseCliArgs(["--dry-run", "--closed", "--issue", "4185"])).toEqual({
+      number: 4185,
+      closed: true,
+      dryRun: true,
+    });
+  });
+
+  it("throws rather than calling GitHub when --issue is absent", () => {
+    expect(() => parseCliArgs(["--closed"])).toThrow("--issue <number> is required");
+  });
+
+  it("rejects a non-numeric, fractional, zero, or negative issue number", () => {
+    for (const bad of ["abc", "1.5", "0", "-3", ""]) {
+      expect(() => parseCliArgs(["--issue", bad])).toThrow("--issue <number> is required");
+    }
+  });
+
+  it("throws when --issue is the last argument with no value", () => {
+    expect(() => parseCliArgs(["--closed", "--issue"])).toThrow("--issue <number> is required");
   });
 });

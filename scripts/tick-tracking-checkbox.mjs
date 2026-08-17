@@ -95,16 +95,29 @@ function gh(args) {
   return execFileSync("gh", args, { encoding: "utf8", timeout: 30_000 });
 }
 
-/** CLI entry: wires the real `gh` client to {@link planTrackingUpdates}. */
-function run() {
-  const args = process.argv.slice(2);
-  const numberArg = args[args.indexOf("--issue") + 1];
-  const number = Number(numberArg);
+/**
+ * Parse the CLI's arguments.
+ *
+ * Separated out and exported so the one piece of real logic in the I/O shell
+ * — rejecting a missing or non-numeric `--issue` before any GitHub call — is
+ * testable without a network.
+ *
+ * @param {string[]} argv Arguments after the script name.
+ * @returns {{number: number, closed: boolean, dryRun: boolean}}
+ * @throws {Error} When `--issue` is absent or not a positive integer.
+ */
+export function parseCliArgs(argv) {
+  const index = argv.indexOf("--issue");
+  const number = index === -1 ? NaN : Number(argv[index + 1]);
   if (!Number.isInteger(number) || number <= 0) {
     throw new Error("--issue <number> is required");
   }
-  const closed = args.includes("--closed");
-  const dryRun = args.includes("--dry-run");
+  return { number, closed: argv.includes("--closed"), dryRun: argv.includes("--dry-run") };
+}
+
+/** CLI entry: wires the real `gh` client to {@link planTrackingUpdates}. */
+function run() {
+  const { number, closed, dryRun } = parseCliArgs(process.argv.slice(2));
   const log = (msg) => console.log(`[tick-tracking-checkbox] ${msg}`);
 
   const self = JSON.parse(gh(["issue", "view", String(number), "--json", "labels"]));
