@@ -128,12 +128,8 @@
       "read-yaml-file>js-yaml": "3.15.1",
       "@fastify/static@<10.1.2": ">=10.1.2 <11",
       "body-parser@<1.20.6": "^1.20.6",
-      "postcss@<=8.5.22": ">=8.5.23"
-    },
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-jmr9-qjv8-65gv"
-      ]
+      "postcss@<=8.5.22": ">=8.5.23",
+      "@puppeteer/browsers@<3.2.0": "^3.2.0"
     }
   },
   "license": "MIT"
