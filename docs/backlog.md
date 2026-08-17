@@ -3,6 +3,7 @@
 Advisory inbox for ideas, not run state. Ordering is the prioritization —
 top of file is proposed first. One line per seed.
 
+- Decide whether production gets a Redis instance at all — `REDIS_URL` is unset in prod, so booking reminders, waitlist expiry, and post-visit notifications have never been scheduled there; the service boots degraded by design and nothing tracks the decision (from: #3763)
 - Improve `human_touch_reason` classifier precision — 10 of 11 in-window classifications land on `other`, so the taxonomy is live and correct but says almost nothing about _why_ a human intervened (from: #4241)
 - Pass `VITE_SENTRY_DSN` to the rialto-web and marketing builds in `deploy-static.yml` — only the hospitality build receives it, so both other sites ship the Sentry SDK with `enabled: false` and report nothing (from: feature:rialto-game-ui)
 - Give rialto-web any usage instrumentation at all — the deployed document carries exactly one script tag (the app bundle), no beacon and no edge injection, so "did anyone use this route" is unanswerable for every feature run against this app, not just early (from: feature:rialto-game-ui)

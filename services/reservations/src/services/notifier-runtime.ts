@@ -49,6 +49,13 @@ export function createNotifierRuntime(): NotifierRuntime {
     // jobs against a connection that never delivers them. Surface this
     // loudly and greppably instead — the service still boots and serves
     // reservations traffic in a degraded (no job scheduling) mode.
+    //
+    // Requirement for whoever provisions it: the instance must be Redis >= 6.
+    // `ioredis` is pinned to ^6 via root pnpm.overrides, and ioredis v6
+    // defaults to the RESP3 protocol, which a Redis < 6 server cannot speak.
+    // This requirement lives here rather than in the issue tracker because
+    // #3763 (which raised it) is only answerable at provisioning time, and
+    // this is the line a provisioner reads.
     console.error(
       "[ERROR] REDIS_URL is not set in production. Refusing to fall back to redis://localhost:6379 — " +
         "notification job scheduling (booking reminders, waitlist expiry, post-visit notifications) is disabled until REDIS_URL is configured (see #3763)."
