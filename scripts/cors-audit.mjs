@@ -18,7 +18,7 @@ import { fileIssue } from "./lib/issue-filing.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const SERVICES_DIR = resolve(ROOT, "services");
-const EDGE_ROUTER_PATH = resolve(ROOT, "infrastructure/worker/edge-router.js");
+const WORKER_DIR = resolve(ROOT, "infrastructure/worker");
 
 const REQUIRED_HEADERS = [
   "Strict-Transport-Security",
@@ -45,7 +45,10 @@ function discoverServices() {
   return readdirSync(SERVICES_DIR, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .filter((e) => existsSync(resolve(SERVICES_DIR, e.name, "src/app.ts")))
-    .map((e) => ({ name: e.name, appPath: resolve(SERVICES_DIR, e.name, "src/app.ts") }));
+    .map((e) => ({
+      name: e.name,
+      appPath: resolve(SERVICES_DIR, e.name, "src/app.ts"),
+    }));
 }
 
 // ── Origin Extraction ──────────────────────────────────────────────
@@ -224,16 +227,49 @@ export function classifyEdgeRouterContent(content) {
   return { findings, presentHeaders, missingHeaders };
 }
 
-/** I/O boundary: reads the edge router file (or reports it missing) and delegates to the pure classifier. */
+/**
+ * Pure: which of `files` DEFINES `buildSecurityHeaders`.
+ *
+ * The audit used to read `infrastructure/worker/edge-router.js` by hardcoded
+ * path. `buildSecurityHeaders()` moved to `response-formatter.js`, which
+ * edge-router.js merely imports — so the scan saw a file containing none of
+ * the six required header names and filed a HIGH "Missing security headers"
+ * every week against headers that were present, applied, and unit-tested
+ * (#3769). Locating the definition instead of assuming its path means a
+ * future move cannot resurrect that false positive.
+ *
+ * Matches a definition (`function buildSecurityHeaders`), never a mention —
+ * an import line or a comment naming the function must not count, or the
+ * scan would go on reading the wrong file.
+ *
+ * @param {string[]} files - Candidate paths.
+ * @param {(path: string) => string} readFile
+ * @returns {string | null} The defining path, or null if none defines it.
+ */
+export function findSecurityHeaderSource(files, readFile) {
+  const DEFINITION = /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+buildSecurityHeaders\b/;
+  for (const file of files) {
+    let content;
+    try {
+      content = readFile(file);
+    } catch {
+      continue;
+    }
+    if (DEFINITION.test(content)) return file;
+  }
+  return null;
+}
+
+/** I/O boundary: locates the module defining the security headers and delegates to the pure classifier. */
 function analyzeEdgeRouter() {
-  if (!existsSync(EDGE_ROUTER_PATH)) {
+  if (!existsSync(WORKER_DIR)) {
     return {
       findings: [
         {
           severity: "CRITICAL",
-          issue: "Edge router file not found",
-          detail: "Expected at `infrastructure/worker/edge-router.js`.",
-          remediation: "Verify the edge router path.",
+          issue: "Edge worker directory not found",
+          detail: "Expected at `infrastructure/worker`.",
+          remediation: "Verify the edge worker path.",
         },
       ],
       presentHeaders: [],
@@ -241,7 +277,31 @@ function analyzeEdgeRouter() {
     };
   }
 
-  return classifyEdgeRouterContent(readFileSync(EDGE_ROUTER_PATH, "utf-8"));
+  const candidates = readdirSync(WORKER_DIR)
+    .filter((name) => name.endsWith(".js") && !name.endsWith(".test.js"))
+    .map((name) => resolve(WORKER_DIR, name));
+
+  const source = findSecurityHeaderSource(candidates, (p) => readFileSync(p, "utf-8"));
+
+  if (!source) {
+    // Fail loud. Reporting "no findings" here would turn a scanner that can no
+    // longer find the code it audits into a clean bill of health — the exact
+    // direction this whole class of bug fails in.
+    return {
+      findings: [
+        {
+          severity: "CRITICAL",
+          issue: "`buildSecurityHeaders()` not found in the edge worker",
+          detail: "No file under `infrastructure/worker` defines `buildSecurityHeaders`.",
+          remediation: "Point the audit at the module that now builds the security headers.",
+        },
+      ],
+      presentHeaders: [],
+      missingHeaders: REQUIRED_HEADERS,
+    };
+  }
+
+  return classifyEdgeRouterContent(readFileSync(source, "utf-8"));
 }
 
 // ── Report ─────────────────────────────────────────────────────────
@@ -279,7 +339,11 @@ export function buildReport(serviceResults, edgeResult) {
     if (svc.hasCors) {
       const o = svc.origins;
       lines.push(
-        `| ${svc.serviceName} | Yes | ${o.originCount} (${o.prodOrigins.length} prod, ${o.devOrigins.length} dev) | ${o.hasCredentials ? "Yes" : "No"} | ${o.usesEnvOverride ? "Yes" : "No"} |`
+        `| ${svc.serviceName} | Yes | ${o.originCount} (${
+          o.prodOrigins.length
+        } prod, ${o.devOrigins.length} dev) | ${
+          o.hasCredentials ? "Yes" : "No"
+        } | ${o.usesEnvOverride ? "Yes" : "No"} |`
       );
     } else {
       lines.push(`| ${svc.serviceName} | No | - | - | - |`);
@@ -303,7 +367,9 @@ export function buildReport(serviceResults, edgeResult) {
   }
   lines.push("_Generated by `scripts/cors-audit.mjs` via GitHub Actions._");
 
-  const title = `CORS audit: ${count("CRITICAL")} critical, ${count("HIGH")} high, ${count("MEDIUM") + count("LOW") + count("INFO")} other`;
+  const title = `CORS audit: ${count("CRITICAL")} critical, ${count(
+    "HIGH"
+  )} high, ${count("MEDIUM") + count("LOW") + count("INFO")} other`;
   return { title, body: lines.join("\n") };
 }
 

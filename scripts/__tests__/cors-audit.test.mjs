@@ -3,6 +3,7 @@ import {
   extractOrigins,
   parseCorsConfig,
   classifyEdgeRouterContent,
+  findSecurityHeaderSource,
   buildReport,
   findPriorCorsAuditIssue,
   describeFilingResult,
@@ -65,7 +66,11 @@ function withOrigins(list) {
 describe("parseCorsConfig", () => {
   it("reports no findings when the service does not register @fastify/cors", () => {
     const result = parseCorsConfig("plain-service", `export function buildApp() {}`);
-    expect(result).toEqual({ serviceName: "plain-service", hasCors: false, findings: [] });
+    expect(result).toEqual({
+      serviceName: "plain-service",
+      hasCors: false,
+      findings: [],
+    });
   });
 
   it("flags a wildcard origin as CRITICAL", () => {
@@ -294,5 +299,88 @@ describe("describeFilingResult", () => {
     expect(describeFilingResult({ action: "skip", issueNumber: 9 }, "t")).toBe(
       "Skipping — issue #9 already tracks this: t"
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findSecurityHeaderSource — which worker file actually defines the headers
+//
+// #3769 filed a HIGH "Missing security headers (6)" every week against
+// edge-router.js. All six headers exist and are applied — they just live in
+// response-formatter.js, which edge-router.js imports. The audit hardcoded a
+// single path and never followed the refactor, so a scanner defect was
+// reported as a security gap for weeks.
+// ---------------------------------------------------------------------------
+
+describe("findSecurityHeaderSource", () => {
+  const definer = `function buildSecurityHeaders(nonce, kvPolicy) {\n  return { "X-Frame-Options": "DENY" };\n}`;
+
+  it("finds the file that defines buildSecurityHeaders, not the one that imports it", () => {
+    const files = {
+      "edge-router.js": `import { buildSecurityHeaders } from "./response-formatter.js";`,
+      "response-formatter.js": definer,
+    };
+    expect(findSecurityHeaderSource(Object.keys(files), (p) => files[p])).toBe(
+      "response-formatter.js"
+    );
+  });
+
+  it("finds it when the definition is exported inline", () => {
+    const files = {
+      "headers.js": `export function buildSecurityHeaders() { return {}; }`,
+    };
+    expect(findSecurityHeaderSource(Object.keys(files), (p) => files[p])).toBe("headers.js");
+  });
+
+  it("returns null when nothing defines it — the caller must fail loud, not pass", () => {
+    const files = {
+      "a.js": `const x = 1;`,
+      "b.js": `// buildSecurityHeaders is mentioned here`,
+    };
+    expect(findSecurityHeaderSource(Object.keys(files), (p) => files[p])).toBe(null);
+  });
+
+  it("skips unreadable files rather than aborting the scan", () => {
+    const read = (p) => {
+      if (p === "broken.js") throw new Error("EACCES");
+      return definer;
+    };
+    expect(findSecurityHeaderSource(["broken.js", "ok.js"], read)).toBe("ok.js");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyEdgeRouterContent against the real header-defining module
+// ---------------------------------------------------------------------------
+
+describe("classifyEdgeRouterContent — real response-formatter content", () => {
+  const realHeaders = `
+    function buildSecurityHeaders(nonce, kvPolicy) {
+      return {
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "X-XSS-Protection": "0",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "Content-Security-Policy": buildCspDirectives(nonce, { kvPolicy }),
+      };
+    }`;
+
+  it("reports no missing headers", () => {
+    const { missingHeaders, findings } = classifyEdgeRouterContent(realHeaders);
+    expect(missingHeaders).toEqual([]);
+    expect(findings.filter((f) => f.issue.startsWith("Missing security headers"))).toEqual([]);
+  });
+
+  it("does not flag X-XSS-Protection: 0 — 0 is the recommended value", () => {
+    const { findings } = classifyEdgeRouterContent(realHeaders);
+    expect(findings.filter((f) => f.issue.includes("X-XSS-Protection"))).toEqual([]);
+  });
+
+  it("still reports genuinely missing headers", () => {
+    const { missingHeaders } = classifyEdgeRouterContent(`{ "X-Frame-Options": "DENY" }`);
+    expect(missingHeaders).toContain("Strict-Transport-Security");
+    expect(missingHeaders).toContain("Content-Security-Policy");
   });
 });
