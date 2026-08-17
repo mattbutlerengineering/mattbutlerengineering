@@ -36,33 +36,93 @@ function appHtmlEntries() {
 const NON_HANDLER_ON_ATTRIBUTES = new Set(["once", "only", "onward"]);
 
 /**
- * Opening tags in an HTML string, with quoted attribute values respected.
+ * Opening tags in an HTML string, scanned rather than pattern-matched.
  *
- * A naive `<[a-zA-Z][^>]*>` terminates the tag at the first `>` — including one
- * inside an attribute value — so `<div title="a>b" onclick="boom()">` scans as
- * a tag ending at `a>` and the real `onclick` is never seen. That is a silent
- * false negative in a guard whose entire job is to make this class un-missable,
- * so the value-aware form is load-bearing, not tidiness.
+ * This was three separate regexes and each one had a hole. `<[a-zA-Z][^>]*>`
+ * ended a tag at the first `>`, including one inside an attribute value, so
+ * `<div title="a>b" onclick="boom()">` was missed. Stripping script bodies with
+ * `[\s\S]*?<\/script>` did not match `</script >`, leaving the body unscrubbed
+ * (CodeQL js/bad-tag-filter). Stripping comments with a single `.replace()` can
+ * leave a `<!--` behind (CodeQL js/incomplete-multi-character-sanitization).
+ *
+ * Every one of those is a *silent false negative* in a guard whose whole job is
+ * to make a class of defect un-missable. A character scan has no such corners:
+ * quotes are tracked explicitly, comments are skipped by index, and raw-text
+ * element bodies are skipped by locating the real end tag with optional
+ * whitespace. Regexes are not used for structure here on purpose.
  */
 function openingTags(html) {
-  return html.match(/<[a-zA-Z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g) ?? [];
+  const lower = html.toLowerCase();
+  const tags = [];
+  let i = 0;
+
+  while (i < html.length) {
+    const lt = html.indexOf("<", i);
+    if (lt === -1) break;
+
+    if (lower.startsWith("<!--", lt)) {
+      const close = html.indexOf("-->", lt + 4);
+      i = close === -1 ? html.length : close + 3;
+      continue;
+    }
+
+    // Walk to the tag's real end, treating `>` inside a quoted value as data.
+    let j = lt + 1;
+    let quote = null;
+    while (j < html.length) {
+      const ch = html[j];
+      if (quote !== null) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === ">") {
+        break;
+      }
+      j += 1;
+    }
+    if (j >= html.length) break;
+
+    const tag = html.slice(lt, j + 1);
+    i = j + 1;
+
+    const name = /^<([a-zA-Z][a-zA-Z0-9-]*)/.exec(tag)?.[1]?.toLowerCase();
+    if (name === undefined) continue; // doctype, closing tag, stray `<`
+    tags.push(tag);
+
+    // Raw-text elements: their body is text, not markup. Skip to the real end
+    // tag, which may carry whitespace before `>` (`</script >` is valid).
+    if (name === "script" || name === "style") {
+      let from = i;
+      for (;;) {
+        const close = lower.indexOf(`</${name}`, from);
+        if (close === -1) {
+          i = html.length;
+          break;
+        }
+        let after = close + name.length + 2;
+        while (after < html.length && /\s/.test(html[after])) after += 1;
+        if (html[after] === ">") {
+          i = after + 1;
+          break;
+        }
+        from = close + 1;
+      }
+    }
+  }
+
+  return tags;
 }
 
 /**
  * Inline event-handler attributes (`onload=`, `onclick=`, …) in an HTML string.
  *
- * Script bodies and comments are blanked first: `link.addEventListener("load",
- * …)` inside a nonce'd <script> is the *fix* for this defect, not an instance
- * of it, and a prose mention of `onload=` in a comment explaining the fix must
- * not trip the guard either.
+ * Comments and raw-text bodies are already excluded by openingTags: a nonce'd
+ * `link.addEventListener("load", …)` is the *fix* for this defect, not an
+ * instance of it, and a comment explaining the fix must not trip the guard.
  */
 function findInlineHandlers(html) {
-  const scrubbed = html
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, "$1$2");
-
   const found = [];
-  for (const tag of openingTags(scrubbed)) {
+  for (const tag of openingTags(html)) {
     for (const match of tag.matchAll(/\s(on[a-z]+)\s*=/gi)) {
       if (NON_HANDLER_ON_ATTRIBUTES.has(match[1].toLowerCase())) continue;
       found.push({ attribute: match[1], tag: tag.replace(/\s+/g, " ").slice(0, 120) });
@@ -93,6 +153,21 @@ describe("findInlineHandlers", () => {
   it("ignores script bodies and comments", () => {
     expect(findInlineHandlers(`<script>el.addEventListener("load", f)</script>`)).toEqual([]);
     expect(findInlineHandlers(`<!-- never use onload="x" -->`)).toEqual([]);
+  });
+
+  it("skips a script body closed by `</script >` with whitespace", () => {
+    // Regression, CodeQL js/bad-tag-filter: the old `<\/script>` pattern did not
+    // match `</script >`, so the body stayed unscrubbed and its contents were
+    // parsed as markup. Measured effect was a false positive — both of these
+    // returned ["onload"] for an attribute that only exists inside a JS string.
+    expect(findInlineHandlers(`<script>w('<b onload="x">')</script >`)).toEqual([]);
+    expect(findInlineHandlers(`<style>a{b:'<i onload="x">'}</style >`)).toEqual([]);
+  });
+
+  it("still flags a handler that follows a skipped script or comment", () => {
+    // The skip must resume scanning, not swallow the rest of the document.
+    expect(findInlineHandlers(`<script>f()</script ><div onclick="x"></div>`)).toHaveLength(1);
+    expect(findInlineHandlers(`<!-- <!-- --><div onclick="x"></div>`)).toHaveLength(1);
   });
 });
 
