@@ -34,7 +34,11 @@ For the last 7 days, verify each scheduled job actually RAN and actually PRODUCE
 
 ## Pass 2 — human-blocked backlog aging
 
-Human decisions are the factory's real throughput ceiling. List open issues labeled `ready-for-human`, `needs-review`, `blocked`, `agent-failed`, or `stealable`, sorted by `updatedAt` ascending. Anything untouched for more than 7 days is a flow blocker.
+Human decisions are the factory's real throughput ceiling. List open issues labeled `ready-for-human`, `needs-review`, `blocked`, `agent-failed`, or `stealable`. Anything untouched for more than 7 days is a flow blocker.
+
+**Rank by `metrics/stale-human-blocked.jsonl` when it exists, not by `updatedAt`.** `stale-human-blocked.yml` runs Sunday 15:23 UTC, ahead of this retro, and records one row per qualifying issue — `{issue, last_human_touch_at, days_stale, detected_at, labeled}` — *before* it applies any label. Sort by `last_human_touch_at` ascending and read `days_stale` from the row. Recompute the age from `last_human_touch_at` rather than trusting a `days_stale` written days earlier.
+
+`updatedAt` is the fallback for issues with no row (and for the whole pass if the file is absent), but it is the weaker signal: applying a label is a write and bumps `updatedAt`, so the detector's own labeling makes the issues it just flagged look touched-today and sort last — which is exactly what happened on its first run, 2026-08-16, to #3253 (37 days stale), #3597 and #3657 (#4274). `last_human_touch_at` ignores label-only activity by construction, so a run of the detector cannot move it.
 
 As of 2026-07-31 these were already stale ~20 days: #3253 (TypeScript 7 migration, blocked), #3277 (Pulumi ignoreChanges, ready-for-human), #3388 (Turborepo remote caching — needs TURBO_TOKEN), #3389 (native merge queue vs custom train decision). Re-check their current state; do not assume this list is still accurate.
 
