@@ -148,3 +148,120 @@ describe("reconcileTelemetry — purity", () => {
     expect(rows[0]).not.toBe(input[0]);
   });
 });
+
+// ── human_touch_reason on the finalization pass (#4239) ───
+
+describe("reconcileTelemetry — human_touch_reason", () => {
+  // `worktree-agent-` is one of pr-outcomes.js's AGENT_BRANCH_PREFIXES —
+  // matching the fixtures in backfill-human-touch-reasons.test.mjs.
+  const AGENT_PR = { headRefName: "worktree-agent-abc", labels: ["ready"] };
+
+  function mergedPr(commitCount) {
+    return { state: "MERGED", mergedAt: "2026-07-21T09:00:00.000Z", commitCount };
+  }
+
+  it("classifies a newly-merged row that has a genuine human commit", () => {
+    const fetchPr = vi.fn().mockReturnValue(mergedPr(3));
+    const fetchPrDetails = vi.fn().mockReturnValue({
+      pr: AGENT_PR,
+      humanCommit: {
+        message: "fix: resolve merge conflicts in the router",
+        ciConclusion: "success",
+        reviewCommentsBefore: 0,
+      },
+    });
+
+    const { rows } = reconcileTelemetry([makeRow()], { fetchPr, fetchPrDetails, now: NOW });
+
+    expect(fetchPrDetails).toHaveBeenCalledWith(101);
+    expect(rows[0].human_touch_reason).toBe("merge-conflict");
+    expect(rows[0]).toMatchObject({ merged: true, rework_cycles: 2 });
+  });
+
+  it("does not classify when rework_cycles is 0", () => {
+    const fetchPr = vi.fn().mockReturnValue(mergedPr(1));
+    const fetchPrDetails = vi.fn();
+
+    const { rows } = reconcileTelemetry([makeRow()], { fetchPr, fetchPrDetails, now: NOW });
+
+    expect(fetchPrDetails).not.toHaveBeenCalled();
+    expect(rows[0]).not.toHaveProperty("human_touch_reason");
+    expect(rows[0].ci_first_pass).toBe(true);
+  });
+
+  it("writes no field when no human commit is discriminable", () => {
+    // backfill-human-touch-reasons.mjs's documented "unmatchable" case:
+    // every commit shares the PR author, or all the rest are mechanical.
+    const fetchPr = vi.fn().mockReturnValue(mergedPr(4));
+    const fetchPrDetails = vi.fn().mockReturnValue({ pr: AGENT_PR, humanCommit: null });
+
+    const { rows, reconciled } = reconcileTelemetry([makeRow()], {
+      fetchPr,
+      fetchPrDetails,
+      now: NOW,
+    });
+
+    expect(reconciled).toBe(1);
+    expect(rows[0]).not.toHaveProperty("human_touch_reason");
+    expect(rows[0].merged).toBe(true);
+  });
+
+  it("writes no field for a non-agent PR", () => {
+    const fetchPr = vi.fn().mockReturnValue(mergedPr(3));
+    const fetchPrDetails = vi.fn().mockReturnValue({
+      pr: { headRefName: "matt/hand-written", labels: [] },
+      humanCommit: { message: "fix: typo", ciConclusion: null, reviewCommentsBefore: 0 },
+    });
+
+    const { rows } = reconcileTelemetry([makeRow()], { fetchPr, fetchPrDetails, now: NOW });
+
+    expect(rows[0]).not.toHaveProperty("human_touch_reason");
+  });
+
+  it("leaves the row reconciled when the details fetch throws", () => {
+    // A failed classification must never cost the row its outcome fields —
+    // merged/rework_cycles are what the queueEfficiency sensor consumes.
+    const fetchPr = vi.fn().mockReturnValue(mergedPr(3));
+    const fetchPrDetails = vi.fn().mockImplementation(() => {
+      throw new Error("gh exploded");
+    });
+
+    const { rows, reconciled } = reconcileTelemetry([makeRow()], {
+      fetchPr,
+      fetchPrDetails,
+      now: NOW,
+    });
+
+    expect(reconciled).toBe(1);
+    expect(rows[0].merged).toBe(true);
+    expect(rows[0]).not.toHaveProperty("human_touch_reason");
+  });
+
+  it("is idempotent: an already-merged row is never re-fetched or overwritten", () => {
+    const fetchPr = vi.fn();
+    const fetchPrDetails = vi.fn();
+    const already = makeRow({
+      merged: true,
+      merged_at: "2026-07-21T09:00:00.000Z",
+      rework_cycles: 2,
+      ci_first_pass: false,
+      human_touch_reason: "scope-change",
+    });
+
+    const { rows } = reconcileTelemetry([already], { fetchPr, fetchPrDetails, now: NOW });
+
+    expect(fetchPr).not.toHaveBeenCalled();
+    expect(fetchPrDetails).not.toHaveBeenCalled();
+    expect(rows[0].human_touch_reason).toBe("scope-change");
+  });
+
+  it("classifies nothing when no fetchPrDetails is injected", () => {
+    // Callers that only want outcome reconciliation keep today's behavior.
+    const fetchPr = vi.fn().mockReturnValue(mergedPr(3));
+
+    const { rows } = reconcileTelemetry([makeRow()], { fetchPr, now: NOW });
+
+    expect(rows[0]).not.toHaveProperty("human_touch_reason");
+    expect(rows[0].rework_cycles).toBe(2);
+  });
+});
