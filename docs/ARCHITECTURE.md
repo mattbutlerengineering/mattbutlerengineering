@@ -145,22 +145,45 @@ flowchart TB
 ```
 mattbutlerengineering/
 ├── apps/
-│   ├── web/              # Public website
-│   ├── hospitality/      # Hospitality app
-│   └── rialto-web/       # Design system showcase
+│   ├── gen/                    # Generative-UI renderer (JSON → Rialto components)
+│   ├── hospitality/            # Restaurant management SPA (port 3002, /hospitality)
+│   ├── marketing/              # Public site, mattbutlerengineering.com (port 3000)
+│   └── rialto-web/            # Design system showcase (/rialto/)
 ├── services/
-│   ├── users/            # Users API (Fastify)
-│   └── agent/            # Agent session API (Fastify)
+│   ├── agent/                  # AI agent session API (Fastify, port 3003)
+│   ├── reservations/           # Reservations + table management API (Fastify, port 3004)
+│   └── users/                  # Users API (Fastify, port 3001)
 ├── packages/
-│   ├── agent-core/       # Agentic workflow engine
-│   ├── rialto/           # Design system (React components)
-│   ├── types/            # Shared TypeScript types
-│   ├── auth/             # Auth utilities (React + Fastify)
-│   └── config/           # Shared ESLint/TypeScript config
+│   ├── agent-core/             # Autonomous coding-agent runtime (worktrees, SDK sessions)
+│   ├── agent-test-utils/       # Deterministic mocks/simulators for agent-core
+│   ├── api-client/             # Typed fetch wrapper (auth, retry, problem-details)
+│   ├── auth/                   # OIDC/JWT helpers for React + Fastify
+│   ├── cancellation-policy/    # Pure cancellation-fee decision engine
+│   ├── config/                 # Shared ESLint / TypeScript / Prettier presets
+│   ├── database/               # Prisma connection-pool wrapper
+│   ├── gh-client/              # Typed GitHub wrapper (exec timeouts, REST fallback)
+│   ├── jobs/                   # BullMQ background jobs over Redis
+│   ├── mcp-server/             # Infrastructure MCP server (stdio transport)
+│   ├── notifications/          # Email (Resend) + SMS (Twilio) delivery
+│   ├── observability/          # OpenTelemetry tracing/metrics wrapper
+│   ├── rialto/                 # Design system (React components)
+│   ├── rialto-catalog/         # Component catalog generator
+│   ├── rialto-plugin/          # Claude Code plugin for Rialto
+│   ├── sentry/                 # Sentry wiring for Node services + React apps
+│   ├── service-bootstrap/      # createServiceApp — configured Fastify instance
+│   ├── supply-chain-scanner/   # Static scan of third-party skills/MCP packages
+│   ├── test-fixtures/          # Shared mock-data factories
+│   └── types/                  # Shared TypeScript types + Zod schemas
+├── plugins/
+│   └── acmm/                   # AI Codebase Maturity Model audit plugin
 ├── tools/
-│   └── cli/              # CLI tool (mbe)
+│   └── cli/                    # CLI tool (mbe)
 └── infrastructure/
-    └── pulumi/           # IaC definitions
+    ├── docker/                 # Service images
+    ├── migrate/                # Prisma migrate runner image
+    ├── pulumi/                 # IaC definitions
+    ├── traefik/                # Local reverse proxy
+    └── worker/                 # Cloudflare edge worker (routing, CSP, rate limiting)
 ```
 
 ## Data Flow

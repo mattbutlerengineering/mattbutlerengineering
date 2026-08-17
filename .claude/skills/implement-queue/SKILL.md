@@ -241,7 +241,8 @@ For each PR opened by a worker (can overlap with remaining workers completing):
    model: `haiku` (or `sonnet` for security-sensitive changes), budget: `$0.05`.
 
    The Reviewer's prompt MUST include:
-   - The full [Reviewer Contract](./.claude/skills/implement-queue/REVIEWER_CONTRACT.md)
+
+   - The full [Reviewer Contract](./REVIEWER_CONTRACT.md)
    - The serialised `ReviewInput` (diff, verification output, task description,
      acceptance criteria, changed files, commit message)
 
@@ -276,7 +277,7 @@ For each PR opened by a worker (can overlap with remaining workers completing):
 
    GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3). Do **not** re-check `tier:*` here; see [No tier hold](#no-tier-hold).
 
-6. **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](./.claude/skills/implement-queue/REVIEWER_CONTRACT.md) for the full policy.
+6. **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](./REVIEWER_CONTRACT.md) for the full policy.
 
    **Manual verification path (after `needs-review`):** the Reviewer's full output is in the PR comment. A human (or a new agent session pointed at the issue) reads the flagged issues, fixes the code, pushes to the branch, and manually enqueues with `gh pr merge <N> --auto --squash --delete-branch` once satisfied.
 
@@ -321,7 +322,9 @@ const zone = zoneForPaths(changedFiles); // string (per-zone) or null (global)
 const result = acquireMergeTrainLock({ zone }); // { acquired: true } or { acquired: false, owner: <pid> }
 if (!result.acquired) {
   console.log(
-    `merge-train lock for zone ${zone ?? "<global>"} held by PID ${result.owner} — SKIP this PR's zone this iteration.`
+    `merge-train lock for zone ${zone ?? "<global>"} held by PID ${
+      result.owner
+    } — SKIP this PR's zone this iteration.`
   );
   // Do NOT update-branch a PR whose zone lock is held. Drop to monitor-only for that zone and move on.
 }
