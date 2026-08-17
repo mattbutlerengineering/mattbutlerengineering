@@ -162,7 +162,7 @@ CHANGED_FILES=$(gh pr diff <PR_NUMBER> --name-only)
 PR_TITLE=$(gh pr view <PR_NUMBER> --json title --jq .title)
 ```
 
-Dispatch the Reviewer (per the [Reviewer Contract](.claude/skills/implement-queue/REVIEWER_CONTRACT.md)):
+Dispatch the Reviewer (per the [Reviewer Contract](../implement-queue/REVIEWER_CONTRACT.md)):
 
 - `subagent_type: "reviewer"`, `isolation: "none"`, model: `haiku`, budget: `$0.05`
 - Include: the full Reviewer Contract, the diff, changed files, task description (`"Fix CI failure: <type> on main"`)

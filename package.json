@@ -26,6 +26,7 @@
     "check:issue-filing-seam": "node scripts/check-issue-filing-seam.mjs",
     "check:orphaned-tests": "node scripts/check-orphaned-tests.mjs",
     "check:orphaned-collectors": "node scripts/check-orphaned-collectors.mjs",
+    "check:markdown": "node scripts/audit-markdown.mjs",
     "graph": "node scripts/generate-dep-graph.js",
     "generate:dep-graph": "node scripts/generate-dep-graph.mjs",
     "check:schema-compat": "node scripts/check-schema-compat.js",

@@ -19,7 +19,7 @@ You'll need:
 
 ## Where to start contributing
 
-- **`packages/rialto/`** — the React design system. Component additions, accessibility fixes, and showcase improvements are the most welcoming entry point. See [`packages/rialto/CONTRIBUTING.md`](./packages/rialto/CONTRIBUTING.md) if it exists, otherwise [`packages/rialto/CLAUDE.md`](./packages/rialto/CLAUDE.md) has the design-system invariants.
+- **`packages/rialto/`** — the React design system. Component additions, accessibility fixes, and showcase improvements are the most welcoming entry point. [`packages/rialto/CLAUDE.md`](./packages/rialto/CLAUDE.md) has the design-system invariants.
 - **`apps/marketing/`** — the public site at mattbutlerengineering.com. Copy/SEO/perf improvements welcome.
 - **`docs/adr/`** — Architecture Decision Records. New ADRs go through the same PR review as code.
 - **Issues labeled `good-first-issue`** — explicitly scoped for first-time contributors.
@@ -32,6 +32,7 @@ Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in
 1. Fork the repo, create a feature branch off `main`. Branch naming: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
 
 2. Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. This is a convention, not a gate — there is no `commitlint` in this repo, and no hook rejects a malformed message. Examples:
+
    - `feat(rialto): add SplitFlap stagger direction prop`
    - `fix(reservations): null-check booking.guest before render`
    - `docs(adr): add ADR-013 for caching strategy`
@@ -99,7 +100,7 @@ This repo is run partly by AI coding agents — the `implement-queue`, `issue-wo
 
 If you're contributing _with_ AI tooling, the policy floor agents must obey is at [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md). Reading it is recommended before letting any AI tool make changes here — those rules apply to your AI tools too, even though we have no way of enforcing them on your machine.
 
-The maturity model the repo tracks itself against (canonical 6-level ACMM, currently at L6) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`.claude/skills/acmm-audit/SKILL.md`](./.claude/skills/acmm-audit/SKILL.md) for context.
+The maturity model the repo tracks itself against (canonical 6-level ACMM, currently at L6) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`plugins/acmm/skills/acmm-audit/SKILL.md`](./plugins/acmm/skills/acmm-audit/SKILL.md) for context.
 
 ## Things to avoid
 
