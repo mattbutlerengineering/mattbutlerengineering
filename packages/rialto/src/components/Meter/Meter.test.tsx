@@ -167,6 +167,46 @@ describe("Meter", () => {
     });
   });
 
+  describe("indeterminate / no data (#4332)", () => {
+    it("does not claim a definite value when it has no data", () => {
+      render(<Meter value={null} label="Fuel" />);
+      expect(screen.queryByRole("meter")).not.toBeInTheDocument();
+      expect(screen.getByRole("progressbar")).not.toHaveAttribute("aria-valuenow");
+    });
+
+    it("keeps an accessible name in the indeterminate case", () => {
+      render(<Meter value={null} label="Fuel" />);
+      expect(screen.getByRole("progressbar", { name: "Fuel" })).toBeInTheDocument();
+    });
+
+    it("shows a no-data placeholder instead of 0% when showValue is set", () => {
+      render(<Meter value={null} label="Fuel" showValue />);
+      expect(screen.queryByText("0%")).not.toBeInTheDocument();
+      expect(screen.getByText("\u2013\u2013")).toBeInTheDocument();
+    });
+
+    it("renders an empty fill rather than a zero-length definite fill", () => {
+      const { container } = render(<Meter value={null} label="Fuel" />);
+      expect(container.querySelector("[class*='indeterminate']")).toBeInTheDocument();
+    });
+
+    it("has no a11y violations when indeterminate", async () => {
+      const { container } = render(<Meter value={null} label="Fuel" showValue />);
+      const results = await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      });
+      expect(results.violations).toHaveLength(0);
+    });
+
+    it("leaves the determinate path untouched", () => {
+      render(<Meter value={0} label="Fuel" showValue />);
+      const meter = screen.getByRole("meter");
+      expect(meter).toHaveAttribute("aria-valuenow", "0");
+      expect(screen.getByText("0%")).toBeInTheDocument();
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    });
+  });
+
   it("does not emit 'undefined' in wrapper or track className", () => {
     const { container } = render(<Meter value={50} />);
     const allClasses = Array.from(container.querySelectorAll("[class]"))
