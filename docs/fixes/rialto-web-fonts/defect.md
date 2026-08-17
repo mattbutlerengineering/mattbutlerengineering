@@ -125,14 +125,14 @@ nothing made the incomplete rollout visible.
 
 ## Work items
 
-- [ ] **Port the nonce'd-script pattern to rialto-web** — replace the inline
+- [x] **Port the nonce'd-script pattern to rialto-web** — replace the inline
       `onload` attribute in `apps/rialto-web/index.html` with the
       `data-font-stylesheet` marker plus the `<script>` block from
       `apps/marketing/index.html`, keeping the `<noscript>` fallback and the
       `preconnect` hints as they are.
   - Accept: the served `apps/rialto-web` document contains no `on*=` attribute,
     and the font promotion is driven by a `<script>` tag the edge can nonce.
-- [ ] **Add a static guard over every app's HTML entry** — a test that reads the
+- [x] **Add a static guard over every app's HTML entry** — a test that reads the
       real `apps/*/index.html` files and fails if any carries an inline
       event-handler attribute, so a fourth app cannot repeat this and neither
       fixed app can regress. Home: `scripts/__tests__/`, matching the existing
@@ -152,6 +152,17 @@ nothing made the incomplete rollout visible.
 
 ## Notes
 
+- **Deviation, 2026-08-17 (Implement):** work items 1 and 2 landed as a single
+  RED→GREEN cycle rather than two commits. The guard test _is_ the regression
+  test for the port, so splitting them would have meant committing a knowingly
+  red test at the item-1 boundary. RED (`1 failed | 4 passed`, failing on
+  rialto-web's `onload`) and GREEN (`5 passed`) are both recorded in
+  `verification.md`.
+- **Deviation, 2026-08-17 (Implement):** work item 3 cannot complete in
+  Implement — it asserts against the _deployed_ surface, which does not exist
+  until Ship. It executes as Ship's post-release step and is checked off there.
+  Capture placed it in this list; that was a sequencing error in the brief, not
+  a change of scope.
 - **Scope decision (2026-08-17):** fix plus static guard. The live-surface check
   — asserting `document.fonts.size > 0` against the deployed page — was
   considered and deliberately deferred to its own run. It catches a strictly
