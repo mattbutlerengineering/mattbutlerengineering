@@ -613,6 +613,52 @@ describe("sensors-registry", () => {
   });
 
   describe("buildFlakyTestRuns", () => {
+    // A missing/invalid credential is not a per-run hiccup: it fails EVERY run
+    // identically, so degrading it to zero rows makes the sensor report the
+    // "no per-test history — enable the JUnit reporter" data_gap, advice that
+    // is actively wrong once the reporter is enabled. Same distinguishable-
+    // failure requirement as #3937. (#4237)
+    it("propagates a credential failure instead of degrading it to zero rows", () => {
+      const ghRuns = [{ status: "completed", databaseId: 42, headSha: "abc123" }];
+      const listRunArtifacts = vi.fn(() => {
+        const err = new Error(
+          "gh-client: no `gh` binary on PATH and no GITHUB_TOKEN/GH_TOKEN in the environment."
+        );
+        err.name = "MissingGithubTokenError";
+        throw err;
+      });
+
+      expect(() => buildFlakyTestRuns(ghRuns, { listRunArtifacts })).toThrow(
+        /GITHUB_TOKEN|credential/i
+      );
+    });
+
+    it("still degrades a per-run IO failure to zero rows for that run only", () => {
+      const ghRuns = [
+        { status: "completed", databaseId: 1, headSha: "sha1" },
+        { status: "completed", databaseId: 2, headSha: "sha2" },
+      ];
+      const listRunArtifacts = vi.fn((id) => {
+        if (id === 1) throw new Error("artifact expired");
+        return [{ id: 9, name: "test-results-node22", expired: false }];
+      });
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi
+        .fn()
+        .mockReturnValue([{ name: "r.xml", data: Buffer.from("<x/>") }]);
+      const parseJUnitXml = vi.fn().mockReturnValue([{ testName: "t", passed: true }]);
+
+      const rows = buildFlakyTestRuns(ghRuns, {
+        listRunArtifacts,
+        downloadArtifactZip,
+        extractZipEntries,
+        parseJUnitXml,
+      });
+
+      // Run 1 contributed nothing; run 2 is unaffected.
+      expect(rows).toEqual([{ sha: "sha2", testName: "t", passed: true }]);
+    });
+
     it("skips runs that aren't completed, or are missing databaseId/headSha", () => {
       const ghRuns = [
         { status: "in_progress", databaseId: 1, headSha: "a" },
