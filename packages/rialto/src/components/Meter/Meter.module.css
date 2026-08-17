@@ -38,6 +38,12 @@
   height: 4px;
 }
 
+/* No data: an unfilled, dimmed track. Visually distinct from a determinate
+   zero, which renders an empty fill at full track opacity. */
+.indeterminate {
+  opacity: 0.45;
+}
+
 /* ── Fill ───────────────────────────────────── */
 
 .fill {

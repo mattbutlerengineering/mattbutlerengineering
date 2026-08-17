@@ -145,6 +145,70 @@ describe("SegmentedControl", () => {
     });
   });
 
+  describe("accessible name (#4331)", () => {
+    it("routes a caller's aria-label to the radiogroup, not the wrapper", () => {
+      render(
+        <SegmentedControl
+          segments={segments}
+          value="day"
+          onChange={vi.fn()}
+          aria-label="View mode"
+        />
+      );
+      expect(screen.getByRole("radiogroup", { name: "View mode" })).toBeInTheDocument();
+    });
+
+    it("routes a caller's aria-labelledby to the radiogroup", () => {
+      render(
+        <>
+          <span id="sc-label">Calendar range</span>
+          <SegmentedControl
+            segments={segments}
+            value="day"
+            onChange={vi.fn()}
+            aria-labelledby="sc-label"
+          />
+        </>
+      );
+      expect(screen.getByRole("radiogroup", { name: "Calendar range" })).toBeInTheDocument();
+    });
+
+    it("leaves the wrapper unlabelled so the name is not announced twice", () => {
+      const { container } = render(
+        <SegmentedControl
+          segments={segments}
+          value="day"
+          onChange={vi.fn()}
+          aria-label="View mode"
+        />
+      );
+      expect(container.firstElementChild).not.toHaveAttribute("aria-label");
+    });
+
+    it("still lands non-label props on the wrapper", () => {
+      const { container } = render(
+        <SegmentedControl
+          segments={segments}
+          value="day"
+          onChange={vi.fn()}
+          id="range-picker"
+          data-testid="range"
+          aria-label="View mode"
+        />
+      );
+      const wrapper = container.firstElementChild;
+      expect(wrapper).toHaveAttribute("id", "range-picker");
+      expect(wrapper).toHaveAttribute("data-testid", "range");
+    });
+
+    it("adds no aria-label attributes when the caller passes none", () => {
+      render(<SegmentedControl segments={segments} value="day" onChange={vi.fn()} />);
+      const group = screen.getByRole("radiogroup");
+      expect(group).not.toHaveAttribute("aria-label");
+      expect(group).not.toHaveAttribute("aria-labelledby");
+    });
+  });
+
   it("does not emit 'undefined' in container className", () => {
     const { container } = render(
       <SegmentedControl segments={segments} value="day" onChange={() => {}} />
