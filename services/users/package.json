@@ -36,7 +36,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@prisma/client-runtime-utils": "^7.9.1",
-    "@scalar/fastify-api-reference": "^1.64.1",
+    "@scalar/fastify-api-reference": "^1.65.1",
     "fastify": "catalog:",
     "jose": "^6.2.5",
     "pg": "^8.23.0",
@@ -52,7 +52,7 @@
     "@types/pg": "^8.21.0",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.9.1",
-    "tsx": "^4.23.11",
+    "tsx": "^4.23.12",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

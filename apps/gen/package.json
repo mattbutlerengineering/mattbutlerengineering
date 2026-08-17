@@ -41,7 +41,7 @@
     "@mbe/sentry": "workspace:*"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
+    "@axe-core/playwright": "^4.13.0",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.62.1",
     "@sentry/vite-plugin": "^5.4.0",
