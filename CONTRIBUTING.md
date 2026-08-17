@@ -31,7 +31,7 @@ Issues labeled `ready` are queued for AI-agent pickup (see [How AI agents fit in
 
 1. Fork the repo, create a feature branch off `main`. Branch naming: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
 
-2. Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. Pre-commit hook enforces this style implicitly via `commitlint`. Examples:
+2. Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages. This is a convention, not a gate — there is no `commitlint` in this repo, and no hook rejects a malformed message. Examples:
    - `feat(rialto): add SplitFlap stagger direction prop`
    - `fix(reservations): null-check booking.guest before render`
    - `docs(adr): add ADR-013 for caching strategy`
@@ -78,12 +78,12 @@ The [`ci.yml`](./.github/workflows/ci.yml) `Test` job enforces a **60% aggregate
 
 ### Troubleshooting pre-commit hooks
 
-| Symptom                                   | Fix                                                                                                           |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `commitlint` rejects your message         | Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format: `type(scope): description` |
-| `eslint --fix` changes files after commit | Stage the auto-fixed files and commit again                                                                   |
-| `pack-changed` adds `llms.txt` diffs      | Expected — stage them with your commit                                                                        |
-| `check-adr` fails                         | Your change touches a path governed by an active ADR — read the ADR and comply or propose an amendment        |
+| Symptom                                   | Fix                                                                                                                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit message doesn't match convention   | Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format: `type(scope): description` — nothing enforces it mechanically, so this is caught in review |
+| `eslint --fix` changes files after commit | Stage the auto-fixed files and commit again                                                                                                                                   |
+| `pack-changed` adds `llms.txt` diffs      | Expected — stage them with your commit                                                                                                                                        |
+| `check-adr` fails                         | Your change touches a path governed by an active ADR — read the ADR and comply or propose an amendment                                                                        |
 
 ## Architecture decisions
 

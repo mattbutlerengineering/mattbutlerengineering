@@ -110,6 +110,7 @@ Project-specific traps that have bitten me before. Read these before diving into
 ## Releases (changesets / rialto)
 
 - **Changesets require `GITHUB_TOKEN`**: run `GITHUB_TOKEN=$(gh auth token) pnpm version-packages` — without it, `@changesets/get-github-info` errors asking for a PAT
+- **Push before you version.** `@changesets/get-github-info` resolves each referenced commit through the GitHub API, so a commit that exists only locally comes back 404 and aborts the version bump mid-flight. Order is always `git push origin main` → `pnpm version-packages`, never the reverse (captured 2026-04-23 in `.claude/memory/corrections/`, promoted here 2026-08-16)
 - **Changesets post-version prettier step errors with `Cannot find package '@mbe/config'`** — version bump + `.changeset/*.md` consumption succeed, but `packages/rialto/CHANGELOG.md` write is **silently skipped**. Manually prepend the new version block to `CHANGELOG.md` before committing the release
 - **`pnpm release` regenerates `packages/rialto/package.json` exports map** when a new component folder was added — run `git status` after release and commit the follow-up diff. Otherwise the subpath `import from "@mattbutlerengineering/rialto/<NewComponent>"` works for registry consumers but is missing from the repo
 - **Rialto library build fails when a component imports an un-externalized workspace package** — `vite.config.lib.ts` `rollupOptions.external` lists only `react`, `react-dom`, `react/jsx-runtime`, `framer-motion`, `lucide-react`. Any rialto component that imports a workspace sub-path (e.g. `@mbe/api-client/streaming` in `ChatPanel/useChatStream.ts`) fails the Release build with `Rolldown failed to resolve import "@mbe/…"`. Fix: add the workspace package or sub-path to `rollupOptions.external` in `vite.config.lib.ts` before merging the component.
@@ -125,6 +126,14 @@ Project-specific traps that have bitten me before. Read these before diving into
   - **Large MCP results land on disk, not in context.** A tool result over the harness's token cap is written to a file and the tool returns that path instead of the payload. That is the normal path for a repo-wide issue listing or a long job log — read the file with `jq` (filter server-side where the tool supports it, then `jq` the rest) rather than re-running the query hoping for a smaller result.
   - **Distinct from the `GITHUB_TOKEN` REST-401 class (#3689/#3937).** There, a `gh` binary (or `@mbe/gh-client`'s REST fallback) exists and authenticates, but the session's `GITHUB_TOKEN`/`GH_TOKEN` is scoped for git-over-HTTPS only and `api.github.com` answers `401 Bad credentials`. Here nothing runs at all. Symptom tells them apart: `ENOENT` = no binary; `401 Bad credentials` = binary ran, token is wrong for the API.
   - **Also distinct from the `pnpm exec mbe` gotcha** in [§ Build / pnpm / turbo](#build--pnpm--turbo). That one is about **our own** `@mbe/cli` bin never being symlinked into any `node_modules/.bin` (no workspace package depends on `@mbe/cli`), and it reproduces on a normal laptop — the fix is to invoke `node tools/cli/dist/index.js <cmd>`. This one is about a **third-party** binary being absent from a specific session type, and no invocation form recovers it. A session can hit both at once: `mbe` unresolvable _and_, once built and run directly, failing on the `gh` it shells out to.
+
+## Deploy / static sites
+
+- **Static sites must deploy as Cloudflare Workers with Service Bindings, never CF Pages — the CDN caches HTML and hands users a blank page after every deploy.** Cached HTML references JS bundle hashes that no longer exist once a new build lands, so a returning visitor gets a document whose scripts 404. This is not fixable with cache-busting headers: the fix is architectural, because Service Bindings make the call in-process and take the CDN out of the HTML path entirely. Treat it as a hard constraint for every static surface in this repo (captured 2026-03-27 in `.claude/memory/corrections/`, promoted here 2026-08-16).
+
+## Shell (zsh)
+
+- **Never use `status` as a shell variable name.** The Bash tool runs under zsh, where `$status` is read-only (zsh's spelling of `$?`). `status=$(curl ...)` aborts instantly with `(eval):N: read-only variable: status`, and the trap is invisible to bash habits because bash allows the assignment. Drop-in replacements: `run_state`, `http_code`, `phase`, `deploy_phase`, `result` (captured 2026-04-25 in `.claude/memory/corrections/`, promoted here 2026-08-16).
 
 ## Auth0 / E2E
 
