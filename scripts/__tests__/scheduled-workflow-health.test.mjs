@@ -119,6 +119,96 @@ describe("classifyScheduledWorkflowHealth", () => {
     expect(classifyScheduledWorkflowHealth({ runs, threshold }).status).not.toBe("failing-streak");
   });
 
+  // #4291: the classifier read run history with no reference to when the
+  // workflow was last changed, so a workflow that was broken, fixed, and not
+  // yet re-run was indistinguishable from a chronically broken one. On the
+  // detector's first live run that was 2 of 5 findings (#4287 chaos-agent,
+  // #4290 resource-audit — the latter by 1h39m).
+  describe("workflowModifiedAt (fix-vs-failure ordering)", () => {
+    const FAILURES_AUG_10 = [
+      { conclusion: "failure", url: "u1", createdAt: "2026-08-10T09:00:00Z" },
+      { conclusion: "failure", url: "u2", createdAt: "2026-08-03T09:00:00Z" },
+      { conclusion: "failure", url: "u3", createdAt: "2026-07-27T09:00:00Z" },
+    ];
+
+    it("reports awaiting-rerun when every failing run predates the workflow's last change", () => {
+      const result = classifyScheduledWorkflowHealth({
+        runs: FAILURES_AUG_10,
+        threshold: 3,
+        workflowModifiedAt: "2026-08-15T05:56:20Z",
+      });
+      expect(result.status).toBe("awaiting-rerun");
+    });
+
+    it("never reports failing-streak for an awaiting-rerun workflow", () => {
+      const result = classifyScheduledWorkflowHealth({
+        runs: FAILURES_AUG_10,
+        threshold: 3,
+        workflowModifiedAt: "2026-08-15T05:56:20Z",
+      });
+      expect(result.status).not.toBe("failing-streak");
+    });
+
+    it("still reports failing-streak when a failing run postdates the change (#4286/#4289 must survive)", () => {
+      const runs = [
+        { conclusion: "failure", url: "u1", createdAt: "2026-08-14T09:00:00Z" },
+        { conclusion: "failure", url: "u2", createdAt: "2026-08-07T09:00:00Z" },
+        { conclusion: "failure", url: "u3", createdAt: "2026-07-31T09:00:00Z" },
+      ];
+      const result = classifyScheduledWorkflowHealth({
+        runs,
+        threshold: 3,
+        workflowModifiedAt: "2026-08-03T00:00:00Z",
+      });
+      expect(result.status).toBe("failing-streak");
+      expect(result.streak).toBe(3);
+    });
+
+    // The exact #4290 margin: last failing run 1h39m BEFORE the fix landed.
+    it("does not flag a failing run 99 minutes before the modification timestamp", () => {
+      const runs = [
+        { conclusion: "failure", url: "u1", createdAt: "2026-08-15T04:17:27Z" },
+        { conclusion: "failure", url: "u2", createdAt: "2026-08-08T04:43:46Z" },
+        { conclusion: "failure", url: "u3", createdAt: "2026-08-01T06:18:22Z" },
+      ];
+      const result = classifyScheduledWorkflowHealth({
+        runs,
+        threshold: 3,
+        workflowModifiedAt: "2026-08-15T05:56:20Z",
+      });
+      expect(result.status).toBe("awaiting-rerun");
+    });
+
+    it("keeps current behavior when workflowModifiedAt is absent", () => {
+      expect(classifyScheduledWorkflowHealth({ runs: FAILURES_AUG_10, threshold: 3 }).status).toBe(
+        "failing-streak"
+      );
+    });
+
+    it("keeps current behavior when workflowModifiedAt is unparseable", () => {
+      const result = classifyScheduledWorkflowHealth({
+        runs: FAILURES_AUG_10,
+        threshold: 3,
+        workflowModifiedAt: "not-a-date",
+      });
+      expect(result.status).toBe("failing-streak");
+    });
+
+    it("keeps current behavior when runs carry no createdAt to compare", () => {
+      const runs = [
+        { conclusion: "failure", url: "u1" },
+        { conclusion: "failure", url: "u2" },
+        { conclusion: "failure", url: "u3" },
+      ];
+      const result = classifyScheduledWorkflowHealth({
+        runs,
+        threshold: 3,
+        workflowModifiedAt: "2026-08-15T05:56:20Z",
+      });
+      expect(result.status).toBe("failing-streak");
+    });
+  });
+
   it("falls back to DEFAULT_THRESHOLD when threshold is not a positive integer", () => {
     const runs = [
       { conclusion: "failure", url: "u1" },
@@ -334,5 +424,65 @@ describe("runScheduledWorkflowHealthCheck", () => {
 
     expect(createCalled).toBe(false);
     expect(results).toEqual([{ workflow: "new.yml", status: "insufficient-history" }]);
+  });
+});
+
+describe("runScheduledWorkflowHealthCheck — awaiting-rerun", () => {
+  const STALE_FAILURES = [
+    { conclusion: "failure", url: "u1", createdAt: "2026-08-10T09:00:00Z" },
+    { conclusion: "failure", url: "u2", createdAt: "2026-08-03T09:00:00Z" },
+    { conclusion: "failure", url: "u3", createdAt: "2026-07-27T09:00:00Z" },
+  ];
+  const WORKFLOW = { name: "chaos-agent.yml", path: ".github/workflows/chaos-agent.yml" };
+
+  it("files no issue for a workflow whose failures all predate its last change", () => {
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [WORKFLOW],
+      getRuns: () => STALE_FAILURES,
+      threshold: 3,
+      createIssue: (title) => {
+        created.push(title);
+        return 1;
+      },
+      getWorkflowModifiedAt: () => "2026-08-15T05:56:20Z",
+    });
+
+    expect(created).toEqual([]);
+    expect(results).toEqual([{ workflow: "chaos-agent.yml", status: "awaiting-rerun" }]);
+  });
+
+  it("logs the suppression rather than dropping it silently", () => {
+    const logs = [];
+    runScheduledWorkflowHealthCheck({
+      workflows: [WORKFLOW],
+      getRuns: () => STALE_FAILURES,
+      threshold: 3,
+      createIssue: () => 1,
+      getWorkflowModifiedAt: () => "2026-08-15T05:56:20Z",
+      log: (msg) => logs.push(msg),
+    });
+
+    expect(logs.some((m) => m.includes("awaiting a post-change run"))).toBe(true);
+  });
+
+  it("still files when a failing run postdates the change", () => {
+    const created = [];
+    runScheduledWorkflowHealthCheck({
+      workflows: [WORKFLOW],
+      getRuns: () => [
+        { conclusion: "failure", url: "u1", createdAt: "2026-08-20T09:00:00Z" },
+        { conclusion: "failure", url: "u2", createdAt: "2026-08-13T09:00:00Z" },
+        { conclusion: "failure", url: "u3", createdAt: "2026-08-06T09:00:00Z" },
+      ],
+      threshold: 3,
+      createIssue: (title) => {
+        created.push(title);
+        return 7;
+      },
+      getWorkflowModifiedAt: () => "2026-08-15T05:56:20Z",
+    });
+
+    expect(created).toHaveLength(1);
   });
 });

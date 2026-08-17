@@ -31,6 +31,7 @@
  *   node scripts/scheduled-workflow-health.mjs [--threshold <n>]
  */
 
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,15 +47,53 @@ export const DEFAULT_THRESHOLD = 3;
 const EXCLUDED_CONCLUSIONS = new Set(["cancelled", "skipped"]);
 
 /**
+ * True when the workflow file changed after every failing run in the window —
+ * i.e. the evidence predates the fix, so the streak says nothing about the
+ * workflow's current state.
+ *
+ * Returns false (keep the detection) whenever the comparison cannot be made:
+ * no timestamp, an unparseable one, or any run missing `createdAt`.
+ *
+ * @param {Array<{createdAt?: string}>} failingRuns
+ * @param {string|undefined} workflowModifiedAt
+ * @returns {boolean}
+ */
+export function allFailuresPrecede(failingRuns, workflowModifiedAt) {
+  const modifiedMs = Date.parse(workflowModifiedAt ?? "");
+  if (!Number.isFinite(modifiedMs)) return false;
+  if (failingRuns.length === 0) return false;
+
+  return failingRuns.every((run) => {
+    const runMs = Date.parse(run?.createdAt ?? "");
+    return Number.isFinite(runMs) && runMs < modifiedMs;
+  });
+}
+
+/**
  * Pure, network-free decision: classifies a scheduled workflow's health from
  * its recent runs (newest first). Runs with conclusion `cancelled` or
  * `skipped` are excluded from the streak entirely, rather than counted as
  * failures or as breaking a streak.
  *
- * @param {{runs: Array<{conclusion?: string|null}>, threshold?: number}} args
- * @returns {{status: "healthy"|"failing-streak"|"insufficient-history", streak: number, failingRuns: Array}}
+ * `workflowModifiedAt` (optional, ISO-8601) is when the workflow file itself
+ * last changed. Without it the classifier cannot tell a chronically broken
+ * workflow from one that was broken, fixed, and simply has not run on its
+ * schedule yet — on the detector's first live run that was 2 of 5 findings
+ * (#4287, and #4290 by 1h39m). When every failing run in the window predates
+ * that timestamp the workflow is `awaiting-rerun`, not `failing-streak`.
+ *
+ * Absent, unparseable, or uncomparable inputs (runs with no `createdAt`)
+ * deliberately fall back to the previous behavior: a noisy detection is
+ * recoverable, a silently suppressed one is not.
+ *
+ * @param {{runs: Array<{conclusion?: string|null, createdAt?: string}>, threshold?: number, workflowModifiedAt?: string}} args
+ * @returns {{status: "healthy"|"failing-streak"|"insufficient-history"|"awaiting-rerun", streak: number, failingRuns: Array}}
  */
-export function classifyScheduledWorkflowHealth({ runs, threshold = DEFAULT_THRESHOLD }) {
+export function classifyScheduledWorkflowHealth({
+  runs,
+  threshold = DEFAULT_THRESHOLD,
+  workflowModifiedAt,
+}) {
   // Every comparison against NaN is false, so an unvalidated threshold does not
   // fail loudly — it falls through to `slice(0, NaN)` → [] → `[].every(...)`,
   // which is vacuously true, classifying EVERY workflow as a failing streak and
@@ -74,6 +113,10 @@ export function classifyScheduledWorkflowHealth({ runs, threshold = DEFAULT_THRE
 
   if (!isFailingStreak) {
     return { status: "healthy", streak: 0, failingRuns: [] };
+  }
+
+  if (allFailuresPrecede(window, workflowModifiedAt)) {
+    return { status: "awaiting-rerun", streak: effectiveThreshold, failingRuns: window };
   }
 
   return { status: "failing-streak", streak: effectiveThreshold, failingRuns: window };
@@ -157,13 +200,19 @@ export function findPriorScheduledFailureIssue(candidates, workflowName) {
 }
 
 /** Pure: builds the issue body naming the workflow path, streak length, and failing run URLs. */
-export function buildScheduledFailureBody({ workflowPath, streak, runs }) {
+export function buildScheduledFailureBody({ workflowPath, streak, runs, workflowModifiedAt }) {
   const runLines = (runs ?? [])
     .map((run) => `- ${run.url ?? "(no url)"}${run.createdAt ? ` (${run.createdAt})` : ""}`)
     .join("\n");
 
-  return `\`${workflowPath}\` has failed its last ${streak} consecutive scheduled runs.
+  // Surfaced so a human triaging this can see the fix-vs-failure ordering
+  // without re-deriving it from git (#4291).
+  const modifiedLine = workflowModifiedAt
+    ? `\n**Workflow file last changed:** ${workflowModifiedAt} — at least one failing run above postdates it.\n`
+    : "";
 
+  return `\`${workflowPath}\` has failed its last ${streak} consecutive scheduled runs.
+${modifiedLine}
 ### Failing runs
 ${runLines}
 
@@ -211,10 +260,22 @@ export function runScheduledWorkflowHealthCheck({
   createIssue,
   reopenIssue = () => {},
   log = () => {},
+  getWorkflowModifiedAt = () => undefined,
 }) {
   return workflows.map((workflow) => {
     const runs = getRuns(workflow.name);
-    const health = classifyScheduledWorkflowHealth({ runs, threshold });
+    const workflowModifiedAt = getWorkflowModifiedAt(workflow.path);
+    const health = classifyScheduledWorkflowHealth({ runs, threshold, workflowModifiedAt });
+
+    if (health.status === "awaiting-rerun") {
+      // Deliberately logged rather than silent: this is a suppressed
+      // detection, and a suppression nobody can see is how the original
+      // false positives (#4287/#4290) became believable in the first place.
+      log(
+        `${workflow.name}: ${health.streak} failing run(s), all predating the workflow's last change (${workflowModifiedAt}) — awaiting a post-change run, not filing.`
+      );
+      return { workflow: workflow.name, status: health.status };
+    }
 
     if (health.status !== "failing-streak") {
       return { workflow: workflow.name, status: health.status };
@@ -225,6 +286,7 @@ export function runScheduledWorkflowHealthCheck({
       workflowPath: workflow.path,
       streak: health.streak,
       runs: health.failingRuns,
+      workflowModifiedAt,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
@@ -286,6 +348,29 @@ function readFlag(args, name) {
   return idx !== -1 ? args[idx + 1] : null;
 }
 
+/**
+ * Committer date of the workflow file's most recent commit, ISO-8601.
+ *
+ * Returns undefined on any failure (not a checkout, path never committed,
+ * git unavailable) — the classifier treats that as "cannot compare" and keeps
+ * the previous detection behavior rather than suppressing it (#4291).
+ *
+ * @param {string} workflowPath repo-relative path, e.g. `.github/workflows/ci.yml`
+ * @returns {string|undefined}
+ */
+export function resolveWorkflowModifiedAt(workflowPath) {
+  try {
+    const out = execFileSync("git", ["log", "-1", "--format=%cI", "--", workflowPath], {
+      cwd: ROOT,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return out.length > 0 ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function main() {
   const args = process.argv.slice(2);
   const thresholdArg = readFlag(args, "--threshold");
@@ -322,6 +407,7 @@ function main() {
       parseIssueNumberFromUrl(ghClient.issue.create(buildScheduledFailureCreateArgs(title, body))),
     reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
     log: (msg) => console.error(msg),
+    getWorkflowModifiedAt: (workflowPath) => resolveWorkflowModifiedAt(workflowPath),
   });
 
   const failing = results.filter((r) => r.status === "failing-streak");
