@@ -34,23 +34,48 @@ jobs:
           echo "since=$SINCE" >> "$GITHUB_OUTPUT"
           echo "week=$WEEK" >> "$GITHUB_OUTPUT"
 
-          # Get merged PRs with has-pr label (AI-generated)
-          AI_PRS=$(gh pr list \
+          # One query for every merged PR in the window; the AI split happens
+          # below in jq. `--limit` is explicit and load-bearing: `gh pr list`
+          # defaults to 30, which silently capped BOTH the numerator and the
+          # denominator. The 2026-W34 audit reported "Total PRs merged | 30"
+          # against a real 170 — exactly the default, inflating the ratio ~5.7x.
+          #
+          # Redirected to a file rather than captured through
+          # `$(... || echo "[]")`: a gh failure that writes to stdout AND exits
+          # non-zero concatenates both, producing a string that is neither valid
+          # JSON nor the fallback.
+          gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --state merged \
-            --label "has-pr" \
-            --json number,title,author,mergedAt,labels,additions,deletions \
-            --jq "[.[] | select(.mergedAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+            --limit 500 \
+            --json number,title,author,mergedAt,labels,additions,deletions,headRefName \
+            --jq "[.[] | select(.mergedAt >= \"${SINCE}\")]" > /tmp/merged-prs.json 2>/dev/null || true
+          if ! jq -e 'type == "array"' /tmp/merged-prs.json >/dev/null 2>&1; then
+            echo "[]" > /tmp/merged-prs.json
+          fi
+
+          # The repo's canonical three-leg AI predicate, mirroring `isAiPr` in
+          # scripts/collect-queue-efficiency.mjs: the `agent-authored` label
+          # applied by ai-attribution.yml, the legacy `has-pr` coordination
+          # label, or a worker branch name.
+          #
+          # This step used to query `--label "has-pr"` alone. `has-pr` is an
+          # ISSUE-state label from the coordination machine, and the only PRs
+          # carrying it are the metrics-commit automation — so the audit listed
+          # 21 trivial `+1/-0` metrics PRs and omitted every substantive agent
+          # PR in the window, including `tier:sensitive` ones (#4267 auth
+          # ownership, #4268 guest-data exposure). An audit whose "review any
+          # security-sensitive AI changes" checklist item is answered by a list
+          # containing none of them reads as reassurance.
+          AI_PRS=$(jq '[.[] | select(
+            ([.labels[].name] | any(. == "agent-authored" or . == "has-pr"))
+            or ((.headRefName // "") | test("^(worktree-agent-|agent-|fix/agent-|feat/agent-)"))
+          )]' /tmp/merged-prs.json)
 
           AI_COUNT=$(echo "$AI_PRS" | jq 'length')
           echo "ai_count=$AI_COUNT" >> "$GITHUB_OUTPUT"
 
-          # Get all merged PRs for comparison
-          ALL_PRS=$(gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state merged \
-            --json number,mergedAt \
-            --jq "[.[] | select(.mergedAt >= \"${SINCE}\")] | length" 2>/dev/null || echo "0")
+          ALL_PRS=$(jq 'length' /tmp/merged-prs.json)
           echo "all_count=$ALL_PRS" >> "$GITHUB_OUTPUT"
 
           echo "ai_prs<<PRS_EOF" >> "$GITHUB_OUTPUT"
