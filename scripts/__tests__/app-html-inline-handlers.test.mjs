@@ -24,6 +24,31 @@ function appHtmlEntries() {
 }
 
 /**
+ * Attributes that begin with `on` but are not event handlers.
+ *
+ * The name test below is deliberately `on` + letters rather than a list of the
+ * HTML spec's event-handler attributes: an allowlist of *handlers* fails silent
+ * when it misses one, and silence is the failure mode this whole guard exists
+ * to remove. So unknown `on*` attributes are flagged (loud, recoverable) and
+ * only known non-handlers are excused here. Add to this list when a real one
+ * appears — never widen the name test.
+ */
+const NON_HANDLER_ON_ATTRIBUTES = new Set(["once", "only", "onward"]);
+
+/**
+ * Opening tags in an HTML string, with quoted attribute values respected.
+ *
+ * A naive `<[a-zA-Z][^>]*>` terminates the tag at the first `>` — including one
+ * inside an attribute value — so `<div title="a>b" onclick="boom()">` scans as
+ * a tag ending at `a>` and the real `onclick` is never seen. That is a silent
+ * false negative in a guard whose entire job is to make this class un-missable,
+ * so the value-aware form is load-bearing, not tidiness.
+ */
+function openingTags(html) {
+  return html.match(/<[a-zA-Z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g) ?? [];
+}
+
+/**
  * Inline event-handler attributes (`onload=`, `onclick=`, …) in an HTML string.
  *
  * Script bodies and comments are blanked first: `link.addEventListener("load",
@@ -37,13 +62,39 @@ function findInlineHandlers(html) {
     .replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, "$1$2");
 
   const found = [];
-  for (const tag of scrubbed.match(/<[a-zA-Z][^>]*>/g) ?? []) {
+  for (const tag of openingTags(scrubbed)) {
     for (const match of tag.matchAll(/\s(on[a-z]+)\s*=/gi)) {
+      if (NON_HANDLER_ON_ATTRIBUTES.has(match[1].toLowerCase())) continue;
       found.push({ attribute: match[1], tag: tag.replace(/\s+/g, " ").slice(0, 120) });
     }
   }
   return found;
 }
+
+describe("findInlineHandlers", () => {
+  // The guard blocks CI, so both of its error directions matter — but not
+  // equally. A false positive is loud and recoverable; a false negative is
+  // silent and reinstates the defect. These pin both.
+  it("flags a real handler, in any case", () => {
+    expect(findInlineHandlers(`<link rel=preload onload="x" />`)[0].attribute).toBe("onload");
+    expect(findInlineHandlers(`<link ONLOAD="x" />`)[0].attribute).toBe("ONLOAD");
+  });
+
+  it("finds a handler that follows a '>' inside an attribute value", () => {
+    // Regression: the naive tag regex ended the tag at `a>` and missed onclick.
+    expect(findInlineHandlers(`<div title="a>b" onclick="boom()"></div>`)).toHaveLength(1);
+  });
+
+  it("does not flag attributes that merely start with 'on'", () => {
+    expect(findInlineHandlers(`<my-el once="true" only="a"></my-el>`)).toEqual([]);
+    expect(findInlineHandlers(`<div data-on-click="x"></div>`)).toEqual([]);
+  });
+
+  it("ignores script bodies and comments", () => {
+    expect(findInlineHandlers(`<script>el.addEventListener("load", f)</script>`)).toEqual([]);
+    expect(findInlineHandlers(`<!-- never use onload="x" -->`)).toEqual([]);
+  });
+});
 
 describe("apps/*/index.html inline event handlers", () => {
   it("discovers at least one app HTML entry", () => {
