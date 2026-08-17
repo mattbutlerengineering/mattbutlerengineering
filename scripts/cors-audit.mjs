@@ -59,8 +59,7 @@ export function extractOrigins(content) {
   const prodOrigins = [...new Set(prodMatches)];
   const devOrigins = [...new Set(devMatches)];
   const hasEnvGuard = Boolean(
-    content.match(/NODE_ENV\s*===?\s*['"]development['"]/) &&
-      content.includes("localhost")
+    content.match(/NODE_ENV\s*===?\s*['"]development['"]/) && content.includes("localhost")
   );
 
   return {
@@ -105,8 +104,7 @@ export function parseCorsConfig(serviceName, content) {
     findings.push({
       severity: "CRITICAL",
       issue: "`credentials: true` with wildcard origin",
-      detail:
-        "Most dangerous CORS misconfiguration. Browsers block it, but proxies may not.",
+      detail: "Most dangerous CORS misconfiguration. Browsers block it, but proxies may not.",
       remediation: `Remove wildcard and use explicit origins in \`${svc}\`.`,
     });
   }
@@ -121,11 +119,7 @@ export function parseCorsConfig(serviceName, content) {
     });
   }
 
-  if (
-    origins.hasCredentials &&
-    !origins.hasWildcard &&
-    origins.originCount > 5
-  ) {
+  if (origins.hasCredentials && !origins.hasWildcard && origins.originCount > 5) {
     findings.push({
       severity: "HIGH",
       issue: "`credentials: true` with broad origin list",
@@ -136,9 +130,7 @@ export function parseCorsConfig(serviceName, content) {
 
   const methodsMatch = content.match(/methods:\s*\[([\s\S]*?)\]/);
   if (methodsMatch) {
-    const methods =
-      methodsMatch[1].match(/"([^"]+)"/g)?.map((m) => m.replace(/"/g, "")) ||
-      [];
+    const methods = methodsMatch[1].match(/"([^"]+)"/g)?.map((m) => m.replace(/"/g, "")) || [];
     if (methods.includes("DELETE") || methods.includes("PATCH")) {
       findings.push({
         severity: "INFO",
@@ -174,9 +166,7 @@ export function classifyEdgeRouterContent(content) {
   const missingHeaders = REQUIRED_HEADERS.filter((h) => !content.includes(h));
 
   if (missingHeaders.length > 0) {
-    const items = missingHeaders
-      .map((h) => `- \`${h}\`: ${HEADER_ADVICE[h]}`)
-      .join("\n");
+    const items = missingHeaders.map((h) => `- \`${h}\`: ${HEADER_ADVICE[h]}`).join("\n");
     findings.push({
       severity: "HIGH",
       issue: `Missing security headers (${missingHeaders.length})`,
@@ -185,9 +175,7 @@ export function classifyEdgeRouterContent(content) {
     });
   }
 
-  const cspMatch = content.match(
-    /Content-Security-Policy['"]\s*:\s*\[([\s\S]*?)\]\.join/
-  );
+  const cspMatch = content.match(/Content-Security-Policy['"]\s*:\s*\[([\s\S]*?)\]\.join/);
   if (cspMatch) {
     const csp = cspMatch[1];
     if (csp.includes("'unsafe-inline'") && !csp.includes("nonce-")) {
@@ -259,8 +247,7 @@ export function classifyEdgeRouterContent(content) {
  * @returns {string | null} The defining path, or null if none defines it.
  */
 export function findSecurityHeaderSource(files, readFile) {
-  const DEFINITION =
-    /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+buildSecurityHeaders\b/;
+  const DEFINITION = /(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+buildSecurityHeaders\b/;
   for (const file of files) {
     let content;
     try {
@@ -294,9 +281,7 @@ function analyzeEdgeRouter() {
     .filter((name) => name.endsWith(".js") && !name.endsWith(".test.js"))
     .map((name) => resolve(WORKER_DIR, name));
 
-  const source = findSecurityHeaderSource(candidates, (p) =>
-    readFileSync(p, "utf-8")
-  );
+  const source = findSecurityHeaderSource(candidates, (p) => readFileSync(p, "utf-8"));
 
   if (!source) {
     // Fail loud. Reporting "no findings" here would turn a scanner that can no
@@ -307,10 +292,8 @@ function analyzeEdgeRouter() {
         {
           severity: "CRITICAL",
           issue: "`buildSecurityHeaders()` not found in the edge worker",
-          detail:
-            "No file under `infrastructure/worker` defines `buildSecurityHeaders`.",
-          remediation:
-            "Point the audit at the module that now builds the security headers.",
+          detail: "No file under `infrastructure/worker` defines `buildSecurityHeaders`.",
+          remediation: "Point the audit at the module that now builds the security headers.",
         },
       ],
       presentHeaders: [],
@@ -369,9 +352,7 @@ export function buildReport(serviceResults, edgeResult) {
 
   lines.push("", "## Edge Router Security Headers\n");
   for (const h of REQUIRED_HEADERS) {
-    lines.push(
-      `- [${edgeResult.presentHeaders.includes(h) ? "x" : " "}] \`${h}\``
-    );
+    lines.push(`- [${edgeResult.presentHeaders.includes(h) ? "x" : " "}] \`${h}\``);
   }
 
   lines.push("", "## Findings\n");
@@ -421,30 +402,22 @@ export function findPriorCorsAuditIssue(candidates) {
 /** Pure: the log line for a `fileIssue()` result, one per action. */
 export function describeFilingResult(result, title) {
   if (result.action === "create") return `Created issue: ${title}`;
-  if (result.action === "reopen")
-    return `Reopened issue #${result.issueNumber}: ${title}`;
+  if (result.action === "reopen") return `Reopened issue #${result.issueNumber}: ${title}`;
   return `Skipping — issue #${result.issueNumber} already tracks this: ${title}`;
 }
 
 /** Parses the issue number out of the URL `gh issue create` prints on success. */
 function parseIssueNumberFromUrl(url) {
   const match = url.match(/\/issues\/(\d+)\s*$/);
-  if (!match)
-    throw new Error(`gh issue create returned unexpected output: ${url}`);
+  if (!match) throw new Error(`gh issue create returned unexpected output: ${url}`);
   return parseInt(match[1], 10);
 }
 
 /** Real `getIssueState` dep for `fileIssue()`, backed by `gh issue view`. */
 function getIssueStateViaGhClient(ghClient, issueNumber) {
   try {
-    const state = String(
-      ghClient.issue.view(issueNumber, ["--json", "state"]).state
-    ).toLowerCase();
-    return state === "open"
-      ? "open"
-      : state === "closed"
-      ? "closed"
-      : "missing";
+    const state = String(ghClient.issue.view(issueNumber, ["--json", "state"]).state).toLowerCase();
+    return state === "open" ? "open" : state === "closed" ? "closed" : "missing";
   } catch {
     return "missing";
   }
@@ -470,33 +443,25 @@ function createGitHubIssue(ghClient, title, body) {
         "number,title",
       ]);
     } catch (err) {
-      console.error(
-        `[cors-audit] search failed, proceeding as no-match: ${err.message}`
-      );
+      console.error(`[cors-audit] search failed, proceeding as no-match: ${err.message}`);
     }
     const priorNumber = findPriorCorsAuditIssue(candidates);
-    const ledger =
-      priorNumber !== null ? { [CORS_AUDIT_DEDUPE_KEY]: priorNumber } : {};
+    const ledger = priorNumber !== null ? { [CORS_AUDIT_DEDUPE_KEY]: priorNumber } : {};
 
-    const result = fileIssue(
-      { title, body, labels, dedupeKey: CORS_AUDIT_DEDUPE_KEY },
-      ledger,
-      {
-        getIssueState: (issueNumber) =>
-          getIssueStateViaGhClient(ghClient, issueNumber),
-        createIssue: () =>
-          parseIssueNumberFromUrl(
-            ghClient.issue.create([
-              "--title",
-              title,
-              ...labels.flatMap((l) => ["--label", l]),
-              "--body",
-              body,
-            ])
-          ),
-        reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
-      }
-    );
+    const result = fileIssue({ title, body, labels, dedupeKey: CORS_AUDIT_DEDUPE_KEY }, ledger, {
+      getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+      createIssue: () =>
+        parseIssueNumberFromUrl(
+          ghClient.issue.create([
+            "--title",
+            title,
+            ...labels.flatMap((l) => ["--label", l]),
+            "--body",
+            body,
+          ])
+        ),
+      reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    });
 
     console.log(describeFilingResult(result, title));
   } catch (err) {
@@ -513,20 +478,14 @@ async function main() {
 
   console.log("Discovering services...");
   const services = discoverServices();
-  console.log(
-    `  Found ${services.length}: ${services.map((s) => s.name).join(", ")}`
-  );
+  console.log(`  Found ${services.length}: ${services.map((s) => s.name).join(", ")}`);
 
   console.log("\nAnalyzing CORS configurations...");
   const serviceResults = services.map((s) =>
     parseCorsConfig(s.name, readFileSync(s.appPath, "utf-8"))
   );
   for (const r of serviceResults) {
-    console.log(
-      `  ${r.serviceName}: ${
-        r.hasCors ? `${r.findings.length} finding(s)` : "no CORS"
-      }`
-    );
+    console.log(`  ${r.serviceName}: ${r.hasCors ? `${r.findings.length} finding(s)` : "no CORS"}`);
   }
 
   console.log("\nAnalyzing edge router...");
