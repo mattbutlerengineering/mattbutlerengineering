@@ -129,7 +129,8 @@
       "@fastify/static@<10.1.2": ">=10.1.2 <11",
       "body-parser@<1.20.6": "^1.20.6",
       "postcss@<=8.5.22": ">=8.5.23",
-      "@puppeteer/browsers@<3.2.0": "^3.2.0"
+      "@puppeteer/browsers@<3.2.0": "^3.2.0",
+      "deepmerge-ts@<8.0.0": "^8.0.0"
     }
   },
   "license": "MIT"
