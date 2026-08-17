@@ -144,7 +144,7 @@ nothing made the incomplete rollout visible.
   - Accept: the failure message names the offending file, attribute, and why
     a nonce cannot rescue it — the next person hits the explanation, not a
     bare assertion diff.
-- [ ] **Confirm the fix on the deployed surface** — after release, re-run the
+- [x] **Confirm the fix on the deployed surface** — after release, re-run the
       production probe.
   - Accept: `document.fonts.size > 0` on `/rialto/` with DM Sans and Bricolage
     Grotesque among the loaded families, `link[as=style].rel === "stylesheet"`,
