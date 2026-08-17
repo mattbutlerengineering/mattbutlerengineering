@@ -15,8 +15,12 @@ import { join } from "node:path";
 
 const BEGIN = "<!-- acmm:begin -->";
 const END = "<!-- acmm:end -->";
+// Alt text is `ACMM Level 6` when fresh and `ACMM Level 6 (stale 2026-05-27)`
+// when not, so the matcher must accept anything up to the closing bracket. A
+// `\d+\]`-anchored pattern could not re-find a badge this module had itself
+// written in stale form, which froze fence-free READMEs permanently.
 const BADGE_RE =
-  /\[!\[ACMM Level \d+\]\(https:\/\/img\.shields\.io\/badge\/[^)]+\)\]\(docs\/acmm\.md\)/;
+  /\[!\[ACMM Level [^\]]*\]\(https:\/\/img\.shields\.io\/badge\/[^)]+\)\]\(docs\/acmm\.md\)/;
 
 const STALE_THRESHOLD_DAYS = 7;
 const STALE_COLOR = "9e9e9e";

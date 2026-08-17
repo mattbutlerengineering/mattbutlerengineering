@@ -100,7 +100,7 @@ This repo is run partly by AI coding agents — the `implement-queue`, `issue-wo
 
 If you're contributing _with_ AI tooling, the policy floor agents must obey is at [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md). Reading it is recommended before letting any AI tool make changes here — those rules apply to your AI tools too, even though we have no way of enforcing them on your machine.
 
-The maturity model the repo tracks itself against (canonical 6-level ACMM, currently at L6) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`plugins/acmm/skills/acmm-audit/SKILL.md`](./plugins/acmm/skills/acmm-audit/SKILL.md) for context.
+The maturity model the repo tracks itself against (canonical 6-level ACMM — the current level is the badge in [`README.md`](./README.md), kept in sync by the audit rather than hand-edited) is at [`plugins/acmm/scripts/audit.js`](./plugins/acmm/scripts/audit.js); see [`plugins/acmm/skills/acmm-audit/SKILL.md`](./plugins/acmm/skills/acmm-audit/SKILL.md) for context.
 
 ## Things to avoid
 
