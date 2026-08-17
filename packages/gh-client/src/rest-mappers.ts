@@ -50,6 +50,7 @@ export interface RawPrFile {
 }
 
 export interface RawWorkflowRun {
+  id?: number;
   status?: string;
   conclusion?: string | null;
   created_at?: string;
@@ -116,6 +117,7 @@ export function mapLabel(raw: RawLabel): Record<string, unknown> {
 
 export function mapWorkflowRun(raw: RawWorkflowRun): Record<string, unknown> {
   return {
+    databaseId: raw.id,
     status: raw.status,
     conclusion: raw.conclusion,
     createdAt: raw.created_at,

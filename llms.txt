@@ -5021,6 +5021,25 @@
       }
     </item>
   </file>
+  <file path="packages/gh-client/src/artifact-ops.ts">
+    <item priority="low">
+      interface ArtifactOpsOptions {
+        token?: string;
+        owner?: string;
+        repoName?: string;
+        http?: SyncHttp;
+        binaryHttp?: SyncBinaryHttp;
+      }
+    </item>
+    <item priority="low">
+      interface RunArtifact {
+        id: number;
+        name: string;
+        sizeInBytes: number;
+        expired: boolean;
+      }
+    </item>
+  </file>
   <file path="packages/gh-client/src/client.ts">
     <item priority="low">
       interface GhClientOptions {

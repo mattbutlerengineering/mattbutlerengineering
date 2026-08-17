@@ -72,6 +72,7 @@ describe("mapLabel", () => {
 describe("mapWorkflowRun", () => {
   it("maps workflow run fields", () => {
     const mapped = mapWorkflowRun({
+      id: 42,
       status: "completed",
       conclusion: "success",
       created_at: "2026-01-01T00:00:00Z",
@@ -80,6 +81,7 @@ describe("mapWorkflowRun", () => {
       head_sha: "abc123",
     });
     expect(mapped).toEqual({
+      databaseId: 42,
       status: "completed",
       conclusion: "success",
       createdAt: "2026-01-01T00:00:00Z",

@@ -16538,6 +16538,26 @@
       error: string;
     }
   </file>
+  <file path="packages/gh-client/src/artifact-ops.ts">
+    export interface ArtifactOpsOptions {
+      token?: string;
+      owner?: string;
+      repoName?: string;
+      /** Injected in tests — defaults to the real subprocess-fetch (JSON) bridge. */
+      http?: SyncHttp;
+      /** Injected in tests — defaults to the real subprocess-fetch (binary) bridge. */
+      binaryHttp?: SyncBinaryHttp;
+      /** Injected in tests for git-derived repo-slug fallback. */
+      exec?: (cmd: string, args: string[]) => string;
+      env?: NodeJS.ProcessEnv;
+    }
+    export interface RunArtifact {
+      id: number;
+      name: string;
+      sizeInBytes: number;
+      expired: boolean;
+    }
+  </file>
   <file path="packages/gh-client/src/client.ts">
     export interface GhClientOptions extends TransportOptions {
       runner?: ExecRunner;

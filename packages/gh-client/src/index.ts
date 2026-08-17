@@ -13,3 +13,5 @@ export {
 export type { LabelTransition, CoordinationLabel } from "./label-machine.js";
 export { GhAuthError, GhRateLimitError, describeGhError } from "./rest-http.js";
 export { MissingGithubTokenError } from "./rest-args.js";
+export { listRunArtifacts, downloadArtifactZip } from "./artifact-ops.js";
+export type { ArtifactOpsOptions, RunArtifact } from "./artifact-ops.js";

@@ -92,3 +92,53 @@ export function createSyncHttp(opts: SyncHttpOptions = {}): SyncHttp {
 }
 
 export const defaultSyncHttp: SyncHttp = createSyncHttp();
+
+export interface SyncBinaryHttpResponse {
+  /** 0 means the request never reached a server (DNS/network failure). */
+  status: number;
+  /** Base64-encoded response body — binary-safe, unlike {@link SyncHttpResponse.body}. */
+  bodyBase64: string;
+}
+
+export type SyncBinaryHttp = (req: SyncHttpRequest) => SyncBinaryHttpResponse;
+
+/**
+ * Binary-safe sibling of {@link createSyncHttp} for endpoints that return
+ * non-text bodies (e.g. the artifact-zip download used by the `flakyTests`
+ * sensor — see #4236). Identical subprocess-bridge mechanics, except the
+ * bridge reads the response via `res.arrayBuffer()` and base64-encodes it
+ * before printing, so binary bytes survive the stdout round-trip intact
+ * (`res.text()` would corrupt non-UTF-8 bytes).
+ */
+const BINARY_FETCH_BRIDGE_SCRIPT = `
+const chunks = [];
+process.stdin.on("data", (c) => chunks.push(c));
+process.stdin.on("end", async () => {
+  const req = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+  try {
+    const res = await fetch(req.url, { method: req.method, headers: req.headers, body: req.body });
+    const buf = Buffer.from(await res.arrayBuffer());
+    process.stdout.write(JSON.stringify({ status: res.status, bodyBase64: buf.toString("base64") }));
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    process.stdout.write(JSON.stringify({ status: 0, bodyBase64: Buffer.from(message).toString("base64") }));
+  }
+});
+`;
+
+export function createSyncBinaryHttp(opts: SyncHttpOptions = {}): SyncBinaryHttp {
+  const exec = opts.exec ?? (execFileSync as SyncExecFn);
+
+  return (req) => {
+    const out = exec(process.execPath, ["--no-warnings", "-e", BINARY_FETCH_BRIDGE_SCRIPT], {
+      input: JSON.stringify(req),
+      encoding: "utf-8",
+      timeout: 30_000,
+      maxBuffer: 50 * 1024 * 1024,
+      env: { ...process.env, NODE_USE_ENV_PROXY: "1" },
+    });
+    return JSON.parse(out) as SyncBinaryHttpResponse;
+  };
+}
+
+export const defaultSyncBinaryHttp: SyncBinaryHttp = createSyncBinaryHttp();
