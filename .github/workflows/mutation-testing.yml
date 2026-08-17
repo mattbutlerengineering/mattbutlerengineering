@@ -88,6 +88,21 @@ jobs:
           pnpm --filter @mbe/reservations-service db:generate
           pnpm --filter @mbe/agent-service db:generate
 
+      - name: Build workspace dependencies
+        # `pnpm install` LINKS workspace packages; it does not compile them.
+        # services/users depends on eight of them and @mbe/types' exports
+        # resolve to ./dist/*, so without this Stryker's dry run dies before
+        # mutating anything:
+        #   ERROR DryRunExecutor One or more tests failed in the initial test run:
+        #     Failed to resolve entry for package "@mbe/types".
+        # The two-job version was missing this too — it just never got far
+        # enough to notice, because `Prepare` failed on every run and
+        # `needs:` skipped this job entirely (#4289, run 31991031612).
+        # `...` builds the service's transitive deps only, not the whole
+        # workspace, so an unrelated package's TS error can't red this job —
+        # the same scoping the Architecture Audit job uses.
+        run: pnpm build --filter @mbe/users-service...
+
       - name: Run mutation tests
         run: pnpm test:mutations
 
