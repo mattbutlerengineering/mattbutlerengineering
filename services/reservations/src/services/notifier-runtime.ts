@@ -62,8 +62,7 @@ export function createNotifierRuntime(): NotifierRuntime {
     );
   }
 
-  const redisUrl =
-    envRedisUrl ?? (isProduction ? null : "redis://localhost:6379");
+  const redisUrl = envRedisUrl ?? (isProduction ? null : "redis://localhost:6379");
 
   const smsAdapter: SmsPort | null =
     process.env.TWILIO_ACCOUNT_SID &&
