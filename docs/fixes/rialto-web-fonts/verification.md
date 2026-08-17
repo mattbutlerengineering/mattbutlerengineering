@@ -213,22 +213,25 @@ None. Nothing routes back to Implement.
 - **Visual/typographic quality.** That DM Sans and Bricolage Grotesque now load
   is verified; that the pages _look_ right with them is not. No visual baselines
   were regenerated — see below.
-- **Visual baseline impact — expect this PR's visual E2E to go red, by design.**
-  `apps/rialto-web/e2e/visual.spec.ts` screenshots component sections on the
-  `/visual-test` harness into **48 committed baselines** under
-  `e2e/screenshots/`, every one of which renders text. All 48 were captured on
-  Linux CI against a page serving _no_ web fonts. Now that DM Sans and Bricolage
-  Grotesque load, glyph metrics change and essentially all of them shift.
-  `rialto-web-e2e.yml` triggers on `pull_request` for `apps/rialto-web/**`, and
-  this change touches `apps/rialto-web/index.html`, so the job **will** run here.
+- **Visual baseline impact — PREDICTED RED, DID NOT HAPPEN. Correction, 2026-08-17.**
+  This section originally predicted that all 48 committed baselines in
+  `apps/rialto-web/e2e/screenshots/` would shift, on the reasoning that they were
+  captured against a fontless page. CI disagreed: `Visual Regression
+(rialto-web)` passed on the first run.
 
-  This was not checked locally and must not be: baselines are Linux-CI-runner
-  specific and regenerating them on macOS commits wrong pixels. The documented
-  recovery is to pull the `*-actual.png` files from the `rialto-web-visual-diffs`
-  CI artifact on this PR and commit them as the new baselines.
+  The prediction was wrong because the premise was.
+  `apps/rialto-web/playwright.config.ts` serves the suite with `vite dev` on
+  `localhost:5173` — no edge worker, and no `Content-Security-Policy` header
+  anywhere in the serving path. With no CSP there is nothing to refuse the
+  inline `onload`, so the old code loaded fonts perfectly well in E2E and the
+  baselines already had DM Sans and Bricolage Grotesque applied. This change is
+  a visual no-op in that environment.
 
-  Flagged now rather than discovered after merge, because merging with visual CI
-  red starts a cascading red streak on `main` that hits every subsequent PR.
+  The correction is worth more than the prediction was: it means **the visual
+  and functional E2E suites are structurally incapable of catching this class of
+  defect**, because they never execute behind the CSP that causes it. "Local
+  gates cannot see this" was asserted at Capture on general grounds; this is the
+  concrete mechanism. Seeded to `docs/backlog.md`.
 
 - **The other three apps' fonts.** `gen` and `hospitality` reference no web
   fonts at all (verified — no font links in their `index.html`); `marketing` was
