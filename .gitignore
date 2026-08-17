@@ -133,6 +133,7 @@ reports/mutation/
 !/metrics/review-burden.json
 !/metrics/sensor-report.jsonl
 !/metrics/service-health.jsonl
+!/metrics/stale-human-blocked.jsonl
 !/metrics/threshold-changes.jsonl
 !/metrics/verifications.jsonl
 # <<< END generated durable-metrics block
