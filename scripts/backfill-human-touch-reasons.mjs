@@ -179,6 +179,36 @@ export function defaultFetchPrDetails(
 }
 
 /**
+ * Resolve the human-touch reason for one PR, or `null` when the row should be
+ * left unclassified — the fetch failed, the PR isn't an agent PR, or no
+ * discriminable human commit exists (the "unmatchable" case). Never throws.
+ *
+ * Shared with `reconcile-queue-telemetry.mjs` (#4239) so the identity
+ * normalization and mechanical-commit rules this file already worked out
+ * against real repo data have exactly one implementation.
+ *
+ * @param {number} prNumber
+ * @param {(prNumber: number) => { pr: object, humanCommit: object|null }} fetchPrDetails
+ * @returns {string|null}
+ */
+export function resolveHumanTouchReason(prNumber, fetchPrDetails) {
+  let details;
+  try {
+    details = fetchPrDetails(prNumber);
+  } catch {
+    // Unmatchable (fetch failed, PR gone, transient gh error) — leave
+    // unclassified rather than guessing.
+    return null;
+  }
+
+  if (!details?.pr || !isAgentPr(details.pr)) return null;
+  // No rework commit found — no human touch occurred, nothing to classify.
+  if (!details.humanCommit) return null;
+
+  return classifyHumanTouch(details.pr, details.humanCommit);
+}
+
+/**
  * Backfill `human_touch_reason` onto rows that need it. Pure — returns new
  * row objects, never mutates the input.
  *
@@ -210,27 +240,12 @@ export function backfillHumanTouchReasons(
     }
     calls += 1;
 
-    let details;
-    try {
-      details = fetchPrDetails(row.pr_number);
-    } catch {
-      // Unmatchable (fetch failed, PR gone, transient gh error) — leave
-      // pending for the next run rather than guessing.
+    const reason = resolveHumanTouchReason(row.pr_number, fetchPrDetails);
+    if (reason === null) {
       skipped += 1;
       return { ...row };
     }
 
-    if (!details?.pr || !isAgentPr(details.pr)) {
-      skipped += 1;
-      return { ...row };
-    }
-    if (!details.humanCommit) {
-      // No rework commit found — no human touch occurred, nothing to classify.
-      skipped += 1;
-      return { ...row };
-    }
-
-    const reason = classifyHumanTouch(details.pr, details.humanCommit);
     classified += 1;
     return { ...row, human_touch_reason: reason };
   });
