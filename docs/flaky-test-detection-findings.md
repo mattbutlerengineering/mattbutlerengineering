@@ -1,8 +1,33 @@
 # Flaky-Test Detection Spike: Findings
 
+> **Status: implemented as of 2026-08-17.** The "NOT FEASIBLE without new
+> infrastructure" verdict below was accurate when written (2026-06-21) and is
+> retained as the record of why the infrastructure was built. That
+> infrastructure now exists: #4234 (JUnit reporter), #4235 (artifact upload),
+> #4236 (artifact download + XML parsing into the `flakyTests` sensor),
+> verified end-to-end in #4237.
+>
+> Verified against live CI on 2026-08-17: the chain fetches the last 100 `CI`
+> runs, downloads each completed run's non-expired `test-results-node*`
+> artifact, unzips and parses the JUnit XML, and yields
+> **631,640 per-test rows across 12 distinct SHAs** — `flakyTests` reports
+> `available: true`, `flaky_count: 0`. The sensor is live; it currently finds
+> no flaky tests, which is a result, not a data gap.
+>
+> **One caveat, and it is the reason this doc says "verified" rather than
+> "reporting":** `listRunArtifacts`/`downloadArtifactZip` are REST-only and
+> require `GITHUB_TOKEN`/`GH_TOKEN`. Unlike the rest of gh-client they have no
+> `gh`-CLI path, so an environment that has `gh` authenticated but exports no
+> token — a developer laptop, and some scheduled cloud sessions (see #3937,
+> #4194) — collects zero rows. Until #4237 that degraded _silently_ into
+> `computeFlakyTests([])`, whose `data_gap` message tells the reader to
+> "Enable JUnit reporter and artifact upload in CI" — advice that is now
+> wrong, and which would have read as an un-started feature indefinitely. The
+> sensor now reports a credential failure as a credential failure.
+
 **Date:** 2026-06-21
 **Issue:** #2536
-**Verdict:** NOT FEASIBLE without new infrastructure
+**Verdict (2026-06-21, superseded — see status note above):** NOT FEASIBLE without new infrastructure
 
 ## What per-test history exists today
 

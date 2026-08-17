@@ -260,6 +260,30 @@ export const FLAKY_TESTS_ARTIFACT_PREFIX = "test-results-node";
  * }} [deps]
  * @returns {Array<{ sha: string; testName: string; passed: boolean }>}
  */
+/**
+ * A credential failure is not a per-run hiccup — it fails every run
+ * identically. Degrading it to zero rows makes `computeFlakyTests` report its
+ * "no per-test run history — enable the JUnit reporter and artifact upload"
+ * data_gap, which is actively misleading advice once #4234/#4235/#4236 have
+ * shipped that very pipeline. Same distinguishable-failure requirement #3937
+ * established for the other gh-backed sensors (#4237).
+ *
+ * Matched on name/message rather than `instanceof` because gh-client's error
+ * classes are not part of its public export surface.
+ *
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isGhCredentialError(err) {
+  const name = String(err?.name ?? "");
+  const message = String(err?.message ?? "");
+  return (
+    name === "MissingGithubTokenError" ||
+    name === "GhAuthError" ||
+    /GITHUB_TOKEN|GH_TOKEN|auth failed|Bad credentials/i.test(message)
+  );
+}
+
 export function buildFlakyTestRuns(ghRuns, deps = {}) {
   const listArtifacts = deps.listRunArtifacts ?? listRunArtifacts;
   const downloadZip = deps.downloadArtifactZip ?? downloadArtifactZip;
@@ -270,7 +294,15 @@ export function buildFlakyTestRuns(ghRuns, deps = {}) {
   for (const run of ghRuns) {
     if (run.status !== "completed" || !run.databaseId || !run.headSha) continue;
 
-    const artifacts = safe(() => listArtifacts(run.databaseId), []);
+    let artifacts;
+    try {
+      artifacts = listArtifacts(run.databaseId) ?? [];
+    } catch (err) {
+      // Credential failures are the sensor's problem, not this run's — let
+      // the collect() wrapper turn them into a reported error.
+      if (isGhCredentialError(err)) throw err;
+      artifacts = [];
+    }
     const matching = artifacts.filter(
       (a) => a.name.startsWith(FLAKY_TESTS_ARTIFACT_PREFIX) && !a.expired
     );
