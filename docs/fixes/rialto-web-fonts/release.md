@@ -12,7 +12,7 @@ date: 2026-08-17
       routes back to Implement." 4 PASS, 1 NOT VERIFIED by construction (the
       deployed-surface check, which is this stage's post-release step).
 - [x] **No secrets in diff; target config present** — `grep -icE
-    "sk_live|sk_test|AKIA|BEGIN .*PRIVATE KEY"` over the full diff returned
+  "sk_live|sk_test|AKIA|BEGIN .*PRIVATE KEY"` over the full diff returned
       `0`. **No new configuration is required**: the change adds no external
       origin, and `style-src` already allowed `fonts.googleapis.com` while
       `font-src` already allowed `fonts.gstatic.com`. The single `VITE_` string
