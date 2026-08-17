@@ -1,7 +1,7 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
-import { FastifyInstrumentation } from "@opentelemetry/instrumentation-fastify";
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -24,7 +24,11 @@ export interface OtelConfig {
  * Paths that generate trace spam with no diagnostic value.
  * Swagger UI (/docs), Scalar API Reference (/reference), and health checks.
  */
-const IGNORED_PATH_PREFIXES: readonly string[] = ["/health", "/docs", "/reference"] as const;
+const IGNORED_PATH_PREFIXES: readonly string[] = [
+  "/health",
+  "/docs",
+  "/reference",
+] as const;
 
 /**
  * Returns true when the incoming request URL matches a path that should
@@ -32,7 +36,9 @@ const IGNORED_PATH_PREFIXES: readonly string[] = ["/health", "/docs", "/referenc
  */
 export function shouldIgnoreRequest(req: IncomingMessage): boolean {
   const url = req.url ?? "";
-  return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
+  return IGNORED_PATH_PREFIXES.some(
+    (prefix) => url === prefix || url.startsWith(`${prefix}/`)
+  );
 }
 
 /**
@@ -86,7 +92,7 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
           new HttpInstrumentation({
             ignoreIncomingRequestHook: shouldIgnoreRequest,
           }),
-          new FastifyInstrumentation(),
+          new FastifyOtelInstrumentation({ registerOnInitialization: true }),
           new PinoInstrumentation(),
         ],
   });

@@ -4,12 +4,14 @@ import { shouldIgnoreRequest } from "./sdk.js";
 
 // Mock the Langfuse span processor module
 vi.mock("@langfuse/otel", () => ({
-  LangfuseSpanProcessor: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    this.onStart = vi.fn();
-    this.onEnd = vi.fn();
-    this.shutdown = vi.fn().mockResolvedValue(undefined);
-    this.forceFlush = vi.fn().mockResolvedValue(undefined);
-  }),
+  LangfuseSpanProcessor: vi
+    .fn()
+    .mockImplementation(function (this: Record<string, unknown>) {
+      this.onStart = vi.fn();
+      this.onEnd = vi.fn();
+      this.shutdown = vi.fn().mockResolvedValue(undefined);
+      this.forceFlush = vi.fn().mockResolvedValue(undefined);
+    }),
 }));
 
 // Mock OTel SDK to capture config
@@ -32,8 +34,8 @@ vi.mock("@opentelemetry/sdk-metrics", () => ({
   PeriodicExportingMetricReader: vi.fn(),
 }));
 
-vi.mock("@opentelemetry/instrumentation-fastify", () => ({
-  FastifyInstrumentation: vi.fn(),
+vi.mock("@fastify/otel", () => ({
+  FastifyOtelInstrumentation: vi.fn(),
 }));
 
 vi.mock("@opentelemetry/instrumentation-http", () => ({
@@ -56,6 +58,7 @@ vi.mock("@opentelemetry/semantic-conventions", () => ({
 
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 
 function fakeRequest(url: string): IncomingMessage {
   return { url } as IncomingMessage;
@@ -76,7 +79,9 @@ describe("shouldIgnoreRequest", () => {
 
   it("ignores /docs sub-paths (Swagger assets)", () => {
     expect(shouldIgnoreRequest(fakeRequest("/docs/json"))).toBe(true);
-    expect(shouldIgnoreRequest(fakeRequest("/docs/static/index.html"))).toBe(true);
+    expect(shouldIgnoreRequest(fakeRequest("/docs/static/index.html"))).toBe(
+      true
+    );
   });
 
   it("ignores /reference", () => {
@@ -88,7 +93,9 @@ describe("shouldIgnoreRequest", () => {
   });
 
   it("does not ignore application routes", () => {
-    expect(shouldIgnoreRequest(fakeRequest("/api/v1/reservations"))).toBe(false);
+    expect(shouldIgnoreRequest(fakeRequest("/api/v1/reservations"))).toBe(
+      false
+    );
     expect(shouldIgnoreRequest(fakeRequest("/api/v1/tables"))).toBe(false);
     expect(shouldIgnoreRequest(fakeRequest("/"))).toBe(false);
   });
@@ -100,7 +107,9 @@ describe("shouldIgnoreRequest", () => {
   });
 
   it("handles missing url gracefully", () => {
-    expect(shouldIgnoreRequest({ url: undefined } as IncomingMessage)).toBe(false);
+    expect(shouldIgnoreRequest({ url: undefined } as IncomingMessage)).toBe(
+      false
+    );
   });
 });
 
@@ -147,5 +156,14 @@ describe("initTelemetry", () => {
     initTelemetry({ serviceName: "test-service" });
 
     expect(LangfuseSpanProcessor).not.toHaveBeenCalled();
+  });
+
+  it("wires FastifyOtelInstrumentation with registerOnInitialization enabled", async () => {
+    const { initTelemetry } = await import("./sdk.js");
+    initTelemetry({ serviceName: "test-service" });
+
+    expect(FastifyOtelInstrumentation).toHaveBeenCalledWith({
+      registerOnInitialization: true,
+    });
   });
 });
