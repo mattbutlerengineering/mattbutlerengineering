@@ -47,7 +47,16 @@
  *
  * Pure core (`backfillHumanTouchReasons`) with dependency injection, matching
  * `reconcile-queue-telemetry.mjs`. GitHub lookups are capped per run
- * (default 50); remaining rows backfill on the next run.
+ * (default 50).
+ *
+ * The cap is NOT a resumable cursor. Rows the classifier can't match keep
+ * `human_touch_reason` undefined, so they stay eligible and the next run
+ * spends its whole budget re-fetching the same leading rows — a second run
+ * makes no progress at all. Observed on the real sink at 282 rows / 243
+ * eligible: run 1 classified 2, run 2 classified 0 with another 50 lookups.
+ * For a one-time backfill over the full history, raise the cap in one pass:
+ *
+ *   node scripts/backfill-human-touch-reasons.mjs --max-calls 300
  */
 
 import { execFileSync } from "node:child_process";
@@ -269,10 +278,26 @@ export function runBackfill({ root, fetchPrDetails, maxCalls, dryRun = false } =
   return { classified, skipped, calls, written };
 }
 
+/**
+ * Parse `--max-calls <n>` out of argv. Returns undefined when absent or not a
+ * positive integer, so `runBackfill` falls back to DEFAULT_MAX_CALLS rather
+ * than inheriting a NaN that would compare false against every cap check.
+ *
+ * @param {string[]} argv
+ * @returns {number|undefined}
+ */
+export function parseMaxCalls(argv) {
+  const i = argv.indexOf("--max-calls");
+  if (i === -1) return undefined;
+  const value = Number(argv[i + 1]);
+  return Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dryRun = process.argv.includes("--dry-run");
   const { classified, skipped, calls, written } = runBackfill({
     fetchPrDetails: defaultFetchPrDetails,
+    maxCalls: parseMaxCalls(process.argv),
     dryRun,
   });
 
