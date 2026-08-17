@@ -18,6 +18,7 @@ import {
   readQueueEfficiencyPrs,
   buildE2eRuns,
   resolveRunChangedPaths,
+  buildFlakyTestRuns,
 } from "../sensors-registry.mjs";
 import { computeE2eStability } from "../collect-e2e-stability.mjs";
 import { GhAuthError } from "@mbe/gh-client";
@@ -566,6 +567,142 @@ describe("sensors-registry", () => {
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
       expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({ available: false });
+    });
+
+    it("flakyTests collects runs via ghClient.workflow.runs scoped to the CI workflow", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
+      const sensor = SENSORS.find((s) => s.id === "flakyTests");
+
+      sensor.collect({ ghClient });
+
+      expect(ghClient.workflow.runs).toHaveBeenCalledWith([
+        "--limit",
+        "100",
+        "--workflow",
+        "CI",
+        "--json",
+        "databaseId,status,headSha",
+      ]);
+    });
+
+    it("flakyTests sensor reports the auth-capability gap distinctly when ghClient.workflow.runs throws", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockImplementation(() => {
+            throw new GhAuthError("GET", "/repos/o/r/actions/runs", 401, "Bad credentials");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "flakyTests");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
+    });
+
+    it("flakyTests sensor degrades to the data_gap shape when there are no completed runs", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
+      const sensor = SENSORS.find((s) => s.id === "flakyTests");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.data_gap).toMatch(/per-test run history/i);
+    });
+  });
+
+  describe("buildFlakyTestRuns", () => {
+    it("skips runs that aren't completed, or are missing databaseId/headSha", () => {
+      const ghRuns = [
+        { status: "in_progress", databaseId: 1, headSha: "a" },
+        { status: "completed", headSha: "b" }, // no databaseId
+        { status: "completed", databaseId: 3 }, // no headSha
+      ];
+      const listRunArtifacts = vi.fn();
+
+      const rows = buildFlakyTestRuns(ghRuns, { listRunArtifacts });
+
+      expect(listRunArtifacts).not.toHaveBeenCalled();
+      expect(rows).toEqual([]);
+    });
+
+    it("filters artifacts to the test-results-node* prefix, excluding expired ones", () => {
+      const ghRuns = [{ status: "completed", databaseId: 42, headSha: "abc123" }];
+      const listRunArtifacts = vi.fn().mockReturnValue([
+        { id: 1, name: "test-results-node22", expired: false },
+        { id: 2, name: "test-results-node22", expired: true },
+        { id: 3, name: "unrelated-artifact", expired: false },
+      ]);
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi.fn().mockReturnValue([]);
+
+      buildFlakyTestRuns(ghRuns, { listRunArtifacts, downloadArtifactZip, extractZipEntries });
+
+      expect(downloadArtifactZip).toHaveBeenCalledTimes(1);
+      expect(downloadArtifactZip).toHaveBeenCalledWith(1);
+    });
+
+    it("attaches the run's headSha to every parsed testcase row, skipping non-.xml entries", () => {
+      const ghRuns = [{ status: "completed", databaseId: 42, headSha: "abc123" }];
+      const listRunArtifacts = vi
+        .fn()
+        .mockReturnValue([{ id: 1, name: "test-results-node22", expired: false }]);
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi.fn().mockReturnValue([
+        { name: "services/foo/test-results/junit.xml", data: Buffer.from("<xml/>") },
+        { name: "services/foo/README.md", data: Buffer.from("not xml") },
+      ]);
+      const parseJUnitXml = vi.fn().mockReturnValue([{ testName: "suite > test", passed: true }]);
+
+      const rows = buildFlakyTestRuns(ghRuns, {
+        listRunArtifacts,
+        downloadArtifactZip,
+        extractZipEntries,
+        parseJUnitXml,
+      });
+
+      expect(parseJUnitXml).toHaveBeenCalledTimes(1);
+      expect(rows).toEqual([{ sha: "abc123", testName: "suite > test", passed: true }]);
+    });
+
+    it("degrades one run's contribution to zero rows when listRunArtifacts throws, without aborting the others", () => {
+      const ghRuns = [
+        { status: "completed", databaseId: 1, headSha: "broken" },
+        { status: "completed", databaseId: 2, headSha: "ok" },
+      ];
+      const listRunArtifacts = vi.fn().mockImplementation((runId) => {
+        if (runId === 1) throw new Error("network error");
+        return [{ id: 99, name: "test-results-node22", expired: false }];
+      });
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi
+        .fn()
+        .mockReturnValue([{ name: "a/test-results/junit.xml", data: Buffer.from("<xml/>") }]);
+      const parseJUnitXml = vi.fn().mockReturnValue([{ testName: "t", passed: true }]);
+
+      const rows = buildFlakyTestRuns(ghRuns, {
+        listRunArtifacts,
+        downloadArtifactZip,
+        extractZipEntries,
+        parseJUnitXml,
+      });
+
+      expect(rows).toEqual([{ sha: "ok", testName: "t", passed: true }]);
+    });
+
+    it("degrades to zero rows when downloadArtifactZip throws (e.g. expired past retention)", () => {
+      const ghRuns = [{ status: "completed", databaseId: 1, headSha: "abc" }];
+      const listRunArtifacts = vi
+        .fn()
+        .mockReturnValue([{ id: 1, name: "test-results-node22", expired: false }]);
+      const downloadArtifactZip = vi.fn().mockImplementation(() => {
+        throw new Error("410: artifact expired");
+      });
+
+      const rows = buildFlakyTestRuns(ghRuns, { listRunArtifacts, downloadArtifactZip });
+
+      expect(rows).toEqual([]);
     });
   });
 

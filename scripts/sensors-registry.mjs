@@ -37,7 +37,9 @@ import {
   QUEUE_EFFICIENCY_FPS_DROP,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
-import { describeGhError } from "@mbe/gh-client";
+import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
+import { extractZipEntries } from "./extract-zip-entries.mjs";
+import { parseJUnitXml } from "./parse-junit-xml.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -233,6 +235,60 @@ export function buildE2eRuns(ghRuns, resolveChangedPaths) {
     });
   }
   return { runs, unresolved };
+}
+
+/** Prefix of the per-Node-version JUnit artifact `ci.yml` uploads (#4271). */
+export const FLAKY_TESTS_ARTIFACT_PREFIX = "test-results-node";
+
+/**
+ * Downloads and parses each completed run's JUnit XML artifact(s) into the
+ * `{ sha, testName, passed }` rows `computeFlakyTests` expects. Every IO step
+ * (listing artifacts, downloading a zip, unzipping, parsing) is wrapped in
+ * `safe()` so one broken run — an expired artifact past the 14-day
+ * retention window, a transient network failure, a malformed zip — degrades
+ * only that run's contribution to zero rows instead of aborting the whole
+ * sensor (mirrors `buildE2eRuns`'s per-run tolerance above).
+ *
+ * `deps` is injectable for testing — defaults to the real gh-client/parser IO.
+ *
+ * @param {Array<{ databaseId?: number; status?: string; headSha?: string }>} ghRuns
+ * @param {{
+ *   listRunArtifacts?: typeof listRunArtifacts;
+ *   downloadArtifactZip?: typeof downloadArtifactZip;
+ *   extractZipEntries?: typeof extractZipEntries;
+ *   parseJUnitXml?: typeof parseJUnitXml;
+ * }} [deps]
+ * @returns {Array<{ sha: string; testName: string; passed: boolean }>}
+ */
+export function buildFlakyTestRuns(ghRuns, deps = {}) {
+  const listArtifacts = deps.listRunArtifacts ?? listRunArtifacts;
+  const downloadZip = deps.downloadArtifactZip ?? downloadArtifactZip;
+  const extractEntries = deps.extractZipEntries ?? extractZipEntries;
+  const parseXml = deps.parseJUnitXml ?? parseJUnitXml;
+
+  const rows = [];
+  for (const run of ghRuns) {
+    if (run.status !== "completed" || !run.databaseId || !run.headSha) continue;
+
+    const artifacts = safe(() => listArtifacts(run.databaseId), []);
+    const matching = artifacts.filter(
+      (a) => a.name.startsWith(FLAKY_TESTS_ARTIFACT_PREFIX) && !a.expired
+    );
+
+    for (const artifact of matching) {
+      const zipBuffer = safe(() => downloadZip(artifact.id));
+      if (!zipBuffer) continue;
+      const entries = safe(() => extractEntries(zipBuffer), []);
+      for (const entry of entries) {
+        if (!entry.name.endsWith(".xml")) continue;
+        const testCases = safe(() => parseXml(entry.data.toString("utf-8")), []);
+        for (const { testName, passed } of testCases) {
+          rows.push({ sha: run.headSha, testName, passed });
+        }
+      }
+    }
+  }
+  return rows;
 }
 
 /**
@@ -723,7 +779,35 @@ export const SENSORS = [
   {
     id: "flakyTests",
     category: "quality",
-    collect: () => computeFlakyTests([]),
+    collect: ({ ghClient }) => {
+      let ghRuns;
+      try {
+        // The test-results-node* artifact only ever comes from the "CI"
+        // workflow's Test job. `--limit 100` (the REST fallback's per-page
+        // cap) is fetched *before* the `--workflow` filter is applied
+        // client-side (gh-client has no server-side workflow-scoped runs
+        // lookup — see rest-label-run-ops.ts), so a small limit here would
+        // mostly return unrelated workflows (Secret Scan, Release, ADR
+        // check, ...) and starve the CI-specific window to near zero.
+        ghRuns = ghClient.workflow.runs([
+          "--limit",
+          "100",
+          "--workflow",
+          "CI",
+          "--json",
+          "databaseId,status,headSha",
+        ]);
+      } catch (err) {
+        // Same distinguishable-failure shape e2eStability uses (#3937/#3946):
+        // a thrown error is a query failure, not "no artifacts yet".
+        return { available: false, error: describeGhError(err) };
+      }
+
+      // computeFlakyTests(runs) already treats an empty array the same as
+      // `null` (no per-test history) — covers both a fresh rollout and every
+      // run's artifact(s) having expired past the 14-day retention window.
+      return computeFlakyTests(buildFlakyTestRuns(ghRuns));
+    },
     format: (data, name) =>
       `${name}: ${data.flaky_count} flaky (${data.total_runs} runs, ${data.window_shas} SHAs)`,
   },
