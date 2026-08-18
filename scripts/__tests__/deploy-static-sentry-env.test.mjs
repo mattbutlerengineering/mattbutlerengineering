@@ -68,6 +68,28 @@ function buildStepFor(yaml, app) {
   );
 }
 
+/**
+ * Does this step block actually *assign* `key` as an environment variable?
+ *
+ * Deliberately not a substring test for "KEY:". These steps carry comments
+ * that name the very variables being asserted, so a substring match would let
+ * a step pass on the strength of a comment mentioning the variable it is
+ * missing — the guard reporting green for the one case it exists to catch.
+ * Requires the key at the start of its own line (after indentation) followed
+ * by a colon and a value, and skips comment lines outright.
+ *
+ * The key is compared by exact equality rather than interpolated into a
+ * pattern — the same choice pulumi-cli-pin.test.mjs makes, and for the same
+ * reason: building a regex from a variable means hand-escaping it, which
+ * CodeQL flags (js/incomplete-sanitization).
+ */
+function assignsEnv(step, key) {
+  return step
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .some((line) => /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*\S/.exec(line)?.[1] === key);
+}
+
 describe("deploy-static.yml passes the Sentry build environment to every static app", () => {
   it("builds every app in STATIC_APPS", () => {
     // Guards the enumeration itself: if an app is renamed or its build step is
@@ -81,7 +103,7 @@ describe("deploy-static.yml passes the Sentry build environment to every static 
     const step = buildStepFor(WORKFLOW, app);
     expect(step).not.toBeNull();
 
-    const absent = REQUIRED_SENTRY_ENV.filter((key) => !step.includes(`${key}:`));
+    const absent = REQUIRED_SENTRY_ENV.filter((key) => !assignsEnv(step, key));
 
     // Named in the failure message on purpose. The defect this guards against
     // (marketing and rialto-web dark since 2026-04-02, while the 2026-05-18 CI
