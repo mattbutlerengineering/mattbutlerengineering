@@ -182,7 +182,7 @@ item 1 below writes the guard **before** the fix rather than after.
   - Accept: the guard test from item 1 passes, and `pnpm --dir scripts test`
     is green.
 
-- [ ] **Verify on the deployed surface after release** — once CI has deployed
+- [x] **Verify on the deployed surface after release** — once CI has deployed
       both sites, re-run the bundle probe from Evidence §3.
   - Accept: the marketing and rialto-web bundles each report **≥1** occurrence
     of `ingest.us.sentry.io`, up from 0, with hospitality unchanged at ≥1.
