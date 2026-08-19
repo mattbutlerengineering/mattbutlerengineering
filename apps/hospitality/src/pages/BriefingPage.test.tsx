@@ -46,6 +46,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     placeholder?: string;
     value?: string;
     onChange?: React.ChangeEventHandler<HTMLInputElement>;
+    "aria-label"?: string;
   }) => (
     <input
       data-testid={props.type === "date" ? "date-input" : "search-input"}
@@ -53,6 +54,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       placeholder={props.placeholder}
       value={props.value}
       onChange={props.onChange}
+      aria-label={props["aria-label"]}
     />
   ),
   SegmentedControl: ({
@@ -173,6 +175,18 @@ describe("BriefingPage", () => {
 
     renderPage();
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+  });
+
+  it("exposes an accessible name for the service date input", () => {
+    vi.mocked(useBriefing).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+    expect(screen.getByLabelText("Service date")).toBeInTheDocument();
   });
 
   it("renders reservation cards with guest info", () => {
