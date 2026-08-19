@@ -63,6 +63,7 @@ export default [
         },
       ],
       "mbe-local/prefer-rialto-components": "warn",
+      "mbe-local/require-accessible-field-label": "error",
       "react/jsx-no-undef": "off",
       // Warn on hardcoded hex colors in JSX — prefer Rialto CSS tokens (var(--rialto-*))
       "no-restricted-syntax": [
@@ -86,6 +87,10 @@ export default [
     files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
     rules: {
       "mbe-local/prefer-rialto-components": "off",
+      // Test suites deliberately exercise the unlabeled render path (e.g.
+      // verifying no <label> renders when the label prop is omitted) —
+      // that's a valid, intentional case, not a real accessibility gap.
+      "mbe-local/require-accessible-field-label": "off",
       // Tests may use `any` for mock shapes without failing lint (102 existing
       // uses measured 2026-07-12, issue #3402); production code errors via base.
       "@typescript-eslint/no-explicit-any": "warn",

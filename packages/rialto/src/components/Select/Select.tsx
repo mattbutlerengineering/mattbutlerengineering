@@ -23,6 +23,10 @@ export interface SelectOption {
  * Custom dropdown select with keyboard navigation, animated open/close, and option highlighting.
  * Renders a combobox trigger button and an animated listbox — not a native `<select>`.
  *
+ * Requires an accessible name: pass `label` (renders a visible `<label>`) or,
+ * for a visually-hidden name, `aria-label`/`aria-labelledby`. A lint rule
+ * (`mbe-local/require-accessible-field-label`) enforces this at CI time.
+ *
  * @example
  * <Select
  *   label="Country"
@@ -30,6 +34,7 @@ export interface SelectOption {
  *   value={country}
  *   onChange={setCountry}
  * />
+ * <Select aria-label="Country" options={countryOptions} value={country} onChange={setCountry} />
  */
 export interface SelectProps {
   options: SelectOption[];
@@ -47,6 +52,10 @@ export interface SelectProps {
   /** Explains why the select is disabled. Shown in a tooltip; requires `disabled` to be true. */
   disabledReason?: string;
   className?: string;
+  /** Accessible name for the trigger when no visible `label` is rendered. */
+  "aria-label"?: string;
+  /** References the id of an external element that labels the trigger. */
+  "aria-labelledby"?: string;
 }
 
 /* ── Component ───────────────────────────────── */
@@ -66,6 +75,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       disabled,
       disabledReason,
       className,
+      "aria-label": ariaLabel,
+      "aria-labelledby": ariaLabelledBy,
     },
     ref
   ) => {
@@ -125,6 +136,8 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             className={styles.trigger}
             type="button"
             role="combobox"
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
             aria-expanded={open}
             aria-controls={listboxId}
             aria-haspopup="listbox"

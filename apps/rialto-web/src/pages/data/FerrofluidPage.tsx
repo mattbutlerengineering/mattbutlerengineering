@@ -50,6 +50,7 @@ function FerrofluidPlayground() {
             Blob count: {blobCount}
           </Text>
           <Input
+            aria-label="Blob count"
             type="range"
             min={2}
             max={12}
@@ -62,6 +63,7 @@ function FerrofluidPlayground() {
             Blur amount: {blurAmount}
           </Text>
           <Input
+            aria-label="Blur amount"
             type="range"
             min={4}
             max={24}

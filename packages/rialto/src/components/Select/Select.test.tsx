@@ -39,6 +39,11 @@ describe("Select", () => {
       expect(screen.getByText("Country")).toBeInTheDocument();
     });
 
+    it("supports an accessible name via aria-label without a visible label", () => {
+      render(<Select options={options} aria-label="Country" />);
+      expect(screen.getByRole("combobox", { name: "Country" })).toBeInTheDocument();
+    });
+
     it("uses the provided id as the base for the trigger's id", () => {
       render(<Select options={options} label="Country" id="country-field" />);
       expect(screen.getByRole("combobox")).toHaveAttribute("id", "country-field-trigger");

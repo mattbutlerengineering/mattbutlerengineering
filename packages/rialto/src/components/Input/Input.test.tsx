@@ -14,6 +14,11 @@ describe("Input", () => {
       expect(screen.getByLabelText("Email")).toBeInTheDocument();
     });
 
+    it("supports an accessible name via aria-label without a visible label", () => {
+      render(<Input aria-label="Search" />);
+      expect(screen.getByRole("textbox", { name: "Search" })).toBeInTheDocument();
+    });
+
     it("renders hint text below the input", () => {
       render(<Input hint="Use your work email" />);
       expect(screen.getByText("Use your work email")).toBeInTheDocument();

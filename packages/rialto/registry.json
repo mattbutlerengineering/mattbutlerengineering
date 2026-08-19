@@ -2350,7 +2350,7 @@
     },
     {
       "name": "Input",
-      "description": "Single-line text field with optional label, hint text, and error state.\nWraps a native `<input>` — all standard input attributes are supported.",
+      "description": "Single-line text field with optional label, hint text, and error state.\nWraps a native `<input>` — all standard input attributes are supported.\n\nRequires an accessible name: pass `label` (renders a visible `<label>`) or,\nfor a visually-hidden name, `aria-label`/`aria-labelledby`. A lint rule\n(`mbe-local/require-accessible-field-label`) enforces this at CI time.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3262,7 +3262,7 @@
     },
     {
       "name": "Select",
-      "description": "Custom dropdown select with keyboard navigation, animated open/close, and option highlighting.\nRenders a combobox trigger button and an animated listbox — not a native `<select>`.",
+      "description": "Custom dropdown select with keyboard navigation, animated open/close, and option highlighting.\nRenders a combobox trigger button and an animated listbox — not a native `<select>`.\n\nRequires an accessible name: pass `label` (renders a visible `<label>`) or,\nfor a visually-hidden name, `aria-label`/`aria-labelledby`. A lint rule\n(`mbe-local/require-accessible-field-label`) enforces this at CI time.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3331,6 +3331,18 @@
           "name": "className",
           "type": "string | undefined",
           "required": false
+        },
+        {
+          "name": "aria-label",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Accessible name for the trigger when no visible `label` is rendered."
+        },
+        {
+          "name": "aria-labelledby",
+          "type": "string | undefined",
+          "required": false,
+          "description": "References the id of an external element that labels the trigger."
         }
       ],
       "slots": [],
@@ -4300,7 +4312,7 @@
     },
     {
       "name": "TextArea",
-      "description": "Multi-line text field with optional label, hint, error state, auto-resize, and character counter.\nAccepts a subset of native `<textarea>` attributes for controlled or uncontrolled use.",
+      "description": "Multi-line text field with optional label, hint, error state, auto-resize, and character counter.\nAccepts a subset of native `<textarea>` attributes for controlled or uncontrolled use.\n\nRequires an accessible name: pass `label` (renders a visible `<label>`) or,\nfor a visually-hidden name, `aria-label`/`aria-labelledby`. A lint rule\n(`mbe-local/require-accessible-field-label`) enforces this at CI time.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

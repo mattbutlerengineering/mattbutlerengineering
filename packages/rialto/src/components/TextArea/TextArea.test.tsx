@@ -30,6 +30,13 @@ describe("TextArea — readOnly + aria-disabled anti-pattern", () => {
   });
 });
 
+describe("TextArea — accessible name", () => {
+  it("supports an accessible name via aria-label without a visible label", () => {
+    render(<TextArea aria-label="Bio" />);
+    expect(screen.getByRole("textbox", { name: "Bio" })).toBeInTheDocument();
+  });
+});
+
 describe("TextArea — required marker + aria-live announcements", () => {
   it("renders the required marker when required", () => {
     render(<TextArea label="Bio" required />);

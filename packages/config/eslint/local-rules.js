@@ -83,6 +83,47 @@ export default {
         };
       },
     },
+    "require-accessible-field-label": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Require Input, Select, and TextArea usages to provide an accessible name via label, aria-label, or aria-labelledby",
+        },
+        schema: [],
+      },
+      create(context) {
+        const TARGET_COMPONENTS = new Set(["Input", "Select", "TextArea"]);
+        const LABEL_ATTRS = new Set(["label", "aria-label", "aria-labelledby"]);
+
+        return {
+          JSXOpeningElement(node) {
+            if (node.name.type !== "JSXIdentifier" || !TARGET_COMPONENTS.has(node.name.name)) {
+              return;
+            }
+
+            // A spread could carry the label prop dynamically — can't prove
+            // a violation statically, so skip rather than false-positive.
+            const hasSpread = node.attributes.some(
+              (attribute) => attribute.type === "JSXSpreadAttribute"
+            );
+            if (hasSpread) return;
+
+            const hasAccessibleName = node.attributes.some(
+              (attribute) =>
+                attribute.type === "JSXAttribute" && LABEL_ATTRS.has(attribute.name.name)
+            );
+
+            if (!hasAccessibleName) {
+              context.report({
+                node,
+                message: `<${node.name.name}> must have a "label", "aria-label", or "aria-labelledby" prop for an accessible name.`,
+              });
+            }
+          },
+        };
+      },
+    },
     "prefer-rialto-components": {
       meta: {
         type: "suggestion",

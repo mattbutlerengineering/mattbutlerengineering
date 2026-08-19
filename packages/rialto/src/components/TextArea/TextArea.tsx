@@ -11,10 +11,15 @@ import styles from "./TextArea.module.css";
  * Multi-line text field with optional label, hint, error state, auto-resize, and character counter.
  * Accepts a subset of native `<textarea>` attributes for controlled or uncontrolled use.
  *
+ * Requires an accessible name: pass `label` (renders a visible `<label>`) or,
+ * for a visually-hidden name, `aria-label`/`aria-labelledby`. A lint rule
+ * (`mbe-local/require-accessible-field-label`) enforces this at CI time.
+ *
  * @example
  * <TextArea label="Bio" placeholder="Tell us about yourself" />
  * <TextArea label="Notes" autoResize maxLength={200} />
  * <TextArea label="Description" rows={5} error hint="Required" />
+ * <TextArea aria-label="Bio" placeholder="Tell us about yourself" />
  */
 export interface TextAreaProps extends Omit<
   TextareaHTMLAttributes<HTMLTextAreaElement>,

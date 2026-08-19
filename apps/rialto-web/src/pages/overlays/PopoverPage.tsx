@@ -109,7 +109,7 @@ export function PopoverPage() {
             title="Session Name"
           >
             <Stack gap="sm">
-              <Input placeholder="FP1 — Fiorano" />
+              <Input aria-label="Session name" placeholder="FP1 — Fiorano" />
               <div
                 style={{
                   display: "flex",
