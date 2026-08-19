@@ -9,11 +9,16 @@ import styles from "./Input.module.css";
  * Single-line text field with optional label, hint text, and error state.
  * Wraps a native `<input>` — all standard input attributes are supported.
  *
+ * Requires an accessible name: pass `label` (renders a visible `<label>`) or,
+ * for a visually-hidden name, `aria-label`/`aria-labelledby`. A lint rule
+ * (`mbe-local/require-accessible-field-label`) enforces this at CI time.
+ *
  * @example
  * <Input label="Email" placeholder="you@example.com" />
  * <Input label="Name" hint="As it appears on your ID" />
  * <Input label="Code" error hint="Invalid code" />
  * <Input label="Search" startIcon={<Search size={16} />} placeholder="Search..." />
+ * <Input aria-label="Search" placeholder="Search..." startIcon={<Search size={16} />} />
  */
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;

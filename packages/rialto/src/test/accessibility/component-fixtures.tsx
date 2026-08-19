@@ -531,7 +531,7 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: (
       <InputGroup aria-label="Price">
         <span>$</span>
-        <Input placeholder="0.00" />
+        <Input aria-label="Price" placeholder="0.00" />
       </InputGroup>
     ),
   },

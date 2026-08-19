@@ -19,7 +19,7 @@ type Story = StoryObj<typeof InputGroup>;
 export const InputWithButton: Story = {
   render: () => (
     <InputGroup style={{ width: "360px" }}>
-      <Input placeholder="Search…" style={{ flex: 1 }} />
+      <Input aria-label="Search" placeholder="Search…" style={{ flex: 1 }} />
       <Button variant="primary">Search</Button>
     </InputGroup>
   ),
@@ -29,6 +29,7 @@ export const SelectWithInput: Story = {
   render: () => (
     <InputGroup style={{ width: "360px" }}>
       <Select
+        aria-label="Protocol"
         options={[
           { value: "https", label: "https://" },
           { value: "http", label: "http://" },
@@ -36,7 +37,7 @@ export const SelectWithInput: Story = {
         value="https"
         style={{ width: "120px" }}
       />
-      <Input placeholder="example.com" style={{ flex: 1 }} />
+      <Input aria-label="Domain" placeholder="example.com" style={{ flex: 1 }} />
     </InputGroup>
   ),
 };
@@ -44,8 +45,8 @@ export const SelectWithInput: Story = {
 export const InputRange: Story = {
   render: () => (
     <InputGroup style={{ width: "320px" }}>
-      <Input placeholder="Min" style={{ flex: 1 }} type="number" />
-      <Input placeholder="Max" style={{ flex: 1 }} type="number" />
+      <Input aria-label="Min" placeholder="Min" style={{ flex: 1 }} type="number" />
+      <Input aria-label="Max" placeholder="Max" style={{ flex: 1 }} type="number" />
     </InputGroup>
   ),
 };
@@ -53,7 +54,7 @@ export const InputRange: Story = {
 export const InputWithGhostButton: Story = {
   render: () => (
     <InputGroup style={{ width: "360px" }}>
-      <Input placeholder="Enter coupon code" style={{ flex: 1 }} />
+      <Input aria-label="Coupon code" placeholder="Enter coupon code" style={{ flex: 1 }} />
       <Button variant="ghost">Apply</Button>
     </InputGroup>
   ),

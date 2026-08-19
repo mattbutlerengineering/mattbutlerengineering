@@ -140,6 +140,7 @@ function ScrollDemo() {
       <FlipDot matrix={matrix} cols={40} rows={7} dotSize={5} dotGap={2} aria-label={text} />
       <div style={{ display: "flex", gap: "var(--rialto-space-sm)", alignItems: "center" }}>
         <Input
+          aria-label="Scrolling text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Scrolling text..."

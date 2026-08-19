@@ -28,6 +28,7 @@ function InputGroupPlayground() {
         {layout === "input-button" && (
           <InputGroup>
             <Input
+              aria-label="Value"
               placeholder="Enter value..."
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -38,6 +39,7 @@ function InputGroupPlayground() {
         {layout === "select-input" && (
           <InputGroup>
             <Select
+              aria-label="Unit"
               options={[
                 { value: "kg", label: "kg" },
                 { value: "lb", label: "lb" },
@@ -46,13 +48,13 @@ function InputGroupPlayground() {
               value="kg"
               onChange={() => undefined}
             />
-            <Input placeholder="Amount..." />
+            <Input aria-label="Amount" placeholder="Amount..." />
           </InputGroup>
         )}
         {layout === "input-input" && (
           <InputGroup>
-            <Input placeholder="Min..." />
-            <Input placeholder="Max..." />
+            <Input aria-label="Min" placeholder="Min..." />
+            <Input aria-label="Max" placeholder="Max..." />
           </InputGroup>
         )}
       </Card>
@@ -84,7 +86,7 @@ export function InputGroupPage() {
       <Section title="Input + Button">
         <Stack gap="sm">
           <InputGroup>
-            <Input placeholder="Search telemetry data..." />
+            <Input aria-label="Search telemetry data" placeholder="Search telemetry data..." />
             <Button variant="primary">Search</Button>
           </InputGroup>
           <Text variant="caption" color="secondary">
@@ -98,6 +100,7 @@ export function InputGroupPage() {
         <Stack gap="sm">
           <InputGroup>
             <Select
+              aria-label="Unit"
               options={[
                 { value: "rpm", label: "RPM" },
                 { value: "mph", label: "MPH" },
@@ -106,7 +109,7 @@ export function InputGroupPage() {
               value="rpm"
               onChange={() => undefined}
             />
-            <Input placeholder="Enter threshold..." />
+            <Input aria-label="Threshold" placeholder="Enter threshold..." />
           </InputGroup>
           <Text variant="caption" color="secondary">
             Unit selector paired with a value field — borders collapse at the join.
@@ -118,8 +121,8 @@ export function InputGroupPage() {
       <Section title="Input + Input (Range)">
         <Stack gap="sm">
           <InputGroup>
-            <Input placeholder="From..." />
-            <Input placeholder="To..." />
+            <Input aria-label="From" placeholder="From..." />
+            <Input aria-label="To" placeholder="To..." />
           </InputGroup>
           <Text variant="caption" color="secondary">
             Two inputs joined for a range entry without needing a separator element.
@@ -132,6 +135,7 @@ export function InputGroupPage() {
         <Stack gap="sm">
           <InputGroup>
             <Select
+              aria-label="Channel"
               options={[
                 { value: "speed", label: "Speed" },
                 { value: "gear", label: "Gear" },
@@ -140,7 +144,7 @@ export function InputGroupPage() {
               value="speed"
               onChange={() => undefined}
             />
-            <Input placeholder="Threshold value..." />
+            <Input aria-label="Threshold value" placeholder="Threshold value..." />
             <Button variant="secondary">Apply</Button>
           </InputGroup>
           <Text variant="caption" color="secondary">
@@ -162,6 +166,7 @@ export function InputGroupPage() {
             <Stack gap="sm">
               <InputGroup>
                 <Select
+                  aria-label="Channel"
                   options={[
                     { value: "speed", label: "Speed" },
                     { value: "rpm", label: "Engine RPM" },
@@ -171,8 +176,8 @@ export function InputGroupPage() {
                   value="speed"
                   onChange={() => undefined}
                 />
-                <Input placeholder="Min value..." />
-                <Input placeholder="Max value..." />
+                <Input aria-label="Min value" placeholder="Min value..." />
+                <Input aria-label="Max value" placeholder="Max value..." />
               </InputGroup>
               <Stack direction="row" gap="sm" align="center" justify="end" wrap>
                 <Button variant="ghost" size="sm">

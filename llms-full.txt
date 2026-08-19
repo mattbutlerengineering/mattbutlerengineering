@@ -17878,6 +17878,8 @@
         showOptional: z.boolean().optional(),
         disabled: z.boolean().optional(),
         disabledReason: z.string().optional(),
+        "aria-label": z.string().optional(),
+        "aria-labelledby": z.string().optional(),
       }),
       Sidebar: z.object({
         items: z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })])),
