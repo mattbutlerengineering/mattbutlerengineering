@@ -227,6 +227,7 @@ jobs:
             docs/runbooks/**
             scripts/lib/file-issue-cli.mjs
             scripts/lib/issue-filing.mjs
+            scripts/lib/health-alert-summary.mjs
           sparse-checkout-cone-mode: false
 
       - name: Create health alert issue (cont.)
@@ -238,26 +239,23 @@ jobs:
           ISSUE_LABEL: ${{ steps.existing.outputs.label }}
           TIMELINE: ${{ steps.timeline.outputs.timeline }}
         run: |
-          # Build a concise summary of what's wrong
-          # Unauthenticated /health/system returns {status, timestamp, requestId,
-          # subsystems:{services,static_sites,ci,deploys}} where each subsystem
-          # has only a {status} field (no sensitive details). Authenticated callers
-          # also get per-check breakdowns, latencies, commit SHAs, etc.
-          FAILED_SERVICES=$(echo "$HEALTH_RESPONSE" | jq -r '
-            [(.subsystems // {}).services // {} | (.checks // {}) | to_entries[] | select(.value.status != "ok") | .key] | join(", ")' 2>/dev/null || echo "")
-          FAILED_SITES=$(echo "$HEALTH_RESPONSE" | jq -r '
-            [(.subsystems // {}).static_sites // {} | (.checks // {}) | to_entries[] | select(.value.status != "ok") | .key] | join(", ")' 2>/dev/null || echo "")
-          CI_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '(.subsystems // {}).ci.status // "unknown"' 2>/dev/null || echo "unknown")
-          DEPLOY_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '(.subsystems // {}).deploys.status // "unknown"' 2>/dev/null || echo "unknown")
+          # Build a concise summary of what's wrong. Unauthenticated
+          # /health/system returns {status, timestamp, requestId,
+          # subsystems:{services,static_sites,ci,deploys}} where each
+          # subsystem has only a {status} field (no sensitive details).
+          # Authenticated callers also get per-check breakdowns, latencies,
+          # commit SHAs, etc. scripts/lib/health-alert-summary.mjs is the
+          # pure, unit-tested decision (#4359) that falls back to the
+          # subsystem-level status when per-check detail is unavailable, so
+          # the summary is never silently empty.
+          RESULT=$(echo "$HEALTH_RESPONSE" | node scripts/lib/health-alert-summary.mjs)
+          echo "$RESULT"
 
-          SUMMARY=""
-          [ -n "$FAILED_SERVICES" ] && SUMMARY="${SUMMARY}Services down: ${FAILED_SERVICES}. "
-          [ -n "$FAILED_SITES" ] && SUMMARY="${SUMMARY}Static sites down: ${FAILED_SITES}. "
-          [ "$CI_STATUS" != "healthy" ] && SUMMARY="${SUMMARY}CI: ${CI_STATUS}. "
-          [ "$DEPLOY_STATUS" != "healthy" ] && SUMMARY="${SUMMARY}Deploys: ${DEPLOY_STATUS}. "
-
-          TITLE="System health ${HEALTH_STATUS}: ${SUMMARY}"
-          TITLE="${TITLE:0:256}"
+          FAILED_SERVICES=$(echo "$RESULT" | jq -r '.failedServices')
+          FAILED_SITES=$(echo "$RESULT" | jq -r '.failedSites')
+          CI_STATUS=$(echo "$RESULT" | jq -r '.ciStatus')
+          DEPLOY_STATUS=$(echo "$RESULT" | jq -r '.deployStatus')
+          TITLE=$(echo "$RESULT" | jq -r '.title')
           DETECTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           {
