@@ -164,11 +164,13 @@ export function ReservationsPage() {
           size="sm"
         />
         <Input
+          aria-label="Search by guest name"
           placeholder="Search by guest name..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <Input
+          aria-label="Filter by date"
           type="date"
           value={selectedDate}
           onChange={(e) => {

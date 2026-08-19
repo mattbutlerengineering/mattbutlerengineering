@@ -217,6 +217,7 @@ export function AdminPage() {
       <Card>
         <div className={styles.toolbar}>
           <Input
+            aria-label="Search by name or email"
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={handleSearchChange}

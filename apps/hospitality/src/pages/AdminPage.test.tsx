@@ -34,6 +34,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       placeholder={props.placeholder}
       value={props.value}
       onChange={props.onChange}
+      aria-label={props["aria-label"]}
     />
   ),
   Pagination: ({ total, page }: any) => (
@@ -148,6 +149,13 @@ describe("AdminPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("search-input")).toBeDefined();
+    });
+  });
+
+  it("exposes an accessible name for the search input", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Search by name or email")).toBeDefined();
     });
   });
 

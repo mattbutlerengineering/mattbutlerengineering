@@ -187,6 +187,7 @@ export function BriefingPage() {
           size="sm"
         />
         <Input
+          aria-label="Service date"
           type="date"
           value={selectedDate}
           onChange={(e) => {

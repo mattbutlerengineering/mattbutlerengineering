@@ -94,6 +94,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     placeholder?: string;
     value?: string;
     onChange?: React.ChangeEventHandler<HTMLInputElement>;
+    "aria-label"?: string;
   }) => (
     <input
       data-testid={props.type === "date" ? "date-input" : "search-input"}
@@ -101,6 +102,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       placeholder={props.placeholder}
       value={props.value}
       onChange={props.onChange}
+      aria-label={props["aria-label"]}
     />
   ),
   SegmentedControl: ({
@@ -282,6 +284,12 @@ describe("ReservationsPage", () => {
     renderPage();
     const inputs = screen.getAllByTestId("search-input");
     expect(inputs.length).toBeGreaterThan(0);
+  });
+
+  it("exposes accessible names for the search and date filter inputs", () => {
+    renderPage();
+    expect(screen.getByLabelText("Search by guest name")).toBeDefined();
+    expect(screen.getByLabelText("Filter by date")).toBeDefined();
   });
 
   it("displays guest names in the reservation list", () => {
