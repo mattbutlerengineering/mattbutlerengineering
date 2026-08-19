@@ -28,17 +28,39 @@ jobs:
       - name: Check outdated
         id: check
         run: |
-          OUTPUT=$(pnpm outdated --json 2>/dev/null || echo "{}")
-          echo "outdated=$OUTPUT" >> "$GITHUB_OUTPUT"
+          # The report goes to a FILE, never through $GITHUB_OUTPUT. `pnpm
+          # outdated --json` is inherently multi-line, and
+          # `echo "outdated=$OUTPUT" >> "$GITHUB_OUTPUT"` is what has failed
+          # this workflow on every run since 2026-06:
+          #   ##[error]Unable to process file command 'output' successfully.
+          #   ##[error]Invalid format '  "@playwright/test": {'
+          # The runner parses each line of that file as its own key=value, so
+          # line 2 of the JSON aborts the step. A heredoc delimiter would also
+          # work, but nothing downstream needs the payload as a step output.
+          #
+          # `pnpm outdated` exits non-zero precisely WHEN something is
+          # outdated, which is the normal case, so the exit code is ignored.
+          # The old `$(pnpm outdated --json || echo "{}")` form was wrong
+          # twice over: on that expected non-zero exit it appended `{}` to the
+          # real JSON already on stdout, yielding two concatenated objects
+          # that made `jq keys|length` print two lines — itself another
+          # multi-line write to $GITHUB_OUTPUT.
+          pnpm outdated --json > /tmp/outdated.json 2>/dev/null || true
+          if ! jq -e 'type == "object"' /tmp/outdated.json >/dev/null 2>&1; then
+            echo "{}" > /tmp/outdated.json
+          fi
 
-          # Count outdated
-          COUNT=$(echo "$OUTPUT" | jq 'if type == "object" then keys | length else 0 end')
+          COUNT=$(jq 'keys | length' /tmp/outdated.json)
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Outdated packages: $COUNT"
 
       - name: Create issue
         if: steps.check.outputs.count != '0'
         env:
-          OUTDATED_JSON: ${{ steps.check.outputs.outdated }}
+          # file-issue-cli.mjs shells out to `gh`, which needs a token in the
+          # environment — this step had none, so it would have failed on
+          # `gh issue create` even once the step above stopped aborting.
+          GH_TOKEN: ${{ github.token }}
         run: |
           DATE=$(date "+%B %Y")
           {
@@ -47,7 +69,7 @@ jobs:
             echo "The following dependencies have updates available:"
             echo
             echo '```'
-            echo "$OUTDATED_JSON"
+            jq . /tmp/outdated.json
             echo '```'
             echo
             echo "Consider updating these dependencies to stay current."
@@ -61,8 +83,24 @@ jobs:
             --search-state all \
             --contains "$DATE"
 
-      - name: Update existing issue
+      - name: Close this month's issue when nothing is outdated
         if: steps.check.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # `gh issue close` takes a number or URL, never a title. The old
+          # `gh issue close "Dependency freshness: $DATE"` could only ever
+          # fail, and `2>/dev/null || true` hid that — resolve the number
+          # first, and no-op loudly when there is nothing open to close.
           DATE=$(date "+%B %Y")
-          gh issue close "Dependency freshness: $DATE" 2>/dev/null || true
+          NUMBER=$(gh issue list --state open --label dependencies \
+            --json number,title \
+            --jq "[.[] | select(.title == \"Dependency freshness: $DATE\")] | .[0].number // empty")
+
+          if [ -z "$NUMBER" ]; then
+            echo "Nothing outdated, and no open 'Dependency freshness: $DATE' issue to close."
+            exit 0
+          fi
+
+          echo "Nothing outdated — closing #$NUMBER."
+          gh issue close "$NUMBER" --comment "No outdated dependencies as of $(date -u +%Y-%m-%d)."

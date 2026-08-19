@@ -8,6 +8,7 @@ import {
   defaultFetchPrDetails,
   normalizeAuthorLogin,
   isMechanicalCommit,
+  parseMaxCalls,
 } from "../backfill-human-touch-reasons.mjs";
 import { append, read } from "../metrics-store.mjs";
 import { HUMAN_TOUCH_REASONS } from "../collect-queue-telemetry.mjs";
@@ -508,4 +509,27 @@ describe("defaultFetchPrDetails — identity + mechanical-commit detection", () 
 
     expect(result.humanCommit).toBeNull();
   });
+});
+
+// ── --max-calls (#4240) ──────────────────────────────────
+
+describe("parseMaxCalls", () => {
+  it("reads a positive integer", () => {
+    expect(parseMaxCalls(["node", "script", "--max-calls", "300"])).toBe(300);
+  });
+
+  it("returns undefined when the flag is absent, so the default cap applies", () => {
+    expect(parseMaxCalls(["node", "script", "--dry-run"])).toBeUndefined();
+  });
+
+  it.each([["0"], ["-5"], ["2.5"], ["abc"], [undefined]])(
+    "returns undefined for the invalid value %s rather than a NaN cap",
+    (value) => {
+      const argv = ["node", "script", "--max-calls"];
+      if (value !== undefined) argv.push(value);
+      // A NaN cap is the dangerous outcome: `calls >= NaN` is false forever,
+      // so the run would never stop making GitHub calls.
+      expect(parseMaxCalls(argv)).toBeUndefined();
+    }
+  );
 });

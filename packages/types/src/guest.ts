@@ -103,11 +103,17 @@ export interface GuestRiskResult {
   requiresDeposit: boolean;
 }
 
-/** Response shape for `GET /public/v1/venues/:slug/guests/recognize` (unauthenticated booking widget). */
+/**
+ * Response shape for `GET /public/v1/venues/:slug/guests/recognize` (unauthenticated booking widget).
+ *
+ * Intentionally omits `lastVisit` — the booking widget UI never reads it (only
+ * `firstName`/`visitCount`/`hasPreferences` drive the "Welcome back" prefill),
+ * and a precise last-visit date is unauthenticated-disclosable behavioral CRM
+ * PII this public, email-guessable endpoint must not return.
+ */
 export interface GuestRecognition {
   recognized: boolean;
   firstName: string | null;
   visitCount: number;
   hasPreferences: boolean;
-  lastVisit: string | null;
 }

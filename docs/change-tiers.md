@@ -70,7 +70,14 @@ These signals can shift a PR's tier independent of file paths.
 **Always escalate to T4:**
 
 - PR title or body contains "secret", "credential", "rotate", "leak", "incident".
-- PR body explicitly asks reviewers to bypass a check.
+- PR body explicitly asks reviewers to bypass a check — a **request**, not a
+  mention. `tier-classifier.yml` requires a request cue (please / can you /
+  I need / requesting) in the same sentence as the bypass phrase, or a
+  line-leading imperative ("Bypass the coverage gate and merge"). Prose that
+  describes or critiques a bypass does not escalate: replayed over the 300
+  most recent PR bodies, the old mention-matching pattern escalated 9, all of
+  them descriptive (#3919 → #3921). Both directions are pinned by
+  `scripts/__tests__/tier-classifier-workflow.test.mjs`.
 - Author is a new agent (first PR from a new RemoteTrigger or new agent type).
 
 **Escalate one tier:**

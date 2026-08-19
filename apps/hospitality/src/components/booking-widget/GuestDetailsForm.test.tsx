@@ -280,7 +280,6 @@ describe("GuestDetailsForm", () => {
         firstName: null,
         visitCount: 0,
         hasPreferences: false,
-        lastVisit: null,
       });
 
       render(<GuestDetailsForm {...propsWithSlug} />);
@@ -309,7 +308,6 @@ describe("GuestDetailsForm", () => {
         firstName: "Jane",
         visitCount: 5,
         hasPreferences: false,
-        lastVisit: null,
       });
 
       render(<GuestDetailsForm {...propsWithSlug} />);
@@ -330,7 +328,6 @@ describe("GuestDetailsForm", () => {
         firstName: "Jane",
         visitCount: 3,
         hasPreferences: true,
-        lastVisit: null,
       });
 
       render(<GuestDetailsForm {...propsWithSlug} />);
@@ -347,7 +344,6 @@ describe("GuestDetailsForm", () => {
         firstName: "Jane",
         visitCount: 2,
         hasPreferences: false,
-        lastVisit: null,
       });
 
       render(<GuestDetailsForm {...propsWithSlug} />);
@@ -364,7 +360,6 @@ describe("GuestDetailsForm", () => {
         firstName: null,
         visitCount: 0,
         hasPreferences: false,
-        lastVisit: null,
       });
 
       render(<GuestDetailsForm {...propsWithSlug} />);
@@ -411,7 +406,6 @@ describe("GuestDetailsForm", () => {
         firstName: "Jane",
         visitCount: 1,
         hasPreferences: false,
-        lastVisit: null,
       });
 
       render(<GuestDetailsForm {...propsWithSlug} />);

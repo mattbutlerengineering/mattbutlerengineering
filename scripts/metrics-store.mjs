@@ -90,6 +90,10 @@ export const METRICS = {
   "sensor-report-history": { file: "sensor-report.jsonl", format: "jsonl", durable: true },
   "a11y-history": { file: "a11y-history.jsonl", format: "jsonl", durable: true },
   verifications: { file: "verifications.jsonl", format: "jsonl", durable: true },
+  // Written by the weekly stale detector *before* it labels anything: the
+  // label write bumps `updated_at`, destroying the staleness it measured
+  // (#4274). Durable — the detector runs in an ephemeral checkout.
+  "stale-human-blocked": { file: "stale-human-blocked.jsonl", format: "jsonl", durable: true },
 };
 
 /**

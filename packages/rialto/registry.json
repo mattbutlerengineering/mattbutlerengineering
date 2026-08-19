@@ -2551,14 +2551,14 @@
     },
     {
       "name": "Meter",
-      "description": "A horizontal gauge bar that visualizes a value within a min/max range.\nThe fill animates to the current fraction using precision easing and respects reduced motion.",
+      "description": "A horizontal gauge bar that visualizes a value within a min/max range.\nThe fill animates to the current fraction using precision easing and respects reduced motion.\n\nPass `value={null}` for \"no data\". `role=\"meter\"` requires `aria-valuenow`\nand has no ARIA spelling of \"unknown\", so the indeterminate case renders as\n`role=\"progressbar\"` with `aria-valuenow` omitted — the one role whose\ncontract defines an omitted value as indeterminate. Reporting\n`aria-valuenow=\"0\"` instead would announce a definite zero, and a zeroed\ngauge and a gauge with no signal are different statements.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
           "name": "value",
-          "type": "number",
+          "type": "number | null",
           "required": true,
-          "description": "Current value"
+          "description": "Current value, or `null` when there is no data to report"
         },
         {
           "name": "min",
@@ -2607,6 +2607,12 @@
           "reason": "Gauge label; sits beside or below bar"
         }
       ]
+    },
+    {
+      "name": "MotionPreset",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
     },
     {
       "name": "NavItem",
@@ -3166,7 +3172,7 @@
     },
     {
       "name": "RialtoProvider",
-      "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides composed from two adapters behind one\n  interface: the active `vibe` preset and a reduced-data adapter driven by\n  `device.saveData` (tightens spacing when the user prefers reduced data)\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
+      "description": "Root provider for the Rialto design system.\n\nRenders a wrapper `<div>` that applies:\n- `data-theme` attribute for light/dark token cascading\n- CSS custom property overrides composed from three adapters behind one\n  interface: the active `vibe` preset, a reduced-data adapter driven by\n  `device.saveData` (tightens spacing when the user prefers reduced data),\n  and a reduced-motion adapter driven by `device.reducedMotion` (collapses\n  the duration scale when the user prefers reduced motion)\n\nAlso provides React context with device signals, active vibe, and resolved theme.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3217,7 +3223,7 @@
     },
     {
       "name": "SegmentedControl",
-      "description": "Pill-style toggle for switching between a small set of mutually exclusive options.\nA spring-animated indicator slides behind the active segment. Implements `role=\"radiogroup\"`.",
+      "description": "Pill-style toggle for switching between a small set of mutually exclusive options.\nA spring-animated indicator slides behind the active segment. Implements `role=\"radiogroup\"`.\n\n`aria-label` / `aria-labelledby` are routed to the inner element carrying\n`role=\"radiogroup\"` rather than the outer wrapper — a name on the wrapper\nleaves the radiogroup itself unnamed, which axe does not flag.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -4675,7 +4681,7 @@
     },
     {
       "name": "VibeName",
-      "description": "Rialto Vibe System\n\nVibes are CSS custom property override sets that shift the design\nlanguage to match user intent. They work via the CSS cascade — the\nsame proven pattern as `.darkSurface` in surfaces.module.css.\n\n- `default` — no overrides, standard Rialto tokens\n- `transacting` — tighter spacing, sharper radii, bolder weight for urgency\n- `presenting` — more whitespace, larger type, softer radii for presentation",
+      "description": "Rialto Vibe System\n\nVibes are CSS custom property override sets that shift the design\nlanguage to match user intent. They work via the CSS cascade — the\nsame proven pattern as `.darkSurface` in surfaces.module.css.\n\n- `default` — no overrides, standard Rialto tokens\n- `transacting` — tighter spacing, sharper radii, bolder weight for urgency\n- `presenting` — more whitespace, larger type, softer radii for presentation\n- `game` — instrument density: tight spacing, near-square corners, bolder\n  labels, and a duration scale entirely inside a 100ms feedback budget",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []

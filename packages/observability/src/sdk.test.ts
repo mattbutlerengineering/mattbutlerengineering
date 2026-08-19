@@ -32,8 +32,8 @@ vi.mock("@opentelemetry/sdk-metrics", () => ({
   PeriodicExportingMetricReader: vi.fn(),
 }));
 
-vi.mock("@opentelemetry/instrumentation-fastify", () => ({
-  FastifyInstrumentation: vi.fn(),
+vi.mock("@fastify/otel", () => ({
+  FastifyOtelInstrumentation: vi.fn(),
 }));
 
 vi.mock("@opentelemetry/instrumentation-http", () => ({
@@ -56,6 +56,7 @@ vi.mock("@opentelemetry/semantic-conventions", () => ({
 
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 
 function fakeRequest(url: string): IncomingMessage {
   return { url } as IncomingMessage;
@@ -147,5 +148,14 @@ describe("initTelemetry", () => {
     initTelemetry({ serviceName: "test-service" });
 
     expect(LangfuseSpanProcessor).not.toHaveBeenCalled();
+  });
+
+  it("wires FastifyOtelInstrumentation with registerOnInitialization enabled", async () => {
+    const { initTelemetry } = await import("./sdk.js");
+    initTelemetry({ serviceName: "test-service" });
+
+    expect(FastifyOtelInstrumentation).toHaveBeenCalledWith({
+      registerOnInitialization: true,
+    });
   });
 });

@@ -16,7 +16,10 @@ export type ReadinessRoutesOptions = StandardChecksOptions;
 // validateStartupConfig (see create-service-app.ts and ADR-021), so by the time
 // this plugin runs the value is already well-formed — here we only build the
 // URL. An unset/empty value yields undefined, letting registerStandardChecks
-// fall back to its own default (AUTH0_JWKS_URL env var or the dev tenant).
+// resolve its own fallback chain (AUTH0_JWKS_URL env var, then AUTH_AUTHORITY
+// again, then a dev-tenant default) — that dev-tenant default is refused when
+// NODE_ENV=production, failing the auth check with an actionable message
+// instead of silently probing an unrelated tenant (#4200).
 
 const readinessSchema = {
   summary: "Service readiness probe",

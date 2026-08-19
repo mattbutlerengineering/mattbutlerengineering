@@ -103,7 +103,13 @@ export async function runCliAdapterSession(
       success: adapterResult.success,
       sessionId: cliAdapter.name,
       costUsd: adapterResult.costUsd ?? 0,
-      numTurns: 0,
+      // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
+      // for how each adapter derives it); 0 only when genuinely absent. 0 is
+      // deliberate here, not a fabricated guess: paired with $0 cost it is
+      // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
+      // detect a run that never happened, which is the correct classification
+      // for "the CLI produced no usable signal at all".
+      numTurns: adapterResult.numTurns ?? 0,
     };
 
     const breach = shouldHaltForBudget(
@@ -205,6 +211,10 @@ export async function runCliAdapterSession(
 
   const costUsd = adapterResult?.costUsd ?? 0;
   const tokenUsage = adapterResult?.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
+  // Real signal when reported (#4208); 0 only when genuinely absent — see the
+  // resultSummary comment above for why 0 is the correct fallback, not a
+  // fabricated guess.
+  const numTurns = adapterResult?.numTurns ?? 0;
 
   // Record spend through the single seam — the ONLY spend write for a
   // gemini/opencode run, mirroring session-runner's write for the claude
@@ -230,7 +240,7 @@ export async function runCliAdapterSession(
     costUsd,
     tokenUsage,
     durationMs: adapterResult?.durationMs ?? 0,
-    numTurns: 0,
+    numTurns,
     resultText: "",
     errors,
     ...(failureCategory ? { failureCategory } : {}),

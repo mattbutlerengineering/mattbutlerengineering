@@ -75,7 +75,6 @@ describe("PublicVenueClient.recognizeGuest", () => {
     firstName: "Jane",
     visitCount: 5,
     hasPreferences: true,
-    lastVisit: "2026-05-01T12:00:00.000Z",
   };
 
   it("requests GET /public/v1/venues/:slug/guests/recognize with email query param", async () => {

@@ -37,7 +37,9 @@ import {
   QUEUE_EFFICIENCY_FPS_DROP,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
-import { describeGhError } from "@mbe/gh-client";
+import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
+import { extractZipEntries } from "./extract-zip-entries.mjs";
+import { parseJUnitXml } from "./parse-junit-xml.mjs";
 
 /**
  * @typedef {{ verified: boolean; reason: string; confidence?: string }} VerifyResult
@@ -233,6 +235,112 @@ export function buildE2eRuns(ghRuns, resolveChangedPaths) {
     });
   }
   return { runs, unresolved };
+}
+
+/** Prefix of the per-Node-version JUnit artifact `ci.yml` uploads (#4271). */
+export const FLAKY_TESTS_ARTIFACT_PREFIX = "test-results-node";
+
+/**
+ * Downloads and parses each completed run's JUnit XML artifact(s) into the
+ * `{ sha, testName, passed }` rows `computeFlakyTests` expects. Every IO step
+ * (listing artifacts, downloading a zip, unzipping, parsing) is wrapped in
+ * `safe()` so one broken run — an expired artifact past the 14-day
+ * retention window, a transient network failure, a malformed zip — degrades
+ * only that run's contribution to zero rows instead of aborting the whole
+ * sensor (mirrors `buildE2eRuns`'s per-run tolerance above).
+ *
+ * `deps` is injectable for testing — defaults to the real gh-client/parser IO.
+ *
+ * @param {Array<{ databaseId?: number; status?: string; headSha?: string }>} ghRuns
+ * @param {{
+ *   listRunArtifacts?: typeof listRunArtifacts;
+ *   downloadArtifactZip?: typeof downloadArtifactZip;
+ *   extractZipEntries?: typeof extractZipEntries;
+ *   parseJUnitXml?: typeof parseJUnitXml;
+ * }} [deps]
+ * @returns {Array<{ sha: string; testName: string; passed: boolean }>}
+ */
+/**
+ * A credential failure is not a per-run hiccup — it fails every run
+ * identically. Degrading it to zero rows makes `computeFlakyTests` report its
+ * "no per-test run history — enable the JUnit reporter and artifact upload"
+ * data_gap, which is actively misleading advice once #4234/#4235/#4236 have
+ * shipped that very pipeline. Same distinguishable-failure requirement #3937
+ * established for the other gh-backed sensors (#4237).
+ *
+ * Matched on name/message rather than `instanceof` because gh-client's error
+ * classes are not part of its public export surface.
+ *
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isGhCredentialError(err) {
+  const name = String(err?.name ?? "");
+  const message = String(err?.message ?? "");
+  return (
+    name === "MissingGithubTokenError" ||
+    name === "GhAuthError" ||
+    /GITHUB_TOKEN|GH_TOKEN|auth failed|Bad credentials/i.test(message)
+  );
+}
+
+export function buildFlakyTestRuns(ghRuns, deps = {}) {
+  const listArtifacts = deps.listRunArtifacts ?? listRunArtifacts;
+  const downloadZip = deps.downloadArtifactZip ?? downloadArtifactZip;
+  const extractEntries = deps.extractZipEntries ?? extractZipEntries;
+  const parseXml = deps.parseJUnitXml ?? parseJUnitXml;
+
+  const rows = [];
+  for (const run of ghRuns) {
+    if (run.status !== "completed" || !run.databaseId || !run.headSha) continue;
+
+    let artifacts;
+    try {
+      artifacts = listArtifacts(run.databaseId) ?? [];
+    } catch (err) {
+      // Credential failures are the sensor's problem, not this run's — let
+      // the collect() wrapper turn them into a reported error.
+      if (isGhCredentialError(err)) throw err;
+      artifacts = [];
+    }
+    const matching = artifacts.filter(
+      (a) => a.name.startsWith(FLAKY_TESTS_ARTIFACT_PREFIX) && !a.expired
+    );
+
+    for (const artifact of matching) {
+      const zipBuffer = safe(() => downloadZip(artifact.id));
+      if (!zipBuffer) continue;
+      const entries = safe(() => extractEntries(zipBuffer), []);
+      for (const entry of entries) {
+        if (!entry.name.endsWith(".xml")) continue;
+        const testCases = safe(() => parseXml(entry.data.toString("utf-8")), []);
+        for (const { testName, passed } of testCases) {
+          rows.push({ sha: run.headSha, testName, passed });
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+/**
+ * Past this age, a persisted issueFeedback failure is reported as `stale`
+ * rather than current (#4211 — a 403 from 2026-08-11 was still reading as
+ * "now" on 2026-08-14). collect-ai-issue-feedback.mjs is run once daily via
+ * the mbe-learning-loop routine (docs/scheduled-tasks.md); 48h is 2x that
+ * cadence, so one missed scheduled run doesn't falsely flag a still-fresh
+ * failure, while a real multi-day gap (the observed case) still trips it.
+ */
+export const ISSUE_FEEDBACK_STALE_THRESHOLD_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * @param {string | null} collectedAt
+ * @param {Date} now
+ * @returns {boolean}
+ */
+function isIssueFeedbackStale(collectedAt, now) {
+  if (!collectedAt) return true;
+  return now - new Date(collectedAt) > ISSUE_FEEDBACK_STALE_THRESHOLD_MS;
 }
 
 /**
@@ -587,13 +695,23 @@ export const SENSORS = [
   {
     id: "issueFeedback",
     category: "quality",
-    collect: ({ root }) => {
+    collect: ({ root, now }) => {
       const data = safe(() => read("ai-issue-feedback", { root }));
       if (!data) return { available: false };
       // #3937: collect-ai-issue-feedback.mjs persists `{ error }` (instead of
       // leaving the file unwritten) when the underlying query failed — surface
-      // that distinctly from "not yet collected".
-      if (data.error) return { available: false, error: data.error };
+      // that distinctly from "not yet collected". #4211: also propagate the
+      // persisted `collected_at` and an explicit `stale` flag, so a failure
+      // from a prior run can't be mistaken for a current one.
+      if (data.error) {
+        const collectedAt = data.collected_at ?? null;
+        return {
+          available: false,
+          error: data.error,
+          collected_at: collectedAt,
+          stale: isIssueFeedbackStale(collectedAt, now),
+        };
+      }
       if (!data.categories) return { available: false };
 
       const categories = data.categories;
@@ -693,7 +811,35 @@ export const SENSORS = [
   {
     id: "flakyTests",
     category: "quality",
-    collect: () => computeFlakyTests([]),
+    collect: ({ ghClient }) => {
+      let ghRuns;
+      try {
+        // The test-results-node* artifact only ever comes from the "CI"
+        // workflow's Test job. `--limit 100` (the REST fallback's per-page
+        // cap) is fetched *before* the `--workflow` filter is applied
+        // client-side (gh-client has no server-side workflow-scoped runs
+        // lookup — see rest-label-run-ops.ts), so a small limit here would
+        // mostly return unrelated workflows (Secret Scan, Release, ADR
+        // check, ...) and starve the CI-specific window to near zero.
+        ghRuns = ghClient.workflow.runs([
+          "--limit",
+          "100",
+          "--workflow",
+          "CI",
+          "--json",
+          "databaseId,status,headSha",
+        ]);
+      } catch (err) {
+        // Same distinguishable-failure shape e2eStability uses (#3937/#3946):
+        // a thrown error is a query failure, not "no artifacts yet".
+        return { available: false, error: describeGhError(err) };
+      }
+
+      // computeFlakyTests(runs) already treats an empty array the same as
+      // `null` (no per-test history) — covers both a fresh rollout and every
+      // run's artifact(s) having expired past the 14-day retention window.
+      return computeFlakyTests(buildFlakyTestRuns(ghRuns));
+    },
     format: (data, name) =>
       `${name}: ${data.flaky_count} flaky (${data.total_runs} runs, ${data.window_shas} SHAs)`,
   },

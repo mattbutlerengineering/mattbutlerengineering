@@ -42,6 +42,7 @@ import { TABLES_QUERY_KEY } from "./useTables.js";
 import { VENUES_QUERY_KEY } from "./useVenues.js";
 import { useApiClient } from "./useApiClient.js";
 import { SseClient } from "../lib/sse-client.js";
+import { getCachedFloorPlanSnapshot, setCachedFloorPlanSnapshot } from "../lib/offline-cache.js";
 import type {
   Reservation,
   Table,
@@ -454,6 +455,19 @@ export function useTableStatuses(): UseTableStatusesResult {
   );
   const [syncedEpoch, setSyncedEpoch] = useState(0);
 
+  /**
+   * Best-effort offline fallback for a snapshot fetch that failed before any
+   * live data landed. Stored alongside the `venueId` it was read for — a
+   * render-time key comparison (see `effectiveStatuses` below) is what makes
+   * a stale-venue render structurally unrepresentable regardless of how the
+   * async cache read races a venue switch, rather than an effect that resets
+   * this state on venueId change (the shape of the cross-venue leak #4186
+   * fixed for `useReservations`).
+   */
+  const [cachedFallback, setCachedFallback] = useState<
+    { venueId: string; snapshot: TableStatusDelta[] } | undefined
+  >(undefined);
+
   // While a reconnect snapshot fetch is in flight, buffer any live deltas
   // that land for the same tables — otherwise the snapshot's `.then()`
   // (server state captured *before* those deltas existed) would overwrite
@@ -485,6 +499,7 @@ export function useTableStatuses(): UseTableStatusesResult {
   useEffect(() => {
     if (!isConnected || !selectedVenueId) return;
     let cancelled = false;
+    const venueId = selectedVenueId;
     const pendingDuringFetch = new Map<string, TableDisplayStatus>();
     pendingDuringFetchRef.current = pendingDuringFetch;
 
@@ -495,7 +510,7 @@ export function useTableStatuses(): UseTableStatusesResult {
     };
 
     api.tables
-      .getStatuses(selectedVenueId)
+      .getStatuses(venueId)
       .then((deltas) => {
         if (cancelled) return;
         const next = new Map(deltas.map((delta) => [delta.tableId, delta.status]));
@@ -504,11 +519,25 @@ export function useTableStatuses(): UseTableStatusesResult {
         }
         setStatuses(next);
         setSyncedEpoch(connectionEpoch);
+        setCachedFallback(undefined);
+        // Best-effort write-through — a cache failure (e.g. IndexedDB
+        // unavailable) must never block rendering the freshly-fetched data.
+        void setCachedFloorPlanSnapshot(venueId, deltas).catch(() => undefined);
       })
       .catch(() => {
         // Already reported to Sentry via useApiClient's onError. Leave the
         // prior statuses and isStale untouched — retrying on the next
-        // reconnect cycle beats showing a false all-clear.
+        // reconnect cycle beats showing a false all-clear. Best-effort fall
+        // back to the last cached snapshot for this venue so the canvas
+        // doesn't render blank on a failed initial fetch; `effectiveStatuses`
+        // below is what keeps this from leaking across a venue switch.
+        if (cancelled) return;
+        getCachedFloorPlanSnapshot(venueId)
+          .then((cached) => {
+            if (cancelled) return;
+            setCachedFallback(cached !== null ? { venueId, snapshot: cached } : undefined);
+          })
+          .catch(() => undefined);
       })
       .finally(clearIfCurrent);
 
@@ -520,5 +549,23 @@ export function useTableStatuses(): UseTableStatusesResult {
 
   const isStale = !isConnected || syncedEpoch !== connectionEpoch;
 
-  return { statuses, isStale };
+  // Render-time guard: while no resync has landed for the current connection
+  // cycle (`isStale`) and the cached entry was read for the *current*
+  // venueId (never a lagging read for a venue the caller has since switched
+  // away from — that key comparison is what makes a wrong-venue render
+  // structurally unrepresentable, rather than relying on an effect to reset
+  // it in time), treat the cache as the base layer and overlay `statuses` on
+  // top of it. `statuses` is a delta a live SSE event *updates* the fallback
+  // with, not something that wholesale *replaces* it (#4216) — the stream
+  // can keep delivering deltas while the snapshot fetch itself is failing,
+  // and those deltas are strictly newer than the cached read.
+  const effectiveStatuses =
+    isStale && cachedFallback !== undefined && cachedFallback.venueId === selectedVenueId
+      ? new Map([
+          ...cachedFallback.snapshot.map((delta) => [delta.tableId, delta.status] as const),
+          ...statuses,
+        ])
+      : statuses;
+
+  return { statuses: effectiveStatuses, isStale };
 }

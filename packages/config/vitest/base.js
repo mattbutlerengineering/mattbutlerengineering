@@ -16,6 +16,8 @@ export function buildVitestPreset(options, presetConfig = {}) {
     globals: options.globals ?? true,
     environment: options.environment ?? "node",
     ...(options.include ? { include: options.include } : {}),
+    reporters: ["default", "junit"],
+    outputFile: { junit: "test-results/junit.xml" },
     coverage: {
       provider: "v8",
       reporter: options.coverage.reporter ?? DEFAULT_REPORTER,

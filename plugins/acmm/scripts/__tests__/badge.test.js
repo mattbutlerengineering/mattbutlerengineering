@@ -159,3 +159,49 @@ test("updateBadge: backwards compat — called with no state treats as stale", (
   assert.ok(content.includes("9e9e9e"), "no state should produce grey stale badge");
   fx.cleanup();
 });
+
+// ── fence-free recovery ──────────────────────────────────────────────────────
+//
+// The regex fallback has to be able to re-find a badge this module itself
+// emitted. It could not: `staleBadgeMarkdown` writes alt text of the form
+// `ACMM Level 5 (stale unknown)`, while the matcher required `ACMM Level \d+]`.
+// A fence-free README that went stale once was therefore frozen forever — which
+// is exactly what happened to this repo's own README (it advertised
+// "Level 5 (stale unknown)" long after the audit had moved on).
+
+test("updateBadge: replaces a STALE fence-free badge (round-trips its own output)", () => {
+  const fx = fixture();
+  try {
+    const frozen = staleBadgeMarkdown(5, "unknown");
+    fx.readme(`# Title\n\n${frozen}\n\nbody`);
+    const result = updateBadge(fx.root, 6, { lastRun: FRESH_LAST_RUN }, FRESH_NOW);
+    assert.equal(result, "updated", "a stale fence-free badge must still be replaceable");
+    const readme = fx.readReadme();
+    assert.ok(readme.includes(badgeMarkdown(6)), "should now carry the fresh level-6 badge");
+    assert.ok(!readme.includes("stale"), "the stale badge should be gone");
+  } finally {
+    fx.cleanup();
+  }
+});
+
+test("updateBadge: replaces a FRESH fence-free badge", () => {
+  const fx = fixture();
+  try {
+    fx.readme(`# Title\n\n${badgeMarkdown(3)}\n\nbody`);
+    const result = updateBadge(fx.root, 6, { lastRun: FRESH_LAST_RUN }, FRESH_NOW);
+    assert.equal(result, "updated");
+    assert.ok(fx.readReadme().includes(badgeMarkdown(6)));
+  } finally {
+    fx.cleanup();
+  }
+});
+
+test("updateBadge: reports no-fence when the README has no badge at all", () => {
+  const fx = fixture();
+  try {
+    fx.readme("# Title\n\nno badge here\n");
+    assert.equal(updateBadge(fx.root, 6, { lastRun: FRESH_LAST_RUN }, FRESH_NOW), "no-fence");
+  } finally {
+    fx.cleanup();
+  }
+});

@@ -1,3 +1,5 @@
+import { buildJwksUrl } from "./validate-startup-config.js";
+
 const DEV_AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-known/jwks.json";
 const AUTH0_TIMEOUT_MS = 2000;
 const LATENCY_WINDOW = 100;
@@ -53,13 +55,42 @@ export function createLatencyTracker(): LatencyTracker {
 }
 
 /**
+ * Resolves the JWKS URL the health probe should check, in precedence order:
+ * explicit argument, `AUTH0_JWKS_URL`, then the authority the service actually
+ * validates tokens against (`AUTH_AUTHORITY`, via the shared
+ * {@link buildJwksUrl} contract — see validate-startup-config.ts).
+ *
+ * The dev-tenant fallback is a local-development convenience and is refused in
+ * production: probing a hardcoded dev tenant there reports on an endpoint the
+ * service does not authenticate against, so /health could read "ok" while the
+ * real authority was unreachable. Returns `null` in that case so the caller
+ * degrades loudly instead.
+ */
+function resolveJwksUrl(jwksUrl?: string): string | null {
+  const configured =
+    jwksUrl ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
+  if (configured) {
+    return configured;
+  }
+  return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
+}
+
+/**
  * Checks Auth0 JWKS endpoint reachability.
  *
  * Returns ok when the JWKS endpoint responds with 200 within timeout,
- * degraded otherwise (non-200, network error, or timeout).
+ * degraded otherwise (non-200, network error, timeout, or — in production —
+ * no configured authority to probe).
  */
 export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> {
-  const url = jwksUrl ?? process.env.AUTH0_JWKS_URL ?? DEV_AUTH0_JWKS_URL;
+  const url = resolveJwksUrl(jwksUrl);
+  if (url === null) {
+    return {
+      status: "degraded",
+      latency: 0,
+      message: "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)",
+    };
+  }
   const start = Date.now();
   try {
     const controller = new AbortController();

@@ -20,8 +20,14 @@ export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
  * per-notifier lazy-singleton wrappers that duplicated this construction ritual.
  */
 export interface NotifierRuntime {
-  /** Redis URL — the single source for the scheduler AND the in-process worker. */
-  readonly redisUrl: string;
+  /**
+   * Redis URL — the single source for the scheduler AND the in-process worker.
+   * Null when NODE_ENV=production and REDIS_URL is unset: production must
+   * never silently fall back to redis://localhost:6379, since no Redis is
+   * provisioned there (see #4172, tracked separately in #3763). Notification
+   * job scheduling is degraded, not the whole service.
+   */
+  readonly redisUrl: string | null;
   /** Typed job scheduler; opens Redis on the first schedule/cancel, not before. */
   readonly scheduler: NotifierScheduler;
   /** Twilio-backed SMS port when configured, else null. */
@@ -34,7 +40,29 @@ export interface NotifierRuntime {
  * first schedule/cancel call so buildApp() stays side-effect-free.
  */
 export function createNotifierRuntime(): NotifierRuntime {
-  const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+  const isProduction = process.env.NODE_ENV === "production";
+  const envRedisUrl = process.env.REDIS_URL;
+
+  if (isProduction && !envRedisUrl) {
+    // No Redis is provisioned in production (#3763). Falling back to
+    // redis://localhost:6379 here would silently schedule reminder/waitlist
+    // jobs against a connection that never delivers them. Surface this
+    // loudly and greppably instead — the service still boots and serves
+    // reservations traffic in a degraded (no job scheduling) mode.
+    //
+    // Requirement for whoever provisions it: the instance must be Redis >= 6.
+    // `ioredis` is pinned to ^6 via root pnpm.overrides, and ioredis v6
+    // defaults to the RESP3 protocol, which a Redis < 6 server cannot speak.
+    // This requirement lives here rather than in the issue tracker because
+    // #3763 (which raised it) is only answerable at provisioning time, and
+    // this is the line a provisioner reads.
+    console.error(
+      "[ERROR] REDIS_URL is not set in production. Refusing to fall back to redis://localhost:6379 — " +
+        "notification job scheduling (booking reminders, waitlist expiry, post-visit notifications) is disabled until REDIS_URL is configured (see #3763)."
+    );
+  }
+
+  const redisUrl = envRedisUrl ?? (isProduction ? null : "redis://localhost:6379");
 
   const smsAdapter: SmsPort | null =
     process.env.TWILIO_ACCOUNT_SID &&
@@ -55,12 +83,21 @@ export function createNotifierRuntime(): NotifierRuntime {
   // lazily connected — the wrappers that each did this are gone.
   let scheduler: JobScheduler | null = null;
   function connect(): JobScheduler {
+    if (!redisUrl) {
+      // Never connect to redis://localhost:6379 as a blind guess (#4172).
+      throw new Error(
+        "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
+      );
+    }
     if (!scheduler) scheduler = new JobScheduler({ redisUrl });
     return scheduler;
   }
 
   const lazyScheduler: NotifierScheduler = {
-    schedule<T extends JobType>(
+    // async so a synchronous throw from connect() (unconfigured REDIS_URL)
+    // surfaces as a rejected promise, not an uncaught exception — callers
+    // already await schedule()/cancel().
+    async schedule<T extends JobType>(
       jobType: T,
       payload: JobPayloadMap[T],
       delayMs: number,
@@ -68,7 +105,7 @@ export function createNotifierRuntime(): NotifierRuntime {
     ): Promise<string> {
       return connect().schedule(jobType, payload, delayMs, jobId);
     },
-    cancel(jobId: string): Promise<void> {
+    async cancel(jobId: string): Promise<void> {
       return connect().cancel(jobId);
     },
   };

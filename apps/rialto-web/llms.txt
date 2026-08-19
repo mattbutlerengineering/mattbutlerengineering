@@ -152,6 +152,28 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="telemetry">
+  <file path="src/pages/telemetry/useTelemetryFeed.ts">
+    <item priority="low">
+      interface TelemetryZone {
+        id: string;
+        zone: string;
+        speed: number;
+        best: number;
+        delta: number;
+      }
+    </item>
+    <item priority="low">
+      interface TelemetryVitals {
+        throttle: number;
+        brake: number;
+        fuel: number;
+        tyreFL: number;
+        tyreFR: number;
+      }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="token-count.config.ts">
   <file path="token-count.config.ts">
     <item priority="high">

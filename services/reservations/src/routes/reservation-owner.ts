@@ -26,7 +26,13 @@ export function resolveReservationGuestEmail(
 /**
  * OwnerResolver that extracts the current user's email from the JWT.
  * Used as resolveCurrentId so the identity space matches guestEmail.
+ *
+ * Requires emailVerified === true (fail closed when the claim is absent or
+ * false) — ownership here is keyed on email rather than the JWT subject, so
+ * an unverified email would let a caller register an account with a
+ * victim's address and pass ownership checks for the victim's reservations.
  */
 export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> {
-  return request.user?.email ?? null;
+  if (request.user?.emailVerified !== true) return null;
+  return request.user.email ?? null;
 }

@@ -11,7 +11,8 @@ export class MissingGithubTokenError extends Error {
 
 /** Resolves the REST auth token, or throws {@link MissingGithubTokenError}. */
 export function resolveToken(env: NodeJS.ProcessEnv = process.env): string {
-  const token = env.GITHUB_TOKEN ?? env.GH_TOKEN;
+  const token =
+    env.GITHUB_TOKEN ?? env.GH_TOKEN ?? env.GITHUB_PERSONAL_ACCESS_TOKEN ?? env.AUTOMATION_PAT;
   if (!token) throw new MissingGithubTokenError();
   return token;
 }

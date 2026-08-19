@@ -132,6 +132,19 @@ jobs:
       - run: pnpm build --filter=@mbe/marketing
         env:
           VITE_BUILD_ID: ${{ github.sha }}
+          # Vite inlines VITE_SENTRY_DSN at build time, and packages/sentry
+          # enables itself on DSN length alone, so omitting it makes
+          # initSentry() early-return and ship a Sentry SDK that reports
+          # nothing — silently. The three SENTRY_* vars drive
+          # sentryVitePlugin's source-map upload (it self-disables without
+          # SENTRY_AUTH_TOKEN), so without them any report that does arrive
+          # has a minified stack trace. Kept in step with the hospitality
+          # build below; scripts/__tests__/deploy-static-sentry-env.test.mjs
+          # fails if any static app's build step drifts out of step again.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/marketing/wrangler.toml
@@ -193,6 +206,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm build --filter=@mbe/rialto-web
+        env:
+          # See the marketing build step above for why all four are required
+          # together; rialto-web had no build env at all, so its Sentry SDK
+          # has shipped inert since 2026-04-02.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
         run: npx wrangler@3 deploy --config apps/rialto-web/wrangler.toml

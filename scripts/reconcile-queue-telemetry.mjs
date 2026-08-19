@@ -17,6 +17,11 @@
  *                   CI reruns that passed without a new commit; good enough
  *                   for the queueEfficiency trend the sensor consumes.
  *
+ *   human_touch_reason  merged rows with rework_cycles > 0 only — why a
+ *                   non-author commit was needed, per classify-human-touch.mjs.
+ *                   Omitted (not null) when unmatchable, matching the
+ *                   backfill script's semantics (#4239).
+ *
  * Rows with no PR (worker failed before opening one) older than 30 days are
  * marked merged=false so they stop counting as pending forever.
  *
@@ -28,6 +33,7 @@
 
 import { createGhClient } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
+import { defaultFetchPrDetails, resolveHumanTouchReason } from "./backfill-human-touch-reasons.mjs";
 
 const DEFAULT_MAX_CALLS = 50;
 const STALE_PRLESS_DAYS = 30;
@@ -56,13 +62,15 @@ export function defaultFetchPr(prNumber, ghClient = createGhClient()) {
  * @param {Array<object>} inputRows - Parsed queue-telemetry rows.
  * @param {object} opts
  * @param {(prNumber: number) => { state: string, mergedAt: string|null, commitCount: number }} opts.fetchPr
+ * @param {(prNumber: number) => { pr: object, humanCommit: object|null }} [opts.fetchPrDetails] -
+ *   Omit to skip human-touch classification entirely (outcome fields only).
  * @param {Date} [opts.now]
  * @param {number} [opts.maxCalls]
  * @returns {{ rows: Array<object>, reconciled: number, calls: number }}
  */
 export function reconcileTelemetry(
   inputRows,
-  { fetchPr, now = new Date(), maxCalls = DEFAULT_MAX_CALLS }
+  { fetchPr, fetchPrDetails, now = new Date(), maxCalls = DEFAULT_MAX_CALLS }
 ) {
   let reconciled = 0;
   let calls = 0;
@@ -94,13 +102,28 @@ export function reconcileTelemetry(
     if (pr.state === "MERGED") {
       const reworkCycles = Math.max(0, (pr.commitCount ?? 1) - 1);
       reconciled += 1;
-      return {
+      const merged = {
         ...row,
         merged: true,
         merged_at: pr.mergedAt,
         rework_cycles: reworkCycles,
         ci_first_pass: reworkCycles === 0,
       };
+
+      // Classify here rather than in a later pass: this is the one moment the
+      // row's outcome is known and the PR's commit history is still worth a
+      // lookup. reworkCycles === 0 means no non-first commit exists, so there
+      // is nothing a human could have touched — skip the call entirely.
+      // A null result (unmatchable, non-agent PR, or a failed fetch) writes no
+      // field at all, matching backfill-human-touch-reasons.mjs; the outcome
+      // fields above are never forfeited to a classification failure.
+      if (fetchPrDetails && reworkCycles > 0 && row.human_touch_reason === undefined) {
+        calls += 1;
+        const reason = resolveHumanTouchReason(row.pr_number, fetchPrDetails);
+        if (reason !== null) merged.human_touch_reason = reason;
+      }
+
+      return merged;
     }
     if (pr.state === "CLOSED") {
       reconciled += 1;
@@ -126,6 +149,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     calls,
   } = reconcileTelemetry(rows, {
     fetchPr: defaultFetchPr,
+    fetchPrDetails: defaultFetchPrDetails,
   });
 
   if (reconciled > 0) {

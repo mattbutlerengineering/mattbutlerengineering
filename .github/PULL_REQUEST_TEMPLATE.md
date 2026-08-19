@@ -43,7 +43,7 @@
 - [ ] llms.txt updated (if applicable)
 - [ ] Documentation updated (if applicable)
 
-Review rubric: [`docs/review-criteria.md`](./docs/review-criteria.md) | AI policy: [`docs/SECURITY-AI.md`](./docs/SECURITY-AI.md)
+Review rubric: [`docs/review-criteria.md`](../docs/review-criteria.md) | AI policy: [`docs/SECURITY-AI.md`](../docs/SECURITY-AI.md)
 
 ## Linked Issue
 

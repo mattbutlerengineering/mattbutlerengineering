@@ -6,24 +6,14 @@
  * loudly instead of booting and serving traffic behind a red readiness probe.
  * See ADR-021 for the fail-fast-vs-degrade decision.
  *
- * This is the single home for the `AUTH_AUTHORITY` -> JWKS-URL contract: both
- * the boot-time validation here and the runtime readiness probe in each
- * service's `ready.ts` build the JWKS URL via {@link buildJwksUrl}.
+ * `buildJwksUrl` — the shared `AUTH_AUTHORITY` -> JWKS-URL contract used by
+ * both the boot-time validation here and the runtime readiness probe in
+ * `readiness-routes.ts` — now lives in `@mbe/observability` (co-located with
+ * `registerStandardChecks`, its runtime consumer; see #4200) and is
+ * re-exported here so this file's existing import sites keep working.
  */
-
-/**
- * Builds the Auth0 JWKS URL from an `AUTH_AUTHORITY` origin.
- *
- * Returns `undefined` when the authority is absent/empty (matching the
- * fail-closed auth gate, which treats an empty value as "not configured").
- * A single trailing slash is stripped so the JWKS path is never doubled.
- */
-export function buildJwksUrl(authority: string | undefined): string | undefined {
-  if (!authority) {
-    return undefined;
-  }
-  return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-}
+import { buildJwksUrl } from "@mbe/observability";
+export { buildJwksUrl };
 
 /**
  * Describes an env value by SHAPE only — never its raw content. Used so a

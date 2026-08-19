@@ -173,6 +173,37 @@ no longer attributed to `github-actions[bot]`.
 `drift-fix.yml`, `pr-metrics.yml`, `acmm-regression.yml`, `acmm-cold-start.yml`,
 `changelog.yml`, `revert-watchdog.yml`, `auto-rollback.yml`.
 
+### `packages/gh-client` REST-fallback token precedence
+
+Not a GitHub Actions secret, but a related credential-resolution concern worth documenting
+next to `AUTOMATION_PAT`: `packages/gh-client` normally shells out to the `gh` binary, but
+when `gh` isn't on `PATH` (observed in Claude Code Remote cloud sessions — the environment
+scheduled routines like `learning-loop`/`ci-monitor` run in) it falls back to calling the
+GitHub REST API directly, and that fallback needs its own bearer token via
+`resolveToken()` (`packages/gh-client/src/rest-args.ts`).
+
+`resolveToken()` checks, in order, and uses the first one set:
+
+```
+GITHUB_TOKEN → GH_TOKEN → GITHUB_PERSONAL_ACCESS_TOKEN → AUTOMATION_PAT
+```
+
+**Why the fallback exists:** #3937 diagnosed that the shell-level `GITHUB_TOKEN`/`GH_TOKEN`
+available in a Claude Code Remote session is scoped for git-over-HTTPS only and 401s (later
+observed as 403 — "REST fallback credential is not valid for direct API calls") against
+direct REST calls, even though the same session's `github` MCP tools authenticate fine. That
+silently blacked out 6 sensors (`prCategoryMetrics`, `ciHealth`, `issues`, `issueFeedback`,
+`e2eStability`, `queueEfficiency`) in every cloud-scheduled `sensor-report.mjs` run.
+`GITHUB_PERSONAL_ACCESS_TOKEN`/`AUTOMATION_PAT` give the REST fallback a chance to find a
+credential that actually works for direct API calls in that environment, the same way
+`AUTOMATION_PAT` above exists to route around a different `GITHUB_TOKEN` limitation.
+
+**If neither `GITHUB_PERSONAL_ACCESS_TOKEN` nor `AUTOMATION_PAT` is set** in a given cloud
+session, the honest result is the sensors staying dark with an explicit auth-failure error
+(not a silent empty state) — that's a real "N/A in this environment" condition, not a bug in
+the fallback chain itself. See #4099 (parent proposal) and #4191/#4192/#4193 (the three-part
+fix/verification chain) for the full history.
+
 ## Non-Rotating Secrets
 
 These values are identifiers or public configuration, not credentials:

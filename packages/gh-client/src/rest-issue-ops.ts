@@ -16,6 +16,40 @@ function isPullRequest(item: RawIssue): boolean {
   return "pull_request" in item;
 }
 
+/**
+ * GitHub's REST `/issues` endpoint mixes pull requests into the same list, so
+ * paginating on raw item count (like {@link fetchAllPages}) and filtering PRs
+ * out afterward silently undercounts real issues whenever PR volume is high
+ * in the raw feed — a page can be entirely PRs and contribute zero issues
+ * toward `limit`. This keeps fetching pages, counting only non-PR items
+ * toward `limit`, until enough real issues are collected or the API is
+ * exhausted (#4244 — this undercount skewed the `issues` sensor's
+ * `closure_rate`, whose 7-day window shrank to whatever few real issues
+ * survived a PR-heavy raw fetch).
+ */
+function fetchIssuePages(ctx: RestContext, basePath: string, limit: number): RawIssue[] {
+  const results: RawIssue[] = [];
+  const separator = basePath.includes("?") ? "&" : "?";
+  const perPage = 100;
+
+  for (let page = 1; results.length < limit; page++) {
+    const { json } = apiRequest(
+      ctx,
+      "GET",
+      `${basePath}${separator}per_page=${perPage}&page=${page}`
+    );
+    const pageItems = (json ?? []) as RawIssue[];
+    if (!Array.isArray(pageItems) || pageItems.length === 0) break;
+
+    for (const item of pageItems) {
+      if (!isPullRequest(item)) results.push(item);
+    }
+    if (pageItems.length < perPage) break;
+  }
+
+  return results.slice(0, limit);
+}
+
 export function issueList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
   const limit = Number(flag(parsed, "limit") ?? "30");
   const search = flag(parsed, "search");
@@ -35,8 +69,8 @@ export function issueList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
   const labels = flagAll(parsed, "label");
   if (labels.length > 0) params.set("labels", labels.join(","));
 
-  const items = fetchAllPages(ctx, `${issuesPath(ctx)}?${params}`, limit);
-  return (items as RawIssue[]).filter((item) => !isPullRequest(item)).map(mapIssue);
+  const items = fetchIssuePages(ctx, `${issuesPath(ctx)}?${params}`, limit);
+  return items.map(mapIssue);
 }
 
 /**

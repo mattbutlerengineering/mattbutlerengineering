@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { defaultSyncHttp, createSyncHttp } from "./sync-http.js";
+import { defaultSyncHttp, createSyncHttp, createSyncBinaryHttp } from "./sync-http.js";
 
 describe("defaultSyncHttp", () => {
   // Uses a malformed URL so `fetch` rejects during URL-parsing, before any
@@ -58,5 +58,40 @@ describe("createSyncHttp — proxy env wiring", () => {
     });
 
     expect(capturedOpts.env).toMatchObject(process.env);
+  });
+});
+
+// Artifact-zip downloads (#4236) need a binary-safe response body — the
+// text bridge above passes bodies through `res.text()`, which corrupts
+// non-UTF-8 bytes. This variant round-trips the body as base64 instead.
+describe("createSyncBinaryHttp", () => {
+  it("base64-decodes to the exact bytes the fake exec returned", () => {
+    const original = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xff, 0x00, 0x10]);
+    const fakeExec = () => JSON.stringify({ status: 200, bodyBase64: original.toString("base64") });
+
+    const http = createSyncBinaryHttp({ exec: fakeExec });
+    const result = http({ method: "GET", url: "https://api.github.com/x", headers: {} });
+
+    expect(result.status).toBe(200);
+    expect(Buffer.from(result.bodyBase64, "base64").equals(original)).toBe(true);
+  });
+
+  it("spawns the bridge with NODE_USE_ENV_PROXY=1 and --no-warnings", () => {
+    let capturedArgs;
+    let capturedOpts;
+    const fakeExec = (_cmd, args, opts) => {
+      capturedArgs = args;
+      capturedOpts = opts;
+      return JSON.stringify({ status: 200, bodyBase64: "" });
+    };
+
+    createSyncBinaryHttp({ exec: fakeExec })({
+      method: "GET",
+      url: "https://api.github.com",
+      headers: {},
+    });
+
+    expect(capturedArgs).toContain("--no-warnings");
+    expect(capturedOpts.env.NODE_USE_ENV_PROXY).toBe("1");
   });
 });

@@ -29,19 +29,33 @@
 // override is provided.
 export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
 
+// Sentry ingest origin for the browser SDK's envelope POST. Every app
+// (hospitality, gen, marketing, rialto-web) calls Sentry.init with
+// VITE_SENTRY_DSN, and the SDK POSTs to <org>.ingest.<region>.sentry.io —
+// which connect-src must allow or the browser refuses the request and all
+// frontend error telemetry is lost with no server-side signal that it
+// happened. #3547's daily journey log recorded exactly that violation, every
+// run from 2026-07-31 onward, because this origin was missing.
+//
+// Not a secret: the ingest host and the DSN public key are both designed to
+// ship in client bundles. This constant is the origin only — no key.
+// To override for a different org or region, pass sentryIngestOrigin in
+// buildCspDirectives options.
+export const SENTRY_INGEST_ORIGIN = "https://o4510650299842560.ingest.us.sentry.io";
+
 /**
  * Default CSP directive map — matches current production policy exactly.
  * Values that contain the nonce are intentionally left as functions of
  * the nonce parameter rather than stored in this map.
  */
-function defaultDirectives(nonce, auth0Origin) {
+function defaultDirectives(nonce, auth0Origin, sentryIngestOrigin) {
   return {
     "default-src": "'self'",
     "script-src": `'nonce-${nonce}' 'self' https://js.stripe.com`,
     "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src": "'self' data: https:",
     "font-src": "'self' https://fonts.gstatic.com",
-    "connect-src": `'self' ${auth0Origin} https://api.mattbutlerengineering.com`,
+    "connect-src": `'self' ${auth0Origin} https://api.mattbutlerengineering.com ${sentryIngestOrigin}`,
     "frame-src": "https://js.stripe.com https://hooks.stripe.com",
     "frame-ancestors": "'none'",
     "base-uri": "'self'",
@@ -56,6 +70,8 @@ function defaultDirectives(nonce, auth0Origin) {
  * @param {object} [options]
  * @param {string} [options.auth0Origin] - Auth0 tenant origin for connect-src.
  *   Defaults to AUTH0_ORIGIN from edge-router.js.
+ * @param {string} [options.sentryIngestOrigin] - Sentry ingest origin for
+ *   connect-src. Defaults to SENTRY_INGEST_ORIGIN.
  * @param {Record<string, string>} [options.kvPolicy] - Directive overrides from
  *   KV ("security/csp"). Each key is a directive name; each value is the
  *   directive value (without the directive name prefix). Nonce-carrying
@@ -64,9 +80,10 @@ function defaultDirectives(nonce, auth0Origin) {
  */
 export function buildCspDirectives(nonce, options = {}) {
   const auth0Origin = options.auth0Origin ?? AUTH0_ORIGIN;
+  const sentryIngestOrigin = options.sentryIngestOrigin ?? SENTRY_INGEST_ORIGIN;
   const kvPolicy = options.kvPolicy ?? {};
 
-  const defaults = defaultDirectives(nonce, auth0Origin);
+  const defaults = defaultDirectives(nonce, auth0Origin, sentryIngestOrigin);
 
   // Merge: KV overrides win over defaults, but ordering follows defaults.
   const merged = { ...defaults, ...kvPolicy };

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildCspDirectives, injectNonceIntoHtml } from "./csp.js";
+import { buildCspDirectives, injectNonceIntoHtml, SENTRY_INGEST_ORIGIN } from "./csp.js";
 import { AUTH0_ORIGIN } from "./edge-router.js";
 
 describe("buildCspDirectives", () => {
@@ -84,6 +84,34 @@ describe("buildCspDirectives", () => {
     expect(buildCspDirectives(nonce)).toContain("https://api.mattbutlerengineering.com");
   });
 
+  it("includes the Sentry ingest origin in connect-src", () => {
+    // Every app (hospitality, gen, marketing, rialto-web) calls Sentry.init
+    // with VITE_SENTRY_DSN. Without this origin the browser SDK's envelope
+    // POST is refused by our own CSP and all frontend error telemetry is
+    // silently lost — see #3547, which logged the identical violation daily
+    // from 2026-07-31 onward.
+    expect(buildCspDirectives(nonce)).toContain(SENTRY_INGEST_ORIGIN);
+  });
+
+  it("accepts a custom sentryIngestOrigin override", () => {
+    const customOrigin = "https://o999.ingest.de.sentry.io";
+    const csp = buildCspDirectives(nonce, { sentryIngestOrigin: customOrigin });
+    expect(csp).toContain(
+      `connect-src 'self' ${AUTH0_ORIGIN} https://api.mattbutlerengineering.com ${customOrigin}`
+    );
+    expect(csp).not.toContain(SENTRY_INGEST_ORIGIN);
+  });
+
+  it("keeps the Sentry origin scoped to connect-src only", () => {
+    // Sentry is a telemetry sink, not a script/frame/style source. Widening
+    // any other directive for it would be an unnecessary grant.
+    const csp = buildCspDirectives(nonce);
+    for (const directive of csp.split("; ")) {
+      if (directive.startsWith("connect-src ")) continue;
+      expect(directive).not.toContain(SENTRY_INGEST_ORIGIN);
+    }
+  });
+
   it("is byte-identical to current hardcoded policy when using defaults", () => {
     // This test locks the output to the exact production policy.
     // A nonce change is the ONLY delta allowed between requests.
@@ -93,7 +121,7 @@ describe("buildCspDirectives", () => {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https:",
       "font-src 'self' https://fonts.gstatic.com",
-      `connect-src 'self' ${AUTH0_ORIGIN} https://api.mattbutlerengineering.com`,
+      `connect-src 'self' ${AUTH0_ORIGIN} https://api.mattbutlerengineering.com ${SENTRY_INGEST_ORIGIN}`,
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",

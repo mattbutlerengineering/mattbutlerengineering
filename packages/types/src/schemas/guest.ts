@@ -43,5 +43,4 @@ export const GuestRecognitionSchema = z.object({
   firstName: z.string().nullable(),
   visitCount: z.number(),
   hasPreferences: z.boolean(),
-  lastVisit: z.string().nullable(),
 });

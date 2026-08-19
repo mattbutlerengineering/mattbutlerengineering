@@ -30,16 +30,24 @@ permissions:
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # Mutation Testing — periodic validation of test quality
+  #
+  # Single job on purpose. This used to be `prepare` → artifact → `mutation-test`,
+  # shipping ~1.6GB of node_modules between two runners. That hand-off — not the
+  # mutation run — is the only thing that has ever made this workflow red:
+  # first as `JavaScript heap out of memory` while zipping (fixed in #3687 by
+  # raising the upload action's heap), then, once the zip could finish, as a
+  # flat 30-minute `Prepare` timeout on 2026-08-10 (10:37:28 → 11:07:31) that
+  # skipped `Run Mutation Tests` entirely via `needs:`. Both failure modes are
+  # properties of moving the archive, so the archive is gone: install and
+  # generate happen in the same job that consumes them, warmed by the same
+  # caches the two-job version already had. Stryker's scope is services/users
+  # (see stryker.config.mjs), so a whole-workspace artifact was never the
+  # cheaper path anyway.
   # ──────────────────────────────────────────────────────────────────────────
-  prepare:
-    name: Prepare
+  mutation-test:
+    name: Run Mutation Tests
     runs-on: ubuntu-latest
-    # 15m was too tight once the OOM crash (see the Upload step below) no
-    # longer cuts the job short: node_modules across root + 3 packages + 3
-    # services is ~1.6GB uncompressed, and archiving/uploading it alone took
-    # >8m and was still climbing when a real run hit the old 15m ceiling and
-    # got cancelled mid-upload (never an OOM — just ran out of job time).
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -51,15 +59,16 @@ jobs:
           node-version: 22
           cache: "pnpm"
 
-      - name: Cache node_modules
-        id: cache-node-modules
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('pnpm-lock.yaml') }}
-
       - name: Install dependencies
-        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        # Unconditional, and deliberately not guarded by a `node_modules` cache.
+        # The two-job version cached only the ROOT node_modules and skipped
+        # install on a hit — which leaves every `services/*/node_modules` and
+        # `packages/*/node_modules` absent, since pnpm links them per package.
+        # That was survivable only because the artifact carried the per-package
+        # trees along; with the artifact gone the cache would silently hand
+        # Stryker a workspace missing services/users' own deps. setup-node's
+        # `cache: pnpm` already caches the pnpm store, so a warm install is
+        # cheap without the correctness hazard.
         run: pnpm install --frozen-lockfile
 
       - name: Cache Prisma clients
@@ -79,54 +88,20 @@ jobs:
           pnpm --filter @mbe/reservations-service db:generate
           pnpm --filter @mbe/agent-service db:generate
 
-      - name: Upload workspace artifact
-        # This step OOM-crashed ("JavaScript heap out of memory") on every
-        # one of the last 4 scheduled runs while compressing the archive —
-        # the actual, sole reason the workflow has been red for months. The
-        # mutation-test job (and every bug fixed elsewhere in this workflow)
-        # never even ran: `needs: [prepare]` skips it when this step fails.
-        # Raise the upload action's Node heap limit; the archived tree
-        # (root + per-package node_modules, generated Prisma clients) is a
-        # few hundred MB of many small files, which is memory-heavy to zip.
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: workspace-deps
-          path: |
-            node_modules
-            packages/*/node_modules
-            services/*/node_modules
-            services/users/src/generated
-            services/reservations/src/generated
-            services/agent/src/generated
-          include-hidden-files: true
-          retention-days: 1
-
-  mutation-test:
-    name: Run Mutation Tests
-    runs-on: ubuntu-latest
-    needs: [prepare]
-    timeout-minutes: 45
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
-        with:
-          node-version: 22
-          cache: "pnpm"
-
-      - name: Download dependencies artifact
-        # Same OOM risk as the matching upload step (see its comment) —
-        # decompressing the same large archive is symmetric in memory cost.
-        env:
-          NODE_OPTIONS: --max-old-space-size=8192
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: workspace-deps
+      - name: Build workspace dependencies
+        # `pnpm install` LINKS workspace packages; it does not compile them.
+        # services/users depends on eight of them and @mbe/types' exports
+        # resolve to ./dist/*, so without this Stryker's dry run dies before
+        # mutating anything:
+        #   ERROR DryRunExecutor One or more tests failed in the initial test run:
+        #     Failed to resolve entry for package "@mbe/types".
+        # The two-job version was missing this too — it just never got far
+        # enough to notice, because `Prepare` failed on every run and
+        # `needs:` skipped this job entirely (#4289, run 31991031612).
+        # `...` builds the service's transitive deps only, not the whole
+        # workspace, so an unrelated package's TS error can't red this job —
+        # the same scoping the Architecture Audit job uses.
+        run: pnpm build --filter @mbe/users-service...
 
       - name: Run mutation tests
         run: pnpm test:mutations

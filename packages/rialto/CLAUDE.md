@@ -88,7 +88,7 @@ This component library embodies a design language of material honesty, precision
 - Standard UI transitions (hover, color changes, opacity)
 - Small movements (< 4px translation)
 - State changes that should feel instant and crisp ("rotary click")
-- Import: `precision` from `src/tokens/motion.ts`
+- Resolve it: `const motionPreset = useMotionPreset()` → `motionPreset.precision`
 
 ### When to use spring physics
 
@@ -96,10 +96,15 @@ This component library embodies a design language of material honesty, precision
 - AI-driven elements, generative content
 - Larger movements (dialogs entering, cards expanding)
 - Elements that should feel organic and physical
-- Import: `spring` or `springGentle` from `src/tokens/motion.ts`
+- Resolve it: `const motionPreset = useMotionPreset()` → `motionPreset.spring` / `motionPreset.springGentle`
 
 ### General motion rules
 
+- **Resolve motion configs through `useMotionPreset()`, don't import them.** A
+  config imported straight from `tokens/motion.ts` is a value no vibe can
+  retime — see [ADR-025](../../docs/adr/ADR-025-motion-presets-through-context.md).
+  The statics remain the default the hook returns; import them directly only
+  outside a component (e.g. a variants object defined at module scope).
 - Framer Motion for all animations (not CSS transitions for interactive elements)
 - CSS transitions are acceptable for simple hover color changes
 - Never animate layout properties directly (use Framer Motion `layout` prop)

@@ -115,4 +115,48 @@ describe("check-env-sync", () => {
       expect(widgets.missing).not.toContain("NODE_ENV");
     });
   });
+
+  describe("findEnvSyncFindings — shared package attribution", () => {
+    function writeServiceWithSharedDep(tmpRoot, envExampleContent) {
+      const sharedDir = path.join(tmpRoot, "packages", "shared");
+      fs.mkdirSync(path.join(sharedDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(sharedDir, "package.json"),
+        JSON.stringify({ name: "@acme/shared" })
+      );
+      fs.writeFileSync(
+        path.join(sharedDir, "src", "index.ts"),
+        "export const x = process.env.SHARED_SECRET;\n"
+      );
+
+      const serviceDir = path.join(tmpRoot, "services", "widgets");
+      fs.mkdirSync(path.join(serviceDir, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(serviceDir, "package.json"),
+        JSON.stringify({ name: "widgets-service", dependencies: { "@acme/shared": "workspace:*" } })
+      );
+      fs.writeFileSync(path.join(serviceDir, "src", "index.ts"), "process.env.SECRET_KEY;\n");
+      fs.writeFileSync(path.join(serviceDir, ".env.example"), envExampleContent);
+    }
+
+    test("a var read only by a workspace dependency of a service produces a finding", async () => {
+      writeServiceWithSharedDep(tmpDir, "SECRET_KEY=1\n");
+
+      const { findEnvSyncFindings } = await import("../check-env-sync.js");
+      const results = findEnvSyncFindings(tmpDir);
+
+      const widgets = results.find((r) => r.packageRelativePath.includes("widgets"));
+      expect(widgets.missing).toContain("SHARED_SECRET");
+    });
+
+    test("documenting the shared package's var in the service's .env.example clears the finding", async () => {
+      writeServiceWithSharedDep(tmpDir, "SECRET_KEY=1\nSHARED_SECRET=1\n");
+
+      const { findEnvSyncFindings } = await import("../check-env-sync.js");
+      const results = findEnvSyncFindings(tmpDir);
+
+      const widgets = results.find((r) => r.packageRelativePath.includes("widgets"));
+      expect(widgets.missing).not.toContain("SHARED_SECRET");
+    });
+  });
 });

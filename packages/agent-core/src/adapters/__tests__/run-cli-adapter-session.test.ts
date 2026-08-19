@@ -194,6 +194,44 @@ describe("runCliAdapterSession", () => {
     expect(result.tokenUsage).toEqual({ inputTokens: 0, outputTokens: 0 });
   });
 
+  it("passes the adapter's real numTurns (not a hardcoded 0) to buildPrBody when gates pass", async () => {
+    const adapter = makeCliAdapter("gemini", {
+      success: true,
+      numTurns: 4,
+    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+    await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(deps.prCreator.buildPrBody).toHaveBeenCalledWith(
+      expect.any(String),
+      "gemini",
+      expect.any(Number),
+      4
+    );
+  });
+
+  it("reflects the adapter's real numTurns in the returned SessionResult", async () => {
+    const adapter = makeCliAdapter("opencode", {
+      success: true,
+      numTurns: 2,
+    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.numTurns).toBe(2);
+  });
+
+  it("defaults SessionResult numTurns to 0 (never a fabricated non-zero) when the adapter reports no turn signal", async () => {
+    const adapter = makeCliAdapter("gemini", {});
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.numTurns).toBe(0);
+  });
+
   it("still creates a draft PR when a gate fails, matching the claude path's draft-PR outcome", async () => {
     const adapter = makeCliAdapter("gemini", { success: true });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);

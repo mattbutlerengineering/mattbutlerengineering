@@ -11,6 +11,287 @@ no retro.
 
 ---
 
+## 2026-08-16
+
+Window: **2026-08-10 → 2026-08-16**. Sources: GitHub REST API (PR/issue search,
+workflow runs, job logs), `metrics/queue-telemetry.jsonl`,
+`metrics/process-metrics.jsonl`, `.claude/improvement-loop/log.md`,
+`.claude/rules/gotchas.md`, `docs/scheduled-tasks.md`.
+
+**154 PRs opened, 153 merged, 75 issues filed, 73 closed, 30 open (8 `ready`).**
+Zero reverts. `main` took exactly one CI failure all week. Median PR lived
+**16.4 minutes**. By every throughput number this was a clean week.
+
+The two findings worth the read are both about _signals_, not throughput. Last
+week's headline — `release.yml` failing on every push for 30 days — is now
+green, but green because the publish step **skips itself**, not because it
+publishes. And the stale-issue detector that shipped to help this retro ran for
+the first time today and, by doing its job, made three of the issues it found
+look freshly touched to the very query it was built to feed.
+
+### Routine liveness
+
+Cross-checked `docs/scheduled-tasks.md`'s catalog against observed artifacts.
+
+| Routine                    | Expected artifact               | Observed 08-10 → 08-16                                           | Verdict                     |
+| -------------------------- | ------------------------------- | ---------------------------------------------------------------- | --------------------------- |
+| `mbe-morning`              | `chore(acmm): daily audit` PR   | #4054, #4097, #4136, #4161, #4184, #4233, #4269 — all ~16:20 UTC | alive, 7/7                  |
+| `mbe-morning` (`/ideate`)  | proposal batch                  | #4098–#4101 + batch tracking #4102 (08-11)                       | alive                       |
+| `mbe-evening`              | optimize + telemetry PRs        | #4048, #4078, #4121, #4147, #4223, #4258                         | **6/7 — no 08-14 run**      |
+| `mbe-learning-loop`        | `chore(metrics): learning-loop` | PRs only 08-10 (#4045, #4060) and 08-11 (#4103)                  | **runs, PR artifact dark**  |
+| `mbe-midday` / `mbe-night` | implement-queue PRs             | 72 telemetry claims across the window, both UTC bands            | alive                       |
+| `mbe-auditor`              | ≤3 `audit` issues/day           | 3, 4, 3, 5, 8, **0**, 3 (08-10…08-16)                            | alive; 08-15 silent         |
+| `mbe-weekly-improve` (Fri) | 1 PR + `ready` issues           | #4196–#4200 batch filed 08-14 17:27–17:29 UTC                    | alive                       |
+| `mbe-doc-rot` (Fri)        | 1 PR                            | #4182 "docs: weekly rot sweep 2026-08-14"                        | alive                       |
+| `mbe-monthly-meta-audit`   | 1 PR + issues                   | 1st of month — outside window                                    | n/a                         |
+| `drift-fix.yml`            | PR when drifted                 | 7 runs, 7 success, 7/7 days, no drift → no PR                    | alive, correct silence      |
+| `audit-sweep.yml` (Mon)    | issues                          | 1 run 08-10, success                                             | alive                       |
+| `pr-metrics.yml` (Mon)     | metrics PR                      | #4050 (08-10)                                                    | alive                       |
+| `automation-pr-rescue.yml` | update-branch + re-dispatch     | 30 runs in window, 30 success                                    | alive                       |
+| `stale-human-blocked.yml`  | label stale issues              | **first-ever run** 08-16 15:40Z, success — see Blockers          | alive, **but see below**    |
+| `release.yml`              | npm publish of rialto           | 30/30 success — **because publish is skipped**                   | **green ≠ working**         |
+| `chaos-agent.yml` (Mon)    | seeded bugs → audit catches     | 08-10 failure — **6th consecutive Monday failure**               | **fixed 08-15, unverified** |
+
+**`release.yml` is green and still not publishing.** It last genuinely published
+on 2026-07-10. #4049 (merged 08-10) added a "Check for publish credential" step
+that detects an empty `secrets.NPM_TOKEN`, emits
+`::warning::Skipping npm publish — no publish credential configured`, and exits
+green. The workflow's own comment says so plainly: this converts a misleading red
+X into an honest skip. That was the right call — 370 consecutive red runs teach
+everyone to ignore the release signal. But the consequence is that
+`@mattbutlerengineering/rialto` has now gone **37 days** without a registry
+release, and no check anywhere is red about it. #3322 (the credential decision)
+is the actual blocker and it is human-only. Escalated below.
+
+**`chaos-agent.yml` failed six Mondays running** (07-06, 07-13, 07-20, 07-27,
+08-03, 08-10). Root cause, from run 31381875779's `seed-bug` job: the "Seed Bug"
+step failed in **0 seconds** — `node scripts/chaos-agent.mjs` invoked with no
+dependency install and no `@mbe/gh-client` / `@mbe/agent-core` build. #4228
+(merged 08-15) fixed exactly this across four scheduled workflows, chaos-agent
+included, and added `scripts/check-workflow-deps.mjs` plus 273 lines of tests so
+the class fails at PR time instead of silently on a schedule. First verification
+is Monday 08-17 — nothing asserts it yet.
+
+Worth naming: this is the _same shape_ as the `release.yml` finding — a scheduled
+workflow failing for weeks with no routine watching. Two instances in two weeks.
+
+**`mbe-learning-loop` is alive but its PR artifact stopped.** No
+`chore(metrics): learning-loop` PR since #4103 on 08-11, and no `(learning-loop)`
+heading in `.claude/improvement-loop/log.md` since 08-11 either. It is however
+demonstrably running: it filed #4244 (`closure_rate regressed (-19)`) at
+2026-08-15T18:11:54Z and its `verify-fixes.mjs` step commented on the same issue
+at 2026-08-16T18:10:28Z — both inside its 18:00 UTC slot. So the routine executes
+and files issues; only the metrics-PR half went dark. Not urgent, but a routine
+whose artifact is inconsistent is a routine whose liveness cannot be checked by
+artifact, which is the whole method of this pass.
+
+### Blockers
+
+Eleven open issues carry a human-blocking label. Sorted by **last genuine
+touch** — which is deliberately _not_ `updatedAt`, for the reason immediately
+below.
+
+| Issue | Truly untouched | The one thing a human must do                                                                                  |
+| ----- | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| #3277 | 37 days         | Decide which Pulumi resource paths are drift-tolerant, then narrow `ignoreChanges` to that list                |
+| #3253 | 37 days         | Nothing yet — genuinely ecosystem-blocked; `typescript-eslint` still ships no TS7-compatible peer range        |
+| #3388 | 36 days         | Add `TURBO_TOKEN` (and `TURBO_TEAM`) to repo secrets                                                           |
+| #3389 | 36 days         | Likely close as `wontfix` — see note below                                                                     |
+| #3585 | 15 days         | Decide: route AI features through the Claude CLI, or delete them                                               |
+| #3597 | 15 days         | Do the monthly reflection review, or reassign it to a routine                                                  |
+| #3657 | 14 days         | Write two sentences of rationale on #3656's body-validation choice, or close it                                |
+| #3695 | 13 days         | Decide whether agent cost telemetry is worth repairing (see Throughput — `cost_usd` is still 0 across 72 rows) |
+| #3322 | 7 days          | Provide an npm publish credential, or accept that rialto is repo-only and archive `release.yml`                |
+| #4111 | 5 days          | Add `VITE_STRIPE_PUBLISHABLE_KEY` to the Hospitality E2E job's secrets                                         |
+| #3763 | 2 days          | Confirm production Redis is >= 6 before ioredis@6's RESP3 default reaches a live worker                        |
+
+**The stale detector hides what it finds from the retro that consumes it.**
+`stale-human-blocked.yml` shipped from #4043 specifically to catch under-labeled
+human-blocked work that this retro's Pass 2 label query misses, and it is
+scheduled Sunday 15:23 UTC precisely so its labels land _before_ the retro runs
+at 23:00 UTC. Its first-ever run fired today at 15:40:15Z and succeeded. From its
+log:
+
+```
+[stale-human-blocked] #3277 already labeled ready-for-human — skipping
+[stale-human-blocked] labeled #3253 ready-for-human
+[stale-human-blocked] #3388 already labeled ready-for-human — skipping
+...
+[stale-human-blocked] found 7 stale issue(s), labeled 3: #3277, #3253, #3388, #3389, #3585, #3597, #3657
+```
+
+Applying a label is a write, and a write bumps `updated_at`. So #3253, #3597 and
+#3657 — the three it newly labeled — now report
+`updated_at = 2026-08-16T15:40:5xZ`. #3253's most recent _human_ activity is a
+comment from **2026-07-10T17:39:09Z**, 37 days ago. An aging pass that sorts by
+`updatedAt` ascending, which is what this retro's own prompt specifies, reads all
+three as touched today and ranks them last. The four it skipped kept their true
+timestamps and still look correctly stale.
+
+The detector is not wrong and the labels are correct. The defect is that nothing
+persists the staleness it measured, so the measurement dies with the log line.
+Filed as #4274.
+
+**#3389 may be moot.** It asks for an admin decision between GitHub's native
+merge queue and the custom train. `.claude/rules/gotchas.md` § CI already records
+that the `merge_queue` ruleset rule is **org-repos-only** and returns
+`422 Invalid rule 'merge_queue'` on this personal-account repo. The decision has
+no reachable option B unless the repo moves to an org. A human should close it or
+reframe it as "move the repo to an org", rather than it aging a fourth month as
+an open question with a known answer.
+
+### Friction
+
+153 PRs merged in the window. **Median open→merge 16.4 min; mean 121.5 min; 12
+(8%) over six hours.**
+
+Slowest overall was **#4008 `chore(acmm): auto-tune QA thresholds` at 50.2h** —
+but that is by design, not friction: `auto-qa-tune` touches `.github/`, so it
+deliberately declines the `auto-merge` label and waits for a human. The gotchas
+file documents this exact opt-out. Correctly slow.
+
+The slowest PR that _should_ have been fast is **#4082 at 18.8h** — "make
+deploy-secret guard detect production throws by AST, not phrase match" (issue
+#4067). Queue telemetry records **3 rework cycles** and a reviewer verdict of
+`flag`, the only PR in the window to draw both. It was also not the end of it:
+the same guard needed #4110 (compound `if (isProduction && !secret)` missed) and
+#4113 (docstrings wrong about which tokens are load-bearing) within the next
+24 hours, after #4107 found its structural name resolution never fired for the
+DI-pattern config files it actually scans. **One guard, three issues, three PRs,
+each finding the previous fix incomplete.** Every round shipped green; the gap
+was always a case the tests didn't model. This is the week's clearest instance of
+rework that review caught late rather than early.
+
+Merge mechanics were otherwise quiet: `automation-pr-rescue.yml` ran 30 times,
+all success, and no PR needed manual `update-branch` intervention that left a
+trace. One duplicate-work blip — #4154 opened 05:28Z and abandoned at 05:45Z,
+#4155 opened 05:46Z with the identical title and merged — cost ~18 minutes.
+
+### Recurring causes
+
+Failed runs in the window, grouped by cause rather than count.
+
+| Cause                                                            | Count | Genuine defect?       | In gotchas?               |
+| ---------------------------------------------------------------- | ----- | --------------------- | ------------------------- |
+| Superseded pushes (`cancelled` on `main`)                        | 8     | no — newer push wins  | n/a                       |
+| `pnpm audit` live-advisory churn (GHSA-jmr9-qjv8-65gv, #4136)    | 1     | no — diff-independent | **yes**, § Dependencies   |
+| Scheduled workflow runs node script with no deps (`chaos-agent`) | 6     | **yes**               | no — but now code-guarded |
+| Pulumi CLI 3.256.0 vs R2 `InvalidDigest` (#4117/#4118)           | 1     | **yes**               | **yes**, § Pulumi/R2      |
+| `verify-fixes.mjs` spurious reopen (#4244)                       | 1     | **yes**               | no — see below            |
+
+`main` itself: **90 push-to-main `ci.yml` runs from 08-10T21:13Z onward — 81
+success, 8 cancelled, 1 failure.** The single failure (#4136, 08-12) was the
+`pnpm audit` advisory-database class, already documented, already handled by
+#4142's `ignoreGhsas` entry and tracked in open issue #4141. Green-main policy
+held all week.
+
+**`verify-fixes.mjs` was fixed twice in two days and misfired between the two.**
+#4246 filed 08-15 ("reopens already-fixed `ci-fix` issues on unrelated main-wide
+CI noise") → #4248 merged 08-16T05:03:29Z. The bug then fired again at
+**08-16T18:10:28Z**, reopening #4244 with "Not verified — Latest CI run:
+unknown" — the zero-completed-runs case #4248 didn't cover. #4272 merged
+08-16T20:49:56Z to make that case abstain. So the second fix landed _after_ the
+last observed misfire and has not yet been exercised; the next learning-loop run
+(08-17 18:00Z) is its first real test. Not yet a gotchas entry — correctly so,
+since the guard is now in code, but worth watching for a third occurrence.
+
+**One undocumented recurring cause, and it is the oldest one here.** The `gh` CLI
+does not exist in Claude Code Remote sessions. `.claude/improvement-loop/log.md`
+records this **10 separate times**, spanning at least three skills
+(`progress-tracker`, `learning-loop`, `implement-queue`), with the log's own
+2026-08-16 entry noting it has "been noted in the log 4+ times without a ticket"
+and dating the root cause to 2026-06-20. It is **not** in `.claude/rules/gotchas.md`.
+This retro run hit it too: `which gh` → not found, and every query above had to
+route through the GitHub MCP tools instead. Each affected session rediscovers it
+from scratch and improvises a workaround. This is precisely the arc
+`/gotcha-harvest` exists to close. Filed as #4275.
+
+### Throughput
+
+**75 issues filed, 73 closed. Net +2.** The backlog is flat, not growing — 30
+open, of which 8 carry `ready` and 11 are human-blocked. Last week closed net
+−38 off a much larger base; two points in different regimes do not make a trend,
+and I am not going to draw one from them.
+
+Queue telemetry, 72 claims in the window:
+
+- **CI first-pass: 30 clean / 16 not**, across the 46 claims where the field was
+  recorded. The other **26 rows have `ci_first_pass: null`** — 36% of claims are
+  not reporting the metric at all, which is enough missing data that the 65%
+  first-pass figure should be read as indicative, not measured.
+- **17 claims needed rework, 21 rework cycles total.** Three claims accounted for
+  7 of those cycles (#4082 ×3, #4089 ×2, #4118 ×2).
+- **`cost_usd` sums to exactly 0 across all 72 rows.** Agent cost telemetry is
+  still dark — the third-occurrence issue #3695 has been open and untouched for
+  13 days. Every efficiency conclusion that depends on spend is currently
+  unavailable, which is worth knowing before anyone asks this retro to reason
+  about cost.
+
+`metrics/process-metrics.jsonl` has entries for 08-11, 08-12, 08-13, 08-15 and
+08-16, with 08-14 missing and 08-16 recording `queueEfficiency: unavailable
+(query_error)`. Thin and gappy; usable as corroboration, not as a trend line.
+
+### Top 3 changes
+
+1. **Persist staleness at detection time, before labeling** (#4274). One-line
+   class of fix, unblocks the entire backlog-aging pass. `stale-human-blocked.mjs`
+   already computes days-stale for every issue it examines and then throws the
+   number away, keeping only a label whose application destroys the evidence.
+   Writing `{issue, last_human_touch_at, days_stale}` to a metrics file before
+   the label write makes the measurement survive, and lets this retro age issues
+   by last _human_ touch instead of `updated_at`. Highest leverage on the list:
+   without it, every future retro under-ranks exactly the issues that have been
+   ignored longest.
+
+2. **Watch scheduled workflows for consecutive failures** (#4276). `release.yml`
+   failed 370 times over 30 days; `chaos-agent.yml` failed 6 Mondays over 6
+   weeks. Both were found by a human-facing weekly retro reading logs, not by any
+   routine — `ci-monitor` watches `main` and PRs, and nothing watches the
+   scheduled fleet. Two multi-week silent failures surfaced in two consecutive
+   retros is a pattern, not a coincidence. A detector that files a `ci-fix` issue
+   when any scheduled workflow's last N runs are all failures would have caught
+   both within a week.
+
+3. **Write the `gh`-CLI-absent gotcha** (#4275). Ten log mentions, three skills,
+   two months, no ticket, no doc. Cheapest fix here by a wide margin — it is one
+   gotchas entry — and it stops every cloud session from paying the same
+   rediscovery tax. This one is embarrassing precisely because it is so easy.
+
+### Escalations
+
+Human-only. None of these are agent-workable; filing them as `ready` would burn
+a worker.
+
+- **#3322 — npm publish credential.** `@mattbutlerengineering/rialto` has not
+  published in 37 days, and since #4049 the workflow reports **green** while
+  skipping. Decide: provide `NPM_TOKEN` (or a GitHub Packages token matching
+  rialto's `publishConfig`), or accept rialto as repo-only and archive
+  `release.yml` so the skip isn't mistaken for a release. **Do not leave it
+  green-and-silent** — that is strictly worse than the 370 red runs, because
+  nothing now signals the gap.
+- **#3388 — add `TURBO_TOKEN` + `TURBO_TEAM` to repo secrets.** 36 days stale.
+  Every CI run builds cold; this is the single cheapest CI-latency win available
+  and it is blocked on one secret.
+- **#3389 — close or reframe the merge-queue decision.** Native merge queue is
+  org-repos-only and returns `422` on this personal-account repo, per gotchas
+  § CI. Either close as `wontfix` or restate it as "move the repo to an org".
+- **#3277 — name the drift-tolerant Pulumi paths** so `ignoreChanges` can be
+  narrowed. 37 days stale.
+- **#3585 — decide the fate of the AI features** with no `ANTHROPIC_API_KEY`:
+  route through the Claude CLI, or remove them. 15 days stale.
+- **#4111 — add `VITE_STRIPE_PUBLISHABLE_KEY`** to the Hospitality E2E job so
+  the deposit E2E can reach the Stripe payment step.
+- **#3763 — confirm production Redis is >= 6** before ioredis@6's RESP3 default
+  reaches a live worker.
+- **#3695 — decide whether agent cost telemetry gets repaired.** `cost_usd` is 0
+  across all 72 claims this week; until this is answered, no retro can say
+  anything about spend efficiency.
+- **#3597 / #3657** — two small process items that only need a human to do them or
+  close them: the 2026-08 reflection review, and two sentences of rationale on
+  #3656.
+
+---
+
 ## 2026-08-09
 
 Window: **2026-08-03 → 2026-08-09**. Sources: GitHub REST API (PRs, issues,

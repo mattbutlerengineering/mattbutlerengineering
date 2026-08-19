@@ -123,7 +123,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: "Jane",
       visitCount: 7,
       hasPreferences: false,
-      lastVisit: "2026-05-01T18:00:00.000Z",
     });
 
     const response = await app.inject({
@@ -138,7 +137,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: "Jane",
       visitCount: 7,
       hasPreferences: false,
-      lastVisit: "2026-05-01T18:00:00.000Z",
     });
     expect(body.data).not.toHaveProperty("phone");
   });
@@ -150,7 +148,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     const response = await app.inject({
@@ -195,7 +192,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     const response = await app.inject({
@@ -215,7 +211,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: "Jane",
       visitCount: 7,
       hasPreferences: true,
-      lastVisit: "2026-05-01T18:00:00.000Z",
     });
 
     const response = await app.inject({
@@ -231,6 +226,9 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     expect(body.data).not.toHaveProperty("lifetimeSpend");
     expect(body.data).not.toHaveProperty("tags");
     expect(body.data).not.toHaveProperty("venueId");
+    // lastVisit is a precise, unauthenticated-disclosable date the booking
+    // widget never reads — dropped from the public response entirely.
+    expect(body.data).not.toHaveProperty("lastVisit");
   });
 
   it("has rate limiting configured at 10 req/min", async () => {
@@ -240,7 +238,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     // Send 11 requests — the 11th should be rate-limited
@@ -272,7 +269,6 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
       firstName: "Jane",
       visitCount: 7,
       hasPreferences: false,
-      lastVisit: "2026-05-01T18:00:00.000Z",
     });
 
     const response = await app.inject({

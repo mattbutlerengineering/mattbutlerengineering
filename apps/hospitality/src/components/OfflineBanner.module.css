@@ -1,0 +1,38 @@
+/* Offline/cached-data banner — same visual/semantic pattern as
+   FloorPlanCanvas.module.css's .staleOverlay, laid out inline instead of
+   as an absolutely-positioned canvas overlay. */
+.offlineBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  background: color-mix(in srgb, var(--rialto-surface-elevated) 90%, transparent);
+  padding-inline: var(--rialto-space-xs);
+  padding-block: var(--rialto-space-2xs);
+  border-radius: var(--rialto-radius-default);
+  border: 1px solid var(--rialto-warning);
+  font-size: var(--rialto-text-xs);
+  margin-block-end: var(--rialto-space-xs);
+}
+
+.pulseDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-warning);
+  animation: offline-banner-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes offline-banner-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.label {
+  color: var(--rialto-warning);
+  font-weight: var(--rialto-weight-medium);
+}

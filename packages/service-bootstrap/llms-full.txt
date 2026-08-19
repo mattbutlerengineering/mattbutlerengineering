@@ -151,15 +151,16 @@
     }
   </file>
   <file path="src/validate-startup-config.ts">
-    export function buildJwksUrl(authority: string | undefined): string | undefined {
-      if (!authority) {
-        return undefined;
-      }
-      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    }
     function describeShape(value: string): string {
       const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value.trim());
       return `length=${value.length}, scheme=${hasScheme ? "present" : "absent"}`;
+    }
+    function parseUrlOrNull(value: string): URL | null {
+      try {
+        return new URL(value);
+      } catch {
+        return null;
+      }
     }
   </file>
   </section>

@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { useAuth } from "@mbe/auth/react";
+import { useVenue } from "../contexts/VenueContext.js";
 import {
   SSESyncProvider,
   useSSESync,
@@ -11,6 +12,7 @@ import {
   useSSEEventFeed,
   useTableStatuses,
 } from "./useSSESync.js";
+import type { UseTableStatusesResult } from "./useSSESync.js";
 
 /* ── Fake fetchEventSource ─────────────────────────────────────────
  *
@@ -81,7 +83,7 @@ function simulateEvent(type: string, data: unknown): void {
 }
 
 vi.mock("../contexts/VenueContext.js", () => ({
-  useVenue: () => ({ selectedVenueId: "v1" }),
+  useVenue: vi.fn(),
 }));
 
 const mockGetStatuses = vi.fn();
@@ -92,6 +94,23 @@ const mockApiClient = { tables: { getStatuses: mockGetStatuses } };
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => mockApiClient,
 }));
+
+const mockGetCachedFloorPlanSnapshot = vi.fn();
+const mockSetCachedFloorPlanSnapshot = vi.fn();
+vi.mock("../lib/offline-cache.js", () => ({
+  getCachedFloorPlanSnapshot: (venueId: string) => mockGetCachedFloorPlanSnapshot(venueId),
+  setCachedFloorPlanSnapshot: (venueId: string, snapshot: unknown) =>
+    mockSetCachedFloorPlanSnapshot(venueId, snapshot),
+}));
+
+/** Flush chained microtasks (promise `.then()`/`.catch()` handoffs) without
+ * advancing fake timers — used after a fetch settles to let any nested
+ * cache-read/write promise chain resolve before asserting. */
+async function flushMicrotasks(times = 5): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
+}
 
 /* ── Wrappers ──────────────────────────────────────────────────── */
 
@@ -111,10 +130,15 @@ function makeWrapper(queryClient?: QueryClient) {
 beforeEach(() => {
   fakeCalls.length = 0;
   vi.mocked(useAuth).mockReturnValue({ accessToken: "test-access-token" } as never);
+  vi.mocked(useVenue).mockReturnValue({ selectedVenueId: "v1" } as never);
   vi.stubEnv("VITE_API_URL", "http://localhost:3000");
   vi.useFakeTimers();
   mockGetStatuses.mockReset();
   mockGetStatuses.mockResolvedValue([]);
+  mockGetCachedFloorPlanSnapshot.mockReset();
+  mockGetCachedFloorPlanSnapshot.mockResolvedValue(null);
+  mockSetCachedFloorPlanSnapshot.mockReset();
+  mockSetCachedFloorPlanSnapshot.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -736,5 +760,207 @@ describe("useTableStatuses — reconnect resync (#3931)", () => {
     expect(result.current.tableStatuses.isStale).toBe(false);
     expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
     expect(result.current.tableStatuses.statuses.get("t2")).toBe("dirty");
+  });
+});
+
+describe("useTableStatuses — offline cache (#4187)", () => {
+  it("persists the snapshot via setCachedFloorPlanSnapshot after a successful full-snapshot fetch", async () => {
+    mockGetStatuses.mockResolvedValueOnce([{ tableId: "t1", status: "seated" }]);
+
+    renderHook(() => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }), {
+      wrapper: makeWrapper(),
+    });
+
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+
+    expect(mockSetCachedFloorPlanSnapshot).toHaveBeenCalledWith("v1", [
+      { tableId: "t1", status: "seated" },
+    ]);
+  });
+
+  it("seeds the in-memory table-status map from the cached snapshot when the initial fetch fails", async () => {
+    mockGetStatuses.mockRejectedValueOnce(new Error("network error"));
+    mockGetCachedFloorPlanSnapshot.mockResolvedValueOnce([
+      { tableId: "t1", status: "needs-bussing" },
+    ]);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+
+    expect(mockGetCachedFloorPlanSnapshot).toHaveBeenCalledWith("v1");
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("needs-bussing");
+    expect(result.current.tableStatuses.isStale).toBe(true);
+  });
+
+  it("leaves the table-status map empty when the initial fetch fails and no cached snapshot exists", async () => {
+    mockGetStatuses.mockRejectedValueOnce(new Error("network error"));
+    mockGetCachedFloorPlanSnapshot.mockResolvedValueOnce(null);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+
+    expect(result.current.tableStatuses.statuses.size).toBe(0);
+    expect(result.current.tableStatuses.isStale).toBe(true);
+  });
+
+  it("does not carry a fetch failure's cached fallback forward once a later fetch actually succeeds", async () => {
+    // A cache hit seeds the map after the first failure; a subsequent
+    // successful resync must be trusted over the earlier fallback even
+    // though nothing ever clears `statuses` back to empty in between.
+    mockGetStatuses.mockRejectedValueOnce(new Error("network error"));
+    mockGetCachedFloorPlanSnapshot.mockResolvedValueOnce([{ tableId: "t1", status: "seated" }]);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("seated");
+
+    // Reconnect resync now succeeds with fresher server state.
+    mockGetStatuses.mockResolvedValueOnce([{ tableId: "t1", status: "available" }]);
+    act(() => {
+      simulateError();
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000); // scheduled reconnect attempt
+    });
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+
+    expect(result.current.tableStatuses.isStale).toBe(false);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
+  });
+
+  it("does not render venue A's cached table statuses under venue B when switching venues while offline (#4186-class leak)", async () => {
+    // Reproduces the stale-cache leak class fixed in #4186 for reservations:
+    // switching venueId B -> A -> B while every snapshot fetch fails must
+    // never render venue B under venue A's cached table statuses, even for a
+    // single transient committed render.
+    mockGetStatuses.mockRejectedValue(new Error("network error"));
+    mockGetCachedFloorPlanSnapshot.mockImplementation((venueId: string) =>
+      Promise.resolve(venueId === "venue-a" ? [{ tableId: "table-a-1", status: "seated" }] : null)
+    );
+
+    vi.mocked(useVenue).mockReturnValue({ selectedVenueId: "venue-b" } as never);
+
+    const history: Array<{ venueId: string; tableStatuses: UseTableStatusesResult }> = [];
+    function useTracked(): UseTableStatusesResult {
+      const { selectedVenueId } = useVenue();
+      const tableStatuses = useTableStatuses();
+      useSSESync();
+      history.push({ venueId: selectedVenueId ?? "", tableStatuses });
+      return tableStatuses;
+    }
+
+    const { result, rerender } = renderHook(() => useTracked(), { wrapper: makeWrapper() });
+
+    // Step 1: venue B connects, its snapshot fetch fails, no cache for B.
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+    expect(result.current.statuses.size).toBe(0);
+
+    // Step 2: switch to venue A — its snapshot fetch also fails, but there's
+    // a cache hit. `isConnected` carries over from step 1 (switching venue
+    // doesn't itself dispatch a disconnect), so the resync effect re-fires
+    // purely off the venueId dependency change — no second `simulateOpen`.
+    vi.mocked(useVenue).mockReturnValue({ selectedVenueId: "venue-a" } as never);
+    rerender();
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(result.current.statuses.get("table-a-1")).toBe("seated");
+
+    // Step 3: switch back to venue B (still offline, no cache for B). The
+    // synchronous render triggered by `rerender()` below — captured into
+    // `history` before any of venue B's own re-fetch/cache-read has had a
+    // chance to resolve — is the exact race window the render-time key
+    // guard exists for.
+    vi.mocked(useVenue).mockReturnValue({ selectedVenueId: "venue-b" } as never);
+    rerender();
+    await act(async () => {
+      await flushMicrotasks();
+    });
+
+    // Assert on the full committed render history, not just the final
+    // settled state — a leak that self-corrects one render later would pass
+    // against only the end state.
+    const leaked = history.some(
+      (entry) => entry.venueId === "venue-b" && entry.tableStatuses.statuses.has("table-a-1")
+    );
+    expect(leaked).toBe(false);
+    expect(result.current.statuses.has("table-a-1")).toBe(false);
+  });
+
+  it("merges a live table-status:changed delta over the cached fallback instead of discarding the rest of the snapshot (#4216)", async () => {
+    // Reproduces #4216: a 5-table cached fallback is active (offline, no
+    // resync has landed this connection cycle); one live delta for a single
+    // table arrives on the still-connected SSE stream. The other 4 cached
+    // tables must remain visible, and the updated table must reflect the
+    // *live* value, not the stale cached one.
+    mockGetStatuses.mockRejectedValue(new Error("network error"));
+    mockGetCachedFloorPlanSnapshot.mockResolvedValueOnce([
+      { tableId: "t1", status: "available" },
+      { tableId: "t2", status: "seated" },
+      { tableId: "t3", status: "available" },
+      { tableId: "t4", status: "needs-bussing" },
+      { tableId: "t5", status: "seated" },
+    ]);
+
+    const { result } = renderHook(
+      () => ({ tableStatuses: useTableStatuses(), sync: useSSESync() }),
+      { wrapper: makeWrapper() }
+    );
+
+    await act(async () => {
+      await simulateOpen();
+      await flushMicrotasks();
+    });
+
+    // Sanity: cached fallback active for all 5 tables before any live delta.
+    expect(result.current.tableStatuses.statuses.size).toBe(5);
+    expect(result.current.tableStatuses.isStale).toBe(true);
+
+    // A single live delta lands for t3 — a different status than the cache.
+    act(() => {
+      simulateEvent("table-status:changed", {
+        type: "table-status:changed",
+        venueId: "v1",
+        timestamp: "2026-01-01T00:00:00Z",
+        data: [{ tableId: "t3", status: "occupied" }],
+      });
+    });
+
+    expect(result.current.tableStatuses.statuses.size).toBe(5);
+    expect(result.current.tableStatuses.statuses.get("t1")).toBe("available");
+    expect(result.current.tableStatuses.statuses.get("t2")).toBe("seated");
+    expect(result.current.tableStatuses.statuses.get("t3")).toBe("occupied");
+    expect(result.current.tableStatuses.statuses.get("t4")).toBe("needs-bussing");
+    expect(result.current.tableStatuses.statuses.get("t5")).toBe("seated");
   });
 });

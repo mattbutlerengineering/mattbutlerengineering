@@ -40,6 +40,12 @@ export interface UseTimelineDataResult {
   isLoading: boolean;
   fetchError: Error | null;
   stats: TimelineStats;
+  /** True when `reservations` was served from the offline cache after a
+   * fetch failure — see `useReservations().isFromCache`. */
+  isFromCache: boolean;
+  /** Epoch ms `reservations` was last confirmed synced with the server —
+   * see `useReservations().lastSyncedAt`. */
+  lastSyncedAt: number | undefined;
   seatGuest: (reservation: Reservation) => Promise<Reservation>;
   cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
   updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
@@ -64,6 +70,8 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     data: allReservations,
     isLoading: reservationsLoading,
     error: reservationsError,
+    isFromCache,
+    lastSyncedAt,
   } = useReservations({
     venueId,
     date,
@@ -159,6 +167,8 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     isLoading,
     fetchError,
     stats,
+    isFromCache,
+    lastSyncedAt,
     seatGuest,
     cancelReservation,
     updateReservation,

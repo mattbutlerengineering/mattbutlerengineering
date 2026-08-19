@@ -18,6 +18,7 @@ import {
   readQueueEfficiencyPrs,
   buildE2eRuns,
   resolveRunChangedPaths,
+  buildFlakyTestRuns,
 } from "../sensors-registry.mjs";
 import { computeE2eStability } from "../collect-e2e-stability.mjs";
 import { GhAuthError } from "@mbe/gh-client";
@@ -220,25 +221,54 @@ describe("sensors-registry", () => {
     // #3937: collect-ai-issue-feedback.mjs now persists `{ error }` instead of
     // leaving the file unwritten on a query failure — the sensor must surface
     // that distinctly from "not yet collected".
+    // #4211: the error branch dropped `collected_at`, so a persisted failure
+    // read as current no matter how old it was. It must now propagate
+    // `collected_at` and an explicit `stale` flag, without ever letting a
+    // failure collapse into looking like "not yet collected" (#3937).
     let tmpDir;
+
+    const writeFixture = (data) => {
+      tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
+      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+      writeFileSync(join(tmpDir, "metrics", "ai-issue-feedback.json"), JSON.stringify(data));
+      return SENSORS.find((s) => s.id === "issueFeedback");
+    };
 
     afterEach(() => {
       rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it("reports the auth-capability gap distinctly when the persisted file records an error", () => {
-      tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      writeFileSync(
-        join(tmpDir, "metrics", "ai-issue-feedback.json"),
-        JSON.stringify({ collected_at: "2026-08-07T00:00:00Z", error: "GitHub auth failed" })
-      );
+    it("reports the auth-capability gap with collected_at and stale:false when the failure is fresh", () => {
+      const now = new Date("2026-08-14T12:00:00Z");
+      const sensor = writeFixture({
+        collected_at: "2026-08-14T00:00:00Z", // 12h before `now` — well under the 48h threshold
+        error: "GitHub auth failed",
+      });
 
-      const sensor = SENSORS.find((s) => s.id === "issueFeedback");
-      const result = sensor.collect({ root: tmpDir });
+      const result = sensor.collect({ root: tmpDir, now });
+
+      expect(result).toEqual({
+        available: false,
+        error: "GitHub auth failed",
+        collected_at: "2026-08-14T00:00:00Z",
+        stale: false,
+      });
+    });
+
+    it("flags stale:true when the persisted failure is older than the staleness threshold", () => {
+      const now = new Date("2026-08-14T12:00:00Z");
+      const sensor = writeFixture({
+        collected_at: "2026-08-11T18:21:51.050Z", // >48h before `now` — mirrors the observed #4211 case
+        error:
+          "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
+      });
+
+      const result = sensor.collect({ root: tmpDir, now });
 
       expect(result.available).toBe(false);
       expect(result.error).toMatch(/auth/i);
+      expect(result.collected_at).toBe("2026-08-11T18:21:51.050Z");
+      expect(result.stale).toBe(true);
     });
 
     it("reports plain unavailable (no error) when the file has simply never been written", () => {
@@ -246,7 +276,7 @@ describe("sensors-registry", () => {
 
       const sensor = SENSORS.find((s) => s.id === "issueFeedback");
 
-      expect(sensor.collect({ root: tmpDir })).toEqual({ available: false });
+      expect(sensor.collect({ root: tmpDir, now: new Date() })).toEqual({ available: false });
     });
   });
 
@@ -537,6 +567,188 @@ describe("sensors-registry", () => {
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
       expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({ available: false });
+    });
+
+    it("flakyTests collects runs via ghClient.workflow.runs scoped to the CI workflow", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
+      const sensor = SENSORS.find((s) => s.id === "flakyTests");
+
+      sensor.collect({ ghClient });
+
+      expect(ghClient.workflow.runs).toHaveBeenCalledWith([
+        "--limit",
+        "100",
+        "--workflow",
+        "CI",
+        "--json",
+        "databaseId,status,headSha",
+      ]);
+    });
+
+    it("flakyTests sensor reports the auth-capability gap distinctly when ghClient.workflow.runs throws", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockImplementation(() => {
+            throw new GhAuthError("GET", "/repos/o/r/actions/runs", 401, "Bad credentials");
+          }),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "flakyTests");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.error).toMatch(/auth/i);
+    });
+
+    it("flakyTests sensor degrades to the data_gap shape when there are no completed runs", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
+      const sensor = SENSORS.find((s) => s.id === "flakyTests");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.available).toBe(false);
+      expect(result.data_gap).toMatch(/per-test run history/i);
+    });
+  });
+
+  describe("buildFlakyTestRuns", () => {
+    // A missing/invalid credential is not a per-run hiccup: it fails EVERY run
+    // identically, so degrading it to zero rows makes the sensor report the
+    // "no per-test history — enable the JUnit reporter" data_gap, advice that
+    // is actively wrong once the reporter is enabled. Same distinguishable-
+    // failure requirement as #3937. (#4237)
+    it("propagates a credential failure instead of degrading it to zero rows", () => {
+      const ghRuns = [{ status: "completed", databaseId: 42, headSha: "abc123" }];
+      const listRunArtifacts = vi.fn(() => {
+        const err = new Error(
+          "gh-client: no `gh` binary on PATH and no GITHUB_TOKEN/GH_TOKEN in the environment."
+        );
+        err.name = "MissingGithubTokenError";
+        throw err;
+      });
+
+      expect(() => buildFlakyTestRuns(ghRuns, { listRunArtifacts })).toThrow(
+        /GITHUB_TOKEN|credential/i
+      );
+    });
+
+    it("still degrades a per-run IO failure to zero rows for that run only", () => {
+      const ghRuns = [
+        { status: "completed", databaseId: 1, headSha: "sha1" },
+        { status: "completed", databaseId: 2, headSha: "sha2" },
+      ];
+      const listRunArtifacts = vi.fn((id) => {
+        if (id === 1) throw new Error("artifact expired");
+        return [{ id: 9, name: "test-results-node22", expired: false }];
+      });
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi
+        .fn()
+        .mockReturnValue([{ name: "r.xml", data: Buffer.from("<x/>") }]);
+      const parseJUnitXml = vi.fn().mockReturnValue([{ testName: "t", passed: true }]);
+
+      const rows = buildFlakyTestRuns(ghRuns, {
+        listRunArtifacts,
+        downloadArtifactZip,
+        extractZipEntries,
+        parseJUnitXml,
+      });
+
+      // Run 1 contributed nothing; run 2 is unaffected.
+      expect(rows).toEqual([{ sha: "sha2", testName: "t", passed: true }]);
+    });
+
+    it("skips runs that aren't completed, or are missing databaseId/headSha", () => {
+      const ghRuns = [
+        { status: "in_progress", databaseId: 1, headSha: "a" },
+        { status: "completed", headSha: "b" }, // no databaseId
+        { status: "completed", databaseId: 3 }, // no headSha
+      ];
+      const listRunArtifacts = vi.fn();
+
+      const rows = buildFlakyTestRuns(ghRuns, { listRunArtifacts });
+
+      expect(listRunArtifacts).not.toHaveBeenCalled();
+      expect(rows).toEqual([]);
+    });
+
+    it("filters artifacts to the test-results-node* prefix, excluding expired ones", () => {
+      const ghRuns = [{ status: "completed", databaseId: 42, headSha: "abc123" }];
+      const listRunArtifacts = vi.fn().mockReturnValue([
+        { id: 1, name: "test-results-node22", expired: false },
+        { id: 2, name: "test-results-node22", expired: true },
+        { id: 3, name: "unrelated-artifact", expired: false },
+      ]);
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi.fn().mockReturnValue([]);
+
+      buildFlakyTestRuns(ghRuns, { listRunArtifacts, downloadArtifactZip, extractZipEntries });
+
+      expect(downloadArtifactZip).toHaveBeenCalledTimes(1);
+      expect(downloadArtifactZip).toHaveBeenCalledWith(1);
+    });
+
+    it("attaches the run's headSha to every parsed testcase row, skipping non-.xml entries", () => {
+      const ghRuns = [{ status: "completed", databaseId: 42, headSha: "abc123" }];
+      const listRunArtifacts = vi
+        .fn()
+        .mockReturnValue([{ id: 1, name: "test-results-node22", expired: false }]);
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi.fn().mockReturnValue([
+        { name: "services/foo/test-results/junit.xml", data: Buffer.from("<xml/>") },
+        { name: "services/foo/README.md", data: Buffer.from("not xml") },
+      ]);
+      const parseJUnitXml = vi.fn().mockReturnValue([{ testName: "suite > test", passed: true }]);
+
+      const rows = buildFlakyTestRuns(ghRuns, {
+        listRunArtifacts,
+        downloadArtifactZip,
+        extractZipEntries,
+        parseJUnitXml,
+      });
+
+      expect(parseJUnitXml).toHaveBeenCalledTimes(1);
+      expect(rows).toEqual([{ sha: "abc123", testName: "suite > test", passed: true }]);
+    });
+
+    it("degrades one run's contribution to zero rows when listRunArtifacts throws, without aborting the others", () => {
+      const ghRuns = [
+        { status: "completed", databaseId: 1, headSha: "broken" },
+        { status: "completed", databaseId: 2, headSha: "ok" },
+      ];
+      const listRunArtifacts = vi.fn().mockImplementation((runId) => {
+        if (runId === 1) throw new Error("network error");
+        return [{ id: 99, name: "test-results-node22", expired: false }];
+      });
+      const downloadArtifactZip = vi.fn().mockReturnValue(Buffer.from("zip"));
+      const extractZipEntries = vi
+        .fn()
+        .mockReturnValue([{ name: "a/test-results/junit.xml", data: Buffer.from("<xml/>") }]);
+      const parseJUnitXml = vi.fn().mockReturnValue([{ testName: "t", passed: true }]);
+
+      const rows = buildFlakyTestRuns(ghRuns, {
+        listRunArtifacts,
+        downloadArtifactZip,
+        extractZipEntries,
+        parseJUnitXml,
+      });
+
+      expect(rows).toEqual([{ sha: "ok", testName: "t", passed: true }]);
+    });
+
+    it("degrades to zero rows when downloadArtifactZip throws (e.g. expired past retention)", () => {
+      const ghRuns = [{ status: "completed", databaseId: 1, headSha: "abc" }];
+      const listRunArtifacts = vi
+        .fn()
+        .mockReturnValue([{ id: 1, name: "test-results-node22", expired: false }]);
+      const downloadArtifactZip = vi.fn().mockImplementation(() => {
+        throw new Error("410: artifact expired");
+      });
+
+      const rows = buildFlakyTestRuns(ghRuns, { listRunArtifacts, downloadArtifactZip });
+
+      expect(rows).toEqual([]);
     });
   });
 

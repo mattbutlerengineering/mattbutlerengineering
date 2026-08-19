@@ -396,6 +396,14 @@ jobs:
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
         run: pnpm turbo test:coverage
 
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-node${{ matrix.node-version }}
+          path: "**/test-results/*.xml"
+          retention-days: 14
+
       - name: Upload coverage reports
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
         with:
@@ -781,11 +789,35 @@ jobs:
           OUTCOME: ${{ steps.gate-check.outcome }}
         run: |
           STATE=$(node scripts/ci-gate-commit-status.mjs state --outcome "$OUTCOME")
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/statuses/$SHA" \
-            -f state="$STATE" \
-            -f context="CI Gate" \
-            -f description="CI Gate ${STATE}" \
-            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # Retry transient failures only — a real 4xx rejection (bad token,
+          # bad payload, etc.) should fail fast rather than burning three
+          # attempts on a verdict that will not change. See #4333: a single
+          # unretried 503 from a GitHub-side outage failed the whole CI Gate
+          # job even though every substantive job had passed.
+          #
+          # The classification lives in the pure, unit-tested
+          # isTransientPublishError() rather than an inline regex here. The
+          # inline version #4333 shipped missed `unexpected end of JSON
+          # input` and turned a fully green run (32081722175) red — an
+          # untested regex embedded in YAML is exactly where that goes
+          # unnoticed.
+          for i in 1 2 3; do
+            OUTPUT=$(gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/statuses/$SHA" \
+              -f state="$STATE" \
+              -f context="CI Gate" \
+              -f description="CI Gate ${STATE}" \
+              -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 2>&1) && { echo "$OUTPUT"; exit 0; }
+            echo "$OUTPUT"
+            if printf '%s' "$OUTPUT" | node scripts/ci-gate-commit-status.mjs transient; then
+              echo "Publish attempt $i failed with a transient error, retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Publish CI Gate commit status failed with a non-transient error"
+              exit 1
+            fi
+          done
+          echo "::error::Publish CI Gate commit status failed after 3 attempts"
+          exit 1

@@ -1,5 +1,24 @@
 <codebase path="packages/gh-client">
   <section priority="medium" role="src">
+  <file path="src/artifact-ops.ts">
+    <item priority="low">
+      interface ArtifactOpsOptions {
+        token?: string;
+        owner?: string;
+        repoName?: string;
+        http?: SyncHttp;
+        binaryHttp?: SyncBinaryHttp;
+      }
+    </item>
+    <item priority="low">
+      interface RunArtifact {
+        id: number;
+        name: string;
+        sizeInBytes: number;
+        expired: boolean;
+      }
+    </item>
+  </file>
   <file path="src/client.ts">
     <item priority="low">
       interface GhClientOptions {

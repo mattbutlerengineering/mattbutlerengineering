@@ -19,6 +19,7 @@ export const DEMO_ROUTES = {
   dashboard: `${DEMOS_BASE}/dashboard`,
   teamCreate: `${DEMOS_BASE}/teams/new`,
   layouts: `${DEMOS_BASE}/layouts`,
+  telemetry: `${DEMOS_BASE}/telemetry`,
   drivers: `${DEMOS_BASE}/drivers`,
   driverNew: `${DEMOS_BASE}/drivers/new`,
   driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,

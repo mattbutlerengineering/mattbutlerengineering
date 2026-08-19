@@ -58,7 +58,6 @@ describe("useGuestRecognition", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
@@ -77,7 +76,6 @@ describe("useGuestRecognition", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
@@ -101,7 +99,6 @@ describe("useGuestRecognition", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
@@ -127,7 +124,6 @@ describe("useGuestRecognition", () => {
       firstName: "Jane",
       visitCount: 5,
       hasPreferences: true,
-      lastVisit: "2026-01-01",
     });
 
     const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
@@ -155,7 +151,6 @@ describe("useGuestRecognition", () => {
       firstName: null,
       visitCount: 0,
       hasPreferences: false,
-      lastVisit: null,
     });
 
     const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
@@ -211,14 +206,12 @@ describe("useGuestRecognition", () => {
         firstName: "Jane",
         visitCount: 1,
         hasPreferences: false,
-        lastVisit: null,
       })
       .mockResolvedValueOnce({
         recognized: false,
         firstName: null,
         visitCount: 0,
         hasPreferences: false,
-        lastVisit: null,
       });
 
     const { result } = renderHook(() => useGuestRecognition({ venueSlug: "the-grill", api }));
@@ -270,7 +263,6 @@ describe("useGuestRecognition", () => {
         firstName: null,
         visitCount: 0,
         hasPreferences: false,
-        lastVisit: null,
       });
       await Promise.resolve();
       await Promise.resolve();

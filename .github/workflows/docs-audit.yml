@@ -1,0 +1,237 @@
+name: Docs Audit
+
+# Weekly markdown audit, split by what each half can actually decide (#4310).
+#
+#   Job 1 (mechanical) — `scripts/audit-markdown.mjs --fix` repairs links whose
+#     correct target is a lookup (a repo-root path written as document-relative),
+#     and opens an auto-fix PR. Findings it cannot settle — a link pointing at
+#     nothing, a directory tree that drifted — are reported in the run summary
+#     rather than guessed at.
+#
+#   Job 2 (semantic) — dispatches the `/md-audit` agent pass over human-facing
+#     prose: commands that no longer exist, flags that were renamed, behaviour
+#     the code dropped. Opens its own PR so the mechanical diff stays reviewable
+#     on its own.
+#
+# The two jobs are independent on purpose: the mechanical PR must not wait on an
+# agent session, and an agent failure must not withhold link fixes.
+#
+# Boundary with the monthly `/claude-md-improver` routine: that one owns
+# CLAUDE.md / AGENTS.md / .claude/rules/*; this one owns everything else. The
+# split is restated in .claude/skills/md-audit/SKILL.md and must stay in sync.
+
+on:
+  schedule:
+    # Weekly, Tuesday 11:37 UTC — an off-minute on the quietest weekday slot in
+    # the fleet, well clear of the Monday-morning cluster.
+    - cron: "37 11 * * 2"
+  workflow_dispatch:
+    inputs:
+      skip_agent:
+        description: "Run only the mechanical pass"
+        required: false
+        default: "false"
+        type: boolean
+
+concurrency:
+  group: docs-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  mechanical:
+    name: Mechanical pass (links + trees)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit and auto-fix
+        id: audit
+        # The script exits 1 when findings remain that it will not guess at.
+        # That is the expected steady state, not a job failure — the unfixed
+        # findings are reported below and handed to the agent pass.
+        run: |
+          set +e
+          node scripts/audit-markdown.mjs --fix --json > /tmp/docs-audit.json
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          jq -r '"fixed=\(.fixed)"' /tmp/docs-audit.json >> "$GITHUB_OUTPUT"
+          jq -r '"unfixed=\(.findings | length)"' /tmp/docs-audit.json >> "$GITHUB_OUTPUT"
+
+      - name: Report findings
+        if: always()
+        run: |
+          {
+            echo "## Markdown audit"
+            echo
+            echo "- **Auto-fixed**: $(jq -r '.fixed' /tmp/docs-audit.json) link(s)"
+            echo "- **Needs judgement**: $(jq -r '.findings | length' /tmp/docs-audit.json)"
+            echo
+            jq -r '.findings[] | "- `\(.file):\(.line)` **\(.kind)** — \(.message)"' /tmp/docs-audit.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open auto-fix PR
+        id: create-pr
+        if: steps.audit.outputs.fixed != '0'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        env:
+          # The action commits inside the runner, firing the husky pre-commit
+          # hook; check-adr needs @mbe/agent-core built, which this job does not
+          # do for a docs-only commit. Validated by CI on the PR.
+          HUSKY: "0"
+        with:
+          # AUTOMATION_PAT (#3684): a GITHUB_TOKEN-authored commit is attributed
+          # to github-actions[bot], which parks every pull_request-triggered
+          # check on the resulting PR at `action_required` — see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "docs: repair broken markdown links"
+          title: "docs: repair broken markdown links"
+          body: |
+            Auto-fixed by `.github/workflows/docs-audit.yml` via
+            `node scripts/audit-markdown.mjs --fix`.
+
+            Every change here is a link whose target exists at the repo root but
+            was written as if it were document-relative, so it renders dead on
+            GitHub. The correct target is a lookup, not a judgement — findings
+            needing judgement are listed in the run summary instead.
+          branch: automation/docs-audit-links
+          delete-branch: true
+          add-paths: |
+            **/*.md
+          labels: auto-merge
+
+      - name: Dispatch CI on the automation branch
+        # GITHUB_TOKEN-authored pushes/PRs don't trigger other workflows
+        # (anti-recursion), so the pull_request CI run — including the required
+        # CI Gate check — never fires and the PR sits BLOCKED. workflow_dispatch
+        # is the documented exception.
+        if: steps.create-pr.outputs.pull-request-number
+        run: gh workflow run ci.yml --ref automation/docs-audit-links
+
+      - name: Dispatch tier-classifier on the automation branch
+        # tier-classifier.yml only triggers on `pull_request` and hits the same
+        # anti-recursion gap, so it never lands a tier:* label on its own — and
+        # the auto-merge gate below fails closed without one (#4070).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: gh workflow run tier-classifier.yml --ref automation/docs-audit-links -f pr="$PR_NUMBER"
+
+      - name: Approve pending automation workflow runs
+        # #3684/#3982: every pull_request-triggered run on this PR parks at
+        # action_required because the commit is bot-authored. Scoped to
+        # automation/* + auto-merge from the one trusted automation author
+        # (scripts/approve-automation-runs.mjs) — never a blanket approval.
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: node scripts/approve-automation-runs.mjs approve --pr "$PR_NUMBER"
+
+      - name: Wait for tier-classifier label
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: node scripts/wait-for-tier-label.mjs --pr "$PR_NUMBER"
+
+      - name: Enable auto-merge
+        # Through the same eligibility gate auto-merge.yml consults, not a bare
+        # `gh pr merge --auto` — an ungated call would be a permanent bypass of
+        # the tier gate (#3972). Failing closed here is the documented safe
+        # direction; automation-pr-rescue.yml keeps a not-merged PR visible and
+        # up to date (#3966).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          LABELS_CSV=$(gh pr view "$PR_NUMBER" --json labels -q '[.labels[].name] | join(",")')
+          RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS_CSV" --mode automation)
+          echo "$RESULT"
+          if [ "$(echo "$RESULT" | jq -r '.eligible')" != "true" ]; then
+            echo "::notice::Auto-merge not enabled for PR #$PR_NUMBER: $(echo "$RESULT" | jq -r '.reason')"
+            exit 0
+          fi
+
+          AUTHOR=$(gh pr view "$PR_NUMBER" --json author -q '.author.login')
+          AUTHOR_RESULT=$(node scripts/merge-queue-eligibility.mjs check-author --login "$AUTHOR")
+          echo "$AUTHOR_RESULT"
+          if [ "$(echo "$AUTHOR_RESULT" | jq -r '.trusted')" != "true" ]; then
+            echo "::notice::Auto-merge not enabled for PR #$PR_NUMBER: author '$AUTHOR' not in TRUSTED_AUTOMATION_AUTHORS"
+            exit 0
+          fi
+
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+
+  semantic:
+    name: Semantic pass (/md-audit agent)
+    if: github.event.inputs.skip_agent != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        # `mbe` = tools/cli/dist/index.js; the workspace bin is never linked
+        # into node_modules/.bin (see .claude/rules/gotchas.md § Build).
+        run: pnpm build --filter @mbe/cli...
+
+      - name: Run the /md-audit pass
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::warning::ANTHROPIC_API_KEY is not configured — skipping the semantic pass."
+            exit 0
+          fi
+          cat > /tmp/md-audit-prompt.txt <<'PROMPT_EOF'
+          You are the weekly documentation auditor. Read and follow the skill at
+          .claude/skills/md-audit/SKILL.md exactly.
+
+          Audit human-facing markdown only — README.md, CONTRIBUTING.md, SECURITY.md,
+          docs/**, and package/app/service READMEs. Do NOT touch CLAUDE.md, AGENTS.md,
+          or .claude/rules/* (the monthly /claude-md-improver routine owns those), and
+          do NOT re-report broken links or directory trees (the mechanical pass in this
+          same workflow already handled them).
+
+          Every finding needs evidence: "the doc says X, but X is false because <what you
+          read or ran>". Fix the unambiguous ones, list the rest under a "Needs a
+          decision" heading. Open at most one PR, titled `docs: correct stale claims in
+          <area>`, base ref main. If you find nothing, open no PR and say so.
+          PROMPT_EOF
+          node tools/cli/dist/index.js agent run "$(cat /tmp/md-audit-prompt.txt)" \
+            --max-budget "2.00" \
+            --adapter auto

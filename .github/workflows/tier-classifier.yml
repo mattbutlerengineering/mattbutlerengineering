@@ -160,9 +160,36 @@ jobs:
             highest = T4;
             reasons.add('escalate to T4: title/body mentions secrets or incident');
           }
-          if (/bypass.*check|skip.*review/i.test(body)) {
+          // docs/change-tiers.md: "PR body explicitly asks reviewers to
+          // bypass a check." The old /bypass.*check|skip.*review/i matched any
+          // MENTION, so prose that merely documents or critiques a bypass
+          // escalated too — PR #3919 said "documents `SKIP=semgrep ...` as a
+          // way to bypass the Semgrep pre-commit check" and was labelled T4,
+          // which manufactured issue #3921 for a human to read and close
+          // (#3657 is the same class from the secrets rule, fixed in #3606).
+          // Replayed over the last 300 PR bodies the old pattern escalated 9,
+          // every one of them descriptive prose; this one escalates none of
+          // them and still fires on an actual request (see
+          // scripts/__tests__/tier-classifier-workflow.test.mjs).
+          //
+          // The discriminator is a request cue in the SAME sentence as the
+          // bypass phrase, or a line-leading imperative. Description has
+          // neither. Note this reads `bodyProse`, not `body`, so #3606's
+          // checklist stripping now covers this rule too — a future
+          // PULL_REQUEST_TEMPLATE.md line mentioning "skip review" can no
+          // longer escalate every template-filled PR the way the secrets
+          // keyword once did.
+          const BYPASS_PHRASE = /\b(?:bypass|skip|override|disable)\b[^.\n]{0,60}\b(?:check|checks|ci|review|reviews|gate|gates|lint|test|tests)\b|\b(?:merge|approv(?:e|al)|land|ship)\b[^.\n]{0,30}\bwithout\b[^.\n]{0,30}\b(?:review|reviews|check|checks|ci|approval|tests?)\b/i;
+          const REQUEST_CUE = /\b(?:please|pls|kindly)\b|\bcan (?:you|we)\b|\bcould (?:you|we)\b|\brequest(?:ing|ed|s)?\b|\b(?:i|we)\b[^.\n]{0,30}\b(?:need|want|ask(?:ing)?)\b/i;
+          const IMPERATIVE = /^\s*(?:[-*]\s*)?(?:please\s+)?(?:bypass|skip|override|disable)\b[^.\n]{0,60}\b(?:check|ci|review|gate|lint|test)/i;
+
+          const asksToBypass = bodyProse
+            .split(/(?<=[.!?])\s+|\n/)
+            .some((s) => (BYPASS_PHRASE.test(s) && REQUEST_CUE.test(s)) || IMPERATIVE.test(s));
+
+          if (asksToBypass) {
             highest = T4;
-            reasons.add('escalate to T4: PR body asks to bypass a check');
+            reasons.add('escalate to T4: PR body asks reviewers to bypass a check');
           }
           if (added > 1000 && highest < T4) {
             highest = Math.min(T4, highest + 1);

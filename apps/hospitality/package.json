@@ -28,6 +28,16 @@
       "name": "Hospitality App (CSS)",
       "path": "dist/assets/index-*.css",
       "limit": "150 kB"
+    },
+    {
+      "name": "Floor Plan Editor (lazy chunk)",
+      "path": "dist/assets/FloorPlanEditorPage-*.js",
+      "limit": "3.5 kB"
+    },
+    {
+      "name": "Canvas Vendor (konva/react-konva, lazy chunk)",
+      "path": "dist/assets/canvas-vendor-*.js",
+      "limit": "100 kB"
     }
   ],
   "dependencies": {
@@ -44,6 +54,7 @@
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.13.0",
     "@tanstack/react-query": "^5.101.4",
+    "idb": "^7.1.1",
     "konva": "^10.3.0",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -62,6 +73,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

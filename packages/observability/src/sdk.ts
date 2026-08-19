@@ -1,7 +1,7 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
-import { FastifyInstrumentation } from "@opentelemetry/instrumentation-fastify";
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -86,7 +86,7 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
           new HttpInstrumentation({
             ignoreIncomingRequestHook: shouldIgnoreRequest,
           }),
-          new FastifyInstrumentation(),
+          new FastifyOtelInstrumentation({ registerOnInitialization: true }),
           new PinoInstrumentation(),
         ],
   });

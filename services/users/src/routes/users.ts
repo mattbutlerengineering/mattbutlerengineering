@@ -13,9 +13,17 @@ import { requireAuth, requireAdmin, requireOwnershipOrAdmin } from "@mbe/auth/fa
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { userService } from "../services/user.js";
 
-/** Returns the requesting user's database cuid by looking up their JWT email. */
+/**
+ * Returns the requesting user's database cuid by looking up their JWT email.
+ *
+ * Requires emailVerified === true (fail closed when the claim is absent or
+ * false) — this resolver keys identity on email rather than the JWT subject,
+ * so an unverified email would let a caller register an account with a
+ * victim's address and pass ownership checks for the victim's profile.
+ */
 async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
-  const email = request.user?.email;
+  if (request.user?.emailVerified !== true) return null;
+  const email = request.user.email;
   if (!email) return null;
   const user = await userService.getByEmail(email);
   return user?.id ?? null;

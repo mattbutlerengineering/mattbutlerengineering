@@ -1258,6 +1258,12 @@
     export interface CliUsage {
       readonly costUsd?: number;
       readonly tokenUsage?: TokenUsage;
+      /**
+       * Turn count, when the CLI backend reports a real signal for it. Absent
+       * (never a fabricated 0 or 1) when the backend emits nothing usable — see
+       * `run-cli-adapter-session.ts` for how absence is handled (#4208).
+       */
+      readonly numTurns?: number;
     }
     function safeJsonParse(text: string): unknown {
       try {
@@ -1383,7 +1389,13 @@
           success: adapterResult.success,
           sessionId: cliAdapter.name,
           costUsd: adapterResult.costUsd ?? 0,
-          numTurns: 0,
+          // Real signal when the CLI reports one (#4208 — see cli-usage-parser.ts
+          // for how each adapter derives it); 0 only when genuinely absent. 0 is
+          // deliberate here, not a fabricated guess: paired with $0 cost it is
+          // exactly the signature `taskDidNotRun` (eval/run-detection.ts) uses to
+          // detect a run that never happened, which is the correct classification
+          // for "the CLI produced no usable signal at all".
+          numTurns: adapterResult.numTurns ?? 0,
         };
     
         const breach = shouldHaltForBudget(
@@ -1485,6 +1497,10 @@
     
       const costUsd = adapterResult?.costUsd ?? 0;
       const tokenUsage = adapterResult?.tokenUsage ?? { inputTokens: 0, outputTokens: 0 };
+      // Real signal when reported (#4208); 0 only when genuinely absent — see the
+      // resultSummary comment above for why 0 is the correct fallback, not a
+      // fabricated guess.
+      const numTurns = adapterResult?.numTurns ?? 0;
     
       // Record spend through the single seam — the ONLY spend write for a
       // gemini/opencode run, mirroring session-runner's write for the claude
@@ -1510,7 +1526,7 @@
         costUsd,
         tokenUsage,
         durationMs: adapterResult?.durationMs ?? 0,
-        numTurns: 0,
+        numTurns,
         resultText: "",
         errors,
         ...(failureCategory ? { failureCategory } : {}),
@@ -1932,11 +1948,15 @@
     }
   </file>
   <file path="tools/cli/src/commands/agent-eval.ts">
+    function isAdapterType(value: string): value is AdapterType {
+      return (VALID_ADAPTERS as readonly string[]).includes(value);
+    }
     export const agentEvalCommand = new Command("eval")
       .description("Run the golden-task eval suite through the agent and score the results")
       .option("--suite <dir>", "Suite directory", "packages/agent-core/eval-suite")
       .option("--task <id>", "Run only the task with this id")
       .option("-m, --model <model>", "Model to run the agent with", DEFAULT_SESSION_CONFIG.model)
+      .option("--adapter <type>", "Agent adapter: auto, claude, gemini, opencode", "claude")
       .option("--json", "Emit the EvalReport as JSON", false)
       .option("--threshold <pct>", "Exit non-zero if suite pass rate is below this percent")
       .option(
@@ -1949,11 +1969,21 @@
           suite: string;
           task?: string;
           model: string;
+          adapter: string;
           json: boolean;
           threshold?: string;
           maxCostRegression?: string;
           calibrate: boolean;
         }) => {
+          if (!isAdapterType(options.adapter)) {
+            console.error(
+              `Invalid adapter: "${options.adapter}". Must be one of: ${VALID_ADAPTERS.join(", ")}`
+            );
+            process.exitCode = 1;
+            return;
+          }
+          const adapterType = options.adapter;
+    
           const repoPath = resolve(process.cwd());
           const suiteDir = resolve(repoPath, resolveSuitePath(options.suite));
     
@@ -1966,12 +1996,18 @@
             return;
           }
     
-          // Read baseline before appending the current run so the most recent prior
-          // entry is used, not the one we're about to write.
+          // Read baseline before appending the current run so the most recent
+          // prior entry is used, not the one we're about to write. Scoped to
+          // this run's own adapter (#4218 rework) — comparing cost across
+          // adapters is meaningless, and a $0 baseline from a structurally
+          // cost-blind adapter (gemini) must never silently disable the gate
+          // for a different adapter's genuine cost.
           const costBaseline =
-            options.maxCostRegression !== undefined ? loadCostBaseline(findLogFile()) : null;
+            options.maxCostRegression !== undefined
+              ? loadCostBaseline(findLogFile(), adapterType)
+              : null;
     
-          const runTask = makeAgentTaskRunner(repoPath, options.model);
+          const runTask = makeAgentTaskRunner(repoPath, options.model, adapterType);
           const report = await runEvalSuite(tasks, {
             runId: `eval-${process.pid}`,
             only: options.task,
@@ -1980,12 +2016,12 @@
     
           if (suiteDidNotRun(report)) {
             emitReport(report, options.json);
-            console.error(`\n${noRunMessage()}`);
+            console.error(`\n${noRunMessage(adapterType)}`);
             process.exitCode = NO_RUN_EXIT_CODE;
             return;
           }
     
-          persistReport(report);
+          persistReport(report, adapterType);
           emitReport(report, options.json);
     
           if (options.calibrate) {
@@ -2015,13 +2051,6 @@
           }
         }
       );
-    function emitReport(report: EvalReport, json: boolean): void {
-      if (json) {
-        console.log(JSON.stringify(report, null, 2));
-      } else {
-        printReport(report);
-      }
-    }
   </file>
   <file path="tools/cli/src/commands/agent-frontmatter.ts">
     async function readStdin(): Promise<string> {
@@ -3202,6 +3231,7 @@
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
+      telemetry: `${DEMOS_BASE}/telemetry`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
@@ -5000,12 +5030,13 @@
     } {
       const elRef = useRef<HTMLDivElement | null>(null);
       const shouldReduceMotion = useReducedMotion();
+      const motionPreset = useMotionPreset();
     
       const rotateX = useMotionValue(0);
       const rotateY = useMotionValue(0);
     
-      const springX = useSpring(rotateX, springTilt);
-      const springY = useSpring(rotateY, springTilt);
+      const springX = useSpring(rotateX, motionPreset.tilt);
+      const springY = useSpring(rotateY, motionPreset.tilt);
     
       const ref = useCallback((el: HTMLDivElement | null) => {
         elRef.current = el;
@@ -5081,6 +5112,17 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/offline-cache.ts">
+    export type FloorPlanSnapshot = TableStatusDelta[];
+    interface ReservationsCacheEntry {
+      venueId: string;
+      date: string;
+      reservations: Reservation[];
+      /** Epoch ms this entry was written — surfaced to callers as the
+       * "last synced" timestamp for the offline/stale-data banner. */
+      cachedAt: number;
+    }
+  </file>
   <file path="apps/hospitality/src/lib/sse-client.ts">
     export type FetchEventSourceFn = typeof fetchEventSource;
     export interface SseClientOptions {
@@ -6020,6 +6062,16 @@
       return device.saveData ? reducedDataOverrides : {};
     }
   </file>
+  <file path="packages/rialto/src/providers/reduced-motion.ts">
+    export const reducedMotionOverrides: VibeOverrides = {
+      "--rialto-duration-fast": "0s",
+      "--rialto-duration-standard": "0s",
+      "--rialto-duration-slow": "0s",
+    };
+    export function deriveReducedMotionOverrides(device: DeviceContext): VibeOverrides {
+      return device.reducedMotion ? reducedMotionOverrides : {};
+    }
+  </file>
   <file path="packages/rialto/src/providers/useDeviceContext.ts">
     export interface DeviceContext {
       pointer: "fine" | "coarse";
@@ -6035,6 +6087,15 @@
       noMatchValue: DeviceContext[keyof DeviceContext];
     }
   </file>
+  <file path="packages/rialto/src/providers/useMotionPreset.ts">
+    export interface InstantTransition {
+      duration: 0;
+    }
+    export interface EasedTransition {
+      duration: number;
+      ease: readonly [number, number, number, number];
+    }
+  </file>
   <file path="packages/rialto/src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
       device: DeviceContext;
@@ -6044,7 +6105,7 @@
     export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
   </file>
   <file path="packages/rialto/src/providers/vibes.ts">
-    export type VibeName = "default" | "transacting" | "presenting";
+    export type VibeName = "default" | "transacting" | "presenting" | "game";
     export type VibeOverrides = Record<string, string>;
   </file>
   </section>
@@ -9408,7 +9469,8 @@
       };
     }
     export async function resolveCurrentUserEmail(request: FastifyRequest): Promise<string | null> {
-      return request.user?.email ?? null;
+      if (request.user?.emailVerified !== true) return null;
+      return request.user.email ?? null;
     }
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
@@ -11424,7 +11486,8 @@
   </file>
   <file path="services/users/src/routes/users.ts">
     async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
-      const email = request.user?.email;
+      if (request.user?.emailVerified !== true) return null;
+      const email = request.user.email;
       if (!email) return null;
       const user = await userService.getByEmail(email);
       return user?.id ?? null;
@@ -13090,8 +13153,14 @@
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel">;
     export interface NotifierRuntime {
-      /** Redis URL — the single source for the scheduler AND the in-process worker. */
-      readonly redisUrl: string;
+      /**
+       * Redis URL — the single source for the scheduler AND the in-process worker.
+       * Null when NODE_ENV=production and REDIS_URL is unset: production must
+       * never silently fall back to redis://localhost:6379, since no Redis is
+       * provisioned there (see #4172, tracked separately in #3763). Notification
+       * job scheduling is degraded, not the whole service.
+       */
+      readonly redisUrl: string | null;
       /** Typed job scheduler; opens Redis on the first schedule/cancel, not before. */
       readonly scheduler: NotifierScheduler;
       /** Twilio-backed SMS port when configured, else null. */
@@ -14471,6 +14540,8 @@
       readonly costUsd?: number;
       /** Token usage for the run, when the backend reports it. Undefined when the CLI exposes no token data. */
       readonly tokenUsage?: TokenUsage;
+      /** Turn count, when the backend reports it. Undefined when the CLI exposes no turn signal (#4208). */
+      readonly numTurns?: number;
     }
   </file>
   <file path="packages/agent-core/src/context-budget.ts">
@@ -16467,6 +16538,26 @@
       error: string;
     }
   </file>
+  <file path="packages/gh-client/src/artifact-ops.ts">
+    export interface ArtifactOpsOptions {
+      token?: string;
+      owner?: string;
+      repoName?: string;
+      /** Injected in tests — defaults to the real subprocess-fetch (JSON) bridge. */
+      http?: SyncHttp;
+      /** Injected in tests — defaults to the real subprocess-fetch (binary) bridge. */
+      binaryHttp?: SyncBinaryHttp;
+      /** Injected in tests for git-derived repo-slug fallback. */
+      exec?: (cmd: string, args: string[]) => string;
+      env?: NodeJS.ProcessEnv;
+    }
+    export interface RunArtifact {
+      id: number;
+      name: string;
+      sizeInBytes: number;
+      expired: boolean;
+    }
+  </file>
   <file path="packages/gh-client/src/client.ts">
     export interface GhClientOptions extends TransportOptions {
       runner?: ExecRunner;
@@ -16547,7 +16638,8 @@
       }
     }
     export function resolveToken(env: NodeJS.ProcessEnv = process.env): string {
-      const token = env.GITHUB_TOKEN ?? env.GH_TOKEN;
+      const token =
+        env.GITHUB_TOKEN ?? env.GH_TOKEN ?? env.GITHUB_PERSONAL_ACCESS_TOKEN ?? env.AUTOMATION_PAT;
       if (!token) throw new MissingGithubTokenError();
       return token;
     }
@@ -18037,15 +18129,16 @@
     }
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">
-    export function buildJwksUrl(authority: string | undefined): string | undefined {
-      if (!authority) {
-        return undefined;
-      }
-      return `${authority.replace(/\/$/, "")}/.well-known/jwks.json`;
-    }
     function describeShape(value: string): string {
       const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value.trim());
       return `length=${value.length}, scheme=${hasScheme ? "present" : "absent"}`;
+    }
+    function parseUrlOrNull(value: string): URL | null {
+      try {
+        return new URL(value);
+      } catch {
+        return null;
+      }
     }
   </file>
   <file path="packages/supply-chain-scanner/src/collect-files.ts">
@@ -18594,28 +18687,34 @@
       // Wire lapsed-guest monitor with lifecycle hooks
       const lapsedGuestMonitor = createLapsedGuestMonitor({ prisma });
     
-      // Wire the in-process job worker (issue #3078 / ADR-019): dequeues the
-      // BOOKING_REMINDER / DAY_OF_REMINDER / WAITLIST_EXPIRY jobs enqueued via the
-      // JobScheduler and delivers them through the notification dispatcher +
-      // waitlist re-notify path. Handlers are built eagerly (pure closures);
-      // worker construction — which opens the Redis consumer — is deferred to
-      // onReady so buildApp() stays side-effect-free.
-      const jobWorker = createReservationJobWorker({
-        redisUrl: notifierRuntime.redisUrl,
-        handlers: createReservationJobHandlers({
-          getReservation: (id) => services.reservationService.getById(id),
-          getVenue: (id) => services.venueService.getById(id),
-          dispatcher: notificationPort,
-          generateManageToken,
-          handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
-        }),
-      });
-    
       if (process.env.NODE_ENV !== "test") {
         fastify.addHook("onReady", async () => lapsedGuestMonitor.start(fastify.log));
         fastify.addHook("onClose", async () => lapsedGuestMonitor.stop());
-        fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
-        fastify.addHook("onClose", async () => jobWorker.stop());
+    
+        // Wire the in-process job worker (issue #3078 / ADR-019): dequeues the
+        // BOOKING_REMINDER / DAY_OF_REMINDER / WAITLIST_EXPIRY jobs enqueued via
+        // the JobScheduler and delivers them through the notification dispatcher +
+        // waitlist re-notify path. Handlers are built eagerly (pure closures);
+        // worker construction — which opens the Redis consumer — is deferred to
+        // onReady so buildApp() stays side-effect-free.
+        //
+        // notifierRuntime.redisUrl is null when NODE_ENV=production and REDIS_URL
+        // is unset (#4172) — starting the worker against a bogus URL would
+        // silently fail to consume anything, so skip it entirely instead.
+        if (notifierRuntime.redisUrl) {
+          const jobWorker = createReservationJobWorker({
+            redisUrl: notifierRuntime.redisUrl,
+            handlers: createReservationJobHandlers({
+              getReservation: (id) => services.reservationService.getById(id),
+              getVenue: (id) => services.venueService.getById(id),
+              dispatcher: notificationPort,
+              generateManageToken,
+              handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
+            }),
+          });
+          fastify.addHook("onReady", async () => jobWorker.start(fastify.log));
+          fastify.addHook("onClose", async () => jobWorker.stop());
+        }
       }
     
       // AppError serialization is handled centrally by errorHandlerPlugin →
@@ -18774,6 +18873,28 @@
     export function countTokens(text: string): number {
       if (text.length === 0) return 0;
       return Math.ceil(text.length / CHARS_PER_TOKEN);
+    }
+  </file>
+  </section>
+  <section priority="medium" role="telemetry">
+  <file path="apps/rialto-web/src/pages/telemetry/useTelemetryFeed.ts">
+    export interface TelemetryZone extends Record<string, unknown> {
+      id: string;
+      zone: string;
+      /** km/h on the current pass. */
+      speed: number;
+      /** km/h, session best for this zone. */
+      best: number;
+      /** `speed - best` — negative is off the pace. */
+      delta: number;
+    }
+    export interface TelemetryVitals {
+      /** All 0–1. */
+      throttle: number;
+      brake: number;
+      fuel: number;
+      tyreFL: number;
+      tyreFR: number;
     }
   </file>
   </section>
