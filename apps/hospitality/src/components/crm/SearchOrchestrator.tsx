@@ -32,6 +32,7 @@ export function SearchOrchestrator({
       <div className={styles.headerControls}>
         <Input
           type="text"
+          aria-label="Search guests"
           placeholder="Search guests..."
           value={searchQuery}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => onSearchChange(e.target.value)}

@@ -24,6 +24,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       value={(props.value as string) ?? ""}
       onChange={props.onChange}
       placeholder={props.placeholder}
+      aria-label={props["aria-label"]}
     />
   ),
   Text: ({ children }: TextProps) => <span>{children}</span>,
@@ -43,6 +44,21 @@ describe("SearchOrchestrator", () => {
       />
     );
     expect(screen.getByPlaceholderText("Search guests...")).toBeDefined();
+  });
+
+  it("exposes an accessible name for the search input", () => {
+    render(
+      <SearchOrchestrator
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onAddGuest={vi.fn()}
+        guestCount={0}
+        totalCount={0}
+        isSearchActive={false}
+        isEmpty={false}
+      />
+    );
+    expect(screen.getByLabelText("Search guests")).toBeDefined();
   });
 
   it("renders Add Guest button", () => {
