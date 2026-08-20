@@ -9,6 +9,7 @@ import {
 import { ReservationBlock } from "./ReservationBlock";
 import { TableStatusBadge } from "../TableStatusBadge.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
+import { useGridFocus } from "./useGridFocus.js";
 import { computeReservationLayout } from "./reservationLayout.js";
 import styles from "./TimelineGrid.module.css";
 
@@ -97,6 +98,13 @@ export function TimelineGrid({
     return result;
   }, [startHour, endHour]);
 
+  const gridFocus = useGridFocus({ rowCount: tables.length, colCount: hours.length });
+
+  const handleGridKeyDown = (e: React.KeyboardEvent) => {
+    handleKeyDown(e);
+    gridFocus.handleKeyDown(e);
+  };
+
   const formatHour = (hour: number) => {
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
@@ -151,7 +159,7 @@ export function TimelineGrid({
       role="grid"
       aria-label="Reservation timeline"
       tabIndex={0}
-      onKeyDown={handleKeyDown}
+      onKeyDown={handleGridKeyDown}
     >
       <div style={{ width: totalWidth, height: totalHeight }}>
         <div className={styles.headerRow} role="row" style={{ height: HEADER_HEIGHT }}>
