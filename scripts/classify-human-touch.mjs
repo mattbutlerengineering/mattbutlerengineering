@@ -35,6 +35,11 @@ const MERGE_CONFLICT_MENTION_RE =
   /\b(merge conflicts?|resolve[ds]? conflicts?|conflict resolution|fix(?:ed|ing)? conflicts?)\b/i;
 const SCOPE_CHANGE_RE =
   /\b(de-?scope|scope change|out[- ]of[- ]scope|reduce[ds]? scope|expand(?:ed)? scope|narrow(?:ed)? scope)\b/i;
+const LINT_FIXUP_MESSAGE_RE =
+  /\b(lint(?:ed|ing)?|eslint|prettier|re-?format(?:ted|ting)?|format(?:ted|ting)?)\b/i;
+// Extensions ESLint and/or Prettier lint/format in this repo (see
+// eslint.config.js, lint-staged.config.js, .prettierignore).
+const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)$/i;
 
 /**
  * @param {unknown} value
@@ -73,10 +78,30 @@ function hasScopeChangeSignal(message) {
 }
 
 /**
+ * @param {string} message
+ */
+function hasLintFixupMessageSignal(message) {
+  return LINT_FIXUP_MESSAGE_RE.test(message);
+}
+
+/**
+ * True when `files` is a non-empty array of strings that are all covered
+ * by ESLint/Prettier — i.e. this commit touched nothing else.
+ *
+ * @param {unknown} files
+ */
+function hasLintFixupFilesSignal(files) {
+  if (!Array.isArray(files) || files.length === 0) return false;
+  return files.every((file) => typeof file === "string" && LINT_COVERED_PATH_RE.test(file));
+}
+
+/**
  * Infer the human-touch reason for one non-author commit on a merged agent
  * PR. Checked in order of signal specificity: explicit conflict markers/
- * mentions, then CI failure at commit time, then prior review comments,
- * then scope-change language, else `"other"`.
+ * mentions, then a lint/format-only commit (files entirely lint-covered
+ * and/or formatting language in the message), then CI failure at commit
+ * time, then prior review comments, then scope-change language, else
+ * `"other"`.
  *
  * @param {unknown} pr - PR shape `isAgentPr()` expects (`headRefName`, `labels`).
  * @param {unknown} commit - Commit metadata.
@@ -85,7 +110,8 @@ function hasScopeChangeSignal(message) {
  *   (e.g. "failure" | "success" | "neutral" | "cancelled").
  * @param {number} [commit.reviewCommentsBefore] - Count of PR review
  *   comments posted before this commit's timestamp.
- * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"scope-change"|"other"}
+ * @param {string[]} [commit.files] - Paths changed by this commit.
+ * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"scope-change"|"other"}
  */
 export function classifyHumanTouch(pr, commit) {
   if (!isValidPrShape(pr) || !isAgentPr(pr)) return "other";
@@ -93,8 +119,10 @@ export function classifyHumanTouch(pr, commit) {
   const message = isPlainObject(commit) && typeof commit.message === "string" ? commit.message : "";
   const ciConclusion = isPlainObject(commit) ? commit.ciConclusion : undefined;
   const reviewCommentsBefore = isPlainObject(commit) ? commit.reviewCommentsBefore : undefined;
+  const files = isPlainObject(commit) ? commit.files : undefined;
 
   if (hasMergeConflictSignal(message)) return "merge-conflict";
+  if (hasLintFixupFilesSignal(files) || hasLintFixupMessageSignal(message)) return "lint-fixup";
   if (ciConclusion === "failure") return "ci-failure";
   if (typeof reviewCommentsBefore === "number" && reviewCommentsBefore > 0) return "review-fix";
   if (hasScopeChangeSignal(message)) return "scope-change";
