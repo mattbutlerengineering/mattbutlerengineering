@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AdminPage } from "./AdminPage.js";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -201,6 +201,58 @@ describe("AdminPage", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("error-retry-banner")).toBeNull();
       expect(screen.getAllByText("Admin User").length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("row semantics and expand/collapse", () => {
+    it("preserves native row role on table rows (header + one per user)", async () => {
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getAllByText("Admin User").length).toBeGreaterThan(0);
+      });
+
+      // If a <tr> carries role="button" it stops being exposed as a "row" —
+      // this only resolves to 3 (1 header + 2 users) once the rows are
+      // plain <tr> elements again.
+      expect(screen.getAllByRole("row")).toHaveLength(3);
+    });
+
+    it("exposes a per-row activation control distinct from the row itself", async () => {
+      renderPage();
+
+      const expandButton = await screen.findByRole("button", {
+        name: "Expand details for Admin User",
+      });
+      expect(expandButton.tagName).toBe("BUTTON");
+      expect(expandButton.closest("tr")).not.toBeNull();
+    });
+
+    it("expands user details when clicking the row's activation control", async () => {
+      renderPage();
+
+      const expandButton = await screen.findByRole("button", {
+        name: "Expand details for Admin User",
+      });
+      fireEvent.click(expandButton);
+
+      await waitFor(() => {
+        expect(screen.getByText("User ID")).toBeDefined();
+      });
+      expect(screen.getByRole("button", { name: "Collapse details for Admin User" })).toBeDefined();
+    });
+
+    it("expands user details on Enter from the row's activation control", async () => {
+      renderPage();
+
+      const expandButton = await screen.findByRole("button", {
+        name: "Expand details for Admin User",
+      });
+      fireEvent.keyDown(expandButton, { key: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("User ID")).toBeDefined();
+      });
     });
   });
 });

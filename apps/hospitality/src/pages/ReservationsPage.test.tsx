@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import { ReservationsPage } from "./ReservationsPage.js";
+
+vi.mock("react-router", async () => ({
+  ...(await vi.importActual("react-router")),
+  useNavigate: vi.fn(),
+}));
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
@@ -232,9 +237,12 @@ function mockDisplayHook(overrides: Partial<UseReservationDisplayResult> = {}) {
 
 const createReservationMutateAsync = vi.fn().mockResolvedValue(undefined);
 
+const mockNavigate = vi.fn();
+
 describe("ReservationsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useNavigate).mockReturnValue(mockNavigate);
     vi.mocked(useVenue).mockReturnValue(makeVenueContext());
     mockDisplayHook();
     vi.mocked(useTables).mockReturnValue({
@@ -627,6 +635,45 @@ describe("ReservationsPage", () => {
       renderPage();
 
       expect(screen.getByText("New reservation").closest("button")).toBeDisabled();
+    });
+  });
+
+  describe("row semantics and navigation", () => {
+    it("preserves native row role on table rows (header + one per reservation)", () => {
+      renderPage();
+
+      // If a <tr> carries role="button" it stops being exposed as a "row" —
+      // this only resolves to 4 (1 header + 3 reservations) once the rows
+      // are plain <tr> elements again.
+      expect(screen.getAllByRole("row")).toHaveLength(4);
+    });
+
+    it("exposes a per-row activation control distinct from the row itself", () => {
+      renderPage();
+
+      const activationButton = screen.getByRole("button", {
+        name: "View Alice reservation on timeline",
+      });
+      expect(activationButton.tagName).toBe("BUTTON");
+      expect(activationButton.closest("tr")).not.toBeNull();
+    });
+
+    it("navigates to the timeline on clicking the row's activation control", () => {
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "View Alice reservation on timeline" }));
+
+      expect(mockNavigate).toHaveBeenCalledWith(`/timeline?date=${defaultReservations[0].date}`);
+    });
+
+    it("navigates to the timeline on Enter from the row's activation control", () => {
+      renderPage();
+
+      fireEvent.keyDown(screen.getByRole("button", { name: "View Bob reservation on timeline" }), {
+        key: "Enter",
+      });
+
+      expect(mockNavigate).toHaveBeenCalledWith(`/timeline?date=${defaultReservations[1].date}`);
     });
   });
 });

@@ -253,19 +253,23 @@ export function AdminPage() {
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={() => handleToggleExpand(user.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleToggleExpand(user.id);
-                      }
-                    }}
-                    aria-expanded={expandedUserId === user.id}
                   >
                     <td className={styles.td}>
                       <div className={styles.userCell}>
+                        {/* eslint-disable-next-line mbe-local/prefer-rialto-components -- full-row-clickable "stretched link" control requires a native, unstyled button element positioned over the <tr> */}
+                        <button
+                          type="button"
+                          className={styles.rowButton}
+                          onClick={() => handleToggleExpand(user.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleToggleExpand(user.id);
+                            }
+                          }}
+                          aria-expanded={expandedUserId === user.id}
+                          aria-label={`${expandedUserId === user.id ? "Collapse" : "Expand"} details for ${user.name ?? user.email}`}
+                        />
                         <Avatar
                           src={user.picture ?? undefined}
                           name={user.name ?? user.email}
