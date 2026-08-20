@@ -148,6 +148,7 @@ describe("appendTelemetryRow", () => {
       "review-fix",
       "ci-failure",
       "merge-conflict",
+      "lint-fixup",
       "scope-change",
       "other",
     ]);
