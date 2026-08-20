@@ -125,6 +125,27 @@ describe("GuestTable", () => {
     expect(onRowClick).toHaveBeenCalledWith("g1");
   });
 
+  it("preserves native row role on table rows (one per guest)", () => {
+    render(
+      <GuestTable
+        guests={[makeGuest(), makeGuest({ id: "g2", name: "Jane Smith" })]}
+        selectedGuestId={null}
+        onRowClick={vi.fn()}
+      />
+    );
+    // If a <tr> carries role="button" it stops being exposed as a "row" —
+    // this only resolves to 3 (1 header + 2 guests) once the rows are
+    // plain <tr> elements again.
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+  });
+
+  it("exposes the activation control as a button distinct from the row itself", () => {
+    render(<GuestTable guests={[makeGuest()]} selectedGuestId={null} onRowClick={vi.fn()} />);
+    const activationButton = screen.getByRole("button", { name: "View details for John Doe" });
+    expect(activationButton.tagName).toBe("BUTTON");
+    expect(activationButton.closest("tr")).not.toBeNull();
+  });
+
   it("renders mobile cards for each guest", () => {
     render(
       <GuestTable

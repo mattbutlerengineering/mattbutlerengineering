@@ -56,7 +56,7 @@ function MobileGuestCard({ guest, onClick }: { guest: Guest; onClick: () => void
 /* ── GuestTable ─────────────────────────────── */
 
 export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTableProps) {
-  const handleRowKeyDown = (e: React.KeyboardEvent<HTMLTableRowElement>, guestId: string) => {
+  const handleRowKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, guestId: string) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onRowClick(guestId);
@@ -89,13 +89,15 @@ export function GuestTable({ guests, selectedGuestId, onRowClick }: GuestTablePr
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  onClick={() => onRowClick(guest.id)}
-                  onKeyDown={(e) => handleRowKeyDown(e, guest.id)}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`View details for ${guest.name}`}
                 >
                   <td className={styles.td}>
+                    <button
+                      type="button"
+                      className={styles.rowButton}
+                      onClick={() => onRowClick(guest.id)}
+                      onKeyDown={(e) => handleRowKeyDown(e, guest.id)}
+                      aria-label={`View details for ${guest.name}`}
+                    />
                     <Text variant="body" color="primary" className={styles.guestName}>
                       {guest.name}
                     </Text>

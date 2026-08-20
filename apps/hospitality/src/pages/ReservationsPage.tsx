@@ -231,21 +231,20 @@ export function ReservationsPage() {
               </thead>
               <tbody className={styles.tbody}>
                 {filteredReservations.map((reservation) => (
-                  <tr
-                    key={reservation.id}
-                    onClick={() => navigate(`/timeline?date=${reservation.date}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        navigate(`/timeline?date=${reservation.date}`);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
-                    style={{ cursor: "pointer" }}
-                  >
+                  <tr key={reservation.id}>
                     <td className={styles.td}>
+                      <button
+                        type="button"
+                        className={styles.rowButton}
+                        onClick={() => navigate(`/timeline?date=${reservation.date}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(`/timeline?date=${reservation.date}`);
+                          }
+                        }}
+                        aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
+                      />
                       {formatReservationTime(reservation.startTime)} -{" "}
                       {formatReservationTime(reservation.endTime)}
                     </td>
