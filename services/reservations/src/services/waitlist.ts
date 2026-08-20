@@ -1,5 +1,6 @@
 import { prisma } from "./database.js";
 import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./waitlist-utils.js";
+import { Prisma } from "../generated/prisma/index.js";
 import type { WaitlistStatus } from "../generated/prisma/index.js";
 
 const DEFAULT_AVG_TURN_TIME_MINUTES = 30;
@@ -35,15 +36,17 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
   });
 
   const updated = recalculatePositions(waitingEntries);
+  if (updated.length === 0) return;
 
-  await Promise.all(
-    updated.map((entry) =>
-      prisma.waitlistEntry.updateMany({
-        where: { id: entry.id },
-        data: { position: entry.position },
-      })
-    )
+  const rows = Prisma.join(
+    updated.map((entry) => Prisma.sql`(${entry.id}, ${entry.position}::int)`)
   );
+  await prisma.$executeRaw`
+    UPDATE "waitlist_entries" AS w
+    SET position = v.position
+    FROM (VALUES ${rows}) AS v(id, position)
+    WHERE w.id = v.id
+  `;
 }
 
 export const waitlistService = {
