@@ -50,6 +50,42 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).toBe("scope-change");
   });
 
+  it("classifies lint-fixup when every changed file is lint/prettier-covered", () => {
+    const commit = {
+      message: "tidy things up",
+      files: ["apps/hospitality/src/foo.ts", "packages/rialto/src/Card.tsx"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("classifies lint-fixup when the commit message uses formatting language", () => {
+    const commit = { message: "run prettier --write on the diff" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("classifies lint-fixup for an eslint --fix style message with no files given", () => {
+    const commit = { message: "eslint --fix" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("does NOT classify lint-fixup when a changed file falls outside lint-covered paths", () => {
+    const commit = {
+      message: "tidy things up",
+      files: ["apps/hospitality/src/foo.ts", "infrastructure/pulumi/index.py"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("does NOT classify lint-fixup from message text alone when it isn't formatting language", () => {
+    const commit = { message: "fix the date parsing bug" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("does NOT classify lint-fixup when files is present but empty", () => {
+    const commit = { message: "no-op commit", files: [] };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
   it("classifies other when no pattern matches on an agent PR", () => {
     const commit = { message: "tidy up variable names", ciConclusion: "success" };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
@@ -90,6 +126,19 @@ describe("classifyHumanTouch: precedence", () => {
   it("prefers ci-failure over review-fix when both signals are present", () => {
     const commit = { ciConclusion: "failure", reviewCommentsBefore: 3 };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-failure");
+  });
+
+  it("prefers merge-conflict over lint-fixup when both signals are present", () => {
+    const commit = {
+      message: "<<<<<<< HEAD\n=======\n>>>>>>> x prettier format",
+      files: ["packages/rialto/src/Card.tsx"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("merge-conflict");
+  });
+
+  it("prefers lint-fixup over ci-failure when both signals are present", () => {
+    const commit = { message: "run prettier --write", ciConclusion: "failure" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
   });
 });
 
@@ -139,6 +188,18 @@ describe("classifyHumanTouch: never throws", () => {
 
   it("never throws with a deeply-nested-null commit shape", () => {
     const commit = { message: null, ciConclusion: null, reviewCommentsBefore: null };
+    expect(() => classifyHumanTouch(agentPr(), commit)).not.toThrow();
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("never throws when commit.files is malformed (not an array)", () => {
+    const commit = { message: "x", files: "not-an-array" };
+    expect(() => classifyHumanTouch(agentPr(), commit)).not.toThrow();
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("never throws when commit.files contains non-string entries", () => {
+    const commit = { message: "x", files: [null, 42, { path: "a.ts" }] };
     expect(() => classifyHumanTouch(agentPr(), commit)).not.toThrow();
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
   });
