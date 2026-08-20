@@ -669,6 +669,17 @@
       width: number;
     }
   </file>
+  <file path="src/components/timeline/useGridFocus.ts">
+    export interface GridCoordinate {
+      row: number;
+      col: number;
+    }
+    export interface UseGridFocusParams {
+      rowCount: number;
+      colCount: number;
+      initial?: GridCoordinate;
+    }
+  </file>
   </section>
   <section priority="medium" role="utils">
   <file path="src/utils/calendarLinks.ts">
