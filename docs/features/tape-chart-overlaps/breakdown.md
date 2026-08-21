@@ -178,7 +178,7 @@ visual harness has a `tape-chart-overlaps` section.
   - Test: `pnpm --dir packages/rialto test:storybook` runs the `Overlaps` play function green (local only — not in CI; if the Storybook vitest project cannot start in this environment, record that under Notes and rely on typecheck), plus the typecheck above.
   - Blocked by: Overlap fixture and dorm classifier
 
-- [ ] **Visual-harness section and `visual.spec.ts` entry** — `tape-chart-overlaps` section with the dorm classifier, listed by full id after `tape-chart-stress`
+- [x] **Visual-harness section and `visual.spec.ts` entry** — `tape-chart-overlaps` section with the dorm classifier, listed by full id after `tape-chart-stress`
   - Accept:
     - `apps/rialto-web/src/pages/visual-test/TapeChartSections.tsx`: imports `makeOverlapScenario, classifyDormAsShared` from `../../data/tapechart-fixtures`; module-level `const OVERLAP = makeOverlapScenario(); const CLASSIFY_OVERLAP = classifyDormAsShared(OVERLAP.rooms);`; a new `<Section id="tape-chart-overlaps" title="TapeChart — Overlaps">` inserted directly after the `tape-chart-stress` section (line 47), wrapping `<div className={styles.card}><TapeChart startDate="2026-03-02" endDate="2026-03-09" rooms={OVERLAP.rooms} reservations={OVERLAP.reservations} classifyOverlap={CLASSIFY_OVERLAP} currency="USD" density="comfortable" viewMode="grid" onReservationClick={() => {}} /></div>`. No dark overlap section.
     - `apps/rialto-web/e2e/visual.spec.ts` `lightSections` gains `"tape-chart-overlaps"` on the line after `"tape-chart-stress"` (line 58); `darkSections` unchanged.
@@ -186,7 +186,7 @@ visual harness has a `tape-chart-overlaps` section.
   - Test: `apps/rialto-web/e2e/visual.spec.ts` › `light / tape-chart-overlaps` exists and is RED on CI until item 14 lands its baseline; `apps/rialto-web/e2e/workflow-coverage.test.ts` stays green (no new spec file).
   - Blocked by: Overlap fixture and dorm classifier
 
-- [ ] **Playwright occlusion proof** — in a real browser, both overlapping bars in room 201 of the page's default Overlaps chart receive a centre click
+- [x] **Playwright occlusion proof** — in a real browser, both overlapping bars in room 201 of the page's default Overlaps chart receive a centre click
   - Accept (`apps/rialto-web/e2e/interaction.spec.ts`, appended):
     ```ts
     test("TapeChart page — overlapping bars are both clickable (no occlusion)", async ({

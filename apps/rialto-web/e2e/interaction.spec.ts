@@ -69,3 +69,23 @@ test("Checkbox page — checking a checkbox toggles its state", async ({ page })
   const isNowChecked = await checkbox.isChecked();
   expect(isNowChecked).toBe(!wasChecked);
 });
+
+test("TapeChart page — overlapping bars are both clickable (no occlusion)", async ({ page }) => {
+  await page.goto("components/tape-chart");
+  await page.waitForLoadState("networkidle");
+  const chart = page.getByTestId("tape-chart-overlaps-default");
+  const card = page.getByTestId("tape-chart-overlaps-selection");
+  const first = chart.getByRole("button", { name: /Marisol Vega/ });
+  const second = chart.getByRole("button", { name: /Tobias Lindqvist/ });
+  await expect(first).toHaveAttribute("data-lane", "0");
+  await expect(second).toHaveAttribute("data-lane", "1");
+  await expect(first).toHaveAttribute("data-overlap", "conflict");
+  await first.click(); // actionability check fails with "intercepts pointer events" if covered
+  await expect(card).toContainText("Marisol Vega");
+  await second.click();
+  await expect(card).toContainText("Tobias Lindqvist");
+  const dormBar = page
+    .getByTestId("tape-chart-overlaps-classified")
+    .getByRole("button", { name: /Oscar Delacroix/ });
+  await expect(dormBar).toHaveAttribute("data-overlap", "shared");
+});
