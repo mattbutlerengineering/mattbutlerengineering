@@ -1,4 +1,5 @@
 import type {
+  TapeChartOverlapKind,
   TapeChartReservation,
   TapeChartRoom,
   TapeChartRoomStatus,
@@ -142,6 +143,141 @@ export function makeReservations(
     }
   }
   return reservations;
+}
+
+/**
+ * Date-pinned overlap scenario for the Overlaps demo, Storybook and the visual harness.
+ * Written as literals — `makeReservations`' cursor forbids overlaps by construction.
+ * Guest names are deliberately outside FIRST_NAMES / LAST_NAMES so e2e locators stay unique.
+ * Week of Mon 2026-03-02; `end` is the exclusive check-out day.
+ */
+export function makeOverlapScenario(): {
+  rooms: TapeChartRoom[];
+  reservations: TapeChartReservation[];
+  startDate: "2026-03-02";
+  endDate: "2026-03-09";
+} {
+  const rooms: TapeChartRoom[] = [
+    { id: "ov-201", name: "201", category: "Standard", capacity: 2 },
+    { id: "ov-202", name: "202", category: "Deluxe", capacity: 3 },
+    { id: "ov-dorm-a", name: "Dorm A", category: "Dorm", capacity: 6 },
+    { id: "ov-203", name: "203", category: "Standard", capacity: 2 },
+  ];
+  const base = { currency: "USD", source: "Direct" } as const;
+  const reservations: TapeChartReservation[] = [
+    // 201 — two private-room bookings that collide on Wed/Thu.
+    {
+      ...base,
+      id: "ov-a",
+      roomId: "ov-201",
+      start: "2026-03-02",
+      end: "2026-03-06",
+      status: "confirmed",
+      guestName: "Marisol Vega",
+      partySize: 2,
+      ratePerNight: 18000,
+    },
+    {
+      ...base,
+      id: "ov-b",
+      roomId: "ov-201",
+      start: "2026-03-04",
+      end: "2026-03-08",
+      status: "confirmed",
+      guestName: "Tobias Lindqvist",
+      partySize: 1,
+      ratePerNight: 18000,
+    },
+    // 202 — a 3-deep stack; all three cover Thu 03-05.
+    {
+      ...base,
+      id: "ov-c",
+      roomId: "ov-202",
+      start: "2026-03-02",
+      end: "2026-03-07",
+      status: "checkedIn",
+      guestName: "Harriet Okafor",
+      partySize: 2,
+      ratePerNight: 24000,
+    },
+    {
+      ...base,
+      id: "ov-d",
+      roomId: "ov-202",
+      start: "2026-03-03",
+      end: "2026-03-06",
+      status: "tentative",
+      guestName: "Elias Brandt",
+      partySize: 3,
+      ratePerNight: 24000,
+    },
+    {
+      ...base,
+      id: "ov-e",
+      roomId: "ov-202",
+      start: "2026-03-05",
+      end: "2026-03-09",
+      status: "confirmed",
+      guestName: "Nadia Petrova",
+      partySize: 2,
+      ratePerNight: 24000,
+    },
+    // Dorm A — three bunks sharing one room: legitimate co-occupancy.
+    {
+      ...base,
+      id: "ov-f",
+      roomId: "ov-dorm-a",
+      start: "2026-03-02",
+      end: "2026-03-05",
+      status: "confirmed",
+      guestName: "Oscar Delacroix",
+      partySize: 1,
+      ratePerNight: 4500,
+    },
+    {
+      ...base,
+      id: "ov-g",
+      roomId: "ov-dorm-a",
+      start: "2026-03-02",
+      end: "2026-03-06",
+      status: "confirmed",
+      guestName: "Wren Castellano",
+      partySize: 1,
+      ratePerNight: 4500,
+    },
+    {
+      ...base,
+      id: "ov-h",
+      roomId: "ov-dorm-a",
+      start: "2026-03-03",
+      end: "2026-03-07",
+      status: "confirmed",
+      guestName: "Imani Adeyemi",
+      partySize: 1,
+      ratePerNight: 4500,
+    },
+    // 203 — a single booking, so the sibling row keeps its one-lane height.
+    {
+      ...base,
+      id: "ov-i",
+      roomId: "ov-203",
+      start: "2026-03-03",
+      end: "2026-03-07",
+      status: "confirmed",
+      guestName: "Lucas Moreau",
+      partySize: 2,
+      ratePerNight: 18000,
+    },
+  ];
+  return { rooms, reservations, startDate: "2026-03-02", endDate: "2026-03-09" };
+}
+
+/** Demo rule: overlapping bunks in a Dorm are shared occupancy; any other overlap is a double-booking. */
+export function classifyDormAsShared(
+  rooms: TapeChartRoom[]
+): (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind {
+  const roomsById = new Map(rooms.map((r) => [r.id, r]));
+  return (a, _b) => (roomsById.get(a.roomId)?.category === "Dorm" ? "shared" : "conflict");
 }
 
 export function defaultDateRange() {

@@ -131,7 +131,7 @@ Demonstrable when done: the local component page's Overlaps section shows
 both charts, every bar in room 201 is clickable in a real browser, and the
 visual harness has a `tape-chart-overlaps` section.
 
-- [ ] **Overlap fixture and dorm classifier** — `makeOverlapScenario()` and `classifyDormAsShared(rooms)` in `tapechart-fixtures.ts`, written as literals (never through `makeReservations`)
+- [x] **Overlap fixture and dorm classifier** — `makeOverlapScenario()` and `classifyDormAsShared(rooms)` in `tapechart-fixtures.ts`, written as literals (never through `makeReservations`)
   - Accept (`apps/rialto-web/src/data/tapechart-fixtures.ts`):
     - `export function makeOverlapScenario(): { rooms: TapeChartRoom[]; reservations: TapeChartReservation[]; startDate: "2026-03-02"; endDate: "2026-03-09" }` (a Monday-start week), returning fresh arrays/objects on every call, with rooms in this order: `{ id: "ov-201", name: "201", category: "Standard", capacity: 2 }`, `{ id: "ov-202", name: "202", category: "Deluxe", capacity: 3 }`, `{ id: "ov-dorm-a", name: "Dorm A", category: "Dorm", capacity: 6 }`, `{ id: "ov-203", name: "203", category: "Standard", capacity: 2 }`, and exactly these nine reservations (`currency: "USD"`, `source: "Direct"`, a `partySize` and `ratePerNight` on each):
 
