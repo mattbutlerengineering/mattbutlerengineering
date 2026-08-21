@@ -222,6 +222,19 @@ The durable guard against the pass-through _outcome_ is A1, which requires the
 policy header on every covered route. Measurement and reasoning are recorded in
 the fixture's own docstring.
 
+**2026-08-21 — the ROOT `llms.txt`/`llms-full.txt` drifted and needed a separate
+regen.** The post-commit `pack-changed` hook refreshed
+`apps/rialto-web/llms.txt` when the fixture landed at M2.3, but not the
+repo-root family, so `pnpm regen --check` reported `Stale artifacts detected
+(1): [llms-txt] llms.txt context files (.)` at the end of the run — which is
+exactly what CI's Integrity job fails on. Fixed with `pnpm regen` (after
+`pnpm build --filter @mbe/cli...`, per the gotchas). The diff is purely
+additive — every added line is the new `apps/rialto-web/e2e/support/edge-csp.ts`
+section. Worth knowing for future runs: the post-commit hook is per-package and
+does not settle the root family, so run `pnpm regen --check` before pushing
+rather than trusting the hook. `infrastructure/worker/dep-graph.json` and
+`docs/architecture/dependency-graph.md` re-verified clean at the same time.
+
 **2026-08-21 — M3.2: `workflow-coverage.test.ts` did NOT need to learn about the
 second config.** Checked rather than assumed. The test globs `e2e/*.spec.ts` and
 asserts each filename appears in the workflow as the literal string
