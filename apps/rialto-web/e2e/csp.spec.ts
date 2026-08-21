@@ -77,6 +77,58 @@ for (const { name, path } of COVERED_ROUTES) {
   });
 }
 
+/**
+ * A4 — the guard can fail.
+ *
+ * A1–A3 are all "nothing is wrong" assertions, and the cheapest way for them
+ * to be green is for the harness to have quietly stopped applying the policy.
+ * This test reintroduces the literal `rialto-web-fonts` defect — an inline
+ * `on*=` handler on the font preload link — and requires the guard to notice.
+ *
+ * Note what the defect does *not* do, and why nothing cheaper would catch it:
+ * measured during architecture, the mutated page still rendered, the font link
+ * still reached `rel="stylesheet"`, and there were zero page errors. Only the
+ * `securitypolicyviolation` event distinguishes it from a healthy page.
+ *
+ * If this test ever goes green with no violation, A1–A3 are worthless.
+ */
+test("A4 — the guard goes red when the rialto-web-fonts defect is reintroduced", async ({
+  context,
+  page,
+}) => {
+  let defectInjected = false;
+  const recorder = await applyEdgeCsp(context, {
+    mutate: (html) => {
+      const mutated = html.replace(
+        /(<link\s+rel="preload"\s+as="style")/,
+        "$1 onload=\"this.rel='stylesheet'\""
+      );
+      defectInjected ||= mutated !== html;
+      return mutated;
+    },
+  });
+
+  await page.goto("./");
+  await page.waitForLoadState("networkidle");
+  await expect(
+    page.locator("#root"),
+    "the defect must not stop the page rendering"
+  ).not.toBeEmpty();
+
+  // Asserted before the violations, so a built document that no longer matches
+  // the defect pattern reports *that* rather than an unexplained empty drain.
+  expect(
+    defectInjected,
+    "the defect pattern no longer matches the built document — A4 would pass vacuously"
+  ).toBe(true);
+
+  const violations = await recorder.drain(page);
+  expect(
+    violations.filter((violation) => violation.effectiveDirective === "script-src-attr"),
+    "the production CSP failed to refuse an inline on*= handler"
+  ).not.toEqual([]);
+});
+
 test.describe("edge-CSP fixture contract", () => {
   test("applies the policy to the document and leaves other requests untouched", async ({
     context,

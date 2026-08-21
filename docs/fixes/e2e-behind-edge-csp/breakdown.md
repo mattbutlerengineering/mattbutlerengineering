@@ -77,7 +77,7 @@ blocking edge is stated on the item.
 
 ## Milestone 3: The guard is proven able to fail, and CI enforces it
 
-- [ ] **Negative self-test (A4)** — reintroduce the literal `rialto-web-fonts` defect through the fixture's `mutate` hook and assert the guard goes red (tracker: #4434)
+- [x] **Negative self-test (A4)** — reintroduce the literal `rialto-web-fonts` defect through the fixture's `mutate` hook and assert the guard goes red (tracker: #4434)
   - Accept: one test calls `applyEdgeCsp` with `mutate: html => html.replace(/(<link\s+rel="preload"\s+as="style")/, "$1 onload=\"this.rel='stylesheet'\"")` and asserts at least one recorded violation with `effectiveDirective === "script-src-attr"`; the test **fails** rather than passing vacuously when the mutation produces no violation; the mutation is confined to that one test and does not leak into the A1–A3 routes; the test passes in the same `playwright.csp.config.ts` run as A1–A3.
   - Blocked by: **CSP spec — A1/A2/A3 over the five covered routes**
   - Why it is an item and not a nicety: architecture measured clean = 0 violations and mutated = 5, and in the mutated run the page still rendered, the font link still reached `rel="stylesheet"`, and there were zero page errors. A rendering-based or console-based assertion would have missed the defect entirely. A green A4 with zero violations means the harness has stopped applying the policy and A1–A3 are worthless.
@@ -221,6 +221,45 @@ green for the wrong reason if the fixture ever started swallowing the throw.
 The durable guard against the pass-through _outcome_ is A1, which requires the
 policy header on every covered route. Measurement and reasoning are recorded in
 the fixture's own docstring.
+
+**2026-08-21 — M3.1 reproduced architecture's clean-vs-mutated measurement
+exactly.** Driving the committed fixture over all five covered routes against
+`vite preview` on :4173:
+
+```
+========== CLEAN ==========
+/                    http=200 cspHeaderPresent=true violations=0 pageErrors=0 rendered=true
+/components/button   http=200 cspHeaderPresent=true violations=0 pageErrors=0 rendered=true
+/demos/login         http=200 cspHeaderPresent=true violations=0 pageErrors=0 rendered=true
+/demos/telemetry     http=200 cspHeaderPresent=true violations=0 pageErrors=0 rendered=true
+/visual-test         http=200 cspHeaderPresent=true violations=0 pageErrors=0 rendered=true
+MUTATE_DEFECT=0 → TOTAL VIOLATIONS = 0
+
+========== MUTATED (rialto-web-fonts defect reintroduced) ==========
+/                    ... violations=1 pageErrors=0 rendered=true  [{"d":"script-src-attr","b":"inline"}]
+/components/button   ... violations=1 pageErrors=0 rendered=true  [{"d":"script-src-attr","b":"inline"}]
+/demos/login         ... violations=1 pageErrors=0 rendered=true  [{"d":"script-src-attr","b":"inline"}]
+/demos/telemetry     ... violations=1 pageErrors=0 rendered=true  [{"d":"script-src-attr","b":"inline"}]
+/visual-test         ... violations=1 pageErrors=0 rendered=true  [{"d":"script-src-attr","b":"inline"}]
+MUTATE_DEFECT=1 → TOTAL VIOLATIONS = 5
+```
+
+Matches architecture.md's numbers (0 clean, 5 mutated, every one
+`script-src-attr` / `inline`). Note `pageErrors=0` and `rendered=true` in the
+mutated run: the defect leaves a page that renders correctly and logs nothing,
+so a rendering-based or console-based assertion would miss it entirely. The
+`securitypolicyviolation` event is the only signal. The shipped A4 asserts the
+single-route form of this; the five-route sweep was a scratch script, not
+committed.
+
+**2026-08-21 — A4's own vacuity guard was itself proven to fail.** The criterion
+requires A4 to fail, not pass, when the mutation produces no violation. Verified
+by neutering the mutation to `const mutated = html;` and re-running: A4 goes red
+with `the defect pattern no longer matches the built document — A4 would pass
+vacuously / Expected: true / Received: false`. That `defectInjected` assertion is
+deliberately ordered _before_ the violation assertion, so a future change to the
+built document's shape reports the regex drift rather than an unexplained empty
+drain.
 
 **2026-08-21 — M2.5's A2 did NOT red, so nothing routed back to Architect.**
 The item's hazard anticipated that A2 (stricter than the policy: `'self'` admits
