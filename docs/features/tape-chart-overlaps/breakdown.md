@@ -169,7 +169,7 @@ visual harness has a `tape-chart-overlaps` section.
     - `"shows the classifier usage as code"`: `screen.getByText(/classifyOverlap = \(a, b\) =>/)` is in the document.
   - Blocked by: Overlap fixture and dorm classifier
 
-- [ ] **Storybook `Overlaps` and `OverlapsClassified` stories** — two stories on an inline copy of the overlap fixture (rialto cannot import from the app)
+- [x] **Storybook `Overlaps` and `OverlapsClassified` stories** — two stories on an inline copy of the overlap fixture (rialto cannot import from the app)
   - Accept (`packages/rialto/src/components/TapeChart/TapeChart.stories.tsx`):
     - Module-level `overlapRooms` / `overlapReservations` literals identical in ids, dates, statuses and guest names to item 7's table, and `const classifyDorm = (a: TapeChartReservation, _b: TapeChartReservation) => overlapRooms.find((r) => r.id === a.roomId)?.category === "Dorm" ? ("shared" as const) : ("conflict" as const);`.
     - `export const Overlaps: Story` with args `{ rooms: overlapRooms, reservations: overlapReservations, startDate: "2026-03-02", endDate: "2026-03-09", currency: "USD", locale: "en-US" }` and a `play` that asserts `canvas.getByRole("button", { name: /Marisol Vega/ })` and `canvas.getByRole("button", { name: /Tobias Lindqvist/ })` are both in the document.
