@@ -41,7 +41,7 @@ lists `classifyOverlap` with its description.
     - new `"does not mutate its inputs and returns fresh bar objects"`: `const snapshot = structuredClone(reservations)` before `renderHook`; after, `expect(reservations).toEqual(snapshot)`; `expect(bars[0]!.reservation).toBe(reservations[0])` (identity preserved) while `bars[0]` is not any input object.
   - Blocked by: —
 
-- [ ] **`classifyOverlap` prop and per-bar overlap kind** — add the one new prop, thread it into the hook, and fold a worst-wins `overlap` onto every bar
+- [x] **`classifyOverlap` prop and per-bar overlap kind** — add the one new prop, thread it into the hook, and fold a worst-wins `overlap` onto every bar
   - Accept:
     - `types.ts`, in file order: `export type TapeChartOverlapKind = "conflict" | "shared";` (before `TapeChartReservation`); `TapeChartProps.classifyOverlap?: (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;` carrying exactly this JSDoc (it is what the Props table shows):
       ```

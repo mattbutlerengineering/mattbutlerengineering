@@ -2,16 +2,34 @@ import { useMemo } from "react";
 import { addDays, daysBetween } from "./dateMath";
 import type {
   TapeChartLayout,
+  TapeChartOverlapKind,
   TapeChartPositionedBar,
   TapeChartReservation,
   TapeChartRoom,
 } from "./types";
 
+type OverlapClassifier = (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;
+
+/** Default classifier: every overlap is a double-booking. Module-level so the memo dependency is stable. */
+const CONFLICT_ALWAYS: OverlapClassifier = () => "conflict" as const;
+
+/** Worst-wins fold: `conflict` > `shared` > undefined. Compares against the literal so garbage degrades quietly. */
+function worstOf(
+  current: TapeChartOverlapKind | undefined,
+  next: TapeChartOverlapKind
+): TapeChartOverlapKind {
+  return current === "conflict" || next === "conflict" ? "conflict" : "shared";
+}
+
 /**
- * Pack one room's bars into lanes so overlapping reservations don't collide visually.
+ * Pack one room's bars into lanes so overlapping reservations don't collide visually,
+ * and classify every overlapping pair (earlier start first, once per pair).
  * Pure: sorts a copy, never writes to an input bar, and returns fresh bar objects.
  */
-function packRoom(bars: TapeChartPositionedBar[]): {
+function packRoom(
+  bars: TapeChartPositionedBar[],
+  classify: OverlapClassifier
+): {
   bars: TapeChartPositionedBar[];
   laneCount: number;
 } {
@@ -33,8 +51,23 @@ function packRoom(bars: TapeChartPositionedBar[]): {
       laneEnds.push(bar.startOffset + bar.span);
     }
   }
+
+  // Sorted by startOffset, so once b starts at or after a's end, every later b does too.
+  const kinds: Array<TapeChartOverlapKind | undefined> = sorted.map(() => undefined);
+  for (let i = 0; i < sorted.length; i++) {
+    const a = sorted[i]!;
+    const aEnd = a.startOffset + a.span;
+    for (let j = i + 1; j < sorted.length; j++) {
+      const b = sorted[j]!;
+      if (b.startOffset >= aEnd) break;
+      const kind = classify(a.reservation, b.reservation);
+      kinds[i] = worstOf(kinds[i], kind);
+      kinds[j] = worstOf(kinds[j], kind);
+    }
+  }
+
   return {
-    bars: sorted.map((bar, i) => ({ ...bar, lane: lanes[i]! })),
+    bars: sorted.map((bar, i) => ({ ...bar, lane: lanes[i]!, overlap: kinds[i] })),
     laneCount: Math.max(1, laneEnds.length),
   };
 }
@@ -43,8 +76,10 @@ export function useTapeChartLayout(
   reservations: TapeChartReservation[],
   rooms: TapeChartRoom[],
   startDate: string,
-  endDate: string
+  endDate: string,
+  classifyOverlap?: OverlapClassifier
 ): TapeChartLayout {
+  const classify = classifyOverlap ?? CONFLICT_ALWAYS;
   return useMemo(() => {
     const dayCount = Math.max(0, daysBetween(startDate, endDate));
     const rawByRoom = new Map<string, TapeChartPositionedBar[]>();
@@ -91,14 +126,14 @@ export function useTapeChartLayout(
     const laneCountByRoom = new Map<string, number>();
     let maxLanes = 1;
     for (const [roomId, raw] of rawByRoom) {
-      const packed = packRoom(raw);
+      const packed = packRoom(raw, classify);
       barsByRoom.set(roomId, packed.bars);
       laneCountByRoom.set(roomId, packed.laneCount);
       if (packed.laneCount > maxLanes) maxLanes = packed.laneCount;
     }
 
     return { barsByRoom, dayCount, laneCountByRoom, maxLanes, dailyCounts };
-  }, [reservations, rooms, startDate, endDate]);
+  }, [reservations, rooms, startDate, endDate, classify]);
 }
 
 /** Exposed for consumer SSE reducers. */

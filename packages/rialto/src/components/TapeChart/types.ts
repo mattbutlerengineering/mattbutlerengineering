@@ -9,6 +9,8 @@ export type TapeChartDensity = "compact" | "comfortable";
 
 export type TapeChartViewMode = "grid" | "list";
 
+export type TapeChartOverlapKind = "conflict" | "shared";
+
 export interface TapeChartReservation {
   id: string;
   roomId: string;
@@ -105,6 +107,15 @@ export interface TapeChartProps {
   onReservationClick?: (r: TapeChartReservation) => void;
   onReservationMove?: (payload: TapeChartMovePayload) => void | Promise<void>;
   checkConflict?: (payload: TapeChartMovePayload) => Promise<boolean | string>;
+  /**
+   * Decide whether two reservations whose visible spans overlap in one room are
+   * a `"conflict"` (double-booking, drawn in the error family) or `"shared"`
+   * (legitimate co-occupancy, stacked without alarm). Called once per
+   * overlapping pair, earlier start first. Default: every overlap is a
+   * `"conflict"`. Keep the reference stable (module scope or `useCallback`) —
+   * a new function each render recomputes the layout and re-renders every row.
+   */
+  classifyOverlap?: (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;
   selectedReservationId?: string | null;
   loading?: boolean;
   error?: Error | null;
@@ -131,6 +142,8 @@ export interface TapeChartPositionedBar {
   /** Whether the reservation extends past the visible range on either end. */
   clippedStart: boolean;
   clippedEnd: boolean;
+  /** Worst overlap kind across every pair this bar belongs to; absent when it overlaps nothing. */
+  overlap?: TapeChartOverlapKind;
 }
 
 export interface TapeChartLayout {
