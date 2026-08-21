@@ -138,7 +138,9 @@ export interface TapeChartLayout {
   barsByRoom: Map<string, TapeChartPositionedBar[]>;
   /** Total visible days (endDate - startDate). */
   dayCount: number;
-  /** Highest lane count across all rooms; drives row height. */
+  /** Lanes in each room (≥ 1); drives that row's height. */
+  laneCountByRoom: Map<string, number>;
+  /** Highest lane count across all rooms. Informational — row height is per room. */
   maxLanes: number;
   /** Per-day counts for the stat pills: arrivals, departures, in-house (as of that date). */
   dailyCounts: Array<{ date: string; arrivals: number; departures: number; inHouse: number }>;

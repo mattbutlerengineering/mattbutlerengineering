@@ -99,6 +99,28 @@ describe("useTapeChartLayout", () => {
     const lanes = bars.map((b) => b.lane).sort();
     expect(lanes).toEqual([0, 1]);
     expect(result.current.maxLanes).toBeGreaterThanOrEqual(2);
+    expect(result.current.laneCountByRoom.get("r1")).toBe(2);
+    expect(result.current.laneCountByRoom.get("r2")).toBe(1);
+  });
+
+  it("does not mutate its inputs and returns fresh bar objects", () => {
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-24" }),
+      buildReservation({ id: "b", start: "2026-04-22", end: "2026-04-26" }),
+    ];
+    const snapshot = structuredClone(reservations);
+    const { result } = renderHook(() =>
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+    );
+    expect(reservations).toEqual(snapshot);
+    const bars = result.current.barsByRoom.get("r1")!;
+    expect(bars).toHaveLength(2);
+    // The consumer's reservation object is referenced by identity, never copied…
+    expect(bars[0]!.reservation).toBe(reservations[0]);
+    // …but the bar itself is a fresh object, not any input.
+    for (const bar of bars) {
+      expect(reservations).not.toContain(bar);
+    }
   });
 
   it("computes daily counts for arrivals, departures, and in-house", () => {

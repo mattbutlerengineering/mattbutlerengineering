@@ -7,26 +7,36 @@ import type {
   TapeChartRoom,
 } from "./types";
 
-/** Assign lanes within one room so overlapping reservations don't collide visually. */
-function assignLanes(bars: TapeChartPositionedBar[]): number {
+/**
+ * Pack one room's bars into lanes so overlapping reservations don't collide visually.
+ * Pure: sorts a copy, never writes to an input bar, and returns fresh bar objects.
+ */
+function packRoom(bars: TapeChartPositionedBar[]): {
+  bars: TapeChartPositionedBar[];
+  laneCount: number;
+} {
+  const sorted = bars.slice().sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
   const laneEnds: number[] = [];
-  bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
-  for (const bar of bars) {
+  const lanes: number[] = [];
+  for (const bar of sorted) {
     let placed = false;
     for (let i = 0; i < laneEnds.length; i++) {
       if (laneEnds[i]! <= bar.startOffset) {
-        bar.lane = i;
+        lanes.push(i);
         laneEnds[i] = bar.startOffset + bar.span;
         placed = true;
         break;
       }
     }
     if (!placed) {
-      bar.lane = laneEnds.length;
+      lanes.push(laneEnds.length);
       laneEnds.push(bar.startOffset + bar.span);
     }
   }
-  return laneEnds.length;
+  return {
+    bars: sorted.map((bar, i) => ({ ...bar, lane: lanes[i]! })),
+    laneCount: Math.max(1, laneEnds.length),
+  };
 }
 
 export function useTapeChartLayout(
@@ -37,8 +47,8 @@ export function useTapeChartLayout(
 ): TapeChartLayout {
   return useMemo(() => {
     const dayCount = Math.max(0, daysBetween(startDate, endDate));
-    const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
-    for (const room of rooms) barsByRoom.set(room.id, []);
+    const rawByRoom = new Map<string, TapeChartPositionedBar[]>();
+    for (const room of rooms) rawByRoom.set(room.id, []);
 
     const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
       date: addDays(startDate, i),
@@ -58,7 +68,7 @@ export function useTapeChartLayout(
       const endOffset = Math.min(dayCount, rawEnd);
       const span = Math.max(1, endOffset - startOffset);
 
-      const list = barsByRoom.get(reservation.roomId);
+      const list = rawByRoom.get(reservation.roomId);
       if (!list) continue;
       list.push({
         reservation,
@@ -77,13 +87,17 @@ export function useTapeChartLayout(
       }
     }
 
+    const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
+    const laneCountByRoom = new Map<string, number>();
     let maxLanes = 1;
-    for (const bars of barsByRoom.values()) {
-      const lanes = assignLanes(bars);
-      if (lanes > maxLanes) maxLanes = lanes;
+    for (const [roomId, raw] of rawByRoom) {
+      const packed = packRoom(raw);
+      barsByRoom.set(roomId, packed.bars);
+      laneCountByRoom.set(roomId, packed.laneCount);
+      if (packed.laneCount > maxLanes) maxLanes = packed.laneCount;
     }
 
-    return { barsByRoom, dayCount, maxLanes, dailyCounts };
+    return { barsByRoom, dayCount, laneCountByRoom, maxLanes, dailyCounts };
   }, [reservations, rooms, startDate, endDate]);
 }
 
