@@ -116,7 +116,7 @@ lists `classifyOverlap` with its description.
   - Test: jsdom cannot compute layout — the proof is the visual suite in item 14: `apps/rialto-web/e2e/visual.spec.ts` `light / tape-chart-default` and `dark / dark-tape-chart` pass against their **unmodified** committed baselines on Linux CI (single-lane geometry unchanged), and the `light-tape-chart-stress` diff is confined to the `room-1003` row. If either unmodified baseline diffs, the lane arithmetic is wrong: fix this item, do not regenerate those two PNGs.
   - Blocked by: Grid, row and bar adapters render lane and overlap
 
-- [ ] **Rialto gates, build and `registry.json` regen** — make the committed registry and the built manifest carry `classifyOverlap`, and leave `packages/rialto` fully green
+- [x] **Rialto gates, build and `registry.json` regen** — make the committed registry and the built manifest carry `classifyOverlap`, and leave `packages/rialto` fully green
   - Accept (all from `packages/rialto`):
     - `pnpm lint`, `pnpm typecheck`, `pnpm test` exit 0 (`TapeChart.test.tsx`, `defaultStrings.test.ts`, `scripts/all-artifacts.drift.test.ts` included).
     - `pnpm build` (runs `vite build` then `scripts/generate-all.ts`) rewrites `packages/rialto/registry.json`; the TapeChart entry's `props` array now contains `{ "name": "classifyOverlap", "type": "((a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind) | undefined", "required": false, "description": "Decide whether two reservations whose visible spans overlap in one room are a `\"conflict\"` … re-renders every row." }` (description = the JSDoc from item 2, as `getJsDocComment` renders it); `dist/manifest.json` (uncommitted) carries the same prop.
