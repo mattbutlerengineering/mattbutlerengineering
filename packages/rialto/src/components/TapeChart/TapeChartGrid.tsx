@@ -77,6 +77,7 @@ export function TapeChartGrid(props: TapeChartGridProps) {
               key={room.id}
               room={room}
               bars={bars}
+              laneCount={layout.laneCountByRoom.get(room.id) ?? 1}
               dayCount={layout.dayCount}
               todayOffset={todayOffset}
               formatters={formatters}

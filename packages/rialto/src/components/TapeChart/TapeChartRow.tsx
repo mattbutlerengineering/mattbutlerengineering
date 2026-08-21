@@ -8,6 +8,8 @@ import type { ResolvedStrings } from "./defaultStrings";
 export interface TapeChartRowProps {
   room: TapeChartRoom;
   bars: TapeChartPositionedBar[];
+  /** Lanes in this room (≥ 1); drives the row's height. */
+  laneCount: number;
   dayCount: number;
   todayOffset: number | null;
   formatters: TapeChartFormatters;
@@ -21,6 +23,7 @@ function TapeChartRowImpl(props: TapeChartRowProps) {
   const {
     room,
     bars,
+    laneCount,
     dayCount,
     todayOffset,
     formatters,
@@ -41,7 +44,11 @@ function TapeChartRowImpl(props: TapeChartRowProps) {
     <div
       role="row"
       className={styles.row}
-      style={{ ["--tapechart-day-count" as string]: dayCount }}
+      style={{
+        ["--tapechart-day-count" as string]: dayCount,
+        ["--tapechart-lane-count" as string]: laneCount,
+      }}
+      data-lane-count={laneCount}
       aria-label={room.name}
     >
       <div role="rowheader" className={styles.roomHeader}>
@@ -89,6 +96,7 @@ export const TapeChartRow = memo(TapeChartRowImpl, (prev, next) => {
   return (
     prev.room === next.room &&
     prev.bars === next.bars &&
+    prev.laneCount === next.laneCount &&
     prev.dayCount === next.dayCount &&
     prev.todayOffset === next.todayOffset &&
     prev.formatters === next.formatters &&

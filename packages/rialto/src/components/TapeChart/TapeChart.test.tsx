@@ -298,6 +298,88 @@ describe("<TapeChart /> rendering", () => {
     expect(onClick.mock.calls[0]![0]!.guestName).toBe("Jane Doe");
   });
 
+  const OVERLAPPING = {
+    rooms: ROOMS,
+    startDate: "2026-04-20",
+    endDate: "2026-04-27",
+    reservations: [
+      buildReservation({
+        id: "a",
+        start: "2026-04-20",
+        end: "2026-04-24",
+        guestName: "Ines Duarte",
+      }),
+      buildReservation({
+        id: "b",
+        start: "2026-04-22",
+        end: "2026-04-26",
+        guestName: "Kofi Mensah",
+      }),
+      buildReservation({
+        id: "c",
+        roomId: "r2",
+        start: "2026-04-21",
+        end: "2026-04-23",
+        guestName: "Leila Haddad",
+      }),
+    ],
+  };
+
+  it("renders overlapping bars in distinct lanes with a conflict marker by default", () => {
+    render(<TapeChart {...OVERLAPPING} />);
+    const a = screen.getByRole("button", { name: /Ines Duarte/ });
+    const b = screen.getByRole("button", { name: /Kofi Mensah/ });
+    const c = screen.getByRole("button", { name: /Leila Haddad/ });
+
+    expect(a).toHaveAttribute("data-lane", "0");
+    expect(b).toHaveAttribute("data-lane", "1");
+    expect(b.getAttribute("style")).toMatch(/--tapechart-bar-lane:\s*1\b/);
+    expect(a).toHaveAttribute("data-overlap", "conflict");
+    expect(b).toHaveAttribute("data-overlap", "conflict");
+    expect(c).not.toHaveAttribute("data-overlap");
+    expect(c).toHaveAttribute("data-lane", "0");
+
+    const row101 = screen.getByRole("row", { name: "101" });
+    expect(row101).toHaveAttribute("data-lane-count", "2");
+    expect(row101.getAttribute("style")).toMatch(/--tapechart-lane-count:\s*2\b/);
+    expect(screen.getByRole("row", { name: "102" })).toHaveAttribute("data-lane-count", "1");
+
+    expect(a.getAttribute("aria-label")).toContain("Double-booked");
+    expect(a.querySelector(".overlapGlyph")).not.toBeNull();
+    expect(c.querySelector(".overlapGlyph")).toBeNull();
+  });
+
+  it("stacks shared overlaps without the conflict marker", () => {
+    render(<TapeChart {...OVERLAPPING} classifyOverlap={() => "shared"} />);
+    const a = screen.getByRole("button", { name: /Ines Duarte/ });
+    const b = screen.getByRole("button", { name: /Kofi Mensah/ });
+    expect(a).toHaveAttribute("data-overlap", "shared");
+    expect(b).toHaveAttribute("data-overlap", "shared");
+    expect(a.getAttribute("aria-label")).toContain("Shared occupancy");
+    expect(a).toHaveAttribute("data-lane", "0");
+    expect(b).toHaveAttribute("data-lane", "1");
+    const region = screen.getByRole("region", { name: /reservations tape chart/i });
+    expect(region.querySelector(".overlapGlyph")).toBeNull();
+  });
+
+  it("calls onReservationClick with each overlapping bar's own reservation", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(<TapeChart {...OVERLAPPING} onReservationClick={onClick} />);
+    await user.click(screen.getByRole("button", { name: /Ines Duarte/ }));
+    expect(onClick.mock.lastCall![0]!.id).toBe("a");
+    await user.click(screen.getByRole("button", { name: /Kofi Mensah/ }));
+    expect(onClick.mock.lastCall![0]!.id).toBe("b");
+  });
+
+  it("renders a non-overlapping room at one lane with no overlap attribute", () => {
+    render(<TapeChart {...BASE} />);
+    const bar = screen.getByRole("button", { name: /Jane Doe/ });
+    expect(bar).toHaveAttribute("data-lane", "0");
+    expect(bar).not.toHaveAttribute("data-overlap");
+    expect(screen.getByRole("row", { name: "101" })).toHaveAttribute("data-lane-count", "1");
+  });
+
   it("respects custom strings for locale overrides", () => {
     render(
       <TapeChart

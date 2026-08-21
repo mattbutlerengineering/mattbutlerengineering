@@ -76,7 +76,7 @@ lists `classifyOverlap` with its description.
     - `mergeStrings` › `"deep-merges overlapLabels"`: `mergeStrings({ overlapLabels: { conflict: "Conflit" } })` → `overlapLabels.conflict === "Conflit"` and `overlapLabels.shared === "Shared occupancy"`.
   - Blocked by: `classifyOverlap` prop and per-bar overlap kind
 
-- [ ] **Grid, row and bar adapters render lane and overlap** — the DOM contract: `--tapechart-lane-count` / `data-lane-count` on the row, `--tapechart-bar-lane` / `data-lane` / `data-overlap` on the bar, the conflict glyph, the overlap label in the accessible name
+- [x] **Grid, row and bar adapters render lane and overlap** — the DOM contract: `--tapechart-lane-count` / `data-lane-count` on the row, `--tapechart-bar-lane` / `data-lane` / `data-overlap` on the bar, the conflict glyph, the overlap label in the accessible name
   - Accept:
     - `packages/rialto/src/components/TapeChart/TapeChartGrid.tsx` passes `laneCount={layout.laneCountByRoom.get(room.id) ?? 1}` to every `TapeChartRow` (line 76-87).
     - `packages/rialto/src/components/TapeChart/TapeChartRow.tsx`: new prop `laneCount: number` on `TapeChartRowProps`; the `role="row"` div's inline style gains `["--tapechart-lane-count" as string]: laneCount` next to `--tapechart-day-count` (line 44) and the div gains `data-lane-count={laneCount}`; the memo comparator (line 88-100) gains `prev.laneCount === next.laneCount`. No comparator entry for per-bar overlap (bars are fresh objects per layout run, covered by `prev.bars === next.bars`).
