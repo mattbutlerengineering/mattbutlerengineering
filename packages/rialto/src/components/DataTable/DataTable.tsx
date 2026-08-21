@@ -1,4 +1,11 @@
-import React, { forwardRef, isValidElement, useCallback, useState, type ReactNode } from "react";
+import React, {
+  forwardRef,
+  isValidElement,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { cn } from "../../utils/class-composer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import styles from "./DataTable.module.css";
@@ -308,8 +315,8 @@ function DataTableInner<T extends Record<string, unknown>>(
   );
 
   const hasSelection = selectionMode !== undefined;
-  const selectedSet = new Set(selected);
-  const allKeys = data.map(rowKey);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const allKeys = useMemo(() => data.map(rowKey), [data, rowKey]);
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedSet.has(k));
   const someSelected = allKeys.some((k) => selectedSet.has(k));
 
@@ -330,7 +337,7 @@ function DataTableInner<T extends Record<string, unknown>>(
     [allKeys, setSelected]
   );
 
-  const sortedData = sortRows(data, sort);
+  const sortedData = useMemo(() => sortRows(data, sort), [data, sort]);
   const densityClass = density !== "default" ? styles[density] : "";
   const totalCols = columns.length + (hasSelection ? 1 : 0);
 
