@@ -264,6 +264,25 @@ describe("useTimelineKeyboard", () => {
       );
       expect(onActivate).not.toHaveBeenCalled();
     });
+
+    it("prevents default on Space to avoid scrolling the page", () => {
+      const onActivate = vi.fn();
+      const { result } = renderHook(() => useTimelineKeyboard({ entries, onActivate }));
+      act(() =>
+        result.current.handleKeyDown({
+          key: "ArrowRight",
+          preventDefault: vi.fn(),
+        } as unknown as React.KeyboardEvent)
+      );
+      const preventDefault = vi.fn();
+      act(() =>
+        result.current.handleKeyDown({
+          key: " ",
+          preventDefault,
+        } as unknown as React.KeyboardEvent)
+      );
+      expect(preventDefault).toHaveBeenCalled();
+    });
   });
 
   describe("Escape", () => {
