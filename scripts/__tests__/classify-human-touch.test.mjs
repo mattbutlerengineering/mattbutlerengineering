@@ -86,6 +86,28 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
   });
 
+  it("classifies generated-artifact-regen when every changed file is a generated artifact", () => {
+    const commit = {
+      message: "regenerate stale artifacts",
+      files: [
+        "llms.txt",
+        "llms-full.txt",
+        "packages/rialto-catalog/src/generated-schemas.ts",
+        "infrastructure/worker/dep-graph.json",
+        "pnpm-lock.yaml",
+      ],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
+  });
+
+  it("does NOT classify generated-artifact-regen when the diff mixes generated and source files", () => {
+    const commit = {
+      message: "regenerate stale artifacts",
+      files: ["llms.txt", "apps/hospitality/src/foo.tsx"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).not.toBe("generated-artifact-regen");
+  });
+
   it("classifies other when no pattern matches on an agent PR", () => {
     const commit = { message: "tidy up variable names", ciConclusion: "success" };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
@@ -139,6 +161,22 @@ describe("classifyHumanTouch: precedence", () => {
   it("prefers lint-fixup over ci-failure when both signals are present", () => {
     const commit = { message: "run prettier --write", ciConclusion: "failure" };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("prefers merge-conflict over generated-artifact-regen when both signals are present", () => {
+    const commit = {
+      message: "<<<<<<< HEAD\n=======\n>>>>>>> x",
+      files: ["llms.txt"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("merge-conflict");
+  });
+
+  it("prefers generated-artifact-regen over lint-fixup when both signals are present", () => {
+    const commit = {
+      message: "chore: regenerate stale artifacts",
+      files: ["packages/rialto-catalog/src/generated-schemas.ts"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
   });
 });
 
