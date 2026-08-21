@@ -2,6 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // csp.spec.ts belongs to playwright.csp.config.ts, which serves the built
+  // output under the real production CSP. Running it here would point it at a
+  // dev server that sets no policy at all — a green run proving nothing.
+  testIgnore: "**/csp.spec.ts",
   outputDir: "./e2e/test-results",
   snapshotPathTemplate: "{testDir}/screenshots/{arg}{ext}",
   fullyParallel: true,

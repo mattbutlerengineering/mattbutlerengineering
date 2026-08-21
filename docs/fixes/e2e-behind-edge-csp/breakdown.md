@@ -63,7 +63,7 @@ blocking edge is stated on the item.
   - Accept: for `resourceType() === "document"` requests only, the fixture `route.fetch()`es the original, generates a nonce as `crypto.randomUUID().replace(/-/g, "")`, applies `options.mutate` when present, then `injectNonceIntoHtml`, then `route.fulfill`s with `Content-Security-Policy: buildCspDirectives(nonce)`; every non-document request is `route.continue()`d untouched; the `securitypolicyviolation` listener is installed via `addInitScript` so it exists before any page script runs; `drain(page)` returns records of shape `{ effectiveDirective, blockedURI, sample, documentURI }`; a throw inside the route handler fails the request and therefore the navigation and the test — **fail closed, never a silent pass-through**; the fixture contains no CSP directive string and no nonce-insertion logic of its own.
   - Blocked by: **Dependency edge to the real policy**
 
-- [ ] **CSP Playwright config** — `apps/rialto-web/playwright.csp.config.ts` spreading the base config and overriding `webServer` (`vite preview`), `use.baseURL`, and `testMatch`; base config gains a matching `testIgnore` (tracker: #4432)
+- [x] **CSP Playwright config** — `apps/rialto-web/playwright.csp.config.ts` spreading the base config and overriding `webServer` (`vite preview`), `use.baseURL`, and `testMatch`; base config gains a matching `testIgnore` (tracker: #4432)
   - Accept: `webServer.command` invokes `pnpm --dir apps/rialto-web exec vite preview --port 4173 --strictPort` with `url` `http://localhost:4173/rialto/`, and `use.baseURL` matches; `apps/rialto-web/playwright.config.ts` gains a `testIgnore` excluding `csp.spec.ts`; running the CSP config collects **1 or more** tests, never 0; running the base config collects exactly the specs it collected before, with `visual.spec.ts` and the seven functional specs unchanged; a smoke navigation to `http://localhost:4173/rialto/demos/login` returns 200, confirming the SPA fallback.
   - Blocked by: — (parallel with the three items above; the spec below needs it)
   - Hazard: spreading the base config carries the new `testIgnore` into the CSP config too. Clear or override it there, or the CSP config collects zero tests.
@@ -221,6 +221,27 @@ green for the wrong reason if the fixture ever started swallowing the throw.
 The durable guard against the pass-through _outcome_ is A1, which requires the
 policy header on every covered route. Measurement and reasoning are recorded in
 the fixture's own docstring.
+
+**2026-08-21 — M2.4 pins `webServer.cwd` to the repo root.** The architecture
+writes the command as `pnpm --dir apps/rialto-web exec vite preview …`, which is
+written from the repo root. Playwright defaults `webServer.cwd` to the _config
+file's_ directory (`apps/rialto-web`), so `--dir apps/rialto-web` resolved to
+`apps/rialto-web/apps` and died: `ERROR ENOENT: no such file or directory, lstat
+'/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/apps'`. Fixed by
+adding `cwd: REPO_ROOT` rather than rewriting the command, so the architecture's
+literal invocation survives and resolves identically no matter which directory
+`playwright test` is launched from. Same server, same port, same flags.
+
+**2026-08-21 — a bare `playwright test --config playwright.config.ts` collects 0
+tests, and did so before this run.** Playwright's default `testMatch` also
+matches `e2e/workflow-coverage.test.ts`, which is a **vitest** file; loading it
+throws `TypeError: Cannot read properties of undefined (reading 'config')` and
+aborts the whole listing. Verified identical on `origin/main` (no `testIgnore`
+present), so it is **pre-existing and not caused by M2.4's `testIgnore`**. It
+does not affect CI, which passes explicit spec paths: measured before and after
+the `testIgnore` change, the functional list is `55 tests in 7 files` and the
+visual list is `48 tests in 1 file`, unchanged. Flagged, not fixed — out of this
+run's scope.
 
 **2026-08-21 — `csp.spec.ts` is born at M2.3, not M2.5.** Test-first requires a
 failing test before the fixture exists, and the highest existing seam is a
