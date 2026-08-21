@@ -84,7 +84,13 @@ export function useTimelineKeyboard({
           break;
 
         case "Enter":
+          if (focusedId !== null) {
+            onActivate?.(focusedId);
+          }
+          break;
+
         case " ":
+          e.preventDefault();
           if (focusedId !== null) {
             onActivate?.(focusedId);
           }

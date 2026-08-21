@@ -450,6 +450,17 @@ describe("TimelineGrid", () => {
       expect(onClick).toHaveBeenCalledWith(expect.objectContaining({ id: "res-1" }));
     });
 
+    it("prevents default on Space so the page does not scroll", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      const grid = screen.getByRole("grid");
+
+      fireEvent.keyDown(grid, { key: "ArrowRight" });
+      const notCancelled = fireEvent.keyDown(grid, { key: " " });
+
+      // fireEvent returns false when preventDefault() was called on a cancelable event
+      expect(notCancelled).toBe(false);
+    });
+
     it("clears focus on Escape", () => {
       render(<TimelineGrid {...defaultProps} />);
       const grid = screen.getByRole("grid");
