@@ -56,6 +56,7 @@ const lightSections = [
   "drawer-open",
   "tape-chart-default",
   "tape-chart-stress",
+  "tape-chart-overlaps",
   "master-override-variants",
   "master-override-requireHold-splitflap",
 ] as const;
