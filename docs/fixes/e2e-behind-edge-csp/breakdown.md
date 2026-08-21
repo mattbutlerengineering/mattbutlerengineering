@@ -49,7 +49,7 @@ blocking edge is stated on the item.
 
 ## Milestone 2: One E2E pass over rialto-web runs under the real production CSP
 
-- [ ] **Dependency edge to the real policy** — add `@mbe/edge-worker` as a `devDependency` (`workspace:*`) of `@mbe/rialto-web` so the harness imports the production CSP by package specifier, not a copy and not a relative deep import (tracker: #4429)
+- [x] **Dependency edge to the real policy** — add `@mbe/edge-worker` as a `devDependency` (`workspace:*`) of `@mbe/rialto-web` so the harness imports the production CSP by package specifier, not a copy and not a relative deep import (tracker: #4429)
   - Accept: `apps/rialto-web/package.json` lists `"@mbe/edge-worker": "workspace:*"` under `devDependencies`; `pnpm install` resolves with the workspace link present; a module under `apps/rialto-web/e2e/` importing `buildCspDirectives` and `injectNonceIntoHtml` from `@mbe/edge-worker/csp.js` resolves and executes; `pnpm --dir apps/rialto-web typecheck` passes; the dependency-cruiser check passes.
   - Blocked by: —
   - Covers architecture's `infrastructure/worker/csp.js` component: it is **unchanged**, and this item is the whole of the change to it — a new consumer, nothing else. The dependency direction is one-way: nothing about the harness appears in `csp.js`.
