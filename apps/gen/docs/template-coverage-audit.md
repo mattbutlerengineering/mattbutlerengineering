@@ -143,29 +143,30 @@ descending:
 | 1    | DataList         | 205         | Data display      |
 | 2    | Alert            | 138         | Feedback/overlay  |
 | 3    | Skeleton         | 117         | Feedback/overlay  |
-| 4    | Toggle           | 74          | Form controls     |
-| 5    | EmptyState       | 63          | Feedback/overlay  |
-| 6    | SegmentedControl | 59          | Form controls     |
-| 7    | Banner           | 57          | Feedback/overlay  |
-| 8    | Tooltip          | 55          | Feedback/overlay  |
-| 9    | Meter            | 43          | Feedback/overlay  |
-| 10   | Dialog           | 40          | Feedback/overlay  |
-| 11   | Drawer           | 39          | Feedback/overlay  |
-| 12   | Footer           | 32          | Navigation/layout |
-| 13   | Breadcrumb       | 29          | Data display      |
-| 14   | NumberInput      | 28          | Form controls     |
-| 15   | MasterOverride   | 27          | Form controls     |
-| 16   | Tabs             | 26          | Data display      |
-| 17   | Autocomplete     | 24          | Form controls     |
-| 18   | Calendar         | 23          | Data display      |
-| 19   | Odometer         | 23          | Data display      |
+| 4    | PageHeader       | 105         | Navigation/layout |
+| 5    | Toggle           | 74          | Form controls     |
+| 6    | Kbd              | 65          | Utility/content   |
+| 7    | EmptyState       | 63          | Feedback/overlay  |
+| 8    | SegmentedControl | 59          | Form controls     |
+| 9    | Banner           | 57          | Feedback/overlay  |
+| 10   | Tooltip          | 55          | Feedback/overlay  |
+| 11   | Meter            | 43          | Feedback/overlay  |
+| 12   | Dialog           | 40          | Feedback/overlay  |
+| 13   | Drawer           | 39          | Feedback/overlay  |
+| 14   | Footer           | 32          | Navigation/layout |
+| 15   | Breadcrumb       | 29          | Navigation/layout |
+| 16   | NumberInput      | 28          | Form controls     |
+| 17   | MasterOverride   | 27          | Form controls     |
+| 18   | Tabs             | 26          | Data display      |
+| 19   | Autocomplete     | 24          | Form controls     |
+
+(Calendar and Odometer, both usage count 23, are the next two below the cutoff —
+candidates for a third batch if the two follow-up issues don't exhaust this list.)
 
 ### Grouped by category (for the next two batches to split templates against)
 
-**Data display (5):** DataList, Tabs, Calendar, Breadcrumb, Odometer
-— e.g. a "Directory / Team Roster" template (DataList), a "Tabbed Settings Panel"
-template (Tabs), a "Booking Calendar" template (Calendar), a "Docs / Wiki Page"
-template (Breadcrumb), a "Live Metrics Ticker" template (Odometer).
+**Data display (2):** DataList, Tabs — e.g. a "Directory / Team Roster" template
+(DataList), a "Tabbed Settings Panel" template (Tabs).
 
 **Feedback/overlay (8):** Alert, Banner, Skeleton, EmptyState, Tooltip, Meter, Dialog,
 Drawer — e.g. a "Notification Center" or "System Status" template (Alert, Banner,
@@ -177,9 +178,14 @@ Autocomplete — e.g. a "Preferences / Feature Flags" template (Toggle,
 SegmentedControl, MasterOverride), a "Quantity/Inventory Editor" template
 (NumberInput), a "Command Search" or "Tag Picker" template (Autocomplete).
 
-**Navigation/layout (1):** Footer — e.g. folded into a fuller "Marketing Site Shell"
-template alongside the existing Hero-based landing-page.
+**Navigation/layout (3):** PageHeader, Footer, Breadcrumb — e.g. a fuller
+"Docs / Wiki Page" template (PageHeader, Breadcrumb), folded into a fuller
+"Marketing Site Shell" template alongside the existing Hero-based landing-page
+(Footer).
 
-Total: **19 components** across the four groups, within the requested 15–20 range.
+**Utility/content (1):** Kbd — e.g. a "Command Search" or keyboard-shortcuts
+reference template.
+
+Total: **19 components** across the five groups, within the requested 15–20 range.
 The two follow-up issues should split this list (roughly by category, or by count)
 into two template-adding batches.
