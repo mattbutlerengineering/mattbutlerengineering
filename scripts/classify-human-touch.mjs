@@ -40,6 +40,11 @@ const LINT_FIXUP_MESSAGE_RE =
 // Extensions ESLint and/or Prettier lint/format in this repo (see
 // eslint.config.js, lint-staged.config.js, .prettierignore).
 const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)$/i;
+// Generated-artifact filenames a regen cycle rewrites (see
+// .claude/rules/gotchas.md § Build / pnpm / turbo). Matched by exact
+// basename so a nested path (e.g. packages/rialto/llms.txt) still counts.
+const GENERATED_ARTIFACT_PATH_RE =
+  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml)$/;
 
 /**
  * @param {unknown} value
@@ -96,12 +101,28 @@ function hasLintFixupFilesSignal(files) {
 }
 
 /**
+ * True when `files` is a non-empty array of strings that are all generated
+ * artifacts (the exact regen class `generated-artifact-determinism-reviewer`
+ * exists to catch) — i.e. this commit touched nothing else.
+ *
+ * @param {unknown} files
+ */
+function hasGeneratedArtifactOnlySignal(files) {
+  if (!Array.isArray(files) || files.length === 0) return false;
+  return files.every((file) => typeof file === "string" && GENERATED_ARTIFACT_PATH_RE.test(file));
+}
+
+/**
  * Infer the human-touch reason for one non-author commit on a merged agent
  * PR. Checked in order of signal specificity: explicit conflict markers/
- * mentions, then a lint/format-only commit (files entirely lint-covered
- * and/or formatting language in the message), then CI failure at commit
- * time, then prior review comments, then scope-change language, else
- * `"other"`.
+ * mentions, then a generated-artifact-only commit (files entirely a regen
+ * artifact — llms.txt/llms-full.txt/generated-schemas.ts/dep-graph.json/
+ * pnpm-lock.yaml), then a lint/format-only commit (files entirely
+ * lint-covered and/or formatting language in the message), then CI failure
+ * at commit time, then prior review comments, then scope-change language,
+ * else `"other"`. Generated-artifact is checked before lint-fixup because
+ * every artifact extension it matches (.ts/.json/.yaml) is also
+ * lint-covered — the more specific category must win.
  *
  * @param {unknown} pr - PR shape `isAgentPr()` expects (`headRefName`, `labels`).
  * @param {unknown} commit - Commit metadata.
@@ -111,7 +132,7 @@ function hasLintFixupFilesSignal(files) {
  * @param {number} [commit.reviewCommentsBefore] - Count of PR review
  *   comments posted before this commit's timestamp.
  * @param {string[]} [commit.files] - Paths changed by this commit.
- * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"scope-change"|"other"}
+ * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"generated-artifact-regen"|"scope-change"|"other"}
  */
 export function classifyHumanTouch(pr, commit) {
   if (!isValidPrShape(pr) || !isAgentPr(pr)) return "other";
@@ -122,6 +143,7 @@ export function classifyHumanTouch(pr, commit) {
   const files = isPlainObject(commit) ? commit.files : undefined;
 
   if (hasMergeConflictSignal(message)) return "merge-conflict";
+  if (hasGeneratedArtifactOnlySignal(files)) return "generated-artifact-regen";
   if (hasLintFixupFilesSignal(files) || hasLintFixupMessageSignal(message)) return "lint-fixup";
   if (ciConclusion === "failure") return "ci-failure";
   if (typeof reviewCommentsBefore === "number" && reviewCommentsBefore > 0) return "review-fix";
