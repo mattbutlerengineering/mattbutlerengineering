@@ -1,5 +1,6 @@
 import type {
   TapeChartFormattedParts,
+  TapeChartOverlapKind,
   TapeChartReservation,
   TapeChartStatus,
   TapeChartRoomStatus,
@@ -22,6 +23,11 @@ const ROOM_STATUS_LABELS_EN: Record<TapeChartRoomStatus, string> = {
   occupied: "Occupied",
 };
 
+const OVERLAP_LABELS_EN: Record<TapeChartOverlapKind, string> = {
+  conflict: "Double-booked",
+  shared: "Shared occupancy",
+};
+
 const defaultNightsLabel = (count: number) => (count === 1 ? `${count} night` : `${count} nights`);
 
 const defaultPartySizeLabel = (count: number) =>
@@ -39,6 +45,7 @@ const defaultReservationAriaTemplate = (
   ];
   if (fmt.partySize) pieces.push(fmt.partySize);
   pieces.push(fmt.statusLabel);
+  if (fmt.overlapLabel) pieces.push(fmt.overlapLabel);
   if (r.source) pieces.push(`via ${r.source}`);
   if (fmt.priceTotal) pieces.push(fmt.priceTotal);
   if (r.blockedReason) pieces.push(`reason: ${r.blockedReason}`);
@@ -53,6 +60,7 @@ export type ResolvedStrings = Required<
     | "partySizeLabel"
     | "statusLabels"
     | "roomStatusLabels"
+    | "overlapLabels"
   >
 > & {
   reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
@@ -60,6 +68,7 @@ export type ResolvedStrings = Required<
   partySizeLabel: (count: number) => string;
   statusLabels: Record<TapeChartStatus, string>;
   roomStatusLabels: Record<TapeChartRoomStatus, string>;
+  overlapLabels: Record<TapeChartOverlapKind, string>;
 };
 
 export const DEFAULT_STRINGS: ResolvedStrings = {
@@ -83,6 +92,7 @@ export const DEFAULT_STRINGS: ResolvedStrings = {
   conflictWarning: "This move conflicts with another reservation.",
   statusLabels: STATUS_LABELS_EN,
   roomStatusLabels: ROOM_STATUS_LABELS_EN,
+  overlapLabels: OVERLAP_LABELS_EN,
   reservationAriaTemplate: defaultReservationAriaTemplate,
   nightsLabel: defaultNightsLabel,
   partySizeLabel: defaultPartySizeLabel,
@@ -95,6 +105,7 @@ export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings {
     ...overrides,
     statusLabels: { ...DEFAULT_STRINGS.statusLabels, ...overrides.statusLabels },
     roomStatusLabels: { ...DEFAULT_STRINGS.roomStatusLabels, ...overrides.roomStatusLabels },
+    overlapLabels: { ...DEFAULT_STRINGS.overlapLabels, ...overrides.overlapLabels },
     reservationAriaTemplate:
       overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
     nightsLabel: overrides.nightsLabel ?? DEFAULT_STRINGS.nightsLabel,

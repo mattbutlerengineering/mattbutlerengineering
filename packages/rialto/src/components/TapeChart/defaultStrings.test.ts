@@ -73,6 +73,15 @@ describe("DEFAULT_STRINGS", () => {
     });
   });
 
+  describe("overlapLabels", () => {
+    it("has default overlap labels", () => {
+      expect(DEFAULT_STRINGS.overlapLabels).toEqual({
+        conflict: "Double-booked",
+        shared: "Shared occupancy",
+      });
+    });
+  });
+
   describe("reservationAriaTemplate", () => {
     it("includes guest name, room, dates, nights, and status", () => {
       const result = DEFAULT_STRINGS.reservationAriaTemplate(baseReservation, baseFmt);
@@ -113,6 +122,24 @@ describe("DEFAULT_STRINGS", () => {
       const result = DEFAULT_STRINGS.reservationAriaTemplate(r, baseFmt);
       expect(result).toContain("reason: Maintenance");
     });
+
+    it("speaks the overlap label immediately after the status, before the source", () => {
+      const r = { ...baseReservation, source: "Direct" };
+      const fmt = {
+        ...baseFmt,
+        statusLabel: "Tentative",
+        overlapLabel: "Double-booked",
+        priceTotal: "$360",
+      };
+      const result = DEFAULT_STRINGS.reservationAriaTemplate(r, fmt);
+      expect(result).toContain("Tentative, Double-booked, via Direct, $360");
+
+      const silent = DEFAULT_STRINGS.reservationAriaTemplate(r, {
+        ...fmt,
+        overlapLabel: undefined,
+      });
+      expect(silent).not.toContain("Double-booked");
+    });
   });
 });
 
@@ -139,6 +166,12 @@ describe("mergeStrings", () => {
     const merged = mergeStrings({ roomStatusLabels: { dirty: "Needs cleaning" } });
     expect(merged.roomStatusLabels.dirty).toBe("Needs cleaning");
     expect(merged.roomStatusLabels.ready).toBe(DEFAULT_STRINGS.roomStatusLabels.ready);
+  });
+
+  it("deep-merges overlapLabels", () => {
+    const merged = mergeStrings({ overlapLabels: { conflict: "Conflit" } });
+    expect(merged.overlapLabels.conflict).toBe("Conflit");
+    expect(merged.overlapLabels.shared).toBe("Shared occupancy");
   });
 
   it("uses custom nightsLabel when provided", () => {

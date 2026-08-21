@@ -49,6 +49,8 @@ export interface TapeChartFormattedParts {
   partySize?: string;
   statusLabel: string;
   roomName: string;
+  /** Label for the bar's overlap kind; undefined when the bar overlaps nothing. */
+  overlapLabel?: string;
 }
 
 export interface TapeChartStrings {
@@ -72,6 +74,8 @@ export interface TapeChartStrings {
   conflictWarning?: string;
   statusLabels?: Partial<Record<TapeChartStatus, string>>;
   roomStatusLabels?: Partial<Record<TapeChartRoomStatus, string>>;
+  /** Spoken after the status in the default aria template. */
+  overlapLabels?: Partial<Record<TapeChartOverlapKind, string>>;
   reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
   nightsLabel?: (count: number) => string;
   partySizeLabel?: (count: number) => string;

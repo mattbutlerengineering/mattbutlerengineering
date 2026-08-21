@@ -574,6 +574,7 @@
         | "partySizeLabel"
         | "statusLabels"
         | "roomStatusLabels"
+        | "overlapLabels"
       >
     > & {
       reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
@@ -581,6 +582,7 @@
       partySizeLabel: (count: number) => string;
       statusLabels: Record<TapeChartStatus, string>;
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
+      overlapLabels: Record<TapeChartOverlapKind, string>;
     };
     export const DEFAULT_STRINGS: ResolvedStrings = {
       regionLabel: "Reservations tape chart",
@@ -603,6 +605,7 @@
       conflictWarning: "This move conflicts with another reservation.",
       statusLabels: STATUS_LABELS_EN,
       roomStatusLabels: ROOM_STATUS_LABELS_EN,
+      overlapLabels: OVERLAP_LABELS_EN,
       reservationAriaTemplate: defaultReservationAriaTemplate,
       nightsLabel: defaultNightsLabel,
       partySizeLabel: defaultPartySizeLabel,

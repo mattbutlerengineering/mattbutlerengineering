@@ -66,7 +66,7 @@ lists `classifyOverlap` with its description.
     - `"never passes cancelled or no-show reservations to classifyOverlap"`: a confirmed `04-20→04-24` plus x cancelled and y noShow on the same dates → classifier not called, a `overlap === undefined`.
   - Blocked by: Pure `packRoom` and per-room lane count
 
-- [ ] **Overlap labels in the strings and the default aria template** — `overlapLabels` string key, `overlapLabel` formatted part, spoken right after the status
+- [x] **Overlap labels in the strings and the default aria template** — `overlapLabels` string key, `overlapLabel` formatted part, spoken right after the status
   - Accept:
     - `types.ts`: `TapeChartFormattedParts.overlapLabel?: string;` (JSDoc `/** Label for the bar's overlap kind; undefined when the bar overlaps nothing. */`); `TapeChartStrings.overlapLabels?: Partial<Record<TapeChartOverlapKind, string>>;` (JSDoc `/** Spoken after the status in the default aria template. */`).
     - `packages/rialto/src/components/TapeChart/defaultStrings.ts`: `ResolvedStrings` adds `"overlapLabels"` to the `Omit` union and `overlapLabels: Record<TapeChartOverlapKind, string>` to the intersection, exactly as `statusLabels` is handled; `DEFAULT_STRINGS.overlapLabels = { conflict: "Double-booked", shared: "Shared occupancy" }`; `mergeStrings` adds `overlapLabels: { ...DEFAULT_STRINGS.overlapLabels, ...overrides.overlapLabels }` on the line after `statusLabels` (line 96); `defaultReservationAriaTemplate` inserts `if (fmt.overlapLabel) pieces.push(fmt.overlapLabel);` between `pieces.push(fmt.statusLabel)` (line 41) and the `via` line (line 42). `conflictWarning` (line 83) is untouched.
