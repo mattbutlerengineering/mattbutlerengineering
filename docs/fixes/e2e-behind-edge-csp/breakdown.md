@@ -82,7 +82,7 @@ blocking edge is stated on the item.
   - Blocked by: **CSP spec — A1/A2/A3 over the five covered routes**
   - Why it is an item and not a nicety: architecture measured clean = 0 violations and mutated = 5, and in the mutated run the page still rendered, the font link still reached `rel="stylesheet"`, and there were zero page errors. A rendering-based or console-based assertion would have missed the defect entirely. A green A4 with zero violations means the harness has stopped applying the policy and A1–A3 are worthless.
 
-- [ ] **CI wiring in the `functional` job** — build `apps/rialto-web` and run the CSP config as a separate step of the existing `functional` job in `.github/workflows/rialto-web-e2e.yml`, referencing the spec by full path (tracker: #4435)
+- [x] **CI wiring in the `functional` job** — build `apps/rialto-web` and run the CSP config as a separate step of the existing `functional` job in `.github/workflows/rialto-web-e2e.yml`, referencing the spec by full path (tracker: #4435)
   - Accept: the `functional` job gains (a) a `pnpm --dir apps/rialto-web build` step and (b) a **distinct** step running `pnpm exec playwright test --config apps/rialto-web/playwright.csp.config.ts apps/rialto-web/e2e/csp.spec.ts`, with the spec written as an explicit full path and no glob anywhere in the invocation (#3955); `pnpm --dir apps/rialto-web test` passes, i.e. `e2e/workflow-coverage.test.ts` finds `apps/rialto-web/e2e/csp.spec.ts` referenced in the workflow; no third job is added; the `visual` job is byte-unchanged; the workflow's header comment is updated to describe the added CSP step.
   - Blocked by: **CSP spec — A1/A2/A3 over the five covered routes**, **Negative self-test (A4)**
   - Note: a step, not a third job — step-level separation keeps a CSP failure distinguishable from a functional one without re-paying checkout, install, the rialto build, and the Chromium install (~2–3 min of billed runner time per run). Budget ~45–60 s added per PR run.
@@ -221,6 +221,23 @@ green for the wrong reason if the fixture ever started swallowing the throw.
 The durable guard against the pass-through _outcome_ is A1, which requires the
 policy header on every covered route. Measurement and reasoning are recorded in
 the fixture's own docstring.
+
+**2026-08-21 — M3.2: `workflow-coverage.test.ts` did NOT need to learn about the
+second config.** Checked rather than assumed. The test globs `e2e/*.spec.ts` and
+asserts each filename appears in the workflow as the literal string
+`apps/rialto-web/e2e/<spec>`; it has no notion of Playwright configs at all, so
+adding the full path to the new step satisfies it unchanged. Watched it red for
+the right reason first — `e2e specs not referenced by …/rialto-web-e2e.yml:
+csp.spec.ts` — then green after wiring: `Test Files 45 passed (45) / Tests 582
+passed (582)`.
+
+**Residual gap, surfaced not fixed:** because the coverage test matches on the
+spec path alone, it would stay green if a future edit moved `csp.spec.ts` into
+the _base_ config's explicit list. The base config `testIgnore`s it, so
+Playwright would silently collect zero tests and the step would pass green
+forever — the same vacuous-pass hazard M2.4 hit. Closing that means teaching the
+coverage test which config each spec belongs to, which is beyond this item's
+criterion; recorded here rather than folded in.
 
 **2026-08-21 — M3.1 reproduced architecture's clean-vs-mutated measurement
 exactly.** Driving the committed fixture over all five covered routes against
