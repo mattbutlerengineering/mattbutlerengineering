@@ -89,7 +89,7 @@ lists `classifyOverlap` with its description.
     - `"renders a non-overlapping room at one lane with no overlap attribute"`: `BASE` → the Jane Doe bar has `data-lane="0"` and no `data-overlap`; row `"101"` `data-lane-count="1"`.
   - Blocked by: `classifyOverlap` prop and per-bar overlap kind; Overlap labels in the strings and the default aria template
 
-- [ ] **CSS lane geometry and conflict treatment** — `TapeChart.module.css` turns the variables into per-row height, per-bar offset, and the error-family conflict chrome; single-lane rows stay pixel-identical
+- [x] **CSS lane geometry and conflict treatment** — `TapeChart.module.css` turns the variables into per-row height, per-bar offset, and the error-family conflict chrome; single-lane rows stay pixel-identical
   - Accept (`packages/rialto/src/components/TapeChart/TapeChart.module.css`):
     - `.root` (line 3-17) declares `--tapechart-lane-pitch: calc(var(--tapechart-row-height) - var(--tapechart-bar-inset));` after the existing custom properties; `.root[data-density="compact"]` is unchanged (the pitch resolves to 34px there because it is declared on the same element).
     - `.row` `contain-intrinsic-size` (line 234) becomes `auto calc(var(--tapechart-lane-count, 1) * var(--tapechart-lane-pitch) + var(--tapechart-bar-inset))`; `content-visibility: auto` and `contain: layout style` stay.

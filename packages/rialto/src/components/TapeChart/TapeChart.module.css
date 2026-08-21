@@ -6,6 +6,8 @@
   --tapechart-room-col-width: 160px;
   --tapechart-bar-gap: 2px;
   --tapechart-bar-inset: 3px;
+  /* Derived, never set by consumers; resolves under [data-density=compact] because it is declared here. */
+  --tapechart-lane-pitch: calc(var(--tapechart-row-height) - var(--tapechart-bar-inset));
 
   display: flex;
   flex-direction: column;
@@ -231,12 +233,15 @@
   border-block-end: 1px solid var(--rialto-border);
   contain: layout style;
   content-visibility: auto;
-  contain-intrinsic-size: auto var(--tapechart-row-height);
+  contain-intrinsic-size: auto
+    calc(var(--tapechart-lane-count, 1) * var(--tapechart-lane-pitch) + var(--tapechart-bar-inset));
 }
 
 .lane {
   position: relative;
-  min-block-size: var(--tapechart-row-height);
+  min-block-size: calc(
+    var(--tapechart-lane-count, 1) * var(--tapechart-lane-pitch) + var(--tapechart-bar-inset)
+  );
   background: repeating-linear-gradient(
     to right,
     transparent 0,
@@ -262,8 +267,10 @@
 
 .bar {
   position: absolute;
-  inset-block-start: var(--tapechart-bar-inset);
-  inset-block-end: var(--tapechart-bar-inset);
+  inset-block-start: calc(
+    var(--tapechart-bar-inset) + var(--tapechart-bar-lane, 0) * var(--tapechart-lane-pitch)
+  );
+  block-size: calc(var(--tapechart-row-height) - 2 * var(--tapechart-bar-inset));
   inset-inline-start: calc(
     var(--tapechart-bar-start) * var(--tapechart-day-width) + var(--tapechart-bar-gap)
   );
@@ -310,11 +317,12 @@
   color: var(--rialto-text-secondary);
 }
 .bar[data-blocked="true"] {
-  background: repeating-linear-gradient(
+  --tapechart-blocked-fill: repeating-linear-gradient(
     -45deg,
     var(--rialto-surface-recessed) 0 6px,
     color-mix(in srgb, var(--rialto-text-tertiary) 10%, transparent) 6px 12px
   );
+  background: var(--tapechart-blocked-fill);
   border-color: var(--rialto-border);
   color: var(--rialto-text-secondary);
   font-style: italic;
@@ -322,6 +330,19 @@
 .bar[data-selected="true"] {
   box-shadow: var(--rialto-shadow-focus);
   border-color: var(--rialto-accent);
+}
+.bar[data-overlap="conflict"] {
+  background: color-mix(in srgb, var(--rialto-error) 10%, var(--rialto-surface-elevated));
+  border-color: var(--rialto-error);
+  border-inline-start-width: 3px;
+}
+.bar[data-blocked="true"][data-overlap="conflict"] {
+  /* The hatch is the bar's identity; the chrome stays red. */
+  background: var(--tapechart-blocked-fill);
+}
+.overlapGlyph {
+  color: var(--rialto-error);
+  flex-shrink: 0;
 }
 
 .barTitle {
