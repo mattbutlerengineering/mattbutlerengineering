@@ -42,7 +42,7 @@ blocking edge is stated on the item.
   - Accept: that line ends with `(from: maintenance:rialto-web-fonts) (claimed: maintenance:e2e-behind-edge-csp)`; `git diff docs/backlog.md` shows it changed by appended text only, with its existing `(from: …)` marker byte-identical and never rewritten; no other backlog line is reordered.
   - Blocked by: — (this item opens the branch)
 
-- [ ] **Correct the Cloudflare Insights beacon record** — remove or rewrite-as-resolved the false beacon seed in `docs/backlog.md`, and correct the beacon sentence in `docs/features/rialto-game-ui/retro.md` (lines 33–35) (tracker: #4428)
+- [x] **Correct the Cloudflare Insights beacon record** — remove or rewrite-as-resolved the false beacon seed in `docs/backlog.md`, and correct the beacon sentence in `docs/features/rialto-game-ui/retro.md` (lines 33–35) (tracker: #4428)
   - Accept: neither file any longer asserts that the beacon fails to load in production; the backlog seed is either removed or rewritten as resolved-not-a-defect so it cannot be re-picked (if rewritten in place, its `(from: feature:rialto-game-ui)` marker survives verbatim); the corrected text in both files attributes the observed `ERR_CONNECTION_REFUSED` to the LAN DNS sinkhole on the probing machine and cites the `dig`/`curl --resolve` measurements; **neither file asserts that events reach the Cloudflare Web Analytics dashboard** — that was not verified and needs dashboard access; the retro's separate, still-true claim that rialto-web has no first-party usage instrumentation is left intact.
   - Blocked by: —
   - Note: rides this run's PR. Do not open a separate one, and do not "fix" the beacon — there is nothing wrong with it.
@@ -184,3 +184,21 @@ Constraints carried from the brief, for whichever agent picks this up:
 - Visual baselines are Linux-CI-specific. This change should not affect them at
   all (it adds a server, it does not replace one); if it somehow does,
   regenerate from the `rialto-web-visual-diffs` CI artifact, never from macOS.
+
+### Implement log
+
+**2026-08-21 — M1.2 touched three lines beyond the two the brief named.** The
+item's criterion is absolute ("neither file any longer asserts that the beacon
+fails to load in production"), and the false claim had propagated past
+`docs/backlog.md` line 23 and `retro.md` lines 33-35 into three more places:
+`docs/backlog.md`'s live-surface-probe seed ("a dead analytics beacon"), the
+same phrase in `retro.md`'s Change/Stop list, and `retro.md`'s Idea-seeds
+mirror of the withdrawn backlog seed. All three were corrected in place,
+minimally, in the same commit.
+
+**Deliberately left intact:** `docs/backlog.md` line 10 ("no beacon and no edge
+injection") and `retro.md` line 178 ("no DSN, no beacon, and no route
+counter"). Both assert _absence_ of first-party instrumentation, not that the
+beacon fails — and the brief explicitly protects that claim as still true and a
+separate open seed. Correcting them would contradict the item's own last
+clause.
