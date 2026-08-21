@@ -59,7 +59,7 @@ blocking edge is stated on the item.
   - Blocked by: **Dependency edge to the real policy**
   - Note: `pnpm-lock.yaml` is a turbo `globalDependencies` entry, so this PR's CI run is **fully cold across every task** — budget for it, and treat every downstream package's default-5s-timeout suite as running under cold-cache conditions for that run.
 
-- [ ] **Edge-CSP fixture** — `apps/rialto-web/e2e/support/edge-csp.ts` exporting `applyEdgeCsp(context, options?) → CspRecorder` (tracker: #4431)
+- [x] **Edge-CSP fixture** — `apps/rialto-web/e2e/support/edge-csp.ts` exporting `applyEdgeCsp(context, options?) → CspRecorder` (tracker: #4431)
   - Accept: for `resourceType() === "document"` requests only, the fixture `route.fetch()`es the original, generates a nonce as `crypto.randomUUID().replace(/-/g, "")`, applies `options.mutate` when present, then `injectNonceIntoHtml`, then `route.fulfill`s with `Content-Security-Policy: buildCspDirectives(nonce)`; every non-document request is `route.continue()`d untouched; the `securitypolicyviolation` listener is installed via `addInitScript` so it exists before any page script runs; `drain(page)` returns records of shape `{ effectiveDirective, blockedURI, sample, documentURI }`; a throw inside the route handler fails the request and therefore the navigation and the test — **fail closed, never a silent pass-through**; the fixture contains no CSP directive string and no nonce-insertion logic of its own.
   - Blocked by: **Dependency edge to the real policy**
 
@@ -202,3 +202,29 @@ counter"). Both assert _absence_ of first-party instrumentation, not that the
 beacon fails — and the brief explicitly protects that claim as still true and a
 separate open seed. Correcting them would contradict the item's own last
 clause.
+
+**2026-08-21 — M2.3 `applyEdgeCsp` is `async`.** The architecture writes the
+signature as `applyEdgeCsp(context, options?) → CspRecorder`. Both Playwright
+calls it makes (`context.addInitScript`, `context.route`) are asynchronous, and
+not awaiting them races the first navigation against route registration. The
+function therefore returns `Promise<CspRecorder>` and callers `await` it. Same
+inputs, same outputs, same behaviour — recorded because the written signature
+differs.
+
+**2026-08-21 — M2.3's fail-closed clause is verified by measurement, not by a
+committed test.** Measured with a deliberately throwing `mutate`: `page.goto`
+rejected with `net::ERR_ABORTED`, and Playwright additionally re-reported the
+throw as a test error — so the request, the navigation, and the test all fail,
+exactly as the criterion requires. It is not expressible as a self-asserting
+test: a test cannot assert that it itself fails, and `test.fail()` would go
+green for the wrong reason if the fixture ever started swallowing the throw.
+The durable guard against the pass-through _outcome_ is A1, which requires the
+policy header on every covered route. Measurement and reasoning are recorded in
+the fixture's own docstring.
+
+**2026-08-21 — `csp.spec.ts` is born at M2.3, not M2.5.** Test-first requires a
+failing test before the fixture exists, and the highest existing seam is a
+Playwright spec. The file starts as the fixture-contract block only; M2.5 adds
+A1–A3 over the five covered routes and M3.1 adds A4, as planned. Consequence
+inside the branch: `apps/rialto-web/e2e/workflow-coverage.test.ts` is red from
+this commit until M3.2 wires the spec into the workflow by full path.

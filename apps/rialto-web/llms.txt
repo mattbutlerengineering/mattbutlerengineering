@@ -152,6 +152,21 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="support">
+  <file path="e2e/support/edge-csp.ts">
+    <item priority="low">
+      type CspViolation = {
+        effectiveDirective: string;
+        blockedURI: string;
+        s...;
+    </item>
+    <item priority="low">
+      type ApplyEdgeCspOptions = {
+        /**
+         * Transform applied to the served HTML *before...;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="telemetry">
   <file path="src/pages/telemetry/useTelemetryFeed.ts">
     <item priority="low">
