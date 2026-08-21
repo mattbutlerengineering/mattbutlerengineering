@@ -10,7 +10,36 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
-import { defaultDateRange, makeReservations, makeRooms } from "../../data/tapechart-fixtures";
+import {
+  classifyDormAsShared,
+  defaultDateRange,
+  makeOverlapScenario,
+  makeReservations,
+  makeRooms,
+} from "../../data/tapechart-fixtures";
+
+const OVERLAP_CLASSIFIER_SAMPLE = `const roomsById = new Map(rooms.map((r) => [r.id, r]));
+const classifyOverlap = (a, b) =>
+  roomsById.get(a.roomId)?.category === "Dorm" ? "shared" : "conflict";
+
+<TapeChart rooms={rooms} reservations={reservations} classifyOverlap={classifyOverlap} />`;
+
+/** Mirrors the dorm rule for the selection card: what the classified chart says about this bar. */
+function describeOverlap(
+  selected: TapeChartReservation,
+  rooms: { id: string; category?: string }[],
+  reservations: TapeChartReservation[]
+): string {
+  if (rooms.find((r) => r.id === selected.roomId)?.category === "Dorm") return "Shared occupancy";
+  const hasSibling = reservations.some(
+    (r) =>
+      r.id !== selected.id &&
+      r.roomId === selected.roomId &&
+      r.start < selected.end &&
+      selected.start < r.end
+  );
+  return hasSibling ? "Double-booked" : "—";
+}
 
 type DemoLocale = "en-US" | "ja-JP" | "de-DE" | "ar-SA";
 type DemoDensity = "comfortable" | "compact";
@@ -36,6 +65,11 @@ export function TapeChartPage() {
   );
 
   const selected = selectedId ? reservations.find((r) => r.id === selectedId) : null;
+
+  // Overlaps section — pinned to en-US / comfortable / LTR so the two charts stay comparable.
+  const overlap = useMemo(() => makeOverlapScenario(), []);
+  const overlapClassifier = useMemo(() => classifyDormAsShared(overlap.rooms), [overlap.rooms]);
+  const overlapSelected = selectedId ? overlap.reservations.find((r) => r.id === selectedId) : null;
 
   const localizedStrings = useMemo(() => {
     // Minimal locale-scoped overrides; English defaults still cover everything
@@ -153,6 +187,80 @@ export function TapeChartPage() {
                 </Text>
                 <Text variant="caption" color="secondary">
                   {selected.start} → {selected.end} · {selected.source} · {selected.status}
+                </Text>
+              </Stack>
+            </Card>
+          )}
+        </Stack>
+      </Section>
+
+      <Section title="Overlaps">
+        <Stack gap="md">
+          <Text>
+            Two reservations on one room can overlap. The grid never hides one behind the other —
+            each gets its own lane and the row grows to fit. By default every overlap is treated as
+            a double-booking and drawn in the error family. Pass <code>classifyOverlap</code> to
+            tell the chart which overlaps are legitimate in your domain; those simply stack.
+          </Text>
+
+          <Text variant="label">Default — every overlap is a conflict</Text>
+          <Card variant="flat" data-testid="tape-chart-overlaps-default">
+            <TapeChart
+              rooms={overlap.rooms}
+              reservations={overlap.reservations}
+              startDate={overlap.startDate}
+              endDate={overlap.endDate}
+              locale="en-US"
+              currency="USD"
+              density="comfortable"
+              viewMode="grid"
+              onReservationClick={handleReservationClick}
+              selectedReservationId={selectedId}
+            />
+          </Card>
+
+          <Card variant="flat">
+            <pre
+              style={{
+                margin: 0,
+                fontFamily: "var(--rialto-font-mono)",
+                fontSize: "var(--rialto-text-xs)",
+                overflowX: "auto",
+              }}
+            >
+              {OVERLAP_CLASSIFIER_SAMPLE}
+            </pre>
+          </Card>
+
+          <Text variant="label">
+            With <code>classifyOverlap</code> — dorm bunks share, private rooms conflict
+          </Text>
+          <Card variant="flat" data-testid="tape-chart-overlaps-classified">
+            <TapeChart
+              rooms={overlap.rooms}
+              reservations={overlap.reservations}
+              startDate={overlap.startDate}
+              endDate={overlap.endDate}
+              locale="en-US"
+              currency="USD"
+              density="comfortable"
+              viewMode="grid"
+              onReservationClick={handleReservationClick}
+              selectedReservationId={selectedId}
+              classifyOverlap={overlapClassifier}
+            />
+          </Card>
+
+          {overlapSelected && (
+            <Card variant="elevated" data-testid="tape-chart-overlaps-selection">
+              <Stack gap="xs">
+                <Text variant="label">
+                  {overlapSelected.guestName ?? "Reservation"} ·{" "}
+                  {overlap.rooms.find((r) => r.id === overlapSelected.roomId)?.name}
+                </Text>
+                <Text variant="caption" color="secondary">
+                  {overlapSelected.start} → {overlapSelected.end} ·{" "}
+                  {describeOverlap(overlapSelected, overlap.rooms, overlap.reservations)}
                 </Text>
               </Stack>
             </Card>
