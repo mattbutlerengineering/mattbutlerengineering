@@ -69,7 +69,7 @@ blocking edge is stated on the item.
   - Hazard: spreading the base config carries the new `testIgnore` into the CSP config too. Clear or override it there, or the CSP config collects zero tests.
   - Hazard: `pnpm exec vite preview`, never `pnpm preview -- --port` — the `preview` script _is_ `vite preview`, so pnpm forwards `--` literally and vite ignores the flags. `apps/marketing/playwright.config.ts` already carries this warning; this is the second instance.
 
-- [ ] **CSP spec — A1/A2/A3 over the five covered routes** — `apps/rialto-web/e2e/csp.spec.ts` asserting policy-in-force, every-script-nonced, and zero violations on `/`, `components/button`, `demos/login`, `demos/telemetry`, `visual-test` (tracker: #4433)
+- [x] **CSP spec — A1/A2/A3 over the five covered routes** — `apps/rialto-web/e2e/csp.spec.ts` asserting policy-in-force, every-script-nonced, and zero violations on `/`, `components/button`, `demos/login`, `demos/telemetry`, `visual-test` (tracker: #4433)
   - Accept: for each of the five routes — **A1** the navigation response carries a `content-security-policy` header equal to `buildCspDirectives(n)` for the nonce `n` parsed out of that same header; **A2** every `<script>` in the document satisfies `script.nonce === n`, read from the **IDL property and never `getAttribute("nonce")`** (once CSP is applied the browser scrubs the content attribute, so an attribute-based assertion fails on a correct page); **A3** `drain(page)` returns `[]`, drained after `await page.waitForLoadState("networkidle")` plus an assertion on a rendered element, never after a `waitForTimeout`. `pnpm exec playwright test --config apps/rialto-web/playwright.csp.config.ts` is green locally against a freshly built `apps/rialto-web/dist`.
   - Blocked by: **Edge-CSP fixture**, **CSP Playwright config**
   - Hazard: A2 is deliberately stricter than the policy — `'self'` admits same-origin external scripts that A2 still requires to be nonced. If A2 reds on a script the policy legitimately allows, surface it; do not weaken A2 without routing back to Architect.
@@ -221,6 +221,30 @@ green for the wrong reason if the fixture ever started swallowing the throw.
 The durable guard against the pass-through _outcome_ is A1, which requires the
 policy header on every covered route. Measurement and reasoning are recorded in
 the fixture's own docstring.
+
+**2026-08-21 — M2.5's A2 did NOT red, so nothing routed back to Architect.**
+The item's hazard anticipated that A2 (stricter than the policy: `'self'` admits
+un-nonced same-origin scripts that A2 still requires to be nonced) might fail on
+a script the policy legitimately allows. Measured across all five covered
+routes: every `<script>` in every document carries the document's nonce, and
+A1/A2/A3 are green — `7 passed` in the CSP config. A2 stands exactly as
+architecture wrote it; it was not weakened.
+
+**2026-08-21 — A1 and A2 were proven falsifiable rather than assumed.** Both
+pass on a correct app, so neither could be watched failing the ordinary
+test-first way. Each was instead broken deliberately, once, and observed red on
+all five routes before being restored byte-identical:
+
+- **A1** compared against `buildCspDirectives("f".repeat(32))` (a nonce that is
+  not the served one) → **5 failed**. The equality is live and exact, not a
+  truthiness check that any policy string would satisfy.
+- **A2** switched from the `script.nonce` IDL property to
+  `script.getAttribute("nonce")` → **5 failed** with `every <script> must carry
+the document's nonce`. This independently reproduces architecture.md's
+  measurement that the browser scrubs the content attribute once CSP is applied,
+  and is why A2 must read the IDL property.
+
+A3's falsifiability is not a probe — it is M3.1, which ships as a committed test.
 
 **2026-08-21 — M2.4 pins `webServer.cwd` to the repo root.** The architecture
 writes the command as `pnpm --dir apps/rialto-web exec vite preview …`, which is
