@@ -54,7 +54,7 @@ blocking edge is stated on the item.
   - Blocked by: —
   - Covers architecture's `infrastructure/worker/csp.js` component: it is **unchanged**, and this item is the whole of the change to it — a new consumer, nothing else. The dependency direction is one-way: nothing about the harness appears in `csp.js`.
 
-- [ ] **Settle the generated-artifact consequence of the new edge** — regenerate the committed dependency graph after the `package.json` / `pnpm-lock.yaml` change (tracker: #4430)
+- [x] **Settle the generated-artifact consequence of the new edge** — regenerate the committed dependency graph after the `package.json` / `pnpm-lock.yaml` change (tracker: #4430)
   - Accept: after `pnpm graph && pnpm generate:dep-graph`, `git diff --exit-code infrastructure/worker/dep-graph.json docs/architecture/dependency-graph.md` is clean and a second run produces no further diff; both files are staged by explicit path, never `git add -A`; `pnpm regen --check` passes; CI's Build job does not fail on a stale dep-graph.
   - Blocked by: **Dependency edge to the real policy**
   - Note: `pnpm-lock.yaml` is a turbo `globalDependencies` entry, so this PR's CI run is **fully cold across every task** — budget for it, and treat every downstream package's default-5s-timeout suite as running under cold-cache conditions for that run.

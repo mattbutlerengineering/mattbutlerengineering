@@ -291,6 +291,11 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/rialto-web",
+      "to": "@mbe/edge-worker",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/agent-service",
       "to": "@mbe/agent-core",
       "type": "dependency"
