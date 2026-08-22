@@ -309,11 +309,15 @@ export async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/v1/guests?*", (route) => jsonResponse(route, "guests-list"));
   await page.route(/\/api\/v1\/guests\/[^/?]+$/, (route) => {
     const method = route.request().method();
-    const guests = JSON.parse(loadFixture("guests-list"));
+    const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
+    const guests = JSON.parse(loadFixture("guests-list")) as {
+      data: Array<Record<string, unknown>>;
+    };
+    const guest = guests.data.find((g) => g.id === id) ?? guests.data[0];
     if (method === "PATCH" || method === "PUT") {
-      return jsonOk(route, { ...guests.data[0], updatedAt: new Date().toISOString() });
+      return jsonOk(route, { ...guest, updatedAt: new Date().toISOString() });
     }
-    return jsonOk(route, guests.data[0]);
+    return jsonOk(route, guest);
   });
 
   // Floor Plans
