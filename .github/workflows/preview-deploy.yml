@@ -100,6 +100,7 @@ jobs:
           pnpm --filter "$PKG..." build
 
       - name: Deploy preview Worker
+        id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -107,12 +108,33 @@ jobs:
           APP: ${{ matrix.app }}
           FILTER: ${{ needs.detect-changes.outputs[matrix.filter] }}
         run: |
+          set -euo pipefail
           if [ "$FILTER" != "true" ]; then exit 0; fi
           WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
           npx wrangler deploy \
             --config "apps/${APP}/wrangler.toml" \
             --name "$WORKER_NAME" \
-            --no-bundle
+            --no-bundle | tee wrangler-deploy.log
+
+          # Hand-composing "https://${WORKER_NAME}.workers.dev" omits the
+          # account subdomain (a real host is <name>.<account-subdomain>.workers.dev)
+          # and resolves nowhere (#4451). wrangler deploy prints the real
+          # deployed URL, so read it back from its own output instead of
+          # guessing it.
+          URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' wrangler-deploy.log | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error::wrangler deploy did not print a workers.dev URL for $WORKER_NAME"
+            exit 1
+          fi
+          echo "$URL" > preview-url.txt
+
+      - name: Upload preview URL
+        if: needs.detect-changes.outputs[matrix.filter] == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: preview-url-${{ matrix.app }}
+          path: preview-url.txt
+          retention-days: 1
 
   comment-preview:
     needs: [detect-changes, deploy-preview]
@@ -127,6 +149,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Download preview URLs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: preview-url-*
+          path: preview-urls
+
       - name: Post preview comment
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,15 +163,19 @@ jobs:
           HOSPITALITY: ${{ needs.detect-changes.outputs.hospitality }}
           RIALTO: ${{ needs.detect-changes.outputs.rialto }}
         run: |
+          # Real deployed URLs, read back from wrangler's own output by the
+          # deploy-preview matrix (see its "Deploy preview Worker" step) —
+          # never hand-composed, which used to omit the account subdomain
+          # and resolve nowhere (#4451).
           URLS=""
-          if [ "$MARKETING" = "true" ]; then
-            URLS="${URLS}- **Marketing**: https://mbe-preview-${PR_NUM}-marketing.workers.dev\n"
+          if [ "$MARKETING" = "true" ] && [ -f preview-urls/preview-url-marketing/preview-url.txt ]; then
+            URLS="${URLS}- **Marketing**: $(cat preview-urls/preview-url-marketing/preview-url.txt)\n"
           fi
-          if [ "$HOSPITALITY" = "true" ]; then
-            URLS="${URLS}- **Hospitality**: https://mbe-preview-${PR_NUM}-hospitality.workers.dev\n"
+          if [ "$HOSPITALITY" = "true" ] && [ -f preview-urls/preview-url-hospitality/preview-url.txt ]; then
+            URLS="${URLS}- **Hospitality**: $(cat preview-urls/preview-url-hospitality/preview-url.txt)\n"
           fi
-          if [ "$RIALTO" = "true" ]; then
-            URLS="${URLS}- **Rialto**: https://mbe-preview-${PR_NUM}-rialto-web.workers.dev\n"
+          if [ "$RIALTO" = "true" ] && [ -f preview-urls/preview-url-rialto-web/preview-url.txt ]; then
+            URLS="${URLS}- **Rialto**: $(cat preview-urls/preview-url-rialto-web/preview-url.txt)\n"
           fi
 
           BODY=$(printf "## Preview Deployed\n\n${URLS}\n*Auto-deployed. Cleaned up on merge/close.*")
