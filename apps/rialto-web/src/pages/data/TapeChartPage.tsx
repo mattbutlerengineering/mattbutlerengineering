@@ -19,7 +19,7 @@ import {
 } from "../../data/tapechart-fixtures";
 
 const OVERLAP_CLASSIFIER_SAMPLE = `const roomsById = new Map(rooms.map((r) => [r.id, r]));
-const classifyOverlap = (a, b) =>
+const classifyOverlap = (a, _b) =>
   roomsById.get(a.roomId)?.category === "Dorm" ? "shared" : "conflict";
 
 <TapeChart rooms={rooms} reservations={reservations} classifyOverlap={classifyOverlap} />`;

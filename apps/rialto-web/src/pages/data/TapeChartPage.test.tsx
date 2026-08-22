@@ -69,6 +69,6 @@ describe("TapeChartPage — Overlaps section", () => {
 
   it("shows the classifier usage as code", () => {
     render(<TapeChartPage />);
-    expect(screen.getByText(/classifyOverlap = \(a, b\) =>/)).toBeInTheDocument();
+    expect(screen.getByText(/classifyOverlap = \(a, _b\) =>/)).toBeInTheDocument();
   });
 });
