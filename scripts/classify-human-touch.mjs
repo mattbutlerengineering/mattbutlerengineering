@@ -45,6 +45,9 @@ const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)
 // basename so a nested path (e.g. packages/rialto/llms.txt) still counts.
 const GENERATED_ARTIFACT_PATH_RE =
   /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml)$/;
+// "retry"/"rerun"/"re-run" language — a human nudging CI rather than
+// changing code.
+const CI_RERUN_MESSAGE_RE = /\b(retry|re-?run(?:ning)?)\b/i;
 
 /**
  * @param {unknown} value
@@ -113,16 +116,38 @@ function hasGeneratedArtifactOnlySignal(files) {
 }
 
 /**
+ * True when `files` was fetched and turned out empty — an empty/no-diff
+ * commit, the shape of a CI-rerun-trigger commit (e.g. `git commit
+ * --allow-empty`).
+ *
+ * @param {unknown} files
+ */
+function hasEmptyDiffSignal(files) {
+  return Array.isArray(files) && files.length === 0;
+}
+
+/**
+ * @param {string} message
+ */
+function hasCiRerunMessageSignal(message) {
+  return CI_RERUN_MESSAGE_RE.test(message);
+}
+
+/**
  * Infer the human-touch reason for one non-author commit on a merged agent
  * PR. Checked in order of signal specificity: explicit conflict markers/
  * mentions, then a generated-artifact-only commit (files entirely a regen
  * artifact — llms.txt/llms-full.txt/generated-schemas.ts/dep-graph.json/
  * pnpm-lock.yaml), then a lint/format-only commit (files entirely
  * lint-covered and/or formatting language in the message), then CI failure
- * at commit time, then prior review comments, then scope-change language,
- * else `"other"`. Generated-artifact is checked before lint-fixup because
- * every artifact extension it matches (.ts/.json/.yaml) is also
- * lint-covered — the more specific category must win.
+ * at commit time, then a CI-rerun nudge (an empty/no-diff commit, or
+ * retry/rerun language in the message), then prior review comments, then
+ * scope-change language, else `"other"`. Generated-artifact is checked
+ * before lint-fixup because every artifact extension it matches
+ * (.ts/.json/.yaml) is also lint-covered — the more specific category must
+ * win. CI-rerun is checked after ci-failure so an actual CI failure (a
+ * stronger, more specific signal) wins over generic retry language in the
+ * same commit message.
  *
  * @param {unknown} pr - PR shape `isAgentPr()` expects (`headRefName`, `labels`).
  * @param {unknown} commit - Commit metadata.
@@ -132,7 +157,7 @@ function hasGeneratedArtifactOnlySignal(files) {
  * @param {number} [commit.reviewCommentsBefore] - Count of PR review
  *   comments posted before this commit's timestamp.
  * @param {string[]} [commit.files] - Paths changed by this commit.
- * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"generated-artifact-regen"|"scope-change"|"other"}
+ * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"generated-artifact-regen"|"ci-rerun"|"scope-change"|"other"}
  */
 export function classifyHumanTouch(pr, commit) {
   if (!isValidPrShape(pr) || !isAgentPr(pr)) return "other";
@@ -146,6 +171,7 @@ export function classifyHumanTouch(pr, commit) {
   if (hasGeneratedArtifactOnlySignal(files)) return "generated-artifact-regen";
   if (hasLintFixupFilesSignal(files) || hasLintFixupMessageSignal(message)) return "lint-fixup";
   if (ciConclusion === "failure") return "ci-failure";
+  if (hasEmptyDiffSignal(files) || hasCiRerunMessageSignal(message)) return "ci-rerun";
   if (typeof reviewCommentsBefore === "number" && reviewCommentsBefore > 0) return "review-fix";
   if (hasScopeChangeSignal(message)) return "scope-change";
   return "other";
