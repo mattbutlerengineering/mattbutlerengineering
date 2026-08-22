@@ -182,7 +182,7 @@ export function TimelineGrid({
           ))}
         </div>
 
-        {tables.map((table) => (
+        {tables.map((table, rowIndex) => (
           <div
             key={table.id}
             data-testid={`table-row-${table.id}`}
@@ -220,9 +220,20 @@ export function TimelineGrid({
 
             <div className={styles.reservationArea} role="gridcell">
               <div className={styles.hourGrid}>
-                {hours.map((hour) => (
-                  <div key={hour} className={styles.hourGridLine} style={{ width: hourWidth }} />
-                ))}
+                {hours.map((hour, colIndex) => {
+                  const isActiveCell =
+                    gridFocus.active.row === rowIndex && gridFocus.active.col === colIndex;
+                  return (
+                    <div
+                      key={hour}
+                      data-testid={`grid-cell-${rowIndex}-${colIndex}`}
+                      className={`${styles.hourGridLine} ${
+                        isActiveCell ? styles.hourGridLineActive : ""
+                      }`}
+                      style={{ width: hourWidth }}
+                    />
+                  );
+                })}
               </div>
 
               {(reservationsByTable.get(table.id) ?? []).map((reservation) => {
