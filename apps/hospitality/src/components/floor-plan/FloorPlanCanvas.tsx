@@ -9,6 +9,16 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE, snapToGrid } from "./floor-plan
 import type { TableDisplayStatus } from "./table-status.js";
 import styles from "./FloorPlanCanvas.module.css";
 
+// Grid pattern background — pure function of GRID_SIZE, computed once at
+// module load rather than on every render (draggingTableId/dimensions/scale/
+// tableStatuses all change far more often than the grid itself does).
+const GRID_PATTERN_URL = `data:image/svg+xml,${encodeURIComponent(`
+  <svg width="${GRID_SIZE}" height="${GRID_SIZE}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${GRID_SIZE}" height="${GRID_SIZE}" fill="#f8f6f3"/>
+    <path d="M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}" fill="none" stroke="#d8d4cd" stroke-width="1"/>
+  </svg>
+`)}`;
+
 export interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
   tables: Table[];
@@ -103,20 +113,12 @@ export function FloorPlanCanvas({
     [onTableSelect]
   );
 
-  // Draw grid pattern
-  const gridPatternUrl = `data:image/svg+xml,${encodeURIComponent(`
-    <svg width="${GRID_SIZE}" height="${GRID_SIZE}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${GRID_SIZE}" height="${GRID_SIZE}" fill="#f8f6f3"/>
-      <path d="M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}" fill="none" stroke="#d8d4cd" stroke-width="1"/>
-    </svg>
-  `)}`;
-
   return (
     <div
       ref={containerRef}
       className={styles.canvasWrapper}
       style={{
-        backgroundImage: `url("${gridPatternUrl}")`,
+        backgroundImage: `url("${GRID_PATTERN_URL}")`,
         backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
       }}
     >
