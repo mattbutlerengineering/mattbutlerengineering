@@ -3,12 +3,12 @@ stage: ux-design
 run: feature:tape-chart-overlaps
 date: 2026-08-21
 assumptions:
-  - "Conflict is marked per bar, not per pair: a bar carries data-overlap=\"conflict\" if any overlapping pair it belongs to is a conflict, otherwise \"shared\" if it overlaps anything, otherwise no attribute. In a mixed 3-deep stack (a–b conflict, b–c shared) a and b are conflict, c is shared. No user confirmed this; chosen because the bar is the only interactive, labelled unit in the grid."
+  - 'Conflict is marked per bar, not per pair: a bar carries data-overlap="conflict" if any overlapping pair it belongs to is a conflict, otherwise "shared" if it overlaps anything, otherwise no attribute. In a mixed 3-deep stack (a–b conflict, b–c shared) a and b are conflict, c is shared. No user confirmed this; chosen because the bar is the only interactive, labelled unit in the grid.'
   - "Conflict uses the error token family (--rialto-error, --rialto-error-muted), not warning: TapeChart.module.css:295-298 already spends --rialto-warning on the tentative status bar, so a warning-coloured conflict would be indistinguishable from a tentative booking; colors.css:48-49 documents error as 'invalid borders', which a double-booking is."
   - "Conflict treatment composes as: conflict border beats status and selected border colour; conflict never sets box-shadow, so the gold focus/selected glow composes untouched; blocked bars keep their grey hatch background and gain only the red border, edge and glyph."
   - "Lanes never split the row — every lane is exactly one today-sized bar tall, and the row grows per lane (pitch = row-height − bar-inset). At compact density a 3-deep stack is 104px tall with 32px bars; there is no lane cap because a cap would re-hide a bar, which is the defect being fixed."
   - "One new TapeChartStrings key, overlapLabels (Partial<Record<'conflict' | 'shared', string>>, defaults 'Double-booked' / 'Shared occupancy'), following the statusLabels idiom; it reaches the accessible name through a new optional overlapLabel on TapeChartFormattedParts so the default reservationAriaTemplate appends it and custom templates can opt in. The existing conflictWarning string is left to the unbuilt move dialog."
-  - "Shared overlaps get no visual treatment at all (brief: 'simply stack with no alarm') — only the data-overlap=\"shared\" attribute and the accessible-name suffix."
+  - 'Shared overlaps get no visual treatment at all (brief: ''simply stack with no alarm'') — only the data-overlap="shared" attribute and the accessible-name suffix.'
   - "Overlap is judged on the in-view, clipped span (the same startOffset/span lane packing uses), so a conflict marker is present exactly when two bars visibly share days; an overlap entirely outside the window is not surfaced until it scrolls into view."
   - "The Overlaps section on the component page shows two charts stacked vertically (default above, classifyOverlap below) over the same fixture rather than literally side by side: a 7-day grid is ≥720px wide (160px room column + 7×80px) and two abreast do not fit the page column."
   - "The demo classifyOverlap rule is room-category based (overlaps in a 'Dorm' room are shared, everywhere else conflict), chosen so the rule is one readable line and hotel-shaped; the mixed-result stack is covered by a unit test, not by the demo."
@@ -124,13 +124,13 @@ consumers; the accessible name ends with `Shared occupancy`.
 
 ### Grid row — conflict composed with other bar states
 
-| Bar state on the same element | What wins | Why |
-| --- | --- | --- |
-| `data-status="tentative"` (warning tint/border) | conflict tint + red border | conflict rule is written after the status rules in the CSS module; same specificity, later wins |
-| `data-blocked="true"` (grey hatch, italic) | hatch background stays; border, edge and glyph go red | the hatch is the bar's identity ("maintenance block"); a block overlapping a booking is a real conflict and must still shout |
-| `data-selected="true"` (gold glow + gold border) | gold glow stays, border stays red | selection is carried by the glow; conflict never sets `box-shadow`, so nothing collides |
-| `:focus-visible` (gold glow, `z-index: 2`) | both | same reason; focused bar rises above siblings as today |
-| `data-overlap="shared"` | no rule | shared has no styling |
+| Bar state on the same element                    | What wins                                             | Why                                                                                                                          |
+| ------------------------------------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `data-status="tentative"` (warning tint/border)  | conflict tint + red border                            | conflict rule is written after the status rules in the CSS module; same specificity, later wins                              |
+| `data-blocked="true"` (grey hatch, italic)       | hatch background stays; border, edge and glyph go red | the hatch is the bar's identity ("maintenance block"); a block overlapping a booking is a real conflict and must still shout |
+| `data-selected="true"` (gold glow + gold border) | gold glow stays, border stays red                     | selection is carried by the glow; conflict never sets `box-shadow`, so nothing collides                                      |
+| `:focus-visible` (gold glow, `z-index: 2`)       | both                                                  | same reason; focused bar rises above siblings as today                                                                       |
+| `data-overlap="shared"`                          | no rule                                               | shared has no styling                                                                                                        |
 
 Explicit composition rules an implementer must write (everything else falls
 out of rule order):
@@ -146,7 +146,10 @@ out of rule order):
 .bar[data-blocked="true"][data-overlap="conflict"] {
   background: /* the existing data-blocked repeating-linear-gradient, unchanged */;
 }
-.overlapGlyph { color: var(--rialto-error); flex-shrink: 0; }
+.overlapGlyph {
+  color: var(--rialto-error);
+  flex-shrink: 0;
+}
 ```
 
 (Whether the blocked exception is expressed by duplicating the gradient or by
@@ -187,10 +190,10 @@ with existing reservations" info banner above the grid is unaffected.
 
 ### CSS variables
 
-| Variable | Set on | Value | Read by |
-| --- | --- | --- | --- |
-| `--tapechart-lane-count` | the `role="row"` div (next to the existing `--tapechart-day-count`) | that room's own lane count, `≥ 1` — never the global `maxLanes` | `.lane` min height, `.row` intrinsic size |
-| `--tapechart-bar-lane` | the bar `<button>` (next to `--tapechart-bar-start` / `--tapechart-bar-span`) | `bar.lane`, 0-indexed | `.bar` block offset |
+| Variable                 | Set on                                                                        | Value                                                           | Read by                                   |
+| ------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------- |
+| `--tapechart-lane-count` | the `role="row"` div (next to the existing `--tapechart-day-count`)           | that room's own lane count, `≥ 1` — never the global `maxLanes` | `.lane` min height, `.row` intrinsic size |
+| `--tapechart-bar-lane`   | the bar `<button>` (next to `--tapechart-bar-start` / `--tapechart-bar-span`) | `bar.lane`, 0-indexed                                           | `.bar` block offset                       |
 
 Existing `--tapechart-row-height` (48/36) and `--tapechart-bar-inset` (3/2)
 are reused unchanged; no new root variables.
@@ -224,11 +227,11 @@ scrollbar once per such row; the `auto` keyword then remembers the real size.
 
 ### DOM attributes
 
-| Element | Attribute | Values | Purpose |
-| --- | --- | --- | --- |
-| bar `<button>` | `data-lane` | `"0"`, `"1"`, … | test-readable lane (PRD criterion 1) |
-| bar `<button>` | `data-overlap` | `"conflict"` \| `"shared"` \| absent | conflict marker / shared marker; absent on a bar that overlaps nothing |
-| `role="row"` div | `data-lane-count` | `"1"`, `"2"`, … | test-readable per-row growth (PRD criterion 3) — jsdom cannot compute the CSS height |
+| Element          | Attribute         | Values                               | Purpose                                                                              |
+| ---------------- | ----------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
+| bar `<button>`   | `data-lane`       | `"0"`, `"1"`, …                      | test-readable lane (PRD criterion 1)                                                 |
+| bar `<button>`   | `data-overlap`    | `"conflict"` \| `"shared"` \| absent | conflict marker / shared marker; absent on a bar that overlaps nothing               |
+| `role="row"` div | `data-lane-count` | `"1"`, `"2"`, …                      | test-readable per-row growth (PRD criterion 3) — jsdom cannot compute the CSS height |
 
 `data-status`, `data-blocked`, `data-selected`, `aria-pressed`, `tabIndex`
 and `aria-label` stay as they are.
@@ -314,7 +317,7 @@ Content, in order:
    const classifyOverlap = (a, b) =>
      roomsById.get(a.roomId)?.category === "Dorm" ? "shared" : "conflict";
 
-   <TapeChart rooms={rooms} reservations={reservations} classifyOverlap={classifyOverlap} />
+   <TapeChart rooms={rooms} reservations={reservations} classifyOverlap={classifyOverlap} />;
    ```
 
 5. **Caption**: "With `classifyOverlap` — dorm bunks share, private rooms
@@ -338,12 +341,12 @@ forbids overlaps by construction. Dates pinned to a fixed Monday-start week so
 the chart is identical on every visit and usable by Storybook and the visual
 harness. Contents (7 days, 4 rows, top to bottom):
 
-| Room | Category · cap | Bars | Result, default | Result, classified |
-| --- | --- | --- | --- | --- |
-| 201 | Standard · 2 | A: Mon–Thu confirmed; B: Wed–Sat confirmed | 2 lanes, both red | same |
-| 202 | Deluxe · 3 | C: Mon–Fri checkedIn; D: Tue–Thu tentative; E: Thu–Sun confirmed (all cover Thu) | 3 lanes, all red | same |
-| Dorm A | Dorm · 6 | F: Mon–Wed; G: Mon–Thu; H: Tue–Fri, all confirmed | 3 lanes, all red | 3 lanes, calm |
-| 203 | Standard · 2 | I: Tue–Fri confirmed | 1 lane, 48px, unchanged | same |
+| Room   | Category · cap | Bars                                                                             | Result, default         | Result, classified |
+| ------ | -------------- | -------------------------------------------------------------------------------- | ----------------------- | ------------------ |
+| 201    | Standard · 2   | A: Mon–Thu confirmed; B: Wed–Sat confirmed                                       | 2 lanes, both red       | same               |
+| 202    | Deluxe · 3     | C: Mon–Fri checkedIn; D: Tue–Thu tentative; E: Thu–Sun confirmed (all cover Thu) | 3 lanes, all red        | same               |
+| Dorm A | Dorm · 6       | F: Mon–Wed; G: Mon–Thu; H: Tue–Fri, all confirmed                                | 3 lanes, all red        | 3 lanes, calm      |
+| 203    | Standard · 2   | I: Tue–Fri confirmed                                                             | 1 lane, 48px, unchanged | same               |
 
 Rows 201 and 203 also make the "sibling rows keep their height" point
 visually. `tapechart-fixtures.test.ts` gains assertions that this export

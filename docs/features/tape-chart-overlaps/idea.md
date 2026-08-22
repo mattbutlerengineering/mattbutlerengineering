@@ -13,9 +13,9 @@ other. The later one paints over the earlier one, and the earlier one is
 gone — not faded, not offset, not behind a badge. Invisible, and because
 it is a `<button>` under another `<button>`, unclickable too.
 
-From the sufferer's side: *"The chart told me the room was fine. It wasn't.
+From the sufferer's side: _"The chart told me the room was fine. It wasn't.
 There was a second booking sitting underneath the one I could see, and
-nothing on screen suggested anything was hidden."*
+nothing on screen suggested anything was hidden."_
 
 The component is not naive about this — `useTapeChartLayout` already runs a
 lane-packing pass and writes `bar.lane` plus a row-wide `maxLanes`. Nothing
@@ -35,7 +35,7 @@ this survived: the accessible views are honest, and the primary view is not.
 **Directly, today: a developer evaluating rialto.** The tape chart is the
 most complex component in the library and the one that carries the most
 credibility. `apps/rialto-web` is its only consumer — there is no production
-hospitality usage — so the public component page *is* the product. An
+hospitality usage — so the public component page _is_ the product. An
 evaluator who constructs an overlap while poking at the demo watches a
 reservation disappear. **How they cope today:** they don't reach that state,
 because the demo cannot produce it (see Evidence).
@@ -57,7 +57,7 @@ rack chart, which defeats its purpose.
 ## Why now
 
 A coworker asked Matt for ideas on what this UI should look like. That makes
-the deliverable a *design answer* someone else will look at and react to,
+the deliverable a _design answer_ someone else will look at and react to,
 not just a defect burn-down — the run should produce something shareable on
 the live component page, not only a corrected renderer.
 
@@ -97,7 +97,7 @@ the screen.
 ## Solution hunch
 
 **Deliberately not chosen.** Asked for a shape, Matt said "you tell me" —
-so the run owes him *options*, and the coworker an argument, rather than a
+so the run owes him _options_, and the coworker an argument, rather than a
 pre-committed design. What the brief does fix is the bar the options must
 clear, which is the success sentence below: nothing may hide anything, and
 a real conflict must not read as an ordinary layout quirk.
@@ -137,7 +137,7 @@ than as ordinary side-by-side stacking.
   right answer for v1 is "stack, don't judge", with conflict semantics
   pushed to the consumer.
 - **Row-height explosion (author-observed, not raised by Matt).** `maxLanes`
-  is computed globally — the max across *all* rooms. Honoring it naively
+  is computed globally — the max across _all_ rooms. Honoring it naively
   makes one 4-way overlap quadruple the height of all 24 rows and destroys
   the chart's scannability. Per-row height is the obvious counter, but the
   component has a `virtualizeThreshold` and CSS `contain-intrinsic-size`
@@ -149,7 +149,7 @@ than as ordinary side-by-side stacking.
   known procedure, but it is friction that could exceed the fix itself if
   the design goes wide.
 - **Domain mismatch with the person who asked.** The coworker's context is
-  tables × *time*; this component is rooms × *days* (`dayWidth`,
+  tables × _time_; this component is rooms × _days_ (`dayWidth`,
   `daysBetween`, ISO date strings, end-exclusive hotel checkout convention).
   Overlap rendering is the shared half of the problem — a time-axis variant
   is the other half, and it is **out of scope for this run** unless Matt

@@ -11,7 +11,7 @@ assumptions:
   - "`classifyOverlap` is a plain `useMemo` dependency of the layout. A consumer passing an inline arrow re-runs the layout and re-renders every row each parent render — the same contract `reservations`/`rooms` already have. No ref-latest trick: it would make the layout stale when the rule changes without the data changing and trips `react-hooks/refs`. The prop's JSDoc tells consumers to keep the reference stable."
   - "One derived CSS custom property, `--tapechart-lane-pitch`, is declared on `.root` (`calc(var(--tapechart-row-height) - var(--tapechart-bar-inset))`) so the lane formula is written once. ux.md's 'no new root variables' is read as 'no new consumer-facing inputs'; the pitch is an internal derivation that resolves correctly under the `[data-density=compact]` override because it is declared on the same element."
   - "`.row`'s `contain-intrinsic-size` is updated to the lane formula (ux.md's preferred option) rather than left at `auto var(--tapechart-row-height)`; the custom property is set inline on the row itself, so `contain: style` does not hide it."
-  - "The blocked+conflict composition hoists the hatch gradient into `--tapechart-blocked-fill` on `.bar[data-blocked=\"true\"]` and re-applies it in one compound rule, rather than duplicating the five-line gradient."
+  - 'The blocked+conflict composition hoists the hatch gradient into `--tapechart-blocked-fill` on `.bar[data-blocked="true"]` and re-applies it in one compound rule, rather than duplicating the five-line gradient.'
   - "The real-browser occlusion proof (PRD rendering criterion 2) is a Playwright test in `apps/rialto-web/e2e/interaction.spec.ts` (already in the workflow's explicit spec list) against the component page's Overlaps section. The two Overlaps charts and the playground chart share the aria label 'Reservations tape chart', so each Overlaps chart wrapper carries a `data-testid` to scope locators and avoid strict-mode collisions."
   - "One PR, not two: `apps/rialto-web` consumes rialto via `workspace:*`, so the page section cannot typecheck until the prop exists and the prop is unobservable until the page shows it. Decompose orders the work inside one branch."
   - "The two Storybook stories carry an inline copy of the overlap fixture; `packages/rialto` cannot import from `apps/rialto-web` (dependency direction), matching how the existing stories already inline their data."
@@ -49,7 +49,7 @@ lane, lane count and overlap kind is the whole point.
 ### `useTapeChartLayout` (policy — `useTapeChartLayout.ts`)
 
 - Responsibility: turn `(reservations, rooms, startDate, endDate,
-  classifyOverlap?)` into an immutable `TapeChartLayout`: clipped, lane-packed
+classifyOverlap?)` into an immutable `TapeChartLayout`: clipped, lane-packed
   bars per room, each bar's overlap kind, each room's lane count, day count,
   daily counts.
 - Collaborators: `dateMath` (unchanged). Called only by `TapeChart.tsx`.
@@ -68,10 +68,10 @@ lane, lane count and overlap kind is the whole point.
      first — decides, deterministically). Fold into `kinds[i]`, `kinds[j]` with
      worst-wins: `conflict` > `shared` > undefined.
   4. Return `{ bars: sorted.map((bar, i) => ({ ...bar, lane: lanes[i], overlap: kinds[i] })), laneCount: laneEnds.length }`.
-  The memo then builds `barsByRoom` and `laneCountByRoom` from the per-room
-  results and computes `maxLanes` as before. The consumer's `reservations`
-  objects are never touched (they are referenced from `bar.reservation`, not
-  copied or mutated — same as today).
+     The memo then builds `barsByRoom` and `laneCountByRoom` from the per-room
+     results and computes `maxLanes` as before. The consumer's `reservations`
+     objects are never touched (they are referenced from `bar.reservation`, not
+     copied or mutated — same as today).
 - Default classifier: a module-level `const CONFLICT_ALWAYS = () => "conflict" as const`
   used when the prop is `undefined`, so the memo dependency is a stable value
   in the default case.
@@ -239,12 +239,12 @@ survives projection.
 
 ### Row and bar DOM contract (library → tests, consumers, CSS)
 
-| Element | Attribute / variable | Value |
-| --- | --- | --- |
-| `role="row"` | `--tapechart-lane-count`, `data-lane-count` | room's lane count, `≥ 1` |
-| bar `<button>` | `--tapechart-bar-lane`, `data-lane` | `bar.lane`, 0-indexed |
-| bar `<button>` | `data-overlap` | `"conflict"` \| `"shared"` \| absent |
-| bar `<button>` | `aria-label` | default template appends the overlap label after the status |
+| Element        | Attribute / variable                        | Value                                                       |
+| -------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| `role="row"`   | `--tapechart-lane-count`, `data-lane-count` | room's lane count, `≥ 1`                                    |
+| bar `<button>` | `--tapechart-bar-lane`, `data-lane`         | `bar.lane`, 0-indexed                                       |
+| bar `<button>` | `data-overlap`                              | `"conflict"` \| `"shared"` \| absent                        |
+| bar `<button>` | `aria-label`                                | default template appends the overlap label after the status |
 
 Unchanged: `data-status`, `data-blocked`, `data-selected`, `aria-pressed`,
 `tabIndex`, roving focus.
@@ -265,9 +265,8 @@ Unchanged: `data-status`, `data-blocked`, `data-selected`, `aria-pressed`,
 
 .row {
   /* …existing… */
-  contain-intrinsic-size: auto calc(
-    var(--tapechart-lane-count, 1) * var(--tapechart-lane-pitch) + var(--tapechart-bar-inset)
-  );
+  contain-intrinsic-size: auto
+    calc(var(--tapechart-lane-count, 1) * var(--tapechart-lane-pitch) + var(--tapechart-bar-inset));
 }
 
 .lane {

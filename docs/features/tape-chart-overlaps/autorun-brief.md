@@ -69,6 +69,7 @@ Primary (from idea.md): **No bar can hide another, and a genuine conflict
 reads as a conflict rather than as ordinary side-by-side stacking.**
 
 Concretely:
+
 - Given two overlapping reservations on one room, both `<button>`s are in
   the DOM, both visible, both clickable, neither occluded.
 - With no `classifyOverlap` prop, overlapping bars carry a conflict
