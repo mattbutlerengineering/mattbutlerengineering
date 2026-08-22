@@ -35,6 +35,19 @@ const MERGE_CONFLICT_MENTION_RE =
   /\b(merge conflicts?|resolve[ds]? conflicts?|conflict resolution|fix(?:ed|ing)? conflicts?)\b/i;
 const SCOPE_CHANGE_RE =
   /\b(de-?scope|scope change|out[- ]of[- ]scope|reduce[ds]? scope|expand(?:ed)? scope|narrow(?:ed)? scope)\b/i;
+const LINT_FIXUP_MESSAGE_RE =
+  /\b(lint(?:ed|ing)?|eslint|prettier|re-?format(?:ted|ting)?|format(?:ted|ting)?)\b/i;
+// Extensions ESLint and/or Prettier lint/format in this repo (see
+// eslint.config.js, lint-staged.config.js, .prettierignore).
+const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)$/i;
+// Generated-artifact filenames a regen cycle rewrites (see
+// .claude/rules/gotchas.md § Build / pnpm / turbo). Matched by exact
+// basename so a nested path (e.g. packages/rialto/llms.txt) still counts.
+const GENERATED_ARTIFACT_PATH_RE =
+  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml)$/;
+// "retry"/"rerun"/"re-run" language — a human nudging CI rather than
+// changing code.
+const CI_RERUN_MESSAGE_RE = /\b(retry|re-?run(?:ning)?)\b/i;
 
 /**
  * @param {unknown} value
@@ -73,10 +86,68 @@ function hasScopeChangeSignal(message) {
 }
 
 /**
+ * @param {string} message
+ */
+function hasLintFixupMessageSignal(message) {
+  return LINT_FIXUP_MESSAGE_RE.test(message);
+}
+
+/**
+ * True when `files` is a non-empty array of strings that are all covered
+ * by ESLint/Prettier — i.e. this commit touched nothing else.
+ *
+ * @param {unknown} files
+ */
+function hasLintFixupFilesSignal(files) {
+  if (!Array.isArray(files) || files.length === 0) return false;
+  return files.every((file) => typeof file === "string" && LINT_COVERED_PATH_RE.test(file));
+}
+
+/**
+ * True when `files` is a non-empty array of strings that are all generated
+ * artifacts (the exact regen class `generated-artifact-determinism-reviewer`
+ * exists to catch) — i.e. this commit touched nothing else.
+ *
+ * @param {unknown} files
+ */
+function hasGeneratedArtifactOnlySignal(files) {
+  if (!Array.isArray(files) || files.length === 0) return false;
+  return files.every((file) => typeof file === "string" && GENERATED_ARTIFACT_PATH_RE.test(file));
+}
+
+/**
+ * True when `files` was fetched and turned out empty — an empty/no-diff
+ * commit, the shape of a CI-rerun-trigger commit (e.g. `git commit
+ * --allow-empty`).
+ *
+ * @param {unknown} files
+ */
+function hasEmptyDiffSignal(files) {
+  return Array.isArray(files) && files.length === 0;
+}
+
+/**
+ * @param {string} message
+ */
+function hasCiRerunMessageSignal(message) {
+  return CI_RERUN_MESSAGE_RE.test(message);
+}
+
+/**
  * Infer the human-touch reason for one non-author commit on a merged agent
  * PR. Checked in order of signal specificity: explicit conflict markers/
- * mentions, then CI failure at commit time, then prior review comments,
- * then scope-change language, else `"other"`.
+ * mentions, then a generated-artifact-only commit (files entirely a regen
+ * artifact — llms.txt/llms-full.txt/generated-schemas.ts/dep-graph.json/
+ * pnpm-lock.yaml), then a lint/format-only commit (files entirely
+ * lint-covered and/or formatting language in the message), then CI failure
+ * at commit time, then a CI-rerun nudge (an empty/no-diff commit, or
+ * retry/rerun language in the message), then prior review comments, then
+ * scope-change language, else `"other"`. Generated-artifact is checked
+ * before lint-fixup because every artifact extension it matches
+ * (.ts/.json/.yaml) is also lint-covered — the more specific category must
+ * win. CI-rerun is checked after ci-failure so an actual CI failure (a
+ * stronger, more specific signal) wins over generic retry language in the
+ * same commit message.
  *
  * @param {unknown} pr - PR shape `isAgentPr()` expects (`headRefName`, `labels`).
  * @param {unknown} commit - Commit metadata.
@@ -85,7 +156,8 @@ function hasScopeChangeSignal(message) {
  *   (e.g. "failure" | "success" | "neutral" | "cancelled").
  * @param {number} [commit.reviewCommentsBefore] - Count of PR review
  *   comments posted before this commit's timestamp.
- * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"scope-change"|"other"}
+ * @param {string[]} [commit.files] - Paths changed by this commit.
+ * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"generated-artifact-regen"|"ci-rerun"|"scope-change"|"other"}
  */
 export function classifyHumanTouch(pr, commit) {
   if (!isValidPrShape(pr) || !isAgentPr(pr)) return "other";
@@ -93,9 +165,13 @@ export function classifyHumanTouch(pr, commit) {
   const message = isPlainObject(commit) && typeof commit.message === "string" ? commit.message : "";
   const ciConclusion = isPlainObject(commit) ? commit.ciConclusion : undefined;
   const reviewCommentsBefore = isPlainObject(commit) ? commit.reviewCommentsBefore : undefined;
+  const files = isPlainObject(commit) ? commit.files : undefined;
 
   if (hasMergeConflictSignal(message)) return "merge-conflict";
+  if (hasGeneratedArtifactOnlySignal(files)) return "generated-artifact-regen";
+  if (hasLintFixupFilesSignal(files) || hasLintFixupMessageSignal(message)) return "lint-fixup";
   if (ciConclusion === "failure") return "ci-failure";
+  if (hasEmptyDiffSignal(files) || hasCiRerunMessageSignal(message)) return "ci-rerun";
   if (typeof reviewCommentsBefore === "number" && reviewCommentsBefore > 0) return "review-fix";
   if (hasScopeChangeSignal(message)) return "scope-change";
   return "other";

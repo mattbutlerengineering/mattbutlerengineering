@@ -6159,6 +6159,21 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/timeline/useGridFocus.ts">
+    <item priority="low">
+      interface GridCoordinate {
+        row: number;
+        col: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseGridFocusParams {
+        rowCount: number;
+        colCount: number;
+        initial?: GridCoordinate;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="tokens">
   <file path="apps/rialto-web/src/pages/tokens/token-catalog.ts">

@@ -148,6 +148,9 @@ describe("appendTelemetryRow", () => {
       "review-fix",
       "ci-failure",
       "merge-conflict",
+      "lint-fixup",
+      "generated-artifact-regen",
+      "ci-rerun",
       "scope-change",
       "other",
     ]);

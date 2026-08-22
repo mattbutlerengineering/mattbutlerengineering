@@ -50,6 +50,89 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).toBe("scope-change");
   });
 
+  it("classifies lint-fixup when every changed file is lint/prettier-covered", () => {
+    const commit = {
+      message: "tidy things up",
+      files: ["apps/hospitality/src/foo.ts", "packages/rialto/src/Card.tsx"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("classifies lint-fixup when the commit message uses formatting language", () => {
+    const commit = { message: "run prettier --write on the diff" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("classifies lint-fixup for an eslint --fix style message with no files given", () => {
+    const commit = { message: "eslint --fix" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("does NOT classify lint-fixup when a changed file falls outside lint-covered paths", () => {
+    const commit = {
+      message: "tidy things up",
+      files: ["apps/hospitality/src/foo.ts", "infrastructure/pulumi/index.py"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("does NOT classify lint-fixup from message text alone when it isn't formatting language", () => {
+    const commit = { message: "fix the date parsing bug" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("does NOT classify lint-fixup when files is present but empty (classifies ci-rerun instead)", () => {
+    const commit = { message: "no-op commit", files: [] };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies generated-artifact-regen when every changed file is a generated artifact", () => {
+    const commit = {
+      message: "regenerate stale artifacts",
+      files: [
+        "llms.txt",
+        "llms-full.txt",
+        "packages/rialto-catalog/src/generated-schemas.ts",
+        "infrastructure/worker/dep-graph.json",
+        "pnpm-lock.yaml",
+      ],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
+  });
+
+  it("does NOT classify generated-artifact-regen when the diff mixes generated and source files", () => {
+    const commit = {
+      message: "regenerate stale artifacts",
+      files: ["llms.txt", "apps/hospitality/src/foo.tsx"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).not.toBe("generated-artifact-regen");
+  });
+
+  it("classifies ci-rerun when the commit's diff is empty (a rerun trigger)", () => {
+    const commit = { message: "chore: nudge CI", files: [] };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies ci-rerun when the message uses retry language", () => {
+    const commit = { message: "retry flaky CI step" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies ci-rerun when the message uses rerun language", () => {
+    const commit = { message: "rerun the pipeline" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies ci-rerun for hyphenated re-run language", () => {
+    const commit = { message: "re-run CI Gate" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("does NOT classify ci-rerun from unrelated message text with no files given", () => {
+    const commit = { message: "fix the date parsing bug" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
   it("classifies other when no pattern matches on an agent PR", () => {
     const commit = { message: "tidy up variable names", ciConclusion: "success" };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
@@ -68,6 +151,7 @@ describe("classifyHumanTouch: taxonomy branches", () => {
       classifyHumanTouch(agentPr(), { ciConclusion: "failure" }),
       classifyHumanTouch(agentPr(), { reviewCommentsBefore: 1 }),
       classifyHumanTouch(agentPr(), { message: "reduce scope of this PR" }),
+      classifyHumanTouch(agentPr(), { message: "retry the flaky job" }),
       classifyHumanTouch(agentPr(), {}),
     ];
     for (const reason of results) {
@@ -90,6 +174,45 @@ describe("classifyHumanTouch: precedence", () => {
   it("prefers ci-failure over review-fix when both signals are present", () => {
     const commit = { ciConclusion: "failure", reviewCommentsBefore: 3 };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-failure");
+  });
+
+  it("prefers merge-conflict over lint-fixup when both signals are present", () => {
+    const commit = {
+      message: "<<<<<<< HEAD\n=======\n>>>>>>> x prettier format",
+      files: ["packages/rialto/src/Card.tsx"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("merge-conflict");
+  });
+
+  it("prefers lint-fixup over ci-failure when both signals are present", () => {
+    const commit = { message: "run prettier --write", ciConclusion: "failure" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("lint-fixup");
+  });
+
+  it("prefers merge-conflict over generated-artifact-regen when both signals are present", () => {
+    const commit = {
+      message: "<<<<<<< HEAD\n=======\n>>>>>>> x",
+      files: ["llms.txt"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("merge-conflict");
+  });
+
+  it("prefers generated-artifact-regen over lint-fixup when both signals are present", () => {
+    const commit = {
+      message: "chore: regenerate stale artifacts",
+      files: ["packages/rialto-catalog/src/generated-schemas.ts"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
+  });
+
+  it("prefers ci-failure over ci-rerun when both retry language and a CI failure are present", () => {
+    const commit = { message: "retry flaky step", ciConclusion: "failure" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-failure");
+  });
+
+  it("prefers ci-rerun over review-fix when both signals are present", () => {
+    const commit = { message: "rerun CI", reviewCommentsBefore: 2 };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
   });
 });
 
@@ -139,6 +262,18 @@ describe("classifyHumanTouch: never throws", () => {
 
   it("never throws with a deeply-nested-null commit shape", () => {
     const commit = { message: null, ciConclusion: null, reviewCommentsBefore: null };
+    expect(() => classifyHumanTouch(agentPr(), commit)).not.toThrow();
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("never throws when commit.files is malformed (not an array)", () => {
+    const commit = { message: "x", files: "not-an-array" };
+    expect(() => classifyHumanTouch(agentPr(), commit)).not.toThrow();
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
+  it("never throws when commit.files contains non-string entries", () => {
+    const commit = { message: "x", files: [null, 42, { path: "a.ts" }] };
     expect(() => classifyHumanTouch(agentPr(), commit)).not.toThrow();
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
   });

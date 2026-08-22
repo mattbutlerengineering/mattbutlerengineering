@@ -90,6 +90,14 @@
   flex-shrink: 0;
 }
 
+/* Visible focus ring for the active keyboard-navigated cell.
+   outline (not border) so it never reflows the grid layout. */
+.hourGridLineActive {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
 /* Current time indicator */
 .currentTimeIndicator {
   position: absolute;
