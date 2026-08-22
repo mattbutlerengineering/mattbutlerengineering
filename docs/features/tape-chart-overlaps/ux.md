@@ -323,11 +323,15 @@ Content, in order:
 5. **Caption**: "With `classifyOverlap` — dorm bunks share, private rooms
    conflict".
 6. **Chart 2**: identical props plus `classifyOverlap`.
-7. **Selection card** (shared by both charts, same pattern as the playground's
-   `selected` card): `Guest · Room` / `start → end · Double-booked | Shared occupancy | —`.
-   Clicking a bar in either chart selects it; the gold glow appears on that
-   bar in both charts (same `selectedReservationId`), which incidentally shows
-   the glow/red-border composition.
+7. **Selection card — one per chart**, rendered directly beneath the chart it
+   belongs to, same pattern as the playground's `selected` card:
+   `Guest · Room` / `start → end · Double-booked | Shared occupancy | —`.
+   Each chart owns its own selection and reads the verdict back under the rule
+   that chart was actually given — the default chart calls every overlap
+   `Double-booked`, the classified chart applies the dorm rule. A shared card
+   was the original design (Review F3): it made the default chart's red dorm bar
+   report "Shared occupancy", contradicting the bar directly above it. Clicking a
+   bar glows it in its own chart only.
 
 The page's locale/density/RTL controls do **not** drive this section: it is
 pinned to `en-US` / comfortable / LTR so the two charts are always comparable.

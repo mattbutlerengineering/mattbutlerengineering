@@ -74,7 +74,7 @@ test("TapeChart page — overlapping bars are both clickable (no occlusion)", as
   await page.goto("components/tape-chart");
   await page.waitForLoadState("networkidle");
   const chart = page.getByTestId("tape-chart-overlaps-default");
-  const card = page.getByTestId("tape-chart-overlaps-selection");
+  const card = page.getByTestId("tape-chart-overlaps-selection-default");
   const first = chart.getByRole("button", { name: /Marisol Vega/ });
   const second = chart.getByRole("button", { name: /Tobias Lindqvist/ });
   await expect(first).toHaveAttribute("data-lane", "0");
@@ -88,4 +88,24 @@ test("TapeChart page — overlapping bars are both clickable (no occlusion)", as
     .getByTestId("tape-chart-overlaps-classified")
     .getByRole("button", { name: /Oscar Delacroix/ });
   await expect(dormBar).toHaveAttribute("data-overlap", "shared");
+});
+
+test("TapeChart page — each Overlaps chart reports its own rule", async ({ page }) => {
+  await page.goto("components/tape-chart");
+  await page.waitForLoadState("networkidle");
+  const defaultChart = page.getByTestId("tape-chart-overlaps-default");
+  const classifiedChart = page.getByTestId("tape-chart-overlaps-classified");
+  const defaultCard = page.getByTestId("tape-chart-overlaps-selection-default");
+  const classifiedCard = page.getByTestId("tape-chart-overlaps-selection-classified");
+
+  // Same dorm bunk, two charts: red under the default rule, calm under the dorm rule.
+  const defaultDormBar = defaultChart.getByRole("button", { name: /Oscar Delacroix/ });
+  await expect(defaultDormBar).toHaveAttribute("data-overlap", "conflict");
+  await defaultDormBar.click();
+  await expect(defaultCard).toContainText("Double-booked");
+  await expect(classifiedCard).toHaveCount(0);
+
+  await classifiedChart.getByRole("button", { name: /Oscar Delacroix/ }).click();
+  await expect(classifiedCard).toContainText("Shared occupancy");
+  await expect(defaultCard).toContainText("Double-booked");
 });

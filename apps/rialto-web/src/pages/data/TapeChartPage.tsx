@@ -5,6 +5,7 @@ import {
   Stack,
   TapeChart,
   Text,
+  type TapeChartOverlapKind,
   type TapeChartReservation,
   type TapeChartViewMode,
 } from "@mattbutlerengineering/rialto";
@@ -24,21 +25,62 @@ const classifyOverlap = (a, _b) =>
 
 <TapeChart rooms={rooms} reservations={reservations} classifyOverlap={classifyOverlap} />`;
 
-/** Mirrors the dorm rule for the selection card: what the classified chart says about this bar. */
+type OverlapClassifier = (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;
+
+/**
+ * The verdict for one bar under the rule its own chart was given — `classify`
+ * omitted means the chart's default, where every overlap is a conflict. Mirrors
+ * the component: worst kind wins, and a bar with no overlapping sibling has none.
+ */
 function describeOverlap(
   selected: TapeChartReservation,
-  rooms: { id: string; category?: string }[],
-  reservations: TapeChartReservation[]
+  reservations: TapeChartReservation[],
+  classify?: OverlapClassifier
 ): string {
-  if (rooms.find((r) => r.id === selected.roomId)?.category === "Dorm") return "Shared occupancy";
-  const hasSibling = reservations.some(
+  const siblings = reservations.filter(
     (r) =>
       r.id !== selected.id &&
       r.roomId === selected.roomId &&
       r.start < selected.end &&
       selected.start < r.end
   );
-  return hasSibling ? "Double-booked" : "—";
+  if (siblings.length === 0) return "—";
+  const anyConflict = siblings.some((sibling) => {
+    // The component hands the earlier-starting reservation to the callback as `a`.
+    const [a, b] = selected.start <= sibling.start ? [selected, sibling] : [sibling, selected];
+    return (classify?.(a, b) ?? "conflict") === "conflict";
+  });
+  return anyConflict ? "Double-booked" : "Shared occupancy";
+}
+
+/** Selection card for one Overlaps chart — its own selection, read back under its own rule. */
+function OverlapSelectionCard({
+  testId,
+  selected,
+  rooms,
+  reservations,
+  classify,
+}: {
+  testId: string;
+  selected: TapeChartReservation | null | undefined;
+  rooms: { id: string; name: string }[];
+  reservations: TapeChartReservation[];
+  classify?: OverlapClassifier;
+}) {
+  if (!selected) return null;
+  return (
+    <Card variant="elevated" data-testid={testId}>
+      <Stack gap="xs">
+        <Text variant="label">
+          {selected.guestName ?? "Reservation"} ·{" "}
+          {rooms.find((r) => r.id === selected.roomId)?.name}
+        </Text>
+        <Text variant="caption" color="secondary">
+          {selected.start} → {selected.end} · {describeOverlap(selected, reservations, classify)}
+        </Text>
+      </Stack>
+    </Card>
+  );
 }
 
 type DemoLocale = "en-US" | "ja-JP" | "de-DE" | "ar-SA";
@@ -67,9 +109,18 @@ export function TapeChartPage() {
   const selected = selectedId ? reservations.find((r) => r.id === selectedId) : null;
 
   // Overlaps section — pinned to en-US / comfortable / LTR so the two charts stay comparable.
+  // Each chart owns its selection: they demonstrate different rules, so a shared
+  // selection would report one chart's verdict under the other chart's bars.
   const overlap = useMemo(() => makeOverlapScenario(), []);
   const overlapClassifier = useMemo(() => classifyDormAsShared(overlap.rooms), [overlap.rooms]);
-  const overlapSelected = selectedId ? overlap.reservations.find((r) => r.id === selectedId) : null;
+  const [overlapDefaultId, setOverlapDefaultId] = useState<string | null>(null);
+  const [overlapClassifiedId, setOverlapClassifiedId] = useState<string | null>(null);
+  const overlapDefaultSelected = overlapDefaultId
+    ? overlap.reservations.find((r) => r.id === overlapDefaultId)
+    : null;
+  const overlapClassifiedSelected = overlapClassifiedId
+    ? overlap.reservations.find((r) => r.id === overlapClassifiedId)
+    : null;
 
   const localizedStrings = useMemo(() => {
     // Minimal locale-scoped overrides; English defaults still cover everything
@@ -214,10 +265,17 @@ export function TapeChartPage() {
               currency="USD"
               density="comfortable"
               viewMode="grid"
-              onReservationClick={handleReservationClick}
-              selectedReservationId={selectedId}
+              onReservationClick={(r) => setOverlapDefaultId(r.id)}
+              selectedReservationId={overlapDefaultId}
             />
           </Card>
+
+          <OverlapSelectionCard
+            testId="tape-chart-overlaps-selection-default"
+            selected={overlapDefaultSelected}
+            rooms={overlap.rooms}
+            reservations={overlap.reservations}
+          />
 
           <Card variant="flat">
             <pre
@@ -245,26 +303,19 @@ export function TapeChartPage() {
               currency="USD"
               density="comfortable"
               viewMode="grid"
-              onReservationClick={handleReservationClick}
-              selectedReservationId={selectedId}
+              onReservationClick={(r) => setOverlapClassifiedId(r.id)}
+              selectedReservationId={overlapClassifiedId}
               classifyOverlap={overlapClassifier}
             />
           </Card>
 
-          {overlapSelected && (
-            <Card variant="elevated" data-testid="tape-chart-overlaps-selection">
-              <Stack gap="xs">
-                <Text variant="label">
-                  {overlapSelected.guestName ?? "Reservation"} ·{" "}
-                  {overlap.rooms.find((r) => r.id === overlapSelected.roomId)?.name}
-                </Text>
-                <Text variant="caption" color="secondary">
-                  {overlapSelected.start} → {overlapSelected.end} ·{" "}
-                  {describeOverlap(overlapSelected, overlap.rooms, overlap.reservations)}
-                </Text>
-              </Stack>
-            </Card>
-          )}
+          <OverlapSelectionCard
+            testId="tape-chart-overlaps-selection-classified"
+            selected={overlapClassifiedSelected}
+            rooms={overlap.rooms}
+            reservations={overlap.reservations}
+            classify={overlapClassifier}
+          />
         </Stack>
       </Section>
 
