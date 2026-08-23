@@ -9,9 +9,14 @@ date: 2026-06-21
 
 ## Context
 
+> **Status: resolved.** This Context section describes the _pre-#2046_ problem
+> this ADR set out to solve, not the current architecture. As of #2046 the
+> migration below is complete — see "Migration Order" and the "Current State"
+> section for what ships today.
+
 The AI component catalog (`packages/rialto-catalog`) lets the gen service emit
-Rialto UIs from a JSON spec. A single component's catalog knowledge is currently
-spread across **three hand-synced seams**, and keeping them aligned is manual and
+Rialto UIs from a JSON spec. A single component's catalog knowledge **used to be**
+spread across **three hand-synced seams**, and keeping them aligned was manual and
 error-prone:
 
 1. **Generated schemas** — `packages/rialto-catalog/src/generated-schemas.ts`
@@ -59,7 +64,7 @@ export const catalog = {
 
 ### What the CatalogSource absorbs
 
-| Today's seam                                            | Moves into `*.catalog.ts`                         |
+| Pre-#2046 seam                                          | Moves into `*.catalog.ts`                         |
 | ------------------------------------------------------- | ------------------------------------------------- |
 | `catalog-config.ts` `description` / `slots` / `include` | `description`, `slots`, `include`                 |
 | generator `CHARACTER_LIMITS` table                      | per-prop `props.<name>.max`                       |
@@ -85,7 +90,33 @@ and forcing that into config would be a leaky abstraction. The boundary is:
   adding a component is one file, not three edits (kills seam A).
 - A build/test check asserts **1:1 parity**: every `*.catalog.ts` has a matching
   `registry.tsx` adapter and vice-versa. A renamed/removed prop or a missing
-  adapter fails the check instead of silently falling back.
+  adapter fails the check instead of silently falling back. This check ships
+  today as `packages/rialto-catalog/src/__tests__/drift-check.test.ts`
+  (`pnpm test:drift` in that package) — see "Current State" below.
+
+## Current State (post-#2046)
+
+The migration below is complete. Confirmed against the tree:
+
+- `packages/rialto-catalog/src/catalog-config.ts` no longer exists.
+- 37 co-located `<Component>.catalog.ts` files live under
+  `packages/rialto/src/components/**` (one per curated component), each
+  `satisfies CatalogMeta` (`packages/rialto/src/components/catalog-meta.ts`;
+  `packages/rialto-catalog/src/catalog-meta.ts` is its documented mirror).
+- `scripts/generate-catalog.ts` reads those files and emits the two generated
+  artifacts, `generated-catalog.ts` and `generated-schemas.ts`
+  (`packages/rialto-catalog/src/`), which `catalog.ts` assembles into the
+  catalog the gen service consumes.
+- The adapter↔meta 1:1 parity check described above is real and running:
+  `packages/rialto-catalog/src/__tests__/drift-check.test.ts` asserts
+  `registry.tsx`'s adapter keys equal the `include !== false` set of
+  `generated-catalog.ts`'s `catalogMeta` (Toast is the one documented,
+  sanctioned exception — it has no declarative renderer). The same file also
+  checks that `generate-catalog.ts` sources component data from the canonical
+  `introspectComponents` module (no independent TS parse) and that every
+  `charLimits` key resolves to a real field in the generated schema.
+- `registry.tsx` remains hand-written per the "Hand-written-residue boundary"
+  above — that part of the Decision was never meant to go away.
 
 ## Alternatives Considered
 
@@ -93,10 +124,10 @@ and forcing that into config would be a leaky abstraction. The boundary is:
   requires a custom doc-comment parser, is stringly-typed, and has no compile-time
   safety. The structured-JSON-in-comments pattern is exactly the kind of brittle
   seam this ADR removes. Rejected.
-- **One central `catalogSource` const** (today's `catalog-config.ts`, expanded to
-  absorb limits + aliases) — simpler to write but not co-located; the metadata
-  still lives away from the component and drifts on rename. Rejected in favour of
-  per-component co-location.
+- **One central `catalogSource` const** (the pre-#2046 `catalog-config.ts`,
+  expanded to absorb limits + aliases) — simpler to write but not co-located; the
+  metadata still lives away from the component and drifts on rename. Rejected in
+  favour of per-component co-location.
 - **Fully data-driven adapters (no `registry.tsx`)** — rejected. Adapter JSX +
   event wiring is genuine behaviour; encoding it as data produces a worse, leakier
   abstraction than a small typed function.
