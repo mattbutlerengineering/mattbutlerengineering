@@ -186,6 +186,22 @@ async function runProbe({ base, timeoutMs, probe }) {
   }
 }
 
+/**
+ * The observed value of each header a probe requires, for the log line.
+ *
+ * @param {{ requireHeaders: string[] }} probe
+ * @param {{ headers: Record<string, string> }} observed
+ * @returns {Record<string, string | null>}
+ */
+function guardValues(probe, observed) {
+  const present = new Map(
+    Object.entries(observed.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])
+  );
+  return Object.fromEntries(
+    probe.requireHeaders.map((h) => [h, present.get(h.toLowerCase()) ?? null])
+  );
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function numericFlag(argv, flag, fallback) {
@@ -216,14 +232,17 @@ async function main() {
       observed = await runProbe({ base, timeoutMs, probe });
       state = classifyProbe(probe, observed);
     }
-    const rateLimit = observed.headers["x-ratelimit-limit"] ?? null;
     console.log(
       JSON.stringify({
         name: probe.name,
         request: `${probe.method} ${probe.path}`,
         expectStatus: probe.expectStatus,
         httpCode: observed.httpCode,
-        rateLimit,
+        // Report whatever this probe actually requires, matched the same
+        // case-insensitive way classifyProbe matches it. Naming one header
+        // here would quietly log `null` for a probe that required a different
+        // one, while classifyProbe called it `ok`.
+        guards: guardValues(probe, observed),
         state,
       })
     );
