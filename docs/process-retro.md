@@ -11,6 +11,316 @@ no retro.
 
 ---
 
+## 2026-08-23
+
+Window: **2026-08-17 → 2026-08-23**. Sources: GitHub REST API (PR/issue search,
+workflow runs, job logs), `metrics/queue-telemetry.jsonl`,
+`metrics/process-metrics.jsonl`, `.claude/improvement-loop/log.md`,
+`.claude/rules/gotchas.md`, `docs/scheduled-tasks.md`, and the working tree at
+`eb296df`.
+
+**150 PRs opened, 144 merged, 73 issues filed, 85 closed, 23 open (5 `ready`).**
+Median PR lived **15.0 minutes**; 89% closed inside an hour. `main` took exactly
+one CI failure all week, and it was a GitHub-side 503, not a defect. By the
+throughput numbers this was another clean week.
+
+The numbers are not the story. The story is that **the watchdog built last week
+to catch silently-failing scheduled workflows is itself silently failing** — it
+suppresses every detection it makes, for a reason that only reproduces in CI. It
+has been reporting a healthy fleet for seven days while `chaos-agent.yml` sat at
+15 consecutive failures.
+
+### Routine liveness
+
+Cross-checked `docs/scheduled-tasks.md`'s catalog against observed artifacts.
+
+| Routine                     | Expected artifact                | Observed 08-17 → 08-23                                       | Verdict                         |
+| --------------------------- | -------------------------------- | ------------------------------------------------------------ | ------------------------------- |
+| `mbe-morning` (ACMM)        | `chore(acmm): daily audit` PR    | #4322, #4357, #4370, #4397, #4416, #4462, #4490 — all ~16:1x | alive, 7/7                      |
+| `mbe-morning` (`/ideate`)   | proposal / decompose batch       | #4385–#4396 (08-20), #4417–#4436 (08-21)                     | alive                           |
+| `mbe-evening` (queue)       | implement-queue + telemetry PRs  | telemetry PR every day 08-17 → 08-23                         | alive                           |
+| `mbe-evening` (tracker)     | `process-metrics` + log entry    | **nothing since 08-16** — see below                          | **half dark, 7 days**           |
+| `mbe-midday` / `mbe-night`  | implement-queue PRs              | 28 telemetry claims across both UTC bands                    | alive                           |
+| `mbe-auditor`               | ≤3 `audit` issues/day            | 3, 1, 3, 3, 2, 3, 1 (08-17…08-23)                            | alive, 7/7                      |
+| `mbe-learning-loop`         | issues / sensor triage           | 4 issues on 08-17 (#4330–#4333); **nothing 08-18 → 08-23**   | **ran, artifact dark 6 days**   |
+| `mbe-weekly-improve` (Fri)  | 1 PR + `ready` issues            | **no PR, no issues on Fri 08-21**                            | **dark**                        |
+| `mbe-doc-rot` (Fri)         | 1 PR                             | #4415 "docs: weekly rot sweep 2026-08-21"                    | alive                           |
+| `mbe-monthly-meta-audit`    | 1 PR + issues                    | 1st of month — outside window                                | n/a                             |
+| `drift-fix.yml`             | PR when drifted                  | 7 runs, 7 success, no drift → no PR                          | alive, correct silence          |
+| `audit-sweep.yml` (Mon)     | issues                           | ran 08-17, success                                           | alive                           |
+| `pr-metrics.yml` (Mon)      | metrics PR                       | #4317 (08-17)                                                | alive                           |
+| `automation-pr-rescue.yml`  | update-branch + re-dispatch      | ran on schedule, no failures                                 | alive                           |
+| `stale-human-blocked.yml`   | label + record stale issues      | 08-16 and 08-23 runs, both success; #4489 metrics PR         | alive                           |
+| `scheduled-workflow-health` | `ci-fix` issue per dead workflow | 8 runs, 8 success, **0 issues filed**                        | **alive and blind — see below** |
+| `chaos-agent.yml` (Mon)     | seeded bug → audit catches it    | 08-17 run **failed** — 15th consecutive lifetime failure     | **broken, unreported**          |
+| `release.yml`               | npm publish of rialto            | green because publish still self-skips (unchanged, #3322)    | green ≠ working                 |
+
+#### The watchdog is blind: a shallow checkout makes every failing workflow look freshly fixed
+
+`scheduled-workflow-health.yml` shipped 08-17 (#4281/#4276) to watch the
+scheduled fleet, precisely because `release.yml` (370 consecutive failures) and
+`chaos-agent.yml` had each died unnoticed for weeks. On its first run it worked:
+at 01:19 on 08-17 it filed five `ci-fix` issues — #4286 (AI Audit Trail), #4287
+(Chaos Agent), #4288 (Dependency Freshness), #4289 (Mutation Testing), #4290
+(Resource Audit).
+
+Two of those were false positives — the failures predated a fix that simply had
+not rerun yet — so #4291 added an `awaiting-rerun` classification:
+`allFailuresPrecede(window, workflowModifiedAt)` suppresses a streak when the
+workflow file changed after every failing run in it. Sound idea. But
+`resolveWorkflowModifiedAt()` implements `workflowModifiedAt` as
+`git log -1 --format=%cI -- <workflowPath>`, and
+`scheduled-workflow-health.yml` checks out with the default **`fetch-depth: 1`**.
+
+In a depth-1 clone git holds exactly one commit, so `git log -1 -- <any path>`
+reports **that commit** regardless of whether it touched the path. The proof is
+in the detector's own run log for 08-19 (run `32232753716`, job `96005953176`),
+where four different workflows report one identical timestamp:
+
+```
+Chaos Agent: 3 failing run(s), all predating the workflow's last change (2026-08-19T07:04:26Z) — awaiting a post-change run, not filing.
+AI Audit Trail: 3 failing run(s), all predating the workflow's last change (2026-08-19T07:04:26Z) — ...
+Dependency Freshness: 3 failing run(s), all predating the workflow's last change (2026-08-19T07:04:26Z) — ...
+Resource Audit: 3 failing run(s), all predating the workflow's last change (2026-08-19T07:04:26Z) — ...
+```
+
+`2026-08-19T07:04:26Z` is that morning's HEAD on `main`, not the date any of
+those four files changed. Because HEAD always postdates every prior run,
+`allFailuresPrecede` is **always true**, so every genuine failing streak
+classifies as `awaiting-rerun` and is never filed. The detector cannot report a
+dead workflow, and it fails in the silent direction — it can only suppress
+findings, never invent them. Eight green runs, zero issues, four workflows dead
+behind them.
+
+The module's own docstring states the intended bias — "a noisy detection is
+recoverable, a silently suppressed one is not" — and `allFailuresPrecede`
+deliberately returns `false` on any input it cannot compare. A shallow clone
+defeats that guard by supplying a well-formed, parseable, wrong answer instead
+of an absent one. `scripts/branch-cleanup.mjs` uses the same `git log`-in-CI
+shape and is worth checking for the same trap.
+
+#### chaos-agent has never once succeeded
+
+`chaos-agent.yml` has failed **15 of 15** lifetime scheduled runs (2026-05-11
+through 2026-08-17). Last week's retro recorded a fix landing 08-15 and marked
+it unverified; the 08-17 run (`32020266197`) settles it — the fix did not work.
+Root cause, from that run's log:
+
+```
+Targeting file: apps/rialto-web/src/ThemeContext.tsx with bug type: lighthouse-perf
+No injection point found for lighthouse-perf in .../ThemeContext.tsx, skipping...
+Failed to inject bug.
+##[error]Process completed with exit code 1.
+```
+
+`scripts/chaos-agent.mjs` in `--random` mode picks a bug type uniformly from
+`BUG_CATALOG`, then `findTargetFile(type)` picks a random app and a random
+`.tsx` inside it — with no check that the type has an injection point in that
+file. One attempt, no retry, `process.exit(1)` on miss. Most random pairings
+miss, which is why the job has never once produced a seeded bug. The whole
+point of chaos-agent is to verify the audit loop actually catches planted
+defects; that verification has never run.
+
+#### The tracker half of `mbe-evening` has been dark for a week
+
+`metrics/process-metrics.jsonl`'s last row is dated **2026-08-16**, and it is
+`{"available": false, "reason": "query_error"}`. There are no rows at all for
+08-17 → 08-23. `.claude/improvement-loop/log.md`'s last dated section is
+likewise `## 2026-08-16`. The queue kept running the whole time — 28 telemetry
+claims, a telemetry PR every day — so this is instrumentation going quiet, not
+work stopping.
+
+This was already noticed: **#4378** ("[Meta] progress-tracker log.md went 4 days
+stale") was filed 08-20 and has had **zero activity since** — `created_at` and
+`updated_at` are both `2026-08-20T01:05:10Z`. It carries only
+`meta-improvement`, with neither `ready` nor any human-blocked label, so no
+worker will ever claim it and no staleness detector counts it. The gap it
+reported has grown from 4 days to 7 while the issue sat in that dead zone.
+
+### Blockers
+
+Open issues carrying `ready-for-human`, `needs-review`, `blocked`,
+`agent-failed`, or `stealable`, oldest-touched first. Ages are days since last
+update as of 2026-08-23.
+
+| Issue | Labels                               | Stale   | The one thing a human must do                                                                    |
+| ----- | ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------ |
+| #3277 | `ready-for-human`                    | **44d** | Decide which Pulumi resource paths may drift, and paste that path list into the issue            |
+| #4111 | `audit` `blocked` `ready-for-human`  | **12d** | Add `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode `pk_test_…`) to the Hospitality E2E job's env       |
+| #4199 | `meta-improvement` `blocked`         | 6.9d    | Confirm which adapter `mbe agent eval` should default to, so the baseline can be produced        |
+| #3585 | `meta-improvement` `ready-for-human` | 6.7d    | Decide: route AI features through the Claude CLI, or delete them — no `ANTHROPIC_API_KEY` exists |
+| #3388 | `blocked` `ready-for-human`          | 6.7d    | Add `TURBO_TOKEN` to repo secrets (see Top 3 — most of this issue is **not** human-blocked)      |
+| #3253 | `ci-fix` `blocked` `ready-for-human` | 6.7d    | Approve the TypeScript 7 migration as a work item, or close it as won't-do                       |
+| #3978 | `ux` `feature` `ready-for-human`     | 6.2d    | Say yes or no to exploring video-game UI patterns in rialto                                      |
+| #4119 | `ci-fix` `ready-for-human`           | 5.9d    | Dispatch `pulumi-r2-checksum-validation.yml` and read its verdict before unpinning Pulumi        |
+| #3322 | `ready-for-human`                    | 5.9d    | Choose the npm publish credential: npmjs token, or switch rialto to GitHub Packages              |
+
+Only two are past the 7-day line, and the tight 5.9–6.9d cluster is real triage
+work, not a bot touch: an agent re-verified each of these on 08-17/08-18 and
+left substantive comments. #3388's comment is the standout and is actioned in
+Top 3 below.
+
+### Friction
+
+- **Median PR life 15.0 minutes**, mean 279.5, p90 62.4. Buckets: 73 PRs under
+  15m, 57 at 15–60m, 7 at 1–6h, 3 at 6–24h, 6 over 24h. The distribution is
+  healthy; the whole tail is dependabot.
+- **Slowest PR: #4335** (`bump lewagon/wait-on-check-action`), open **130.1
+  hours**. #4336 (130.1h), #4339 (129.5h) and #4337 (129.4h) are the same
+  story — all four opened 08-17 between 18:47 and 19:19, and three of them were
+  merged in one batch at 04:51–04:52 on 08-23. They were not slow for any
+  technical reason; nothing swept them for five days.
+- **The grouped production-deps PR never lands.** #4058 (32 updates, closed
+  unmerged 08-11), #4091 (33, closed unmerged 08-11), #4337 (32, closed unmerged
+  08-23), now **#4482 (46 updates, still open)**. Each cycle the superseded PR is
+  discarded and dependabot reopens a larger group. The batch is compounding —
+  32 → 33 → 32 → 46 — and every one is `tier:critical`, which the automation
+  auto-merge gate deliberately declines to enable. No production dependency
+  update has merged through this path in two weeks.
+- **No reverts, and no follow-up fix within 48h of any merge.** Nothing in the
+  window needed `gh pr update-branch`; `main` is not `strict`, so the N-squared
+  stacking tax ADR-016/ADR-023 describes did not materialise this week.
+
+### Recurring causes
+
+Failed CI runs on `main`, 08-17 → 08-23: **76 runs, 64 success, 11 cancelled, 1
+failure.** All 11 cancellations are concurrency-group supersessions from rapid
+successive merges — not defects, and correctly excluded from streak logic.
+
+| Cause                                           | Count | Genuine defect?       | In `gotchas.md`?   |
+| ----------------------------------------------- | ----- | --------------------- | ------------------ |
+| GitHub 503 on the `CI Gate` commit-status POST  | 1     | no — GitHub-side      | **no** — see below |
+| Concurrency-group cancellation                  | 11    | no — by design        | n/a                |
+| `chaos-agent` random pairing misses             | 1     | **yes**               | **no**             |
+| `scheduled-workflow-health` shallow-clone blind | 8     | **yes** (suppression) | **no**             |
+
+**The one main failure was not a defect.** Run `32049666426` (08-17 17:17, the
+#4322 merge) shows all fourteen gate inputs `success` — lint, typecheck, build,
+test, Integrity, Architecture Audit, the lot — and then:
+
+```
+gh: No server is currently available to service your request. ... (HTTP 503)
+##[error]Process completed with exit code 1.
+```
+
+The gate passed and the _publish_ of its result failed. The loop then worked
+exactly as designed: `mbe-learning-loop` filed #4333 at 18:00 the same evening,
+and #4343 merged the retry by 21:14. It even self-corrected once more — the
+first fix used an inline regex that missed `unexpected end of JSON input` and
+turned a fully green run (`32081722175`) red, so the classification was moved
+into the pure, unit-tested `isTransientPublishError()` in
+`scripts/ci-gate-commit-status.mjs`. Detect → fix → refine, inside one day.
+
+That is a good arc, and it is undocumented. `gotchas.md` § CI covers
+`gate-missing` (#3969) and `gate-unattributed` (#4023) but says nothing about
+the publish step's own transient 5xx, which has now bitten twice in one week.
+Two proposed entries for `/gotcha-harvest`, neither of which exists today:
+
+1. **A transient GitHub 5xx on the `CI Gate` status POST reds a fully green
+   run** — retry transient classes only, via `isTransientPublishError()`; never
+   an inline regex in YAML, where the miss goes unnoticed.
+2. **`git log -1 --format=%cI -- <path>` returns HEAD's date for every path in
+   a `fetch-depth: 1` checkout** — it does not return empty, so a caller
+   treating "unparseable ⇒ fail open" still gets a confident wrong answer. Any
+   script deriving a per-file timestamp in CI needs `fetch-depth: 0` or an
+   explicit `git rev-parse --is-shallow-repository` guard.
+
+### Throughput
+
+**73 issues filed, 85 closed — backlog shrinking by 12.** 23 open, of which 5
+carry `ready`. PRs: 150 opened, 144 merged, 4 still open, 2 closed unmerged.
+
+Queue telemetry, 28 rows claimed in the window: 14 merged, 1 not merged, **13
+never reconciled**. Reviewer verdicts 16 `pass`, 2 `flag`, 8 `skipped`. Model
+tier 27 sonnet / 1 haiku. Median worker duration 24.6 min (max 73.0).
+`ci_first_pass` true on 11 of the 15 reconciled rows; `rework_cycles` 0 on 11,
+1 on 4.
+
+Two caveats on that data, both worth more than the numbers:
+
+- **11 of the 13 unreconciled rows are not in flight** — they were claimed
+  08-17 through 08-22 00:33 and still carry `merged: null`. #4412 is the clearest
+  case: verdict `pass`, and its PR #4438 merged on 08-21, but the row was never
+  written back. Only #4426 and #4450 (claimed 08-23 20:14) are plausibly still
+  running.
+- **`cost_usd` is null on all 28 rows.** Cost per issue is not being captured at
+  all, which is why the sensor's `cost_per_issue_usd` reads `0` in every
+  historical row rather than a real figure.
+
+Trend analysis is not supportable this week. `process-metrics.jsonl` has no data
+points after 08-16, so there is nothing to plot — and the file's usable history
+is six points (08-11 → 08-15) against eight `available: false` rows. GitHub is
+the only trustworthy source here, and one week of it is not a trend. Stated
+plainly rather than dressed up: **we cannot say whether queue efficiency moved
+this week, because the sensor that measures it has not produced a reading in
+seven days.**
+
+### Top 3 changes
+
+1. **Give `scheduled-workflow-health` a real `workflowModifiedAt`.** One line
+   (`fetch-depth: 0` on its checkout) plus a shallow-repository guard in
+   `resolveWorkflowModifiedAt()` so it returns `undefined` rather than a wrong
+   answer when history is absent. This is the highest-leverage change available:
+   it restores a watchdog that already exists, already runs daily, already has
+   permissions, and is currently reporting a healthy fleet over four dead
+   workflows. Effort is minutes; it unblocks the detection of every future
+   silent scheduled-workflow death — the exact class that cost 19 unnoticed days
+   in July.
+2. **Make `chaos-agent --random` retry instead of exiting 1.** Pick from
+   compatible (type, file) pairs, or retry N times before failing. 15 lifetime
+   failures means the audit loop's only end-to-end verification has never
+   executed once — we have no evidence the audit machinery catches planted bugs,
+   only that it produces issues.
+3. **Cache `.turbo/cache` in CI.** `grep -rn "\.turbo" .github/workflows/*.yml`
+   returns nothing: there is no `actions/cache` step for the local turbo cache
+   anywhere, and remote caching is inert without `TURBO_TOKEN`. So CI has **zero
+   turbo cache reuse of any kind** — not remote, not local, not across runs on
+   the same branch — while Test runs 517s and Build 465s cold. #3786 already
+   gave every checkout an explicit `cacheDir: ".turbo/cache"`, so the directory
+   is well-defined and simply discarded each run. This needs no credential and
+   no account. It was identified in #3388's own comment on 08-17, which
+   explicitly declined to re-scope someone else's issue; six days later nobody
+   picked it up. Key it on the lockfile hash — `pnpm-lock.yaml` is a turbo
+   `globalDependencies` entry, so a lockfile-touching PR must cache-miss by
+   design (`gotchas.md` § CI).
+
+Filed as `ready`: one issue per item above.
+
+### Escalations
+
+Only a human can move these. None are filed as `ready` — an agent cannot mint a
+credential or make a product call.
+
+- **#3388 — add `TURBO_TOKEN` to repo secrets.** Requires the Vercel/Turbo
+  account. Note the local-cache half is now filed separately and needs nothing
+  from you.
+- **#3322 — choose the npm publish credential.** `release.yml` has been green
+  since 08-10 only because the publish step self-skips on an empty `NPM_TOKEN`.
+  rialto last genuinely published 2026-07-10. Either add an npmjs token or
+  switch `publishConfig` to GitHub Packages.
+- **#4111 — add `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode) to the Hospitality
+  E2E job.** Deposit E2E cannot reach the payment step without it.
+- **#3585 — decide whether AI features route through the Claude CLI or get
+  removed.** No `ANTHROPIC_API_KEY` exists; the code path is dead either way.
+- **#3253 — approve or close the TypeScript 7 migration.** Blocked 44 days on
+  nobody saying which.
+- **#3277 — name the drift-tolerant Pulumi paths.** Stalest issue in the repo at
+  44 days; it needs a path list, not a review.
+- **#4119 — dispatch `pulumi-r2-checksum-validation.yml` and read its verdict.**
+  The Pulumi CLI pin is a holding action; the harness exists specifically so the
+  fix is never first exercised against production state.
+- **#4378 needs the `ready` label.** It is the only open `meta-improvement`
+  issue with neither `ready` nor a human-blocked label, so nothing will ever
+  claim it — and it is the issue tracking the tracker going dark. Labelling it
+  is the entire ask.
+- **#4482 — decide how `tier:critical` grouped dependabot PRs get merged.** The
+  automation auto-merge gate correctly declines to enable itself on them, and
+  nothing else picks them up, so the group has grown 32 → 46 across three
+  discarded PRs. Either merge it by hand on a cadence, or grant grouped
+  dependency PRs a path through the gate.
+
+---
+
 ## 2026-08-16
 
 Window: **2026-08-10 → 2026-08-16**. Sources: GitHub REST API (PR/issue search,
