@@ -132,6 +132,26 @@ total. If the product ever wants invite-only onboarding, the control is
 tenant state, not code: nothing in `infrastructure/pulumi/auth0.ts` manages the
 connection, so flipping it leaves no diff in this repo and no test goes red.
 
+**That limit needs two layers, and the first shipped arrangement had only one
+(corrected 2026-08-23).** The per-identity cap must run after `requireAuth` —
+that is what populates `request.user` — so it was declared as a route-level
+`config.rateLimit` with `hook: "preHandler"`. Declaring a route-level
+`config.rateLimit` _replaces_ the service-wide `onRequest` limiter for that
+route, so moving it to `preHandler` left everything upstream of that hook with
+no bound at all: body-schema validation answers 400 and `requireAuth` answers
+401, both before the limiter ever fires. Measured against the deployed service:
+`GET /api/v1/venues` carried `x-ratelimit-limit: 100`, `POST /api/v1/venues`
+carried no rate-limit headers on either its 400 or its 401. A public POST had
+quietly lost the bound every other route on the service has.
+
+The route now declares no `config.rateLimit` at all, which restores the
+service-wide 100/minute per-IP limiter over the anonymous surface, and enforces
+the 5/minute per-identity cap by hand in a preHandler via
+`fastify.createRateLimit`. Two hooks would not have worked: `@fastify/rate-limit`
+runs at most **one** limiter per request — `rateLimitRequestHandler` sets a
+`rateLimitRan` flag and every later limiter short-circuits — and
+`createRateLimit` is the one entry point that bypasses that flag.
+
 ### Consolidation
 
 `deposits.ts`'s local `requireAdmin` is deleted in favor of the shared one.
