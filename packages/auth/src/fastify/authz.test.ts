@@ -12,7 +12,13 @@ vi.mock("jose", () => ({
 }));
 
 import { authPlugin, requireAuth } from "./plugin.js";
-import { requireAdmin, requireVenueAccess, type VenueMembershipLookup } from "./authz.js";
+import {
+  requireAdmin,
+  requireVenueAccess,
+  requireVenueCreateAccess,
+  type HasAnyVenueMembership,
+  type VenueMembershipLookup,
+} from "./authz.js";
 
 const makeJWTPayload = (overrides: Record<string, unknown> = {}) => ({
   sub: "auth0|operator-A",
@@ -240,5 +246,161 @@ describe("requireVenueAccess", () => {
 
     expect(response.statusCode).toBe(401);
     expect(lookup).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Build a test app exposing one venue-CREATE route guarded by
+ * requireVenueCreateAccess, plus a deliberately misconfigured variant with no
+ * preceding requireAuth so the defensive 401 branch is reachable.
+ */
+function buildCreateApp(hasAnyMembership: HasAnyVenueMembership) {
+  const app = Fastify({ logger: false });
+
+  const routesPlugin: FastifyPluginAsync = async (fastify) => {
+    await fastify.register(authPlugin, {
+      authority: "https://test.auth0.com",
+      audience: "https://api.example.com",
+    });
+
+    fastify.post(
+      "/venues",
+      { preHandler: [requireAuth, requireVenueCreateAccess(hasAnyMembership)] },
+      async () => ({ ok: true })
+    );
+
+    fastify.post(
+      "/venues-no-auth",
+      { preHandler: [requireVenueCreateAccess(hasAnyMembership)] },
+      async () => ({ ok: true })
+    );
+  };
+
+  app.register(routesPlugin);
+  return app;
+}
+
+describe("requireVenueCreateAccess", () => {
+  let app: FastifyInstance;
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+  });
+
+  it("admits a platform admin WITHOUT querying membership", async () => {
+    mockJwtVerify.mockResolvedValue({ payload: adminPayload, protectedHeader: { alg: "RS256" } });
+    const lookup = vi.fn<HasAnyVenueMembership>();
+    app = buildCreateApp(lookup);
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/venues",
+      headers: { authorization: "Bearer valid-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // The stateless role check must short-circuit before any I/O — an admin
+    // creating a venue costs zero database round-trips, same as requireAdmin.
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("admits a non-admin holding NO venue membership (the bootstrap case)", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: operatorPayload,
+      protectedHeader: { alg: "RS256" },
+    });
+    const lookup = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+    app = buildCreateApp(lookup);
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/venues",
+      headers: { authorization: "Bearer valid-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A");
+  });
+
+  it("refuses a non-admin who already holds a venue membership", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: operatorPayload,
+      protectedHeader: { alg: "RS256" },
+    });
+    const lookup = vi.fn<HasAnyVenueMembership>().mockResolvedValue(true);
+    app = buildCreateApp(lookup);
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/venues",
+      headers: { authorization: "Bearer valid-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    const body = JSON.parse(response.body);
+    expect(body.status).toBe(403);
+    expect(body.title).toBeDefined();
+  });
+
+  it("returns 401 when request.user is unset (requireAuth did not run)", async () => {
+    const lookup = vi.fn<HasAnyVenueMembership>();
+    app = buildCreateApp(lookup);
+    await app.ready();
+
+    const response = await app.inject({ method: "POST", url: "/venues-no-auth" });
+
+    expect(response.statusCode).toBe(401);
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("FAILS CLOSED when the membership lookup rejects — never admits", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: operatorPayload,
+      protectedHeader: { alg: "RS256" },
+    });
+    const lookup = vi.fn<HasAnyVenueMembership>().mockRejectedValue(new Error("db is down"));
+    app = buildCreateApp(lookup);
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/venues",
+      headers: { authorization: "Bearer valid-token" },
+    });
+
+    // The specific code matters less than the guarantee: a lookup failure must
+    // NOT reach the handler. Coercing a rejection to `false` would turn a
+    // database outage into open venue minting for every authenticated identity.
+    expect(response.statusCode).not.toBe(200);
+    expect(response.statusCode).toBeGreaterThanOrEqual(500);
+  });
+
+  it("reads sub from the verified JWT only, ignoring client-supplied identifiers", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: operatorPayload,
+      protectedHeader: { alg: "RS256" },
+    });
+    const lookup = vi.fn<HasAnyVenueMembership>().mockResolvedValue(true);
+    app = buildCreateApp(lookup);
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/venues?sub=auth0|attacker-has-no-venues",
+      headers: {
+        authorization: "Bearer valid-token",
+        "x-user-sub": "auth0|attacker-has-no-venues",
+      },
+      payload: { sub: "auth0|attacker-has-no-venues", userSub: "auth0|attacker-has-no-venues" },
+    });
+
+    // Forged identifiers in body, query and headers must not change who is
+    // looked up, and must not flip the outcome.
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A");
+    expect(response.statusCode).toBe(403);
   });
 });
