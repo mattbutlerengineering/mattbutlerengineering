@@ -19,7 +19,8 @@ const meta: Meta<typeof ChatPanel> = {
     standalone: { control: "boolean" },
   },
   args: {
-    api: "/api/gen/agent",
+    // Not a real route — Storybook never calls it (only fires on user "send").
+    api: "storybook-mock-agent-endpoint",
     domainContext,
     getAccessToken: () => "storybook-demo-token",
   },
