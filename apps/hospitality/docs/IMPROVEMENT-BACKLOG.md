@@ -18,6 +18,7 @@
 - [x] **#6** Guest edit flow — edit mode in GuestDetailDrawer with name/email/phone/notes editing
 - [x] **#12** Unsaved changes warning — beforeunload + useBlocker + ConfirmDialog on FloorPlanEditorPage
 - [x] All hardcoded CSS colors replaced with Rialto tokens (all pages + all components)
+- [x] **#10** Keyboard accessibility for Timeline grid — arrow-key navigation + focus tracking (#4402), Enter/Space activation (#4408), visible focus ring (#4444), keyboard-only E2E coverage (#4453)
 
 ---
 
@@ -267,6 +268,6 @@ Phase 3 (UX polish):
 
 Phase 4 (Advanced):
   #3 Cross-page data consistency (4 hr)
-  #10 Keyboard accessibility (3 hr)
+  #10 Keyboard accessibility (3 hr) — done
   #12 Unsaved changes warning (1 hr)
 ```

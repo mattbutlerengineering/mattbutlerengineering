@@ -4147,6 +4147,12 @@
           "required": false
         },
         {
+          "name": "classifyOverlap",
+          "type": "((a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind) | undefined",
+          "required": false,
+          "description": "Decide whether two reservations whose visible spans overlap in one room are\na `\"conflict\"` (double-booking, drawn in the error family) or `\"shared\"`\n(legitimate co-occupancy, stacked without alarm). Called once per\noverlapping pair, earlier start first. Default: every overlap is a\n`\"conflict\"`. Keep the reference stable (module scope or `useCallback`) —\na new function each render recomputes the layout and re-renders every row."
+        },
+        {
           "name": "selectedReservationId",
           "type": "string | null | undefined",
           "required": false
@@ -4217,6 +4223,12 @@
     },
     {
       "name": "TapeChartMovePayload",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "TapeChartOverlapKind",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []

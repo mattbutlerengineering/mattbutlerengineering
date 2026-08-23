@@ -99,6 +99,97 @@ describe("useTapeChartLayout", () => {
     const lanes = bars.map((b) => b.lane).sort();
     expect(lanes).toEqual([0, 1]);
     expect(result.current.maxLanes).toBeGreaterThanOrEqual(2);
+    expect(result.current.laneCountByRoom.get("r1")).toBe(2);
+    expect(result.current.laneCountByRoom.get("r2")).toBe(1);
+  });
+
+  it("does not mutate its inputs and returns fresh bar objects", () => {
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-24" }),
+      buildReservation({ id: "b", start: "2026-04-22", end: "2026-04-26" }),
+    ];
+    const snapshot = structuredClone(reservations);
+    const { result } = renderHook(() =>
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+    );
+    expect(reservations).toEqual(snapshot);
+    const bars = result.current.barsByRoom.get("r1")!;
+    expect(bars).toHaveLength(2);
+    // The consumer's reservation object is referenced by identity, never copied…
+    expect(bars[0]!.reservation).toBe(reservations[0]);
+    // …but the bar itself is a fresh object, not any input.
+    for (const bar of bars) {
+      expect(reservations).not.toContain(bar);
+    }
+  });
+
+  it("marks every overlapping bar as a conflict by default", () => {
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-24" }),
+      buildReservation({ id: "b", start: "2026-04-22", end: "2026-04-26" }),
+      buildReservation({ id: "c", start: "2026-04-26", end: "2026-04-27" }),
+    ];
+    const { result } = renderHook(() =>
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27")
+    );
+    const byId = new Map(result.current.barsByRoom.get("r1")!.map((b) => [b.reservation.id, b]));
+    expect(byId.get("a")!.overlap).toBe("conflict");
+    expect(byId.get("b")!.overlap).toBe("conflict");
+    expect(byId.get("c")!.overlap).toBeUndefined();
+  });
+
+  it("invokes classifyOverlap once per overlapping pair, earlier start first", () => {
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-24" }),
+      buildReservation({ id: "b", start: "2026-04-22", end: "2026-04-26" }),
+      buildReservation({ id: "c", start: "2026-04-26", end: "2026-04-27" }),
+    ];
+    const classify = vi.fn(() => "shared" as const);
+    const { result } = renderHook(() =>
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27", classify)
+    );
+    expect(classify).toHaveBeenCalledTimes(1);
+    expect(classify).toHaveBeenCalledWith(reservations[0], reservations[1]);
+    const byId = new Map(result.current.barsByRoom.get("r1")!.map((b) => [b.reservation.id, b]));
+    expect(byId.get("a")!.overlap).toBe("shared");
+    expect(byId.get("b")!.overlap).toBe("shared");
+    expect(byId.get("c")!.overlap).toBeUndefined();
+  });
+
+  it("folds a mixed 3-deep stack worst-wins per bar", () => {
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-25" }),
+      buildReservation({ id: "b", start: "2026-04-21", end: "2026-04-24" }),
+      buildReservation({ id: "c", start: "2026-04-22", end: "2026-04-26" }),
+    ];
+    const classify = vi.fn((x: TapeChartReservation, y: TapeChartReservation) =>
+      x.id === "a" && y.id === "b" ? ("conflict" as const) : ("shared" as const)
+    );
+    const { result } = renderHook(() =>
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27", classify)
+    );
+    const byId = new Map(result.current.barsByRoom.get("r1")!.map((b) => [b.reservation.id, b]));
+    expect(byId.get("a")!.overlap).toBe("conflict");
+    expect(byId.get("b")!.overlap).toBe("conflict");
+    expect(byId.get("c")!.overlap).toBe("shared");
+    expect(result.current.laneCountByRoom.get("r1")).toBe(3);
+    expect(classify).toHaveBeenCalledTimes(3);
+  });
+
+  it("never passes cancelled or no-show reservations to classifyOverlap", () => {
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-24" }),
+      buildReservation({ id: "x", start: "2026-04-20", end: "2026-04-24", status: "cancelled" }),
+      buildReservation({ id: "y", start: "2026-04-20", end: "2026-04-24", status: "noShow" }),
+    ];
+    const classify = vi.fn(() => "conflict" as const);
+    const { result } = renderHook(() =>
+      useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27", classify)
+    );
+    expect(classify).not.toHaveBeenCalled();
+    const bars = result.current.barsByRoom.get("r1")!;
+    expect(bars).toHaveLength(1);
+    expect(bars[0]!.overlap).toBeUndefined();
   });
 
   it("computes daily counts for arrivals, departures, and in-house", () => {
@@ -205,6 +296,88 @@ describe("<TapeChart /> rendering", () => {
     await user.click(bar!);
     expect(onClick).toHaveBeenCalled();
     expect(onClick.mock.calls[0]![0]!.guestName).toBe("Jane Doe");
+  });
+
+  const OVERLAPPING = {
+    rooms: ROOMS,
+    startDate: "2026-04-20",
+    endDate: "2026-04-27",
+    reservations: [
+      buildReservation({
+        id: "a",
+        start: "2026-04-20",
+        end: "2026-04-24",
+        guestName: "Ines Duarte",
+      }),
+      buildReservation({
+        id: "b",
+        start: "2026-04-22",
+        end: "2026-04-26",
+        guestName: "Kofi Mensah",
+      }),
+      buildReservation({
+        id: "c",
+        roomId: "r2",
+        start: "2026-04-21",
+        end: "2026-04-23",
+        guestName: "Leila Haddad",
+      }),
+    ],
+  };
+
+  it("renders overlapping bars in distinct lanes with a conflict marker by default", () => {
+    render(<TapeChart {...OVERLAPPING} />);
+    const a = screen.getByRole("button", { name: /Ines Duarte/ });
+    const b = screen.getByRole("button", { name: /Kofi Mensah/ });
+    const c = screen.getByRole("button", { name: /Leila Haddad/ });
+
+    expect(a).toHaveAttribute("data-lane", "0");
+    expect(b).toHaveAttribute("data-lane", "1");
+    expect(b.getAttribute("style")).toMatch(/--tapechart-bar-lane:\s*1\b/);
+    expect(a).toHaveAttribute("data-overlap", "conflict");
+    expect(b).toHaveAttribute("data-overlap", "conflict");
+    expect(c).not.toHaveAttribute("data-overlap");
+    expect(c).toHaveAttribute("data-lane", "0");
+
+    const row101 = screen.getByRole("row", { name: "101" });
+    expect(row101).toHaveAttribute("data-lane-count", "2");
+    expect(row101.getAttribute("style")).toMatch(/--tapechart-lane-count:\s*2\b/);
+    expect(screen.getByRole("row", { name: "102" })).toHaveAttribute("data-lane-count", "1");
+
+    expect(a.getAttribute("aria-label")).toContain("Double-booked");
+    expect(a.querySelector(".overlapGlyph")).not.toBeNull();
+    expect(c.querySelector(".overlapGlyph")).toBeNull();
+  });
+
+  it("stacks shared overlaps without the conflict marker", () => {
+    render(<TapeChart {...OVERLAPPING} classifyOverlap={() => "shared"} />);
+    const a = screen.getByRole("button", { name: /Ines Duarte/ });
+    const b = screen.getByRole("button", { name: /Kofi Mensah/ });
+    expect(a).toHaveAttribute("data-overlap", "shared");
+    expect(b).toHaveAttribute("data-overlap", "shared");
+    expect(a.getAttribute("aria-label")).toContain("Shared occupancy");
+    expect(a).toHaveAttribute("data-lane", "0");
+    expect(b).toHaveAttribute("data-lane", "1");
+    const region = screen.getByRole("region", { name: /reservations tape chart/i });
+    expect(region.querySelector(".overlapGlyph")).toBeNull();
+  });
+
+  it("calls onReservationClick with each overlapping bar's own reservation", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(<TapeChart {...OVERLAPPING} onReservationClick={onClick} />);
+    await user.click(screen.getByRole("button", { name: /Ines Duarte/ }));
+    expect(onClick.mock.lastCall![0]!.id).toBe("a");
+    await user.click(screen.getByRole("button", { name: /Kofi Mensah/ }));
+    expect(onClick.mock.lastCall![0]!.id).toBe("b");
+  });
+
+  it("renders a non-overlapping room at one lane with no overlap attribute", () => {
+    render(<TapeChart {...BASE} />);
+    const bar = screen.getByRole("button", { name: /Jane Doe/ });
+    expect(bar).toHaveAttribute("data-lane", "0");
+    expect(bar).not.toHaveAttribute("data-overlap");
+    expect(screen.getByRole("row", { name: "101" })).toHaveAttribute("data-lane-count", "1");
   });
 
   it("respects custom strings for locale overrides", () => {

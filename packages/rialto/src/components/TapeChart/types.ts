@@ -9,6 +9,8 @@ export type TapeChartDensity = "compact" | "comfortable";
 
 export type TapeChartViewMode = "grid" | "list";
 
+export type TapeChartOverlapKind = "conflict" | "shared";
+
 export interface TapeChartReservation {
   id: string;
   roomId: string;
@@ -47,6 +49,8 @@ export interface TapeChartFormattedParts {
   partySize?: string;
   statusLabel: string;
   roomName: string;
+  /** Label for the bar's overlap kind; undefined when the bar overlaps nothing. */
+  overlapLabel?: string;
 }
 
 export interface TapeChartStrings {
@@ -70,6 +74,8 @@ export interface TapeChartStrings {
   conflictWarning?: string;
   statusLabels?: Partial<Record<TapeChartStatus, string>>;
   roomStatusLabels?: Partial<Record<TapeChartRoomStatus, string>>;
+  /** Spoken after the status in the default aria template. */
+  overlapLabels?: Partial<Record<TapeChartOverlapKind, string>>;
   reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
   nightsLabel?: (count: number) => string;
   partySizeLabel?: (count: number) => string;
@@ -105,6 +111,15 @@ export interface TapeChartProps {
   onReservationClick?: (r: TapeChartReservation) => void;
   onReservationMove?: (payload: TapeChartMovePayload) => void | Promise<void>;
   checkConflict?: (payload: TapeChartMovePayload) => Promise<boolean | string>;
+  /**
+   * Decide whether two reservations whose visible spans overlap in one room are
+   * a `"conflict"` (double-booking, drawn in the error family) or `"shared"`
+   * (legitimate co-occupancy, stacked without alarm). Called once per
+   * overlapping pair, earlier start first. Default: every overlap is a
+   * `"conflict"`. Keep the reference stable (module scope or `useCallback`) —
+   * a new function each render recomputes the layout and re-renders every row.
+   */
+  classifyOverlap?: (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;
   selectedReservationId?: string | null;
   loading?: boolean;
   error?: Error | null;
@@ -131,6 +146,8 @@ export interface TapeChartPositionedBar {
   /** Whether the reservation extends past the visible range on either end. */
   clippedStart: boolean;
   clippedEnd: boolean;
+  /** Worst overlap kind across every pair this bar belongs to; absent when it overlaps nothing. */
+  overlap?: TapeChartOverlapKind;
 }
 
 export interface TapeChartLayout {
@@ -138,7 +155,9 @@ export interface TapeChartLayout {
   barsByRoom: Map<string, TapeChartPositionedBar[]>;
   /** Total visible days (endDate - startDate). */
   dayCount: number;
-  /** Highest lane count across all rooms; drives row height. */
+  /** Lanes in each room (≥ 1); drives that row's height. */
+  laneCountByRoom: Map<string, number>;
+  /** Highest lane count across all rooms. Informational — row height is per room. */
   maxLanes: number;
   /** Per-day counts for the stat pills: arrivals, departures, in-house (as of that date). */
   dailyCounts: Array<{ date: string; arrivals: number; departures: number; inHouse: number }>;

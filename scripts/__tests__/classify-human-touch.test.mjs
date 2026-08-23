@@ -81,9 +81,9 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
   });
 
-  it("does NOT classify lint-fixup when files is present but empty", () => {
+  it("does NOT classify lint-fixup when files is present but empty (classifies ci-rerun instead)", () => {
     const commit = { message: "no-op commit", files: [] };
-    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
   });
 
   it("classifies generated-artifact-regen when every changed file is a generated artifact", () => {
@@ -108,6 +108,31 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).not.toBe("generated-artifact-regen");
   });
 
+  it("classifies ci-rerun when the commit's diff is empty (a rerun trigger)", () => {
+    const commit = { message: "chore: nudge CI", files: [] };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies ci-rerun when the message uses retry language", () => {
+    const commit = { message: "retry flaky CI step" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies ci-rerun when the message uses rerun language", () => {
+    const commit = { message: "rerun the pipeline" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("classifies ci-rerun for hyphenated re-run language", () => {
+    const commit = { message: "re-run CI Gate" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("does NOT classify ci-rerun from unrelated message text with no files given", () => {
+    const commit = { message: "fix the date parsing bug" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
+  });
+
   it("classifies other when no pattern matches on an agent PR", () => {
     const commit = { message: "tidy up variable names", ciConclusion: "success" };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
@@ -126,6 +151,7 @@ describe("classifyHumanTouch: taxonomy branches", () => {
       classifyHumanTouch(agentPr(), { ciConclusion: "failure" }),
       classifyHumanTouch(agentPr(), { reviewCommentsBefore: 1 }),
       classifyHumanTouch(agentPr(), { message: "reduce scope of this PR" }),
+      classifyHumanTouch(agentPr(), { message: "retry the flaky job" }),
       classifyHumanTouch(agentPr(), {}),
     ];
     for (const reason of results) {
@@ -177,6 +203,16 @@ describe("classifyHumanTouch: precedence", () => {
       files: ["packages/rialto-catalog/src/generated-schemas.ts"],
     };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
+  });
+
+  it("prefers ci-failure over ci-rerun when both retry language and a CI failure are present", () => {
+    const commit = { message: "retry flaky step", ciConclusion: "failure" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-failure");
+  });
+
+  it("prefers ci-rerun over review-fix when both signals are present", () => {
+    const commit = { message: "rerun CI", reviewCommentsBefore: 2 };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
   });
 });
 

@@ -471,18 +471,20 @@ See `infrastructure/AUDIT_BYPASS.md` for token generation and WAF rule setup.
 /schedule          # then: "list routines", "update mbe-weekly-improve to ...", etc.
 ```
 
-Or call the `RemoteTrigger` tool directly (`action: list|get|create|update|run`).
-Each routine's prompt is self-contained — the cloud agent starts with **zero context**,
-so any behavior change must be made in the prompt itself.
+Or call the discrete Claude Code Remote MCP trigger tools directly —
+`list_triggers`, `create_trigger`, `update_trigger`, `fire_trigger`,
+`delete_trigger` — rather than a single `RemoteTrigger` tool with an `action`
+parameter. Each routine's prompt is self-contained — the cloud agent starts
+with **zero context**, so any behavior change must be made in the prompt
+itself.
 
 1. Edit `docs/routines/<name>.md` first, in a reviewable PR — it is the
    authoritative copy.
 2. Only after that PR merges, apply the same change to the live trigger.
-   **`RemoteTrigger update` replaces `job_config` wholesale — it does not
-   deep-merge.** Sending a partial payload (e.g. just
-   `job_config.ccr.session_context`) silently deletes everything else in
-   `job_config`, including `job_config.ccr.events` (the prompt). Always `get`
-   the trigger, edit the full `job_config` object you got back, `update` with
-   that complete object, then `get` again to verify — a `200` response is not
-   confirmation. See [Prompt files](#prompt-files) above for the incident this
-   rule comes from.
+   **`update_trigger` now changes only the fields you pass it** ("Only
+   provided fields are changed; omit a field to leave it as-is," per the
+   tool's own description) — this replaced the old raw `job_config`-clobbering
+   API that caused the incident below. Still `list_triggers` (or re-check
+   after updating) to confirm the change landed as intended — a successful
+   call is not itself confirmation. See [Prompt files](#prompt-files) above
+   for the incident that made this doc paranoid about verifying updates.

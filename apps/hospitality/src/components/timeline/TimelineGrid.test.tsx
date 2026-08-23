@@ -18,6 +18,7 @@ vi.mock("./TimelineGrid.module.css", () => ({
     reservationArea: "reservationArea",
     hourGrid: "hourGrid",
     hourGridLine: "hourGridLine",
+    hourGridLineActive: "hourGridLineActive",
     currentTimeIndicator: "currentTimeIndicator",
     currentTimeDot: "currentTimeDot",
     mobileNavHint: "mobileNavHint",
@@ -477,6 +478,34 @@ describe("TimelineGrid", () => {
       const grid = screen.getByRole("grid");
       // Should not throw
       fireEvent.keyDown(grid, { key: "ArrowRight" });
+    });
+  });
+
+  describe("active cell focus ring", () => {
+    it("marks the initial cell (0, 0) as active", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      const cell = screen.getByTestId("grid-cell-0-0");
+      expect(cell.className).toContain("hourGridLineActive");
+    });
+
+    it("moves the focus ring right on ArrowRight", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      const grid = screen.getByRole("grid");
+
+      fireEvent.keyDown(grid, { key: "ArrowRight" });
+
+      expect(screen.getByTestId("grid-cell-0-1").className).toContain("hourGridLineActive");
+      expect(screen.getByTestId("grid-cell-0-0").className).not.toContain("hourGridLineActive");
+    });
+
+    it("moves the focus ring down to the next table row on ArrowDown", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      const grid = screen.getByRole("grid");
+
+      fireEvent.keyDown(grid, { key: "ArrowDown" });
+
+      expect(screen.getByTestId("grid-cell-1-0").className).toContain("hourGridLineActive");
+      expect(screen.getByTestId("grid-cell-0-0").className).not.toContain("hourGridLineActive");
     });
   });
 

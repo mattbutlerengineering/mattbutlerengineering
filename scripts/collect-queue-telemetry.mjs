@@ -53,6 +53,8 @@ export const HUMAN_TOUCH_REASONS = Object.freeze([
   "ci-failure",
   "merge-conflict",
   "lint-fixup",
+  "generated-artifact-regen",
+  "ci-rerun",
   "scope-change",
   "other",
 ]);
