@@ -60,7 +60,14 @@ function packRoom(
     for (let j = i + 1; j < sorted.length; j++) {
       const b = sorted[j]!;
       if (b.startOffset >= aEnd) break;
-      const kind = classify(a.reservation, b.reservation);
+      // `startOffset` is clamped to the visible window, so two reservations that both
+      // start before it can tie (and fall through to the span tiebreak) even though
+      // their real `start` dates differ. Order classify() args by real start so the
+      // documented "earlier start first" contract holds for window-clipped pairs too.
+      const kind =
+        a.reservation.start <= b.reservation.start
+          ? classify(a.reservation, b.reservation)
+          : classify(b.reservation, a.reservation);
       kinds[i] = worstOf(kinds[i], kind);
       kinds[j] = worstOf(kinds[j], kind);
     }
