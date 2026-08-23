@@ -617,7 +617,14 @@ describe("venueService", () => {
     it("admits a non-admin whose membership count is still zero at commit time", async () => {
       const created = makePrismaVenue();
       const venueCreate = vi.fn().mockResolvedValue(created);
-      const membershipCreate = vi.fn().mockResolvedValue({});
+      const membershipCreate = vi.fn().mockResolvedValue({
+        id: "vm-seeded",
+        userSub: "auth0|owner",
+        venueId: "venue-1",
+        role: "owner",
+        createdAt: NOW,
+        updatedAt: NOW,
+      });
       const membershipCount = vi.fn().mockResolvedValue(0);
       vi.mocked(prisma.$transaction).mockImplementationOnce((async (
         fn: (tx: TxLike) => Promise<unknown>
@@ -646,7 +653,17 @@ describe("venueService", () => {
       ) =>
         fn({
           venue: { create: vi.fn().mockResolvedValue(created) },
-          venueMembership: { create: vi.fn().mockResolvedValue({}), count: membershipCount },
+          venueMembership: {
+            create: vi.fn().mockResolvedValue({
+              id: "vm-seeded",
+              userSub: "auth0|owner",
+              venueId: "venue-1",
+              role: "owner",
+              createdAt: NOW,
+              updatedAt: NOW,
+            }),
+            count: membershipCount,
+          },
         })) as never);
 
       await venueService.create(
@@ -669,7 +686,14 @@ describe("venueService", () => {
         fn({
           venue: { create: vi.fn().mockResolvedValue(created) },
           venueMembership: {
-            create: vi.fn().mockResolvedValue({}),
+            create: vi.fn().mockResolvedValue({
+              id: "vm-seeded",
+              userSub: "auth0|owner",
+              venueId: "venue-1",
+              role: "owner",
+              createdAt: NOW,
+              updatedAt: NOW,
+            }),
             count: vi.fn().mockResolvedValue(0),
           },
         })) as never);
