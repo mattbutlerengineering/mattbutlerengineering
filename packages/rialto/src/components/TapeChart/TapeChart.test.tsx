@@ -156,6 +156,20 @@ describe("useTapeChartLayout", () => {
     expect(byId.get("c")!.overlap).toBeUndefined();
   });
 
+  it("orders classify() args by real start when both reservations clip to the window edge", () => {
+    // Both reservations clip to startOffset 0 at "2026-04-20", so the comparator's
+    // secondary sort (span) would otherwise put the shorter-spanning "b" (real start
+    // 2026-04-15) ahead of "a" (real start 2026-04-10) in the sorted-array order.
+    const reservations = [
+      buildReservation({ id: "a", start: "2026-04-10", end: "2026-04-25" }),
+      buildReservation({ id: "b", start: "2026-04-15", end: "2026-04-22" }),
+    ];
+    const classify = vi.fn(() => "shared" as const);
+    renderHook(() => useTapeChartLayout(reservations, ROOMS, "2026-04-20", "2026-04-27", classify));
+    expect(classify).toHaveBeenCalledTimes(1);
+    expect(classify).toHaveBeenCalledWith(reservations[0], reservations[1]);
+  });
+
   it("folds a mixed 3-deep stack worst-wins per bar", () => {
     const reservations = [
       buildReservation({ id: "a", start: "2026-04-20", end: "2026-04-25" }),
