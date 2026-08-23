@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/index.js";
-import { createVenueMembershipLookup } from "./venue-membership.js";
+import { createHasAnyVenueMembership, createVenueMembershipLookup } from "./venue-membership.js";
 
 function makeFakePrismaClient(count: number) {
   return {
@@ -56,5 +56,47 @@ describe("createVenueMembershipLookup", () => {
     expect(client.venueMembership.count).toHaveBeenCalledWith({
       where: { userSub: "auth0|user-1", venueId: "venue-1" },
     });
+  });
+});
+
+describe("createHasAnyVenueMembership", () => {
+  it("resolves false when the userSub holds no membership row at all (the bootstrap case)", async () => {
+    const client = makeFakePrismaClient(0);
+    const hasAny = createHasAnyVenueMembership(client);
+
+    expect(await hasAny("auth0|brand-new-user")).toBe(false);
+  });
+
+  it("resolves true when the userSub holds a membership for ANY venue", async () => {
+    const client = makeFakePrismaClient(1);
+    const hasAny = createHasAnyVenueMembership(client);
+
+    expect(await hasAny("auth0|established-operator")).toBe(true);
+  });
+
+  it("scopes the query to userSub only — never to a venueId", async () => {
+    // The whole point of this lookup is "any venue". A venueId leaking into the
+    // where-clause would make an established operator look like a brand-new
+    // user for every venue they are not a member of, re-opening the gate.
+    const client = makeFakePrismaClient(1);
+    const hasAny = createHasAnyVenueMembership(client);
+
+    await hasAny("auth0|user-1");
+
+    expect(client.venueMembership.count).toHaveBeenCalledTimes(1);
+    expect(client.venueMembership.count).toHaveBeenCalledWith({
+      where: { userSub: "auth0|user-1" },
+    });
+  });
+
+  it("propagates a query rejection instead of resolving false", async () => {
+    // Fail-closed: resolving false here would mean a database outage grants
+    // every authenticated identity permission to create a venue.
+    const client = {
+      venueMembership: { count: vi.fn().mockRejectedValue(new Error("db is down")) },
+    } as unknown as PrismaClient;
+    const hasAny = createHasAnyVenueMembership(client);
+
+    await expect(hasAny("auth0|user-1")).rejects.toThrow("db is down");
   });
 });
