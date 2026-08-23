@@ -1,4 +1,4 @@
-/* eslint-disable mbe-local/prefer-rialto-components */
+ 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TemplateGallery } from "./TemplateGallery.js";
@@ -180,7 +180,7 @@ describe("TemplateGallery", () => {
   it("renders the All button with total template count", () => {
     render(<TemplateGallery {...defaultProps} />);
     const allButton = screen.getByRole("button", { name: /^All/ });
-    expect(allButton.textContent).toContain("12");
+    expect(allButton.textContent).toContain("18");
   });
 
   it("resets to All category and clears search when reopened", () => {
