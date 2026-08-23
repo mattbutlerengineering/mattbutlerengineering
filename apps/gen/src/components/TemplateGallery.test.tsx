@@ -179,7 +179,7 @@ describe("TemplateGallery", () => {
   it("renders the All button with total template count", () => {
     render(<TemplateGallery {...defaultProps} />);
     const allButton = screen.getByRole("button", { name: /^All/ });
-    expect(allButton.textContent).toContain("18");
+    expect(allButton.textContent).toContain("24");
   });
 
   it("resets to All category and clears search when reopened", () => {
