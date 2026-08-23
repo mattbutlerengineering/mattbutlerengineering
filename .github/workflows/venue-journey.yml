@@ -65,6 +65,13 @@ jobs:
           # ROPC-capable client that mints the token. Existing secret; the
           # journey falls back to E2E_AUTH0_CLIENT_ID when this is empty.
           JOURNEY_OIDC_CLIENT_ID: ${{ secrets.AUTH0_HOSPITALITY_CLIENT_ID }}
+          # A SEPARATE, deliberately non-admin account for the first-venue
+          # bootstrap case (ADR-020's third case). journey-api.ts refuses to
+          # fall back to E2E_AUTH_EMAIL/PASSWORD: an admin takes
+          # requireVenueCreateAccess's skip-the-lookup branch, so the case
+          # would pass while exercising none of the behaviour it exists for.
+          E2E_NONADMIN_AUTH_EMAIL: ${{ secrets.E2E_NONADMIN_AUTH_EMAIL }}
+          E2E_NONADMIN_AUTH_PASSWORD: ${{ secrets.E2E_NONADMIN_AUTH_PASSWORD }}
 
       # Report JSON + failure screenshots. Uploaded before the issue-filing step
       # so the artifact link in the issue body always resolves.

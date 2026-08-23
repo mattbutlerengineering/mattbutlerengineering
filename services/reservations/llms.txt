@@ -289,7 +289,10 @@
   </file>
   <file path="src/routes/venues.ts">
     <item priority="high">
-      export const venueRoutes: FastifyPluginAsync;
+      export const VENUE_CREATE_RATE_LIMIT: unknown;
+    </item>
+    <item priority="medium">
+      function isWriteConflict(error: unknown): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/routes/waitlist.ts">
@@ -873,6 +876,9 @@
   <file path="src/services/venue-membership.ts">
     <item priority="high">
       export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership { /* ... */ }
     </item>
   </file>
   <file path="src/services/venue.ts">

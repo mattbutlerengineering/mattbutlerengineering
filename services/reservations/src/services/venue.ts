@@ -133,6 +133,19 @@ function mapPrismaVenue(venue: {
   };
 }
 
+/**
+ * Thrown when a non-admin attempts to create a venue while already holding a
+ * venue membership. Raised INSIDE the creation transaction, so it also covers
+ * the case where the membership appeared after the preHandler guard admitted
+ * the request. Routes map it to 403.
+ */
+export class VenueBootstrapForbiddenError extends Error {
+  constructor(userSub: string) {
+    super(`User ${userSub} already holds a venue membership and cannot bootstrap another venue`);
+    this.name = "VenueBootstrapForbiddenError";
+  }
+}
+
 export const venueGroupService = {
   async list(page: number, limit: number): Promise<PaginatedResponse<VenueGroup>> {
     const [groups, total] = await Promise.all([
@@ -382,7 +395,19 @@ export const venueService = {
    * both writes share one transaction so a venue never persists without its
    * owner grant.
    */
-  async create(data: CreateVenueRequest, ownerSub?: string): Promise<Venue> {
+  /**
+   * Creates a venue, optionally seeding `ownerSub` as its owner.
+   *
+   * When an `ownerSub` is supplied, `opts.isAdmin` decides whether the
+   * first-venue bootstrap invariant applies (ADR-020, third case). It defaults
+   * to `false` — the fail-CLOSED direction — so a caller that forgets to pass
+   * it gets the invariant enforced rather than silently skipped.
+   */
+  async create(
+    data: CreateVenueRequest,
+    ownerSub?: string,
+    opts: { isAdmin?: boolean } = {}
+  ): Promise<Venue> {
     const venueData = {
       venueGroupId: data.venueGroupId,
       name: data.name,
@@ -401,16 +426,30 @@ export const venueService = {
       return mapPrismaVenue(venue);
     }
 
-    const venue = await prisma.$transaction(async (tx) => {
-      const created = await tx.venue.create({
-        data: venueData,
-        include: { venueGroup: true },
-      });
-      await tx.venueMembership.create({
-        data: { userSub: ownerSub, venueId: created.id, role: "owner" },
-      });
-      return created;
-    });
+    const venue = await prisma.$transaction(
+      async (tx) => {
+        // The preHandler guard reads membership OUTSIDE this transaction, so
+        // two concurrent bootstraps can both pass it. This re-check is the
+        // authority; Serializable isolation below closes the remaining window
+        // that READ COMMITTED would leave open.
+        if (!opts.isAdmin) {
+          const existing = await tx.venueMembership.count({ where: { userSub: ownerSub } });
+          if (existing > 0) {
+            throw new VenueBootstrapForbiddenError(ownerSub);
+          }
+        }
+
+        const created = await tx.venue.create({
+          data: venueData,
+          include: { venueGroup: true },
+        });
+        await tx.venueMembership.create({
+          data: { userSub: ownerSub, venueId: created.id, role: "owner" },
+        });
+        return created;
+      },
+      { isolationLevel: "Serializable" }
+    );
     return mapPrismaVenue(venue);
   },
 

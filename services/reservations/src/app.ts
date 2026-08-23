@@ -48,8 +48,11 @@ import { createReservationJobHandlers, createReservationJobWorker } from "./serv
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
 import { prisma } from "./services/database.js";
-import { createVenueMembershipLookup } from "./services/venue-membership.js";
-import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import {
+  createHasAnyVenueMembership,
+  createVenueMembershipLookup,
+} from "./services/venue-membership.js";
+import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
 import { getStripeConfig } from "./config/stripe.js";
 import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
@@ -61,6 +64,7 @@ export interface ReservationsAppOptions extends AppOptions {
   reservationEvents?: ReservationEventEmitter;
   waitlistNotifier?: WaitlistNotifier;
   venueMembershipLookup?: VenueMembershipLookup;
+  hasAnyVenueMembership?: HasAnyVenueMembership;
   /**
    * Domain-service overrides (issue #3357). Defaults to the production Prisma-backed
    * singletons ({@link defaultDomainServices}); tests inject fakes here instead of
@@ -139,6 +143,15 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const venueMembershipLookup =
     options.venueMembershipLookup ?? createVenueMembershipLookup(prisma);
   fastify.decorate("venueMembershipLookup", venueMembershipLookup);
+
+  // Wire the "holds any venue membership" lookup (ADR-020, third case) —
+  // injectable for testing, Prisma-backed for production.
+  // requireVenueCreateAccess consults it to recognise the first-venue
+  // bootstrap. Decorated before route registration so child route plugins
+  // inherit it.
+  const hasAnyVenueMembership =
+    options.hasAnyVenueMembership ?? createHasAnyVenueMembership(prisma);
+  fastify.decorate("hasAnyVenueMembership", hasAnyVenueMembership);
 
   // Wire the domain-service seam (issue #3357) — resolve the injectable services
   // once (production singletons by default, test fakes via options.services) and
@@ -238,6 +251,7 @@ declare module "fastify" {
     postVisitNotifier: PostVisitNotifier;
     reservationEvents: ReservationEventEmitter;
     venueMembershipLookup: VenueMembershipLookup;
+    hasAnyVenueMembership: HasAnyVenueMembership;
     /** Resolved domain-service seam (issue #3357) — see {@link DomainServices}. */
     services: DomainServices;
   }
