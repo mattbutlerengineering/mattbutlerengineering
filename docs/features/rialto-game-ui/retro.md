@@ -30,11 +30,19 @@ to be breaking the showcase's typography in production right now.
      `connect-src` until PR #4315 deployed on 2026-08-17 — every envelope from
      every app would have been refused by the browser anyway.
 
-  There is also no analytics, no beacon, and no server-side route counter. The
-  Cloudflare Insights beacon that _is_ injected fails to load
-  (`static.cloudflareinsights.com/beacon.min.js` → `ERR_CONNECTION_REFUSED`).
-  So "no errors in 28 hours" is not evidence of health — it is the sound of a
-  disconnected microphone.
+  There is also no first-party usage instrumentation and no server-side route
+  counter. **Corrected 2026-08-21 (maintenance:e2e-behind-edge-csp):** the
+  edge-injected Cloudflare Insights beacon does _not_ fail to load. The
+  `ERR_CONNECTION_REFUSED` recorded here was a LAN-level DNS sinkhole on the
+  probing machine — `dig +short static.cloudflareinsights.com` returns
+  `0.0.0.0` through the LAN resolver `192.168.4.40` but `104.16.80.73` /
+  `104.16.79.73` through `@1.1.1.1`, and
+  `curl --resolve static.cloudflareinsights.com:443:104.16.80.73` returns HTTP
+  200 with real JavaScript. The injected tag is correctly nonced and CSP does
+  not block it. Whether events reach the Cloudflare Web Analytics dashboard
+  was not verified — that needs dashboard access. So "no errors in 28 hours"
+  is still not evidence of health — it is the sound of a disconnected
+  microphone.
 
 - Signal strength: **none**. `idea.md` named this exact risk ("No validation
   loop") and the run shipped anyway without closing it.
@@ -159,9 +167,11 @@ most valuable thing Operate produced.
   #3547: a real finding absorbed by a document nobody re-reads.
 - **Change — verify the shipped surface, not just the shipped code.** Verify
   and Review both passed against a local build. Fifteen minutes of probing
-  the _deployed_ page found a CSP violation, a dead analytics beacon, and zero
-  loaded web fonts — none of which any local gate can see, all of which affect
-  every visitor. A live probe belongs in Ship's post-release step, not in
+  the _deployed_ page found a CSP violation and zero loaded web fonts — neither
+  of which any local gate can see, both of which affect every visitor. (A third
+  apparent finding, a dead analytics beacon, proved on 2026-08-21 to be a LAN
+  DNS artifact on the probing machine, not a production fault — see the
+  correction above.) A live probe belongs in Ship's post-release step, not in
   Operate as an accident.
 - **Stop — treating a demo route in an uninstrumented app as shipped.**
   `idea.md` named "Dies as a demo" as a top risk and the run proceeded to ship
@@ -180,7 +190,8 @@ produced and do not duplicate them.
   loads zero web fonts and falls back to `system-ui`
 - Close the tracker loop: a run must comment on its origin issue, and deferred
   findings must become issues before the run completes
-- Fix or remove the failing Cloudflare Insights beacon
+- Fix or remove the Cloudflare Insights beacon — **withdrawn 2026-08-21:** not a
+  defect; the observed failure was a LAN DNS sinkhole on the probing machine
 - Extend post-deploy smoke to the routes features actually ship — it hits
   `/rialto` but not `/rialto/demos/*`
 - Give a human-verdict acceptance criterion an owner, a notification, and a
