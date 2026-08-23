@@ -63,6 +63,73 @@ describe("backfillHumanTouchReasons — classification", () => {
   });
 });
 
+// ── Re-classify "other" entries (part 4/5, #4394) ───────
+
+describe("backfillHumanTouchReasons — re-classifying 'other' rows", () => {
+  it("rewrites an 'other' row to a specific reason when re-classification finds one", () => {
+    const fetchPrDetails = vi
+      .fn()
+      .mockReturnValue(agentPrDetails({ message: "fix merge conflicts after rebase" }));
+    const row = makeRow({ human_touch_reason: "other" });
+    const { rows, classified, skipped, calls } = backfillHumanTouchReasons([row], {
+      fetchPrDetails,
+    });
+
+    expect(fetchPrDetails).toHaveBeenCalledTimes(1);
+    expect(rows[0].human_touch_reason).toBe("merge-conflict");
+    expect(classified).toBe(1);
+    expect(skipped).toBe(0);
+    expect(calls).toBe(1);
+  });
+
+  it("leaves an 'other' row as 'other' when re-classification still finds no specific reason", () => {
+    const fetchPrDetails = vi.fn().mockReturnValue(agentPrDetails());
+    const row = makeRow({ human_touch_reason: "other" });
+    const { rows, classified, skipped } = backfillHumanTouchReasons([row], { fetchPrDetails });
+
+    expect(fetchPrDetails).toHaveBeenCalledTimes(1);
+    expect(rows[0].human_touch_reason).toBe("other");
+    expect(classified).toBe(0);
+    expect(skipped).toBe(1);
+  });
+
+  it("never rewrites a specific reason back to 'other' or any other value", () => {
+    const fetchPrDetails = vi.fn();
+    const row = makeRow({ human_touch_reason: "review-fix" });
+    const { rows, calls } = backfillHumanTouchReasons([row], { fetchPrDetails });
+
+    expect(fetchPrDetails).not.toHaveBeenCalled();
+    expect(rows[0].human_touch_reason).toBe("review-fix");
+    expect(calls).toBe(0);
+  });
+
+  it("re-classification is idempotent: a second run over its own output makes no further change", () => {
+    const fetchPrDetails = vi
+      .fn()
+      .mockReturnValue(agentPrDetails({ message: "fix merge conflicts after rebase" }));
+    const row = makeRow({ human_touch_reason: "other" });
+    const first = backfillHumanTouchReasons([row], { fetchPrDetails });
+    expect(first.rows[0].human_touch_reason).toBe("merge-conflict");
+
+    fetchPrDetails.mockClear();
+    const second = backfillHumanTouchReasons(first.rows, { fetchPrDetails });
+
+    expect(fetchPrDetails).not.toHaveBeenCalled();
+    expect(second.classified).toBe(0);
+    expect(second.rows).toEqual(first.rows);
+  });
+
+  it("re-running over an 'other' row that stays 'other' is idempotent (no diff, even though re-fetched)", () => {
+    const fetchPrDetails = vi.fn().mockReturnValue(agentPrDetails());
+    const row = makeRow({ human_touch_reason: "other" });
+    const first = backfillHumanTouchReasons([row], { fetchPrDetails });
+
+    const second = backfillHumanTouchReasons(first.rows, { fetchPrDetails });
+
+    expect(second.rows).toEqual(first.rows);
+  });
+});
+
 // ── Idempotency ──────────────────────────────────────────
 
 describe("backfillHumanTouchReasons — idempotency", () => {

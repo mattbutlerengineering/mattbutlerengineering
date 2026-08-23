@@ -1,12 +1,23 @@
 #!/usr/bin/env node
 /**
- * backfill-human-touch-reasons.mjs — one-shot, best-effort backfill of
- * `human_touch_reason` onto existing `metrics/queue-telemetry.jsonl` rows.
+ * backfill-human-touch-reasons.mjs — best-effort backfill of
+ * `human_touch_reason` onto existing `metrics/queue-telemetry.jsonl` rows,
+ * and re-classification of rows still stuck on the catch-all `"other"`.
  *
- * Part 3 of 4 for the human-touch-reason-telemetry chain (proposal #3805,
- * ideation batch #3806). Part 1 (#3843) shipped the taxonomy, part 2 (#3844)
- * shipped `classifyHumanTouch()`. This script is the caller that decides
- * *which* rows/commits to feed the classifier and writes the result back.
+ * Part 3 of 4 for the original human-touch-reason-telemetry chain (proposal
+ * #3805, ideation batch #3806). Part 1 (#3843) shipped the taxonomy, part 2
+ * (#3844) shipped `classifyHumanTouch()`. This script is the caller that
+ * decides *which* rows/commits to feed the classifier and writes the result
+ * back.
+ *
+ * Part 4 of 5 for the classifier-widening follow-up (proposal #4324,
+ * #4391-#4393 shipped new categories: lint-fixup, generated-artifact-regen,
+ * ci-rerun). This script now also re-classifies rows that were already
+ * written as `"other"` by an earlier, narrower classifier — the new
+ * categories give some of them a specific reason. A row already carrying a
+ * *specific* (non-`"other"`) reason is never touched; only `undefined` and
+ * `"other"` rows are eligible for (re-)classification, and a re-classify
+ * that lands on `"other"` again leaves the row unchanged.
  *
  * "Human touch" signal: author-identity comparison, same idea as
  * `isAgentPr()`'s sibling `prHasNonAuthorCommit()`, with two corrections
@@ -42,8 +53,12 @@
  * written, existing values are never overwritten. This matches the
  * classifier's own "directional signal, not ground truth" posture.
  *
- * Idempotent: a row that already carries `human_touch_reason` is never
- * re-fetched or rewritten. Re-running is always safe.
+ * Idempotent: a row that already carries a *specific* `human_touch_reason`
+ * is never re-fetched or rewritten. A row stuck on `"other"` is re-fetched
+ * and re-classified each run, but only rewritten when the new result is a
+ * specific reason — reclassifying to `"other"` again is a no-op write, so
+ * re-running never changes an already-settled sink. Re-running is always
+ * safe.
  *
  * Pure core (`backfillHumanTouchReasons`) with dependency injection, matching
  * `reconcile-queue-telemetry.mjs`. GitHub lookups are capped per run
@@ -236,7 +251,10 @@ export function backfillHumanTouchReasons(
   let calls = 0;
 
   const rows = inputRows.map((row) => {
-    if (row.human_touch_reason !== undefined) return { ...row };
+    const current = row.human_touch_reason;
+    // A specific (non-"other") reason is final — never re-fetched, never
+    // rewritten. Only undefined and "other" rows remain eligible.
+    if (current !== undefined && current !== "other") return { ...row };
 
     if (row.merged !== true || row.pr_number == null) {
       skipped += 1;
@@ -250,7 +268,9 @@ export function backfillHumanTouchReasons(
     calls += 1;
 
     const reason = resolveHumanTouchReason(row.pr_number, fetchPrDetails);
-    if (reason === null) {
+    // No new signal (unmatchable), or re-classification still lands on
+    // "other" — nothing to write, leave the row as-is.
+    if (reason === null || reason === current) {
       skipped += 1;
       return { ...row };
     }
