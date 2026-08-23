@@ -38,10 +38,24 @@ on:
     paths:
       - "apps/rialto-web/**"
       - "packages/rialto/src/**"
+      # The CSP suite's policy comes from infrastructure/worker/csp.js, and the
+      # worker is what actually serves this app in production. Without this
+      # path, editing a directive there — the change most likely to break the
+      # app under CSP, and the cause of both the zero-web-fonts outage and the
+      # blocked Sentry envelopes — would not run the guard that exists to
+      # catch it.
+      - "infrastructure/worker/**"
   pull_request:
     paths:
       - "apps/rialto-web/**"
       - "packages/rialto/src/**"
+      # The CSP suite's policy comes from infrastructure/worker/csp.js, and the
+      # worker is what actually serves this app in production. Without this
+      # path, editing a directive there — the change most likely to break the
+      # app under CSP, and the cause of both the zero-web-fonts outage and the
+      # blocked Sentry envelopes — would not run the guard that exists to
+      # catch it.
+      - "infrastructure/worker/**"
 
 permissions:
   contents: read
