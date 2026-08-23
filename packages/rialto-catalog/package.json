@@ -28,8 +28,8 @@
     "size:check": "size-limit"
   },
   "dependencies": {
-    "@json-render/core": "^0.19.0",
-    "@json-render/react": "^0.19.0",
+    "@json-render/core": "^0.20.0",
+    "@json-render/react": "^0.20.0",
     "@mattbutlerengineering/rialto": "workspace:*",
     "zod": "catalog:"
   },
@@ -42,7 +42,7 @@
     "@vitejs/plugin-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "tsx": "^4.23.11",
+    "tsx": "^4.23.12",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
