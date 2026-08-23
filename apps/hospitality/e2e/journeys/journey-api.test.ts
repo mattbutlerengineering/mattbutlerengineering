@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { deleteVenue, sweepSyntheticVenues, SYNTHETIC_VENUE_PREFIX } from "./journey-api.js";
+import {
+  deleteVenue,
+  readTokenPermissions,
+  resolveNonAdminAuthEnv,
+  sweepSyntheticVenues,
+  SYNTHETIC_VENUE_PREFIX,
+} from "./journey-api.js";
 
 // Unit tests for the venue-delete status-surfacing fix (#4152). Run by
 // vitest, not Playwright — same reasoning as journey-recorder.test.ts: the
@@ -161,5 +167,66 @@ describe("sweepSyntheticVenues", () => {
     expect(undeleted).toHaveLength(1);
     expect(undeleted[0]).toContain(venue.name);
     expect(undeleted[0]).toContain("409");
+  });
+});
+
+describe("resolveNonAdminAuthEnv", () => {
+  it("overrides only the credentials, keeping tenant/client/audience shared", () => {
+    const resolved = resolveNonAdminAuthEnv({
+      E2E_AUTH0_DOMAIN: "tenant.us.auth0.com",
+      E2E_AUTH0_CLIENT_ID: "client-1",
+      E2E_AUTH0_AUDIENCE: "https://api.example.com",
+      E2E_AUTH_EMAIL: "admin@example.com",
+      E2E_AUTH_PASSWORD: "admin-secret",
+      E2E_NONADMIN_AUTH_EMAIL: "operator@example.com",
+      E2E_NONADMIN_AUTH_PASSWORD: "operator-secret",
+    });
+
+    expect(resolved["E2E_AUTH_EMAIL"]).toBe("operator@example.com");
+    expect(resolved["E2E_AUTH_PASSWORD"]).toBe("operator-secret");
+    expect(resolved["E2E_AUTH0_DOMAIN"]).toBe("tenant.us.auth0.com");
+    expect(resolved["E2E_AUTH0_CLIENT_ID"]).toBe("client-1");
+  });
+
+  it("throws rather than silently falling back to the ADMIN credentials", () => {
+    // Falling back would run the bootstrap case as an admin, which takes the
+    // guard's skip-the-lookup branch — the journey would pass while proving
+    // nothing about the feature it exists to exercise.
+    expect(() =>
+      resolveNonAdminAuthEnv({
+        E2E_AUTH0_DOMAIN: "tenant.us.auth0.com",
+        E2E_AUTH0_CLIENT_ID: "client-1",
+        E2E_AUTH0_AUDIENCE: "https://api.example.com",
+        E2E_AUTH_EMAIL: "admin@example.com",
+        E2E_AUTH_PASSWORD: "admin-secret",
+      })
+    ).toThrow(/E2E_NONADMIN_AUTH_EMAIL/);
+  });
+
+  it("names every missing variable at once", () => {
+    expect(() =>
+      resolveNonAdminAuthEnv({ E2E_NONADMIN_AUTH_EMAIL: "operator@example.com" })
+    ).toThrow(/E2E_NONADMIN_AUTH_PASSWORD/);
+  });
+});
+
+describe("readTokenPermissions", () => {
+  const encode = (payload: unknown) =>
+    `header.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.signature`;
+
+  it("reads the permissions claim from an access token", () => {
+    expect(readTokenPermissions(encode({ sub: "auth0|x", permissions: ["read:venues"] }))).toEqual([
+      "read:venues",
+    ]);
+  });
+
+  it("returns an empty list when the claim is absent", () => {
+    expect(readTokenPermissions(encode({ sub: "auth0|x" }))).toEqual([]);
+  });
+
+  it("throws on a malformed token rather than reporting no permissions", () => {
+    // Returning [] here would read as "not an admin" and let the journey
+    // assert its identity against a token it never actually parsed.
+    expect(() => readTokenPermissions("not-a-jwt")).toThrow();
   });
 });

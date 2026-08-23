@@ -71,7 +71,7 @@ test that must exist and fail before the implementation is written.
 - [x] **Rate-limit the bootstrap path** — per-identity cap on venue creation, following the existing `rateLimit: { max, timeWindow }` route-option pattern.
   - Accept: a failing-first test proves the configured limit refuses the N+1th creation attempt from one identity. The chosen numbers appear in the route options, not in a helper. See the M3.1 assumption for why this is not deferred.
   - Blocked by: Swap the route's preHandler
-- [ ] **Non-admin journey case that asserts its own identity** — extends the existing journey, reusing its cleanup block unchanged.
+- [x] **Non-admin journey case that asserts its own identity** — extends the existing journey, reusing its cleanup block unchanged.
   - Accept: the spec decodes its access token and **fails the run** if `permissions` contains `admin`, before touching any venue. It is referenced by a coverage check in the same shape as `apps/rialto-web/e2e/workflow-coverage.test.ts`, so it cannot exist un-run. When the required credentials are absent it fails with an explicit message naming them — it never skips silently. Covers PRD _"E2E asserts it lacks admin"_ and _"deletes what it creates"_.
   - Blocked by: In-transaction invariant with `Serializable` isolation
 - [ ] **Amend ADR-020** — record the third case in the hybrid role/membership model.
