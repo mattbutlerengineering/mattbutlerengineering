@@ -104,6 +104,9 @@ export function DarkModeSection() {
               currency="USD"
               density="comfortable"
               viewMode="grid"
+              // Pinned so day-header text renders identically regardless of
+              // the host machine's timezone (#4450).
+              timeZone="UTC"
               onReservationClick={() => {}}
             />
           </div>

@@ -288,6 +288,22 @@ describe("<TapeChart /> rendering", () => {
     expect(screen.getByRole("region", { name: /reservations tape chart/i })).toBeInTheDocument();
   });
 
+  // Guards the "platform provenance" gap from #4450: without an explicit
+  // timeZone, the day header falls back to the host machine's system
+  // timezone, so a baseline captured on a non-UTC machine renders a
+  // different weekday/date than Linux CI. Any consumer that needs
+  // deterministic, screenshot-stable output (like the visual test harness)
+  // must pin timeZone="UTC" — this test fails loudly if that pinned render
+  // ever drifts from the expected UTC date.
+  it("renders a deterministic UTC day header regardless of host timezone", () => {
+    render(<TapeChart {...BASE} startDate="2026-01-15" endDate="2026-01-17" timeZone="UTC" />);
+    const header = screen.getByRole("columnheader", {
+      name: /Thursday, January 15, 2026/i,
+    });
+    expect(header).toHaveTextContent("Thu");
+    expect(header).toHaveTextContent("15");
+  });
+
   it("renders an empty state when no rooms are provided", () => {
     render(<TapeChart {...BASE} rooms={[]} />);
     expect(screen.getByText(/no rooms configured/i)).toBeInTheDocument();

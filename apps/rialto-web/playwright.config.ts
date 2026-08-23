@@ -16,7 +16,16 @@ export default defineConfig({
 
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.01,
+      // Absolute pixel budget, not a ratio (#4450). A ratio scales with
+      // canvas size, so a large sparse section (e.g. tape-chart-stress) buys
+      // the most slack exactly where a whole-row layout change is easiest to
+      // hide — a 45px row-height growth on that section passed under
+      // maxDiffPixelRatio: 0.01 (~8.4k px budget) because most of the diff
+      // washed out against empty background. 300px absorbs the ±1px
+      // anti-aliasing churn from the harness's fixed Dialog/Drawer overlays
+      // while staying far below the pixel count any real layout shift
+      // produces.
+      maxDiffPixels: 300,
     },
   },
 
