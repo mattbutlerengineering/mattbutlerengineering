@@ -878,6 +878,48 @@ describe("Venue Routes", () => {
       });
     });
 
+    describe("POST /v1/venues — rate limiting of the unauthenticated surface", () => {
+      // Measured against the deployed service 2026-08-23: GET /api/v1/venues
+      // answers 401 carrying x-ratelimit-limit: 100 (the global onRequest
+      // limiter from @mbe/service-bootstrap), while POST /api/v1/venues answers
+      // 400 and 401 carrying no rate-limit headers at all. Declaring a
+      // route-level `config.rateLimit` replaces the global limiter for that
+      // route, and this route's runs at `hook: "preHandler"` — after body
+      // validation and after requireAuth — so the anonymous surface of a public
+      // POST lost every bound it used to have. The preHandler limiter is still
+      // correct for the authenticated case (it needs `request.user` to key on
+      // `sub`); it just cannot be the only one.
+      it("bounds an unauthenticated request before it reaches authentication", async () => {
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          payload: {
+            name: "Rate Limit Probe",
+            slug: "rate-limit-probe",
+            ianaTimezone: "America/Los_Angeles",
+            currencyCode: "USD",
+          },
+        });
+
+        expect(response.statusCode).toBe(401);
+        expect(response.headers["x-ratelimit-limit"]).toBeDefined();
+      });
+
+      it("bounds an unauthenticated request whose body fails schema validation", async () => {
+        // Validation runs before every preHandler, so a garbage body is the
+        // cheapest way to reach the service anonymously — it must be bounded by
+        // the same onRequest limiter, not left ungoverned.
+        const response = await app.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          payload: { nope: true },
+        });
+
+        expect(response.statusCode).toBe(400);
+        expect(response.headers["x-ratelimit-limit"]).toBeDefined();
+      });
+    });
+
     describe("POST /v1/venues — first-venue bootstrap (ADR-020 third case)", () => {
       const bootstrapEnv = (originalEnv: NodeJS.ProcessEnv) => ({
         ...originalEnv,

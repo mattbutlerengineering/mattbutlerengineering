@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
 import type {
   Venue,
   VenueGroup,
@@ -54,9 +54,13 @@ const venueIdFromRouteId: VenueIdResolver = (request) => {
  *
  * Keyed by the verified `sub` rather than the IP so a shared egress address
  * (office NAT, mobile carrier) cannot let one abuser lock out everyone behind
- * it. `hook: "preHandler"` is load-bearing: the limiter's default `onRequest`
- * timing runs before authentication, where `request.user` is still undefined
- * and every caller would collapse into one bucket.
+ * it. That is why it cannot be enforced at the limiter's default `onRequest`
+ * timing, which runs before authentication: `request.user` is still undefined
+ * there and every caller would collapse into one bucket.
+ *
+ * It is applied by hand in a preHandler rather than through the route's
+ * `config.rateLimit` — see `enforceVenueCreateLimit` in `venueRoutes` for why
+ * that distinction is load-bearing rather than stylistic.
  */
 export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
 
@@ -72,6 +76,33 @@ function isWriteConflict(error: unknown): boolean {
 }
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+  // Enforced by hand through `createRateLimit` rather than as a second
+  // rate-limit hook, because @fastify/rate-limit runs at most ONE limiter per
+  // request: `rateLimitRequestHandler` sets a `rateLimitRan` flag on the
+  // request and every later limiter short-circuits (index.js:319-327, v11.2.0).
+  // `createRateLimit` bypasses that flag, so this cap composes with the
+  // service-wide one instead of displacing it.
+  const venueCreateLimiter = fastify.createRateLimit({
+    ...VENUE_CREATE_RATE_LIMIT,
+    keyGenerator: (request: FastifyRequest) => request.user?.raw.sub ?? request.ip,
+  });
+
+  const enforceVenueCreateLimit: preHandlerAsyncHookHandler = async (request, reply) => {
+    const limit = await venueCreateLimiter(request);
+    // `isAllowed: true` is the allow-list branch and carries no counters; it is
+    // the discriminant that narrows the rest of the fields into existence.
+    if (limit.isAllowed || !limit.isExceeded) return;
+
+    reply.header("Retry-After", limit.ttlInSeconds);
+    return reply.status(429).send({
+      type: "https://httpproblems.com/http-status/429",
+      title: "Too Many Requests",
+      status: 429,
+      detail: `Rate limit exceeded. Retry after ${limit.ttlInSeconds} seconds.`,
+      retryAfter: limit.ttlInSeconds,
+    });
+  };
+
   fastify.addSchema(publicVenueJsonSchema);
 
   // ============ VENUE GROUP ROUTES ============
@@ -569,14 +600,21 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       // ADR-020 third case: admins as before, PLUS an authenticated identity
       // holding no venue membership at all creating its first venue. Every
       // other venue route keeps requireAdmin / requireVenueAccess unchanged.
-      config: {
-        rateLimit: {
-          ...VENUE_CREATE_RATE_LIMIT,
-          hook: "preHandler" as const,
-          keyGenerator: (request: FastifyRequest) => request.user?.raw.sub ?? request.ip,
-        },
-      },
-      preHandler: [requireAuth, requireVenueCreateAccess(fastify.hasAnyVenueMembership)],
+      // No `config.rateLimit` here, deliberately. Declaring one *replaces* the
+      // service-wide onRequest limiter for this route, and this route's cap has
+      // to key on the verified `sub` — which only exists after requireAuth. The
+      // shipped combination (`config.rateLimit` at `hook: "preHandler"`) left
+      // the whole anonymous surface of a public POST unbounded: schema
+      // validation and requireAuth both answer before that hook runs. Measured
+      // against the deployed service 2026-08-23 — `GET /api/v1/venues` carried
+      // `x-ratelimit-limit: 100`, `POST /api/v1/venues` carried no rate-limit
+      // headers at all. Leaving `config.rateLimit` off restores the service-wide
+      // limiter; the per-identity cap is enforced by the preHandler below.
+      preHandler: [
+        requireAuth,
+        enforceVenueCreateLimit,
+        requireVenueCreateAccess(fastify.hasAnyVenueMembership),
+      ],
       schema: {
         summary: "Create a new venue",
         operationId: "createVenue",
