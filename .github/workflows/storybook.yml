@@ -44,7 +44,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Storybook
-        run: pnpm --filter @mattbutlerengineering/rialto build-storybook
+        run: pnpm turbo build-storybook --filter=@mattbutlerengineering/rialto
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'
