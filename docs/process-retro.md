@@ -193,6 +193,7 @@ successive merges — not defects, and correctly excluded from streak logic.
 | Concurrency-group cancellation                  | 11    | no — by design        | n/a                |
 | `chaos-agent` random pairing misses             | 1     | **yes**               | **no**             |
 | `scheduled-workflow-health` shallow-clone blind | 8     | **yes** (suppression) | **no**             |
+| tier-classifier T4 on prose mentioning secrets  | 1     | **yes**               | **no** — see below |
 
 **The one main failure was not a defect.** Run `32049666426` (08-17 17:17, the
 #4322 merge) shows all fourteen gate inputs `success` — lint, typecheck, build,
@@ -214,7 +215,7 @@ into the pure, unit-tested `isTransientPublishError()` in
 That is a good arc, and it is undocumented. `gotchas.md` § CI covers
 `gate-missing` (#3969) and `gate-unattributed` (#4023) but says nothing about
 the publish step's own transient 5xx, which has now bitten twice in one week.
-Two proposed entries for `/gotcha-harvest`, neither of which exists today:
+Three proposed entries for `/gotcha-harvest`, none of which exists today:
 
 1. **A transient GitHub 5xx on the `CI Gate` status POST reds a fully green
    run** — retry transient classes only, via `isTransientPublishError()`; never
@@ -224,6 +225,48 @@ Two proposed entries for `/gotcha-harvest`, neither of which exists today:
    treating "unparseable ⇒ fail open" still gets a confident wrong answer. Any
    script deriving a per-file timestamp in CI needs `fetch-depth: 0` or an
    explicit `git rev-parse --is-shallow-repository` guard.
+3. **tier-classifier's secrets rule still escalates any _mention_ of a
+   credential** — the fix applied to the adjacent bypass rule was never applied
+   to it. Detail below.
+
+#### This retro's own PR is the fourth instance of a known false-positive class
+
+PR #4501 — the PR carrying this entry, a **markdown-only** change to one file —
+was classified `tier:critical`:
+
+```
+docs/process-retro.md -> T1: markdown only · escalate to T4: title/body mentions secrets or incident
+```
+
+It says "secrets" because the Escalations section below names `TURBO_TOKEN` and
+`NPM_TOKEN`. That is what an Escalations section is _for_.
+
+`.github/workflows/tier-classifier.yml` L159 is still a bare mention match:
+
+```js
+if (/secret|credential|rotate|leak|incident/i.test(title + ' ' + bodyProse)) {
+```
+
+Four lines below it, the **bypass** rule got exactly the fix this one needs
+(#4279 → #4298): a request-cue discriminator requiring a request in the same
+sentence or a line-leading imperative, validated by replaying the last 300 PR
+bodies (it escalated 9, all descriptive prose; the new one escalates none) and
+pinned by `scripts/__tests__/tier-classifier-workflow.test.mjs`. #4279's
+acceptance criteria covered only the bypass rule. #3606 fixed the secrets rule's
+_checklist boilerplate_ half; its _prose discussion_ half was never touched — the
+in-file comment's aside that #3657 was "fixed in #3606" is true only of the
+boilerplate half.
+
+This is the same class as #3657, #3921 and #4279, and it is now **self-
+perpetuating for this routine specifically**: every weekly retro will name
+credentials in Escalations, so every weekly retro escalates to T4 — which per
+#4279's own cost analysis requires a human approval _and_ manufactures a
+documenting issue for a human to read and close. A retro that generates a
+false-positive incident ticket every week is a retro people stop reading.
+
+Not filed as `ready`: #4279 established that tightening this regex is a
+judgment call about the over-escalation tradeoff, not a mechanical fix. It is in
+Escalations. The bypass rule's discriminator is a working, tested template.
 
 ### Throughput
 
@@ -313,6 +356,13 @@ credential or make a product call.
   issue with neither `ready` nor a human-blocked label, so nothing will ever
   claim it — and it is the issue tracking the tracker going dark. Labelling it
   is the entire ask.
+- **Decide the tradeoff for tier-classifier's secrets rule** (`tier-classifier.yml`
+  L159). It escalates any _mention_ of a credential to T4, so this very PR —
+  markdown only — is `tier:critical`, and every future weekly retro will be too.
+  The adjacent bypass rule's request-cue discriminator (#4298) is a tested
+  template for the fix; what needs a human is the call on how much
+  over-escalation to trade away on a security rule. Same class as #3657, #3921,
+  #4279.
 - **#4482 — decide how `tier:critical` grouped dependabot PRs get merged.** The
   automation auto-merge gate correctly declines to enable itself on them, and
   nothing else picks them up, so the group has grown 32 → 46 across three
