@@ -30,7 +30,7 @@ vi.mock("./database.js", async () => {
   });
 });
 
-import { venueService, venueGroupService } from "./venue.js";
+import { venueService, venueGroupService, VenueBootstrapForbiddenError } from "./venue.js";
 import { prisma } from "./database.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
@@ -80,7 +80,7 @@ function makePrismaVenue(overrides: Record<string, unknown> = {}) {
 /** Minimal interactive-transaction client shape used by create() seeding tests. */
 interface TxLike {
   venue: { create: Mock };
-  venueMembership: { create: Mock };
+  venueMembership: { create: Mock; count?: Mock };
 }
 
 describe("venueGroupService", () => {
@@ -557,18 +557,23 @@ describe("venueService", () => {
         createdAt: NOW,
         updatedAt: NOW,
       });
+      // No `isAdmin` passed: the bootstrap invariant applies (fail-closed
+      // default), so the transaction must be able to answer the count.
+      const membershipCount = vi.fn().mockResolvedValue(0);
       vi.mocked(prisma.$transaction).mockImplementationOnce((async (
         fn: (tx: TxLike) => Promise<unknown>
       ) =>
         fn({
           venue: { create: venueCreate },
-          venueMembership: { create: membershipCreate },
+          venueMembership: { create: membershipCreate, count: membershipCount },
         })) as never);
 
       const result = await venueService.create(
         { name: "Test Venue", slug: "test-venue", ianaTimezone: "America/Los_Angeles" },
         "auth0|owner-1"
       );
+
+      expect(membershipCount).toHaveBeenCalledWith({ where: { userSub: "auth0|owner-1" } });
 
       expect(result.id).toBe("venue-1");
       expect(venueCreate).toHaveBeenCalledWith(
@@ -579,6 +584,106 @@ describe("venueService", () => {
       });
       // Seeding path runs inside the transaction, not the direct create.
       expect(prisma.venue.create).not.toHaveBeenCalled();
+    });
+
+    it("re-checks membership INSIDE the transaction and refuses a non-admin who gained one", async () => {
+      // The preHandler guard reads membership outside the transaction that
+      // establishes it, so two concurrent bootstraps can both pass it. This
+      // re-check is the authority.
+      const venueCreate = vi.fn();
+      const membershipCreate = vi.fn();
+      const membershipCount = vi.fn().mockResolvedValue(1);
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: membershipCreate, count: membershipCount },
+        })) as never);
+
+      await expect(
+        venueService.create(
+          { name: "Second Venue", slug: "second", ianaTimezone: "UTC" },
+          "auth0|raced",
+          { isAdmin: false }
+        )
+      ).rejects.toBeInstanceOf(VenueBootstrapForbiddenError);
+
+      expect(membershipCount).toHaveBeenCalledWith({ where: { userSub: "auth0|raced" } });
+      expect(venueCreate).not.toHaveBeenCalled();
+      expect(membershipCreate).not.toHaveBeenCalled();
+    });
+
+    it("admits a non-admin whose membership count is still zero at commit time", async () => {
+      const created = makePrismaVenue();
+      const venueCreate = vi.fn().mockResolvedValue(created);
+      const membershipCreate = vi.fn().mockResolvedValue({});
+      const membershipCount = vi.fn().mockResolvedValue(0);
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: venueCreate },
+          venueMembership: { create: membershipCreate, count: membershipCount },
+        })) as never);
+
+      const result = await venueService.create(
+        { name: "First Venue", slug: "first", ianaTimezone: "UTC" },
+        "auth0|brand-new",
+        { isAdmin: false }
+      );
+
+      expect(result.id).toBe("venue-1");
+      expect(membershipCount).toHaveBeenCalledTimes(1);
+      expect(membershipCreate).toHaveBeenCalled();
+    });
+
+    it("skips the re-check entirely for an admin", async () => {
+      const created = makePrismaVenue();
+      const membershipCount = vi.fn();
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: vi.fn().mockResolvedValue(created) },
+          venueMembership: { create: vi.fn().mockResolvedValue({}), count: membershipCount },
+        })) as never);
+
+      await venueService.create(
+        { name: "Nth Venue", slug: "nth", ianaTimezone: "UTC" },
+        "auth0|admin",
+        { isAdmin: true }
+      );
+
+      // Admins may hold many venues; the bootstrap invariant does not apply.
+      expect(membershipCount).not.toHaveBeenCalled();
+    });
+
+    it("runs the bootstrap transaction at Serializable isolation", async () => {
+      // READ COMMITTED lets two concurrent bootstraps each see zero memberships
+      // and both commit, which the in-transaction re-check alone cannot prevent.
+      const created = makePrismaVenue();
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: TxLike) => Promise<unknown>
+      ) =>
+        fn({
+          venue: { create: vi.fn().mockResolvedValue(created) },
+          venueMembership: {
+            create: vi.fn().mockResolvedValue({}),
+            count: vi.fn().mockResolvedValue(0),
+          },
+        })) as never);
+
+      await venueService.create(
+        { name: "First Venue", slug: "first", ianaTimezone: "UTC" },
+        "auth0|brand-new",
+        { isAdmin: false }
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ isolationLevel: "Serializable" })
+      );
     });
 
     it("does not open a transaction or seed membership when ownerSub is omitted", async () => {

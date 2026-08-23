@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type * as VenueServiceModule from "../services/venue.js";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 
 // Mock the venue service
-vi.mock("../services/venue.js", () => ({
+vi.mock("../services/venue.js", async () => ({
+  // The real error class, not a stand-in: the route's `instanceof` check is
+  // only meaningful if the class the test throws is the class it imports.
+  VenueBootstrapForbiddenError: (
+    await vi.importActual<typeof VenueServiceModule>("../services/venue.js")
+  ).VenueBootstrapForbiddenError,
   venueService: {
     list: vi.fn(),
     listForMember: vi.fn(),
@@ -97,10 +103,14 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
-import { venueService, venueGroupService } from "../services/venue.js";
+import {
+  venueService,
+  venueGroupService,
+  VenueBootstrapForbiddenError,
+} from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
 import { jwtVerify } from "jose";
-import type { VenueMembershipLookup } from "@mbe/auth/fastify";
+import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
 
 const mockVenueGroup = {
   id: "group-123",
@@ -799,7 +809,10 @@ describe("Venue Routes", () => {
         // VenueMembership is seeded and the new venue appears in their scoped list.
         expect(venueService.create).toHaveBeenCalledWith(
           expect.objectContaining({ name: "Chez Panisse", slug: "chez-panisse" }),
-          "auth0|user-123"
+          "auth0|user-123",
+          // The bypass identity is a platform admin, so the service skips the
+          // first-venue invariant rather than blocking a second venue.
+          { isAdmin: true }
         );
       });
 
@@ -861,6 +874,250 @@ describe("Venue Routes", () => {
         });
 
         expect(response.statusCode).toBe(401);
+      });
+    });
+
+    describe("POST /v1/venues — first-venue bootstrap (ADR-020 third case)", () => {
+      const bootstrapEnv = (originalEnv: NodeJS.ProcessEnv) => ({
+        ...originalEnv,
+        AUTH_AUTHORITY: "https://test.auth0.com",
+        AUTH_AUDIENCE: "https://api.example.com",
+      });
+
+      const newUserPayload = { ...mockJWTPayload, sub: "auth0|brand-new", permissions: [] };
+      const validBody = {
+        name: "Chez Panisse",
+        slug: "chez-panisse",
+        ianaTimezone: "America/Los_Angeles",
+      };
+
+      it("lets a NON-ADMIN holding no venue membership create their first venue", async () => {
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        // 14 earlier tests queue mockResolvedValueOnce values; clearAllMocks does
+        // not drain that queue, so an unconsumed one would authenticate this
+        // request as somebody else. The jose factory is a bare vi.fn(), so
+        // resetting loses no default implementation.
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: newUserPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockResolvedValueOnce(mockVenue);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer new-user-token" },
+          payload: validBody,
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(hasAnyVenueMembership).toHaveBeenCalledWith("auth0|brand-new");
+
+        await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("refuses a NON-ADMIN who already holds a venue membership", async () => {
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        // 14 earlier tests queue mockResolvedValueOnce values; clearAllMocks does
+        // not drain that queue, so an unconsumed one would authenticate this
+        // request as somebody else. The jose factory is a bare vi.fn(), so
+        // resetting loses no default implementation.
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...mockJWTPayload, sub: "auth0|established", permissions: [] },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(true);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer established-token" },
+          payload: validBody,
+        });
+
+        expect(response.statusCode).toBe(403);
+        expect(venueService.create).not.toHaveBeenCalled();
+
+        await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("does NOT weaken PATCH — a non-admin with no memberships still cannot update a venue", async () => {
+        // The relaxation is scoped to creation alone. If it leaked into the
+        // venue-scoped guard, a brand-new account could edit any venue.
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        // 14 earlier tests queue mockResolvedValueOnce values; clearAllMocks does
+        // not drain that queue, so an unconsumed one would authenticate this
+        // request as somebody else. The jose factory is a bare vi.fn(), so
+        // resetting loses no default implementation.
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: newUserPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(false);
+        const scopedApp = await buildApp({
+          logger: false,
+          hasAnyVenueMembership,
+          venueMembershipLookup: lookup,
+        });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "PATCH",
+          url: "/api/v1/venues/venue-123",
+          headers: { authorization: "Bearer new-user-token" },
+          payload: { name: "Renamed" },
+        });
+
+        expect(response.statusCode).toBe(403);
+        expect(venueService.update).not.toHaveBeenCalled();
+
+        await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("tells the service the caller is NOT an admin so the in-transaction invariant runs", async () => {
+        // The preHandler decides admission; the transaction is the authority.
+        // It can only skip the re-check for admins if the route says who this is.
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: newUserPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockResolvedValueOnce(mockVenue);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer new-user-token" },
+          payload: validBody,
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(venueService.create).toHaveBeenCalledWith(
+          expect.objectContaining({ slug: "chez-panisse" }),
+          "auth0|brand-new",
+          { isAdmin: false }
+        );
+
+        await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("tells the service the caller IS an admin so a second venue is not blocked", async () => {
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...mockJWTPayload, sub: "auth0|admin-1", permissions: ["admin"] },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockResolvedValueOnce(mockVenue);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(true);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer admin-token" },
+          payload: validBody,
+        });
+
+        expect(response.statusCode).toBe(201);
+        expect(venueService.create).toHaveBeenCalledWith(
+          expect.objectContaining({ slug: "chez-panisse" }),
+          "auth0|admin-1",
+          { isAdmin: true }
+        );
+
+        await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("maps a lost bootstrap race to 403, not 500", async () => {
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: newUserPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockRejectedValueOnce(
+          new VenueBootstrapForbiddenError("auth0|brand-new")
+        );
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer new-user-token" },
+          payload: validBody,
+        });
+
+        expect(response.statusCode).toBe(403);
+
+        await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("maps a Serializable write conflict to a retryable 409, not 500", async () => {
+        // Serializable isolation trades 500-shaped surprise for an honest
+        // "try again" — but only if the route translates Prisma's P2034.
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: newUserPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        const conflict = Object.assign(
+          new Error("Transaction failed due to a write conflict or a deadlock"),
+          { code: "P2034" }
+        );
+        vi.mocked(venueService.create).mockRejectedValueOnce(conflict);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer new-user-token" },
+          payload: validBody,
+        });
+
+        expect(response.statusCode).toBe(409);
+
+        await scopedApp.close();
+        process.env = originalEnv;
       });
     });
 

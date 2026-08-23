@@ -38,31 +38,31 @@ test that must exist and fail before the implementation is written.
 
 ## Milestone 1: The rule exists, in isolation, and fails closed
 
-- [ ] **`HasAnyVenueMembership` contract** — declare the policy-owned lookup type beside `VenueMembershipLookup` in `packages/auth/src/fastify/authz.ts`.
+- [x] **`HasAnyVenueMembership` contract** — declare the policy-owned lookup type beside `VenueMembershipLookup` in `packages/auth/src/fastify/authz.ts`.
   - Accept: the type is exported, takes `userSub: string`, returns `Promise<boolean>`, and carries a doc comment stating that a rejection must never be coerced to `false`. `pnpm --dir packages/auth typecheck` passes.
   - Blocked by: —
-- [ ] **`requireVenueCreateAccess` — admit an admin without querying** — first branch of the guard factory.
+- [x] **`requireVenueCreateAccess` — admit an admin without querying** — first branch of the guard factory.
   - Accept: a failing test exists first asserting an admin JWT is admitted **and the injected lookup is never called** (spy asserts zero calls), then passes. Covers PRD _"admin journey still passes"_.
   - Blocked by: `HasAnyVenueMembership` contract
-- [ ] **`requireVenueCreateAccess` — admit zero-membership, refuse the rest** — remaining branches.
+- [x] **`requireVenueCreateAccess` — admit zero-membership, refuse the rest** — remaining branches.
   - Accept: failing-first tests for all four decision-order cases — no `request.user` → 401; lookup `false` → admitted; lookup `true` → 403; and the 403 body is an ADR-002 `ProblemDetails`. Covers PRD _"≥1 membership still refused"_.
   - Blocked by: `requireVenueCreateAccess` — admit an admin without querying
-- [ ] **Fail-closed on lookup rejection** — the branch that must never be convenient.
+- [x] **Fail-closed on lookup rejection** — the branch that must never be convenient.
   - Accept: a failing-first test asserts that when the lookup rejects, the guard **does not admit and does not reply 403** — the rejection propagates. Explicitly asserts the caller is not admitted, so a future refactor that swallows the error breaks this test.
   - Blocked by: `requireVenueCreateAccess` — admit zero-membership, refuse the rest
-- [ ] **`sub` is read only from the verified JWT** — the PRD's server-derived criterion.
+- [x] **`sub` is read only from the verified JWT** — the PRD's server-derived criterion.
   - Accept: a failing-first test sends a request whose body, query, and headers all assert a _different_ `sub`, and proves the lookup is called with the JWT's `sub` and the outcome is unchanged. Covers PRD _"determination is server-derived"_.
   - Blocked by: `requireVenueCreateAccess` — admit zero-membership, refuse the rest
 
 ## Milestone 2: A non-admin with no venues can create one
 
-- [ ] **Membership-existence lookup + Fastify decoration** — the service-side implementation, registered beside `venueMembershipLookup`.
+- [x] **Membership-existence lookup + Fastify decoration** — the service-side implementation, registered beside `venueMembershipLookup`.
   - Accept: a failing-first test proves it returns `false` for a `sub` with no rows and `true` for one with a row, using the existing `@@index([userSub])`. No schema change appears in `git diff`.
   - Blocked by: `HasAnyVenueMembership` contract
-- [ ] **Swap the route's preHandler** — `POST /api/v1/venues` uses `requireVenueCreateAccess`; every other venue route is untouched.
+- [x] **Swap the route's preHandler** — `POST /api/v1/venues` uses `requireVenueCreateAccess`; every other venue route is untouched.
   - Accept: a failing-first integration test drives a real request as a non-admin with no memberships and gets `201`, and as a non-admin _with_ a membership gets `403`. A grep assertion (or the diff itself) shows no other route's `preHandler` list changed. Covers PRD _"no other route weakened"_.
   - Blocked by: Membership-existence lookup + Fastify decoration; `sub` is read only from the verified JWT
-- [ ] **In-transaction invariant with `Serializable` isolation** — the authority, inside the transaction that already exists at `venue.ts:404-413`.
+- [x] **In-transaction invariant with `Serializable` isolation** — the authority, inside the transaction that already exists at `venue.ts:404-413`.
   - Accept: a failing-first test proves a non-admin whose membership appears between guard and commit is refused. The transaction declares `isolationLevel: "Serializable"`, and a serialization abort surfaces as a retryable `409` — never `500`, never silent success. The venue and its owner membership still commit together on the happy path.
   - Blocked by: Swap the route's preHandler
 

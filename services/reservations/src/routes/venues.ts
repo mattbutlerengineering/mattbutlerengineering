@@ -26,11 +26,16 @@ import {
   requireAuth,
   requireAdmin,
   requireVenueAccess,
+  requireVenueCreateAccess,
   hasPermission,
   type VenueIdResolver,
 } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import { venueService, venueGroupService } from "../services/venue.js";
+import {
+  venueService,
+  venueGroupService,
+  VenueBootstrapForbiddenError,
+} from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
 
 /**
@@ -41,6 +46,17 @@ const venueIdFromRouteId: VenueIdResolver = (request) => {
   const params = request.params as { id?: unknown };
   return typeof params.id === "string" ? params.id : null;
 };
+
+/**
+ * A transaction that lost a serialization race. Prisma surfaces this as
+ * `P2034`; the underlying Postgres SQLSTATE is `40001`. Both are checked
+ * because a raw-query path would carry the SQLSTATE instead.
+ */
+function isWriteConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return code === "P2034" || code === "40001";
+}
 
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addSchema(publicVenueJsonSchema);
@@ -537,7 +553,10 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireAdmin],
+      // ADR-020 third case: admins as before, PLUS an authenticated identity
+      // holding no venue membership at all creating its first venue. Every
+      // other venue route keeps requireAdmin / requireVenueAccess unchanged.
+      preHandler: [requireAuth, requireVenueCreateAccess(fastify.hasAnyVenueMembership)],
       schema: {
         summary: "Create a new venue",
         operationId: "createVenue",
@@ -566,11 +585,40 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       try {
-        // requireAdmin ran, so request.user is set; seed the creator as the
-        // venue owner (VenueMembership) so it appears in their scoped list (#3069).
-        const venue = await venueService.create(request.body, request.user?.raw.sub);
+        // requireVenueCreateAccess ran, so request.user is set; seed the creator
+        // as the venue owner (VenueMembership) so it appears in their scoped
+        // list (#3069). The guard read membership OUTSIDE the transaction that
+        // establishes it, so the service re-checks inside — but only for
+        // non-admins, which is why the caller's role is threaded through.
+        const venue = await venueService.create(request.body, request.user?.raw.sub, {
+          isAdmin: request.user ? hasPermission(request.user, "admin") : false,
+        });
         return reply.code(201).send({ data: venue });
       } catch (error) {
+        if (error instanceof VenueBootstrapForbiddenError) {
+          return reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                "Admin role required to create additional venues"
+              )
+            );
+        }
+        // Serializable isolation aborts the loser of a concurrent bootstrap
+        // (Prisma P2034 / Postgres 40001). That is retryable, not a server bug.
+        if (isWriteConflict(error)) {
+          return reply
+            .code(409)
+            .send(
+              createProblemDetails(
+                409,
+                "Conflict",
+                "Concurrent venue creation conflicted; retry the request"
+              )
+            );
+        }
         if (error instanceof Error && error.message.includes("Unique constraint")) {
           return reply
             .code(400)
