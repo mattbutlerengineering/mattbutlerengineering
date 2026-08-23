@@ -432,16 +432,14 @@
     </item>
   </file>
   <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
-    <item priority="medium">
-      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
-    </item>
     <item priority="high">
-      export function useTapeChartLayout(
-        reservations: TapeChartReservation[],
-        rooms: TapeChartRoom[],
-        startDate: string,
-        endDate: string
-      ): TapeChartLayout { /* ... */ }
+      type OverlapClassifier = (a: TapeChartReservation, b: TapeChartReservation) => Tap...;
+    </item>
+    <item priority="medium">
+      function worstOf(
+        current: TapeChartOverlapKind | undefined,
+        next: TapeChartOverlapKind
+      ): TapeChartOverlapKind { /* ... */ }
     </item>
   </file>
   </section>

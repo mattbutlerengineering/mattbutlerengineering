@@ -69,6 +69,123 @@ const reservations: TapeChartReservation[] = [
   },
 ];
 
+// Overlap scenario — an inline copy of apps/rialto-web's makeOverlapScenario()
+// (the library cannot import from the app). Week of Mon 2026-03-02.
+const overlapRooms: TapeChartRoom[] = [
+  { id: "ov-201", name: "201", category: "Standard", capacity: 2 },
+  { id: "ov-202", name: "202", category: "Deluxe", capacity: 3 },
+  { id: "ov-dorm-a", name: "Dorm A", category: "Dorm", capacity: 6 },
+  { id: "ov-203", name: "203", category: "Standard", capacity: 2 },
+];
+
+const overlapBase = { currency: "USD", source: "Direct" } as const;
+const overlapReservations: TapeChartReservation[] = [
+  {
+    ...overlapBase,
+    id: "ov-a",
+    roomId: "ov-201",
+    start: "2026-03-02",
+    end: "2026-03-06",
+    status: "confirmed",
+    guestName: "Marisol Vega",
+    partySize: 2,
+    ratePerNight: 18000,
+  },
+  {
+    ...overlapBase,
+    id: "ov-b",
+    roomId: "ov-201",
+    start: "2026-03-04",
+    end: "2026-03-08",
+    status: "confirmed",
+    guestName: "Tobias Lindqvist",
+    partySize: 1,
+    ratePerNight: 18000,
+  },
+  {
+    ...overlapBase,
+    id: "ov-c",
+    roomId: "ov-202",
+    start: "2026-03-02",
+    end: "2026-03-07",
+    status: "checkedIn",
+    guestName: "Harriet Okafor",
+    partySize: 2,
+    ratePerNight: 24000,
+  },
+  {
+    ...overlapBase,
+    id: "ov-d",
+    roomId: "ov-202",
+    start: "2026-03-03",
+    end: "2026-03-06",
+    status: "tentative",
+    guestName: "Elias Brandt",
+    partySize: 3,
+    ratePerNight: 24000,
+  },
+  {
+    ...overlapBase,
+    id: "ov-e",
+    roomId: "ov-202",
+    start: "2026-03-05",
+    end: "2026-03-09",
+    status: "confirmed",
+    guestName: "Nadia Petrova",
+    partySize: 2,
+    ratePerNight: 24000,
+  },
+  {
+    ...overlapBase,
+    id: "ov-f",
+    roomId: "ov-dorm-a",
+    start: "2026-03-02",
+    end: "2026-03-05",
+    status: "confirmed",
+    guestName: "Oscar Delacroix",
+    partySize: 1,
+    ratePerNight: 4500,
+  },
+  {
+    ...overlapBase,
+    id: "ov-g",
+    roomId: "ov-dorm-a",
+    start: "2026-03-02",
+    end: "2026-03-06",
+    status: "confirmed",
+    guestName: "Wren Castellano",
+    partySize: 1,
+    ratePerNight: 4500,
+  },
+  {
+    ...overlapBase,
+    id: "ov-h",
+    roomId: "ov-dorm-a",
+    start: "2026-03-03",
+    end: "2026-03-07",
+    status: "confirmed",
+    guestName: "Imani Adeyemi",
+    partySize: 1,
+    ratePerNight: 4500,
+  },
+  {
+    ...overlapBase,
+    id: "ov-i",
+    roomId: "ov-203",
+    start: "2026-03-03",
+    end: "2026-03-07",
+    status: "confirmed",
+    guestName: "Lucas Moreau",
+    partySize: 2,
+    ratePerNight: 18000,
+  },
+];
+
+const classifyDorm = (a: TapeChartReservation, _b: TapeChartReservation) =>
+  overlapRooms.find((r) => r.id === a.roomId)?.category === "Dorm"
+    ? ("shared" as const)
+    : ("conflict" as const);
+
 const meta: Meta<typeof TapeChart> = {
   title: "Data Display/TapeChart",
   component: TapeChart,
@@ -134,6 +251,34 @@ export const Empty: Story = {
     reservations: [],
     startDate: "2026-05-03",
     endDate: "2026-05-11",
+  },
+};
+
+export const Overlaps: Story = {
+  args: {
+    rooms: overlapRooms,
+    reservations: overlapReservations,
+    startDate: "2026-03-02",
+    endDate: "2026-03-09",
+    currency: "USD",
+    locale: "en-US",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: /Marisol Vega/ })).toBeInTheDocument();
+    await expect(canvas.getByRole("button", { name: /Tobias Lindqvist/ })).toBeInTheDocument();
+  },
+};
+
+export const OverlapsClassified: Story = {
+  args: {
+    rooms: overlapRooms,
+    reservations: overlapReservations,
+    startDate: "2026-03-02",
+    endDate: "2026-03-09",
+    currency: "USD",
+    locale: "en-US",
+    classifyOverlap: classifyDorm,
   },
 };
 
