@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -109,5 +111,77 @@ describe("post-deploy-check workflow wiring", () => {
     // Same class as the rialto-web spec-list guard: a checked-in probe that no
     // workflow invokes pins nothing.
     expect(POST_DEPLOY_WORKFLOW).toContain("scripts/check-api-surface-invariants.mjs");
+  });
+});
+
+describe("runner exit codes", () => {
+  // The exit code is what decides whether the workflow job can go red at all.
+  // A runner that printed "guard-missing" and still exited 0 would be a gate
+  // that never fires -- the exact failure class this script exists to catch,
+  // one level up. These serve every probe in the real manifest from a local
+  // fixture, so they cannot drift from it.
+  const SCRIPT = resolve(ROOT, "scripts/check-api-surface-invariants.mjs");
+
+  /** @param {(probe: object) => boolean} withHeaders */
+  async function serve(withHeaders) {
+    const server = createServer((req, res) => {
+      const path = new URL(req.url, "http://x").pathname;
+      const matches = API_SURFACE_PROBES.filter((p) => p.path === path && p.method === req.method);
+      // POST /api/v1/venues has two probes on one path/method, split by whether
+      // the body is schema-valid -- mirror Fastify's validation-before-auth
+      // ordering so the fixture answers each one the way production does.
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        const probe =
+          matches.length > 1
+            ? matches.find((p) =>
+                body.includes("ianaTimezone") ? p.expectStatus === 401 : p.expectStatus === 400
+              )
+            : matches[0];
+        if (!probe) return res.writeHead(404).end();
+        if (withHeaders(probe)) {
+          for (const h of probe.requireHeaders) res.setHeader(h, "100");
+        }
+        res.writeHead(probe.expectStatus).end("{}");
+      });
+    });
+    await new Promise((r) => server.listen(0, r));
+    return { server, base: `http://127.0.0.1:${server.address().port}` };
+  }
+
+  /** @returns {Promise<{code: number, stderr: string}>} */
+  function run(base) {
+    return new Promise((resolve_) => {
+      const child = spawn(process.execPath, [SCRIPT, "--base", base], { stdio: "pipe" });
+      let stderr = "";
+      child.stderr.on("data", (c) => (stderr += c));
+      child.on("close", (code) => resolve_({ code, stderr }));
+    });
+  }
+
+  it("exits 0 when every invariant holds", async () => {
+    const { server, base } = await serve(() => true);
+    try {
+      expect((await run(base)).code).toBe(0);
+    } finally {
+      server.close();
+    }
+  });
+
+  it("exits non-zero when a guard is missing, naming it as a guard and not an outage", async () => {
+    const target = API_SURFACE_PROBES[0];
+    const { server, base } = await serve((p) => p.name !== target.name);
+    try {
+      const { code, stderr } = await run(base);
+      expect(code).not.toBe(0);
+      expect(stderr).toContain("guard-missing");
+      expect(stderr).toContain(target.name);
+      // The status was correct, so this must never be reported as the service
+      // being down -- the two call for opposite responses.
+      expect(stderr).not.toContain("unreachable");
+    } finally {
+      server.close();
+    }
   });
 });
