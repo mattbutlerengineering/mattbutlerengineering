@@ -143,4 +143,129 @@ adjudicated in `review.md`.
 
 ## Outcome
 
-Recorded below after execution.
+Merged and deployed. The success criterion — "no bar can hide another,
+conflicts read as conflicts" — is confirmed in production, measured in a
+real browser against the live page, not asserted.
+
+### Merge
+
+|            |                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| PR         | [#4442](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/4442), squash     |
+| Commit     | `e4c30808511496f3ecd134e8ed09f82d0cf3d677`                                                    |
+| Merged     | 2026-08-22 18:03:12 −0700 (2026-08-23T01:03:12Z) by `mattbutlerengineering`                   |
+| Final diff | 40 files, +3,816 / −196                                                                       |
+| Branch     | `feat/tape-chart-overlaps` deleted (`git ls-remote origin feat/tape-chart-overlaps` → 0 rows) |
+
+The final diff is larger than the 37-file / +2,746 figure quoted at the top
+of this document. That figure was accurate when the pre-flight ran; the three
+run artifacts (`verification.md`, `review.md`, this file) were committed
+after it was taken. Nothing else was added.
+
+### Deploy
+
+`Deploy Static Sites` run
+[32609414271](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/32609414271)
+on `e4c308085` — **success**, 01:03:14Z → 01:05:31Z (2m 17s).
+
+```
+success  Circuit Breaker Check        success  Deploy Hospitality
+success  Detect Changes               success  Deploy Marketing
+success  Deploy Rialto Web            success  Post-Deploy Verification
+success  Report Deploy Health         skipped  Rollback Failed Deploys
+skipped  Deploy Blocked
+```
+
+`Rollback Failed Deploys` skipped is the healthy outcome — it runs only on a
+failed deploy. No rollback was executed and none is pending.
+
+### Post-release verification (real browser)
+
+Playwright/Chromium against
+<https://mattbutlerengineering.com/rialto/components/tape-chart>, reading the
+rendered DOM. Curl was deliberately not used: a CSP refusal produces no
+status code, no server log, and no Sentry event, so only a real browser can
+see one.
+
+| Measure                          | Default chart                    | `classifyDormAsShared` chart           |
+| -------------------------------- | -------------------------------- | -------------------------------------- |
+| Section present                  | yes                              | yes                                    |
+| Bars rendered                    | 9                                | 9                                      |
+| `data-overlap`                   | 8 × `conflict`, 1 absent         | 5 × `conflict`, 3 × `shared`, 1 absent |
+| Conflict glyphs                  | 8                                | —                                      |
+| Lane indices                     | `0,1,0,1,2,0,1,2,0`              | —                                      |
+| `--tapechart-lane-count` per row | `2, 3, 3, 1`                     | —                                      |
+| Row heights (px)                 | `64, 94, 139, 139` (+ header 49) | —                                      |
+| **Occluded bars**                | **`[]`**                         | **`[]`**                               |
+
+`occludedBars: []` is the criterion: every bar's rect is non-empty and
+overlaps no sibling's rect in the same row. The one bar with no
+`data-overlap` attribute in each chart is room 203's single reservation,
+which overlaps nothing and is therefore drawn in normal styling — the
+control case that proves the conflict treatment is not applied blanketly.
+
+Per-row heights differ (`64` vs `94` vs `139`), confirming the height is
+per-row and not a single global `maxLanes`.
+
+**Console: 1 error, ruled out as local.**
+`net::ERR_CONNECTION_REFUSED` on `static.cloudflareinsights.com/beacon.min.js`.
+That is this machine's LAN DNS sinkhole, not a production defect:
+
+```
+dig +short static.cloudflareinsights.com          → 0.0.0.0
+dig @1.1.1.1 +short static.cloudflareinsights.com → 104.16.79.73, 104.16.80.73
+```
+
+No CSP violation, no other console error, no failed request attributable to
+the change.
+
+### Hiccups
+
+Recorded because a clean release log that omits the retry misleads the next
+release.
+
+1. **`git push` timed out at 120 s.** The pre-push hook re-runs
+   `pnpm regen --check`, which takes ~20 minutes on this repo — far past the
+   tool timeout. Before retrying, `git ls-remote` was checked to confirm the
+   push had _not_ landed (remote still at `3a0020c34`); the retry then ran
+   backgrounded and succeeded. Re-pushing without that check risks acting on
+   a push that already completed.
+2. **A CI poll was read wrong and briefly reported as `gate-missing`.** The
+   filter counted only `state == "PENDING"`, but `gh` reports running checks
+   as `IN_PROGRESS`. The zero-pending / zero-failure / no-`CI Gate` result
+   looked exactly like the #3969 `gate-missing` state; listing every check
+   showed `Build` and `Test (Node 22)` still `IN_PROGRESS` and the gate simply
+   not yet created. Corrected and re-polled counting
+   `PENDING|IN_PROGRESS|QUEUED`. **A pending-count filter that omits
+   `IN_PROGRESS` cannot distinguish "still running" from "never ran"** — and
+   those two states have opposite responses.
+3. **This file failed `prettier --check` on first write.** Written via a
+   Bash heredoc, which bypasses the PostToolUse formatting hook. Fixed with
+   `prettier --write --config .prettierrc.js`; the resolved config must be
+   passed explicitly, or prettier silently falls back to defaults
+   (`printWidth` 80 instead of 100) and reflows the whole file.
+4. **Ship ran inline.** Two consecutive stage subagents died — one on an API
+   quota error, one on a 600 s stall watchdog — neither having written or
+   committed anything. Logged in this document's frontmatter.
+
+### Release authorization — honoured
+
+| Action                             | Status                                    |
+| ---------------------------------- | ----------------------------------------- |
+| Merge to `main` via CI auto-merge  | done, as authorized                       |
+| Deploy rialto-web showcase         | done, automatic on merge                  |
+| npm publish                        | **not done** — not authorized             |
+| Changeset / version bump / tag     | **not done** — not authorized             |
+| Manual `wrangler` / `doctl` deploy | **not done** — deploys go through CI only |
+
+`@mattbutlerengineering/rialto` remains at **0.2.0**. `.changeset/` was never
+touched.
+
+### Still open
+
+- **G2 — the design-system owner's yes/no on the live Overlaps section.**
+  The only unmet success criterion. Everything measurable is green; this one
+  is an aesthetic judgement and is not the assistant's to make.
+- **Operate.** This run stays active until `retro.md` exists.
+- Follow-ups #4448, #4449, #4450, #4451 are filed, labelled `ready`, and
+  none is blocked by this release.
