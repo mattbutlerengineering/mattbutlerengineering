@@ -106,14 +106,31 @@ retryable `409`, never a `500`. The service's `isAdmin` parameter defaults to
 `false`, the fail-closed direction, so a caller that forgets to pass it gets the
 invariant enforced rather than silently skipped.
 
-**Residual risk, accepted:** if the Auth0 tenant permits open self-signup, then
-anyone who can create an account can create exactly one venue. That is the
-intended product behaviour for self-serve onboarding, but it makes venue
-creation reachable by the public, so the route carries a per-identity rate limit
-(5/minute, keyed on the verified `sub` rather than the IP so a shared egress
-address cannot let one abuser lock out everyone behind it). Whether self-signup
-is in fact enabled on the tenant is **not verified here** — see
-`docs/features/first-venue-self-serve/architecture.md`.
+**Residual risk, accepted:** anyone who can create an account can create exactly
+one venue. That is the intended product behaviour for self-serve onboarding, but
+it makes venue creation reachable by the public, so the route carries a
+per-identity rate limit (5/minute, keyed on the verified `sub` rather than the IP
+so a shared egress address cannot let one abuser lock out everyone behind it).
+
+**Self-signup is enabled — measured 2026-08-23, not assumed.** The earlier
+version of this paragraph left the question open (`not verified here`), which
+left the whole risk assessment conditional. It is now answered: an
+unauthenticated `POST /dbconnections/signup` to
+`dev-ytbgmz5ls3wh4xdx.us.auth0.com`, using the SPA client id the deployed bundle
+already publishes and a password that cannot satisfy the tenant policy, comes
+back `PasswordStrengthError` / `invalid_password`. That response is produced
+_downstream_ of the connection's signup gate — a connection with
+`disable_signup` answers `signup_disabled` before the password is ever
+evaluated. So the request got past the gate, and no account was created (the
+password was rejected), which is what makes this probe repeatable as a read.
+
+Consequence: "any authenticated identity may create one venue" means **anyone on
+the internet**, not "any invited operator". The rate limit is therefore the only
+thing bounding venue creation by an anonymous party, and it bounds rate, not
+total. If the product ever wants invite-only onboarding, the control is
+`disable_signup` on the `Username-Password-Authentication` connection — which is
+tenant state, not code: nothing in `infrastructure/pulumi/auth0.ts` manages the
+connection, so flipping it leaves no diff in this repo and no test goes red.
 
 ### Consolidation
 

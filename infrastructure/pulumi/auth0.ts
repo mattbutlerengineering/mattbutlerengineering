@@ -96,9 +96,33 @@ export const e2eUser = new auth0.User("e2e-test-user", {
   name: "E2E Test User",
 });
 
+// A deliberately non-admin identity for the venue-bootstrap journey case
+// (ADR-020's third case). It must stay separate from `e2eUser`, which carries
+// the `admin` permission: `requireVenueCreateAccess` skips the membership
+// lookup entirely for admins, so an admin would pass the case while exercising
+// none of the behaviour it exists for. No role is assigned here, which is what
+// makes it non-admin — see the guard in index.test.ts.
+//
+// `getSecret`, not `requireSecret`: the resource is skipped until the password
+// is configured, so landing this file never breaks a `pulumi up` on a stack
+// that has not set it yet. Set it with:
+//   pulumi config set --secret e2eNonAdminUserPassword <value> --stack prod
+const nonAdminPassword = config.getSecret("e2eNonAdminUserPassword");
+
+export const e2eNonAdminUser = nonAdminPassword
+  ? new auth0.User("e2e-nonadmin-user", {
+      connectionName: "Username-Password-Authentication",
+      email: "e2e-nonadmin@mattbutlerengineering.com",
+      password: nonAdminPassword,
+      emailVerified: true,
+      name: "E2E Non-Admin Journey User",
+    })
+  : undefined;
+
 // Exports for use in other files and .env generation
 export const auth0Outputs = {
   apiIdentifier: api.identifier,
   hospitalityClientId: hospitalityApp.clientId,
   e2eUserEmail: e2eUser.email,
+  e2eNonAdminUserEmail: e2eNonAdminUser?.email,
 };
