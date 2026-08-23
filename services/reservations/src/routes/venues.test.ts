@@ -108,6 +108,7 @@ import {
   venueGroupService,
   VenueBootstrapForbiddenError,
 } from "../services/venue.js";
+import { VENUE_CREATE_RATE_LIMIT } from "./venues.js";
 import { tableStatusService } from "../services/table-status.js";
 import { jwtVerify } from "jose";
 import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
@@ -1084,6 +1085,81 @@ describe("Venue Routes", () => {
         expect(response.statusCode).toBe(403);
 
         await scopedApp.close();
+        process.env = originalEnv;
+      });
+
+      it("caps repeated venue creation from one caller with a 429", async () => {
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValue({
+          payload: newUserPayload,
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        vi.mocked(venueService.create).mockResolvedValue(mockVenue);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const post = () =>
+          scopedApp.inject({
+            method: "POST",
+            url: "/api/v1/venues",
+            headers: { authorization: "Bearer new-user-token" },
+            payload: validBody,
+          });
+
+        const codes: number[] = [];
+        for (let i = 0; i < VENUE_CREATE_RATE_LIMIT.max + 1; i++) {
+          codes.push((await post()).statusCode);
+        }
+
+        expect(codes.slice(0, VENUE_CREATE_RATE_LIMIT.max)).not.toContain(429);
+        expect(codes.at(-1)).toBe(429);
+
+        await scopedApp.close();
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(venueService.create).mockReset();
+        process.env = originalEnv;
+      });
+
+      it("meters each identity separately, so one abuser cannot lock out a co-located caller", async () => {
+        // Discriminating test: it can only pass if the rate-limit key is
+        // derived from the verified `sub`. inject() gives every request the
+        // same IP, so an IP-keyed bucket would 429 the second identity too.
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(venueService.create).mockResolvedValue(mockVenue);
+
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+
+        const postAs = async (sub: string) => {
+          vi.mocked(jwtVerify).mockResolvedValueOnce({
+            payload: { ...mockJWTPayload, sub, permissions: [] },
+            protectedHeader: { alg: "RS256" },
+          } as never);
+          return scopedApp.inject({
+            method: "POST",
+            url: "/api/v1/venues",
+            headers: { authorization: "Bearer token" },
+            payload: validBody,
+          });
+        };
+
+        for (let i = 0; i < VENUE_CREATE_RATE_LIMIT.max + 1; i++) {
+          await postAs("auth0|noisy");
+        }
+        const neighbour = await postAs("auth0|quiet");
+
+        expect(neighbour.statusCode).not.toBe(429);
+
+        await scopedApp.close();
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(venueService.create).mockReset();
         process.env = originalEnv;
       });
 

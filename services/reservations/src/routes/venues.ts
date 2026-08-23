@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import type {
   Venue,
   VenueGroup,
@@ -46,6 +46,19 @@ const venueIdFromRouteId: VenueIdResolver = (request) => {
   const params = request.params as { id?: unknown };
   return typeof params.id === "string" ? params.id : null;
 };
+
+/**
+ * Per-identity cap on venue creation. The bootstrap case admits callers who
+ * hold no venue at all, so this endpoint is reachable by any authenticated
+ * account — the one venue route where that is true.
+ *
+ * Keyed by the verified `sub` rather than the IP so a shared egress address
+ * (office NAT, mobile carrier) cannot let one abuser lock out everyone behind
+ * it. `hook: "preHandler"` is load-bearing: the limiter's default `onRequest`
+ * timing runs before authentication, where `request.user` is still undefined
+ * and every caller would collapse into one bucket.
+ */
+export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
 
 /**
  * A transaction that lost a serialization race. Prisma surfaces this as
@@ -556,6 +569,13 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       // ADR-020 third case: admins as before, PLUS an authenticated identity
       // holding no venue membership at all creating its first venue. Every
       // other venue route keeps requireAdmin / requireVenueAccess unchanged.
+      config: {
+        rateLimit: {
+          ...VENUE_CREATE_RATE_LIMIT,
+          hook: "preHandler" as const,
+          keyGenerator: (request: FastifyRequest) => request.user?.raw.sub ?? request.ip,
+        },
+      },
       preHandler: [requireAuth, requireVenueCreateAccess(fastify.hasAnyVenueMembership)],
       schema: {
         summary: "Create a new venue",

@@ -68,7 +68,7 @@ test that must exist and fail before the implementation is written.
 
 ## Milestone 3: The guarantee is watched, not just true
 
-- [ ] **Rate-limit the bootstrap path** — per-identity cap on venue creation, following the existing `rateLimit: { max, timeWindow }` route-option pattern.
+- [x] **Rate-limit the bootstrap path** — per-identity cap on venue creation, following the existing `rateLimit: { max, timeWindow }` route-option pattern.
   - Accept: a failing-first test proves the configured limit refuses the N+1th creation attempt from one identity. The chosen numbers appear in the route options, not in a helper. See the M3.1 assumption for why this is not deferred.
   - Blocked by: Swap the route's preHandler
 - [ ] **Non-admin journey case that asserts its own identity** — extends the existing journey, reusing its cleanup block unchanged.
