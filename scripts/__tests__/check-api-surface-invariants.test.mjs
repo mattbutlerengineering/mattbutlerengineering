@@ -6,6 +6,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   classifyProbe,
+  isRetryable,
   API_SURFACE_PROBES,
   PROBE_STATES,
 } from "../check-api-surface-invariants.mjs";
@@ -182,6 +183,29 @@ describe("runner exit codes", () => {
       expect(stderr).not.toContain("unreachable");
     } finally {
       server.close();
+    }
+  });
+});
+
+describe("isRetryable", () => {
+  it("retries only the state that can be a transient deploy artifact", () => {
+    expect(isRetryable("unreachable")).toBe(true);
+  });
+
+  it("never retries a state that is a deterministic property of the running config", () => {
+    // Retrying these could only mask a real regression — the asymmetry with
+    // `unreachable` is deliberate, not an oversight.
+    expect(isRetryable("guard-missing")).toBe(false);
+    expect(isRetryable("status-mismatch")).toBe(false);
+  });
+
+  it("does not retry a passing probe", () => {
+    expect(isRetryable("ok")).toBe(false);
+  });
+
+  it("covers every declared state", () => {
+    for (const state of PROBE_STATES) {
+      expect(typeof isRetryable(state)).toBe("boolean");
     }
   });
 });

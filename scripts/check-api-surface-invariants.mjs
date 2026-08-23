@@ -27,6 +27,7 @@
  *
  * Usage:
  *   node scripts/check-api-surface-invariants.mjs [--base <url>] [--timeout <ms>]
+ *                                                 [--retries <n>] [--retry-delay <ms>]
  *
  * Prints one JSON line per probe, then a summary. Exits 1 if any probe failed.
  */
@@ -44,6 +45,9 @@ export const PROBE_STATES = /** @type {const} */ ([
 
 const DEFAULT_BASE = "https://api.mattbutlerengineering.com";
 const DEFAULT_TIMEOUT_MS = 15000;
+// Covers a container still cycling behind a deploy that already reported success.
+const DEFAULT_RETRIES = 3;
+const DEFAULT_RETRY_DELAY_MS = 10000;
 
 /**
  * A body that satisfies createVenueBodyJsonSchema's required fields, so the
@@ -140,6 +144,26 @@ export function classifyProbe(probe, observed) {
 }
 
 /**
+ * Whether a probe outcome is worth retrying.
+ *
+ * Only `unreachable`. This job runs 30s after a deploy reports success, and DO
+ * App Platform can still be cycling a container at that point -- a gate that
+ * files a spurious issue on every slow deploy gets muted, which is the same
+ * end state as having no gate.
+ *
+ * `guard-missing` and `status-mismatch` are deterministic properties of the
+ * running config, so retrying them could only mask a real regression. That
+ * asymmetry is the whole point: retry the flaky state, never the meaningful
+ * ones.
+ *
+ * @param {ProbeState} state
+ * @returns {boolean}
+ */
+export function isRetryable(state) {
+  return state === "unreachable";
+}
+
+/**
  * @param {{ base: string, timeoutMs: number, probe: (typeof API_SURFACE_PROBES)[number] }} args
  * @returns {Promise<{ httpCode: number, headers: Record<string, string> }>}
  */
@@ -162,23 +186,36 @@ async function runProbe({ base, timeoutMs, probe }) {
   }
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function numericFlag(argv, flag, fallback) {
+  const raw = argv.includes(flag) ? Number(argv[argv.indexOf(flag) + 1]) : NaN;
+  return Number.isFinite(raw) && raw >= 0 ? raw : fallback;
+}
+
 function parseArgs(argv) {
   const base = argv.includes("--base") ? argv[argv.indexOf("--base") + 1] : DEFAULT_BASE;
-  const timeoutRaw = argv.includes("--timeout") ? argv[argv.indexOf("--timeout") + 1] : null;
-  const timeoutMs = Number(timeoutRaw ?? DEFAULT_TIMEOUT_MS);
   return {
     base: (base ?? DEFAULT_BASE).replace(/\/$/, ""),
-    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS,
+    timeoutMs: numericFlag(argv, "--timeout", DEFAULT_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
+    retries: numericFlag(argv, "--retries", DEFAULT_RETRIES),
+    retryDelayMs: numericFlag(argv, "--retry-delay", DEFAULT_RETRY_DELAY_MS),
   };
 }
 
 async function main() {
-  const { base, timeoutMs } = parseArgs(process.argv.slice(2));
+  const { base, timeoutMs, retries, retryDelayMs } = parseArgs(process.argv.slice(2));
   const failures = [];
 
   for (const probe of API_SURFACE_PROBES) {
-    const observed = await runProbe({ base, timeoutMs, probe });
-    const state = classifyProbe(probe, observed);
+    let observed = await runProbe({ base, timeoutMs, probe });
+    let state = classifyProbe(probe, observed);
+
+    for (let attempt = 1; attempt <= retries && isRetryable(state); attempt += 1) {
+      await sleep(retryDelayMs);
+      observed = await runProbe({ base, timeoutMs, probe });
+      state = classifyProbe(probe, observed);
+    }
     const rateLimit = observed.headers["x-ratelimit-limit"] ?? null;
     console.log(
       JSON.stringify({

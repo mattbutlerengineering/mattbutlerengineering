@@ -169,7 +169,11 @@ jobs:
     name: API Surface Invariants
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 5
+    # Worst case is a total outage, where every probe exhausts its retries:
+    # 30s propagation wait + 5 probes x (4 attempts x 15s timeout + 3 x 10s
+    # delay) = ~8 min. The budget has to clear that, because a job killed by
+    # its own timeout reports a truncated log instead of a clean `unreachable`.
+    timeout-minutes: 12
     permissions:
       contents: read
       issues: write
