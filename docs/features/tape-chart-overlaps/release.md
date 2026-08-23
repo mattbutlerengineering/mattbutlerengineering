@@ -119,7 +119,11 @@ after they executed.
   `https://mbe-preview-<PR>-rialto-web.workers.dev`, omitting the account
   subdomain that a real `workers.dev` host requires. Verified on #4442 —
   `curl` cannot resolve it and `dig @1.1.1.1` returns nothing. Filed as
-  #4451.
+  #4451 — **already fixed and closed** by #4452 (`959490792`, merged
+  2026-08-22T05:23:51Z), which reads the real URL back from `wrangler deploy`
+  output instead of hand-composing one. That landed ~20 hours before this
+  release merged, so preview URLs resolve now; the defect is recorded here
+  only because it is why G2 could not be checked pre-merge on #4442.
 - **Probe the deployed page with a real browser**, not curl. A CSP refusal
   is client-side only: no 4xx, no server log, and Sentry is itself blocked
   by it. This repo has shipped two such defects that every local gate
@@ -127,15 +131,17 @@ after they executed.
 
 ## Open follow-ups
 
-Filed as tracker issues, all labelled `ready`. None is a blocker for this
-release; none should be auto-closed by this merge.
+Filed as tracker issues. None is a blocker for this release; none should be
+auto-closed by this merge. State re-read from the tracker on 2026-08-22
+rather than reported from memory — the first version of this section asserted
+all four were open and `ready`, which was already false for #4451.
 
-| Issue                                                                               | Origin          | What                                                                                                                                                                                                              |
-| ----------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [#4448](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4448) | review F1       | `classifyOverlap`'s published JSDoc promises "earlier start first", but window-clipped pairs sort by span and can arrive reversed. Doc and code disagree; either may be the thing that moves.                     |
-| [#4449](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4449) | review F2       | `pack.ts`'s `statementsPerFile = 2` let two new private helpers evict the exported hook from the llms context bundles. Deterministic, Integrity-green, and invisible — the class matters more than this instance. |
-| [#4450](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4450) | verify + review | `maxDiffPixelRatio: 0.01` absorbed a 45px row-height growth **and** a macOS-rendered baseline sitting on `main`. A passing visual test is currently weak evidence.                                                |
-| [#4451](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4451) | verify + review | PR preview URLs have never resolved (above). Workflow green, comment posted, link dead.                                                                                                                           |
+| Issue                                                                                              | Origin          | What                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#4448](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4448)                | review F1       | `classifyOverlap`'s published JSDoc promises "earlier start first", but window-clipped pairs sort by span and can arrive reversed. Doc and code disagree; either may be the thing that moves.                     |
+| [#4449](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4449)                | review F2       | `pack.ts`'s `statementsPerFile = 2` let two new private helpers evict the exported hook from the llms context bundles. Deterministic, Integrity-green, and invisible — the class matters more than this instance. |
+| [#4450](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4450)                | verify + review | `maxDiffPixelRatio: 0.01` absorbed a 45px row-height growth **and** a macOS-rendered baseline sitting on `main`. A passing visual test is currently weak evidence.                                                |
+| ~~[#4451](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4451)~~ **CLOSED** | verify + review | PR preview URLs had never resolved (above). Fixed by #4452 before this release merged. Left in the table because it is the reason G2 was unverifiable on #4442, not because it is outstanding.                    |
 
 Deliberately not filed: the five refreshed `dark/*` baselines and the
 stress-baseline column-label change are accepted as documented deviations,
@@ -267,5 +273,6 @@ touched.
   The only unmet success criterion. Everything measurable is green; this one
   is an aesthetic judgement and is not the assistant's to make.
 - **Operate.** This run stays active until `retro.md` exists.
-- Follow-ups #4448, #4449, #4450, #4451 are filed, labelled `ready`, and
-  none is blocked by this release.
+- Follow-ups #4448, #4449 and #4450 are open and labelled `ready`; none is
+  blocked by this release. #4451 is already closed — fixed by #4452 twenty
+  hours before this release merged.
