@@ -86,9 +86,7 @@ describe("Ingress coverage", () => {
     // The `/` catch-all matches everything, so it cannot count as coverage —
     // it is precisely what made the `/public/v1` failure silent.
     const routable = ingressPrefixes().filter((p) => p !== "/");
-    const uncovered = servedPaths().filter(
-      (route) => !routable.some((p) => route.startsWith(p))
-    );
+    const uncovered = servedPaths().filter((route) => !routable.some((p) => route.startsWith(p)));
     expect(uncovered).toEqual([]);
   });
 
