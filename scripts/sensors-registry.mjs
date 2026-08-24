@@ -513,9 +513,15 @@ export const SENSORS = [
     collect: ({ ghClient }) => {
       let runs;
       try {
+        // #4538: scoped to main-branch runs only — an unscoped query counts
+        // PR-validation runs from open branches (e.g. Dependabot PRs) toward
+        // "repo CI health", so noise unrelated to main can trip a false
+        // regression while main itself is fully green.
         runs = ghClient.workflow.runs([
           "--limit",
           "30",
+          "--branch",
+          "main",
           "--json",
           "status,conclusion,createdAt,name",
         ]);

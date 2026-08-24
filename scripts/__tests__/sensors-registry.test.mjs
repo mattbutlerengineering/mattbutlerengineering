@@ -434,6 +434,25 @@ describe("sensors-registry", () => {
       expect(sensor.collect({ ghClient })).toEqual({ available: false });
     });
 
+    // #4538: an unscoped query counts PR-validation runs from open branches
+    // (e.g. Dependabot PRs) toward "repo CI health", so noise unrelated to
+    // main can trip a false regression while main itself is fully green.
+    it("ci sensor scopes ghClient.workflow.runs to main-branch runs only", () => {
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue([]) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      sensor.collect({ ghClient });
+
+      expect(ghClient.workflow.runs).toHaveBeenCalledWith([
+        "--limit",
+        "30",
+        "--branch",
+        "main",
+        "--json",
+        "status,conclusion,createdAt,name",
+      ]);
+    });
+
     it("issues sensor reports the auth-capability gap distinctly when ghClient.issue.list throws GhAuthError", () => {
       const ghClient = {
         issue: {
