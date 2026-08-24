@@ -355,12 +355,28 @@ function readFlag(args, name) {
  * git unavailable) — the classifier treats that as "cannot compare" and keeps
  * the previous detection behavior rather than suppressing it (#4291).
  *
+ * Also returns undefined when the repo is a shallow clone: `git log -1 --
+ * <path>` in a depth-1 checkout reports the single commit it has regardless
+ * of whether that commit touched `path`, which makes every workflow's
+ * "modified at" resolve to HEAD's date and silently suppresses every
+ * genuine failing streak (#4502). This is belt-and-braces — the workflow's
+ * checkout step should already fetch full history — so a shallow clone is
+ * treated the same as any other "cannot compare" case, not a hard error.
+ *
  * @param {string} workflowPath repo-relative path, e.g. `.github/workflows/ci.yml`
+ * @param {{exec?: typeof execFileSync}} [deps]
  * @returns {string|undefined}
  */
-export function resolveWorkflowModifiedAt(workflowPath) {
+export function resolveWorkflowModifiedAt(workflowPath, { exec = execFileSync } = {}) {
   try {
-    const out = execFileSync("git", ["log", "-1", "--format=%cI", "--", workflowPath], {
+    const shallow = exec("git", ["rev-parse", "--is-shallow-repository"], {
+      cwd: ROOT,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (shallow === "true") return undefined;
+
+    const out = exec("git", ["log", "-1", "--format=%cI", "--", workflowPath], {
       cwd: ROOT,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],

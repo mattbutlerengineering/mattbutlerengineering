@@ -25,6 +25,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          # Full history, not the default depth-1 shallow clone: this script
+          # resolves each workflow file's last-modified date via
+          # `git log -1 -- <path>`, and in a shallow clone that always
+          # reports the single commit git has (≈HEAD), regardless of
+          # whether it touched the path. That silently suppressed every
+          # genuine failing streak as "awaiting-rerun" (#4502).
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-workspace
 
