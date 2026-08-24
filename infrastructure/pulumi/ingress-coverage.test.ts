@@ -22,6 +22,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 // `__dirname`, not `import.meta.url`: this package compiles to CommonJS
@@ -32,10 +33,36 @@ const read = (rel: string): string => readFileSync(resolve(__dirname, rel), "utf
 const captures = (source: string, re: RegExp): string[] =>
   [...source.matchAll(re)].map((m) => m[1]).filter((v): v is string => v !== undefined);
 
-/** Path prefixes the reservations service registers its route plugins under. */
-function registeredPrefixes(): string[] {
-  const source = read("../../services/reservations/src/app.ts");
-  return [...new Set(captures(source, /prefix:\s*"([^"]+)"/g))];
+const SERVICES = ["users", "reservations", "agent"] as const;
+
+/**
+ * Every absolute path the services actually serve.
+ *
+ * Two sources, because there are two ways a route gets its path here:
+ *  - `fastify.register(x, { prefix: "..." })` in app.ts, and
+ *  - plugins registered with NO prefix, which declare the full path inline
+ *    (`confirmAttendance`, `manageReservation`, `publicUnsubscribe`, ...).
+ * Reading only the first misses six reservations plugins — including
+ * `/public/v1/reservations/manage` and `/public/v1/guests/unsubscribe`, the
+ * guest-facing links that ship in outbound email.
+ *
+ * Test files are excluded: their fixture paths are not served by anything, and
+ * letting them in would make an unrelated test able to fail this one.
+ */
+function servedPaths(): string[] {
+  const paths = new Set<string>();
+  for (const service of SERVICES) {
+    const appSource = read(`../../services/${service}/src/app.ts`);
+    for (const prefix of captures(appSource, /prefix:\s*"([^"]+)"/g)) paths.add(prefix);
+
+    const routesDir = resolve(__dirname, `../../services/${service}/src/routes`);
+    for (const file of readdirSync(routesDir)) {
+      if (!file.endsWith(".ts") || file.includes(".test.")) continue;
+      const source = readFileSync(resolve(routesDir, file), "utf8");
+      for (const p of captures(source, /"(\/(?:api|public|v1)[a-zA-Z0-9/:_.-]*)"/g)) paths.add(p);
+    }
+  }
+  return [...paths];
 }
 
 /** Path prefixes the DO App Platform ingress actually routes. */
@@ -51,15 +78,15 @@ describe("Ingress coverage", () => {
     // Guards the regexes themselves: a parse that silently matches nothing
     // would make every assertion below vacuously true, which is the same
     // class of defect this file exists to catch.
-    expect(registeredPrefixes().length).toBeGreaterThan(0);
+    expect(servedPaths().length).toBeGreaterThan(0);
     expect(ingressPrefixes().length).toBeGreaterThan(0);
   });
 
-  it("every registered route prefix is covered by a non-catch-all ingress rule", () => {
+  it("every path a service serves is covered by a non-catch-all ingress rule", () => {
     // The `/` catch-all matches everything, so it cannot count as coverage —
     // it is precisely what made the `/public/v1` failure silent.
     const routable = ingressPrefixes().filter((p) => p !== "/");
-    const uncovered = registeredPrefixes().filter(
+    const uncovered = servedPaths().filter(
       (route) => !routable.some((p) => route.startsWith(p))
     );
     expect(uncovered).toEqual([]);
