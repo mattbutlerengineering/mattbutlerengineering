@@ -12,6 +12,7 @@ import {
   checkRateLimit,
   rateLimitResponse,
 } from "./rate-limiter.js";
+import topologyConfig from "./routes-config.json" with { type: "json" };
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -170,5 +171,36 @@ describe("Rate Limiter", () => {
       const body = await response.json();
       expect(body.error).toBe("Too Many Requests");
     });
+  });
+});
+
+// ── Coupling to the edge topology registry ───────────────────────────
+// This limiter runs BEFORE the origin-proxy branch and is keyed by its own
+// table, so a prefix added to routes-config.json's originRoutes does NOT
+// become rate limited by virtue of being proxied. That gap is invisible to
+// lint, typecheck and every other test: an absent limit and a present one
+// look identical unless something asserts the coupling. It shipped once --
+// /public was proxied to the origin with limit -1 (unlimited) while its /api
+// sibling was bounded at 100/min -- and this is what stops it recurring.
+describe("originRoutes coverage", () => {
+  it("gives every proxied origin prefix an edge rate limit", async () => {
+    const kv = createMockKv();
+    for (const prefix of topologyConfig.originRoutes) {
+      // Probe a path below the prefix, which is the shape real traffic takes
+      // and the shape the /api/ pattern already matches.
+      const result = await checkRateLimit(kv, `${prefix}/probe`, "1.2.3.4", Date.now());
+      expect(
+        result.limit,
+        `${prefix}/* is proxied to the origin with no edge bound`
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("bounds the unauthenticated /public surface exactly as tightly as /api", () => {
+    const api = RATE_LIMITS.find((r) => r.pattern === "/api/");
+    const pub = RATE_LIMITS.find((r) => r.pattern === "/public/");
+    expect(pub).toBeDefined();
+    expect(pub.maxRequests).toBe(api.maxRequests);
+    expect(pub.windowSeconds).toBe(api.windowSeconds);
   });
 });

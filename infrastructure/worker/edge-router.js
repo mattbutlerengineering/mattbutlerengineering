@@ -169,8 +169,13 @@ export default {
     // ── Origin routes → HTTP subrequest to DO App Platform ───────────
     // Prefixes come from routes-config.json's originRoutes (ADR-011: no
     // topology is hardcoded here). /public joins /api on this branch, so it
-    // inherits the circuit breaker, rate limiter, forwarded headers,
-    // X-Feature-Flags stripping and verbatim path preservation unchanged.
+    // inherits the circuit breaker, the forwarded header set, X-Feature-Flags
+    // stripping and verbatim path preservation unchanged.
+    //
+    // NOT the rate limiter: that runs above, before this branch, keyed by
+    // rate-limiter.js's own RATE_LIMITS table — a prefix listed in
+    // originRoutes is not bounded by being proxied. /public/ has its own entry
+    // there, and rate-limiter.test.js asserts every originRoutes prefix does.
     if (isOriginRoute(url.pathname)) {
       // Circuit breaker: check if API proxy is healthy
       const circuitState = await getCircuitState(env.HEALTH_STATE);

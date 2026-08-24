@@ -314,9 +314,11 @@ describe("Edge Router", () => {
     });
 
     it("gives /public the same forwarded headers and flag stripping as /api", async () => {
-      // Not asserted for its own sake: /public inherits the circuit breaker,
-      // rate limiter, header set and X-Feature-Flags stripping because it is
-      // the same branch, and this is what proves it is the same branch.
+      // Not asserted for its own sake: this is what proves /public takes the
+      // same branch as /api, and therefore inherits the circuit breaker, the
+      // forwarded header set and X-Feature-Flags stripping. The edge rate
+      // limiter is NOT inherited this way — it runs before this branch off its
+      // own table; rate-limiter.test.js owns that coupling.
       const originalFetch = globalThis.fetch;
       globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
       try {
@@ -382,13 +384,41 @@ describe("Edge Router", () => {
       }
     });
 
-    it("leaves no origin-route prefix hardcoded in edge-router.js", async () => {
+    it("reads the origin table rather than any literal — a prefix absent from source still routes", async () => {
       // ADR-011: topology lives in routes-config.json. The /api branch had
       // been violating that since it was written, which is why the coverage
       // check had no source of truth to read on the edge side.
+      //
+      // Asserting the source does not CONTAIN "/api/" is too weak to encode
+      // that rule: a reintroduced startsWith("/api") or === "/public" passes
+      // such a check unchanged. So drive the matcher with a prefix that
+      // appears nowhere in edge-router.js — it can only route if the branch
+      // genuinely reads the registry.
+      const invented = "/zzz-not-in-source";
       const source = readFileSync(resolve(__dirname, "edge-router.js"), "utf-8");
-      for (const prefix of topologyConfig.originRoutes) {
-        expect(source, `${prefix} is hardcoded in edge-router.js`).not.toContain(`"${prefix}/"`);
+      expect(source).not.toContain(invented);
+
+      const original = topologyConfig.originRoutes;
+      topologyConfig.originRoutes = [...original, invented];
+      try {
+        const request = await forwarded(`${invented}/probe`);
+        expect(request?.url).toBe(`https://api.mattbutlerengineering.com${invented}/probe`);
+      } finally {
+        topologyConfig.originRoutes = original;
+      }
+    });
+
+    it("stops routing a prefix the moment it leaves the registry", async () => {
+      // The other direction, and the one that catches a leftover literal: if
+      // any hardcoded /api test survived alongside the registry read, removing
+      // /api from the table would not stop it proxying.
+      const original = topologyConfig.originRoutes;
+      topologyConfig.originRoutes = original.filter((p) => p !== "/api");
+      try {
+        expect(await forwarded(API_TEST_PATH)).toBeNull();
+        expect(env.MARKETING.fetch).toHaveBeenCalled();
+      } finally {
+        topologyConfig.originRoutes = original;
       }
     });
 
