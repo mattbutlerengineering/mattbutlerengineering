@@ -181,6 +181,17 @@ const apiApp = new digitalocean.App(
             match: { path: { prefix: "/api" } },
             component: { name: "reservations-api", preservePathPrefix: true },
           },
+          // The public booking-widget and guest-self-service surface
+          // (/public/v1/venues/**, /public/v1/reservations/manage|confirm,
+          // /public/v1/guests/unsubscribe) lives only in reservations. Without
+          // this rule those paths matched only the "/" catch-all below, landed
+          // on users-api, and answered Fastify's default 404 — the entire
+          // surface unreachable in production while every unit test passed.
+          // ingress-coverage.test.ts fails if a registered prefix loses its rule.
+          {
+            match: { path: { prefix: "/public" } },
+            component: { name: "reservations-api", preservePathPrefix: true },
+          },
           // Catch-all (required by DO) — routes stray requests to users-api
           {
             match: { path: { prefix: "/" } },
