@@ -18,6 +18,13 @@
  *   node scripts/chaos-agent.mjs --type <type> [--file <path>]
  *   node scripts/chaos-agent.mjs --random
  *   node scripts/chaos-agent.mjs --type <type> --file <path> --dry-run  # no git/PR side effects
+ *
+ * `--random` retries: most random (type, file) pairings have no injection
+ * point (e.g. lighthouse-perf against a file with no <Image>), so a single
+ * attempt missed on ~15/15 lifetime scheduled runs (#4503). `--random` now
+ * draws up to `RANDOM_RETRY_CAP` candidates and picks the first injectable
+ * one via the pure `selectInjectableCandidate`, bounded so it always
+ * terminates. `--type <t>` is unchanged: one file, exit 1 on a miss.
  */
 
 import { execFileSync } from "node:child_process";
@@ -86,6 +93,22 @@ function computeInjection(type, filePath) {
   return injectBug(type, fs.readFileSync(filePath, "utf-8"));
 }
 
+/** Upper bound on how many random (type, file) candidates `--random` will try. */
+export const RANDOM_RETRY_CAP = 8;
+
+/**
+ * Pure: returns the first candidate for which `isInjectable(candidate)` is
+ * true, or `null` if none of them are. This is the entire candidate-
+ * selection/retry decision for `--random` mode — no I/O, no randomness — so
+ * it can be unit-tested without touching the filesystem or the bug catalog.
+ */
+export function selectInjectableCandidate(candidates, isInjectable) {
+  for (const candidate of candidates) {
+    if (isInjectable(candidate)) return candidate;
+  }
+  return null;
+}
+
 /**
  * Applies a catalog bug to the file at `filePath` (writes the transformed
  * content back). Returns whether an injection actually happened.
@@ -102,24 +125,54 @@ export function injectBugIntoFile(type, filePath) {
   return true;
 }
 
+/**
+ * Draws up to `RANDOM_RETRY_CAP` random (type, file) candidates and returns
+ * the first one with an actual injection point, via the pure
+ * `selectInjectableCandidate`. Returns `null` if every candidate in the
+ * bounded search misses.
+ */
+function pickRandomInjectableCandidate() {
+  const types = Object.keys(BUG_CATALOG);
+  const candidates = Array.from({ length: RANDOM_RETRY_CAP }, () => {
+    const candidateType = types[Math.floor(Math.random() * types.length)];
+    return { type: candidateType, file: findTargetFile(candidateType) };
+  });
+
+  return selectInjectableCandidate(candidates, (c) => computeInjection(c.type, c.file).injected);
+}
+
 function main() {
   const args = process.argv.slice(2);
-  let type = args.includes("--type") ? args[args.indexOf("--type") + 1] : null;
+  const explicitType = args.includes("--type") ? args[args.indexOf("--type") + 1] : null;
   const randomMode = args.includes("--random");
   const dryRun = args.includes("--dry-run");
 
-  if (randomMode) {
-    const types = Object.keys(BUG_CATALOG);
-    type = types[Math.floor(Math.random() * types.length)];
-  }
-
-  if (!type || !BUG_CATALOG[type]) {
+  if (!randomMode && (!explicitType || !BUG_CATALOG[explicitType])) {
     console.error(`Invalid bug type. Available: ${Object.keys(BUG_CATALOG).join(", ")}`);
     process.exit(1);
   }
 
-  const fileIdx = args.indexOf("--file");
-  const targetFile = fileIdx !== -1 ? args[fileIdx + 1] : findTargetFile(type);
+  let type;
+  let targetFile;
+
+  if (randomMode) {
+    const picked = pickRandomInjectableCandidate();
+
+    if (!picked) {
+      console.error(
+        `Failed to inject bug: no injection point found in ${RANDOM_RETRY_CAP} random (type, file) candidates.`
+      );
+      process.exit(1);
+    }
+
+    type = picked.type;
+    targetFile = picked.file;
+  } else {
+    const fileIdx = args.indexOf("--file");
+    type = explicitType;
+    targetFile = fileIdx !== -1 ? args[fileIdx + 1] : findTargetFile(type);
+  }
+
   console.log(`Targeting file: ${targetFile} with bug type: ${type}${dryRun ? " (dry run)" : ""}`);
 
   if (dryRun) {
