@@ -14,6 +14,7 @@ import {
   buildScheduledFailureBody,
   buildScheduledFailureCreateArgs,
   runScheduledWorkflowHealthCheck,
+  resolveWorkflowModifiedAt,
 } from "../scheduled-workflow-health.mjs";
 
 describe("classifyScheduledWorkflowHealth", () => {
@@ -484,5 +485,39 @@ describe("runScheduledWorkflowHealthCheck — awaiting-rerun", () => {
     });
 
     expect(created).toHaveLength(1);
+  });
+});
+
+// resolveWorkflowModifiedAt — injectable exec, fails open (undefined) on a
+// shallow clone so a depth-1 checkout can never masquerade as a real
+// per-file timestamp (#4502).
+describe("resolveWorkflowModifiedAt", () => {
+  it("returns undefined without consulting git log when the repo is shallow", () => {
+    const exec = (_cmd, args) => {
+      if (args.includes("--is-shallow-repository")) return "true\n";
+      throw new Error("git log should never be called on a shallow repo");
+    };
+    expect(
+      resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
+    ).toBeUndefined();
+  });
+
+  it("returns the per-file committer date when the repo is not shallow", () => {
+    const exec = (_cmd, args) => {
+      if (args.includes("--is-shallow-repository")) return "false\n";
+      return "2026-08-01T00:00:00+00:00\n";
+    };
+    expect(resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })).toBe(
+      "2026-08-01T00:00:00+00:00"
+    );
+  });
+
+  it("returns undefined when the shallow check itself fails", () => {
+    const exec = () => {
+      throw new Error("git not available");
+    };
+    expect(
+      resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
+    ).toBeUndefined();
   });
 });
