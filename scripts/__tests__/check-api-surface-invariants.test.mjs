@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
@@ -107,11 +107,75 @@ describe("API_SURFACE_PROBES", () => {
   });
 });
 
+/** A workflow with whole-line `#` comments removed. */
+const stripComments = (yml) =>
+  yml
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n");
+
+/** Every workflow file, as { file, name, source }. */
+function allWorkflows() {
+  const dir = resolve(ROOT, ".github/workflows");
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
+    .map((file) => {
+      const source = readFileSync(resolve(dir, file), "utf8");
+      return { file, name: source.match(/^name:\s*(.+)$/m)?.[1]?.trim() ?? "", source };
+    });
+}
+
+/**
+ * Workflows that deploy to production.
+ *
+ * "Deploys" = shells out to one of the three deploy tools this repo uses.
+ * "To production" = triggers on a push to `main`; `preview-deploy.yml` runs
+ * the same wrangler command but only on `pull_request`, and probing the
+ * production host after a PR preview would assert nothing about the preview.
+ */
+const DEPLOY_COMMAND =
+  /wrangler.*deploy|doctl apps create-deployment|pulumi up|uses: pulumi\/actions/;
+
+function productionDeployWorkflows() {
+  return allWorkflows().filter(({ source }) => {
+    const code = stripComments(source);
+    return DEPLOY_COMMAND.test(code) && /branches:\s*\[\s*main\s*\]/.test(code);
+  });
+}
+
 describe("post-deploy-check workflow wiring", () => {
   it("runs the invariant probe", () => {
     // Same class as the rialto-web spec-list guard: a checked-in probe that no
-    // workflow invokes pins nothing.
-    expect(POST_DEPLOY_WORKFLOW).toContain("scripts/check-api-surface-invariants.mjs");
+    // workflow invokes pins nothing. Comments are stripped first -- an
+    // indexOf over the raw text would stay green if the real invocation were
+    // deleted while a comment still named the script by path.
+    expect(stripComments(POST_DEPLOY_WORKFLOW)).toContain(
+      "node scripts/check-api-surface-invariants.mjs"
+    );
+  });
+
+  it("probes after every workflow that deploys to production", () => {
+    // The gap this closes: "Pulumi Deploy" owns the DO App Platform ingress
+    // rules, and ingress is the one layer whose breakage is invisible to
+    // every service-level check -- the route is registered, its tests pass,
+    // the service is healthy, and the deployed host still answers 404. It
+    // was absent from this list, so the single deploy that can introduce
+    // that defect was the single deploy that never got probed.
+    const listed = stripComments(POST_DEPLOY_WORKFLOW).match(/workflows:\s*\[([^\]]*)\]/)?.[1];
+    expect(listed, "post-deploy-check has no workflow_run trigger list").toBeDefined();
+
+    const deployers = productionDeployWorkflows();
+    expect(deployers.length).toBeGreaterThan(0);
+
+    const unprobed = deployers.filter(({ name }) => !listed.includes(`"${name}"`));
+    expect(unprobed.map((w) => `${w.file} (${w.name})`)).toEqual([]);
+  });
+
+  it("does not probe production after a PR preview deploy", () => {
+    // Guards the discriminator above rather than the list: if
+    // preview-deploy.yml ever starts matching, the test above would begin
+    // demanding it be probed, which would be wrong.
+    expect(productionDeployWorkflows().map((w) => w.file)).not.toContain("preview-deploy.yml");
   });
 });
 
