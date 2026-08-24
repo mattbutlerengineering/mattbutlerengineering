@@ -415,13 +415,22 @@
   </file>
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
     <item priority="high">
-      type OverlapClassifier = (a: TapeChartReservation, b: TapeChartReservation) => Tap...;
+      export function useTapeChartLayout(
+        reservations: TapeChartReservation[],
+        rooms: TapeChartRoom[],
+        startDate: string,
+        endDate: string,
+        classifyOverlap?: OverlapClassifier
+      ): TapeChartLayout { /* ... */ }
     </item>
     <item priority="medium">
-      function worstOf(
-        current: TapeChartOverlapKind | undefined,
-        next: TapeChartOverlapKind
-      ): TapeChartOverlapKind { /* ... */ }
+      function packRoom(
+        bars: TapeChartPositionedBar[],
+        classify: OverlapClassifier
+      ): {
+        bars: TapeChartPositionedBar[];
+        laneCount: number;
+      } { /* ... */ }
     </item>
   </file>
   </section>
