@@ -156,6 +156,110 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --body-file /tmp/smoke-comment.md
 
+  api-surface-invariants:
+    # Asserts that guards which are only observable on the deployed service are
+    # still attached. Separate from smoke-test above, which asks "is it up":
+    # here a 4xx is the expected, passing answer and the question is whether the
+    # protection around a working route survived the last deploy.
+    #
+    # Exists because #4492 shipped `POST /api/v1/venues` with no rate limit on
+    # its unauthenticated surface, and every local gate passed over it -- an
+    # absent limiter and a present one are identical to lint, typecheck and any
+    # single-request test. The only signal was a missing response header.
+    name: API Surface Invariants
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Worst case is a total outage, where every probe exhausts its retries:
+    # 30s propagation wait + 5 probes x (4 attempts x 15s timeout + 3 x 10s
+    # delay) = ~8 min. The budget has to clear that, because a job killed by
+    # its own timeout reports a truncated log instead of a clean `unreachable`.
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Wait for deploy propagation
+        run: sleep 30
+
+      # No dependency install: the probe and file-issue-cli are Node builtins
+      # all the way down.
+      - name: Probe deployed API surface
+        id: probe
+        run: |
+          set -o pipefail
+          node scripts/check-api-surface-invariants.mjs \
+            --base https://api.mattbutlerengineering.com \
+            2>&1 | tee /tmp/api-surface.log
+
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "### API Surface Invariants"
+            echo
+            echo '```'
+            cat /tmp/api-surface.log 2>/dev/null || echo "probe produced no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A red job in a post-deploy workflow that nobody is watching is the same
+      # failure mode this gate exists to close, so a breach files an issue --
+      # same mechanism the playwright-smoke job below uses.
+      - name: File issue on invariant breach
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+        run: |
+          SHORT_SHA="${HEAD_SHA:0:7}"
+          {
+            echo "## API Surface Invariant Breach"
+            echo
+            echo "A guard that is only observable on the deployed service is missing,"
+            echo "answered the wrong status, or the service is unreachable."
+            echo
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| **Date** | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| **Trigger** | ${TRIGGER_NAME:-manual} |"
+            echo "| **Commit SHA** | \`${SHORT_SHA:-unknown}\` |"
+            echo "| **Run** | [logs](${RUN_URL}) |"
+            echo
+            echo "### Probe output"
+            echo '```'
+            cat /tmp/api-surface.log 2>/dev/null || echo "probe produced no output"
+            echo '```'
+            echo
+            echo "### Reading the result"
+            echo "- \`guard-missing\` — the route answers correctly and its protection is gone."
+            echo "  This is not an outage. See \`.claude/rules/gotchas.md\` § Fastify / rate limiting."
+            echo "- \`status-mismatch\` — the route's unauthenticated behaviour changed."
+            echo "- \`unreachable\` — the service did not respond; treat as an outage first."
+            echo
+            echo "---"
+            echo "*Auto-created by post-deploy-check workflow*"
+          } > /tmp/api-surface-body.md
+
+          node scripts/lib/file-issue-cli.mjs \
+            --title "API surface invariant breach (${SHORT_SHA:-unknown})" \
+            --label "ci-fix" \
+            --label "ready" \
+            --body-file /tmp/api-surface-body.md \
+            --dedupe-key "api-surface-invariants-${SHORT_SHA:-unknown}" \
+            --search-label "ci-fix" \
+            --search-state all \
+            --contains "(${SHORT_SHA:-unknown})"
+
   playwright-smoke:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
