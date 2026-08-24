@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
@@ -107,11 +107,110 @@ describe("API_SURFACE_PROBES", () => {
   });
 });
 
+/** A workflow with whole-line `#` comments removed. */
+const stripComments = (yml) =>
+  yml
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n");
+
+/** Every workflow file, as { file, name, source }. */
+function allWorkflows() {
+  const dir = resolve(ROOT, ".github/workflows");
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
+    .map((file) => {
+      const source = readFileSync(resolve(dir, file), "utf8");
+      return { file, name: source.match(/^name:\s*(.+)$/m)?.[1]?.trim() ?? "", source };
+    });
+}
+
+/**
+ * Workflows that deploy to production.
+ *
+ * "Deploys" = shells out to one of the three deploy tools this repo uses.
+ * "To production" = triggers on a push to `main`; `preview-deploy.yml` runs
+ * the same wrangler command but only on `pull_request`, and probing the
+ * production host after a PR preview would assert nothing about the preview.
+ */
+const DEPLOY_COMMAND =
+  /wrangler.*deploy|doctl apps create-deployment|pulumi up|uses: pulumi\/actions/;
+
+/**
+ * Whether a workflow triggers on `main`.
+ *
+ * Deliberately not `/branches:\s*\[\s*main\s*\]/`. That matches only the
+ * exact inline single-entry form every workflow happens to use today, so
+ * `branches: [main, staging]` or the block form
+ *
+ *     branches:
+ *       - main
+ *
+ * would read as "not a production workflow" and the workflow would drop out
+ * of the coverage check silently. The dangerous direction for a guard is
+ * always the narrowing one: fewer workflows checked, never more, and a
+ * falsely-excluded workflow looks exactly like a correctly-excluded one.
+ */
+function triggersOnMain(code) {
+  for (const match of code.matchAll(/branches:\s*(.*(?:\n\s+-\s*.+)*)/g)) {
+    if (/\bmain\b/.test(match[1])) return true;
+  }
+  return false;
+}
+
+function productionDeployWorkflows() {
+  return allWorkflows().filter(({ source }) => {
+    const code = stripComments(source);
+    return DEPLOY_COMMAND.test(code) && triggersOnMain(code);
+  });
+}
+
 describe("post-deploy-check workflow wiring", () => {
   it("runs the invariant probe", () => {
     // Same class as the rialto-web spec-list guard: a checked-in probe that no
-    // workflow invokes pins nothing.
-    expect(POST_DEPLOY_WORKFLOW).toContain("scripts/check-api-surface-invariants.mjs");
+    // workflow invokes pins nothing. Comments are stripped first -- an
+    // indexOf over the raw text would stay green if the real invocation were
+    // deleted while a comment still named the script by path.
+    expect(stripComments(POST_DEPLOY_WORKFLOW)).toContain(
+      "node scripts/check-api-surface-invariants.mjs"
+    );
+  });
+
+  it("probes after every workflow that deploys to production", () => {
+    // The gap this closes: "Pulumi Deploy" owns the DO App Platform ingress
+    // rules, and ingress is the one layer whose breakage is invisible to
+    // every service-level check -- the route is registered, its tests pass,
+    // the service is healthy, and the deployed host still answers 404. It
+    // was absent from this list, so the single deploy that can introduce
+    // that defect was the single deploy that never got probed.
+    const listed = stripComments(POST_DEPLOY_WORKFLOW).match(/workflows:\s*\[([^\]]*)\]/)?.[1];
+    expect(listed, "post-deploy-check has no workflow_run trigger list").toBeDefined();
+
+    const deployers = productionDeployWorkflows();
+    expect(deployers.length).toBeGreaterThan(0);
+
+    const unprobed = deployers.filter(({ name }) => !listed.includes(`"${name}"`));
+    expect(unprobed.map((w) => `${w.file} (${w.name})`)).toEqual([]);
+  });
+
+  it("recognises every branch-list form, so a workflow cannot drop out silently", () => {
+    // Each of these is a production deploy trigger; a guard that only reads
+    // the first would quietly stop covering a workflow the day someone
+    // reformatted its trigger block.
+    expect(triggersOnMain("  push:\n    branches: [main]")).toBe(true);
+    expect(triggersOnMain("  push:\n    branches: [main, staging]")).toBe(true);
+    expect(triggersOnMain('  push:\n    branches: ["main"]')).toBe(true);
+    expect(triggersOnMain("  push:\n    branches:\n      - main")).toBe(true);
+    expect(triggersOnMain("  push:\n    branches:\n      - release\n      - main")).toBe(true);
+    expect(triggersOnMain("  push:\n    branches: [develop]")).toBe(false);
+    expect(triggersOnMain("  pull_request:\n    types: [opened]")).toBe(false);
+  });
+
+  it("does not probe production after a PR preview deploy", () => {
+    // Guards the discriminator above rather than the list: if
+    // preview-deploy.yml ever starts matching, the test above would begin
+    // demanding it be probed, which would be wrong.
+    expect(productionDeployWorkflows().map((w) => w.file)).not.toContain("preview-deploy.yml");
   });
 });
 
