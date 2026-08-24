@@ -136,10 +136,32 @@ function allWorkflows() {
 const DEPLOY_COMMAND =
   /wrangler.*deploy|doctl apps create-deployment|pulumi up|uses: pulumi\/actions/;
 
+/**
+ * Whether a workflow triggers on `main`.
+ *
+ * Deliberately not `/branches:\s*\[\s*main\s*\]/`. That matches only the
+ * exact inline single-entry form every workflow happens to use today, so
+ * `branches: [main, staging]` or the block form
+ *
+ *     branches:
+ *       - main
+ *
+ * would read as "not a production workflow" and the workflow would drop out
+ * of the coverage check silently. The dangerous direction for a guard is
+ * always the narrowing one: fewer workflows checked, never more, and a
+ * falsely-excluded workflow looks exactly like a correctly-excluded one.
+ */
+function triggersOnMain(code) {
+  for (const match of code.matchAll(/branches:\s*(.*(?:\n\s+-\s*.+)*)/g)) {
+    if (/\bmain\b/.test(match[1])) return true;
+  }
+  return false;
+}
+
 function productionDeployWorkflows() {
   return allWorkflows().filter(({ source }) => {
     const code = stripComments(source);
-    return DEPLOY_COMMAND.test(code) && /branches:\s*\[\s*main\s*\]/.test(code);
+    return DEPLOY_COMMAND.test(code) && triggersOnMain(code);
   });
 }
 
@@ -169,6 +191,19 @@ describe("post-deploy-check workflow wiring", () => {
 
     const unprobed = deployers.filter(({ name }) => !listed.includes(`"${name}"`));
     expect(unprobed.map((w) => `${w.file} (${w.name})`)).toEqual([]);
+  });
+
+  it("recognises every branch-list form, so a workflow cannot drop out silently", () => {
+    // Each of these is a production deploy trigger; a guard that only reads
+    // the first would quietly stop covering a workflow the day someone
+    // reformatted its trigger block.
+    expect(triggersOnMain("  push:\n    branches: [main]")).toBe(true);
+    expect(triggersOnMain("  push:\n    branches: [main, staging]")).toBe(true);
+    expect(triggersOnMain('  push:\n    branches: ["main"]')).toBe(true);
+    expect(triggersOnMain("  push:\n    branches:\n      - main")).toBe(true);
+    expect(triggersOnMain("  push:\n    branches:\n      - release\n      - main")).toBe(true);
+    expect(triggersOnMain("  push:\n    branches: [develop]")).toBe(false);
+    expect(triggersOnMain("  pull_request:\n    types: [opened]")).toBe(false);
   });
 
   it("does not probe production after a PR preview deploy", () => {
