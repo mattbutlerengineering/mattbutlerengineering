@@ -212,6 +212,20 @@ jobs:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
+      - name: Restore turbo local cache
+        # #4504: CI had zero turbo cache reuse of any kind — remote caching is
+        # inert (TURBO_TOKEN unset) and nothing ever cached the local
+        # `.turbo/cache` dir turbo.json pins (#3786). Keyed on the
+        # pnpm-lock.yaml hash so a lockfile-touching PR (a turbo
+        # globalDependencies entry) rotates the key instead of restoring a
+        # stale cache across the change that invalidates every task.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
+
       - name: Typecheck
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -274,6 +288,15 @@ jobs:
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
+
+      - name: Restore turbo local cache
+        # #4504: see the Typecheck job's identical step for rationale.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Check rialto exports map is in sync
         run: pnpm --filter @mattbutlerengineering/rialto exports:check
@@ -389,6 +412,15 @@ jobs:
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
+
+      - name: Restore turbo local cache
+        # #4504: see the Typecheck job's identical step for rationale.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Run tests with coverage
         env:
