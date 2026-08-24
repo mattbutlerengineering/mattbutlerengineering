@@ -86,6 +86,14 @@ jobs:
       # running services. Re-run CI on this exact commit before waiting.
       # See scripts/deploy-ci-precondition.mjs for the measurements.
       - name: Recover a cancelled CI run
+        # Best-effort, and never a new way for a deploy to fail. Without
+        # this, `set -e` plus a transient `gh` error (rate limit, 5xx, a
+        # rerun refused because the run has aged out) would block a deploy
+        # that would otherwise have proceeded — trading a rare stall for a
+        # new common one. On failure the wait step below behaves exactly as
+        # it does today, so the worst case is the status quo, and the step
+        # still shows as failed in the run so the miss stays visible.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

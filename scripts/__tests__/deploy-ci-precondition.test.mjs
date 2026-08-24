@@ -150,6 +150,13 @@ describe("deploy-services workflow wiring", () => {
     expect(DEPLOY_WORKFLOW_CODE).toContain("set -euo pipefail");
   });
 
+  it("cannot itself block a deploy", () => {
+    // The recovery is best-effort. Without continue-on-error, `set -e` plus
+    // a transient gh failure would block a deploy that would otherwise have
+    // proceeded — trading a rare stall for a new common one.
+    expect(DEPLOY_WORKFLOW_CODE).toContain("continue-on-error: true");
+  });
+
   it("checks out the repo, since the step executes a file from it", () => {
     expect(DEPLOY_WORKFLOW_CODE).toMatch(/uses: actions\/checkout@[0-9a-f]{40}/);
   });
