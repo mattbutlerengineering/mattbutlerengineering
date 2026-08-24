@@ -67,7 +67,46 @@ jobs:
     needs: [circuit-check]
     if: needs.circuit-check.outputs.blocked != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+      actions: write # `gh run rerun` in the recovery step below
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      # A CI run that is still QUEUED on `main` gets cancelled when a later
+      # push queues behind an already-running one — ci.yml's
+      # `cancel-in-progress: false` protects an in-progress run, not a
+      # pending one. `Build` then never appears, the wait below burns its
+      # full 30-minute discovery timeout, and the commit never deploys:
+      # three of the last three `Wait for CI` failures, one of them a
+      # 46-package production-dependency bump that never reached the
+      # running services. Re-run CI on this exact commit before waiting.
+      # See scripts/deploy-ci-precondition.mjs for the measurements.
+      - name: Recover a cancelled CI run
+        # Best-effort, and never a new way for a deploy to fail. Without
+        # this, `set -e` plus a transient `gh` error (rate limit, 5xx, a
+        # rerun refused because the run has aged out) would block a deploy
+        # that would otherwise have proceeded — trading a rare stall for a
+        # new common one. On failure the wait step below behaves exactly as
+        # it does today, so the worst case is the status quo, and the step
+        # still shows as failed in the run so the miss stays visible.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          runs=$(gh run list --commit "$GITHUB_SHA" --workflow ci.yml \
+            --limit 10 --json databaseId,status,conclusion)
+          verdict=$(node scripts/deploy-ci-precondition.mjs "$runs")
+          echo "CI precondition for $GITHUB_SHA: $verdict"
+          if [ "$(echo "$verdict" | jq -r .rerun)" = "true" ]; then
+            gh run rerun "$(echo "$verdict" | jq -r .runId)"
+            echo "Re-ran the cancelled CI run; the wait step can now resolve."
+          fi
+
       - name: Wait for CI workflow
         uses: lewagon/wait-on-check-action@369769072fe522a3a8a85c03c96af1e5242a1994 # v1.9.1
         with:

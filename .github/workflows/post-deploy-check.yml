@@ -2,7 +2,15 @@ name: Post-Deploy Check
 
 on:
   workflow_run:
-    workflows: ["Deploy Services", "Deploy Static Sites"]
+    # "Pulumi Deploy" owns infrastructure/pulumi/**, which is where the DO
+    # App Platform ingress rules live — the layer that decides which service
+    # a path reaches at all. A missing ingress rule is invisible to every
+    # service-level check (the route is registered, its tests pass, the
+    # service is healthy) and shows up only as a 404 on the deployed host,
+    # which is exactly what the API Surface Invariants job below probes for.
+    # Without this entry the one deploy that can introduce that class of
+    # defect is the one deploy that never gets probed.
+    workflows: ["Deploy Services", "Deploy Static Sites", "Pulumi Deploy"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
