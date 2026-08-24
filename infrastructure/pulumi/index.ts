@@ -239,10 +239,30 @@ const apiApp = new digitalocean.App(
   },
   {
     customTimeouts: { create: "15m", update: "15m" },
-    // DO adds default fields (features, scope, instance_count on jobs) that
-    // aren't in our spec, causing a diff on every run. Each diff triggers a
-    // full deployment (~30min). Ignore changes until we reconcile the spec.
-    ignoreChanges: ["spec"],
+    // Ignore ingress's SIBLINGS, never `spec` itself.
+    //
+    // This was `ignoreChanges: ["spec"]`, to suppress the DO-injected default
+    // fields (top-level `features`, `scope` on env entries, `instance_count` /
+    // `instance_size_slug` on jobs and services) that diff on every run and
+    // trigger a ~30min full deployment. It also silently made the ingress
+    // rules unmanaged: PR #4511's `/public` rule sat correct in source while
+    // `pulumi up` reported success with this App `unchanged`, and the entire
+    // public booking surface 404ed in production for three months.
+    //
+    // Now MANAGED (and already byte-equal to the live spec, so narrowing this
+    // is intended to produce exactly one diff — the `/public` ingress rule):
+    //   name, region, domainNames, ingress
+    // Still DELIBERATELY UNMANAGED — env vars, instance sizes and component
+    // config remain exactly as unmanaged as they were, and this fix does not
+    // claim otherwise (full reconciliation is issue #3277):
+    //   spec.features, spec.jobs, spec.services
+    //
+    // Depth-2 object keys only: no `[*]`, no `[0]`, no array traversal, whose
+    // support at this provider version is unvalidated. Whether the engine
+    // honors these paths is settled by reading `pulumi preview --diff` — NOT
+    // by a green `pulumi up`, which is precisely what meant nothing here.
+    // See docs/fixes/public-ingress-never-applied/.
+    ignoreChanges: ["spec.features", "spec.jobs", "spec.services"],
   }
 );
 

@@ -29,6 +29,23 @@ import { resolve } from "node:path";
 // (tsc rejects import.meta here with TS1470), and __dirname is native there.
 const read = (rel: string): string => readFileSync(resolve(__dirname, rel), "utf8");
 
+/**
+ * A source file with its whole-line comments removed.
+ *
+ * A reader that matches inside a comment reads a claim about the code instead
+ * of the code, and it fails in the quiet direction: the comment below
+ * `ignoreChanges` records the old `["spec"]` value as the defect's history, so
+ * a reader without this returns the historical value forever and reports the
+ * ingress rules unmanaged no matter what the resource actually declares.
+ * Whole-line only — a trailing `//` inside a string literal (`https://…`) must
+ * survive.
+ */
+const readCode = (rel: string): string =>
+  read(rel)
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+    .join("\n");
+
 /** Capture group 1 of every match, with the undefined-capture case dropped. */
 const captures = (source: string, re: RegExp): string[] =>
   [...source.matchAll(re)].map((m) => m[1]).filter((v): v is string => v !== undefined);
@@ -79,7 +96,7 @@ function ingressPrefixes(): string[] {
  * whether anything above it is more than decoration.
  */
 function appIgnoreChanges(): string[] {
-  const source = read("./index.ts");
+  const source = readCode("./index.ts");
   const entries = source.match(/ignoreChanges:\s*\[([^\]]*)\]/)?.[1];
   if (entries === undefined)
     throw new Error("could not locate the ignoreChanges array in index.ts");
@@ -159,6 +176,17 @@ describe("Ingress coverage", () => {
     // And one that returned [] here would report the ingress rules managed
     // no matter what index.ts actually ignores.
     expect(appIgnoreChanges().length).toBeGreaterThan(0);
+  });
+
+  it("reads the live ignoreChanges array, not a commented-out one", () => {
+    // Measured, not hypothetical: index.ts's comment records the old
+    // `ignoreChanges: ["spec"]` as this defect's history, and a reader that
+    // matched the first occurrence in the raw file returned that historical
+    // value — reporting the ingress rules unmanaged after they had been
+    // fixed. A wrong value passes the emptiness guard above, so it needs its
+    // own assertion.
+    expect(appIgnoreChanges()).not.toContain("spec");
+    expect(read("./index.ts")).toContain('ignoreChanges: ["spec"]');
   });
 
   it("every path a service serves is covered by a non-catch-all ingress rule", () => {
