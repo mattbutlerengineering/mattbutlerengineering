@@ -110,6 +110,23 @@ export function selectInjectableCandidate(candidates, isInjectable) {
 }
 
 /**
+ * Creates the chaos branch and commits the injected bug, via an injectable
+ * `exec(cmd, args)` so this can be tested without touching git state.
+ *
+ * Sets a local (not --global) git identity before committing — CI runners
+ * have none configured for this job, which crashes `git commit` with
+ * "Author identity unknown" (#4287). Matches the convention already used in
+ * `.github/workflows/post-merge.yml`.
+ */
+export function commitChaosBug(exec, { branchName, targetFile, type, relativePath }) {
+  exec("git", ["checkout", "-b", branchName]);
+  exec("git", ["config", "user.name", "github-actions[bot]"]);
+  exec("git", ["config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"]);
+  exec("git", ["add", targetFile]);
+  exec("git", ["commit", "-m", `chore(chaos): seed synthetic ${type} in ${relativePath}`]);
+}
+
+/**
  * Applies a catalog bug to the file at `filePath` (writes the transformed
  * content back). Returns whether an injection actually happened.
  */
@@ -191,13 +208,7 @@ function main() {
 
     console.log(`Bug injected. Creating branch ${branchName}...`);
 
-    execFileSync("git", ["checkout", "-b", branchName]);
-    execFileSync("git", ["add", targetFile]);
-    execFileSync("git", [
-      "commit",
-      "-m",
-      `chore(chaos): seed synthetic ${type} in ${relativePath}`,
-    ]);
+    commitChaosBug(execFileSync, { branchName, targetFile, type, relativePath });
 
     if (args.includes("--push")) {
       console.log("Pushing and creating PR...");

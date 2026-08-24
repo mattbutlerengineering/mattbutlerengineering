@@ -9,6 +9,7 @@ import {
   BUG_CATALOG,
   buildChaosPrArgs,
   selectInjectableCandidate,
+  commitChaosBug,
 } from "../chaos-agent.mjs";
 
 // #2941: the pre-#2927 version of this suite ran the full chaos-agent CLI via
@@ -103,6 +104,35 @@ export default function MyComponent() {
     expect(prArgs[readyIdx - 1]).toBe("--label");
     expect(prArgs).toContain("chaos-audit");
     expect(prArgs).toContain("audit");
+  });
+
+  test("sets a local git identity before committing (#4287 — CI runners have none)", () => {
+    const calls = [];
+    const exec = (cmd, args) => calls.push([cmd, ...args]);
+
+    commitChaosBug(exec, {
+      branchName: "chaos/synthetic-bug-123",
+      targetFile: "/repo/apps/marketing/src/Foo.tsx",
+      type: "console-error",
+      relativePath: "apps/marketing/src/Foo.tsx",
+    });
+
+    const commitIdx = calls.findIndex((c) => c[1] === "commit");
+    const nameIdx = calls.findIndex(
+      (c) => c[1] === "config" && c[2] === "user.name" && c[3] === "github-actions[bot]"
+    );
+    const emailIdx = calls.findIndex(
+      (c) =>
+        c[1] === "config" &&
+        c[2] === "user.email" &&
+        c[3] === "41898282+github-actions[bot]@users.noreply.github.com"
+    );
+
+    expect(nameIdx).toBeGreaterThan(-1);
+    expect(emailIdx).toBeGreaterThan(-1);
+    expect(commitIdx).toBeGreaterThan(-1);
+    expect(nameIdx).toBeLessThan(commitIdx);
+    expect(emailIdx).toBeLessThan(commitIdx);
   });
 });
 
