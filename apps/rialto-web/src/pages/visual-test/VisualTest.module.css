@@ -57,9 +57,18 @@
  * SC-5 and SC-6 cannot be discharged any other way.
  *
  * It is scoped to 8 of the suite's 49 snapshots (so the 6-row display cap and
- * its overflow line are both exercised) and it changes only `opacity`, which
- * affects no layout — the perturbed screenshots differ in colour, never in
- * size, which is the shape of a real baseline drift.
+ * its overflow line are both exercised) and it changes only `background`,
+ * which affects no layout — the perturbed screenshots differ in colour, never
+ * in size, which keeps every failure on Playwright's pixel-diff path (that
+ * writes -expected/-actual/-diff) rather than the size-mismatch path (which
+ * writes no diff image).
+ *
+ * It has to be a HIGH-DELTA change. The first attempt used `opacity: 0.55`,
+ * which changed 71,140 of the 139,216 pixels in light-button-variants and
+ * still passed all 49 snapshots in CI (run 32901834483): the largest
+ * per-channel delta it produced anywhere was 36/255 = 0.14, under Playwright's
+ * default per-pixel `threshold` of 0.2, so the comparator counted zero
+ * differing pixels and `maxDiffPixels: 300` was never consulted.
  *
  * This block is reverted in a follow-up commit on this same branch before the
  * PR is considered complete, and its removal is itself the SC-5 evidence.
@@ -72,5 +81,5 @@
 .section[data-testid="alert-variants"],
 .section[data-testid="badge-variants"],
 .section[data-testid="table-default"] {
-  opacity: 0.55;
+  background: #7b2ff7;
 }
