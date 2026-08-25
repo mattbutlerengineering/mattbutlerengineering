@@ -177,11 +177,17 @@ eyeball-it-now question instead of a wait-for-Verify one.
   - Accept: body's first line is exactly
     `<!-- visual-diffs-in-pr run=<run_id> attempt=<run_attempt> -->`; heading is
     `## 🖼 Visual regression — X of 49 changed` with both numbers from
-    `parseVisualReport`; at most `MAX_IMAGE_ROWS` `### <name> (N px over
-<budget> budget)` sections, `<budget>` being **the value the caller
-    passed**, each a three-column baseline | actual | diff
+    `parseVisualReport`; at most `MAX_IMAGE_ROWS` ``### `<name>` (N px over
+<budget> budget)`` sections — the name a **code span**, fenced one backtick
+    longer than the longest backtick run inside it (_reworded 2026-08-25 after
+    review_: an array-form `toHaveScreenshot(["dir", "name.png"])` bypasses
+    Playwright's filename sanitiser, so the name is untrusted text) —
+    `<budget>` being **the value the caller passed**, each a three-column baseline | actual | diff
     table whose `<img src>` are `raw.githubusercontent.com/<slug>/<sha>/<file>`
-    at `width=250`, addressed by **commit SHA, never a ref name**; **every**
+    at `width=250`, addressed by **commit SHA, never a ref name**, with `<file>`
+    passed through `encodeURIComponent` so a hostile name can neither close the
+    `src` attribute nor truncate the URL (_criterion added 2026-08-25 after
+    review_); **every**
     changed snapshot beyond the cap still appears by name and pixel count in
     plain text, with an explicit "N more" count and the
     `rialto-web-visual-diffs` artifact named as where the full set lives (SC-6);

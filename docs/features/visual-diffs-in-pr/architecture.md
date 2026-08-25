@@ -334,7 +334,8 @@ artifactDir })` returns `{ displayed, files, publishedBlobs }` in one call:
   constant is the one-line edit that settles it.
 - Output: the full comment body — marker, `## 🖼 Visual regression — X of 49
 changed`, up to six `### name (N px over <budget> budget)` sections each with
-  the three-column table — `<budget>` is the value the caller passed, `300`
+  the three-column table — the name is rendered as a code span and `<budget>` is
+  the value the caller passed, `300`
   today, never a literal in this module — then a complete plain-text list of
   the remaining changed snapshots with their names and counts, then the
   `<sub>` footer naming the
@@ -343,6 +344,18 @@ changed`, up to six `### name (N px over <budget> budget)` sections each with
   `total` otherwise, and silently dropping the difference is what let a
   hard-failing spec read as a pass. The cap bounds images; the
   text is exhaustive (SC-2 and SC-6 together — see frontmatter assumption).
+- **The snapshot name is untrusted text.** _Added 2026-08-25 after review._
+  `toHaveScreenshot(["dir", "name.png"])` takes the array form verbatim —
+  Playwright's `sanitizeForFilePath` runs only on the auto-derived name — so a
+  name can carry a quote, an angle bracket or a backtick, and this comment is
+  posted by a workflow holding `pull-requests: write`. Every heading and
+  overflow line wraps the name in a `codeSpan()` fenced one backtick longer than
+  the longest run inside it (CommonMark's rule), and the image URL's blob name
+  goes through `encodeURIComponent` — chosen over an HTML escape because its
+  output is restricted to unreserved characters and percent-escapes, closing the
+  attribute-injection hole (`"`, `<`, `>`, `&`) and the URL-truncation one
+  (a space, a `#`, a `?`) in one pass. Safe on a path segment because `blobName`
+  has already dropped every `/`.
 - **When the budget is `null`**, every heading and every overflow line drops
   the budget clause — `### name (N px changed)` — and the footer states that
   the budget could not be read from the run's Playwright config. The module

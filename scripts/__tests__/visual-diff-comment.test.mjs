@@ -172,11 +172,11 @@ describe("renderComment image rows", () => {
   });
 
   it("titles a section with the pixel count against the budget the caller passed", () => {
-    expect(body).toContain("### light-alpha (5606 px over 300 budget)");
+    expect(body).toContain("### `light-alpha` (5606 px over 300 budget)");
   });
 
   it("renders the reason, never the string `null px`, for an unmeasurable record", () => {
-    expect(body).toContain("### light-india (missing-baseline)");
+    expect(body).toContain("### `light-india` (missing-baseline)");
     expect(body).not.toContain("null px");
   });
 
@@ -205,7 +205,7 @@ describe("renderComment image rows", () => {
   it("omits an image cell whose file was never written", () => {
     // A missing baseline has no expected image and no diff image; linking one
     // would 404 in the comment.
-    const indiaSection = body.slice(body.indexOf("### light-india"));
+    const indiaSection = body.slice(body.indexOf("### `light-india`"));
     const row = indiaSection.split("\n").find((l) => l.includes("<img"));
     expect(row).toContain("light-india-actual.png");
     expect(row).not.toContain("light-india-expected.png");
@@ -310,7 +310,7 @@ describe("renderComment degrades when the budget could not be read", () => {
   const body = render({ budget: null });
 
   it("drops the budget clause from every heading", () => {
-    expect(body).toContain("### light-alpha (5606 px changed)");
+    expect(body).toContain("### `light-alpha` (5606 px changed)");
     expect(body).not.toContain("budget)");
   });
 
@@ -612,5 +612,84 @@ describe("renderComment binds its images to the published blob set", () => {
       expect(addressed.length).toBeGreaterThan(0);
       for (const name of addressed) expect(published.has(name)).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Snapshot names are not trusted text.
+//
+// `toHaveScreenshot(["dir", "name.png"])` takes the array form VERBATIM —
+// Playwright's `sanitizeForFilePath` is applied only to the auto-derived name,
+// not to an explicitly supplied path array. A snapshot name can therefore carry
+// a quote, an angle bracket or a backtick, and the comment is posted by a
+// workflow holding `pull-requests: write`. Nothing downstream re-escapes it.
+// ---------------------------------------------------------------------------
+
+describe("renderComment treats the snapshot name as untrusted", () => {
+  function hostile(name) {
+    return {
+      name,
+      pixels: 100,
+      reason: "pixel-diff",
+      expectedPath: `/w/test-results/${name}-expected.png`,
+      actualPath: `/w/test-results/${name}-actual.png`,
+      diffPath: `/w/test-results/${name}-diff.png`,
+    };
+  }
+
+  /** Every `<img …>` the body emits. The name also appears in a code span,
+   *  where markdown renders it literally — the hazard is the raw HTML. */
+  function imgTags(body) {
+    return body.match(/<img [^>]*>/g) ?? [];
+  }
+
+  it("cannot be made to close the src attribute and add its own", () => {
+    const rec = hostile('x" onerror="alert(1)');
+    const tags = imgTags(render({ changed: [rec], displayed: [rec] }));
+    expect(tags).toHaveLength(3);
+    for (const tag of tags) {
+      // The word survives percent-encoded; what must NOT survive is the
+      // quote that would end `src` and the `=` that would start an attribute.
+      expect(tag).not.toMatch(/onerror\s*=/);
+      expect(tag.match(/"/g)).toHaveLength(4); // src="…" and width="…", no more
+    }
+  });
+
+  it("cannot inject a tag through the blob name", () => {
+    const rec = hostile("x<script>y");
+    const tags = imgTags(render({ changed: [rec], displayed: [rec] }));
+    expect(tags).toHaveLength(3);
+    for (const tag of tags) expect(tag).not.toContain("<script>");
+  });
+
+  it("percent-encodes a space rather than truncating the URL", () => {
+    const rec = hostile("two words");
+    const body = render({ changed: [rec], displayed: [rec] });
+    expect(body).toContain("two%20words-actual.png");
+    expect(body).not.toMatch(/src="[^"]*two words/);
+  });
+
+  it("leaves an ordinary blob name untouched", () => {
+    const body = render();
+    expect(body).toContain("light-alpha-actual.png");
+  });
+
+  it("cannot break out of the heading's code span with a backtick", () => {
+    const rec = hostile("x`y");
+    const body = render({ changed: [rec], displayed: [rec] });
+    const heading = (body.match(/^### .*$/m) ?? [""])[0];
+    // The fence must be longer than any backtick run inside the name.
+    expect(heading).toContain("``x`y``");
+  });
+
+  it("wraps every heading's snapshot name in a code span", () => {
+    const body = render();
+    expect(body).toContain("### `light-alpha` (5606 px over 300 budget)");
+  });
+
+  it("cannot break out of an overflow line's code span with a backtick", () => {
+    const changed = [...FIXTURE_CHANGED, hostile("z`z")];
+    const body = render({ changed, displayed: selectDisplayed(FIXTURE_CHANGED, 1) });
+    expect(body).toContain("``z`z``");
   });
 });

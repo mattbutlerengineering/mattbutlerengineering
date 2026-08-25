@@ -77,6 +77,27 @@ export function blobName(filePath) {
   return filePath.split("/").pop();
 }
 
+/**
+ * Pure: `text` as a markdown code span that `text` cannot escape.
+ *
+ * A snapshot name is not trusted text. `toHaveScreenshot(["dir", "name.png"])`
+ * takes the array form verbatim — Playwright's `sanitizeForFilePath` runs only
+ * on the auto-derived name — so a name can carry backticks, and this comment is
+ * posted by a workflow holding `pull-requests: write`. The fence is one backtick
+ * longer than the longest run inside, per CommonMark; a leading or trailing
+ * backtick additionally needs the padding space.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function codeSpan(text) {
+  const value = String(text ?? "");
+  const longest = Math.max(0, ...[...value.matchAll(/`+/g)].map((m) => m[0].length));
+  const fence = "`".repeat(longest + 1);
+  const pad = value.startsWith("`") || value.endsWith("`") ? " " : "";
+  return `${fence}${pad}${value}${pad}${fence}`;
+}
+
 /** Pure: the marker line for one run. */
 function markerLine(runId, runAttempt) {
   return `${COMMENT_MARKER_PREFIX}${runId} attempt=${runAttempt} -->`;
@@ -106,13 +127,18 @@ function imageCell(filePath, sha, repoSlug, published) {
   if (!filePath) return "—";
   const name = blobName(filePath);
   if (!published.has(name)) return "—";
-  const url = `https://raw.githubusercontent.com/${repoSlug}/${sha}/${name}`;
+  // `encodeURIComponent` and not an HTML escape: its output is restricted to
+  // unreserved characters and percent-escapes, so it closes the attribute-
+  // injection hole (`"`, `<`, `>`, `&`) AND the URL-truncation one (a space,
+  // a `#`, a `?` in the name) in one pass. Safe on the path segment because
+  // `blobName` already dropped every `/`.
+  const url = `https://raw.githubusercontent.com/${repoSlug}/${sha}/${encodeURIComponent(name)}`;
   return `<img src="${url}" width="${IMAGE_WIDTH}">`;
 }
 
 function imageSection(rec, { budget, sha, repoSlug, published }) {
   return [
-    `### ${rec.name} (${describeDifference(rec, budget)})`,
+    `### ${codeSpan(rec.name)} (${describeDifference(rec, budget)})`,
     "",
     "| baseline | actual | diff |",
     "| --- | --- | --- |",
@@ -197,7 +223,7 @@ export function renderComment({
       ""
     );
     for (const rec of overflow) {
-      lines.push(`- \`${rec.name}\` — ${describeDifference(rec, budget)}`);
+      lines.push(`- ${codeSpan(rec.name)} — ${describeDifference(rec, budget)}`);
     }
     lines.push("");
   }
