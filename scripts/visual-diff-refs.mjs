@@ -26,6 +26,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -327,50 +328,99 @@ function deleteRef(name) {
   }
 }
 
-/** Pure: the human-readable verdict for one sweep. */
-export function formatSweepSummary(plan, dryRun) {
+/**
+ * Pure: the human-readable verdict for one sweep.
+ *
+ * A LIVE run is rendered from `outcomes` — what actually happened — and never
+ * from the plan. Rendering the plan is what let this job report a clean sweep
+ * it had not performed: `deleteRef`'s `{outcome:"failed"}` went to stdout only,
+ * so the step summary claimed success while the refs were still on the remote.
+ * A planned deletion with no matching outcome is reported as not attempted
+ * rather than silently omitted.
+ *
+ * @param {{toDelete: Array<object>, retained: Array<object>}} plan
+ * @param {boolean} dryRun
+ * @param {Array<{name:string, outcome:string, error?:string}>} [outcomes]
+ * @returns {string}
+ */
+export function formatSweepSummary(plan, dryRun, outcomes = []) {
+  const byName = new Map(outcomes.map((result) => [result.name, result]));
+  const failures = outcomes.filter((result) => result.outcome === "failed");
+
   const lines = [
     "=== Visual diff ref sweep ===",
     `Mode: ${dryRun ? "DRY RUN" : "LIVE"}`,
     `Refs seen: ${plan.toDelete.length + plan.retained.length}`,
     `Eligible for deletion: ${plan.toDelete.length}`,
-    "",
   ];
+  if (!dryRun) lines.push(`Failed deletions: ${failures.length}`);
+  lines.push("");
+
   for (const ref of plan.toDelete) {
-    lines.push(`${dryRun ? "[DRY RUN] Would delete" : "Deleting"}: ${ref.name} (${ref.reason})`);
+    if (dryRun) {
+      lines.push(`[DRY RUN] Would delete: ${ref.name} (${ref.reason})`);
+      continue;
+    }
+    const result = byName.get(ref.name);
+    if (result === undefined) {
+      lines.push(`NOT ATTEMPTED: ${ref.name} (${ref.reason})`);
+    } else if (result.outcome === "failed") {
+      lines.push(`FAILED to delete: ${ref.name} (${ref.reason}) — ${result.error ?? "no detail"}`);
+    } else if (result.outcome === "already-absent") {
+      lines.push(`Already absent: ${ref.name} (${ref.reason})`);
+    } else {
+      lines.push(`Deleted: ${ref.name} (${ref.reason})`);
+    }
   }
+
   for (const ref of plan.retained) {
     lines.push(`Keeping: ${ref.name} (${ref.reason})`);
   }
   return lines.join("\n");
 }
 
-async function main() {
+/**
+ * Pure: the process exit code for one sweep's outcomes.
+ *
+ * Non-zero on any failed deletion. A sweep that cannot delete is the unbounded
+ * growth this whole module exists to prevent, and a job that reports success
+ * for it is worse than one that never ran: nothing would ever look again.
+ *
+ * @param {Array<{outcome:string}>} outcomes
+ * @returns {number}
+ */
+export function sweepExitCode(outcomes) {
+  return outcomes.some((result) => result.outcome === "failed") ? 1 : 0;
+}
+
+/** @returns {number} the process exit code. */
+function main() {
   const dryRun = resolveDryRun();
   const repo = process.env.GITHUB_REPOSITORY;
 
   const refs = listRemoteRefs().map((ref) => ({ ...ref, committedAt: commitDate(repo, ref.sha) }));
   const plan = planRefSweep({ refs, openPrNumbers: listOpenPrNumbers(), now: new Date() });
 
-  console.log(formatSweepSummary(plan, dryRun));
+  // Delete FIRST, then report — the summary is a record of what happened, and
+  // the two must not be able to disagree.
+  const outcomes = dryRun ? [] : plan.toDelete.map((ref) => deleteRef(ref.name));
 
-  if (!dryRun) {
-    for (const ref of plan.toDelete) {
-      const result = deleteRef(ref.name);
-      console.log(`  ${ref.name}: ${result.outcome}${result.error ? ` — ${result.error}` : ""}`);
-    }
-  }
+  const verdict = formatSweepSummary(plan, dryRun, outcomes);
+  console.log(verdict);
 
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
-    const { appendFileSync } = await import("node:fs");
-    appendFileSync(summaryPath, `\n\`\`\`\n${formatSweepSummary(plan, dryRun)}\n\`\`\`\n`);
+    appendFileSync(summaryPath, `\n\`\`\`\n${verdict}\n\`\`\`\n`);
   }
+
+  return sweepExitCode(outcomes);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err) => {
+  try {
+    process.exitCode = main();
+  } catch (err) {
     console.error(`[visual-diff-refs] Error: ${err.message}`);
-    process.exit(1);
-  });
+    process.exitCode = 1;
+  }
 }

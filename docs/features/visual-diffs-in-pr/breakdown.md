@@ -396,7 +396,11 @@ and no ref a standing comment depends on can be selected.
       the impure runner and its daily thin caller.
   - Accept: `main()` shells to `git ls-remote` / `gh pr list` / `git push
 --delete` via `execFileSync` argv arrays; deleting an already-absent ref
-    counts as success, so the sweep is idempotent; `DRY_RUN` defaults to `"true"`
+    counts as success, so the sweep is idempotent; the job summary is rendered
+    from the **outcomes** of the delete loop and never from the plan, and a
+    failed deletion **exits non-zero** — added 2026-08-25 after review measured
+    the real `main()` with `DRY_RUN=false` against an unwritable remote and got
+    exit 0, a summary claiming success, and every ref still present; `DRY_RUN` defaults to `"true"`
     and is **not** hard-wired for scheduled events — the explicit reason this
     workflow is separate from `branch-cleanup.yml`, whose scheduled runs can
     never delete anything, and a test asserts the new workflow does not

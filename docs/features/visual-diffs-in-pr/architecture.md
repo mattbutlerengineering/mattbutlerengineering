@@ -484,6 +484,18 @@ live comment, breaking SC-3.
 Caller runs daily. Deleting an already-absent ref is treated as success, so the
 sweep is idempotent and safe to re-run.
 
+**The verdict is rendered from outcomes, and a failed deletion reds the job.**
+_Corrected 2026-08-25 after review._ The runner used to render its summary from
+the **plan**, before and independently of the delete loop, so a remote that
+rejected every `git push --delete` still produced a summary claiming a clean
+sweep and an exit code of 0 — the same defect class as the epoch bug above, in
+the reporting layer instead of the rule. `formatSweepSummary(plan, dryRun,
+outcomes)` now takes what actually happened, reports a planned deletion with no
+outcome as `NOT ATTEMPTED` rather than omitting it, and `sweepExitCode` returns
+non-zero when any deletion failed. A sweep that cannot delete is precisely the
+unbounded growth this rule exists to prevent, and a green job reporting it is
+worse than no job at all, because nothing would look again.
+
 ## Trigger hygiene and anti-recursion
 
 The push must not start CI runs, and must not touch `CI Gate`. Measured over
