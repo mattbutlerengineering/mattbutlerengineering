@@ -45,3 +45,32 @@
 :global([data-theme="dark"]) .darkColumn {
   /* inherits dark tokens automatically */
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * DELIBERATE PERTURBATION — TEMPORARY. DO NOT MERGE THIS BLOCK.
+ *
+ * This exists for exactly one reason: to make the `visual` job of
+ * .github/workflows/rialto-web-e2e.yml genuinely fail on this pull request,
+ * so that the visual-diffs-in-pr feature can be demonstrated end to end on a
+ * real PR rather than asserted from unit tests. See
+ * docs/features/visual-diffs-in-pr/breakdown.md item 3.5 — SC-1, SC-3, SC-4,
+ * SC-5 and SC-6 cannot be discharged any other way.
+ *
+ * It is scoped to 8 of the suite's 49 snapshots (so the 6-row display cap and
+ * its overflow line are both exercised) and it changes only `opacity`, which
+ * affects no layout — the perturbed screenshots differ in colour, never in
+ * size, which is the shape of a real baseline drift.
+ *
+ * This block is reverted in a follow-up commit on this same branch before the
+ * PR is considered complete, and its removal is itself the SC-5 evidence.
+ * ───────────────────────────────────────────────────────────────────────── */
+.section[data-testid="button-variants"],
+.section[data-testid="button-sizes"],
+.section[data-testid="input-states"],
+.section[data-testid="textarea-states"],
+.section[data-testid="card-variants"],
+.section[data-testid="alert-variants"],
+.section[data-testid="badge-variants"],
+.section[data-testid="table-default"] {
+  opacity: 0.55;
+}
