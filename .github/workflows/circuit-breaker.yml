@@ -27,6 +27,9 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       STATE_FILE: .github/circuit-breaker-state
+      # Shared by the file step and the close step below — a title that
+      # drifts between them silently disables close-on-recovery.
+      BREAKER_ISSUE_TITLE: "Circuit breaker tripped - deploys blocked"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -147,12 +150,39 @@ jobs:
             echo '```'
           } > /tmp/circuit-body.md
           node _issue-filing/scripts/lib/file-issue-cli.mjs \
-            --title "Circuit breaker tripped - deploys blocked" \
+            --title "$BREAKER_ISSUE_TITLE" \
             --label "ci-fix,blocking" \
             --body-file /tmp/circuit-body.md \
             --dedupe-key "circuit-breaker-tripped" \
             --search-label "ci-fix,blocking" \
             --search-text "Circuit breaker tripped"
+
+      # The breaker self-heals the moment a deploy succeeds again, but nothing
+      # ever cleared the issue it filed on the way down. #4544 sat open for a
+      # day advertising "deploys blocked" while the persisted state had read
+      # `closed` since two minutes after the trip — a stale blocker that reads
+      # exactly like a real one. Mirrors the close-on-recovery step
+      # synthetic-monitoring.yml and dependency-freshness.yml already carry.
+      #
+      # The condition covers both ways the breaker ends up unblocked: `analyze`
+      # ran and found the failure streak broken, or `analyze` was skipped
+      # (workflow_dispatch) and the persisted state was already closed —
+      # including a `force=true` reset, where clearing the issue is the point.
+      - name: Close the trip issue once deploys recover
+        if: steps.analyze.outputs.blocked == 'false' || steps.check.outputs.blocked == 'false'
+        run: |
+          NUMBER=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label blocking \
+            --json number,title \
+            --jq "[.[] | select(.title == \"$BREAKER_ISSUE_TITLE\")] | .[0].number // empty")
+
+          if [ -z "$NUMBER" ]; then
+            echo "Breaker is closed and there is no open trip issue to close."
+            exit 0
+          fi
+
+          echo "Breaker recovered — closing #$NUMBER."
+          gh issue close "$NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --comment "Auto-closed: the deploy circuit breaker returned to \`closed\` at $(date -u +%Y-%m-%dT%H:%M:%SZ). Deploys are no longer blocked."
 
   block-deploy:
     needs: [circuit-breaker]
