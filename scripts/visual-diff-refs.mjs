@@ -78,3 +78,107 @@ export function parseRefName(refName) {
   if (!match) return null;
   return { prNumber: Number(match[1]), runId: match[2] };
 }
+
+// ---------------------------------------------------------------------------
+// Retention. The rule IS the storage design: reachability is what keeps a
+// standing comment's images alive, so nothing else may decide what is deleted.
+// ---------------------------------------------------------------------------
+
+/**
+ * A ref younger than this may still belong to a run in flight, whose comment
+ * has not been written yet.
+ */
+export const MIN_AGE_HOURS = 24;
+
+function ageHours(committedAt, now) {
+  const then = new Date(committedAt).getTime();
+  if (!Number.isFinite(then)) return null;
+  return (now.getTime() - then) / 3_600_000;
+}
+
+/** Pure: highest run id seen per PR number. */
+function newestRunIdByPr(parsedRefs) {
+  const newest = new Map();
+  for (const { parsed } of parsedRefs) {
+    const current = newest.get(parsed.prNumber);
+    const runId = Number(parsed.runId);
+    if (current === undefined || runId > current) newest.set(parsed.prNumber, runId);
+  }
+  return newest;
+}
+
+/**
+ * Pure: the full keep/delete plan, one verdict per ref.
+ *
+ * Three clauses, each with the thing it protects:
+ *   1. KEEP the newest ref of each *open* PR — it is what that PR's standing
+ *      comment points at. (A flat age floor was the alternative and loses on
+ *      correctness: a PR open longer than the floor would have its own images
+ *      deleted out from under a live comment, breaking SC-3.)
+ *   2. KEEP any ref younger than `minAgeHours` — its run may still be in flight.
+ *   3. DELETE everything else — superseded runs on open PRs, and every ref of
+ *      every closed or merged PR.
+ *
+ * A ref name `parseRefName` cannot read is never selected: an unrecognized ref
+ * is somebody else's, and the fail-safe direction is to leave it alone.
+ *
+ * Growth is therefore bounded by *(open PRs + one day of churn)*.
+ *
+ * @param {{refs?: Array<{name:string, committedAt:string}>,
+ *          openPrNumbers?: Array<number|string>, now?: Date, minAgeHours?: number}} input
+ * @returns {{toDelete: Array<object>, retained: Array<object>}}
+ */
+export function planRefSweep({
+  refs,
+  openPrNumbers,
+  now = new Date(),
+  minAgeHours = MIN_AGE_HOURS,
+}) {
+  const open = new Set((openPrNumbers ?? []).map(Number));
+
+  const parsedRefs = [];
+  const retained = [];
+
+  for (const ref of refs ?? []) {
+    const parsed = parseRefName(ref.name);
+    if (parsed === null) {
+      retained.push({ ...ref, reason: "unparsable" });
+      continue;
+    }
+    parsedRefs.push({ ref, parsed });
+  }
+
+  const newest = newestRunIdByPr(parsedRefs);
+  const toDelete = [];
+
+  for (const { ref, parsed } of parsedRefs) {
+    const age = ageHours(ref.committedAt, now);
+    const isNewestOnOpenPr =
+      open.has(parsed.prNumber) && newest.get(parsed.prNumber) === Number(parsed.runId);
+
+    if (isNewestOnOpenPr) {
+      retained.push({ ...ref, ...parsed, reason: "newest-on-open-pr" });
+    } else if (age === null || age < minAgeHours) {
+      retained.push({ ...ref, ...parsed, reason: age === null ? "undated" : "too-recent" });
+    } else {
+      toDelete.push({
+        ...ref,
+        ...parsed,
+        reason: open.has(parsed.prNumber) ? "superseded-on-open-pr" : "closed-pr",
+      });
+    }
+  }
+
+  return { toDelete, retained };
+}
+
+/**
+ * Pure: the refs the sweep may delete. See {@link planRefSweep} for the rule.
+ *
+ * @param {{refs?: Array<{name:string, committedAt:string}>,
+ *          openPrNumbers?: Array<number|string>, now?: Date, minAgeHours?: number}} input
+ * @returns {Array<object>}
+ */
+export function selectRefsToDelete(input) {
+  return planRefSweep(input).toDelete;
+}
