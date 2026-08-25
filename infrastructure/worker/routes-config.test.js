@@ -136,6 +136,30 @@ function makeRequest(path, options = {}) {
 // ── Tests ────────────────────────────────────────────────────────────────
 
 describe("routes-config.json schema", () => {
+  it("has an originRoutes array of path prefixes proxied to API_ORIGIN", () => {
+    // The second gate. Every path prefix the DO origin serves has to be
+    // forwarded from here, or a perfect ingress rule behind it is unreachable:
+    // the shipped hospitality bundle is built with VITE_API_URL = the apex, so
+    // the edge worker sees every guest request first. /public/v1/** was
+    // unreachable for three months partly because this table did not exist and
+    // the /api prefix was hardcoded in edge-router.js instead — leaving the
+    // coverage check with no source of truth to read on the edge side.
+    expect(Array.isArray(config.originRoutes)).toBe(true);
+    expect(config.originRoutes.length).toBeGreaterThan(0);
+    for (const prefix of config.originRoutes) {
+      expect(typeof prefix).toBe("string");
+      expect(prefix.startsWith("/")).toBe(true);
+    }
+  });
+
+  it("proxies both the authenticated and the public API surfaces", () => {
+    // Named explicitly rather than left to the shape assertion above: dropping
+    // either entry un-proxies a whole surface, and an un-proxied surface fails
+    // silently — the apex serves the marketing SPA with HTTP 200 instead.
+    expect(config.originRoutes).toContain("/api");
+    expect(config.originRoutes).toContain("/public");
+  });
+
   it("has staticRoutes array", () => {
     expect(Array.isArray(config.staticRoutes)).toBe(true);
     expect(config.staticRoutes.length).toBeGreaterThan(0);

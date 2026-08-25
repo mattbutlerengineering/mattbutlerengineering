@@ -3,6 +3,7 @@
  *
  * Routes requests based on path prefix:
  *   /api/*                   → DO App Platform (HTTP subrequest)
+ *   /public/*                → DO App Platform (HTTP subrequest)
  *   /gen/*                   → Workers Static Assets (Service Binding, CDN-free)
  *   /hospitality/*           → Workers Static Assets (Service Binding, CDN-free)
  *   /rialto/*                → Workers Static Assets (Service Binding, CDN-free)
@@ -49,6 +50,32 @@ function isAuditRequest(request, env) {
   if (!env.AUDIT_TOKEN) return false;
   const token = request.headers.get("X-Audit-Token");
   return token !== null && token === env.AUDIT_TOKEN;
+}
+
+/**
+ * Whether a path is served by the DO origin, per routes-config.json's
+ * `originRoutes`.
+ *
+ * **Exact-or-slash, never a bare `startsWith(prefix)`**: a prefix matches the
+ * whole path, or a whole path segment below it. `/api` and `/api/v1/x` proxy;
+ * `/apiary` and `/publicity` do not, and both serve the marketing SPA today.
+ * This is exactly what the hardcoded `/api` test did before the table moved
+ * here, so for `/api` the change is a refactor — a matcher that changed what a
+ * live path returns would not be.
+ *
+ * **Order is not significant.** This is one boolean — does ANY prefix match —
+ * so `originRoutes` is a set, and no entry can shadow another. Contrast
+ * `staticRoutes` below, whose order IS load-bearing (first match wins, ending
+ * in a catch-all) and whose prefix is stripped before forwarding. The two
+ * tables mean different things and deliberately keep different matchers: a
+ * `staticRoutes` prefix is a mount point, an `originRoutes` prefix is a path
+ * segment on a shared origin, forwarded verbatim for DO ingress to re-match.
+ *
+ * @param {string} pathname `url.pathname` only — the query is excluded, and
+ *   matching is case-sensitive. Both unchanged from the hardcoded branch.
+ */
+function isOriginRoute(pathname) {
+  return topologyConfig.originRoutes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 // ── Auth0 Tenant ──────────────────────────────────────────────────────
@@ -139,8 +166,17 @@ export default {
       );
     }
 
-    // ── API routes → HTTP subrequest to DO App Platform ──────────────
-    if (url.pathname.startsWith("/api/") || url.pathname === "/api") {
+    // ── Origin routes → HTTP subrequest to DO App Platform ───────────
+    // Prefixes come from routes-config.json's originRoutes (ADR-011: no
+    // topology is hardcoded here). /public joins /api on this branch, so it
+    // inherits the circuit breaker, the forwarded header set, X-Feature-Flags
+    // stripping and verbatim path preservation unchanged.
+    //
+    // NOT the rate limiter: that runs above, before this branch, keyed by
+    // rate-limiter.js's own RATE_LIMITS table — a prefix listed in
+    // originRoutes is not bounded by being proxied. /public/ has its own entry
+    // there, and rate-limiter.test.js asserts every originRoutes prefix does.
+    if (isOriginRoute(url.pathname)) {
       // Circuit breaker: check if API proxy is healthy
       const circuitState = await getCircuitState(env.HEALTH_STATE);
       const nowMs = Date.now();
