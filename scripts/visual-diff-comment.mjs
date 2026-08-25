@@ -96,21 +96,29 @@ function describeDifference(rec, budget) {
     : `${rec.pixels} px over ${budget} budget`;
 }
 
-function imageCell(filePath, sha, repoSlug) {
+/**
+ * One cell. Renders an `<img>` ONLY for a blob the caller reports as published:
+ * the comment's image set and the pushed blob set are the same set by
+ * construction, never two independent derivations that can drift into a wall of
+ * broken images.
+ */
+function imageCell(filePath, sha, repoSlug, published) {
   if (!filePath) return "—";
-  const url = `https://raw.githubusercontent.com/${repoSlug}/${sha}/${blobName(filePath)}`;
+  const name = blobName(filePath);
+  if (!published.has(name)) return "—";
+  const url = `https://raw.githubusercontent.com/${repoSlug}/${sha}/${name}`;
   return `<img src="${url}" width="${IMAGE_WIDTH}">`;
 }
 
-function imageSection(rec, { budget, sha, repoSlug }) {
+function imageSection(rec, { budget, sha, repoSlug, published }) {
   return [
     `### ${rec.name} (${describeDifference(rec, budget)})`,
     "",
     "| baseline | actual | diff |",
     "| --- | --- | --- |",
-    `| ${imageCell(rec.expectedPath, sha, repoSlug)} ` +
-      `| ${imageCell(rec.actualPath, sha, repoSlug)} ` +
-      `| ${imageCell(rec.diffPath, sha, repoSlug)} |`,
+    `| ${imageCell(rec.expectedPath, sha, repoSlug, published)} ` +
+      `| ${imageCell(rec.actualPath, sha, repoSlug, published)} ` +
+      `| ${imageCell(rec.diffPath, sha, repoSlug, published)} |`,
     "",
   ];
 }
@@ -131,31 +139,47 @@ function imageSection(rec, { budget, sha, repoSlug }) {
  * immutable, and a ref name containing `/` cannot be told apart from the path
  * in a `raw.githubusercontent.com` URL.
  *
+ * The unchanged count is an INPUT, never `total - changed.length`. A spec that
+ * failed without producing a snapshot diff is in neither list, so the
+ * subtraction reported it as passing — see `parseVisualReport`'s three buckets.
+ *
+ * `displayed` and `publishedBlobs` are INPUTS, produced by the same call that
+ * decided which blobs to push. This module no longer applies a cap of its own:
+ * a cap chosen here and a cap chosen at the push site are two derivations of
+ * one fact, and every way they could disagree renders `<img>` tags for blobs
+ * that were never published.
+ *
  * @param {object} input
  * @param {number} input.total Suite snapshot count, from `parseVisualReport`.
  * @param {Array<object>} input.changed Records from `parseVisualReport`.
+ * @param {Array<object>} input.displayed The records the caller published blobs for.
+ * @param {Array<string>} input.publishedBlobs Blob names actually pushed.
+ * @param {number} input.unchanged Real pass count, from `parseVisualReport`.
+ * @param {number} input.failedWithoutDiff Specs that failed with nothing to show.
  * @param {number|null} input.budget From `parseMaxDiffPixels`, via the caller.
  * @param {string} input.sha The published orphan commit.
  * @param {string} input.repoSlug `owner/repo`.
  * @param {string|number} input.runId
  * @param {string|number} input.runAttempt
- * @param {number} [input.cap]
  * @returns {string}
  */
 export function renderComment({
   total,
   changed,
+  displayed,
+  publishedBlobs,
+  unchanged,
+  failedWithoutDiff,
   budget,
   sha,
   repoSlug,
   runId,
   runAttempt,
-  cap = MAX_IMAGE_ROWS,
 }) {
   const all = selectDisplayed(changed, Number.POSITIVE_INFINITY);
-  const displayed = all.slice(0, cap);
-  const overflow = all.slice(cap);
-  const unchanged = total - all.length;
+  const shown = new Set((displayed ?? []).map((rec) => rec.name));
+  const overflow = all.filter((rec) => !shown.has(rec.name));
+  const published = new Set(publishedBlobs ?? []);
 
   const lines = [
     markerLine(runId, runAttempt),
@@ -163,7 +187,8 @@ export function renderComment({
     "",
   ];
 
-  for (const rec of displayed) lines.push(...imageSection(rec, { budget, sha, repoSlug }));
+  for (const rec of displayed ?? [])
+    lines.push(...imageSection(rec, { budget, sha, repoSlug, published }));
 
   if (overflow.length > 0) {
     lines.push(
@@ -183,8 +208,18 @@ export function renderComment({
         "differences are reported without one."
       : "";
 
+  // Said out loud whenever the three counts do not add up to `total`: a spec
+  // that never reached a comparison is neither shown above nor unchanged, and
+  // silently dropping it is what made the footer claim it had passed.
+  const failedNote =
+    failedWithoutDiff > 0
+      ? ` ${failedWithoutDiff} spec${failedWithoutDiff === 1 ? "" : "s"} failed without ` +
+        `producing a snapshot diff — neither shown above nor counted as unchanged; see the job log.`
+      : "";
+
   lines.push(
-    `<sub>${unchanged} of ${total} snapshots unchanged. Full baseline/actual/diff set: ` +
+    `<sub>${unchanged} of ${total} snapshots unchanged.${failedNote} ` +
+      `Full baseline/actual/diff set: ` +
       `the <code>${DIFF_ARTIFACT_NAME}</code> artifact on this run.${budgetNote}</sub>`
   );
 

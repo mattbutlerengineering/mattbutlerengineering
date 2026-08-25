@@ -56,6 +56,71 @@ describe("parseVisualReport total", () => {
 });
 
 // ---------------------------------------------------------------------------
+// parseVisualReport — the three buckets. A spec is passing, changed, or failed
+// for some other reason; the third bucket exists because conflating it with the
+// first tells the reader a hard failure was fine.
+// ---------------------------------------------------------------------------
+
+/** A spec that failed with an error message and the attachments (if any) it produced. */
+function failingSpec(title, message, attachments) {
+  return {
+    title,
+    ok: false,
+    tests: [{ results: [{ retry: 0, status: "failed", errors: [{ message }], attachments }] }],
+  };
+}
+
+describe("parseVisualReport buckets", () => {
+  // The reproduction from review, verbatim: three specs, one a real 579 px
+  // snapshot diff, two hard failures that produced no -actual attachment at all.
+  // Deriving "unchanged" as `total - changed.length` renders these two as
+  // "2 of 3 snapshots unchanged" — telling the reader, and the autonomous review
+  // layer reading the comment, that two specs which never ran to a comparison
+  // were fine. That directly misleads PRD user story 4.
+  const REPORT_WITH_HARD_FAILURES = {
+    suites: [
+      {
+        title: "visual.spec.ts",
+        specs: [
+          failingSpec(
+            "light / button-variants",
+            "Screenshot comparison failed:\n  579 pixels (ratio 0.01 of all image pixels) are different.",
+            [
+              { name: "light-button-variants-actual.png", path: "/w/test-results/x/a-actual.png" },
+              { name: "light-button-variants-diff.png", path: "/w/test-results/x/a-diff.png" },
+            ]
+          ),
+          failingSpec("light / dialog-open", "Error: page.goto: net::ERR_CONNECTION_REFUSED", []),
+          failingSpec("light / drawer-open", "Test timeout of 30000ms exceeded.", []),
+        ],
+      },
+    ],
+  };
+
+  const buckets = parseVisualReport(REPORT_WITH_HARD_FAILURES);
+
+  it("counts the one real snapshot diff as changed", () => {
+    expect(buckets.total).toBe(3);
+    expect(buckets.changed).toHaveLength(1);
+  });
+
+  it("does NOT count a spec that failed without a snapshot diff as unchanged", () => {
+    expect(buckets.unchanged).toBe(0);
+  });
+
+  it("carries the hard failures in their own bucket, so the caller can say so", () => {
+    expect(buckets.failedWithoutDiff).toBe(2);
+  });
+
+  it("counts the fixture's flake as unchanged, not as a failure", () => {
+    // A spec that failed then passed is `ok: true`: it is neither a regression
+    // nor an unexplained failure.
+    expect(parsed.unchanged).toBe(1);
+    expect(parsed.failedWithoutDiff).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // parseVisualReport — the -expected trap
 // ---------------------------------------------------------------------------
 
@@ -189,15 +254,23 @@ describe("parseVisualReport degenerate reports", () => {
       ],
       errors: [{ message: "Error: Timed out waiting 60000ms from config.webServer." }],
     };
-    expect(parseVisualReport(report)).toEqual({ total: 1, changed: [] });
+    expect(parseVisualReport(report)).toEqual({
+      total: 1,
+      changed: [],
+      unchanged: 0,
+      failedWithoutDiff: 1,
+    });
   });
 
   it("does not throw on an empty or malformed report", () => {
-    expect(parseVisualReport({})).toEqual({ total: 0, changed: [] });
-    expect(parseVisualReport(null)).toEqual({ total: 0, changed: [] });
+    const empty = { total: 0, changed: [], unchanged: 0, failedWithoutDiff: 0 };
+    expect(parseVisualReport({})).toEqual(empty);
+    expect(parseVisualReport(null)).toEqual(empty);
     expect(parseVisualReport({ suites: [{ specs: [{ ok: false }] }] })).toEqual({
       total: 1,
       changed: [],
+      unchanged: 0,
+      failedWithoutDiff: 1,
     });
   });
 

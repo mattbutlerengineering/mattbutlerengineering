@@ -67,7 +67,8 @@ reads the suite's pixel budget out of the text of the config that report names.
 
 - [x] **1.2 `scripts/visual-diff-report.mjs` — `parseVisualReport(report)` and
       `parseMaxDiffPixels(configSource)`** — the pure module that turns one
-      Playwright JSON report into `{ total, changed[] }`, each changed record
+      Playwright JSON report into
+      `{ total, changed[], unchanged, failedWithoutDiff }`, each changed record
       `{ name, pixels, reason, expectedPath, actualPath, diffPath }`, **and**
       reads the suite-wide pixel budget out of the _text_ of the Playwright
       config that same report names. Both are facts about Playwright's own
@@ -76,7 +77,12 @@ reads the suite's pixel budget out of the text of the config that report names.
   - Accept (`parseVisualReport`), all against the 1.1 fixture in
     `scripts/__tests__/visual-diff-report.test.mjs`:
     `total` is **derived from the report's spec count**, never hardcoded (SC-2's
-    denominator cannot go stale); the returned baseline path is derived by
+    denominator cannot go stale); `unchanged` is the **real pass count**
+    (`ok !== false`) and a failing spec that produced no `-actual` attachment
+    lands in `failedWithoutDiff` rather than being counted as a pass
+    (_criterion added 2026-08-25 after review_ — the two-bucket output forced the
+    comment to compute `unchanged = total - changed.length`, which described a
+    hard-failing spec as unchanged); the returned baseline path is derived by
     suffix substitution on the **`-actual`** attachment and the test asserts it
     resolves inside `test-results/`, _not_ `e2e/screenshots/`; an ANSI-wrapped
     error message still yields the pixel count; an unparsable message yields
@@ -153,7 +159,10 @@ eyeball-it-now question instead of a wait-for-Verify one.
 - [x] **2.2 `renderComment(...)` — the full comment body** — marker, heading,
       capped image sections, exhaustive overflow text, footer. Its input
       contract gains **`budget: number | null`** (Gap 1's resolution): the
-      number arrives from the caller and is never a literal in this module.
+      number arrives from the caller and is never a literal in this module — and,
+      after review, **`displayed`, `publishedBlobs`, `unchanged` and
+      `failedWithoutDiff`**, all four likewise supplied by the caller rather than
+      re-derived here.
   - Accept: body's first line is exactly
     `<!-- visual-diffs-in-pr run=<run_id> attempt=<run_attempt> -->`; heading is
     `## 🖼 Visual regression — X of 49 changed` with both numbers from
@@ -165,7 +174,10 @@ eyeball-it-now question instead of a wait-for-Verify one.
     changed snapshot beyond the cap still appears by name and pixel count in
     plain text, with an explicit "N more" count and the
     `rialto-web-visual-diffs` artifact named as where the full set lives (SC-6);
-    a `<sub>` footer carries the unchanged count and the artifact name; a
+    a `<sub>` footer carries the unchanged count and the artifact name, and
+    names the `failedWithoutDiff` bucket whenever it is non-empty; an image cell
+    whose blob is not in `publishedBlobs` renders `—` rather than an `<img>` at a
+    URL nothing was pushed to (_two criteria added 2026-08-25 after review_); a
     record with `pixels: null` renders its `reason` and never the string
     `null px`; **SC-2 is asserted directly** — a test renders with a numeric
     budget, reads the body as text only with no image fetched, and recovers the
@@ -283,7 +295,11 @@ everything after it is bounded growth.
     report's own `config.configFile`, re-rooted as
     `path.relative(GITHUB_WORKSPACE, configFile)` (both jobs run at
     `GITHUB_WORKSPACE`); reads that file as **text** and hands it to
-    `parseMaxDiffPixels`, forwarding the result to `renderComment` unaltered; a
+    `parseMaxDiffPixels`, forwarding the result to `renderComment` unaltered;
+    the displayed records, the pushed blobs and the comment's addressable blob
+    names all come from **one** `planComment({ changed, artifactDir })` call, so
+    the comment can never embed an image the push did not write
+    (_criterion added 2026-08-25 after review_); a
     `configFile` that is absent, escapes the workspace, or names a file not in
     the checkout **no-ops to `budget: null`** and the degraded comment — never
     a substituted default, asserted by a test per case. Text and not `import()`

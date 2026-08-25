@@ -12,6 +12,7 @@ import {
   formatSkipNote,
   isRetryable,
   isStandingComment,
+  planComment,
   plannedImageFiles,
   readBudget,
   resolvePlaywrightConfigPath,
@@ -172,8 +173,10 @@ describe("plannedImageFiles", () => {
     diffPath: "/w/e2e/test-results/visual-light-x-chromium/light-x-diff.png",
   };
 
+  const present = () => true;
+
   it("names each blob exactly as the comment addresses it", () => {
-    const files = plannedImageFiles([rec], "/tmp/d");
+    const files = plannedImageFiles([rec], "/tmp/d", present);
     expect(files.map((f) => f.name)).toEqual([
       "light-x-expected.png",
       "light-x-actual.png",
@@ -182,8 +185,82 @@ describe("plannedImageFiles", () => {
   });
 
   it("skips an image the run never wrote", () => {
-    const files = plannedImageFiles([{ ...rec, expectedPath: null, diffPath: null }], "/tmp/d");
+    const files = plannedImageFiles(
+      [{ ...rec, expectedPath: null, diffPath: null }],
+      "/tmp/d",
+      present
+    );
     expect(files.map((f) => f.name)).toEqual(["light-x-actual.png"]);
+  });
+
+  // The existence guard used to sit in `main()` as a `.filter()` applied AFTER
+  // this function returned, which put it outside every test — deleting it was a
+  // surviving mutation. It is a parameter now, so a caller cannot forget it and
+  // a test can supply one.
+  it("drops a blob whose file is absent from the downloaded artifact", () => {
+    const files = plannedImageFiles([rec], "/tmp/d", (path) => !path.endsWith("-diff.png"));
+    expect(files.map((f) => f.name)).toEqual(["light-x-expected.png", "light-x-actual.png"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ONE derivation for the pushed blobs and the comment's <img> tags.
+// ---------------------------------------------------------------------------
+
+describe("planComment", () => {
+  function rec(name) {
+    const dir = `/w/e2e/test-results/visual-${name}-chromium`;
+    return {
+      name,
+      pixels: 100,
+      reason: "pixel-diff",
+      expectedPath: `${dir}/${name}-expected.png`,
+      actualPath: `${dir}/${name}-actual.png`,
+      diffPath: `${dir}/${name}-diff.png`,
+    };
+  }
+  const changed = ["a", "b", "c", "d", "e", "f", "g", "h"].map(rec);
+
+  it("publishes a blob for every displayed record and nothing else", () => {
+    const plan = planComment({ changed, artifactDir: "/tmp/d", exists: () => true });
+    expect(plan.displayed).toHaveLength(6);
+    expect(plan.files).toHaveLength(18);
+    expect(plan.publishedBlobs).toEqual(plan.files.map((f) => f.name));
+    for (const name of plan.publishedBlobs) {
+      expect(plan.displayed.some((r) => name.startsWith(r.name))).toBe(true);
+    }
+  });
+
+  it("keeps the two sets aligned at any cap", () => {
+    for (const cap of [1, 3, 6]) {
+      const plan = planComment({ changed, artifactDir: "/tmp/d", exists: () => true, cap });
+      expect(plan.displayed).toHaveLength(cap);
+      expect(plan.publishedBlobs).toHaveLength(cap * 3);
+    }
+  });
+
+  it("never reports a blob it could not find on disk as published", () => {
+    const plan = planComment({
+      changed,
+      artifactDir: "/tmp/d",
+      exists: (path) => !path.endsWith("-diff.png"),
+    });
+    expect(plan.publishedBlobs.some((n) => n.endsWith("-diff.png"))).toBe(false);
+    expect(plan.displayed).toHaveLength(6);
+  });
+});
+
+describe("main derives the comment's images from the plan, never a second time", () => {
+  it("hands renderComment the plan's own displayed records and blob names", () => {
+    expect(SRC).toMatch(/renderComment\(\{[\s\S]*?displayed[\s\S]*?publishedBlobs[\s\S]*?\}\)/);
+  });
+
+  it("does not filter the planned files after the fact", () => {
+    expect(SRC).not.toMatch(/\.filter\(\(f\) => existsSync/);
+  });
+
+  it("selects the displayed set exactly once, inside planComment", () => {
+    expect(SRC.match(/selectDisplayed\(/g) ?? []).toHaveLength(1);
   });
 });
 

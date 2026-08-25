@@ -115,10 +115,25 @@ const FIXTURE_CHANGED = [
   { ...record("light-india", null, "missing-baseline"), expectedPath: null, diffPath: null },
 ];
 
+/** Every blob name the publisher would write for `displayed`. */
+function blobsFor(displayed) {
+  return displayed.flatMap((rec) =>
+    [rec.expectedPath, rec.actualPath, rec.diffPath]
+      .filter(Boolean)
+      .map((path) => path.split("/").pop())
+  );
+}
+
 function render(overrides = {}) {
+  const changed = overrides.changed ?? FIXTURE_CHANGED;
+  const displayed = overrides.displayed ?? selectDisplayed(changed, MAX_IMAGE_ROWS);
   return renderComment({
     total: 49,
-    changed: FIXTURE_CHANGED,
+    changed,
+    displayed,
+    publishedBlobs: blobsFor(displayed),
+    unchanged: 49 - changed.length,
+    failedWithoutDiff: 0,
     budget: 300,
     sha: SHA,
     repoSlug: SLUG,
@@ -228,6 +243,48 @@ describe("renderComment footer", () => {
     const footer = body.split("\n").find((l) => l.startsWith("<sub>"));
     expect(footer).toContain(String(49 - FIXTURE_CHANGED.length));
     expect(footer).toContain("rialto-web-visual-diffs");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The unchanged count is the REAL pass count, never `total - changed.length`.
+// ---------------------------------------------------------------------------
+
+describe("renderComment and specs that failed without a snapshot diff", () => {
+  // The reproduction from review: three specs — one a 579 px diff, one dying on
+  // net::ERR_CONNECTION_REFUSED, one on a 30 s timeout. Neither hard failure
+  // yields an -actual attachment, so neither appears in `changed`; deriving the
+  // unchanged count by subtraction then rendered "2 of 3 snapshots unchanged",
+  // telling the reader — and the autonomous review layer this comment is written
+  // for — that two specs which never reached a comparison were fine.
+  const body = renderComment({
+    total: 3,
+    changed: [record("light-button-variants", 579)],
+    unchanged: 0,
+    failedWithoutDiff: 2,
+    budget: 300,
+    sha: SHA,
+    repoSlug: SLUG,
+    runId: "1",
+    runAttempt: "1",
+  });
+
+  it("does not describe a hard-failing spec as unchanged", () => {
+    expect(body).not.toContain("2 of 3 snapshots unchanged");
+    expect(body).toContain("0 of 3 snapshots unchanged");
+  });
+
+  it("says in the footer that the remaining specs failed without a snapshot diff", () => {
+    const footer = body.split("\n").find((l) => l.startsWith("<sub>"));
+    expect(footer).toMatch(/2 spec/);
+    expect(footer.toLowerCase()).toContain("without");
+  });
+
+  it("stays silent about the third bucket when it is empty", () => {
+    const footer = render()
+      .split("\n")
+      .find((l) => l.startsWith("<sub>"));
+    expect(footer).not.toMatch(/without a snapshot diff/);
   });
 });
 
@@ -509,5 +566,51 @@ describe("parseCommentOrdinal", () => {
     expect(parseCommentOrdinal("just a comment")).toBeNull();
     expect(parseCommentOrdinal("<!-- visual-diffs-in-pr run= attempt= -->")).toBeNull();
     expect(parseCommentOrdinal(null)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The comment's image set is BOUND to the blob set the publisher pushed.
+//
+// Both used to be derived independently — `renderComment` re-ran
+// `selectDisplayed` with its own default cap while the publisher ran it with
+// `MAX_IMAGE_ROWS` and then dropped any blob missing from the downloaded
+// artifact. Every way those two derivations could disagree (a different cap on
+// either side, a dropped existence guard) produced a comment whose `<img>` tags
+// point at blobs that were never published: a wall of broken images, and no
+// test noticed.
+// ---------------------------------------------------------------------------
+
+describe("renderComment binds its images to the published blob set", () => {
+  it("renders exactly the records the caller published for, not a cap of its own", () => {
+    const displayed = selectDisplayed(FIXTURE_CHANGED, 2);
+    const body = render({ displayed });
+    expect(body.match(/^### .*$/gm) ?? []).toHaveLength(2);
+    // The text stays exhaustive: the other seven are still named.
+    for (const rec of FIXTURE_CHANGED) expect(body).toContain(rec.name);
+  });
+
+  it("lists every changed snapshot the caller did not publish an image for", () => {
+    const body = render({ displayed: selectDisplayed(FIXTURE_CHANGED, 2) });
+    expect(body).toContain(`**${FIXTURE_CHANGED.length - 2} more changed snapshots**`);
+  });
+
+  it("renders no <img> for a blob that never made it into the published set", () => {
+    const displayed = selectDisplayed(FIXTURE_CHANGED, 2);
+    const published = blobsFor(displayed).filter((n) => !n.endsWith("-diff.png"));
+    const body = render({ displayed, publishedBlobs: published });
+    expect(body).not.toContain("-diff.png");
+    expect(body).toContain("light-alpha-actual.png");
+  });
+
+  it("never addresses a blob outside the published set, for any cap", () => {
+    for (const cap of [1, 2, 3, 6, 9]) {
+      const displayed = selectDisplayed(FIXTURE_CHANGED, cap);
+      const published = new Set(blobsFor(displayed));
+      const body = render({ displayed, publishedBlobs: [...published] });
+      const addressed = [...body.matchAll(/src="[^"]*\/([^/"]+\.png)"/g)].map((m) => m[1]);
+      expect(addressed.length).toBeGreaterThan(0);
+      for (const name of addressed) expect(published.has(name)).toBe(true);
+    }
   });
 });

@@ -204,8 +204,19 @@ something true in each case instead of printing `null px`.
   (`resolveOutputFile("JSON", …)`, `playwright/lib/runner/index.js:1520`).
   `--reporter` is documented comma-separated (`program.js:119`); listing
   `github` first preserves the annotations CI shows today.
-- Output: `{ total, changed[] }`. `total` is the count of specs in the report
-  (49 today) — derived, never hardcoded, so SC-2's denominator cannot go stale.
+- Output: `{ total, changed[], unchanged, failedWithoutDiff }`. `total` is the
+  count of specs in the report (49 today) — derived, never hardcoded, so SC-2's
+  denominator cannot go stale.
+- **Three buckets, not two.** _Corrected 2026-08-25 after review; the original
+  contract was `{ total, changed[] }` alone, which forced the comment to compute
+  `unchanged = total - changed.length`._ A spec that fails without producing an
+  `-actual` attachment — a `net::ERR_CONNECTION_REFUSED`, a 30 s timeout, a
+  suite-level error — is absent from `changed[]` because there is nothing to
+  show, and it is emphatically not unchanged. The subtraction counted it as a
+  pass, so the comment told the autonomous reader this feature exists for that a
+  hard-failing spec was fine. `unchanged` is therefore the real pass count
+  (`ok !== false`), `failedWithoutDiff` is the third bucket, and the three sum to
+  `total` by construction.
 - **Where the pixel count comes from, verified rather than assumed.** It exists
   in exactly one place: the free-text matcher message
   `` `${count} pixels (ratio ${ratio} of all image pixels) are different.` ``
@@ -286,8 +297,10 @@ way to obtain._
 
 ### `selectDisplayed(changed, cap)` / `renderComment(...)`
 
-- Input: the changed list, the cap, **the budget (`number | null`)**, the
-  pushed commit SHA, the repo slug. The budget is an input and never a literal
+- Input: the changed list, **the displayed records and the published blob
+  names** (both produced by the caller's single `planComment` call — see below),
+  the unchanged and failed-without-diff counts, **the budget (`number | null`)**,
+  the pushed commit SHA, the repo slug. The budget is an input and never a literal
   in this module: a comment that confidently asserts a budget it did not read
   would reproduce this run's own motivating incident (#4496 silently changed
   `maxDiffPixelRatio: 0.01` to `maxDiffPixels: 300`) inside the fix for it.
@@ -297,6 +310,22 @@ way to obtain._
   least self-explanatory. Spec order was the alternative and loses: the cap
   means some snapshots are dropped, and dropping the largest mover to keep an
   alphabetically earlier three-pixel drift inverts the comment's whole purpose.
+- **One derivation of the displayed set, at the push site.** _Corrected
+  2026-08-25 after review; `renderComment` originally re-ran `selectDisplayed`
+  with a `cap` parameter of its own._ The publisher's `planComment({ changed,
+artifactDir })` returns `{ displayed, files, publishedBlobs }` in one call:
+  the records shown, the blobs pushed for them, and the names the comment may
+  address. `renderComment` consumes `displayed` and `publishedBlobs` and selects
+  nothing — a cap chosen in the comment module and a cap chosen at the push site
+  are two derivations of one fact, and every way they can disagree (a different
+  cap on either side, an image the artifact did not carry) renders `<img>` tags
+  for blobs that were never published. An image cell whose blob is outside
+  `publishedBlobs` renders `—`, the same as an image the run never wrote.
+- **The existence guard is a parameter, not an afterthought.**
+  `plannedImageFiles(displayed, artifactDir, exists = existsSync)` drops an
+  image the report names but the downloaded artifact does not carry. It used to
+  be a `.filter()` applied in `main()` after the function returned, which put it
+  outside every test.
 - Cap: `MAX_IMAGE_ROWS = 6`, an exported constant in the module (the shape
   `branch-cleanup.mjs` uses for `AGE_FLOOR_DAYS`), not an env var. Six rows at
   `width=250` is roughly two screens, and six of 49 is a large enough sample to
@@ -309,7 +338,10 @@ changed`, up to six `### name (N px over <budget> budget)` sections each with
   today, never a literal in this module — then a complete plain-text list of
   the remaining changed snapshots with their names and counts, then the
   `<sub>` footer naming the
-  unchanged count and `rialto-web-visual-diffs`. The cap bounds images; the
+  unchanged count and `rialto-web-visual-diffs`. When `failedWithoutDiff` is
+  non-zero the footer says so out loud — the three counts do not add up to
+  `total` otherwise, and silently dropping the difference is what let a
+  hard-failing spec read as a pass. The cap bounds images; the
   text is exhaustive (SC-2 and SC-6 together — see frontmatter assumption).
 - **When the budget is `null`**, every heading and every overflow line drops
   the budget clause — `### name (N px changed)` — and the footer states that

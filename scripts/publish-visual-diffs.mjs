@@ -154,23 +154,50 @@ export function artifactFilePath(reportPath, artifactDir) {
 }
 
 /**
- * Pure: the blobs to publish for the displayed snapshots, named exactly as the
+ * The blobs to publish for the displayed snapshots, named exactly as the
  * comment addresses them (both sides call `blobName`, so they cannot diverge).
+ *
+ * `exists` is a parameter, not a `.filter()` the caller remembers to apply
+ * afterwards: an image the report names but the downloaded artifact does not
+ * carry must never reach either the push or the comment, and a guard living in
+ * `main()` was outside every test.
  *
  * @param {Array<object>} displayed
  * @param {string} artifactDir
+ * @param {(path: string) => boolean} [exists]
  * @returns {Array<{name: string, path: string}>}
  */
-export function plannedImageFiles(displayed, artifactDir) {
+export function plannedImageFiles(displayed, artifactDir, exists = existsSync) {
   const files = [];
   for (const rec of displayed ?? []) {
     for (const reportPath of [rec.expectedPath, rec.actualPath, rec.diffPath]) {
       const local = artifactFilePath(reportPath, artifactDir);
-      if (local === null) continue;
+      if (local === null || !exists(local)) continue;
       files.push({ name: blobName(reportPath), path: local });
     }
   }
   return files;
+}
+
+/**
+ * The single derivation of "which snapshots get images": the records the
+ * comment shows, the blobs pushed for them, and the names the comment may
+ * address. One call, one answer — `renderComment` consumes all three rather
+ * than re-deriving any of them, so a cap change or a missing file cannot leave
+ * the comment pointing at a blob the push never wrote.
+ *
+ * @param {object} input
+ * @param {Array<object>} input.changed From `parseVisualReport`.
+ * @param {string} input.artifactDir
+ * @param {(path: string) => boolean} [input.exists]
+ * @param {number} [input.cap]
+ * @returns {{displayed: Array<object>, files: Array<{name:string, path:string}>,
+ *            publishedBlobs: Array<string>}}
+ */
+export function planComment({ changed, artifactDir, exists = existsSync, cap = MAX_IMAGE_ROWS }) {
+  const displayed = selectDisplayed(changed, cap);
+  const files = plannedImageFiles(displayed, artifactDir, exists);
+  return { displayed, files, publishedBlobs: files.map((f) => f.name) };
 }
 
 // ---------------------------------------------------------------------------
@@ -398,7 +425,7 @@ async function main() {
     return;
   }
 
-  const { total, changed } = parseVisualReport(report);
+  const { total, changed, unchanged, failedWithoutDiff } = parseVisualReport(report);
   if (changed.length === 0) {
     // Never claim "0 of N changed" as though that were the finding.
     note(`The \`visual\` job failed, but the failure was not a snapshot diff — nothing to show.`);
@@ -406,8 +433,7 @@ async function main() {
   }
 
   const artifactDir = process.env.DIFF_ARTIFACT_DIR;
-  const displayed = selectDisplayed(changed, MAX_IMAGE_ROWS);
-  const files = plannedImageFiles(displayed, artifactDir).filter((f) => existsSync(f.path));
+  const { displayed, files, publishedBlobs } = planComment({ changed, artifactDir });
 
   if (files.length === 0) {
     note(
@@ -437,6 +463,10 @@ async function main() {
   const body = renderComment({
     total,
     changed,
+    displayed,
+    publishedBlobs,
+    unchanged,
+    failedWithoutDiff,
     budget: readBudget({ configFile: report?.config?.configFile, workspace }),
     sha,
     repoSlug: repo,

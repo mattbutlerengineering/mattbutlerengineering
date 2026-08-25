@@ -129,29 +129,50 @@ function buildRecord(result) {
 }
 
 /**
- * Pure: one Playwright JSON report -> `{ total, changed[] }`.
+ * Pure: one Playwright JSON report -> `{ total, changed[], unchanged,
+ * failedWithoutDiff }`.
  *
  * `total` is the report's own spec count, never a literal, so SC-2's
  * denominator cannot go stale when the suite grows.
  *
+ * **Three buckets, not two.** A failing spec that produced no `-actual`
+ * attachment — a `net::ERR_CONNECTION_REFUSED`, a 30 s timeout, a suite-level
+ * error — is absent from `changed` because there is nothing to show, and it is
+ * emphatically NOT unchanged. `unchanged` is therefore the real pass count
+ * (`ok !== false`) and never `total - changed.length`: that subtraction
+ * rendered such a spec as passing in the comment footer, misleading exactly the
+ * autonomous reader this feature writes the comment for.
+ *
  * @param {object} report The object written by Playwright's built-in `json` reporter.
- * @returns {{total:number, changed:Array<object>}}
+ * @returns {{total:number, changed:Array<object>, unchanged:number,
+ *            failedWithoutDiff:number}}
  */
 export function parseVisualReport(report) {
   const specs = collectSpecs(report);
   const changed = [];
+  let unchanged = 0;
+  let failedWithoutDiff = 0;
 
   for (const spec of specs) {
     // A spec that failed then passed is a flake, not a regression: Playwright
     // reports `ok: true` for it, and it must not appear.
-    if (spec?.ok !== false) continue;
+    if (spec?.ok !== false) {
+      unchanged += 1;
+      continue;
+    }
+
+    let records = 0;
     for (const test of spec.tests ?? []) {
       const record = buildRecord(highestRetryResult(test?.results));
-      if (record) changed.push(record);
+      if (record) {
+        changed.push(record);
+        records += 1;
+      }
     }
+    if (records === 0) failedWithoutDiff += 1;
   }
 
-  return { total: specs.length, changed };
+  return { total: specs.length, changed, unchanged, failedWithoutDiff };
 }
 
 // ---------------------------------------------------------------------------
