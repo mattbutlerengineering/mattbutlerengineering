@@ -426,13 +426,21 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-        # #4519: restoring .turbo/cache makes build/typecheck tasks this job
-        # depends on cache-hit instantly instead of actually running, removing
-        # the incidental stagger that used to spread test-task start times
-        # out. Without a concurrency cap, turbo's full default fan-out of
-        # test tasks launches simultaneously on a 2-core runner and starves
-        # DB-dependent setup hooks past their timeout. Same stampede as the
-        # cold-cache case in gotchas.md § CI, reached from the opposite lever.
+        # #4519 added `--concurrency=2` after that PR's Test job timed out
+        # 3/3 while main stayed green. The comment here used to assert a
+        # specific cause — that restoring .turbo/cache removed an incidental
+        # stagger and let turbo's fan-out stampede a 2-core runner. That
+        # explanation is retracted (#4558): the varying victim was already
+        # explained by #4541 raising one test's timeout, and re-running the
+        # failed jobs at e41d5a6a, the unchanged pre-cap commit, passed. The
+        # stampede was never reproduced.
+        #
+        # The cap stays for now because nothing has shown it costs anything —
+        # the one capped green run was faster than the one uncapped green run,
+        # on samples far too few to mean much either way. Treat this flag as
+        # unexplained and unmeasured, not as a known-good mitigation: #4558
+        # tracks the A/B (several runs per setting, same commit, comparing
+        # duration and failure rate) that would justify keeping or dropping it.
         run: pnpm turbo test:coverage --concurrency=2
 
       - name: Upload test results
