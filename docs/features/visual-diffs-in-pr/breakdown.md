@@ -140,7 +140,7 @@ any push, any workflow, or any PR exists. SC-2 and SC-6 are settled here, and
 the PRD's parked legibility question (`width=250`, cap of 6) becomes an
 eyeball-it-now question instead of a wait-for-Verify one.
 
-- [ ] **2.1 `scripts/visual-diff-comment.mjs` — `selectDisplayed(changed, cap)`
+- [x] **2.1 `scripts/visual-diff-comment.mjs` — `selectDisplayed(changed, cap)`
       and `MAX_IMAGE_ROWS`** — ordering and the display cap.
   - Accept: orders **descending by pixel count, `pixels: null` first, ties
     broken by snapshot name**, deterministic for a shuffled input; returns at
@@ -150,7 +150,7 @@ eyeball-it-now question instead of a wait-for-Verify one.
   - Blocked by: 1.2 (consumes its record shape)
   - Verified: **locally.**
 
-- [ ] **2.2 `renderComment(...)` — the full comment body** — marker, heading,
+- [x] **2.2 `renderComment(...)` — the full comment body** — marker, heading,
       capped image sections, exhaustive overflow text, footer. Its input
       contract gains **`budget: number | null`** (Gap 1's resolution): the
       number arrives from the caller and is never a literal in this module.
@@ -188,7 +188,7 @@ eyeball-it-now question instead of a wait-for-Verify one.
   - Blocked by: 2.1
   - Verified: **locally.**
 
-- [ ] **2.3 `decideCommentAction({ existingBody, runOrdinal, visualFailed })`**
+- [x] **2.3 `decideCommentAction({ existingBody, runOrdinal, visualFailed })`**
       — the single staleness guard over **every** write to the one shared cell,
       deletion included (Gap 2's resolution; replaces the draft's
       `shouldReplaceComment`, renamed because a predicate consulted by both
@@ -563,6 +563,39 @@ Affected item 3.2. **Routed to Architect.**
 
 ## Notes
 
-<Deviations discovered during Implement get logged here, dated. Items 2.2,
-4.2, and 5.1 each require a recorded observation here as part of their
-acceptance criteria.>
+### 2026-08-25 — 1.1, the fixture is a platform-difference failure, not a regression
+
+The committed baselines are Linux-CI-runner-specific (documented gotcha), so a
+macOS local run of the visual suite fails all 49 snapshots by construction.
+That is what `scripts/__tests__/fixtures/playwright-visual-report.json` was
+captured from, and it is stated in the fixture's own `_fixtureNotes`. For
+parsing purposes the distinction is immaterial — the report shape, the
+attachment layout, the ANSI-wrapped matcher message and the `-expected` trap
+are byte-for-byte what a genuine CI regression produces. It does mean the
+fixture proves nothing about whether the _suite_ is currently healthy, and
+item 3.5 still needs a genuinely perturbed surface on a real pull request.
+
+### 2026-08-25 — 2.2, the legibility answer: `width=250` triages, it does not read
+
+Rendered the 1.1 fixture through `renderComment` and then judged the images
+directly, by scaling real `-diff.png` files from the same run to 250 px wide
+and looking at them. Two representative shapes, both against the live 300-pixel
+budget:
+
+| snapshot                                        | native     | at `width=250` | verdict                                                                                                                                                   |
+| ----------------------------------------------- | ---------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `light-button-variants` (579 px diff)           | 1232 × 113 | 250 × 23       | a sliver. The changed pixels are visible as faint red marks; nothing about _what_ changed is readable.                                                    |
+| `light-master-override-variants` (2315 px diff) | 1232 × 850 | 250 × 172      | usable. Red diff regions are clearly located — "one component" vs "everything shifted" is answerable at a glance — but no text or edge detail is legible. |
+
+So: **six rows at `width=250` answers the triage question this feature exists
+for** (is this drift or a regression, and where), and does **not** answer the
+review question (what exactly moved). The suite's sections are all ~1232 px
+wide and 100–850 px tall, so the constraint is the 4.9× downscale, not the row
+count — six rows is comfortable to scroll.
+
+Recorded, not acted on. Two contained improvements are available and both were
+left alone deliberately: wrapping each `<img>` in an `<a href>` to the full-size
+raw URL (GitHub does not make a bare `<img>` click-through), and raising the
+width. The comment shape is listed in `prd.md` § Constraints as chosen by the
+user at brief time, and this run is unattended — changing it is Verify's call
+with a real comment in front of a human, which is where `prd.md` parked it.
