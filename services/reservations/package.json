@@ -39,11 +39,11 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@prisma/client-runtime-utils": "^7.9.1",
-    "@scalar/fastify-api-reference": "^1.65.1",
+    "@scalar/fastify-api-reference": "^1.66.1",
     "fastify": "catalog:",
     "jose": "^6.2.9",
     "pg": "^8.23.0",
-    "resend": "^6.20.0",
+    "resend": "^6.21.0",
     "stripe": "^22.5.0",
     "twilio": "^6.1.0",
     "zod": "catalog:"
