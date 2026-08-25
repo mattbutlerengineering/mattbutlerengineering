@@ -6,10 +6,15 @@
  *
  * Every run of the `visual` job in `.github/workflows/rialto-web-e2e.yml`
  * that has images to show publishes them as ONE orphan commit on a ref only
- * that run names: `visual-diffs/pr-<N>/run-<run_id>`. Nothing ever
- * overwrites a ref, so there is no read-modify-write cycle and therefore no
- * lost-update race — concurrency is handled by not sharing state. `--force`
- * is never used and must not be introduced.
+ * that run names: `visual-diffs/pr-<N>/run-<run_id>-attempt-<run_attempt>`.
+ * The attempt is part of the name because GitHub keeps `GITHUB_RUN_ID` stable
+ * across "Re-run failed jobs" and increments `GITHUB_RUN_ATTEMPT` — and two
+ * attempts build two different orphan commits even from a byte-identical tree
+ * (`commit-tree` stamps the committer time), so a name carrying only the run
+ * id makes the re-run's push a non-fast-forward. Nothing ever overwrites a
+ * ref, so there is no read-modify-write cycle and therefore no lost-update
+ * race — concurrency is handled by not sharing state. `--force` is never used
+ * and must not be introduced.
  *
  * The published comment addresses its images by **commit SHA**, never by ref
  * name, so the ref exists only to keep the commit reachable. That is what
@@ -40,16 +45,22 @@ export const REF_ROOT = "refs/heads";
  */
 export const REF_PREFIX = "visual-diffs";
 
-const REF_NAME_PATTERN = new RegExp(`^${REF_PREFIX}/pr-(\\d+)/run-([0-9A-Za-z._-]+)$`);
+const REF_NAME_PATTERN = new RegExp(`^${REF_PREFIX}/pr-(\\d+)/run-(\\d+)-attempt-(\\d+)$`);
 
 /**
- * Pure: the ref name for one run's images.
+ * Pure: the ref name for one run ATTEMPT's images.
  *
- * @param {{prNumber: number|string, runId: number|string}} input
- * @returns {string} e.g. `visual-diffs/pr-4567/run-32873184619`
+ * The attempt is not decoration. `GITHUB_RUN_ID` is stable across a re-run and
+ * `GITHUB_RUN_ATTEMPT` is what increments, so omitting it points attempt 2 at
+ * the ref attempt 1 already created — a non-fast-forward push that `--force`
+ * is forbidden to resolve, which fails the publisher and strands SC-4.
+ *
+ * @param {{prNumber: number|string, runId: number|string,
+ *          runAttempt: number|string}} input
+ * @returns {string} e.g. `visual-diffs/pr-4567/run-32873184619-attempt-1`
  */
-export function buildRefName({ prNumber, runId }) {
-  return `${REF_PREFIX}/pr-${prNumber}/run-${runId}`;
+export function buildRefName({ prNumber, runId, runAttempt }) {
+  return `${REF_PREFIX}/pr-${prNumber}/run-${runId}-attempt-${runAttempt}`;
 }
 
 /**
@@ -72,14 +83,24 @@ export function fullRef(refName) {
  * sweep treats an unparsable name as never-deletable, so `null` is the
  * fail-safe answer and must stay cheap to reach.
  *
+ * Both ordinals are matched as digits only, and that strictness is the whole
+ * point. The earlier `run-([0-9A-Za-z._-]+)` admitted `run-abc`, whose
+ * `Number()` is `NaN`; the retention keep-clause then compared `NaN === NaN`,
+ * decided the ref was not the newest, and DELETED the only ref of an open pull
+ * request. An ordinal that cannot be ordered must not be parsed at all.
+ *
  * @param {unknown} refName
- * @returns {{prNumber: number, runId: string} | null}
+ * @returns {{prNumber: number, runId: number, runAttempt: number} | null}
  */
 export function parseRefName(refName) {
   if (typeof refName !== "string") return null;
   const match = REF_NAME_PATTERN.exec(refName);
   if (!match) return null;
-  return { prNumber: Number(match[1]), runId: match[2] };
+  return {
+    prNumber: Number(match[1]),
+    runId: Number(match[2]),
+    runAttempt: Number(match[3]),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -109,13 +130,27 @@ function ageHours(committedAt, now) {
   return (now.getTime() - then) / 3_600_000;
 }
 
-/** Pure: highest run id seen per PR number. */
-function newestRunIdByPr(parsedRefs) {
+/** Pure: is ordinal `a` strictly newer than ordinal `b`? Tuple-lexicographic
+ * on `[run_id, run_attempt]`, the same ordering `decideCommentAction` uses. */
+function isNewerOrdinal(a, b) {
+  if (a.runId !== b.runId) return a.runId > b.runId;
+  return a.runAttempt > b.runAttempt;
+}
+
+/**
+ * Pure: newest `[run_id, run_attempt]` ordinal seen per PR number.
+ *
+ * The tuple, not the run id alone: a re-run keeps the run id and increments the
+ * attempt, so two refs of one re-run PR share a run id and a run-id-only
+ * comparison cannot tell the live one from the superseded one.
+ */
+function newestOrdinalByPr(parsedRefs) {
   const newest = new Map();
   for (const { parsed } of parsedRefs) {
     const current = newest.get(parsed.prNumber);
-    const runId = Number(parsed.runId);
-    if (current === undefined || runId > current) newest.set(parsed.prNumber, runId);
+    if (current === undefined || isNewerOrdinal(parsed, current)) {
+      newest.set(parsed.prNumber, { runId: parsed.runId, runAttempt: parsed.runAttempt });
+    }
   }
   return newest;
 }
@@ -161,13 +196,17 @@ export function planRefSweep({
     parsedRefs.push({ ref, parsed });
   }
 
-  const newest = newestRunIdByPr(parsedRefs);
+  const newest = newestOrdinalByPr(parsedRefs);
   const toDelete = [];
 
   for (const { ref, parsed } of parsedRefs) {
     const age = ageHours(ref.committedAt, now);
+    const newestForPr = newest.get(parsed.prNumber);
     const isNewestOnOpenPr =
-      open.has(parsed.prNumber) && newest.get(parsed.prNumber) === Number(parsed.runId);
+      open.has(parsed.prNumber) &&
+      newestForPr !== undefined &&
+      newestForPr.runId === parsed.runId &&
+      newestForPr.runAttempt === parsed.runAttempt;
 
     if (isNewestOnOpenPr) {
       retained.push({ ...ref, ...parsed, reason: "newest-on-open-pr" });

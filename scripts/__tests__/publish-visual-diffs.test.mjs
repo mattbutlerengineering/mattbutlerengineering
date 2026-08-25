@@ -66,6 +66,15 @@ describe("publish-visual-diffs.mjs is a thin caller", () => {
     expect(SRC).not.toContain("--force");
   });
 
+  it("names the diff ref from the FULL run ordinal, attempt included", () => {
+    // GITHUB_RUN_ID is stable across "Re-run failed jobs"; only
+    // GITHUB_RUN_ATTEMPT moves. A ref built from the id alone points attempt 2
+    // at attempt 1's ref, the push is rejected non-fast-forward, --force is
+    // banned by the test above, and the publisher dies with attempt 1's images
+    // still standing in the comment — SC-4 undemonstrated.
+    expect(SRC).toMatch(/buildRefName\(\{[^)]*runAttempt[^)]*\}\)/);
+  });
+
   it("shells out only through execFileSync with argv arrays", () => {
     expect(SRC).toContain("execFileSync");
     expect(SRC).not.toContain("execSync");

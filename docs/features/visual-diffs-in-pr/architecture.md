@@ -41,8 +41,11 @@ rather than by care, and costs one `actions/download-artifact` step.
 
 Three properties carry the design, and each answers a hazard named upstream:
 
-- **Immutable, run-scoped refs.** Every run writes a ref only it names
-  (`visual-diffs/pr-<N>/run-<run_id>`) and never overwrites one. There is no
+- **Immutable, attempt-scoped refs.** Every run _attempt_ writes a ref only it
+  names (`visual-diffs/pr-<N>/run-<run_id>-attempt-<run_attempt>`) and never
+  overwrites one. The attempt is part of the name because `GITHUB_RUN_ID` is
+  stable across a re-run while `GITHUB_RUN_ATTEMPT` increments — see the push
+  contract below. There is no
   read-modify-write cycle anywhere, so there is no lost-update race to lose —
   concurrency is handled by not sharing state, not by serializing access to it.
 - **URLs pin the commit SHA, never a ref name.** A published comment keeps
@@ -158,7 +161,7 @@ access pattern that reads it.
 **The published commit.** One orphan commit (no parents), one flat tree:
 
 ```
-visual-diffs/pr-<N>/run-<run_id>      # refs/heads/…, force never used
+visual-diffs/pr-<N>/run-<run_id>-attempt-<run_attempt>   # refs/heads/…, force never used
 └── <snapshot>-{expected,actual,diff}.png   # only for displayed snapshots
 ```
 
@@ -391,7 +394,7 @@ and a predicate consulted by both branches must not be named after one of them._
 - Timeout / retry: owned by `actions/download-artifact`, which retries
   internally; same-run artifacts need no extra token scope.
 
-### `git push origin <commit>:refs/heads/visual-diffs/pr-<N>/run-<id>`
+### `git push origin <commit>:refs/heads/visual-diffs/pr-<N>/run-<id>-attempt-<n>`
 
 - Input: an orphan commit built with plumbing (`hash-object` → a temporary
   `GIT_INDEX_FILE` → `write-tree` → `commit-tree`) so the runner's working tree
@@ -404,11 +407,20 @@ and a predicate consulted by both branches must not be named after one of them._
   required check moves, and the `visual` job has already concluded (SC-7).
 - Timeout: set one explicitly on the step; `git` has no default and a hung push
   would otherwise burn the job's full budget.
-- Retry: **safe.** The ref name contains this run's id, so a retry can only
-  re-push our own commit — the second push is a no-op or a fast-forward, never
-  a conflict, never a lost update. `--force` is never used and must not be
-  introduced; force-pushing reintroduces exactly the lost-update hazard this
-  naming scheme removes.
+- Retry: **safe, but only because the name carries the run _attempt_.**
+  _Corrected 2026-08-25 after review; the original claim — that the run id
+  alone made a retry a no-op or a fast-forward — is false for a re-run._
+  GitHub keeps `GITHUB_RUN_ID` stable across "Re-run failed jobs" and
+  increments `GITHUB_RUN_ATTEMPT`, and the second attempt builds a **different**
+  commit even from a byte-identical tree, because `commit-tree` stamps the
+  committer timestamp. A name built from the run id alone therefore makes
+  attempt 2's push a non-fast-forward rejection — unfixable without `--force`,
+  which is banned — so the publisher exits 1 and the comment keeps attempt 1's
+  images, defeating SC-4. With the attempt in the name, each attempt owns its
+  own ref: a re-executed publisher _step_ within one attempt re-pushes its own
+  commit (a no-op), and a genuine re-run writes somewhere new. `--force` is
+  never used and must not be introduced; force-pushing reintroduces exactly the
+  lost-update hazard this naming scheme removes.
 
 ### GitHub comment upsert / delete
 
@@ -436,7 +448,14 @@ and a predicate consulted by both branches must not be named after one of them._
 The rule, in three clauses, each with the thing it protects:
 
 1. **Keep** the newest ref of each _open_ PR — it is what that PR's standing
-   comment points at.
+   comment points at. "Newest" is the tuple `[run_id, run_attempt]`, the same
+   ordering `decideCommentAction` uses: a re-run keeps the run id and moves only
+   the attempt, so a run-id-only comparison cannot tell a re-run's live ref from
+   its superseded one. A ref whose ordinal is not a pair of integers does not
+   parse at all, and an unparsable name is never selected (clause 3's
+   fail-safe) — the earlier permissive `run-([0-9A-Za-z._-]+)` let `Number()`
+   produce `NaN`, and `NaN === NaN` being false deleted the only ref of an open
+   PR.
 2. **Keep** any ref younger than `minAgeHours` (24) — its run may still be
    in flight, with its comment not yet written.
 3. **Delete** everything else — superseded runs on open PRs, and every ref of
@@ -457,7 +476,8 @@ sweep is idempotent and safe to re-run.
 The push must not start CI runs, and must not touch `CI Gate`. Measured over
 every file in `.github/workflows/`: **every `push:` trigger in this repo is
 scoped to `branches: [main]`**, and there are no `create:` or tag triggers at
-all. A ref named `visual-diffs/pr-<N>/run-<id>` cannot match any of them.
+all. A ref named `visual-diffs/pr-<N>/run-<id>-attempt-<n>` cannot match any
+of them.
 
 That is a fact about the repo today, not a property of the design, so it gets a
 guard in the shape this repo already uses for exactly this class

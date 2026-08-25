@@ -228,12 +228,24 @@ milestone at which the feature exists; everything before it is machinery, and
 everything after it is bounded growth.
 
 - [x] **3.1 `scripts/visual-diff-refs.mjs` — ref namespace** — construct and
-      parse `visual-diffs/pr-<N>/run-<run_id>`.
+      parse `visual-diffs/pr-<N>/run-<run_id>-attempt-<run_attempt>`.
+  - _Acceptance criterion reworded 2026-08-25 after review._ It previously read
+    `visual-diffs/pr-<N>/run-<id>`, which omits the run attempt. GitHub keeps
+    `GITHUB_RUN_ID` stable across "Re-run failed jobs" and increments
+    `GITHUB_RUN_ATTEMPT`, and two attempts build two different orphan commits
+    even from a byte-identical tree, so the old name made a re-run's push a
+    non-fast-forward rejection — which is exactly the flow SC-4 names and step 5
+    of item 3.5 below demonstrates.
   - Accept: the ref prefix is a **single exported constant** (so the Milestone 5
     probe is a one-constant change); construction produces exactly
-    `visual-diffs/pr-<N>/run-<id>`; parse round-trips and returns `null` for any
-    non-matching name (including `main`, `visual-diffs/`, and a trailing-slash
-    variant); pure; both functions exported for reuse by 3.2 and 4.1.
+    `visual-diffs/pr-<N>/run-<id>-attempt-<n>`, so a re-run of the same run id
+    never targets the previous attempt's ref; parse round-trips **both
+    ordinals** and returns `null` for any non-matching name (including `main`,
+    `visual-diffs/`, a trailing-slash variant, a name with no attempt segment,
+    and a **non-numeric** run id or attempt — an ordinal that cannot be ordered
+    must not parse, because the retention keep-clause compared `NaN === NaN` and
+    deleted the only ref of an open PR); pure; both functions exported for reuse
+    by 3.2 and 4.1.
   - Blocked by: —
   - Verified: **locally.**
 
@@ -366,7 +378,9 @@ and no ref a standing comment depends on can be selected.
 - [x] **4.1 `selectRefsToDelete({ refs, openPrNumbers, now, minAgeHours })`** in
       `scripts/visual-diff-refs.mjs` — the three-clause retention rule.
   - Accept: **keeps** the newest ref of each _open_ PR (what that PR's standing
-    comment points at); **keeps** any ref younger than
+    comment points at), "newest" being the tuple `[run_id, run_attempt]` and not
+    the run id alone — a re-run keeps the run id and moves only the attempt;
+    **keeps** any ref younger than
     `MIN_AGE_HOURS = 24`, exported as a constant (its run may still be in
     flight with the comment not yet written); **deletes** everything else —
     superseded runs on open PRs, and every ref of every closed or merged PR; a

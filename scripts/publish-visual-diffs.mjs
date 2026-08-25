@@ -377,10 +377,18 @@ async function main() {
     return;
   }
 
-  const refName = buildRefName({ prNumber, runId: runOrdinal.runId });
+  // The ref carries the ATTEMPT as well as the run id: a re-run keeps
+  // GITHUB_RUN_ID and increments GITHUB_RUN_ATTEMPT, and a name built from the
+  // id alone would have attempt 2 push at attempt 1's ref — rejected
+  // non-fast-forward, and the one flag that would resolve it is forbidden here.
+  const refName = buildRefName({
+    prNumber,
+    runId: runOrdinal.runId,
+    runAttempt: runOrdinal.runAttempt,
+  });
   const sha = buildOrphanCommit({
     files,
-    message: `visual diffs for PR #${prNumber} (run ${runOrdinal.runId})`,
+    message: `visual diffs for PR #${prNumber} (run ${runOrdinal.runId} attempt ${runOrdinal.runAttempt})`,
     cwd: workspace,
   });
 
