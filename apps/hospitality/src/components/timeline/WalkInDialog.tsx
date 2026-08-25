@@ -1,3 +1,4 @@
+// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
