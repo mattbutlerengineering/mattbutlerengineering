@@ -58,7 +58,15 @@ reads the suite's pixel budget out of the text of the config that report names.
     literal `N pixels (ratio …) are different.` string. Because
     `playwright.config.ts` sets `retries: 0` outside CI, a two-entry
     `results[]` retry pair (failed-then-passed, and failed-twice) is
-    hand-synthesized into the fixture and labelled as such in a comment. The
+    hand-synthesized into the fixture and labelled as such in a comment.
+    _Added 2026-08-25 after review:_ the fixture also carries a hand-synthesized
+    **expected-failure** spec (`test.fail()` — `ok: true` with a `failed` result
+    and all three snapshot attachments present). Without it the `spec.ok`
+    guard in `parseVisualReport` is untestable: the flake's highest-retry result
+    passed and therefore attached nothing (`playwright.config.ts` sets
+    `screenshot: "off"`), so deleting the guard changed no observable output and
+    the "a flake is absent from changed" test stayed green under that mutation.
+    The
     trimmed fixture **retains `config.configFile`** (present and absolute in a
     real 1.62.1 report) — item 3.2 resolves the Playwright config path from it,
     and a fixture that trimmed it away would make that path untestable.
@@ -88,7 +96,10 @@ reads the suite's pixel budget out of the text of the config that report names.
     error message still yields the pixel count; an unparsable message yields
     `pixels: null` with no throw and no guessed number; only the highest-`retry`
     entry of a failing spec is read and a failed-then-passed spec is **absent**
-    from `changed`; `reason` distinguishes `pixel-diff` / `size-mismatch` /
+    from `changed`; an **expected-failure** spec (`ok: true` carrying a full
+    snapshot diff) is likewise absent from `changed` and counted as unchanged,
+    which is what makes the `spec.ok` guard load-bearing rather than accidentally
+    redundant (_criterion added 2026-08-25 after review_); `reason` distinguishes `pixel-diff` / `size-mismatch` /
     `missing-baseline`; a report with a suite-level failure and zero changed
     snapshots returns `changed: []` rather than throwing.
   - Accept (`parseMaxDiffPixels`), in the same test file: the input is the

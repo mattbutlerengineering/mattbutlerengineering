@@ -112,11 +112,23 @@ describe("parseVisualReport buckets", () => {
     expect(buckets.failedWithoutDiff).toBe(2);
   });
 
-  it("counts the fixture's flake as unchanged, not as a failure", () => {
-    // A spec that failed then passed is `ok: true`: it is neither a regression
-    // nor an unexplained failure.
-    expect(parsed.unchanged).toBe(1);
+  it("counts the fixture's flake and expected failure as unchanged, not as failures", () => {
+    // A spec that failed then passed, and a spec marked expected-to-fail, are
+    // both `ok: true`: neither is a regression nor an unexplained failure.
+    expect(parsed.unchanged).toBe(2);
     expect(parsed.failedWithoutDiff).toBe(0);
+  });
+
+  it("omits an expected-failure spec even though it carries a full snapshot diff", () => {
+    // This is the ONE shape in which `spec.ok !== false` is load-bearing.
+    // `test.fail()` yields ok: true with a `failed` result and all three
+    // attachments present, so nothing but the ok check keeps it out of
+    // `changed[]`. The fixture's flake cannot bind that guard: its
+    // highest-retry result passed and therefore attached nothing
+    // (`playwright.config.ts` sets `screenshot: "off"`), so a mutation
+    // deleting the guard survives against the flake alone.
+    expect(parsed.changed.some((r) => r.name === "light-expected-failure")).toBe(false);
+    expect(parsed.changed.map((r) => r.name)).not.toContain("light-expected-failure");
   });
 });
 
