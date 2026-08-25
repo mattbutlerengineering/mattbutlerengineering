@@ -348,6 +348,15 @@ pull-requests: write` **additive over** the workflow's unchanged
     fed a synthetic workflow source containing `push: branches: ['**']`, it
     reports a violation. Without that second half the guard is decorative, and a
     later `branches: ['**']` would turn every failing visual run into a CI storm.
+  - Accept, the `on:` normaliser (_criteria added 2026-08-25 after review_): a
+    violation is reported for an unfiltered push written as a flow sequence
+    (`on: [push, …]`), a bare scalar (`on: push`), a block sequence (`- push`), a
+    per-trigger flow mapping (`push: { branches: ['**'] }`), a quoted `"on":` key,
+    and at an indentation other than two spaces; a shape the parser cannot read —
+    a YAML alias for a branch list, a top-level flow mapping — is a **violation,
+    never an absence**; and two non-vacuity tests assert that zero real workflows
+    parse as unreadable and that `push:` is found in more than five of them, so an
+    empty violation list cannot mean the parser found nothing to judge.
   - Blocked by: 3.1 (consumes the ref-prefix constant)
   - Verified: **locally.**
 

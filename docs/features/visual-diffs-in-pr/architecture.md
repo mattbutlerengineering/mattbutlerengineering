@@ -543,6 +543,28 @@ reads every workflow file and fails if any `push:` branch filter could match
 the `visual-diffs/` prefix. Without it, a later `push: branches: ['**']` would
 silently turn every failing visual run into a CI storm.
 
+**The guard normalises every shape `on:` can take, and fails closed on the rest.**
+_Corrected 2026-08-25 after review._ The first version recognised `push:` only
+as a block key at exactly two spaces of indentation under an empty-valued `on:`,
+which is one of at least five legal spellings — a flow sequence
+(`on: [push, pull_request]`), a bare scalar (`on: push`), a block sequence
+(`on:` / `- push`), a per-trigger flow mapping (`push: { branches: ['**'] }`) and
+any other indentation all returned **no violations**, i.e. the guard passed the
+exact hazard it exists for. It now normalises `on:` to a `name -> config` map
+across all of those, reads branch filters from block lists, flow lists and
+scalars alike, and treats a shape it cannot read — a YAML alias, a top-level
+flow mapping, an unrecognised line — as a **violation rather than an absence**.
+Two non-vacuity tests keep the repo-wide scan honest: zero workflows may parse
+as unreadable, and the scan must find `push:` triggers in more than five of
+them, so an empty violation list cannot mean "parsed nothing".
+
+The normalisation is textual, not `js-yaml`. `@mbe/scripts` declares no YAML
+dependency, and `pnpm-lock.yaml` is a turbo `globalDependencies` entry — adding
+one cache-busts every task in the monorepo (gotchas.md § CI) for a parser this
+guard can do without. The cost of that choice is that the normaliser must be
+exhaustive about spellings and pessimistic about the rest, which is what the
+fail-closed rule and the two non-vacuity tests buy.
+
 The documented `GITHUB_TOKEN` anti-recursion behaviour (gotchas.md § CI) is a
 second, independent reason a `GITHUB_TOKEN`-authored push here fires nothing.
 It is noted as reinforcement, not relied on — the ref namespace and the guard
