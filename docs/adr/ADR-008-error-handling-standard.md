@@ -70,7 +70,15 @@ The `@mbe/auth` Fastify plugin uses `createProblemDetails()` for all 401 respons
 **Trade-offs:**
 
 - Dual-format responses during migration add ~100 bytes per error payload.
-- Services must import and use `createProblemDetails()` from `@mbe/types` rather than throwing raw objects -- enforced by ESLint custom rules.
+- Services must build on `@mbe/service-bootstrap`, whose `errorHandlerPlugin`
+  (`packages/service-bootstrap/src/error-handler.ts`) registers a centralized
+  Fastify `setErrorHandler`. It runs `classifyError()` on every thrown error and
+  always emits the problem-details body via `createProblemDetails()`, so route
+  handlers throw ordinary errors and never call `createProblemDetails()` at each
+  throw site. The trade-off is the coupling to the shared bootstrap: a service
+  that registers its own error handler, or none, silently opts out of the
+  standard. There is no ESLint rule enforcing this and nothing for one to check
+  — the guarantee is structural, not lint-time.
 
 ## Alternatives Considered
 
