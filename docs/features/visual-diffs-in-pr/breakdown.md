@@ -378,7 +378,7 @@ and no ref a standing comment depends on can be selected.
   - Blocked by: 3.1
   - Verified: **locally.**
 
-- [ ] **4.2 Sweep `main()` and `.github/workflows/visual-diff-ref-sweep.yml`** —
+- [x] **4.2 Sweep `main()` and `.github/workflows/visual-diff-ref-sweep.yml`** —
       the impure runner and its daily thin caller.
   - Accept: `main()` shells to `git ls-remote` / `gh pr list` / `git push
 --delete` via `execFileSync` argv arrays; deleting an already-absent ref
@@ -599,3 +599,62 @@ raw URL (GitHub does not make a bare `<img>` click-through), and raising the
 width. The comment shape is listed in `prd.md` § Constraints as chosen by the
 user at brief time, and this run is unattended — changing it is Verify's call
 with a real comment in front of a human, which is where `prd.md` parked it.
+
+### 2026-08-25 — 4.2, the sweep exercised, and the defect that found
+
+`DRY_RUN=true node scripts/visual-diff-refs.mjs` against this repo's real refs
+returns **`Refs seen: 0`, exit 0** — nothing has published yet, so the honest
+reading is that the run proves the two shell-outs work and proves nothing about
+the verdicts. The item asks for a per-ref verdict, so the sweep was also run
+end-to-end against a **sandbox remote** (a shallow bare clone in the scratchpad,
+seeded with seven refs pointing at real commit SHAs from this repo's history so
+the GitHub commit-date lookup resolves for real). Every clause of the rule was
+reached:
+
+| ref                              | verdict                 | why                                     |
+| -------------------------------- | ----------------------- | --------------------------------------- |
+| `visual-diffs/pr-4566/run-100`   | `superseded-on-open-pr` | deleted — open PR, but run-200 is newer |
+| `visual-diffs/pr-999999/run-300` | `closed-pr`             | deleted — no open PR, 18 days old       |
+| `visual-diffs/pr-4566/run-200`   | `newest-on-open-pr`     | kept — the standing comment points here |
+| `visual-diffs/pr-4565/run-500`   | `newest-on-open-pr`     | kept — clause 1 outranks the date       |
+| `visual-diffs/pr-999998/run-400` | `too-recent`            | kept — committed today                  |
+| `visual-diffs/pr-999997/run-600` | `undated`               | kept — commit lookup 404s               |
+| `visual-diffs/not-one-of-ours`   | `unparsable`            | kept — not one of our names             |
+
+A second `DRY_RUN=false` run immediately after found `Eligible for deletion: 0`,
+which is the idempotence claim discharged rather than asserted.
+
+**A real defect surfaced only because the sweep was actually run.** `pr-999997/
+run-600` — the ref whose commit does not exist on GitHub, so `commitDate`
+returns `null` — was **deleted** on the first live sandbox run, labelled
+`closed-pr`. `ageHours` guarded with `Number.isFinite(new Date(x).getTime())`,
+and `new Date(null)` is the UNIX epoch: finite, and ~57 years old. So a ref
+nobody could date read as maximally ancient and was destroyed, which is exactly
+inverted from the fail-safe direction the rule promises — the one direction
+that can break SC-3 by deleting images out from under a live comment. Fixed by
+type-guarding `ageHours` to accept only a non-empty string, with seven
+`it.each` cases (`null`, `undefined`, `""`, whitespace, a non-date string, `0`,
+`{}`) plus an absent-key case in `visual-diff-refs.test.mjs`. Two of those nine
+were red before the fix; the pure tests written for 4.1 had covered
+`"not-a-date"` (NaN) but never the falsy inputs, which is the case `main()`
+actually produces.
+
+Not exercised locally: the `already-absent` branch of `deleteRef`. Over the
+local file transport `git push --delete` of a missing ref **succeeds** with a
+`warning: deleting a non-existent ref`; the `remote ref does not exist` wording
+the regex targets is GitHub's, over HTTPS. Both spellings are handled, but only
+the success path was seen.
+
+### 2026-08-25 — 1.3 and 3.3 authored, deliberately left unchecked
+
+The workflow YAML for both is written, `prettier`-clean, and parses; the
+`visual` job's `rialto-web-visual-diffs` upload step is byte-identical in name,
+`path` and `retention-days` (SC-8), and both items' acceptance criteria say
+**"Verified: live CI run"**. Nothing local can produce an artifact list or a job
+conclusion, so checking them would be claiming a verification that has not
+happened. Compounding it: this branch touches only `scripts/`, `.github/` and
+`docs/`, and `rialto-web-e2e.yml`'s `paths:` filter covers only
+`apps/rialto-web/**`, `packages/rialto/src/**` and `infrastructure/worker/**` —
+so this branch produces **zero** runs of the workflow it just edited. Both close
+out with item 3.5's demonstration PR, which must carry an `apps/rialto-web/**`
+change for that reason.

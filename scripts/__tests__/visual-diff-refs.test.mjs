@@ -216,6 +216,28 @@ describe("planRefSweep", () => {
     }
   });
 
+  // Found by exercising main() against a sandbox remote: `commitDate` returns
+  // null when the GitHub commit lookup 404s, and `new Date(null)` is the UNIX
+  // epoch — a finite, ~57-year-old timestamp — not an invalid date. So a ref
+  // nobody could date read as ancient and was DELETED, which is the exact
+  // opposite of the fail-safe direction the rule promises.
+  it.each([null, undefined, "", "   ", "not-a-date", 0, {}])(
+    "keeps a ref it cannot date (committedAt %o) instead of reading it as ancient",
+    (committedAt) => {
+      const refs = [{ name: buildRefName({ prNumber: 77, runId: 5 }), committedAt }];
+      const plan = planRefSweep({ refs, openPrNumbers: [], now: NOW });
+      expect(plan.toDelete).toEqual([]);
+      expect(plan.retained.map((r) => r.reason)).toEqual(["undated"]);
+    }
+  );
+
+  it("keeps a ref whose committedAt key is absent entirely", () => {
+    const refs = [{ name: buildRefName({ prNumber: 78, runId: 6 }) }];
+    const plan = planRefSweep({ refs, openPrNumbers: [], now: NOW });
+    expect(plan.toDelete).toEqual([]);
+    expect(plan.retained[0].reason).toBe("undated");
+  });
+
   it("labels each retention clause distinctly", () => {
     const refs = [
       ref(10, 900, 100),

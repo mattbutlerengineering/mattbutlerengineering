@@ -20,6 +20,9 @@
  * (`scripts/__tests__/visual-diff-refs.test.mjs`).
  */
 
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
 /**
  * Ref root. Milestone 5 of the run's breakdown probes whether a custom
  * namespace (`refs/visual-diffs/…`) is pushable under `GITHUB_TOKEN`; if it
@@ -90,7 +93,17 @@ export function parseRefName(refName) {
  */
 export const MIN_AGE_HOURS = 24;
 
+/**
+ * Hours since `committedAt`, or `null` when it cannot be dated.
+ *
+ * The type guard is load-bearing, not defensive noise: `new Date(null)` and
+ * `new Date(0)` are the UNIX epoch — finite, ~57 years old — so without it a
+ * ref whose commit lookup failed reads as ancient and gets DELETED, the exact
+ * opposite of the fail-safe direction this rule promises. Only a non-empty
+ * string is ever a date here; everything else is "unknown", which retains.
+ */
 function ageHours(committedAt, now) {
+  if (typeof committedAt !== "string" || committedAt.trim() === "") return null;
   const then = new Date(committedAt).getTime();
   if (!Number.isFinite(then)) return null;
   return (now.getTime() - then) / 3_600_000;
@@ -181,4 +194,144 @@ export function planRefSweep({
  */
 export function selectRefsToDelete(input) {
   return planRefSweep(input).toDelete;
+}
+
+// ---------------------------------------------------------------------------
+// CLI orchestration — side effects live below; everything above is pure.
+// ---------------------------------------------------------------------------
+
+/**
+ * Pure: is this a dry run?
+ *
+ * Dry unless `DRY_RUN` is exactly `"false"`. Deliberately not
+ * `=== "true"` (`branch-cleanup.mjs`'s spelling): a typo, an empty string, or
+ * `FALSE` must land on the harmless side, and the only way to delete is to say
+ * so exactly.
+ *
+ * @param {Record<string, string|undefined>} [env]
+ * @returns {boolean}
+ */
+export function resolveDryRun(env = process.env) {
+  return (env.DRY_RUN ?? "true") !== "false";
+}
+
+/** Every ref under our prefix, as `{ name, sha }`. */
+function listRemoteRefs() {
+  const raw = execFileSync(
+    "git",
+    ["ls-remote", "--heads", "origin", `${REF_ROOT}/${REF_PREFIX}/*`],
+    { encoding: "utf8" }
+  );
+  const prefix = `${REF_ROOT}/`;
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [sha, ref] = line.split(/\s+/);
+      return { sha, name: ref.startsWith(prefix) ? ref.slice(prefix.length) : ref };
+    });
+}
+
+/**
+ * The commit's own timestamp, read from the git database endpoint rather than
+ * fetched — the sweep has no use for the images, and a shallow checkout has no
+ * objects to read `git log` from.
+ *
+ * An unreadable date returns `null`, which `planRefSweep` retains as
+ * `undated`. Failing to date a ref must never be a reason to delete it.
+ */
+function commitDate(repo, sha) {
+  try {
+    return execFileSync(
+      "gh",
+      ["api", `repos/${repo}/git/commits/${sha}`, "--jq", ".committer.date"],
+      {
+        encoding: "utf8",
+      }
+    ).trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Numbers of every currently-open pull request. */
+function listOpenPrNumbers() {
+  const raw = execFileSync(
+    "gh",
+    ["pr", "list", "--state", "open", "--json", "number", "--limit", "500", "--jq", ".[].number"],
+    { encoding: "utf8" }
+  );
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(Number);
+}
+
+/**
+ * Idempotent by construction: a ref that is already gone is the state the
+ * sweep wanted, so `git push --delete` failing on an absent ref is success.
+ */
+function deleteRef(name) {
+  try {
+    execFileSync("git", ["push", "origin", "--delete", `${REF_ROOT}/${name}`], {
+      encoding: "utf8",
+    });
+    return { name, outcome: "deleted" };
+  } catch (err) {
+    const message = String(err.stderr ?? err.message ?? "");
+    if (/remote ref does not exist|unable to delete/i.test(message)) {
+      return { name, outcome: "already-absent" };
+    }
+    return { name, outcome: "failed", error: message.trim() };
+  }
+}
+
+/** Pure: the human-readable verdict for one sweep. */
+export function formatSweepSummary(plan, dryRun) {
+  const lines = [
+    "=== Visual diff ref sweep ===",
+    `Mode: ${dryRun ? "DRY RUN" : "LIVE"}`,
+    `Refs seen: ${plan.toDelete.length + plan.retained.length}`,
+    `Eligible for deletion: ${plan.toDelete.length}`,
+    "",
+  ];
+  for (const ref of plan.toDelete) {
+    lines.push(`${dryRun ? "[DRY RUN] Would delete" : "Deleting"}: ${ref.name} (${ref.reason})`);
+  }
+  for (const ref of plan.retained) {
+    lines.push(`Keeping: ${ref.name} (${ref.reason})`);
+  }
+  return lines.join("\n");
+}
+
+async function main() {
+  const dryRun = resolveDryRun();
+  const repo = process.env.GITHUB_REPOSITORY;
+
+  const refs = listRemoteRefs().map((ref) => ({ ...ref, committedAt: commitDate(repo, ref.sha) }));
+  const plan = planRefSweep({ refs, openPrNumbers: listOpenPrNumbers(), now: new Date() });
+
+  console.log(formatSweepSummary(plan, dryRun));
+
+  if (!dryRun) {
+    for (const ref of plan.toDelete) {
+      const result = deleteRef(ref.name);
+      console.log(`  ${ref.name}: ${result.outcome}${result.error ? ` — ${result.error}` : ""}`);
+    }
+  }
+
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (summaryPath) {
+    const { appendFileSync } = await import("node:fs");
+    appendFileSync(summaryPath, `\n\`\`\`\n${formatSweepSummary(plan, dryRun)}\n\`\`\`\n`);
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(`[visual-diff-refs] Error: ${err.message}`);
+    process.exit(1);
+  });
 }
