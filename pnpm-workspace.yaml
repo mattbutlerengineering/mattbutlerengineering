@@ -10,7 +10,7 @@ packages:
 
 catalog:
   zod: "^4.4.3"
-  vitest: "^4.1.10"
+  vitest: "^4.1.11"
   "@vitest/coverage-v8": "^4.1.11"
   typescript: "^6.0.3"
   "@types/node": "^26.2.0"
