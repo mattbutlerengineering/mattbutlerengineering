@@ -180,9 +180,10 @@ rendered:
 <!-- visual-diffs-in-pr run=<run_id> attempt=<run_attempt> -->
 ```
 
-Access patterns: _"is there already one of these on this PR?"_ (substring match
-over `GET /repos/{repo}/issues/{n}/comments` — the same idiom
-`preview-deploy.yml` already uses) and _"is the standing one newer than me?"_
+Access patterns: _"is there already one of MINE on this PR?"_ (a scan of
+`GET /repos/{repo}/issues/{n}/comments` matching the marker prefix **and** the
+comment's author against this job's own identity) and _"is the standing one
+newer than me?"_
 (parse `run=` and `attempt=` and compare). The marker carries the full run
 ordinal precisely so the second question has an answer without a second API
 call — and it is the _only_ record of it, which is why a delete that removes
@@ -426,9 +427,21 @@ and a predicate consulted by both branches must not be named after one of them._
 
 - Input: PR number, rendered body (or the instruction to clear).
 - Output: one comment on the PR, or none.
-- Both outcomes take the same two steps: find by marker, then execute whatever
-  verb `decideCommentAction` returns. The caller never branches on the marker
-  itself.
+- Both outcomes take the same two steps: find by marker **and author**, then
+  execute whatever verb `decideCommentAction` returns. The caller never branches
+  on the marker itself.
+- **The author clause is an authorization check, added 2026-08-25 after review;
+  the marker prefix alone is not one.** `preview-deploy.yml`'s sticky-comment
+  idiom — which this design originally cited as precedent — selects on body text
+  only. That is safe for a body nobody gains anything by forging; it is not safe
+  here. This repo is public, so any account that can comment can post
+  `<!-- visual-diffs-in-pr run=99999999999999 attempt=99 -->`, and an
+  author-blind lookup adopts it: `decideCommentAction` then reads an ordinal no
+  real run can exceed and returns `skip` for every later run, failing and
+  passing alike, leaving one skip note inside a green job as the only trace. The
+  decision lives in the pure, unit-tested `isStandingComment(comment)` rather
+  than inside a `jq` `select`, because a `jq` expression is not reachable from a
+  test.
 - On `visual` **failure**: PATCH the standing comment, POST when there is none,
   or skip with a job-summary note when a newer run owns it (SC-4).
 - On `visual` **success**: DELETE the standing comment, or skip with a

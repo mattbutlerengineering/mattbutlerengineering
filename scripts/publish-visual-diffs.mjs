@@ -48,6 +48,39 @@ import { buildRefName, fullRef } from "./visual-diff-refs.mjs";
  * uploaded artifact's root IS that directory. */
 const ARTIFACT_ROOT_MARKER = "/test-results/";
 
+/**
+ * The account this job's `GITHUB_TOKEN` comments as, and therefore the only
+ * account whose comment may be treated as the standing one.
+ *
+ * Coupled deliberately to `rialto-web-e2e.yml`'s `GH_TOKEN: ${{ github.token }}`
+ * — if the publisher is ever moved to a PAT or an App, this constant moves with
+ * it. Failing that way is loud (the run stops recognising its own comment and
+ * posts a second one); failing the other way is not.
+ */
+export const PUBLISHER_LOGIN = "github-actions[bot]";
+
+/**
+ * Pure: is this comment the one this feature owns?
+ *
+ * Both halves are load-bearing, and the author half is an **authorization**
+ * check rather than a lookup convenience. This repo is public, so anyone who
+ * can comment can post a body beginning with the marker; an author-blind lookup
+ * adopts it, `decideCommentAction` reads whatever ordinal it declares, and a
+ * marker claiming `run=99999999999999 attempt=99` makes every later run — the
+ * failing ones included — return `skip` forever. The only trace would be one
+ * skip note inside a green job's summary.
+ *
+ * @param {{login?: unknown, body?: unknown}|null|undefined} comment
+ * @returns {boolean}
+ */
+export function isStandingComment(comment) {
+  return (
+    comment?.login === PUBLISHER_LOGIN &&
+    typeof comment.body === "string" &&
+    comment.body.startsWith(COMMENT_MARKER_PREFIX)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // The budget hand-off
 // ---------------------------------------------------------------------------
@@ -287,23 +320,29 @@ function gh(args) {
   return execFileSync("gh", args, { encoding: "utf8" });
 }
 
-/** The standing comment on this pull request, or `null`. */
+/**
+ * The standing comment on this pull request, or `null`.
+ *
+ * The projection asks for `id`, `body` and `user.login` and the *decision* is
+ * made by `isStandingComment` — a jq `select` cannot be unit-tested, and the
+ * author clause it would carry is the one line stopping anyone with comment
+ * access from suppressing this feature on a pull request.
+ */
 function findStandingComment(repo, prNumber) {
-  const ids = gh([
+  const comments = gh([
     "api",
     `repos/${repo}/issues/${prNumber}/comments`,
     "--paginate",
     "--jq",
-    `.[] | select(.body | startswith("${COMMENT_MARKER_PREFIX}")) | .id`,
+    ".[] | {id: .id, body: .body, login: .user.login}",
   ])
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 
-  if (ids.length === 0) return null;
-  const id = ids[0];
-  const body = gh(["api", `repos/${repo}/issues/comments/${id}`, "--jq", ".body"]);
-  return { id, body };
+  const standing = comments.find(isStandingComment);
+  return standing === undefined ? null : { id: standing.id, body: standing.body };
 }
 
 function executeVerb({ verb, repo, prNumber, standing, body }) {

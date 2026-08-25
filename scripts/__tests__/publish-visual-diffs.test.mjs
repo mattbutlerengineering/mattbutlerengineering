@@ -5,11 +5,13 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  PUBLISHER_LOGIN,
   artifactFilePath,
   buildOrphanCommit,
   commentArgs,
   formatSkipNote,
   isRetryable,
+  isStandingComment,
   plannedImageFiles,
   readBudget,
   resolvePlaywrightConfigPath,
@@ -285,6 +287,57 @@ describe("commentArgs", () => {
 
   it("passes the body from a file, never interpolated into an argument", () => {
     expect(commentArgs({ verb: "post", ...base }).join(" ")).toContain("body=@/tmp/body.md");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Who owns the standing comment. This is an authorization check, not a lookup
+// convenience: without it, ANY account that can comment on this public repo can
+// permanently suppress the feature on a pull request.
+// ---------------------------------------------------------------------------
+
+describe("isStandingComment", () => {
+  const marker = `${COMMENT_MARKER_PREFIX}500 attempt=1 -->\nbody\n`;
+
+  it("accepts a marker comment written by the publisher's own identity", () => {
+    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: marker })).toBe(true);
+  });
+
+  // The suppression attack, stated concretely. On a public repo anyone who can
+  // comment posts `<!-- visual-diffs-in-pr run=99999999999999 attempt=99 -->`.
+  // An author-blind lookup adopts it as the standing comment, decideCommentAction
+  // reads an ordinal no real run can ever exceed, and every later run — failing
+  // and passing alike — returns `skip`. The only trace is one skip note inside a
+  // green job's summary.
+  it("REJECTS a marker comment written by anyone else, however plausible", () => {
+    const hostile = `${COMMENT_MARKER_PREFIX}99999999999999 attempt=99 -->\n`;
+    expect(isStandingComment({ login: "a-passing-contributor", body: hostile })).toBe(false);
+    expect(isStandingComment({ login: "github-actions", body: hostile })).toBe(false);
+    expect(isStandingComment({ login: "github-actions[bot] ", body: hostile })).toBe(false);
+  });
+
+  it("rejects the publisher's own comments that carry no marker", () => {
+    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: "Preview Deployed" })).toBe(false);
+  });
+
+  it("requires the marker at the START of the body, not merely somewhere in it", () => {
+    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: `quoted:\n${marker}` })).toBe(false);
+  });
+
+  it("never throws on a malformed or absent comment", () => {
+    expect(isStandingComment(null)).toBe(false);
+    expect(isStandingComment(undefined)).toBe(false);
+    expect(isStandingComment({})).toBe(false);
+    expect(isStandingComment({ login: PUBLISHER_LOGIN })).toBe(false);
+    expect(isStandingComment({ login: PUBLISHER_LOGIN, body: 42 })).toBe(false);
+  });
+});
+
+describe("the standing-comment lookup", () => {
+  it("asks the API for each comment's author, so the check above has an input", () => {
+    // A jq projection that omits `.user.login` makes isStandingComment
+    // unreachable no matter how correct it is.
+    expect(SRC).toContain("user.login");
   });
 });
 
