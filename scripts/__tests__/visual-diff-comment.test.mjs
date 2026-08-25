@@ -6,6 +6,7 @@ import {
   COMMENT_MARKER_PREFIX,
   MAX_IMAGE_ROWS,
   decideCommentAction,
+  parseCommentOrdinal,
   renderComment,
   selectDisplayed,
 } from "../visual-diff-comment.mjs";
@@ -496,5 +497,17 @@ describe("decideCommentAction concurrency, documented", () => {
         expect(verbs.has(verb)).toBe(true);
       }
     }
+  });
+});
+
+describe("parseCommentOrdinal", () => {
+  it("reads the ordinal a standing comment records", () => {
+    expect(parseCommentOrdinal(standing("600", "3"))).toEqual({ runId: 600, runAttempt: 3 });
+  });
+
+  it("returns null for a body with no marker, a garbled marker, or no body", () => {
+    expect(parseCommentOrdinal("just a comment")).toBeNull();
+    expect(parseCommentOrdinal("<!-- visual-diffs-in-pr run= attempt= -->")).toBeNull();
+    expect(parseCommentOrdinal(null)).toBeNull();
   });
 });

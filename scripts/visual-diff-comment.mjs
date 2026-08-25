@@ -208,6 +208,22 @@ function toOrdinal(value) {
   return [runId, runAttempt];
 }
 
+/**
+ * Pure: the ordinal recorded in a standing comment's marker, or `null` when
+ * the comment carries no marker or an unreadable one.
+ *
+ * Exported so the thin caller can NAME both ordinals in its job-summary skip
+ * note without re-implementing the marker format. Reading the ordinal is not
+ * the staleness decision — that stays in `decideCommentAction`.
+ *
+ * @param {unknown} existingBody
+ * @returns {{runId: number, runAttempt: number} | null}
+ */
+export function parseCommentOrdinal(existingBody) {
+  const ordinal = parseStandingOrdinal(existingBody);
+  return ordinal === null ? null : { runId: ordinal[0], runAttempt: ordinal[1] };
+}
+
 /** Pure: the ordinal recorded in a standing comment's marker, or `null`. */
 function parseStandingOrdinal(existingBody) {
   if (typeof existingBody !== "string") return null;
