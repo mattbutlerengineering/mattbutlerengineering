@@ -217,7 +217,14 @@ function main() {
       try {
         ghClient.pr.create(buildChaosPrArgs(type, targetFile, relativePath));
       } catch (e) {
+        // #4287: this used to log and fall through, so the workflow reported
+        // success while producing no PR. The 2026-08-25 run did exactly that
+        // — `chaos-audit` did not exist as a repo label, `gh pr create`
+        // refused, and the job went green with a pushed branch and nothing
+        // for the audit loops to detect. A chaos run whose whole output is
+        // the PR has not succeeded if the PR was never created.
         console.error(`gh command failed: ${e.message}`);
+        process.exit(1);
       }
     }
   } else {
