@@ -426,7 +426,14 @@ jobs:
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-        run: pnpm turbo test:coverage
+        # #4519: restoring .turbo/cache makes build/typecheck tasks this job
+        # depends on cache-hit instantly instead of actually running, removing
+        # the incidental stagger that used to spread test-task start times
+        # out. Without a concurrency cap, turbo's full default fan-out of
+        # test tasks launches simultaneously on a 2-core runner and starves
+        # DB-dependent setup hooks past their timeout. Same stampede as the
+        # cold-cache case in gotchas.md § CI, reached from the opposite lever.
+        run: pnpm turbo test:coverage --concurrency=2
 
       - name: Upload test results
         if: always()
