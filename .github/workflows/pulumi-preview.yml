@@ -1,0 +1,204 @@
+# Read-only Pulumi preview of the prod stack.
+#
+# WHY IT EXISTS: `pulumi-up.yml` is the only thing in this repo that runs the
+# Pulumi engine against production, and it always applies. There was no way to
+# ask "what would this change actually do?" on the engine that will apply it
+# (the pinned CLI 3.253.0) without also applying it. This workflow is that
+# instrument and nothing else.
+#
+# HARD BOUND — this workflow cannot mutate anything, ever:
+#   * the only Pulumi command it runs is `preview` (`command: preview` below),
+#     which builds a plan and writes nothing;
+#   * it does NOT refresh (`refresh: false`) — `refresh` writes the state file,
+#     which is a mutation of shared state and outside "apply nothing". The cost
+#     is that the diff compares desired state against *recorded* state rather
+#     than live; that gap is covered read-only by `doctl apps spec get`;
+#   * it deliberately does NOT copy `pulumi-up.yml`'s `Pulumi Cancel + Clear
+#     Pending Operations` preamble — `cancel` and `stack export | stack import`
+#     rewrite the checkpoint, so they are mutations wearing a setup step's
+#     clothes;
+#   * `permissions: contents: read` — no write scope of any kind;
+#   * `workflow_dispatch` only, so no push, PR, schedule, or completing workflow
+#     can ever fire it.
+#
+# `scripts/__tests__/pulumi-preview-workflow.test.mjs` reads this file and pins
+# every one of those properties, so a later edit cannot quietly relax them.
+
+name: Pulumi Preview (read-only)
+
+on:
+  workflow_dispatch:
+
+# Deliberately NOT `pulumi-deploy-*`: joining `pulumi-up.yml`'s concurrency
+# group would let a dispatched preview cancel an in-flight production apply
+# (`cancel-in-progress: true` over there). Previews serialize only against each
+# other, and never cancel one another either — a half-run preview that gets
+# killed mid-plan reads like a preview that found nothing.
+concurrency:
+  group: pulumi-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Preview Infrastructure (no apply)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The next two steps are byte-identical to `pulumi-up.yml`'s, and that is
+      # load-bearing rather than tidy. `index.ts` reads `apps/gen/dist` and
+      # `infrastructure/worker/dist/edge-router.js` straight off disk (:283,
+      # :305) and both directories are gitignored, so without these steps the
+      # program throws before producing any diff at all. Worse, building the
+      # same packages with *different* inputs produces a different asset
+      # manifest, which surfaces as a diff on `WorkersScript
+      # mattbutlerengineering-gen` — a resource this change never touches. That
+      # row is read as a finding, so carrier drift would be misread as a defect.
+      # The workflow-shape test fails if the gen-build env var name sets or the
+      # esbuild flags ever diverge between the two workflows.
+      - name: Build gen app (Pulumi uploads assets from dist/)
+        run: pnpm build --filter=@mbe/gen
+        env:
+          VITE_AUTH_AUTHORITY: ${{ secrets.VITE_AUTH_AUTHORITY || 'https://dev-ytbgmz5ls3wh4xdx.us.auth0.com' }}
+          VITE_AUTH_CLIENT_ID: ${{ secrets.AUTH0_GEN_CLIENT_ID }}
+          VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
+          VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/gen/callback
+          VITE_API_URL: https://mattbutlerengineering.com
+
+      - name: Bundle edge router worker
+        run: |
+          mkdir -p infrastructure/worker/dist
+          pnpm exec esbuild infrastructure/worker/edge-router.js \
+            --bundle \
+            --format=esm \
+            --outfile=infrastructure/worker/dist/edge-router.js
+
+      # `WorkersScript.content` is one opaque bundled string, so a rendered
+      # `~ content` diff proves the bundle changed and never that it changed the
+      # RIGHT way. The occurrence count below is the load-bearing half: positive
+      # proof that the edge change is inside the artifact Pulumi actually read.
+      # The sha256 proves nothing on its own today — it is recorded so a later
+      # run can tell whether it read the same bundle.
+      # Reads a local build artifact only: no credential, no network, no
+      # mutation.
+      - name: Fingerprint the bundled edge router
+        id: fingerprint
+        run: |
+          set -euo pipefail
+          bundle=infrastructure/worker/dist/edge-router.js
+          sha="$(sha256sum "$bundle" | cut -d ' ' -f 1)"
+          # `grep -o` counts occurrences, not matching lines. The `|| true`
+          # keeps a zero count reportable instead of killing the step: "the edge
+          # change is NOT in the bundle" is the single most important thing this
+          # step can report, and a crashed step reports nothing.
+          occurrences="$(grep -o -F 'originRoutes' "$bundle" | wc -l | tr -d ' ' || true)"
+          {
+            echo "sha256=$sha"
+            echo "origin_routes_occurrences=$occurrences"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Edge router bundle fingerprint"
+            echo
+            echo '```'
+            echo "sha256sum $bundle = $sha"
+            echo "originRoutes occurrences in $bundle = $occurrences"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "sha256sum $bundle = $sha"
+          echo "originRoutes occurrences in $bundle = $occurrences"
+
+      # Same pin, same reason as `pulumi-up.yml`: on 2026-08-11 the ubuntu24
+      # runner image went 20260720.247 -> 20260810.271, taking the preinstalled
+      # Pulumi 3.253.0 -> 3.256.0, whose S3 blob layer sends upload checksums
+      # Cloudflare R2 rejects (`InvalidDigest` on the lock-file PutObject) —
+      # production infra deploys broke for hours with zero repo changes
+      # (#4117/#4118). A preview run on a different engine answers a different
+      # question than the one that will apply, so it takes the identical pin,
+      # in the install step AND in every `pulumi/actions` step's
+      # `pulumi-version:` (the action's unpinned default is `^3`, which floats
+      # straight back to latest).
+      - name: Pin Pulumi CLI
+        run: |
+          # `set -o pipefail` is not decorative here: without it a failed `curl`
+          # feeds an empty script to `sh`, which exits 0, the step goes green
+          # with no Pulumi installed, and the steps below silently resolve the
+          # runner image's floating binary — the exact outage this pin exists to
+          # prevent, now wearing a green check.
+          set -euo pipefail
+          curl -fsSL https://get.pulumi.com | sh -s -- --version 3.253.0
+          echo "$HOME/.pulumi/bin" >> "$GITHUB_PATH"
+
+      - name: Pulumi Preview (no apply, no refresh)
+        id: preview
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version: 3.253.0
+          command: preview
+          diff: true
+          refresh: false
+          stack-name: prod
+          work-dir: infrastructure/pulumi
+          cloud-url: "s3://mattbutlerengineering-pulumi-state?endpoint=https://59d5bec2d6e979d474efe54ec76c3658.r2.cloudflarestorage.com&s3ForcePathStyle=true"
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          AUTH0_DOMAIN: ${{ secrets.AUTH0_DOMAIN }}
+          AUTH0_CLIENT_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+          AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+
+      # The transcript IS the deliverable. `if: always()` because a preview that
+      # ERRORED is itself an answer — an unparseable `ignoreChanges` property
+      # path aborts the engine before any resource has a row, and that outcome
+      # has to be readable, not swallowed by a failed job with no artifact.
+      # The preview stdout is passed through `env:` rather than interpolated
+      # into the script body, so its contents can never be parsed as shell.
+      - name: Capture preview transcript
+        if: always()
+        env:
+          PREVIEW_STDOUT: ${{ steps.preview.outputs.output }}
+          BUNDLE_SHA256: ${{ steps.fingerprint.outputs.sha256 }}
+          ORIGIN_ROUTES_OCCURRENCES: ${{ steps.fingerprint.outputs.origin_routes_occurrences }}
+        run: |
+          set -euo pipefail
+          {
+            echo "run:            ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "dispatched ref: ${GITHUB_REF}"
+            echo "evaluated sha:  ${GITHUB_SHA}"
+            echo "pulumi CLI:     3.253.0 (pinned)"
+            echo "refresh:        no"
+            echo "bundle sha256:  ${BUNDLE_SHA256:-<fingerprint step did not run>}"
+            echo "originRoutes occurrences in bundle: ${ORIGIN_ROUTES_OCCURRENCES:-<fingerprint step did not run>}"
+            echo
+            printf '%s\n' "$PREVIEW_STDOUT"
+          } > preview.txt
+          cat preview.txt
+
+      - name: Upload preview transcript
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pulumi-preview
+          path: preview.txt
+          retention-days: 30
