@@ -237,7 +237,7 @@ everything after it is bounded growth.
   - Blocked by: —
   - Verified: **locally.**
 
-- [ ] **3.2 `scripts/publish-visual-diffs.mjs` — the thin caller** — the only
+- [x] **3.2 `scripts/publish-visual-diffs.mjs` — the thin caller** — the only
       impure edge: read the report **and the config file it names**, call the
       three pure modules, build and push the orphan commit, execute the comment
       verb it is handed, write the job summary.
@@ -309,7 +309,7 @@ pull-requests: write` **additive over** the workflow's unchanged
   - Blocked by: 1.3, 3.2
   - Verified: **live CI run**, then fully in 3.5.
 
-- [ ] **3.4 Trigger-hygiene guard test** —
+- [x] **3.4 Trigger-hygiene guard test** —
       `scripts/__tests__/visual-diff-ref-trigger-safety.test.mjs`, in the shape
       `ci-node-matrix.test.mjs` and `drift-fix-workflow.test.mjs` already use.
   - Accept: reads **every** file in `.github/workflows/`, and fails if any
@@ -363,7 +363,7 @@ actually been run — in dry-run, against this repo's real refs — printing a
 keep/delete verdict per ref. Growth is bounded by _(open PRs + 24h of churn)_,
 and no ref a standing comment depends on can be selected.
 
-- [ ] **4.1 `selectRefsToDelete({ refs, openPrNumbers, now, minAgeHours })`** in
+- [x] **4.1 `selectRefsToDelete({ refs, openPrNumbers, now, minAgeHours })`** in
       `scripts/visual-diff-refs.mjs` — the three-clause retention rule.
   - Accept: **keeps** the newest ref of each _open_ PR (what that PR's standing
     comment points at); **keeps** any ref younger than
