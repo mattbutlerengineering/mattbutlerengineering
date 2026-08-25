@@ -52,17 +52,23 @@ Four findings are recorded. None is a criterion failure and none blocks review.
 `apps/rialto-web/playwright.config.ts`, with every `<img>` stripped to show
 what an agent reading `gh pr view --comments` gets without fetching anything:
 
-```
-total = 13 | changed = 12 | budget = 300
-<!-- visual-diffs-in-pr run=32873184619 attempt=1 -->
-## 🖼 Visual regression — 12 of 13 changed
+_Re-rendered 2026-08-25 after the review fix pass. Three things changed since
+the first capture: the fixture gained an expected-failure spec (13 -> 14
+specs, 1 -> 2 unchanged), `unchanged` is now the real pass count rather than
+`total - changed.length`, and every snapshot name is rendered as a code span
+because an array-form `toHaveScreenshot` name is untrusted text._
 
-### light-brand-new (missing-baseline)
-### light-unparsable (pixel-diff)
-### light-size-mismatch (91520 px over 300 budget)
-### telemetry-game (5606 px over 300 budget)
-### light-retry-persistent (4242 px over 300 budget)
-### light-master-override-variants (2315 px over 300 budget)
+```
+total = 14 | changed = 12 | unchanged = 2 | failedWithoutDiff = 0 | budget = 300
+<!-- visual-diffs-in-pr run=32873184619 attempt=1 -->
+## 🖼 Visual regression — 12 of 14 changed
+
+### `light-brand-new` (missing-baseline)
+### `light-unparsable` (pixel-diff)
+### `light-size-mismatch` (91520 px over 300 budget)
+### `telemetry-game` (5606 px over 300 budget)
+### `light-retry-persistent` (4242 px over 300 budget)
+### `light-master-override-variants` (2315 px over 300 budget)
 
 **6 more changed snapshots** — images omitted; the full set is in the `rialto-web-visual-diffs` artifact on this run.
 
@@ -73,7 +79,7 @@ total = 13 | changed = 12 | budget = 300
 - `light-drawer-open` — 680 px over 300 budget
 - `light-button-variants` — 579 px over 300 budget
 
-<sub>1 of 13 snapshots unchanged. Full baseline/actual/diff set: the <code>rialto-web-visual-diffs</code> artifact on this run.</sub>
+<sub>2 of 14 snapshots unchanged. Full baseline/actual/diff set: the <code>rialto-web-visual-diffs</code> artifact on this run.</sub>
 ```
 
 Changed-of-total present; every changed snapshot named with its measured
@@ -83,7 +89,7 @@ than printing `null px`.
 
 ### SC-6 — PASS
 
-Same render. Twelve changed, six image rows shown (`MAX_IMAGE_ROWS = 6`), and
+Same render. Twelve changed of fourteen, six image rows shown (`MAX_IMAGE_ROWS = 6`), and
 the overflow line states the count (`6 more changed snapshots`), that images
 were omitted, and where the full set lives (`rialto-web-visual-diffs`). The
 overflow snapshots still appear by name and difference, so SC-2 and SC-6 hold
@@ -425,6 +431,13 @@ today — it imports `MAX_IMAGE_ROWS` and calls
 `expect(SRC).toContain("MAX_IMAGE_ROWS")` would close it. Reported rather than
 fixed: adding a test assertion is a judgment call about the contract's shape,
 not a typo.
+
+**RESOLVED 2026-08-25** in the review fix pass, which had to touch this exact
+line anyway: `selectDisplayed` now runs once, inside the publisher's
+`planComment({ changed, artifactDir, exists, cap = MAX_IMAGE_ROWS })`, and two
+grep assertions bind it — `cap\s*=\s*MAX_IMAGE_ROWS` must be present, and no
+numeric literal may be passed to `selectDisplayed`. Confirmed by mutation:
+rewriting the default to `cap = 6` reds the new test.
 
 ### Finding 3 — nothing keeps the config fixture in sync with the live config
 

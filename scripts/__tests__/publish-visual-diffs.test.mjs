@@ -262,6 +262,14 @@ describe("main derives the comment's images from the plan, never a second time",
   it("selects the displayed set exactly once, inside planComment", () => {
     expect(SRC.match(/selectDisplayed\(/g) ?? []).toHaveLength(1);
   });
+
+  // Verification stage 3's Finding 2: ordering, parse, staleness and budget
+  // each had a binding grep assertion; the cap did not, so an edit to
+  // `selectDisplayed(changed, 6)` would have passed every thinness test.
+  it("takes the cap from MAX_IMAGE_ROWS and never from a literal", () => {
+    expect(SRC).toMatch(/cap\s*=\s*MAX_IMAGE_ROWS/);
+    expect(SRC).not.toMatch(/selectDisplayed\([^)]*,\s*\d/);
+  });
 });
 
 // ---------------------------------------------------------------------------
