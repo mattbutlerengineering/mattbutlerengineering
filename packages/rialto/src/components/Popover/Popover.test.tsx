@@ -134,6 +134,21 @@ describe("Popover", () => {
     );
   });
 
+  it("sets aria-controls on trigger pointing at the panel id, before and after open", async () => {
+    render(
+      <Popover trigger={<Button>Open</Button>}>
+        <p>Content</p>
+      </Popover>
+    );
+    const btn = screen.getByRole("button", { name: /open/i });
+    const controlsId = btn.getAttribute("aria-controls");
+    expect(controlsId).toBeTruthy();
+
+    await user.click(btn);
+    expect(btn).toHaveAttribute("aria-controls", controlsId as string);
+    expect(screen.getByRole("dialog")).toHaveAttribute("id", controlsId as string);
+  });
+
   it("supports different placement values", async () => {
     const { rerender } = render(
       <Popover trigger={<Button>Open</Button>} placement="top">

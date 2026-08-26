@@ -64,4 +64,17 @@ describe("DatePicker", () => {
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getByLabelText("Date"));
   });
+
+  it("wires aria-expanded, aria-haspopup, and aria-controls on the trigger, toggling on open", async () => {
+    const { trigger } = renderPicker();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    const controlsId = trigger.getAttribute("aria-controls");
+    expect(controlsId).toBeTruthy();
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("dialog")).toHaveAttribute("id", controlsId as string);
+  });
 });
