@@ -44,7 +44,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </div>
   ),
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Text: ({
+    children,
+    as: Tag = "span",
+    ...rest
+  }: {
+    children: React.ReactNode;
+    as?: React.ElementType;
+    [key: string]: unknown;
+  }) => <Tag {...rest}>{children}</Tag>,
 }));
 
 const mockDepositConfig: DepositConfig = {
@@ -120,6 +128,17 @@ describe("PaymentStep", () => {
     render(<PaymentStep {...defaultProps} />);
     expect(screen.getByTestId("stripe-elements")).toBeDefined();
     expect(screen.getByTestId("card-element")).toBeDefined();
+  });
+
+  it("programmatically associates the Card Details label with the CardElement container via aria-labelledby", () => {
+    render(<PaymentStep {...defaultProps} />);
+    const label = screen.getByText("Card Details");
+    expect(label.id).toBeTruthy();
+
+    const cardElement = screen.getByTestId("card-element");
+    const labelledContainer = cardElement.closest("[aria-labelledby]");
+    expect(labelledContainer).not.toBeNull();
+    expect(labelledContainer?.getAttribute("aria-labelledby")).toBe(label.id);
   });
 
   it("calls onBack when back button clicked", () => {
