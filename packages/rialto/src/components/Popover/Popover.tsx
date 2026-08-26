@@ -3,6 +3,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useId,
   forwardRef,
   cloneElement,
   type ForwardedRef,
@@ -72,6 +73,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
+  const panelId = useId();
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -112,6 +114,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         {cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
           "aria-haspopup": "dialog",
           "aria-expanded": open,
+          "aria-controls": panelId,
         })}
       </div>
 
@@ -120,6 +123,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         {open && (
           <motion.div
             ref={panelRef}
+            id={panelId}
             className={cn(styles.panel, styles[placement])}
             role="dialog"
             aria-label={title ?? "Popover"}
