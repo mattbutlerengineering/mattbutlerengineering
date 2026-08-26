@@ -1,0 +1,855 @@
+{
+  "_fixtureNotes": [
+    "Captured 2026-08-25 by running the real rialto-web visual suite on macOS:",
+    "  PLAYWRIGHT_JSON_OUTPUT_FILE=... pnpm exec playwright test --config apps/rialto-web/playwright.config.ts apps/rialto-web/e2e/visual.spec.ts --reporter=github,json",
+    "Playwright 1.62.1. All 49 snapshots differed because the committed baselines are",
+    "Linux-CI-runner-specific (see .claude/rules/gotchas.md) \u2014 a platform difference, not a",
+    "regression. For parsing purposes that is immaterial: the report shape, the attachment",
+    "layout, the ANSI-wrapped matcher message and the -expected trap are all identical to a",
+    "genuine CI failure.",
+    "",
+    "TRIMMED: 8 of the 49 real failing specs are kept verbatim (errors and attachments",
+    "untouched, stdout/stderr/annotations/errorLocation dropped, config reduced to the fields",
+    "this feature reads). config.configFile is deliberately RETAINED \u2014 publish-visual-diffs.mjs",
+    "resolves the Playwright config from it to read the pixel budget.",
+    "",
+    "HAND-SYNTHESIZED (labelled individually below with _synthetic): playwright.config.ts sets",
+    "retries: 0 outside CI, so a real local run cannot produce a two-entry results[] retry pair.",
+    "Specs 'synthetic / retry-passed-on-second-attempt' (failed-then-passed) and",
+    "'synthetic / retry-failed-twice' supply that shape, as do the size-mismatch,",
+    "missing-baseline and unparsable-message specs. Every synthetic message is copied from",
+    "Playwright 1.62.1's own emitters: expect.js:12458 (missing snapshot) and",
+    "coreBundle.js:7536/7564 (size mismatch / pixel count)."
+  ],
+  "config": {
+    "configFile": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/playwright.config.ts",
+    "rootDir": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e",
+    "version": "1.62.1",
+    "workers": 1
+  },
+  "suites": [
+    {
+      "title": "visual.spec.ts",
+      "file": "visual.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "game vibe",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 47,
+                  "status": "failed",
+                  "duration": 2326,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:02:23.950Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 53,
+                        "line": 135
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-feed-state]')\n  5606 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: telemetry-game.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(telemetry-game.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for locator('[data-feed-state]')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_hud_4n5bb_14\" data-feed-state=\"live\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 5606 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for locator('[data-feed-state]')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_hud_4n5bb_14\" data-feed-state=\"live\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 5606 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  133 |\n  134 |   test(\"game vibe\", async ({ page }) => {\n> 135 |     await expect(page.locator(\"[data-feed-state]\")).toHaveScreenshot(\"telemetry-game.png\", {\n      |                                                     ^\n  136 |       timeout: 15_000,\n  137 |     });\n  138 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:135:53"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "telemetry-game-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/telemetry-game.png"
+                    },
+                    {
+                      "name": "telemetry-game-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-telemetry-HUD-game-vibe-chromium/telemetry-game-actual.png"
+                    },
+                    {
+                      "name": "telemetry-game-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-telemetry-HUD-game-vibe-chromium/telemetry-game-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-telemetry-HUD-game-vibe-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-2efdcac5be7fc1f959b2",
+          "file": "visual.spec.ts",
+          "line": 134,
+          "column": 3
+        },
+        {
+          "title": "light / master-override-variants",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 36,
+                  "status": "failed",
+                  "duration": 2113,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:02:01.601Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('master-override-variants')\n  2315 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-master-override-variants.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-master-override-variants.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('master-override-variants')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"master-override-variants\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 2315 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('master-override-variants')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"master-override-variants\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 2315 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-master-override-variants-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-master-override-variants.png"
+                    },
+                    {
+                      "name": "light-master-override-variants-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-master-override-variants-chromium/light-master-override-variants-actual.png"
+                    },
+                    {
+                      "name": "light-master-override-variants-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-master-override-variants-chromium/light-master-override-variants-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-master-override-variants-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-3c6bfdcf080b11eeb4f5",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "title": "light / textarea-states",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "status": "failed",
+                  "duration": 2028,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:55.596Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('textarea-states')\n  1826 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-textarea-states.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-textarea-states.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('textarea-states')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"textarea-states\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 1826 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('textarea-states')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"textarea-states\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 1826 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-textarea-states-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-textarea-states.png"
+                    },
+                    {
+                      "name": "light-textarea-states-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-textarea-states-chromium/light-textarea-states-actual.png"
+                    },
+                    {
+                      "name": "light-textarea-states-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-textarea-states-chromium/light-textarea-states-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-textarea-states-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-da1549c0604f7aa4b73e",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "title": "light / card-variants",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 12,
+                  "status": "failed",
+                  "duration": 1622,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:01:13.746Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('card-variants')\n  1200 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-card-variants.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-card-variants.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('card-variants')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"card-variants\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 1200 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('card-variants')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"card-variants\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 1200 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-card-variants-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-card-variants.png"
+                    },
+                    {
+                      "name": "light-card-variants-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-card-variants-chromium/light-card-variants-actual.png"
+                    },
+                    {
+                      "name": "light-card-variants-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-card-variants-chromium/light-card-variants-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-card-variants-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-0b196a9607f5a454ed21",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "title": "light / table-default",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 19,
+                  "status": "failed",
+                  "duration": 1639,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:01:27.512Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('table-default')\n  839 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-table-default.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-table-default.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('table-default')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"table-default\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 839 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('table-default')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"table-default\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 839 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-table-default-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-table-default.png"
+                    },
+                    {
+                      "name": "light-table-default-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-table-default-chromium/light-table-default-actual.png"
+                    },
+                    {
+                      "name": "light-table-default-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-table-default-chromium/light-table-default-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-table-default-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-0d5fb29c32dde82d80a7",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "title": "light / dialog-open",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 31,
+                  "status": "failed",
+                  "duration": 1630,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:01:51.253Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('dialog-open')\n  680 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-dialog-open.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-dialog-open.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('dialog-open')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"dialog-open\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 680 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('dialog-open')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"dialog-open\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 680 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-dialog-open-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-dialog-open.png"
+                    },
+                    {
+                      "name": "light-dialog-open-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-dialog-open-chromium/light-dialog-open-actual.png"
+                    },
+                    {
+                      "name": "light-dialog-open-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-dialog-open-chromium/light-dialog-open-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-dialog-open-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-6bcd3a28e4d6df66301f",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "title": "light / drawer-open",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 32,
+                  "status": "failed",
+                  "duration": 1593,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:01:53.242Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('drawer-open')\n  680 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-drawer-open.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-drawer-open.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('drawer-open')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"drawer-open\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 680 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('drawer-open')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"drawer-open\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 680 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-drawer-open-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-drawer-open.png"
+                    },
+                    {
+                      "name": "light-drawer-open-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-drawer-open-chromium/light-drawer-open-actual.png"
+                    },
+                    {
+                      "name": "light-drawer-open-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-drawer-open-chromium/light-drawer-open-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-drawer-open-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-de1859b5df5e1ddc0ba3",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "title": "light / button-variants",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1883,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:49.143Z",
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts",
+                        "column": 27,
+                        "line": 67
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveScreenshot\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('button-variants')\n  579 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-button-variants.png\n\nCall log:\n\u001b[2m  - Expect \"toHaveScreenshot(light-button-variants.png)\" with timeout 15000ms\u001b[22m\n\u001b[2m    - verifying given screenshot expectation\u001b[22m\n\u001b[2m  - waiting for getByTestId('button-variants')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"button-variants\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - 579 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\u001b[2m  - waiting 100ms before taking screenshot\u001b[22m\n\u001b[2m  - waiting for getByTestId('button-variants')\u001b[22m\n\u001b[2m    - locator resolved to <div class=\"_section_cderi_7\" data-testid=\"button-variants\">\u2026</div>\u001b[22m\n\u001b[2m  - taking element screenshot\u001b[22m\n\u001b[2m    - disabled all CSS animations\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    - waiting for element to be stable\u001b[22m\n\u001b[2m  - captured a stable screenshot\u001b[22m\n\u001b[2m  - 579 pixels (ratio 0.01 of all image pixels) are different.\u001b[22m\n\n\n  65 |   test(`light / ${id}`, async ({ page }) => {\n  66 |     const section = page.getByTestId(id);\n> 67 |     await expect(section).toHaveScreenshot(`light-${id}.png`, {\n     |                           ^\n  68 |       timeout: 15_000,\n  69 |     });\n  70 |   });\n    at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/visual.spec.ts:67:27"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-button-variants-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-button-variants.png"
+                    },
+                    {
+                      "name": "light-button-variants-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-button-variants-chromium/light-button-variants-actual.png"
+                    },
+                    {
+                      "name": "light-button-variants-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-button-variants-chromium/light-button-variants-diff.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-button-variants-chromium/error-context.md"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "8324bb52c49185e48ff4-7bcd0243df13118c7781",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "_synthetic": "HAND-SYNTHESIZED. playwright.config.ts sets `retries: 0` outside CI, so a real local run cannot produce a two-entry results[] pair. Failed on retry 0, PASSED on retry 1 \u2014 spec.ok is true, so this is a flake and must be ABSENT from parseVisualReport's changed[]. Its retry-0 pixel count is deliberately enormous so a parser that reads results[0] instead of the highest retry is impossible to miss.",
+          "title": "synthetic / retry-passed-on-second-attempt",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "flaky",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('light-retry-flake')\n  999999 pixels (ratio 0.99 of all image pixels) are different.\n\n  Snapshot: light-retry-flake.png\n"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-retry-flake-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-retry-flake.png"
+                    },
+                    {
+                      "name": "light-retry-flake-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-retry-flake-chromium/light-retry-flake-actual.png"
+                    },
+                    {
+                      "name": "light-retry-flake-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-retry-flake-chromium/light-retry-flake-diff.png"
+                    }
+                  ]
+                },
+                {
+                  "workerIndex": 0,
+                  "status": "passed",
+                  "duration": 1234,
+                  "retry": 1,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [],
+                  "attachments": []
+                }
+              ]
+            }
+          ],
+          "id": "synthetic-retry-passed",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "_synthetic": "HAND-SYNTHESIZED (same reason as above). Failed on BOTH attempts with different pixel counts. Only the highest-retry entry may be read: the expected parse is 4242, never 100.",
+          "title": "synthetic / retry-failed-twice",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('light-retry-persistent')\n  100 pixels (ratio 0.01 of all image pixels) are different.\n\n  Snapshot: light-retry-persistent.png\n"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-retry-persistent-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-retry-persistent.png"
+                    },
+                    {
+                      "name": "light-retry-persistent-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-retry-persistent-chromium/light-retry-persistent-actual.png"
+                    },
+                    {
+                      "name": "light-retry-persistent-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-retry-persistent-chromium/light-retry-persistent-diff.png"
+                    }
+                  ]
+                },
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 1,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('light-retry-persistent')\n  4242 pixels (ratio 0.05 of all image pixels) are different.\n\n  Snapshot: light-retry-persistent.png\n"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-retry-persistent-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-retry-persistent.png"
+                    },
+                    {
+                      "name": "light-retry-persistent-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-retry-persistent-chromium/light-retry-persistent-actual.png"
+                    },
+                    {
+                      "name": "light-retry-persistent-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-retry-persistent-chromium/light-retry-persistent-diff.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "synthetic-retry-failed-twice",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "_synthetic": "HAND-SYNTHESIZED. Size-mismatch wording copied from playwright-core coreBundle.js:7536; the comparator concatenates sizesMismatchError + pixelsMismatchError (7565), so a size mismatch carries a pixel count too. reason must be `size-mismatch`, not `pixel-diff`.",
+          "title": "synthetic / size-mismatch",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('size-mismatch')\n  Expected an image 1280px by 720px, received 1280px by 848px. 91520 pixels (ratio 0.10 of all image pixels) are different.\n\n  Snapshot: light-size-mismatch.png\n"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-size-mismatch-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-size-mismatch.png"
+                    },
+                    {
+                      "name": "light-size-mismatch-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-size-mismatch-chromium/light-size-mismatch-actual.png"
+                    },
+                    {
+                      "name": "light-size-mismatch-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-size-mismatch-chromium/light-size-mismatch-diff.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "synthetic-size-mismatch",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "_synthetic": "HAND-SYNTHESIZED. Missing-baseline wording copied from playwright expect.js:12481 (handleMissing). No -diff attachment exists in that path \u2014 the record's diffPath must be null and the comment must not link an image that was never written.",
+          "title": "synthetic / missing-baseline",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "A snapshot doesn't exist at /Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-brand-new.png, writing actual."
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-brand-new-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-brand-new.png"
+                    },
+                    {
+                      "name": "light-brand-new-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-brand-new-chromium/light-brand-new-actual.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "synthetic-missing-baseline",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "_synthetic": "HAND-SYNTHESIZED. A failing screenshot expectation whose message carries no recoverable count \u2014 the contract is `pixels: null`, never a guessed number and never a throw.",
+          "title": "synthetic / unparsable-message",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "unexpected",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "Error: Screenshot comparison failed\n\n  Snapshot: light-unparsable.png\n"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-unparsable-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-unparsable.png"
+                    },
+                    {
+                      "name": "light-unparsable-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-unparsable-chromium/light-unparsable-actual.png"
+                    },
+                    {
+                      "name": "light-unparsable-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-unparsable-chromium/light-unparsable-diff.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "synthetic-unparsable",
+          "file": "visual.spec.ts",
+          "line": 65,
+          "column": 3
+        },
+        {
+          "_synthetic": "HAND-SYNTHESIZED. `test.fail()` marks a spec expected-to-fail: the JSON reporter emits spec.ok TRUE while results[0].status is 'failed' and every attachment of the failed toHaveScreenshot is present. This is the shape in which the `spec.ok !== false` guard is load-bearing - the flake above has a highest-retry result with NO -actual attachment (playwright.config.ts sets screenshot: 'off', so a passing retry attaches nothing), which makes the guard accidentally redundant there and lets a mutation removing it survive. Must be ABSENT from changed[] and counted as unchanged.",
+          "title": "synthetic / expected-failure-with-a-full-snapshot-diff",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "expectedStatus": "failed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "status": "expected",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "status": "failed",
+                  "duration": 1234,
+                  "retry": 0,
+                  "startTime": "2026-08-25T19:00:46.734Z",
+                  "errors": [
+                    {
+                      "message": "Error: expect(locator).toHaveScreenshot(expected) failed\n\nLocator: getByTestId('light-expected-failure')\n  8888 pixels (ratio 0.08 of all image pixels) are different.\n\n  Snapshot: light-expected-failure.png\n"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "light-expected-failure-expected.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/screenshots/light-expected-failure.png"
+                    },
+                    {
+                      "name": "light-expected-failure-actual.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-expected-failure-chromium/light-expected-failure-actual.png"
+                    },
+                    {
+                      "name": "light-expected-failure-diff.png",
+                      "contentType": "image/png",
+                      "path": "/Users/mbutler/github/mattbutlerengineering/apps/rialto-web/e2e/test-results/visual-light-expected-failure-chromium/light-expected-failure-diff.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "id": "synthetic-expected-failure",
+          "file": "visual.spec.ts",
+          "line": 71,
+          "column": 3
+        }
+      ],
+      "suites": []
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-25T19:00:46.734Z",
+    "duration": 102433.403,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 12,
+    "flaky": 1
+  }
+}
