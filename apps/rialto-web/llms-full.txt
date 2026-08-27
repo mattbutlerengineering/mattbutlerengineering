@@ -180,6 +180,24 @@
     }
   </file>
   </section>
+  <section priority="medium" role="support">
+  <file path="e2e/support/edge-csp.ts">
+    export type CspViolation = {
+      effectiveDirective: string;
+      blockedURI: string;
+      sample: string;
+      documentURI: string;
+    };
+    export type ApplyEdgeCspOptions = {
+      /**
+       * Transform applied to the served HTML *before* nonce injection. Exists for
+       * the negative self-test only: it reintroduces a known CSP-violating defect
+       * so the guard can be observed going red. Production has no equivalent.
+       */
+      mutate?: (html: string) => string;
+    };
+  </file>
+  </section>
   <section priority="medium" role="telemetry">
   <file path="src/pages/telemetry/useTelemetryFeed.ts">
     export interface TelemetryZone extends Record<string, unknown> {

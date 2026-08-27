@@ -174,7 +174,7 @@ jobs:
           output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
 
       - name: Upload Trivy SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         if: always()
         # Best-effort: the Trivy scan above is the actual gate (exit-code 1 on
         # CRITICAL/HIGH). The Security-tab upload is a convenience; if it fails
@@ -211,6 +211,20 @@ jobs:
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
+
+      - name: Restore turbo local cache
+        # #4504: CI had zero turbo cache reuse of any kind — remote caching is
+        # inert (TURBO_TOKEN unset) and nothing ever cached the local
+        # `.turbo/cache` dir turbo.json pins (#3786). Keyed on the
+        # pnpm-lock.yaml hash so a lockfile-touching PR (a turbo
+        # globalDependencies entry) rotates the key instead of restoring a
+        # stale cache across the change that invalidates every task.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Typecheck
         env:
@@ -274,6 +288,15 @@ jobs:
         with:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
+
+      - name: Restore turbo local cache
+        # #4504: see the Typecheck job's identical step for rationale.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Check rialto exports map is in sync
         run: pnpm --filter @mattbutlerengineering/rialto exports:check
@@ -390,11 +413,35 @@ jobs:
           path: services/*/src/generated
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
+      - name: Restore turbo local cache
+        # #4504: see the Typecheck job's identical step for rationale.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
+
       - name: Run tests with coverage
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-        run: pnpm turbo test:coverage
+        # #4519 added `--concurrency=2` after that PR's Test job timed out
+        # 3/3 while main stayed green. The comment here used to assert a
+        # specific cause — that restoring .turbo/cache removed an incidental
+        # stagger and let turbo's fan-out stampede a 2-core runner. That
+        # explanation is retracted (#4558): the varying victim was already
+        # explained by #4541 raising one test's timeout, and re-running the
+        # failed jobs at e41d5a6a, the unchanged pre-cap commit, passed. The
+        # stampede was never reproduced.
+        #
+        # The cap stays for now because nothing has shown it costs anything —
+        # the one capped green run was faster than the one uncapped green run,
+        # on samples far too few to mean much either way. Treat this flag as
+        # unexplained and unmeasured, not as a known-good mitigation: #4558
+        # tracks the A/B (several runs per setting, same commit, comparing
+        # duration and failure rate) that would justify keeping or dropping it.
+        run: pnpm turbo test:coverage --concurrency=2
 
       - name: Upload test results
         if: always()

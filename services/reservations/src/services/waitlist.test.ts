@@ -4,13 +4,13 @@ vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService({
     prisma: {
+      $executeRaw: vi.fn(),
       waitlistEntry: {
         count: vi.fn(),
         create: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
         update: vi.fn(),
-        updateMany: vi.fn(),
       },
     },
   });
@@ -148,15 +148,8 @@ describe("waitlistService", () => {
         orderBy: { position: "asc" },
         select: { id: true, position: true },
       });
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledTimes(2);
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledWith({
-        where: { id: "wl-2" },
-        data: { position: 1 },
-      });
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledWith({
-        where: { id: "wl-3" },
-        data: { position: 2 },
-      });
+      // Batched into a single $executeRaw call, not one updateMany per entry.
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
       expect(result).toEqual(seated);
     });
 
@@ -167,7 +160,7 @@ describe("waitlistService", () => {
 
       expect(result).toBeNull();
       expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
-      expect(prisma.waitlistEntry.updateMany).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
   });
 
@@ -187,19 +180,8 @@ describe("waitlistService", () => {
         where: { id: "wl-2" },
         data: { status: "cancelled" },
       });
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledTimes(3);
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledWith({
-        where: { id: "wl-1" },
-        data: { position: 1 },
-      });
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledWith({
-        where: { id: "wl-3" },
-        data: { position: 2 },
-      });
-      expect(prisma.waitlistEntry.updateMany).toHaveBeenCalledWith({
-        where: { id: "wl-4" },
-        data: { position: 3 },
-      });
+      // Batched into a single $executeRaw call, not one updateMany per entry.
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
       expect(result).toEqual(cancelled);
     });
 
@@ -210,7 +192,7 @@ describe("waitlistService", () => {
 
       expect(result).toBeNull();
       expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
-      expect(prisma.waitlistEntry.updateMany).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
   });
 
@@ -227,7 +209,7 @@ describe("waitlistService", () => {
       });
       expect(result).toEqual(expired);
       expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
-      expect(prisma.waitlistEntry.updateMany).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
 
     it("returns null when the entry does not exist", async () => {

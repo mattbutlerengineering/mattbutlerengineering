@@ -80,6 +80,10 @@ vi.mock("@mbe/auth/fastify", () => ({
     }
   ),
   requireVenueAccess: vi.fn(() => vi.fn(async () => {})),
+  // buildApp registers venueRoutes, whose create route imports this guard at
+  // registration time. These specs exercise deposits, not venue bootstrap, so
+  // the stub admits every request.
+  requireVenueCreateAccess: vi.fn(() => vi.fn(async () => {})),
 }));
 
 import { requireAuth } from "@mbe/auth/fastify";

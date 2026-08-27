@@ -14,13 +14,14 @@ interface Template {
   readonly prompt: string;
 }
 
-type TemplateCategory = "Dashboards" | "Forms" | "Data Display" | "Marketing";
+type TemplateCategory = "Dashboards" | "Forms" | "Data Display" | "Marketing" | "Feedback";
 
 const ALL_CATEGORIES: readonly TemplateCategory[] = [
   "Dashboards",
   "Forms",
   "Data Display",
   "Marketing",
+  "Feedback",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,119 @@ const TEMPLATES: readonly Template[] = [
     category: "Marketing",
     prompt: "Blog post layout with featured image, content, author bio, and related posts",
   },
+  {
+    id: "help-center-page",
+    title: "Help Center Page",
+    description: "Documentation article with a page header, body content, and inline help tooltips",
+    category: "Marketing",
+    prompt:
+      "Help center article page with a header showing the article title and category, body content with section headings, and small help tooltips next to technical terms explaining what they mean",
+  },
+
+  // Data Display (continued)
+  {
+    id: "team-directory",
+    title: "Team Directory",
+    description: "Searchable staff directory listing members with avatars, roles, and contact info",
+    category: "Data Display",
+    prompt:
+      "Searchable team directory listing each person with an avatar, name, role, and contact details in a clean scannable list",
+  },
+  {
+    id: "keyboard-shortcuts",
+    title: "Keyboard Shortcuts Reference",
+    description:
+      "Reference page listing shortcuts grouped by category with styled key combinations",
+    category: "Data Display",
+    prompt:
+      "Keyboard shortcuts reference page listing shortcuts grouped by category, each shown as a description next to its key combination styled like a physical keyboard key",
+  },
+
+  // Forms (continued)
+  {
+    id: "preferences-panel",
+    title: "Preferences Panel",
+    description: "Settings screen with toggle switches and a segmented theme switcher",
+    category: "Forms",
+    prompt:
+      "User preferences screen with a list of toggle switches for feature settings and a segmented control to switch between light, dark, and system theme",
+  },
+
+  // Feedback
+  {
+    id: "notification-center",
+    title: "Notification Center",
+    description: "Feed of alert messages alongside a dismissible site-wide announcement banner",
+    category: "Feedback",
+    prompt:
+      "Notification center showing a feed of alert messages grouped by severity, alongside a dismissible announcement banner at the top for a site-wide notice",
+  },
+  {
+    id: "loading-empty-states",
+    title: "Loading & Empty States",
+    description:
+      "Content placeholders that transition into a friendly empty state when there's nothing to show",
+    category: "Feedback",
+    prompt:
+      "Content area showing skeleton loading placeholders while data loads, then a friendly empty state with an icon and message when no results are found",
+  },
+
+  // Feedback (continued)
+  {
+    id: "settings-modal-flow",
+    title: "Settings Modal Flow",
+    description:
+      "Confirmation dialog for destructive actions and a slide-out drawer for advanced options",
+    category: "Feedback",
+    prompt:
+      "Settings flow with a confirmation dialog that appears before a destructive action, and a slide-out drawer panel for advanced configuration options",
+  },
+  {
+    id: "capacity-monitor",
+    title: "Capacity Monitor",
+    description: "Storage and quota usage shown as meters alongside their limits",
+    category: "Feedback",
+    prompt:
+      "System capacity monitor showing storage, memory, and quota usage as meters filling toward their limits, with a warning state when nearing capacity",
+  },
+
+  // Data Display (continued)
+  {
+    id: "tabbed-settings-panel",
+    title: "Tabbed Settings Panel",
+    description: "Account settings organized into tabs for profile, notifications, and security",
+    category: "Data Display",
+    prompt:
+      "Settings panel organized into tabs for profile, notifications, and security, each tab showing its own group of fields",
+  },
+
+  // Marketing (continued)
+  {
+    id: "docs-wiki-page",
+    title: "Docs / Wiki Page",
+    description: "Documentation page with a breadcrumb trail, page header, and site footer",
+    category: "Marketing",
+    prompt:
+      "Documentation wiki page with a breadcrumb trail showing the page's location in the docs hierarchy, a page header with the article title, body content, and a site footer with links",
+  },
+
+  // Forms (continued)
+  {
+    id: "feature-flags-panel",
+    title: "Feature Flags Panel",
+    description: "Feature flag list with a master override toggle and autocomplete search",
+    category: "Forms",
+    prompt:
+      "Feature flag management panel with a master override toggle to disable all flags at once, and an autocomplete search field for finding a specific flag by name",
+  },
+  {
+    id: "inventory-editor",
+    title: "Inventory Editor",
+    description: "Stock levels editor with stepper-based quantity number inputs",
+    category: "Forms",
+    prompt:
+      "Inventory management form listing products with stepper-based number inputs for adjusting stock quantity",
+  },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -130,6 +244,7 @@ const CATEGORY_VARIANT: Record<TemplateCategory, "neutral" | "accent" | "success
   Forms: "success",
   "Data Display": "neutral",
   Marketing: "warning",
+  Feedback: "accent",
 };
 
 // ---------------------------------------------------------------------------

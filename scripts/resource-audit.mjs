@@ -8,10 +8,13 @@
  * Flags anything not tracked by IaC and outputs a GitHub-issue-ready report.
  *
  * Required env vars:
- *   CLOUDFLARE_API_TOKEN   — CF API token with Worker + DNS read access
+ *   CLOUDFLARE_API_TOKEN   — CF API token with Zone:Read + Worker + DNS read access
  *   CLOUDFLARE_ACCOUNT_ID  — CF account ID
- *   CLOUDFLARE_ZONE_ID     — CF zone ID for the primary domain
  *   DIGITALOCEAN_TOKEN     — DO API token
+ *
+ * The CF zone ID for the primary domain is resolved at runtime via the CF
+ * `/zones?name=` API (see getZoneId) rather than a secret — it isn't a
+ * credential, matching CLOUDFLARE_ACCOUNT_ID (see docs/SECRETS.md).
  *
  * Optional:
  *   DRY_RUN=1              — print report to stdout instead of creating an issue
@@ -156,8 +159,25 @@ async function getLiveDoApps() {
   }));
 }
 
-async function getLiveDnsRecords() {
-  const zoneId = requireEnv("CLOUDFLARE_ZONE_ID");
+/**
+ * Pure: picks the zone matching `domain` out of a CF `/zones?name=` result.
+ * Extracted so zone resolution is unit-testable without a network call.
+ */
+export function extractZoneId(zones, domain) {
+  const zone = (zones ?? []).find((z) => z.name === domain);
+  return zone ? zone.id : null;
+}
+
+async function getZoneId(domain) {
+  const zones = await cfApi(`/zones?name=${encodeURIComponent(domain)}`);
+  const zoneId = extractZoneId(zones, domain);
+  if (!zoneId) {
+    throw new Error(`No Cloudflare zone found for domain: ${domain}`);
+  }
+  return zoneId;
+}
+
+async function getLiveDnsRecords(zoneId) {
   const token = requireEnv("CLOUDFLARE_API_TOKEN");
   const records = [];
   let page = 1;
@@ -388,11 +408,12 @@ async function main() {
   console.log(`  DNS Records: ${knownDnsRecords.map((r) => `${r.type} ${r.name}`).join(", ")}`);
 
   console.log("\nFetching live resources...");
-  const [liveWorkers, liveDoApps, liveDnsRecords] = await Promise.all([
+  const [liveWorkers, liveDoApps, zoneId] = await Promise.all([
     getLiveWorkers(),
     getLiveDoApps(),
-    getLiveDnsRecords(),
+    getZoneId(domain),
   ]);
+  const liveDnsRecords = await getLiveDnsRecords(zoneId);
 
   console.log(`  Live Workers: ${liveWorkers.join(", ")}`);
   console.log(`  Live DO Apps: ${liveDoApps.map((a) => a.name).join(", ")}`);

@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import {
   authenticateAgainstLiveSite,
+  authenticateNonAdmin,
+  createVenueAs,
   deleteVenue,
   listSyntheticVenues,
   sweepSyntheticVenues,
@@ -24,6 +26,9 @@ test("venue onboarding journey against the live site", async ({ page }) => {
   const venueName = `${SYNTHETIC_VENUE_PREFIX}${runId}`;
   const journey = createJourneyRecorder(page, venueName);
   let accessToken = "";
+  // Every venue this run creates, so cleanup covers the non-admin ones too.
+  // Seeded with the wizard's venue; the bootstrap case appends to it.
+  const createdVenueNames: string[] = [venueName];
 
   await journey.step("Authenticate", async () => {
     accessToken = await authenticateAgainstLiveSite(page);
@@ -104,14 +109,45 @@ test("venue onboarding journey against the live site", async ({ page }) => {
     await expect(page.getByRole("status", { name: "Today's Reservations" })).toBeVisible();
   });
 
+  // Deliberately LAST: a failed step marks every later step skipped, so an
+  // unprovisioned non-admin account here must not wipe out the wizard
+  // coverage above. Cleanup still runs — it is outside the step chain.
+  await journey.step("A non-admin identity can bootstrap its first venue", async () => {
+    // ADR-020's third case. Runs against a SEPARATE, deliberately non-admin
+    // account: the admin identity above takes requireVenueCreateAccess's
+    // skip-the-lookup branch, so it would exercise none of this.
+    const nonAdmin = await authenticateNonAdmin();
+
+    // Assert the identity, not just the outcome. If this account is ever
+    // granted the admin role, every assertion below would still pass — via the
+    // admin branch — and the bootstrap path would silently stop being covered.
+    expect(
+      nonAdmin.permissions,
+      "the non-admin journey account must NOT hold the admin permission, or this case proves nothing"
+    ).not.toContain("admin");
+
+    const first = await createVenueAs(nonAdmin.accessToken, `${venueName}-bootstrap`);
+    createdVenueNames.push(`${venueName}-bootstrap`);
+    expect(first.status).toBe(201);
+
+    // The invariant: the relaxation is for the FIRST venue only.
+    const second = await createVenueAs(nonAdmin.accessToken, `${venueName}-second`);
+    createdVenueNames.push(`${venueName}-second`);
+    expect(second.status).toBe(403);
+  });
+
   // Runs even when the wizard broke: the venue may already exist in prod. The
   // `finally` means a test-level timeout still leaves a report behind for the
   // workflow to turn into an issue.
   try {
-    await journey.cleanupStep("Delete the synthetic venue", async () => {
+    await journey.cleanupStep("Delete the synthetic venues", async () => {
       if (!accessToken) return;
-      const created = (await listSyntheticVenues(accessToken)).filter(
-        (venue) => venue.name === venueName
+      // Deletes with the ADMIN token: DELETE /venues/:id still requires the
+      // admin role, and deliberately so — only creation was relaxed. The venue
+      // cascade removes the owner VenueMembership, which is what makes the
+      // bootstrap case above repeatable on the next run.
+      const created = (await listSyntheticVenues(accessToken)).filter((venue) =>
+        createdVenueNames.includes(venue.name)
       );
       for (const venue of created) {
         const result = await deleteVenue(accessToken, venue.id);
@@ -121,9 +157,10 @@ test("venue onboarding journey against the live site", async ({ page }) => {
           );
         }
       }
-      expect(
-        (await listSyntheticVenues(accessToken)).some((venue) => venue.name === venueName)
-      ).toBe(false);
+      const remaining = (await listSyntheticVenues(accessToken)).filter((venue) =>
+        createdVenueNames.includes(venue.name)
+      );
+      expect(remaining.map((venue) => venue.name)).toEqual([]);
     });
   } finally {
     journey.write();

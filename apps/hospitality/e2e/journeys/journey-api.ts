@@ -40,6 +40,108 @@ export async function authenticateAgainstLiveSite(page: Page): Promise<string> {
 }
 
 /**
+ * Builds the env the NON-ADMIN journey identity authenticates with: the same
+ * tenant, client and audience as the admin identity, but different
+ * credentials.
+ *
+ * Throws when either non-admin variable is missing rather than falling back to
+ * `E2E_AUTH_EMAIL`/`E2E_AUTH_PASSWORD`. A fallback would run the bootstrap case
+ * as a platform admin, which takes `requireVenueCreateAccess`'s skip-the-lookup
+ * branch — the journey would stay green while exercising none of the behaviour
+ * it exists to prove.
+ */
+export function resolveNonAdminAuthEnv(
+  env: Record<string, string | undefined> = process.env
+): Record<string, string | undefined> {
+  const email = env["E2E_NONADMIN_AUTH_EMAIL"];
+  const password = env["E2E_NONADMIN_AUTH_PASSWORD"];
+
+  const missing: string[] = [];
+  if (!email) missing.push("E2E_NONADMIN_AUTH_EMAIL");
+  if (!password) missing.push("E2E_NONADMIN_AUTH_PASSWORD");
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required non-admin journey env vars: ${missing.join(", ")}\n\n` +
+        "  E2E_NONADMIN_AUTH_EMAIL     — an Auth0 user WITHOUT the admin role\n" +
+        "  E2E_NONADMIN_AUTH_PASSWORD  — that user's password\n\n" +
+        "They are deliberately not defaulted to the admin credentials: the " +
+        "first-venue bootstrap case only exists for non-admins, so an admin " +
+        "fallback would make this journey pass without exercising it."
+    );
+  }
+
+  return { ...env, E2E_AUTH_EMAIL: email, E2E_AUTH_PASSWORD: password };
+}
+
+/**
+ * Reads the `permissions` claim out of an access token.
+ *
+ * No signature verification: this is used to assert a property of the test's
+ * OWN identity, never to make an authorization decision. A malformed token
+ * throws rather than reporting an empty list, because "no permissions" and
+ * "never parsed" would otherwise be indistinguishable — and the first reads as
+ * "not an admin", which is exactly the assertion being made.
+ */
+export function readTokenPermissions(accessToken: string): string[] {
+  const segments = accessToken.split(".");
+  if (segments.length !== 3 || !segments[1]) {
+    throw new Error(
+      "Access token is not a well-formed JWT (expected three dot-separated segments)"
+    );
+  }
+
+  const claims: unknown = JSON.parse(Buffer.from(segments[1], "base64url").toString("utf8"));
+  if (typeof claims !== "object" || claims === null) {
+    throw new Error("Access token payload did not decode to an object");
+  }
+
+  const permissions = (claims as { permissions?: unknown }).permissions;
+  if (permissions === undefined) return [];
+  if (!Array.isArray(permissions)) {
+    throw new Error("Access token `permissions` claim is present but not an array");
+  }
+  return permissions.map(String);
+}
+
+/**
+ * Mints an access token for the non-admin identity. No `Page` involved — this
+ * journey case drives the API directly, because the bootstrap path has no UI
+ * of its own yet (the onboarding wizard is reached only once a venue exists).
+ */
+export async function authenticateNonAdmin(): Promise<{
+  accessToken: string;
+  permissions: string[];
+}> {
+  const config = validateAuth0Config(resolveNonAdminAuthEnv());
+  const tokens = await fetchAuth0TokensWithRetry(config);
+  return {
+    accessToken: tokens.access_token,
+    permissions: readTokenPermissions(tokens.access_token),
+  };
+}
+
+/**
+ * Creates a venue as the given identity and reports the raw status, so a
+ * caller can assert on 201 vs 403 instead of only on success.
+ */
+export async function createVenueAs(
+  accessToken: string,
+  name: string
+): Promise<{ status: number; id?: string }> {
+  const response = await apiRequest(accessToken, "/api/v1/venues", "POST", {
+    name,
+    slug: name,
+    ianaTimezone: "America/Los_Angeles",
+  });
+
+  if (!response.ok) return { status: response.status };
+
+  const body = (await response.json()) as { data?: { id?: string } };
+  return { status: response.status, id: body.data?.id };
+}
+
+/**
  * Fastify runs its content-type parser on every method, DELETE included. A
  * request that declares `Content-Type: application/json` with a zero-length
  * body is rejected with `FST_ERR_CTP_EMPTY_JSON_BODY` (HTTP 400) before the

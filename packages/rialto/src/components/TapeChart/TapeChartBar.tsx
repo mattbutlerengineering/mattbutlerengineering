@@ -30,6 +30,7 @@ function buildFormattedParts(
     r.ratePerNight != null ? formatters.currency(r.ratePerNight * nights, r.currency) : undefined;
   const partySize = r.partySize != null ? strings.partySizeLabel(r.partySize) : undefined;
   const statusLabel = strings.statusLabels[r.status] ?? DEFAULT_STRINGS.statusLabels[r.status];
+  const overlapLabel = bar.overlap ? strings.overlapLabels[bar.overlap] : undefined;
   return {
     startLong: formatters.dayLong(r.start),
     endLong: formatters.dayLong(r.end),
@@ -38,8 +39,29 @@ function buildFormattedParts(
     partySize,
     statusLabel,
     roomName,
+    overlapLabel,
   };
 }
+
+/** Hand-rolled warning glyph (triangle, bar, dot) — same idiom as Banner's variant icons; no lucide. */
+const conflictGlyph = (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className={styles.overlapGlyph}
+  >
+    <path d="M8 2L1.5 13h13L8 2z" />
+    <path d="M8 6.5v3" />
+    <circle cx="8" cy="11.5" r="0.5" fill="currentColor" stroke="none" />
+  </svg>
+);
 
 export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
   function TapeChartBar(props, ref) {
@@ -49,6 +71,7 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
     const style: CSSProperties = {
       ["--tapechart-bar-start" as string]: bar.startOffset,
       ["--tapechart-bar-span" as string]: bar.span,
+      ["--tapechart-bar-lane" as string]: bar.lane,
     };
 
     const parts = buildFormattedParts(bar, roomName, formatters, strings);
@@ -76,12 +99,15 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
         data-status={r.status}
         data-blocked={r.blockedReason ? "true" : undefined}
         data-selected={selected ? "true" : undefined}
+        data-lane={bar.lane}
+        data-overlap={bar.overlap}
         tabIndex={tabIndex}
         aria-label={ariaLabel}
         aria-pressed={selected ?? false}
         onClick={() => onSelect(r)}
         onKeyDown={handleKeyDown}
       >
+        {bar.overlap === "conflict" && conflictGlyph}
         <span className={styles.barTitle}>{title}</span>
         {priceShort && <span className={styles.barMeta}>{priceShort}</span>}
       </button>

@@ -414,16 +414,23 @@
     </item>
   </file>
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
-    <item priority="medium">
-      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
-    </item>
     <item priority="high">
       export function useTapeChartLayout(
         reservations: TapeChartReservation[],
         rooms: TapeChartRoom[],
         startDate: string,
-        endDate: string
+        endDate: string,
+        classifyOverlap?: OverlapClassifier
       ): TapeChartLayout { /* ... */ }
+    </item>
+    <item priority="medium">
+      function packRoom(
+        bars: TapeChartPositionedBar[],
+        classify: OverlapClassifier
+      ): {
+        bars: TapeChartPositionedBar[];
+        laneCount: number;
+      } { /* ... */ }
     </item>
   </file>
   </section>
@@ -858,6 +865,13 @@
   <file path="src/utils/service-worker.ts">
     <item priority="high">
       export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="visual">
+  <file path="src/test/visual/story-url.ts">
+    <item priority="high">
+      export function buildStoryUrl(storyId: string): string { /* ... */ }
     </item>
   </file>
   </section>

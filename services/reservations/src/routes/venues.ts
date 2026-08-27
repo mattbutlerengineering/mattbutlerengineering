@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
 import type {
   Venue,
   VenueGroup,
@@ -26,11 +26,16 @@ import {
   requireAuth,
   requireAdmin,
   requireVenueAccess,
+  requireVenueCreateAccess,
   hasPermission,
   type VenueIdResolver,
 } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
-import { venueService, venueGroupService } from "../services/venue.js";
+import {
+  venueService,
+  venueGroupService,
+  VenueBootstrapForbiddenError,
+} from "../services/venue.js";
 import { tableStatusService } from "../services/table-status.js";
 
 /**
@@ -42,7 +47,62 @@ const venueIdFromRouteId: VenueIdResolver = (request) => {
   return typeof params.id === "string" ? params.id : null;
 };
 
+/**
+ * Per-identity cap on venue creation. The bootstrap case admits callers who
+ * hold no venue at all, so this endpoint is reachable by any authenticated
+ * account — the one venue route where that is true.
+ *
+ * Keyed by the verified `sub` rather than the IP so a shared egress address
+ * (office NAT, mobile carrier) cannot let one abuser lock out everyone behind
+ * it. That is why it cannot be enforced at the limiter's default `onRequest`
+ * timing, which runs before authentication: `request.user` is still undefined
+ * there and every caller would collapse into one bucket.
+ *
+ * It is applied by hand in a preHandler rather than through the route's
+ * `config.rateLimit` — see `enforceVenueCreateLimit` in `venueRoutes` for why
+ * that distinction is load-bearing rather than stylistic.
+ */
+export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
+
+/**
+ * A transaction that lost a serialization race. Prisma surfaces this as
+ * `P2034`; the underlying Postgres SQLSTATE is `40001`. Both are checked
+ * because a raw-query path would carry the SQLSTATE instead.
+ */
+function isWriteConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return code === "P2034" || code === "40001";
+}
+
 export const venueRoutes: FastifyPluginAsync = async (fastify) => {
+  // Enforced by hand through `createRateLimit` rather than as a second
+  // rate-limit hook, because @fastify/rate-limit runs at most ONE limiter per
+  // request: `rateLimitRequestHandler` sets a `rateLimitRan` flag on the
+  // request and every later limiter short-circuits (index.js:319-327, v11.2.0).
+  // `createRateLimit` bypasses that flag, so this cap composes with the
+  // service-wide one instead of displacing it.
+  const venueCreateLimiter = fastify.createRateLimit({
+    ...VENUE_CREATE_RATE_LIMIT,
+    keyGenerator: (request: FastifyRequest) => request.user?.raw.sub ?? request.ip,
+  });
+
+  const enforceVenueCreateLimit: preHandlerAsyncHookHandler = async (request, reply) => {
+    const limit = await venueCreateLimiter(request);
+    // `isAllowed: true` is the allow-list branch and carries no counters; it is
+    // the discriminant that narrows the rest of the fields into existence.
+    if (limit.isAllowed || !limit.isExceeded) return;
+
+    reply.header("Retry-After", limit.ttlInSeconds);
+    return reply.status(429).send({
+      type: "https://httpproblems.com/http-status/429",
+      title: "Too Many Requests",
+      status: 429,
+      detail: `Rate limit exceeded. Retry after ${limit.ttlInSeconds} seconds.`,
+      retryAfter: limit.ttlInSeconds,
+    });
+  };
+
   fastify.addSchema(publicVenueJsonSchema);
 
   // ============ VENUE GROUP ROUTES ============
@@ -537,7 +597,24 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireAdmin],
+      // ADR-020 third case: admins as before, PLUS an authenticated identity
+      // holding no venue membership at all creating its first venue. Every
+      // other venue route keeps requireAdmin / requireVenueAccess unchanged.
+      // No `config.rateLimit` here, deliberately. Declaring one *replaces* the
+      // service-wide onRequest limiter for this route, and this route's cap has
+      // to key on the verified `sub` — which only exists after requireAuth. The
+      // shipped combination (`config.rateLimit` at `hook: "preHandler"`) left
+      // the whole anonymous surface of a public POST unbounded: schema
+      // validation and requireAuth both answer before that hook runs. Measured
+      // against the deployed service 2026-08-23 — `GET /api/v1/venues` carried
+      // `x-ratelimit-limit: 100`, `POST /api/v1/venues` carried no rate-limit
+      // headers at all. Leaving `config.rateLimit` off restores the service-wide
+      // limiter; the per-identity cap is enforced by the preHandler below.
+      preHandler: [
+        requireAuth,
+        enforceVenueCreateLimit,
+        requireVenueCreateAccess(fastify.hasAnyVenueMembership),
+      ],
       schema: {
         summary: "Create a new venue",
         operationId: "createVenue",
@@ -566,11 +643,40 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       try {
-        // requireAdmin ran, so request.user is set; seed the creator as the
-        // venue owner (VenueMembership) so it appears in their scoped list (#3069).
-        const venue = await venueService.create(request.body, request.user?.raw.sub);
+        // requireVenueCreateAccess ran, so request.user is set; seed the creator
+        // as the venue owner (VenueMembership) so it appears in their scoped
+        // list (#3069). The guard read membership OUTSIDE the transaction that
+        // establishes it, so the service re-checks inside — but only for
+        // non-admins, which is why the caller's role is threaded through.
+        const venue = await venueService.create(request.body, request.user?.raw.sub, {
+          isAdmin: request.user ? hasPermission(request.user, "admin") : false,
+        });
         return reply.code(201).send({ data: venue });
       } catch (error) {
+        if (error instanceof VenueBootstrapForbiddenError) {
+          return reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                "Admin role required to create additional venues"
+              )
+            );
+        }
+        // Serializable isolation aborts the loser of a concurrent bootstrap
+        // (Prisma P2034 / Postgres 40001). That is retryable, not a server bug.
+        if (isWriteConflict(error)) {
+          return reply
+            .code(409)
+            .send(
+              createProblemDetails(
+                409,
+                "Conflict",
+                "Concurrent venue creation conflicted; retry the request"
+              )
+            );
+        }
         if (error instanceof Error && error.message.includes("Unique constraint")) {
           return reply
             .code(400)

@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { makeRooms, makeReservations, defaultDateRange } from "./tapechart-fixtures.js";
+import {
+  makeRooms,
+  makeReservations,
+  defaultDateRange,
+  makeOverlapScenario,
+  classifyDormAsShared,
+} from "./tapechart-fixtures.js";
 
 describe("makeRooms", () => {
   it("returns 30 rooms by default", () => {
@@ -147,6 +153,80 @@ describe("makeReservations", () => {
     const rooms = makeRooms(10);
     const reservations = makeReservations(rooms, "2026-01-01", "2026-01-30", 0);
     expect(reservations).toHaveLength(0);
+  });
+});
+
+describe("makeOverlapScenario", () => {
+  const addDays = (iso: string, n: number) =>
+    new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
+  it("is deterministic and returns fresh objects", () => {
+    const a = makeOverlapScenario();
+    const b = makeOverlapScenario();
+    expect(a).toEqual(b);
+    expect(a).not.toBe(b);
+    expect(a.rooms).not.toBe(b.rooms);
+    expect(a.reservations).not.toBe(b.reservations);
+    expect(a.rooms[0]).not.toBe(b.rooms[0]);
+    expect(a.reservations[0]).not.toBe(b.reservations[0]);
+  });
+
+  it("is well-formed", () => {
+    const { rooms, reservations, startDate, endDate } = makeOverlapScenario();
+    expect(rooms).toHaveLength(4);
+    expect(reservations).toHaveLength(9);
+    const roomIds = new Set(rooms.map((r) => r.id));
+    expect(new Set(reservations.map((r) => r.id)).size).toBe(reservations.length);
+    expect(new Set(reservations.map((r) => r.guestName)).size).toBe(reservations.length);
+    for (const res of reservations) {
+      expect(roomIds.has(res.roomId)).toBe(true);
+      expect(res.start < res.end).toBe(true);
+      expect(res.start >= startDate).toBe(true);
+      expect(res.end <= endDate).toBe(true);
+    }
+  });
+
+  it("contains a 3-deep stack", () => {
+    const { rooms, reservations, startDate, endDate } = makeOverlapScenario();
+    let deepest = 0;
+    for (const room of rooms) {
+      for (let day: string = startDate; day < endDate; day = addDays(day, 1)) {
+        const active = reservations.filter(
+          (r) => r.roomId === room.id && r.start <= day && day < r.end
+        ).length;
+        deepest = Math.max(deepest, active);
+      }
+    }
+    expect(deepest).toBeGreaterThanOrEqual(3);
+  });
+
+  it("has both conflict and shared pairs under the dorm rule", () => {
+    const { rooms, reservations } = makeOverlapScenario();
+    const classify = classifyDormAsShared(rooms);
+    const kinds = new Set<string>();
+    for (let i = 0; i < reservations.length; i++) {
+      for (let j = i + 1; j < reservations.length; j++) {
+        const a = reservations[i]!;
+        const b = reservations[j]!;
+        if (a.roomId !== b.roomId) continue;
+        if (a.start < b.end && b.start < a.end) kinds.add(classify(a, b));
+      }
+    }
+    expect(kinds.has("conflict")).toBe(true);
+    expect(kinds.has("shared")).toBe(true);
+  });
+
+  it("guest names cannot collide with the playground name pools", () => {
+    const pool = new Set<string>();
+    for (const r of makeReservations(makeRooms(30), "2026-01-01", "2026-04-01", 1)) {
+      for (const token of (r.guestName ?? "").split(" ")) pool.add(token);
+    }
+    expect(pool.size).toBeGreaterThan(20);
+    for (const r of makeOverlapScenario().reservations) {
+      for (const token of (r.guestName ?? "").split(" ")) {
+        expect(pool.has(token)).toBe(false);
+      }
+    }
   });
 });
 

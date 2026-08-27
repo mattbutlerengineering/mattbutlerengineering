@@ -304,7 +304,7 @@ export function writeReport(
     }
     lines.push("");
     lines.push(
-      "_Frozen task fixtures under `scripts/acmm/evals/tasks/`. Status: ≥80% pass = green, ≥50% = yellow, else red. Add tasks or run via `node scripts/acmm/evals/index.js`._"
+      "_Frozen task fixtures under `plugins/acmm/scripts/evals/tasks/`. Status: ≥80% pass = green, ≥50% = yellow, else red. Add tasks or run via `node plugins/acmm/scripts/evals/index.js`._"
     );
     lines.push("");
   }

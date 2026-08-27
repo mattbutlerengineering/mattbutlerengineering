@@ -574,6 +574,7 @@
         | "partySizeLabel"
         | "statusLabels"
         | "roomStatusLabels"
+        | "overlapLabels"
       >
     > & {
       reservationAriaTemplate: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
@@ -581,6 +582,7 @@
       partySizeLabel: (count: number) => string;
       statusLabels: Record<TapeChartStatus, string>;
       roomStatusLabels: Record<TapeChartRoomStatus, string>;
+      overlapLabels: Record<TapeChartOverlapKind, string>;
     };
     export const DEFAULT_STRINGS: ResolvedStrings = {
       regionLabel: "Reservations tape chart",
@@ -603,6 +605,7 @@
       conflictWarning: "This move conflicts with another reservation.",
       statusLabels: STATUS_LABELS_EN,
       roomStatusLabels: ROOM_STATUS_LABELS_EN,
+      overlapLabels: OVERLAP_LABELS_EN,
       reservationAriaTemplate: defaultReservationAriaTemplate,
       nightsLabel: defaultNightsLabel,
       partySizeLabel: defaultPartySizeLabel,
@@ -717,36 +720,18 @@
     }
   </file>
   <file path="src/components/TapeChart/useTapeChartLayout.ts">
-    function assignLanes(bars: TapeChartPositionedBar[]): number {
-      const laneEnds: number[] = [];
-      bars.sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
-      for (const bar of bars) {
-        let placed = false;
-        for (let i = 0; i < laneEnds.length; i++) {
-          if (laneEnds[i]! <= bar.startOffset) {
-            bar.lane = i;
-            laneEnds[i] = bar.startOffset + bar.span;
-            placed = true;
-            break;
-          }
-        }
-        if (!placed) {
-          bar.lane = laneEnds.length;
-          laneEnds.push(bar.startOffset + bar.span);
-        }
-      }
-      return laneEnds.length;
-    }
     export function useTapeChartLayout(
       reservations: TapeChartReservation[],
       rooms: TapeChartRoom[],
       startDate: string,
-      endDate: string
+      endDate: string,
+      classifyOverlap?: OverlapClassifier
     ): TapeChartLayout {
+      const classify = classifyOverlap ?? CONFLICT_ALWAYS;
       return useMemo(() => {
         const dayCount = Math.max(0, daysBetween(startDate, endDate));
-        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
-        for (const room of rooms) barsByRoom.set(room.id, []);
+        const rawByRoom = new Map<string, TapeChartPositionedBar[]>();
+        for (const room of rooms) rawByRoom.set(room.id, []);
     
         const dailyCounts = Array.from({ length: dayCount }, (_, i) => ({
           date: addDays(startDate, i),
@@ -766,7 +751,7 @@
           const endOffset = Math.min(dayCount, rawEnd);
           const span = Math.max(1, endOffset - startOffset);
     
-          const list = barsByRoom.get(reservation.roomId);
+          const list = rawByRoom.get(reservation.roomId);
           if (!list) continue;
           list.push({
             reservation,
@@ -785,14 +770,70 @@
           }
         }
     
+        const barsByRoom = new Map<string, TapeChartPositionedBar[]>();
+        const laneCountByRoom = new Map<string, number>();
         let maxLanes = 1;
-        for (const bars of barsByRoom.values()) {
-          const lanes = assignLanes(bars);
-          if (lanes > maxLanes) maxLanes = lanes;
+        for (const [roomId, raw] of rawByRoom) {
+          const packed = packRoom(raw, classify);
+          barsByRoom.set(roomId, packed.bars);
+          laneCountByRoom.set(roomId, packed.laneCount);
+          if (packed.laneCount > maxLanes) maxLanes = packed.laneCount;
         }
     
-        return { barsByRoom, dayCount, maxLanes, dailyCounts };
-      }, [reservations, rooms, startDate, endDate]);
+        return { barsByRoom, dayCount, laneCountByRoom, maxLanes, dailyCounts };
+      }, [reservations, rooms, startDate, endDate, classify]);
+    }
+    function packRoom(
+      bars: TapeChartPositionedBar[],
+      classify: OverlapClassifier
+    ): {
+      bars: TapeChartPositionedBar[];
+      laneCount: number;
+    } {
+      const sorted = bars.slice().sort((a, b) => a.startOffset - b.startOffset || a.span - b.span);
+      const laneEnds: number[] = [];
+      const lanes: number[] = [];
+      for (const bar of sorted) {
+        let placed = false;
+        for (let i = 0; i < laneEnds.length; i++) {
+          if (laneEnds[i]! <= bar.startOffset) {
+            lanes.push(i);
+            laneEnds[i] = bar.startOffset + bar.span;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          lanes.push(laneEnds.length);
+          laneEnds.push(bar.startOffset + bar.span);
+        }
+      }
+    
+      // Sorted by startOffset, so once b starts at or after a's end, every later b does too.
+      const kinds: Array<TapeChartOverlapKind | undefined> = sorted.map(() => undefined);
+      for (let i = 0; i < sorted.length; i++) {
+        const a = sorted[i]!;
+        const aEnd = a.startOffset + a.span;
+        for (let j = i + 1; j < sorted.length; j++) {
+          const b = sorted[j]!;
+          if (b.startOffset >= aEnd) break;
+          // `startOffset` is clamped to the visible window, so two reservations that both
+          // start before it can tie (and fall through to the span tiebreak) even though
+          // their real `start` dates differ. Order classify() args by real start so the
+          // documented "earlier start first" contract holds for window-clipped pairs too.
+          const kind =
+            a.reservation.start <= b.reservation.start
+              ? classify(a.reservation, b.reservation)
+              : classify(b.reservation, a.reservation);
+          kinds[i] = worstOf(kinds[i], kind);
+          kinds[j] = worstOf(kinds[j], kind);
+        }
+      }
+    
+      return {
+        bars: sorted.map((bar, i) => ({ ...bar, lane: lanes[i]!, overlap: kinds[i] })),
+        laneCount: Math.max(1, laneEnds.length),
+      };
     }
   </file>
   </section>
@@ -1764,6 +1805,13 @@
           }
         }
       });
+    }
+  </file>
+  </section>
+  <section priority="medium" role="visual">
+  <file path="src/test/visual/story-url.ts">
+    export function buildStoryUrl(storyId: string): string {
+      return `/iframe.html?id=${storyId}&viewMode=story&embed=true`;
     }
   </file>
   </section>

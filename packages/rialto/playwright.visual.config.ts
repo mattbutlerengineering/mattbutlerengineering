@@ -14,6 +14,9 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./src/test/visual",
+  // Restrict to *.spec.ts — this dir also holds *.test.ts vitest unit tests
+  // (e.g. story-url.test.ts) that must NOT be collected as Playwright tests.
+  testMatch: "**/*.spec.ts",
   snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
   // Failure output (*-actual.png / *-diff.png) must land inside
   // __screenshots__/ because the rialto-visual workflow uploads only that

@@ -72,6 +72,86 @@ land in `@mbe/auth/fastify`:
   the property pure-JWT claims cannot provide and the direct fix for the PII
   exposure.
 
+### `requireVenueCreateAccess` — the third case (amended 2026-08-22)
+
+The two guards above assume every operator already belongs to a venue. That
+assumption has one hole: `POST /api/v1/venues` carried `requireAdmin`, so the
+only way to acquire a first venue — and therefore a first membership — was for a
+platform admin to create it. A brand-new account could authenticate and then do
+nothing, because every venue-scoped route needs a membership it had no way to
+obtain. Membership was reachable only through membership.
+
+A third guard closes that loop, scoped to venue **creation** alone:
+
+- A **factory** taking an injected `HasAnyVenueMembership`
+  (`(userSub) => Promise<boolean>`), wired the same way as
+  `requireVenueAccess`'s lookup — the policy owns the interface, the service
+  owns the Prisma implementation.
+- Decision matrix (assumes `requireAuth` ran first): missing user → 401;
+  platform `admin` → allow (skip the lookup, as with `requireVenueAccess`);
+  **no** venue membership at all → allow (this is the new case); any membership
+  → 403.
+- The relaxation is **creation-only**. `requireVenueAccess` still governs every
+  read and write on an existing venue, and `DELETE /api/v1/venues/:id` still
+  requires `admin`. Holding zero memberships grants exactly one thing: the
+  ability to acquire the first one.
+
+**Why the guard alone is not sufficient.** It reads membership _outside_ the
+transaction that establishes it, so two concurrent requests from the same
+identity can both be admitted and both create a venue. The invariant is
+therefore re-checked _inside_ `venueService.create`'s existing transaction,
+which now declares `isolationLevel: "Serializable"` — under READ COMMITTED both
+racers legitimately read zero. The loser of a serialization race surfaces as a
+retryable `409`, never a `500`. The service's `isAdmin` parameter defaults to
+`false`, the fail-closed direction, so a caller that forgets to pass it gets the
+invariant enforced rather than silently skipped.
+
+**Residual risk, accepted:** anyone who can create an account can create exactly
+one venue. That is the intended product behaviour for self-serve onboarding, but
+it makes venue creation reachable by the public, so the route carries a
+per-identity rate limit (5/minute, keyed on the verified `sub` rather than the IP
+so a shared egress address cannot let one abuser lock out everyone behind it).
+
+**Self-signup is enabled — measured 2026-08-23, not assumed.** The earlier
+version of this paragraph left the question open (`not verified here`), which
+left the whole risk assessment conditional. It is now answered: an
+unauthenticated `POST /dbconnections/signup` to
+`dev-ytbgmz5ls3wh4xdx.us.auth0.com`, using the SPA client id the deployed bundle
+already publishes and a password that cannot satisfy the tenant policy, comes
+back `PasswordStrengthError` / `invalid_password`. That response is produced
+_downstream_ of the connection's signup gate — a connection with
+`disable_signup` answers `signup_disabled` before the password is ever
+evaluated. So the request got past the gate, and no account was created (the
+password was rejected), which is what makes this probe repeatable as a read.
+
+Consequence: "any authenticated identity may create one venue" means **anyone on
+the internet**, not "any invited operator". The rate limit is therefore the only
+thing bounding venue creation by an anonymous party, and it bounds rate, not
+total. If the product ever wants invite-only onboarding, the control is
+`disable_signup` on the `Username-Password-Authentication` connection — which is
+tenant state, not code: nothing in `infrastructure/pulumi/auth0.ts` manages the
+connection, so flipping it leaves no diff in this repo and no test goes red.
+
+**That limit needs two layers, and the first shipped arrangement had only one
+(corrected 2026-08-23).** The per-identity cap must run after `requireAuth` —
+that is what populates `request.user` — so it was declared as a route-level
+`config.rateLimit` with `hook: "preHandler"`. Declaring a route-level
+`config.rateLimit` _replaces_ the service-wide `onRequest` limiter for that
+route, so moving it to `preHandler` left everything upstream of that hook with
+no bound at all: body-schema validation answers 400 and `requireAuth` answers
+401, both before the limiter ever fires. Measured against the deployed service:
+`GET /api/v1/venues` carried `x-ratelimit-limit: 100`, `POST /api/v1/venues`
+carried no rate-limit headers on either its 400 or its 401. A public POST had
+quietly lost the bound every other route on the service has.
+
+The route now declares no `config.rateLimit` at all, which restores the
+service-wide 100/minute per-IP limiter over the anonymous surface, and enforces
+the 5/minute per-identity cap by hand in a preHandler via
+`fastify.createRateLimit`. Two hooks would not have worked: `@fastify/rate-limit`
+runs at most **one** limiter per request — `rateLimitRequestHandler` sets a
+`rateLimitRan` flag and every later limiter short-circuits — and
+`createRateLimit` is the one entry point that bypasses that flag.
+
 ### Consolidation
 
 `deposits.ts`'s local `requireAdmin` is deleted in favor of the shared one.
@@ -95,6 +175,9 @@ the guest-owner self-service route `GET /api/v1/reservations/me`.
 
 - Venue-scoped routes incur one membership `count` per request (indexed on
   `(user_sub, venue_id)`); `admin` short-circuits it.
+- Venue creation costs a second membership `count` (indexed on `(user_sub)`)
+  inside the transaction, and runs at `Serializable` isolation — the strictest
+  level, on the repo's lowest-frequency write path.
 - `:id`-addressed routes resolve the owning venue from the resource (an extra
   read in the preHandler) so a venue member — not only a platform admin — can
   manage their own venue's resources.
@@ -118,6 +201,8 @@ lifetime).
 - **ADR-010**: Service Authentication — service-to-service auth context.
 - **ADR-002 / ADR-008**: RFC 7807 error format returned by both guards.
 - **Issue #3101**: the HITL decision recorded here.
+- **`docs/features/first-venue-self-serve/`**: the run that added the third
+  case — PRD, architecture, and the accepted-risk record behind it.
 - **Issue #3114**: consolidates the remaining local admin gates
   (`services/users/src/routes/users.ts`, `services/agent/src/routes/sessions.ts`)
   onto these shared preHandlers — deferred, out of scope for #3101.

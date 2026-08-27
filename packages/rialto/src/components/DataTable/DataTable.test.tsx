@@ -259,6 +259,33 @@ describe("DataTable", () => {
     });
   });
 
+  describe("memoization", () => {
+    it("does not re-sort data on an unrelated re-render when sort/data are unchanged", () => {
+      const sortSpy = vi.spyOn(Array.prototype, "sort");
+      const { rerender } = render(
+        <DataTable
+          columns={columns}
+          data={data}
+          rowKey={rowKey}
+          label="Drivers"
+          defaultSort={{ key: "points", direction: "asc" }}
+        />
+      );
+      const callsAfterMount = sortSpy.mock.calls.length;
+      rerender(
+        <DataTable
+          columns={columns}
+          data={data}
+          rowKey={rowKey}
+          label="Drivers 2"
+          defaultSort={{ key: "points", direction: "asc" }}
+        />
+      );
+      expect(sortSpy.mock.calls.length).toBe(callsAfterMount);
+      sortSpy.mockRestore();
+    });
+  });
+
   describe("accessibility", () => {
     const axeOpts = { rules: { "color-contrast": { enabled: false } } };
 

@@ -128,10 +128,10 @@ function CardForm({
       {error && <Alert variant="error">{error}</Alert>}
 
       <div className={styles.cardElementWrapper}>
-        <Text variant="label" as="label">
+        <Text variant="label" as="label" id="card-details-label">
           Card Details
         </Text>
-        <div className={styles.cardElement}>
+        <div className={styles.cardElement} aria-labelledby="card-details-label">
           <CardElement
             options={{
               style: {

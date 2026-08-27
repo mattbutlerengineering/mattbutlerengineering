@@ -88,3 +88,32 @@ describe("hospitality e2e workflow coverage", () => {
     }
   });
 });
+
+/**
+ * The journey suite runs from venue-journey.yml, not the PR-time e2e workflows
+ * (playwright.config.ts testIgnores ./e2e/journeys). Its non-admin bootstrap
+ * case authenticates as a SEPARATE account and refuses to fall back to the
+ * admin credentials, so the workflow must pass those secrets through — without
+ * them the step fails on every scheduled run.
+ *
+ * This guards the wiring, not the secret values: a spec added without its env
+ * plumbing is the #3955 failure class in a different disguise.
+ */
+describe("venue-journey workflow wiring", () => {
+  const JOURNEY_WORKFLOW = resolve(REPO_ROOT, ".github/workflows/venue-journey.yml");
+
+  it("passes the non-admin journey credentials to the journey step", () => {
+    const workflow = readFileSync(JOURNEY_WORKFLOW, "utf8");
+    expect(workflow).toContain("E2E_NONADMIN_AUTH_EMAIL:");
+    expect(workflow).toContain("E2E_NONADMIN_AUTH_PASSWORD:");
+  });
+
+  it("sources them from secrets rather than literals", () => {
+    const workflow = readFileSync(JOURNEY_WORKFLOW, "utf8");
+    for (const name of ["E2E_NONADMIN_AUTH_EMAIL", "E2E_NONADMIN_AUTH_PASSWORD"]) {
+      const line = workflow.split("\n").find((l) => l.trim().startsWith(`${name}:`));
+      expect(line, `${name} must be set in venue-journey.yml`).toBeDefined();
+      expect(line).toMatch(new RegExp(`\\$\\{\\{\\s*secrets\\.${name}\\s*\\}\\}`));
+    }
+  });
+});

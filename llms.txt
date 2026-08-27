@@ -432,16 +432,23 @@
     </item>
   </file>
   <file path="packages/rialto/src/components/TapeChart/useTapeChartLayout.ts">
-    <item priority="medium">
-      function assignLanes(bars: TapeChartPositionedBar[]): number { /* ... */ }
-    </item>
     <item priority="high">
       export function useTapeChartLayout(
         reservations: TapeChartReservation[],
         rooms: TapeChartRoom[],
         startDate: string,
-        endDate: string
+        endDate: string,
+        classifyOverlap?: OverlapClassifier
       ): TapeChartLayout { /* ... */ }
+    </item>
+    <item priority="medium">
+      function packRoom(
+        bars: TapeChartPositionedBar[],
+        classify: OverlapClassifier
+      ): {
+        bars: TapeChartPositionedBar[];
+        laneCount: number;
+      } { /* ... */ }
     </item>
   </file>
   </section>
@@ -2664,7 +2671,10 @@
   </file>
   <file path="services/reservations/src/routes/venues.ts">
     <item priority="high">
-      export const venueRoutes: FastifyPluginAsync;
+      export const VENUE_CREATE_RATE_LIMIT: unknown;
+    </item>
+    <item priority="medium">
+      function isWriteConflict(error: unknown): boolean { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/waitlist.ts">
@@ -3648,6 +3658,9 @@
   <file path="services/reservations/src/services/venue-membership.ts">
     <item priority="high">
       export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
@@ -6111,6 +6124,21 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="support">
+  <file path="apps/rialto-web/e2e/support/edge-csp.ts">
+    <item priority="low">
+      type CspViolation = {
+        effectiveDirective: string;
+        blockedURI: string;
+        s...;
+    </item>
+    <item priority="low">
+      type ApplyEdgeCspOptions = {
+        /**
+         * Transform applied to the served HTML *before...;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="telemetry">
   <file path="apps/rialto-web/src/pages/telemetry/useTelemetryFeed.ts">
     <item priority="low">
@@ -6156,6 +6184,21 @@
       interface ReservationLayoutResult {
         left: number;
         width: number;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/timeline/useGridFocus.ts">
+    <item priority="low">
+      interface GridCoordinate {
+        row: number;
+        col: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseGridFocusParams {
+        rowCount: number;
+        colCount: number;
+        initial?: GridCoordinate;
       }
     </item>
   </file>
@@ -6396,6 +6439,13 @@
         operatingHours: OperatingHours;
         settings: SettingsData;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="visual">
+  <file path="packages/rialto/src/test/visual/story-url.ts">
+    <item priority="high">
+      export function buildStoryUrl(storyId: string): string { /* ... */ }
     </item>
   </file>
   </section>

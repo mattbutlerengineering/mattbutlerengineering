@@ -27,10 +27,10 @@ The platform uses a **three-tier deployment strategy**:
 
 **2. API Services + Database Migration → DigitalOcean App Platform**
 
-- Services: `services/users-api`, `services/reservations-api`, `services/agent-api`, `infrastructure/migrate` (db-migrate)
+- Services: `services/users`, `services/reservations`, `services/agent`, `infrastructure/migrate` (db-migrate)
 - Deployment: Single atomic unit via `doctl apps create-deployment $DO_APP_ID --wait`
 - Mechanism: DO App Platform (containerized microservices, one app resource per environment)
-- Configuration: `app.yaml` defines all services and their build/runtime config
+- Configuration: The DO App spec is defined by Pulumi's `digitalocean.App` resource in `infrastructure/pulumi/index.ts`; there is no checked-in `app.yaml` file — `deploy-services.yml` fetches the live spec at deploy time via `doctl apps spec get`, patches deploy metadata into it, and applies it via `doctl apps update`
 - Database: Migrations run as a separate `db-migrate` service in the same App Platform app
 
 **3. Infrastructure & Secrets → Pulumi**
@@ -72,11 +72,11 @@ Manual local deploys (documented in [CLAUDE.md](../../CLAUDE.md#manual-deploymen
 
 1. A `doctl apps create-deployment` call triggers DO to deploy the app **and** generate a "spec updated" event.
 2. The "spec updated" event spawns a paired DO deployment that **gets canceled** by the doctl response (both are the same deployment).
-3. If Pulumi detects spec drift from doctl (e.g., a secret was added via `doctl` but not in `pulumi/stack.yaml`), `pulumi up` can hang waiting for the in-progress DO deployment to complete.
+3. If Pulumi detects spec drift from doctl (e.g., a secret was added via `doctl` but not reflected in `infrastructure/pulumi/Pulumi.yaml`/`infrastructure/pulumi/Pulumi.prod.yaml`), `pulumi up` can hang waiting for the in-progress DO deployment to complete.
 
 **Mitigation**:
 
-- Keep `infrastructure/pulumi/stack.prod.yaml` and the app spec in `app.yaml` in sync.
+- Keep `infrastructure/pulumi/Pulumi.prod.yaml` and the live DO App spec (defined in `infrastructure/pulumi/index.ts`, fetched via `doctl apps spec get`) in sync.
 - Run Pulumi **after** service deployments complete (workflow sequencing).
 - Use GitHub Actions job dependencies to enforce serialization: `deploy-services` then `pulumi-up`.
 - Document the hazard in `.claude/rules/gotchas.md` so future operators understand the constraint.

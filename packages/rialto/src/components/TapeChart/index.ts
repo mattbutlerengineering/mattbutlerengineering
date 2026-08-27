@@ -8,6 +8,7 @@ export type {
   TapeChartRoomStatus,
   TapeChartDensity,
   TapeChartViewMode,
+  TapeChartOverlapKind,
   TapeChartStrings,
   TapeChartFormattedParts,
   TapeChartMovePayload,

@@ -82,6 +82,30 @@ Summary: "N skipped after max retries"
 
 **Append only.**
 
+## Persist
+
+The append above is worthless until it is committed — cloud routines run in
+ephemeral checkouts, so an uncommitted `log.md` dies with the checkout:
+
+```bash
+node scripts/persist-metrics.mjs --routine progress-tracker
+```
+
+It stages every **durable** path with a diff (never `git add -A`), commits on
+a branch, and opens a PR titled `chore(metrics): progress-tracker <YYYY-MM-DD>`
+labeled `has-pr` — metrics-only diffs auto-merge via the low-risk fast path.
+No diff, no commit, exit 0. `.claude/improvement-loop/log.md` is already
+declared `durable: true` in `scripts/metrics-store.mjs`, so it is covered
+without enumerating anything by hand.
+
+Run this even when the day's findings are unremarkable. This step is why
+#4378 happened: until it existed, this skill only ever appended, and its
+entries reached `main` solely because `/optimize-implement-queue` ran later in
+the same checkout and swept `log.md` up in _its_ persist. When that routine
+stopped producing PRs on 2026-08-16, `log.md` froze on the same date — nine
+days with no entry, while the queue kept merging PRs daily. A step that
+depends on a different skill happening to run afterwards is not a step.
+
 ## Improvement Issues
 
 Pattern 3+ days consistent?
@@ -171,5 +195,6 @@ git log --oneline --grep="Revert" --since="7 days ago" | wc -l
 - Max 2 meta/run
 - Max 2 retry/run
 - Append-only log
+- Persist before finishing: `node scripts/persist-metrics.mjs --routine progress-tracker` (an uncommitted append is lost with the checkout)
 - Per-issue attribution: `.claude/agent-spend/sessions.jsonl` (single spend sink owned by agent-core's recordSpend seam; ccusage = ground-truth totals)
 - Circuit: 50% over 3+ days

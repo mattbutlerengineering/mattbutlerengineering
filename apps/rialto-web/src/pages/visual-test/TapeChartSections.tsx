@@ -6,7 +6,18 @@ import {
   tapeChartStressReservations,
   tapeChartStressRooms,
 } from "./fixtures";
+import { classifyDormAsShared, makeOverlapScenario } from "../../data/tapechart-fixtures";
 import styles from "./VisualTest.module.css";
+
+// Date-pinned and deterministic; the classifier is module-level so its reference is stable.
+const OVERLAP = makeOverlapScenario();
+const CLASSIFY_OVERLAP = classifyDormAsShared(OVERLAP.rooms);
+
+// Pinned so day-header text (weekday/date) renders identically regardless of
+// the host machine's timezone — without this, TapeChart falls back to the
+// system default timezone, and a baseline captured on a non-UTC machine
+// (e.g. local macOS) silently renders a different date than Linux CI (#4450).
+const CHART_TIME_ZONE = "UTC";
 
 /**
  * TapeChart and MasterOverride sections of the Visual Test Harness.
@@ -25,6 +36,7 @@ export function TapeChartSections() {
             currency="USD"
             density="comfortable"
             viewMode="grid"
+            timeZone={CHART_TIME_ZONE}
             onReservationClick={() => {}}
           />
         </div>
@@ -41,6 +53,25 @@ export function TapeChartSections() {
             currency="USD"
             density="comfortable"
             viewMode="grid"
+            timeZone={CHART_TIME_ZONE}
+            onReservationClick={() => {}}
+          />
+        </div>
+      </Section>
+
+      {/* ── TapeChart — Overlaps (dorm classifier: conflict + shared + 3-deep) ── */}
+      <Section id="tape-chart-overlaps" title="TapeChart — Overlaps">
+        <div className={styles.card}>
+          <TapeChart
+            startDate="2026-03-02"
+            endDate="2026-03-09"
+            rooms={OVERLAP.rooms}
+            reservations={OVERLAP.reservations}
+            classifyOverlap={CLASSIFY_OVERLAP}
+            currency="USD"
+            density="comfortable"
+            viewMode="grid"
+            timeZone={CHART_TIME_ZONE}
             onReservationClick={() => {}}
           />
         </div>

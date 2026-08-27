@@ -32,7 +32,7 @@
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.21.0",
+    "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "catalog:",
     "prisma": "^7.9.1",
     "typescript": "catalog:",

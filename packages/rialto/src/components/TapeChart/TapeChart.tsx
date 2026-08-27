@@ -45,6 +45,7 @@ export const TapeChart = forwardRef(function TapeChart(
     defaultViewMode = "grid",
     onViewModeChange,
     onReservationClick,
+    classifyOverlap,
     selectedReservationId,
     loading,
     error,
@@ -68,7 +69,7 @@ export const TapeChart = forwardRef(function TapeChart(
   const device = useDeviceContext();
   const formatters = useTapeChartI18n(locale, timeZone, currency);
   const resolved = useMemo(() => mergeStrings(strings), [strings]);
-  const layout = useTapeChartLayout(reservations, rooms, startDate, endDate);
+  const layout = useTapeChartLayout(reservations, rooms, startDate, endDate, classifyOverlap);
   const todayISO = formatters.todayISO();
 
   const [internalViewMode, setInternalViewMode] = useState<TapeChartViewMode>(defaultViewMode);

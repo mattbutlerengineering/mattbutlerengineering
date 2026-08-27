@@ -340,7 +340,16 @@ describe("ReservationsListExamplePage — composition", () => {
     expect(new Set(visibleRowIds())).toEqual(new Set(expected));
   });
 
-  it("clicking a sortable column header reorders the rows", () => {
+  // Sort + re-render of the full page is the most expensive interaction in this
+  // file (locally ~4-7x its sibling composition tests) — under CI's cold,
+  // fully-parallel load that's enough to occasionally trip vitest's 5000ms
+  // default (see .claude/rules/gotchas.md § CI, the buildApp() cold-start
+  // pattern). The click handler chain here is entirely synchronous (mock
+  // DataTable calls onSortChange synchronously, handleSort's setSort/setPage
+  // flush within fireEvent's act()), so there's no pending async work for a
+  // waitFor/findBy* query to await — a longer per-test timeout is the correct
+  // fix, not a race to poll for.
+  it("clicking a sortable column header reorders the rows", { timeout: 15000 }, () => {
     renderPage();
     const before = visibleRowIds();
     fireEvent.click(screen.getByRole("button", { name: "Nights" }));

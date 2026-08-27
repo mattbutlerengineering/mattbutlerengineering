@@ -72,6 +72,7 @@ const configEntries: Record<string, string> = {
   aiGatewayApiKey: "gw-key-123",
   remediationWebhookSecret: "webhook-secret-123",
   e2eUserPassword: "test-password-123",
+  e2eNonAdminUserPassword: "test-nonadmin-password-123",
   manageTokenSecret: "manage-secret-test-value",
   unsubscribeTokenSecret: "unsubscribe-secret-test-value",
 };
@@ -660,6 +661,47 @@ describe("Configuration Validation", () => {
       const grantTypes = client!.inputs.grantTypes as string[];
       expect(grantTypes).toContain("authorization_code");
       expect(grantTypes).toContain("refresh_token");
+    });
+
+    it("provisions a non-admin journey identity separate from the admin E2E user", () => {
+      // The bootstrap journey case (ADR-020's third case) needs an identity
+      // that is NOT an admin: requireVenueCreateAccess skips the membership
+      // lookup entirely for admins, so reusing the admin E2E user would make
+      // the case pass while exercising none of the behaviour it exists for.
+      const users = findResources("auth0:index/user:User");
+      const emails = users.map((u) => u.inputs.email as string);
+      expect(emails).toContain("e2e-test@mattbutlerengineering.com");
+      expect(emails).toContain("e2e-nonadmin@mattbutlerengineering.com");
+    });
+
+    it("the non-admin journey identity is verified and on the database connection", () => {
+      const nonAdmin = findResource(
+        "auth0:index/user:User",
+        (name) => name === "e2e-nonadmin-user"
+      );
+      expect(nonAdmin).toBeDefined();
+      expect(nonAdmin!.inputs.connectionName).toBe("Username-Password-Authentication");
+      // ROPC against an unverified user fails on tenants requiring verification.
+      expect(nonAdmin!.inputs.emailVerified).toBe(true);
+    });
+
+    it("this program grants no Auth0 role or permission to any user", () => {
+      // Both journey identities are non-admin by construction: the admin
+      // grant lives outside this program (assigned by hand, 2026-08-13), so a
+      // grant appearing here is the one way the non-admin identity could
+      // silently gain `admin` and hollow out the bootstrap case. Permissions
+      // are listed alongside roles because `hasPermission` reads the JWT
+      // `permissions` claim, which a direct UserPermission grant also fills —
+      // guarding roles alone would leave the shorter path open. Tokens
+      // verified against @pulumi/auth0 3.50.1.
+      for (const token of [
+        "auth0:index/userRoles:UserRoles",
+        "auth0:index/userRole:UserRole",
+        "auth0:index/userPermissions:UserPermissions",
+        "auth0:index/userPermission:UserPermission",
+      ]) {
+        expect(findResources(token)).toHaveLength(0);
+      }
     });
 
     it("client grant provides openid, profile, and email scopes", () => {
