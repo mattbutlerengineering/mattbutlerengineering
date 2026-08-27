@@ -525,7 +525,7 @@ them, which item 2.3b does offline.
     `defect.md` § Why architect records that this measurement cannot be taken
     on macOS, which is the whole reason the instrument exists.
 
-- [ ] **2.3b Re-analyse run 33107801311's artifacts offline through the
+- [x] **2.3b Re-analyse run 33107801311's artifacts offline through the
       corrected modules** — **NEW in pass 3.** The item that converts a
       re-opened milestone 1 into a new answer **without a second CI run**.
       Architect re-evaluated the corrected rule offline to verify it works;
@@ -1210,3 +1210,671 @@ the re-cut, none of them design decisions.**
 from `max(noiseHeadroom x N, 1)` to `noiseHeadroom x Ntilde(t)`. `H_ratio`,
 both branches, the 0.3-decade boundary and the fixed `maxDiffPixels` form are
 untouched, and their tests went green without edit.
+
+**2026-08-27 (Implement, item 2.3b) — the corrected rule, run for real over run
+33107801311's own artifacts. No second CI run.**
+
+Criterion 1 first, because it is the point of the item.
+`gh run list --workflow visual-noise-floor.yml --limit 20` returns **exactly one
+row** — `33107801311`, `success`, ref `measure/visual-noise-floor-1`, event
+`push`, `4m32s`, `2026-08-27T19:18:25Z`. No `gh workflow run` was issued, no
+`measure/**` ref was pushed, and `git ls-remote origin 'refs/heads/measure/*'`
+still returns the single pre-existing `defe2c62 refs/heads/measure/visual-noise-floor-1`
+(item **3.5**'s to delete). The re-analysis is arithmetic over artifacts already
+on disk.
+
+**Criterion 2 — the analyzer ran over the three CI artifacts plus a pristine
+baseline directory.**
+
+```
+node scripts/visual-noise-floor.mjs \
+  --replica-a <scratch>/replica-a --replica-b <scratch>/replica-b \
+  --perturbed <scratch>/perturbed --committed apps/rialto-web/e2e/screenshots \
+  --out <scratch>/measurement-2.3b.json          # 48.6s wall
+```
+
+`git status --porcelain apps/rialto-web/e2e/screenshots` was empty before and
+after — the committed leg is the pristine 49 baselines. Output: **1,568 rows**,
+`{"run":392,"drift":392,"signal":392,"reproduction":392}`, 49 snapshots x 8
+thresholds x 4 pairings.
+
+**Criterion 3 — the 1,176 `run`/`drift`/`signal` rows are identical to the CI
+run's own `measurement.json`.** Joined on `(snapshot, pairing, threshold)` and
+compared on `count`, `ratio`, `width`, `height`, `area`: 1,176 rows on each
+side, **0 differences**, no key present on one side only. The re-analysis
+measured the same population; the `reproduction` pairing is the only thing
+added.
+
+**Criterion 4 — provenance.** The CI measurement's tuple is
+`{"imageOs":"ubuntu24","imageVersion":"20260823.283.1","playwrightVersion":"1.62.1","chromiumBuild":"chromium-1234 (151.0.7922.34)"}`
+and the re-analysis emits that tuple **unchanged**, plus `"defectAmplitude":36`.
+
+**Criterion 5 — the corrected rule's output, verbatim.** Produced by
+`node scripts/visual-tolerance-rule.mjs < measurement-2.3b.json`, exit 0. This
+is the authoritative Recommendation for the run; it supersedes the
+pre-revision-3 `{threshold: 0.2, maxDiffPixels: 0}` recorded above.
+
+```json
+{
+  "verdict": "ok",
+  "threshold": 0,
+  "maxDiffPixels": 674,
+  "evidence": {
+    "opts": {
+      "separationFactor": 10,
+      "noiseHeadroom": 2,
+      "signalMargin": 2,
+      "defectAmplitude": 36,
+      "driftPercentile": 90,
+      "formReviewDecades": 0.3,
+      "excludedFromSignal": []
+    },
+    "excluded": [],
+    "signalSet": [
+      "dark-dark-alerts.png",
+      "dark-dark-avatar.png",
+      "dark-dark-badges.png",
+      "dark-dark-banner.png",
+      "dark-dark-buttons.png",
+      "dark-dark-cards.png",
+      "dark-dark-inputs.png",
+      "dark-dark-tape-chart.png",
+      "dark-dark-toggles.png",
+      "light-accordion-default.png",
+      "light-alert-variants.png",
+      "light-avatar-variants.png",
+      "light-avatargroup-default.png",
+      "light-badge-variants.png",
+      "light-banner-variants.png",
+      "light-breadcrumb-default.png",
+      "light-button-sizes.png",
+      "light-button-variants.png",
+      "light-card-variants.png",
+      "light-checkbox-states.png",
+      "light-datalist-default.png",
+      "light-dialog-open.png",
+      "light-drawer-open.png",
+      "light-emptystate-default.png",
+      "light-input-states.png",
+      "light-master-override-requireHold-splitflap.png",
+      "light-master-override-variants.png",
+      "light-meter-variants.png",
+      "light-numberinput-states.png",
+      "light-pagination-default.png",
+      "light-progress-states.png",
+      "light-segmentedcontrol-default.png",
+      "light-select-states.png",
+      "light-skeleton-variants.png",
+      "light-slider-states.png",
+      "light-stat-variants.png",
+      "light-steps-default.png",
+      "light-table-default.png",
+      "light-table-empty.png",
+      "light-tabs-default.png",
+      "light-tag-variants.png",
+      "light-tape-chart-default.png",
+      "light-tape-chart-overlaps.png",
+      "light-tape-chart-stress.png",
+      "light-textarea-states.png",
+      "light-toggle-states.png",
+      "light-tooltip-default.png",
+      "telemetry-default.png",
+      "telemetry-game.png"
+    ],
+    "thresholds": [0, 0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2],
+    "observed": {
+      "dark-dark-alerts.png": {
+        "signalAtZero": 371245,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-avatar.png": {
+        "signalAtZero": 133004,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-badges.png": {
+        "signalAtZero": 113509,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-banner.png": {
+        "signalAtZero": 220304,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-buttons.png": {
+        "signalAtZero": 130341,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-cards.png": {
+        "signalAtZero": 220433,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-inputs.png": {
+        "signalAtZero": 262810,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-tape-chart.png": {
+        "signalAtZero": 741420,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "dark-dark-toggles.png": {
+        "signalAtZero": 131506,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-accordion-default.png": {
+        "signalAtZero": 310280,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-alert-variants.png": {
+        "signalAtZero": 384806,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-avatar-variants.png": {
+        "signalAtZero": 172387,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-avatargroup-default.png": {
+        "signalAtZero": 137585,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-badge-variants.png": {
+        "signalAtZero": 117967,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-banner-variants.png": {
+        "signalAtZero": 383727,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-breadcrumb-default.png": {
+        "signalAtZero": 122887,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-button-sizes.png": {
+        "signalAtZero": 149077,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-button-variants.png": {
+        "signalAtZero": 136528,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-card-variants.png": {
+        "signalAtZero": 260353,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-checkbox-states.png": {
+        "signalAtZero": 138352,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-datalist-default.png": {
+        "signalAtZero": 275084,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-dialog-open.png": {
+        "signalAtZero": 276037,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-drawer-open.png": {
+        "signalAtZero": 277021,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-emptystate-default.png": {
+        "signalAtZero": 315665,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-input-states.png": {
+        "signalAtZero": 596437,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-master-override-requireHold-splitflap.png": {
+        "signalAtZero": 434428,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-master-override-variants.png": {
+        "signalAtZero": 880263,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-meter-variants.png": {
+        "signalAtZero": 302011,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-numberinput-states.png": {
+        "signalAtZero": 273177,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-pagination-default.png": {
+        "signalAtZero": 134013,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-progress-states.png": {
+        "signalAtZero": 128533,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-segmentedcontrol-default.png": {
+        "signalAtZero": 150458,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-select-states.png": {
+        "signalAtZero": 263742,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-skeleton-variants.png": {
+        "signalAtZero": 248461,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-slider-states.png": {
+        "signalAtZero": 191981,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-stat-variants.png": {
+        "signalAtZero": 233959,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-steps-default.png": {
+        "signalAtZero": 185533,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-table-default.png": {
+        "signalAtZero": 308965,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-table-empty.png": {
+        "signalAtZero": 248441,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-tabs-default.png": {
+        "signalAtZero": 229373,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-tag-variants.png": {
+        "signalAtZero": 125440,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-tape-chart-default.png": {
+        "signalAtZero": 771525,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-tape-chart-overlaps.png": {
+        "signalAtZero": 806454,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-tape-chart-stress.png": {
+        "signalAtZero": 824532,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-textarea-states.png": {
+        "signalAtZero": 951157,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-toggle-states.png": {
+        "signalAtZero": 122472,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "light-tooltip-default.png": {
+        "signalAtZero": 136698,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      },
+      "telemetry-default.png": {
+        "signalAtZero": 733261,
+        "runAtZero": 4,
+        "required": 40,
+        "observed": true
+      },
+      "telemetry-game.png": {
+        "signalAtZero": 654292,
+        "runAtZero": 0,
+        "required": 10,
+        "observed": true
+      }
+    },
+    "unobserved": [],
+    "perThreshold": [
+      {
+        "threshold": 0,
+        "N_run": 4,
+        "N": 4,
+        "Ntilde": 4,
+        "S": 113509,
+        "R": 113840,
+        "separationState": "separated",
+        "separation": 28377.25,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": 56754
+        },
+        "feasible": true,
+        "infeasibleReason": null,
+        "eligible": true
+      },
+      {
+        "threshold": 0.005,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 113463,
+        "R": 113840,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": 56731
+        },
+        "feasible": true,
+        "infeasibleReason": null,
+        "eligible": true
+      },
+      {
+        "threshold": 0.01,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 113414,
+        "R": 113840,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": 56707
+        },
+        "feasible": true,
+        "infeasibleReason": null,
+        "eligible": true
+      },
+      {
+        "threshold": 0.02,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 49316,
+        "R": 113840,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": 24658
+        },
+        "feasible": true,
+        "infeasibleReason": null,
+        "eligible": true
+      },
+      {
+        "threshold": 0.05,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 44289,
+        "R": 79091,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": 22144
+        },
+        "feasible": true,
+        "infeasibleReason": null,
+        "eligible": true
+      },
+      {
+        "threshold": 0.1,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 40865,
+        "R": 46900,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": 20432
+        },
+        "feasible": true,
+        "infeasibleReason": null,
+        "eligible": true
+      },
+      {
+        "threshold": 0.15,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 39310,
+        "R": 0,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": -1
+        },
+        "feasible": false,
+        "infeasibleReason": "blind-to-defect",
+        "eligible": false
+      },
+      {
+        "threshold": 0.2,
+        "N_run": 0,
+        "N": 0,
+        "Ntilde": 4,
+        "S": 17967,
+        "R": 0,
+        "separationState": "unbounded",
+        "separation": null,
+        "budgetInterval": {
+          "lower": 8,
+          "upper": -1
+        },
+        "feasible": false,
+        "infeasibleReason": "blind-to-defect",
+        "eligible": false
+      }
+    ],
+    "N0": 4,
+    "N_run": 4,
+    "N": 4,
+    "Ntilde": 4,
+    "S": 113509,
+    "R": 113840,
+    "separationState": "separated",
+    "separation": 28377.25,
+    "budgetInterval": {
+      "lower": 8,
+      "upper": 56754
+    },
+    "geometricMean": 674,
+    "defectMargin": 113166,
+    "driftP90": 7,
+    "driftOutliers": [
+      "dark-dark-banner.png",
+      "dark-dark-cards.png",
+      "light-button-variants.png",
+      "light-master-override-variants.png"
+    ],
+    "driftAboveBudget": [
+      {
+        "snapshot": "light-button-variants.png",
+        "count": 124577
+      },
+      {
+        "snapshot": "light-master-override-variants.png",
+        "count": 42005
+      },
+      {
+        "snapshot": "dark-dark-banner.png",
+        "count": 24486
+      },
+      {
+        "snapshot": "dark-dark-cards.png",
+        "count": 9583
+      }
+    ],
+    "driftReview": "regeneration-required",
+    "Sr": 0.8405872803666922,
+    "Nr_run": 0.000004895050125313283,
+    "Nr": 0.000004895050125313283,
+    "maxArea": 1047200,
+    "H_abs": 3.850910314955832,
+    "H_ratio": 4.632765679378586,
+    "formReview": "ratio-has-more-headroom"
+  }
+}
+```
+
+**It matches Architect's offline re-evaluation on every figure quoted above** —
+`verdict "ok"`, `threshold 0`, `maxDiffPixels 674`, `N0 = 4`,
+`defectMargin = 113166`, `driftP90 = 7`, the same four `driftAboveBudget`
+snapshots at 124,577 / 42,005 / 24,486 / 9,583, and `R = 0` at `t = 0.15` and
+`t = 0.2`. The pair was never written into the code, asserted in a test, or
+tuned toward: item 1.4's tests pin `maxDiffPixels` as `round(sqrt(Ntilde x S))`
+and explicitly `not.toBe(0)`, never `674`. Two independent derivations of the
+same rule agreeing on the same rows is the strongest evidence this run can
+produce short of milestone 3.
+
+**Criterion 6 — every rejected sweep point carries a reason, and clause 0 is
+unchanged.** `unobserved: []`; `observed` names all **49** snapshots with
+`observed: true`, the same result the run's own analysis reported, because
+clause 0 did not change in revision 3. The thinnest margin over clause 0's bar
+is 113,499 px (`signalAtZero - required`), so nothing is near it. Of the eight
+sweep points, **two are rejected** — `t = 0.15` and `t = 0.2`, both
+`eligible: false`, `feasible: false`, `infeasibleReason: "blind-to-defect"`,
+`budgetInterval {lower: 8, upper: -1}`, because `R = 0`: a 36/255 uniform shift
+survives no pixel at those thresholds, so no emittable budget could fail on it.
+The other six are `eligible: true` and are not rejected at all — they lose to
+clause 1's **smallest**-eligible selection, which the ordered `perThreshold`
+array shows directly.
+
+**Three readings worth carrying into 2.4/2.5:**
+
+1. **These are exactly the two points revision 2's `largest` would have
+   taken.** `t = 0.2` is today's Playwright default and was the pre-revision-3
+   emission. The corrected rule rejects it on a measurement — not on an
+   argument — and the measurement is that the defect is invisible there.
+2. **Clause 4 fires: `formReview: "ratio-has-more-headroom"`.**
+   `H_ratio - H_abs = 4.6328 - 3.8509 = 0.782` decades, past the 0.3 boundary.
+   Per architecture.md § clause 4 this **changes nothing that is emitted** —
+   the form is `maxDiffPixels`, one key, and `maxDiffPixelRatio` is absent from
+   the output — but it is a trigger to re-open the form question with a number
+   attached, and it is 2.5's to read. The gap is driven by `Nr` resting near
+   the `1 / maxArea` quantum (`Nr = 4.895e-6` against `1/1047200 = 9.55e-7`),
+   which `evidence.Nr` and `evidence.maxArea` are reported for.
+3. **`driftReview: "regeneration-required"`.** Four baselines drift above the
+   emitted budget of 674 — `light-button-variants.png` at 124,577 chief among
+   them. Recorded, not routed: item **2.4** triages it and item **3.3** is the
+   regeneration.
+
+**Reproducing `defect.md` § A at the emitted pair.** The same comparator
+(`utils.getComparator("image/png")` out of the installed
+`playwright-core/lib/coreBundle.js`), the same subject
+(`light-button-variants.png`, 1232 x 113 = 139,216 px), the same uniform
+brightening shifts, read once under today's live config and once under
+`{threshold: 0, maxDiffPixels: 674}`:
+
+| uniform delta | live {t:0.2, max:300} | count | emitted {t:0, max:674} |  count |
+| ------------: | :-------------------- | ----: | :--------------------- | -----: |
+|         1/255 | PASS                  |     0 | FAIL                   | 130114 |
+|        20/255 | PASS                  |     0 | FAIL                   | 130114 |
+|        36/255 | PASS                  |     0 | FAIL                   | 130114 |
+|        52/255 | PASS                  |     0 | FAIL                   | 130114 |
+|        53/255 | FAIL                  | 88321 | FAIL                   | 130114 |
+
+**Every row FAILs at the emitted pair**, including the 36/255 shift that
+`defect.md` § D records as the largest per-channel delta a prior run actually
+produced. The `count` column is the filtered pixel count at that threshold —
+130,114 at `t = 0` regardless of amplitude, against a budget of 674, a margin
+of 193x. Under the live config the first four rows are the defect: a
+whole-image change the suite calls "no difference". The `t = 0.2` column
+reproduces `defect.md` § A row for row (0 / 0 / 0 / 0 / 88,321), which is the
+check that this is the same measurement and not a new one.
+
+**Artifacts on disk** (session scratchpad, not committed):
+`measurement-2.3b.json`, `recommendation-2.3b.json`, `reproduce-defect-a.mjs`,
+alongside the CI-downloaded `measurement.json` and the three artifact
+directories.
