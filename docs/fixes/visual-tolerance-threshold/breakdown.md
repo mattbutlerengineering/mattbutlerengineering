@@ -309,7 +309,7 @@ verdict and evidence are quoted into this file — numbers that did not exist
 anywhere before this milestone, taken on the machine class the production job
 actually runs on.
 
-- [ ] **2.1 `apps/rialto-web/playwright.noise-floor.config.ts` +
+- [x] **2.1 `apps/rialto-web/playwright.noise-floor.config.ts` +
       `apps/rialto-web/e2e/noise-floor-perturbation.css` +
       `apps/rialto-web/e2e/noise-floor-coverage.test.ts`** — component (3),
       the known-regression signal **and its coverage of the snapshot set**.
