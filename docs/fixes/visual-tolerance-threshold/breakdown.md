@@ -174,7 +174,7 @@ still nothing known about this suite's real noise.
   - Blocked by: 1.1 (satisfied)
   - Verification: **local**
 
-- [ ] **1.3 `scripts/visual-noise-floor.mjs` — `measure()`** — component (4).
+- [x] **1.3 `scripts/visual-noise-floor.mjs` — `measure()`** — component (4).
       The only place outside Playwright that invokes the comparator: it calls
       `utils.getComparator("image/png")` from the installed
       `playwright-core@1.62.1` with `{ threshold: t, maxDiffPixels: 0 }` and
