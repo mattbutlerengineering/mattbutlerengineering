@@ -181,6 +181,30 @@ describe("createJourneyRecorder page-error capture", () => {
   });
 });
 
+describe("createJourneyRecorder.skip", () => {
+  it("records the step as skipped, not passed or failed", async () => {
+    const { page } = createFakePage(noAlert);
+    const journey = createJourneyRecorder(page, "synthetic-journey-1");
+
+    journey.skip("A non-admin identity can bootstrap its first venue");
+
+    expect(journey.report().steps[0]).toMatchObject({
+      name: "A non-admin identity can bootstrap its first venue",
+      status: "skipped",
+      durationMs: 0,
+    });
+  });
+
+  it("does not count as a failure — assertGreen still passes the journey", async () => {
+    const { page } = createFakePage(noAlert);
+    const journey = createJourneyRecorder(page, "synthetic-journey-1");
+
+    journey.skip("Some optional step");
+
+    expect(() => journey.assertGreen()).not.toThrow();
+  });
+});
+
 // The double must not be stricter than real Playwright: `.count()` is exempt
 // from strict mode at any cardinality, while single-element methods like
 // `.innerText()` still throw on ambiguity. See #3575.
