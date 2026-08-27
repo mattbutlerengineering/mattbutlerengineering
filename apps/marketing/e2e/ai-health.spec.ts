@@ -27,6 +27,19 @@ async function mockSensorReport(page: Page, fixtureName: string, generatedAt: st
   );
 }
 
+/**
+ * Scopes a stat-value assertion to the Card containing `label`, instead of a
+ * page-wide `getByText`. The header's "As of {date}" meta line renders the
+ * current day-of-month as plain text, so a bare `page.getByText("<n>")` for
+ * any stat value between 1 and 31 collides with that line's digits whenever
+ * today's day-of-month happens to match (#4586). Each stat Card renders its
+ * label and value as sibling Text nodes with no wrapper, so the label's
+ * immediate parent element *is* the card.
+ */
+function statCard(page: Page, label: string) {
+  return page.getByText(label, { exact: true }).locator("..");
+}
+
 test.describe("AI Health page", () => {
   test("renders Key Metrics, Sensor Status, and Queue Efficiency from a fresh report", async ({
     page,
@@ -36,21 +49,22 @@ test.describe("AI Health page", () => {
 
     await expect(page.getByRole("heading", { name: "AI Health Dashboard" })).toBeVisible();
 
-    // Key Metrics
+    // Key Metrics — each assertion is scoped to its stat card so it can
+    // never collide with the "As of {date}" meta line's day-of-month digits.
     await expect(page.getByRole("heading", { name: "Key Metrics" })).toBeVisible();
-    await expect(page.getByText("CI Pass Rate")).toBeVisible();
-    await expect(page.getByText("72%")).toBeVisible();
-    await expect(page.getByText("PRs Merged (30d)")).toBeVisible();
-    await expect(page.getByText("65")).toBeVisible();
-    await expect(page.getByText("Issues Ready")).toBeVisible();
-    await expect(page.getByText("27")).toBeVisible();
+    await expect(statCard(page, "CI Pass Rate").getByText("72%", { exact: true })).toBeVisible();
+    await expect(statCard(page, "PRs Merged (30d)").getByText("65", { exact: true })).toBeVisible();
+    await expect(statCard(page, "Issues Ready").getByText("27", { exact: true })).toBeVisible();
 
     // Queue Efficiency
     await expect(page.getByRole("heading", { name: "Queue Efficiency" })).toBeVisible();
-    await expect(page.getByText("Composite Score")).toBeVisible();
-    await expect(page.getByText("0.95")).toBeVisible();
-    await expect(page.getByText("87.5%")).toBeVisible();
-    await expect(page.getByText("$1.20")).toBeVisible();
+    await expect(
+      statCard(page, "Composite Score").getByText("0.95", { exact: true })
+    ).toBeVisible();
+    await expect(
+      statCard(page, "First-Pass Success").getByText("87.5%", { exact: true })
+    ).toBeVisible();
+    await expect(statCard(page, "Cost / Issue").getByText("$1.20", { exact: true })).toBeVisible();
 
     // Sensor Status
     await expect(page.getByRole("heading", { name: "Sensor Status" })).toBeVisible();
