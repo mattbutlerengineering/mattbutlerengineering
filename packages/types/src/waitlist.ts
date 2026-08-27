@@ -14,7 +14,7 @@ export interface WaitlistJoinResult {
 
 export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
 
-/** Full waitlist entry shape returned by the authenticated `/api/v1/waitlist` routes. */
+/** Full waitlist entry shape returned by the authenticated staff-facing waitlist routes. */
 export interface WaitlistEntry {
   id: string;
   venueId: string;

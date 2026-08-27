@@ -8,7 +8,7 @@ const WAITLIST_BASE_PATH = "/api/v1/waitlist";
 const waitlistListSchema = z.array(WaitlistEntrySchema);
 
 /**
- * Authenticated staff-facing client for `/api/v1/waitlist` — walk-in queue
+ * Authenticated staff-facing client for the waitlist routes — walk-in queue
  * management (add, list, seat, cancel, notify, expire).
  */
 export class WaitlistClient {
