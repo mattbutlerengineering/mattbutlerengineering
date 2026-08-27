@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-27T04:40:22.043Z",
+  "generated_at": "2026-08-27T18:11:09.723Z",
   "period": {
     "start": "2026-08-20",
     "end": "2026-08-27"
@@ -39,21 +39,21 @@
     "prCategoryMetrics": {
       "available": true,
       "total_prs": 97,
-      "total_merged": 95,
-      "total_closed_without_merge": 2,
+      "total_merged": 96,
+      "total_closed_without_merge": 1,
       "by_category": {
         "tier:trivial": {
-          "merged": 43,
+          "merged": 44,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 9,
+          "merged": 10,
           "closed_without_merge": 1,
-          "acceptance_rate": 0.9
+          "acceptance_rate": 0.91
         },
         "tier:standard": {
-          "merged": 28,
+          "merged": 27,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -69,8 +69,8 @@
         },
         "unlabeled": {
           "merged": 1,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.5
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         }
       }
     },
@@ -82,42 +82,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 46923113,
-      "output_tokens": 63464,
-      "cache_creation_tokens": 1305279,
-      "cache_hit_rate": 0.9729,
+      "cache_read_tokens": 851807,
+      "output_tokens": 1864,
+      "cache_creation_tokens": 109713,
+      "cache_hit_rate": 0.8859,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 474,
-          "output_tokens": 61892,
-          "cache_read_tokens": 45562573,
-          "cache_creation_tokens": 1250535
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 234,
-          "output_tokens": 1572,
-          "cache_read_tokens": 1360540,
-          "cache_creation_tokens": 54744
+          "input_tokens": 18,
+          "output_tokens": 1864,
+          "cache_read_tokens": 851807,
+          "cache_creation_tokens": 109713
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 20,
+      "completed": 30,
+      "passed": 24,
       "failed": 0,
-      "pass_rate_pct": 69,
+      "pass_rate_pct": 80,
       "most_recent": {
-        "databaseId": 33040083610,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-08-27T04:39:45Z",
-        "name": "Push on main",
+        "databaseId": 32397108091,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-08-20T17:21:01Z",
+        "name": "Merge Queue",
         "headBranch": "main",
-        "headSha": "381969086ad713aeedb49e09e198ce9da5f402fc"
+        "headSha": "cc8d2d082b919c96aca976256c4c3ffab442d769"
       }
     },
     "lighthouse": {
@@ -126,9 +119,9 @@
     "issues": {
       "available": true,
       "created_7d": 50,
-      "closed_7d": 37,
-      "closure_rate": 74,
-      "queue_depth": 2,
+      "closed_7d": 28,
+      "closure_rate": 56,
+      "queue_depth": 12,
       "agent_failed": 0
     },
     "issueFeedback": {
@@ -139,17 +132,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 2,
-      "logs_7d": 2,
-      "total_commits_7d": 12,
-      "unique_branches_7d": 1,
-      "branches_7d": ["metrics/progress-tracker-2026-08-27"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0,
-      "total_lines_added_7d": 515670,
-      "lines_churned_7d": 174,
+      "total_lines_added_7d": 515888,
+      "lines_churned_7d": 248,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -163,41 +156,36 @@
     "e2eStability": {
       "available": true,
       "consecutive_failures": 0,
-      "total_runs": 29,
-      "total_non_frontend_runs": 23,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (23 runs checked)"
+      "total_runs": 27,
+      "total_non_frontend_runs": 27,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (27 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.982,
+      "composite": 0.946,
       "sub_metrics": {
         "issues_merged": 22,
-        "first_pass_success_rate": 0.955,
+        "first_pass_success_rate": 0.864,
         "median_time_to_merge_hours": 0.3,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.714
+        "review_coverage": 0.75
       },
       "distribution": {
         "size:xs": {
-          "count": 14,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 1.3
-        },
-        "size:s": {
-          "count": 4,
-          "avg_commits": 1.3,
+          "count": 15,
+          "avg_commits": 1.2,
           "avg_ttm_hours": 0.5
         },
-        "size:m": {
-          "count": 3,
-          "avg_commits": 2,
-          "avg_ttm_hours": 4.2
+        "size:s": {
+          "count": 6,
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 1.1
         },
-        "size:l": {
+        "size:m": {
           "count": 1,
-          "avg_commits": 1,
-          "avg_ttm_hours": 10.9
+          "avg_commits": 3,
+          "avg_ttm_hours": 0.6
         }
       },
       "baseline": null,
@@ -214,20 +202,11 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [
-    {
-      "sensor": "ciHealth",
-      "metric": "pass_rate_pct",
-      "current": 69,
-      "previous": 83,
-      "delta": -14,
-      "severity": "high"
-    }
-  ],
+  "regressions": [],
   "summary": {
     "sensors_available": 10,
     "sensors_total": 16,
-    "regressions_detected": 1,
-    "status": "regressions_detected"
+    "regressions_detected": 0,
+    "status": "healthy"
   }
 }
