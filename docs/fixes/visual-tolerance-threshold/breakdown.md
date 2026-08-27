@@ -150,7 +150,7 @@ still nothing known about this suite's real noise.
   - Blocked by: —
   - Verification: **local**
 
-- [ ] **1.2 `scripts/visual-tolerance.mjs` — `readToleranceDirectives()`, and
+- [x] **1.2 `scripts/visual-tolerance.mjs` — `readToleranceDirectives()`, and
       `parseMaxDiffPixels` re-expressed on top of it** — component (6). The
       comment-aware lexer moves out of `scripts/visual-diff-report.mjs` and
       becomes the one place that answers "what does this config's text say
