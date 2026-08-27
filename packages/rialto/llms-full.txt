@@ -1808,4 +1808,11 @@
     }
   </file>
   </section>
+  <section priority="medium" role="visual">
+  <file path="src/test/visual/story-url.ts">
+    export function buildStoryUrl(storyId: string): string {
+      return `/iframe.html?id=${storyId}&viewMode=story&embed=true`;
+    }
+  </file>
+  </section>
 </codebase>
