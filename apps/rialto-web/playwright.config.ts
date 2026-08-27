@@ -34,9 +34,14 @@ export default defineConfig({
       // 4px across all 49 snapshots — two Linux runners in the same run — and
       // far below the 113,840px the defect's own reproduction produces.
       //
-      // Neither value moves without a fresh measurement and a matching update
-      // to the two provenance lines:
-      // scripts/__tests__/visual-tolerance-guard.test.mjs reds otherwise.
+      // The guard below (scripts/__tests__/visual-tolerance-guard.test.mjs)
+      // reds when either value moves WITHOUT its provenance line moving too —
+      // it catches an undocumented edit, not a wrong one. Updating both in
+      // lockstep passes it by design. What actually binds behaviour is
+      // visual-defect-reproduction.test.mjs, which reds on all 49 baselines if
+      // `threshold` rises far enough to hide a 36/255 shift; a value in
+      // 0 < t <= 0.1 would satisfy both guards, so a re-tune still needs a
+      // fresh measurement rather than a judgement call.
       // noise-floor: run 33107801311 · ubuntu24 20260823.283.1 · playwright 1.62.1
       // noise-floor-values: threshold=0 maxDiffPixels=674
       threshold: 0,

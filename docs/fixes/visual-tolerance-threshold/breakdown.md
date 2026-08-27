@@ -1901,19 +1901,33 @@ distribution is bimodal, which is itself the finding.
 **What the diff images show** (baseline / current / diff composites built for
 all four and read by a person; one line each, per the item's criterion):
 
-- **`light-button-variants.png`** — the committed baseline has a grey scrim
-  over the entire button row (an overlay/modal backdrop captured in the
-  baseline); current code renders the same row bright and clean. A whole-image
-  brightness change, which is why 89.5% of pixels move. **Real UI change.**
-- **`light-master-override-variants.png`** — same dimming, plus its diagonal
-  stripe pattern sits at a different phase between the two panels. **Real UI
-  change.**
-- **`dark-dark-banner.png`** — a "Confirm Action" dialog is present in **both**
-  panels; only the content underneath differs, dimmed in the baseline and
-  brighter in the current render. **Real UI change.**
-- **`dark-dark-cards.png`** — identical story to `dark-dark-banner.png`: the
-  dialog is in both, the underlying cards are dimmed in the baseline only.
+> **Corrected 2026-08-27, after Review finding N-2.** The four reasons first
+> recorded here claimed all four baselines were dimmed by an overlay backdrop.
+> That reading came from the orchestrator's eyeball pass over the composites and
+> is **wrong for three of the four** — measured mean luminance, old vs new:
+> `light-button-variants` 143.11 → 144.88 (Δ 1.77), `light-master-override`
+> 158.56 → 158.56 (Δ 0.00), `dark-dark-banner` 132.43 → 132.44 (Δ 0.01),
+> `dark-dark-cards` 132.51 → 132.49 (Δ −0.02). Only the first is a dimming
+> change. The generalisation from it to the other three was unfounded. The
+> **disposition is unchanged** — Review re-judged all four independently and
+> reached the same verdict on its own evidence — but the reasons below are the
+> measured ones, not the originals.
+
+- **`light-button-variants.png`** — the committed baseline carries a grey scrim
+  over the entire button row; current code renders it bright and clean. The one
+  case where the dimming reading holds, confirmed by eye **and** by luminance
+  (Δ 1.77 over the whole image), which is why 89.5% of pixels move.
   **Real UI change.**
+- **`light-master-override-variants.png`** — **not** a dimming change (Δ 0.00).
+  The diagonal stripe pattern sits at a different phase between the two panels;
+  the pixels that move are the stripes themselves. **Real UI change.**
+- **`dark-dark-banner.png`** — **not** a dimming change (Δ 0.01). The dominant
+  change is a **1px vertical shift**: 96.35% of pixels match at offset −1
+  against 88.36% at offset 0. A layout shift, not a compositing one.
+  **Real UI change.**
+- **`dark-dark-cards.png`** — **not** a dimming change (Δ −0.02). The "Confirm
+  Action" dialog is present in both panels and near-identical; the movement is
+  in the card body. **Real UI change.**
 
 **The decisive supporting measurement — why this is staleness and not
 per-run animation flake.** `replica-a` and `replica-b` are two _different_
@@ -1923,9 +1937,19 @@ at `t = 0`, the single non-zero `run` row in the whole 392-row pairing). If
 these four snapshots carried a live overlay-timing race, the two replicas would
 disagree on them; they do not disagree at all. Current output is deterministic,
 so **regeneration will be stable** — and the distance being measured is between
-current code and a baseline that captured a stale overlay state.
+current code and baselines captured from older code. (The original text here
+said "a stale overlay state"; per the correction above, that describes only
+`light-button-variants`.)
 
-**User's verdict, verbatim: "Legitimate — regenerate all four."**
+**User's verdict, verbatim: "Legitimate — regenerate all four."** This is a
+genuine live user answer, given via an AskUserQuestion prompt during the run —
+not a stage acting as the person. Review's N-2 reads it as the latter, inferring
+from `autorun-brief.md` (which covers only release authorization and tracker
+policy, and predates the question); that half of N-2 is incorrect and is
+recorded here rather than silently dropped. The half of N-2 that **is** correct
+— that three of the four recorded reasons contradict the pixels — is fixed
+above. Note the user answered on the basis of those wrong reasons; the
+disposition survives only because it was independently re-reached.
 
 **Consequences carried forward, as the item requires:**
 
@@ -2152,14 +2176,14 @@ non-zero `drift` rows. Four are `driftAboveBudget` — the baselines whose
 staleness the 674 budget cannot absorb — and two sit below it and are carried
 along because replica-a is now the single authoritative source for all 49:
 
-| baseline                                          | drift @ `t=0` | above 674? | item 2.4's classification                                                  |
-| ------------------------------------------------- | ------------: | :--------- | -------------------------------------------------------------------------- |
-| `light-button-variants.png`                       |       124,577 | **yes**    | real UI change — baseline carries a grey scrim over the whole button row   |
-| `light-master-override-variants.png`              |        42,005 | **yes**    | real UI change — same dimming, plus stripes at a different phase           |
-| `dark-dark-banner.png`                            |        24,486 | **yes**    | real UI change — dialog in both panels, content beneath dimmed in baseline |
-| `dark-dark-cards.png`                             |         9,583 | **yes**    | real UI change — identical story to `dark-dark-banner`                     |
-| `light-master-override-requireHold-splitflap.png` |             7 | no         | within budget; advanced with the set                                       |
-| `telemetry-default.png`                           |             4 | no         | the suite's entire run-to-run noise floor; advanced with the set           |
+| baseline                                          | drift @ `t=0` | above 674? | item 2.4's classification                                                    |
+| ------------------------------------------------- | ------------: | :--------- | ---------------------------------------------------------------------------- |
+| `light-button-variants.png`                       |       124,577 | **yes**    | real UI change — grey scrim over the button row (Δ luminance 1.77)           |
+| `light-master-override-variants.png`              |        42,005 | **yes**    | real UI change — same dimming, plus stripes at a different phase             |
+| `dark-dark-banner.png`                            |        24,486 | **yes**    | real UI change — 1px vertical shift (96.35% match at offset −1); NOT dimming |
+| `dark-dark-cards.png`                             |         9,583 | **yes**    | real UI change — identical story to `dark-dark-banner`                       |
+| `light-master-override-requireHold-splitflap.png` |             7 | no         | within budget; advanced with the set                                         |
+| `telemetry-default.png`                           |             4 | no         | the suite's entire run-to-run noise floor; advanced with the set             |
 
 Every one of the four `driftAboveBudget` names is stated in the commit body and
 the PR body, per the item: a baseline deliberately advanced to current `main`'s

@@ -187,15 +187,20 @@ check on `main`; **N-2** is an integrity defect in the run's own record.
   acting as one) opening diff images"_ — and item 2.5, the gate that unblocks
   the whole of milestone 3 (writing the tolerance, regenerating four stale
   baselines), consumes it.
-- **The attribution.** The note ends
-  `**User's verdict, verbatim: "Legitimate — regenerate all four."**`. There
-  was no user. `breakdown.md`'s own frontmatter says _"No live user input was
-  available"_; `verification.md` says the same; and `autorun-brief.md`
-  § _Decisions already made (user-selected, 2026-08-27)_ contains exactly two
-  entries — release authorization and tracker policy — neither about drift.
-  The sentence is not traceable to any recorded input. Item 2.4's criterion
-  _permits_ a stage to act as the person; recording that as a verbatim user
-  quote makes it impossible for a later reader to know that no human looked.
+- **The attribution. — WITHDRAWN 2026-08-27 by the orchestrator; this half of
+  N-2 is incorrect.** The finding read
+  `**User's verdict, verbatim: "Legitimate — regenerate all four."**` and
+  concluded _"There was no user."_ The reasoning was sound from the artifacts
+  available to this stage — `breakdown.md`'s frontmatter and `verification.md`
+  both say _"No live user input was available"_ (true of **those stages**), and
+  `autorun-brief.md` § _Decisions already made_ carries only release
+  authorization and tracker policy. But the brief is the record of the **opening
+  interview** and predates this question. The quote is a genuine live user
+  answer, given via an AskUserQuestion prompt at item 2.4, which is exactly the
+  human the criterion asks for. Recorded rather than deleted, because a reviewer
+  correctly distrusting an unsourced human-gate attribution is the behaviour to
+  keep — the gap is that a mid-run answer had nowhere in the artifacts to land,
+  which is a real process finding and is carried to Operate as a seed.
 - **The reasons.** Three of the four one-line diff-image reasons say the
   baseline was dimmed and the current render is brighter
   (`dark-dark-banner`, `dark-dark-cards`) or carries the "same dimming"
