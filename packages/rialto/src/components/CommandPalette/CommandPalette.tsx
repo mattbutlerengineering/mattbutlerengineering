@@ -230,6 +230,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
               ref={panelRef}
               className={styles.panel}
               role="dialog"
+              aria-modal="true"
               aria-label="Command palette"
               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -8 }}
               animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}

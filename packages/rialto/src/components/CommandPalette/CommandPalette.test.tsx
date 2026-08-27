@@ -161,6 +161,11 @@ describe("CommandPalette", () => {
       expect(screen.getByRole("dialog")).toHaveAttribute("aria-label", "Command palette");
     });
 
+    it("dialog has aria-modal set to true", () => {
+      render(<CommandPalette open onOpenChange={() => {}} items={items} />);
+      expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+    });
+
     it("listbox has aria-label", () => {
       render(<CommandPalette open onOpenChange={() => {}} items={items} />);
       expect(screen.getByRole("listbox")).toHaveAttribute("aria-label", "Command results");
