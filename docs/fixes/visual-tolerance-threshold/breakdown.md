@@ -559,7 +559,7 @@ them, which item 2.3b does offline.
   - Verification: **local** — arithmetic over CI-produced artifacts already in
     hand. Explicitly **not CI**: no runner, no dispatch, no ref.
 
-- [ ] **2.4 Triage the `drift` outliers and the regeneration precondition — a
+- [x] **2.4 Triage the `drift` outliers and the regeneration precondition — a
       human looks at diff images** — `drift` is contaminated by construction:
       the defect is that sub-20% UI changes have been landing without going red
       for ~6 months, so part of the replica-a-vs-committed distance is **real
@@ -597,7 +597,7 @@ them, which item 2.3b does offline.
     and no acceptance criterion below silently assumes it was. It needs a
     person (or a reviewing stage acting as one) opening diff images.
 
-- [ ] **2.5 Read the verdict and take the branch it dictates** — the decision
+- [x] **2.5 Read the verdict and take the branch it dictates** — the decision
       gate. **Four outcomes, all designed**, and revision 3 added the fourth.
   - Accept, whichever applies:
     - **`verdict: "ok"` — a `(threshold, maxDiffPixels)` pair** => the pair,
@@ -1878,3 +1878,129 @@ check that this is the same measurement and not a new one.
 `measurement-2.3b.json`, `recommendation-2.3b.json`, `reproduce-defect-a.mjs`,
 alongside the CI-downloaded `measurement.json` and the three artifact
 directories.
+
+**2026-08-27 (Implement, item 2.4) — the drift triage. A person looked at the
+images; the verdict is _legitimate, regenerate all four_.**
+
+**Both** of the rule's drift outputs name the **same four snapshots** — the
+above-P90 outlier list (`driftP90 = 7`) and `evidence.driftAboveBudget` are
+identical sets on this measurement, so there is one list to classify, not two:
+
+| snapshot                             | drift @ `t=0` |      area | % of image | classification              |
+| ------------------------------------ | ------------: | --------: | ---------: | --------------------------- |
+| `light-button-variants.png`          |   **124,577** |   139,216 |  **89.5%** | real un-baselined UI change |
+| `light-master-override-variants.png` |    **42,005** | 1,047,200 |       4.0% | real un-baselined UI change |
+| `dark-dark-banner.png`               |    **24,486** |   227,328 |      10.8% | real un-baselined UI change |
+| `dark-dark-cards.png`                |     **9,583** |   230,880 |       4.2% | real un-baselined UI change |
+
+The remaining 45 snapshots are at or under the P90: 43 are **exactly 0**,
+`light-master-override-requireHold-splitflap.png` is 7 and
+`telemetry-default.png` is 4. Nothing sits between 7 and 9,583 — the
+distribution is bimodal, which is itself the finding.
+
+**What the diff images show** (baseline / current / diff composites built for
+all four and read by a person; one line each, per the item's criterion):
+
+- **`light-button-variants.png`** — the committed baseline has a grey scrim
+  over the entire button row (an overlay/modal backdrop captured in the
+  baseline); current code renders the same row bright and clean. A whole-image
+  brightness change, which is why 89.5% of pixels move. **Real UI change.**
+- **`light-master-override-variants.png`** — same dimming, plus its diagonal
+  stripe pattern sits at a different phase between the two panels. **Real UI
+  change.**
+- **`dark-dark-banner.png`** — a "Confirm Action" dialog is present in **both**
+  panels; only the content underneath differs, dimmed in the baseline and
+  brighter in the current render. **Real UI change.**
+- **`dark-dark-cards.png`** — identical story to `dark-dark-banner.png`: the
+  dialog is in both, the underlying cards are dimmed in the baseline only.
+  **Real UI change.**
+
+**The decisive supporting measurement — why this is staleness and not
+per-run animation flake.** `replica-a` and `replica-b` are two _different_
+Linux runners inside the same run `33107801311`, and they agree to within
+**4 px across all 49 snapshots and all 8 thresholds** (`telemetry-default.png`
+at `t = 0`, the single non-zero `run` row in the whole 392-row pairing). If
+these four snapshots carried a live overlay-timing race, the two replicas would
+disagree on them; they do not disagree at all. Current output is deterministic,
+so **regeneration will be stable** — and the distance being measured is between
+current code and a baseline that captured a stale overlay state.
+
+**User's verdict, verbatim: "Legitimate — regenerate all four."**
+
+**Consequences carried forward, as the item requires:**
+
+- All four names go into item **3.3** as **stated, deliberate baseline
+  updates** — named in the commit body and the PR body so a reviewer meets
+  them as a declaration, not a discovery.
+- Everything classified as real UI change is carried into item **3.4**'s SC-2
+  argument: `drift` is _not_ a noise term (revision 3 removed it from `N`), and
+  this triage is why — three of these four counts are orders of magnitude above
+  the 4 px the `run` pairing measures, and none of them is noise.
+- `light-button-variants.png` is `defect.md`'s thesis reproduced against real
+  committed baselines: 124,577 px of change at `t = 0` decaying to **245 px at
+  `t = 0.2`**, under the live `maxDiffPixels: 300`. **The live suite reports
+  this snapshot as passing today** — a whole-image change sitting on `main`
+  that the visual job calls "no difference".
+
+**2026-08-27 (Implement, item 2.5) — the verdict was read. Branch taken:
+`ok`. Milestone 3 is unblocked.**
+
+The rule emits `{"verdict": "ok", "threshold": 0, "maxDiffPixels": 674}` — the
+`ok` branch, the only path into milestone 3. Recorded here in the shape the
+item's `ok` branch requires:
+
+| field                      | value                                                                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **emitted pair**           | `threshold: 0`, `maxDiffPixels: 674`                                                                                                                     |
+| `separationState` at `t*`  | `"separated"`                                                                                                                                            |
+| separation ratio at `t*`   | `28377.25` (`S/N` = 113,509 / 4), against `separationFactor: 10`                                                                                         |
+| `R(t*)`                    | `113840` — the defect's own reproduction at `t = 0`                                                                                                      |
+| `defectMargin`             | `113166` (`R - maxDiffPixels` = 113,840 − 674)                                                                                                           |
+| `budgetInterval` at `t*`   | `{lower: 8, upper: 56754}`; `geometricMean` = **674**                                                                                                    |
+| `driftAboveBudget`         | 4 names — `light-button-variants` 124,577 / `light-master-override-variants` 42,005 / `dark-dark-banner` 24,486 / `dark-dark-cards` 9,583                |
+| `evidence.excluded`        | `[]` — no snapshot was excluded from the signal set; all 49 contribute                                                                                   |
+| `evidence.opts` (resolved) | `separationFactor 10`, `noiseHeadroom 2`, `signalMargin 2`, `defectAmplitude 36`, `driftPercentile 90`, `formReviewDecades 0.3`, `excludedFromSignal []` |
+
+**Form diagnostic (clause 4).** `H_abs = 3.850910314955832`,
+`H_ratio = 4.632765679378586`, difference **0.782 decades**, past the
+0.3-decade boundary, so `formReview: "ratio-has-more-headroom"`.
+`Nr = 4.895050125313283e-6` against the ratio-domain floor
+`1 / maxArea = 1 / 1047200 = 9.549e-7` — i.e. the flag **rests on a term
+sitting ~5x above the floor quantum**, which is why `Nr` and `maxArea` are
+reported beside it. Per the item's own words this **does not change what this
+run emits**: the form stays a single `maxDiffPixels` key and no
+`maxDiffPixelRatio` is written anywhere. It is recorded as a **stated trigger
+to re-open the form decision at Architect with a measurement in hand** — not
+acted on here, and not a gap.
+
+**Why `t = 0` and not a larger sweep point.** Six of eight points are
+`eligible: true`; clause 1 takes the **smallest**. The two that are rejected —
+`t = 0.15` and `t = 0.2` — are rejected on a measurement, not an argument:
+`R = 0` at both, `infeasibleReason: "blind-to-defect"`, `budgetInterval
+{lower: 8, upper: -1}`. A 36/255 uniform whole-image shift survives no pixel at
+those thresholds, and `t = 0.2` is exactly today's inherited default.
+
+**The two named, accepted risks that travel with this branch** — recorded up
+front, per the item, so nobody meets them as a surprise:
+
+1. **A selected `t = 0` has the least tolerance for a runner-image bump of any
+   point in the sweep.** The only defence is the emitted budget (674) standing
+   over a measured floor of **4** — a 168x margin, but a margin against
+   _today's_ image. A font-metric change in a future `ubuntu-latest` could
+   exceed it, worst case on `light-master-override-variants` at 1,047,200 px.
+   This repo has the precedent: the 2026-08-11 ubuntu24 image bump broke Pulumi
+   deploys with zero repo change. **Accepted, named risk, not a gap** — the
+   alternative is a larger `t`, whose blindness is unbounded in area, and
+   `defect.md` § A is what that costs. Detection is free (the visual job goes
+   red) and recovery is a re-measure, which is what the instrument's
+   `workflow_dispatch` is for once it is on `main`.
+2. **`R` is a point check at one amplitude** (`defectAmplitude: 36`, the prior
+   run's measured worst case). Harmless while the rule selects the smallest
+   `t` — the emitted budget of 674 sits 168x below `R = 113,840` — but it
+   becomes load-bearing if a future measurement makes `t = 0` ineligible,
+   because one amplitude cannot describe the shape of a blind spot.
+   **Recorded, not solved** (Architect's own words); see § Design gaps found.
+
+**Also carried:** `driftReview: "regeneration-required"`, which item 2.4
+triaged and item 3.3 discharges. No number was guessed anywhere; the pair
+written in 3.2 is the rule's output byte for byte.
