@@ -804,3 +804,48 @@ None (`agent-skip` count is 0).
 ### Skipped Issues
 
 None (`agent-skip` count is 0).
+
+## 2026-08-27 (mbe-evening)
+
+### Metrics
+
+| Metric                   | Value                                                                                                                                                                                                     | Target    | Status |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
+| Created (7d)             | 23 (14 audit + 9 ci-fix)                                                                                                                                                                                  | -         | -      |
+| Closed (7d)              | 18 (11 audit + 7 ci-fix)                                                                                                                                                                                  | -         | -      |
+| Closure Rate             | ~78.3%                                                                                                                                                                                                    | >80%      | yellow |
+| Time-to-Close            | not computed precisely (no `closed_at` via MCP `list_issues`); same-day turnaround typical for both closed audit/ci-fix issues this window                                                                | <24h      | n/a    |
+| Agent Success            | has-pr:0 / agent-failed:0 open at snapshot — nothing stuck                                                                                                                                                | >70%      | n/a    |
+| CI Pass (main, `ci.yml`) | 27/27 non-cancelled of last 30 runs = 100% (3 `cancelled`, 0 `failure`); one advisory `Rialto Visual Regression` failure recurring on main (root-caused this iteration, fix PR #4585, CI green on the PR) | >95%      | green  |
+| Queue (ready)            | 1 open (#4576, deferred this iteration — same zone as #4584)                                                                                                                                              | <5        | green  |
+| Stale (ready>7d)         | 0                                                                                                                                                                                                         | 0         | green  |
+| Blocked (agent-failed)   | 0                                                                                                                                                                                                         | 0         | green  |
+| Skipped (agent-skip)     | 0                                                                                                                                                                                                         | 0         | green  |
+| Reverts (7d)             | 2                                                                                                                                                                                                         | <3/wk     | green  |
+| Daily/7d Spend           | `.claude/agent-spend/sessions.jsonl` present but empty (0 bytes) — unavailable                                                                                                                            | <$10/<$50 | n/a    |
+| Cost/Issue               | unavailable, same reason                                                                                                                                                                                  | <$2       | n/a    |
+
+### This iteration's implement-queue run
+
+- Phase 0 pre-flight: main green (`CI Gate`/`ci.yml` all-success on latest pushed SHA; only an advisory, non-required `Rialto Visual Regression` job was red). 2 open PRs surveyed, both out of scope for automated merge: **#4565** (`draft: true`, explicitly "needs a human call before it merges" — production ingress/Pulumi change) and **#4566** (a `/chaos-agent` synthetic-bug PR meant to be _caught_ by audit loops, not merged).
+- Phase 1: `ready`-labeled open issues = 2 (#4576 a11y, #4584 ci-fix), both estimate to the same `packages/rialto` zone. Zone-spread selector capped the batch at 1; `ci-fix` outranks `audit` in priority, so **#4584** was claimed (`ready`→`in-progress`) and #4576 deferred to the next iteration.
+- Phase 2: dispatched one `implement-queue-worker` (isolation: worktree, tier: sonnet) for #4584. Root cause found and fixed: Storybook's `play()` autorun was racing the visual-regression harness's own `interact()` helpers because `loadStory()` never passed `embed=true` — exactly explains both observed failure modes (overlay-intercepts-pointer-events on ConfirmDialog/Dialog/Drawer, and the Toast strict-mode double-element violation). Worker opened PR **#4585** (`fix: disable Storybook play() autorun in visual-regression harness`, base `main`, verified), all local gates green (lint/typecheck/2146 tests/regen-check).
+- Worker→train boundary: PR #4585's `CI Gate` went green. One advisory check (`Marketing E2E`) failed on the PR — investigated and confirmed unrelated: a pre-existing, date-coincidental strict-mode selector collision in `apps/marketing/e2e/ai-health.spec.ts` (deterministic given today's date, not a flake, not touched by this PR's diff). Posted a standing-down comment on the PR and filed **#4586** to track/fix it separately. Dispatched the universal Reviewer plus the `generated-artifact-determinism-reviewer` specialist (llms.txt/llms-full.txt changed) against the PR diff; verdicts pending as of this log entry.
+- Circuit breaker: not triggered.
+
+### Patterns
+
+- Both `ready` issues this iteration collided on the same zone (`packages/rialto`) — worth watching whether `/decompose`/`/ideate` are clustering too much fresh work into one package at a time, which mechanically throttles `/implement-queue` to 1 issue/batch regardless of the 3-worker cap (same underlying dynamic as the now-fixed #4079, different trigger).
+- The `Rialto Visual Regression` flake flagged in #4584 (filed by the mbe-midday CI monitor earlier today) got same-day root-cause and a fix PR — good turnaround from detection to candidate fix within one day.
+- Found a second, independent date-coincidental test bug (`apps/marketing/e2e/ai-health.spec.ts`, #4586) while triaging #4585's CI — same failure class as #4584 (a selector/assertion that collides with unrelated rendered text), different file and different root cause. Worth asking whether other specs share the "bare `getByText`/`getByRole` matching page chrome" pattern.
+- `log.md` persisted on time this cycle (no repeat of the #4570/#4378 staleness pattern) — one data point, not yet enough to close #4570.
+
+### Recommendations
+
+- Confirm PR #4585 merges cleanly once review verdicts land; that will be the first empirical confirmation of the `play()`-autorun root cause (the worker could not reproduce the race locally, though the PR's own CI going green on `Rialto Visual Regression` is a strong early signal).
+- Pick up #4576 (a11y CommandPalette `aria-modal`) next iteration now that #4584 no longer occupies the `packages/rialto` zone.
+- Consider auditing `apps/marketing/e2e/**` and other specs for bare `getByText`/`getByRole` locators that could collide with page chrome (dates, counts) — #4586 is the second instance of this class found this week.
+
+### Skipped Issues
+
+None (`agent-skip` count is 0).
