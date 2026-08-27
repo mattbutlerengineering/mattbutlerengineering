@@ -22,7 +22,8 @@ src/
 ├── streaming.ts        # StreamingClient (SSE event streams)
 ├── tables.ts           # TablesClient
 ├── users.ts            # UsersClient
-└── venues.ts           # VenuesClient, VenueGroupsClient
+├── venues.ts           # VenuesClient, VenueGroupsClient
+└── waitlist.ts         # WaitlistClient — authenticated staff-facing waitlist management
 ```
 
 Subpath exports: `@mbe/api-client/users` and `@mbe/api-client/streaming` allow importing `UsersClient`/`StreamingClient` without pulling in the full barrel.
@@ -58,6 +59,7 @@ const slots = await api.availability.getTimeSlots({ venueId, date, partySize: 4 
 | `availability` | `getTimeSlots(params)`, `getDates(params)`                                                                                                                 |
 | `holds`        | `create(data)`, `get(id)`, `release(id)`, `confirm(id, details)` — requires `setSessionId()`                                                               |
 | `publicVenue`  | `guestRisk(slug, params)`, `recognizeGuest(slug, email)`, `joinWaitlist(slug, data)`, `depositIntent(slug, data)` — unauthenticated booking widget surface |
+| `waitlist`     | `list(venueId)`, `get(id)`, `create(data)`, `seat(id)`, `cancel(id)`, `notify(id)`, `expire(id)` — authenticated staff-facing walk-in queue management     |
 
 ## Auth Token Injection
 

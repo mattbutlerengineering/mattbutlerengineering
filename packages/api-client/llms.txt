@@ -240,5 +240,15 @@
       }
     </item>
   </file>
+  <file path="src/waitlist.ts">
+    <item priority="high">
+      class WaitlistClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async seat(): Promise<unknown>;
+      }
+    </item>
+  </file>
   </section>
 </codebase>
