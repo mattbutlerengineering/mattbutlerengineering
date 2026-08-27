@@ -4949,6 +4949,16 @@
       }
     </item>
   </file>
+  <file path="packages/api-client/src/waitlist.ts">
+    <item priority="high">
+      class WaitlistClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async seat(): Promise<unknown>;
+      }
+    </item>
+  </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
     <item priority="low">
       interface CancellationPolicy {
