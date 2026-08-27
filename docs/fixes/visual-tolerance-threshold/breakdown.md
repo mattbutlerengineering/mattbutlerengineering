@@ -363,7 +363,7 @@ playwright.noise-floor.config.ts e2e/visual.spec.ts --list` enumerates the
   - Blocked by: —
   - Verification: **local**
 
-- [ ] **2.2 `.github/workflows/visual-noise-floor.yml`** — component (2), the
+- [x] **2.2 `.github/workflows/visual-noise-floor.yml`** — component (2), the
       capture instrument. Four jobs in one run: three tolerance-blind capture
       legs plus an analyze job. **Re-cut against revision 2:** the trigger and
       the concurrency block are new, and the trigger's safety is asserted by
