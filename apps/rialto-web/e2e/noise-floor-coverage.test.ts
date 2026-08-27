@@ -203,6 +203,16 @@ describe("the perturbation config actually loads the CSS", () => {
     // production config that can be perturbed in silence.
     const production = readFileSync(resolve(__dirname, "../playwright.config.ts"), "utf8");
     expect(production).not.toContain("stylePath");
-    expect(production).not.toContain("noise-floor");
+    expect(production).not.toContain("noise-floor-perturbation");
+
+    // The production config does legitimately say "noise-floor" — the two
+    // provenance comment lines the tolerance declaration carries, naming the
+    // measurement its values came from (architecture.md § Data model). Those
+    // are inert text. A mention on a line that is NOT a comment is the thing
+    // this test exists to catch: a perturbation reaching production.
+    const live = production
+      .split("\n")
+      .filter((line) => line.includes("noise-floor") && !/^\s*\/\//.test(line));
+    expect(live).toEqual([]);
   });
 });

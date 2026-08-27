@@ -21,11 +21,26 @@ export default defineConfig({
       // the most slack exactly where a whole-row layout change is easiest to
       // hide — a 45px row-height growth on that section passed under
       // maxDiffPixelRatio: 0.01 (~8.4k px budget) because most of the diff
-      // washed out against empty background. 300px absorbs the ±1px
-      // anti-aliasing churn from the harness's fixed Dialog/Drawer overlays
-      // while staying far below the pixel count any real layout shift
-      // produces.
-      maxDiffPixels: 300,
+      // washed out against empty background.
+      //
+      // Both values below are MEASURED, not chosen — the output of
+      // scripts/visual-tolerance-rule.mjs over a real three-leg Linux capture,
+      // identified by the provenance lines below. `threshold` is declared
+      // explicitly because omitting it inherits Playwright's 0.2, at which a
+      // uniform 36/255 brightening of every pixel of every baseline reads as
+      // "no difference"; that is the regression
+      // scripts/__tests__/visual-defect-reproduction.test.mjs now holds
+      // permanently. The budget sits over a measured run-to-run noise floor of
+      // 4px across all 49 snapshots — two Linux runners in the same run — and
+      // far below the 113,840px the defect's own reproduction produces.
+      //
+      // Neither value moves without a fresh measurement and a matching update
+      // to the two provenance lines:
+      // scripts/__tests__/visual-tolerance-guard.test.mjs reds otherwise.
+      // noise-floor: run 33107801311 · ubuntu24 20260823.283.1 · playwright 1.62.1
+      // noise-floor-values: threshold=0 maxDiffPixels=674
+      threshold: 0,
+      maxDiffPixels: 674,
     },
   },
 

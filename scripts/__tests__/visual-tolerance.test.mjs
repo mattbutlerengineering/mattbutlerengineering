@@ -30,14 +30,29 @@ describe("readToleranceDirectives — the three directives and their occurrence 
     });
   });
 
-  it("reports the live config as it stands today — no threshold, no ratio, one budget", () => {
-    // The defect in one assertion: `threshold` has never been set on this
-    // suite, so it inherits Playwright's 0.2 by omission.
+  it("reports the live config as it stands today — one threshold, one budget, no ratio", () => {
+    // Re-pinned, not deleted. This used to assert the defect — `threshold`
+    // absent, inherited from Playwright's 0.2 by omission — which stopped
+    // being true the moment the measured pair was written into the config.
+    // The sweep point is still worth a test; it now pins the fixed shape.
+    //
+    // Deliberately shape, never value: naming the numbers here would make this
+    // a second drift guard that has to be hand-edited on the very PR that
+    // legitimately re-tunes them. Value drift is
+    // scripts/__tests__/visual-tolerance-guard.test.mjs's job, and it checks
+    // the config against its own provenance line rather than against a copy
+    // held out here.
     const directives = readToleranceDirectives(LIVE_CONFIG);
-    expect(directives.occurrences.threshold).toBe(0);
-    expect(directives.threshold).toBeNull();
-    expect(directives.occurrences.maxDiffPixelRatio).toBe(0);
+    expect(directives.occurrences.threshold).toBe(1);
+    expect(Number.isFinite(directives.threshold)).toBe(true);
     expect(directives.occurrences.maxDiffPixels).toBe(1);
+    expect(Number.isFinite(directives.maxDiffPixels)).toBe(true);
+
+    // The comment-blindness trap, against the real file: the config mentions a
+    // ratio in prose and configures none.
+    expect(LIVE_CONFIG).toContain("maxDiffPixelRatio");
+    expect(directives.occurrences.maxDiffPixelRatio).toBe(0);
+    expect(directives.maxDiffPixelRatio).toBeNull();
   });
 
   it("reads a fractional threshold as a number", () => {

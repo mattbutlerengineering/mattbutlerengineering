@@ -769,7 +769,7 @@ claims. Nothing is merged.
   - Blocked by: 1.2, 2.5
   - Verification: **local**
 
-- [ ] **3.2 Write the measured tolerance into
+- [x] **3.2 Write the measured tolerance into
       `apps/rialto-web/playwright.config.ts` with its provenance** —
       component (1). The one place this suite's sensitivity is declared, for
       all 49 snapshots, together with the machine-readable record of the
@@ -795,7 +795,7 @@ claims. Nothing is merged.
   - Blocked by: 3.1, 3.1b
   - Verification: **local**
 
-- [ ] **3.3 Regenerate all 49 baselines from the `visual-actuals-replica-a`
+- [x] **3.3 Regenerate all 49 baselines from the `visual-actuals-replica-a`
       artifact** — the "not a module" of `architecture.md` § Components:
       regeneration needs no code, because replica-a **is** 49 fresh Linux PNGs
       at the dispatched commit, produced by the same runner label as the
@@ -829,7 +829,7 @@ claims. Nothing is merged.
   - Verification: **local** (the copy and its provenance), with the live
     confirmation deferred to 3.5.
 
-- [ ] **3.4 Demonstrate all three reproductions as counts** — the brief
+- [x] **3.4 Demonstrate all three reproductions as counts** — the brief
       requires both success criteria to be _demonstrated, not asserted_, and
       revision 3 adds a third demonstration alongside them. All three are
       computable offline from the artifacts already in hand, because replica-a
@@ -897,7 +897,7 @@ claims. Nothing is merged.
   - Verification: **CI** for the visual job's conclusion; **local** for the
     single-PR shape and the ref deletion.
 
-- [ ] **3.6 Correct the baseline-regeneration procedure in
+- [x] **3.6 Correct the baseline-regeneration procedure in
       `.claude/rules/gotchas.md`** — that file's § CI bullet tells the next
       person to pull `*-actual.png` from the `rialto-web-visual-diffs` CI
       artifact. `architecture.md` § Decisions supersedes it: that artifact
@@ -2073,3 +2073,303 @@ silently-empty baseline set would make every assertion vacuous, which is this
 repo's own recorded failure mode of work that passes because it never ran.
 **Measured cost 2.40s** for all 49 at one threshold — within the ~2.5s
 architecture.md § Components 8 predicted, so the set is not trimmed.
+
+**2026-08-27 (Implement, item 3.2) — the measured pair is written, with its
+provenance, and both guards go green.** `apps/rialto-web/playwright.config.ts`
+now carries exactly what item 2.5's verdict named — `threshold: 0`,
+`maxDiffPixels: 674` — with no rounding, no reinterpretation and no "adjustment
+for safety"; and one `maxDiffPixels` key only, no `maxDiffPixelRatio` anywhere
+live. The two provenance lines sit in the same file in the § Data model
+grammar, naming run `33107801311`'s real image and Playwright versions:
+
+```ts
+      // noise-floor: run 33107801311 · ubuntu24 20260823.283.1 · playwright 1.62.1
+      // noise-floor-values: threshold=0 maxDiffPixels=674
+      threshold: 0,
+      maxDiffPixels: 674,
+```
+
+Both guards green, together with the `parseMaxDiffPixels` suite that proves the
+shipped PR-comment publisher still reads this config as a number:
+
+```
+ ✓ scripts/__tests__/visual-tolerance-guard.test.mjs (5 tests) 3ms
+ ✓ scripts/__tests__/visual-diff-report.test.mjs (33 tests) 6ms
+ ✓ scripts/__tests__/visual-defect-reproduction.test.mjs (50 tests) 3825ms
+
+ Test Files  3 passed (3)
+      Tests  88 passed (88)
+```
+
+Direct check of the #4569 coupling, since the guard only asserts the _shape_:
+`parseMaxDiffPixels(<config text>)` returns **`674`**, not `null`. No
+`toHaveScreenshot` call site in `visual.spec.ts` was touched.
+
+**Deviation, logged rather than silently taken.** The item says the existing
+explanatory comment is unchanged. Its `maxDiffPixelRatio` half — the #4450
+record of _why the form is absolute_ — is unchanged, verbatim. Its **last
+sentence** ("300px absorbs the ±1px anti-aliasing churn … while staying far
+below the pixel count any real layout shift produces") was replaced: it
+justifies the number `300`, and leaving it beside `maxDiffPixels: 674` would
+leave a documented falsehood in the one file this run exists to make honest.
+The replacement states the same three facts from measurement instead (the
+floor of 4, the defect's 113,840, and that neither value moves without a fresh
+measurement). No design decision; no value changed by it.
+
+**2026-08-27 (Implement, item 3.3) — all 49 baselines now come from
+`visual-actuals-replica-a`, run `33107801311`. None was rendered locally.**
+
+Every one of the 49 files in `apps/rialto-web/e2e/screenshots/` was written
+from the `visual-actuals-replica-a` artifact and then verified byte for byte
+against it: **49/49 byte-identical, 0 differing.** The artifact's own
+`provenance.json` is `{"imageOs":"ubuntu24","imageVersion":"20260823.283.1",
+"playwrightVersion":"1.62.1","chromiumBuild":"chromium-1234 (151.0.7922.34)"}`
+— the same tuple the config's provenance line names. **No Playwright run was
+executed on this macOS host at any point in this milestone**; the hazard
+(macOS font metrics and glyph advances differ, and a macOS-rendered baseline
+looks right locally and is wrong in CI) is avoided by construction, because the
+bytes were produced by a Linux runner and only copied here. Nor did the
+regeneration use the `rialto-web-visual-diffs` procedure, which exists only on
+failure and carries only the snapshots that failed.
+
+Shape, exactly as the criterion requires — 49 files, every filename unchanged,
+only `M` lines:
+
+```
+ M apps/rialto-web/e2e/screenshots/dark-dark-banner.png
+ M apps/rialto-web/e2e/screenshots/dark-dark-cards.png
+ M apps/rialto-web/e2e/screenshots/light-button-variants.png
+ M apps/rialto-web/e2e/screenshots/light-master-override-requireHold-splitflap.png
+ M apps/rialto-web/e2e/screenshots/light-master-override-variants.png
+ M apps/rialto-web/e2e/screenshots/telemetry-default.png
+```
+
+**Only 6 of 49 files changed bytes, and that is the expected result, not a
+short copy.** The other 43 were already byte-identical to replica-a — which is
+exactly what the `drift` pairing reported: 43 of 49 snapshots at **0** differing
+pixels against the committed baseline. The 6 that moved are precisely the 6
+non-zero `drift` rows. Four are `driftAboveBudget` — the baselines whose
+staleness the 674 budget cannot absorb — and two sit below it and are carried
+along because replica-a is now the single authoritative source for all 49:
+
+| baseline                                          | drift @ `t=0` | above 674? | item 2.4's classification                                                  |
+| ------------------------------------------------- | ------------: | :--------- | -------------------------------------------------------------------------- |
+| `light-button-variants.png`                       |       124,577 | **yes**    | real UI change — baseline carries a grey scrim over the whole button row   |
+| `light-master-override-variants.png`              |        42,005 | **yes**    | real UI change — same dimming, plus stripes at a different phase           |
+| `dark-dark-banner.png`                            |        24,486 | **yes**    | real UI change — dialog in both panels, content beneath dimmed in baseline |
+| `dark-dark-cards.png`                             |         9,583 | **yes**    | real UI change — identical story to `dark-dark-banner`                     |
+| `light-master-override-requireHold-splitflap.png` |             7 | no         | within budget; advanced with the set                                       |
+| `telemetry-default.png`                           |             4 | no         | the suite's entire run-to-run noise floor; advanced with the set           |
+
+Every one of the four `driftAboveBudget` names is stated in the commit body and
+the PR body, per the item: a baseline deliberately advanced to current `main`'s
+rendering is a declaration, never something a reviewer discovers. 3.2 and 3.3
+land in **one PR** — #4496 split a sensitivity change from the baselines it
+invalidated and left `main` red for 41h14m.
+
+**2026-08-27 (Implement, item 3.4) — all three reproductions, as counts, at the
+written pair `{threshold: 0, maxDiffPixels: 674}`.** Every number below is
+arithmetic over run **`33107801311`**'s own artifacts — the same 1,568-row set
+item 2.3b produced. **No new push, no dispatch, no fresh capture.** Because
+replica-a _is_ the baseline set item 3.3 just committed, the `signal` pairing is
+literally "the perturbation against the new baselines", `run` is "a second real
+runner against the new baselines", and `reproduction` is "the defect's own
+amplitude against the new baselines".
+
+**SC-1 — the subtle perturbation now fails, on all 49.** `evidence.excluded` is
+`[]`, so the signal set is the full 49 with no exclusions to name.
+
+| snapshot                                          |      area | SC-1 signal count | margin over 674 | SC-2 run count |
+| ------------------------------------------------- | --------: | ----------------: | --------------: | -------------: |
+| `dark-dark-alerts.png`                            |   378,880 |           371,245 |        +370,571 |              0 |
+| `dark-dark-avatar.png`                            |   137,344 |           133,004 |        +132,330 |              0 |
+| `dark-dark-badges.png`                            |   117,216 |           113,509 |        +112,835 |              0 |
+| `dark-dark-banner.png`                            |   227,328 |           220,304 |        +219,630 |              0 |
+| `dark-dark-buttons.png`                           |   134,976 |           130,341 |        +129,667 |              0 |
+| `dark-dark-cards.png`                             |   230,880 |           220,433 |        +219,759 |              0 |
+| `dark-dark-inputs.png`                            |   268,768 |           262,810 |        +262,136 |              0 |
+| `dark-dark-tape-chart.png`                        |   756,576 |           741,420 |        +740,746 |              0 |
+| `dark-dark-toggles.png`                           |   136,160 |           131,506 |        +130,832 |              0 |
+| `light-accordion-default.png`                     |   317,856 |           310,280 |        +309,606 |              0 |
+| `light-alert-variants.png`                        |   394,240 |           384,806 |        +384,132 |              0 |
+| `light-avatar-variants.png`                       |   177,408 |           172,387 |        +171,713 |              0 |
+| `light-avatargroup-default.png`                   |   141,680 |           137,585 |        +136,911 |              0 |
+| `light-badge-variants.png`                        |   121,968 |           117,967 |        +117,293 |              0 |
+| `light-banner-variants.png`                       |   394,240 |           383,727 |        +383,053 |              0 |
+| `light-breadcrumb-default.png`                    |   126,896 |           122,887 |        +122,213 |              0 |
+| `light-button-sizes.png`                          |   154,000 |           149,077 |        +148,403 |              0 |
+| `light-button-variants.png`                       |   139,216 |           136,528 |        +135,854 |              0 |
+| `light-card-variants.png`                         |   269,808 |           260,353 |        +259,679 |              0 |
+| `light-checkbox-states.png`                       |   142,912 |           138,352 |        +137,678 |              0 |
+| `light-datalist-default.png`                      |   282,128 |           275,084 |        +274,410 |              0 |
+| `light-dialog-open.png`                           |   282,128 |           276,037 |        +275,363 |              0 |
+| `light-drawer-open.png`                           |   283,360 |           277,021 |        +276,347 |              0 |
+| `light-emptystate-default.png`                    |   322,784 |           315,665 |        +314,991 |              0 |
+| `light-input-states.png`                          |   608,608 |           596,437 |        +595,763 |              0 |
+| `light-master-override-requireHold-splitflap.png` |   445,984 |           434,428 |        +433,754 |              0 |
+| `light-master-override-variants.png`              | 1,047,200 |           880,263 |        +879,589 |              0 |
+| `light-meter-variants.png`                        |   309,232 |           302,011 |        +301,337 |              0 |
+| `light-numberinput-states.png`                    |   280,896 |           273,177 |        +272,503 |              0 |
+| `light-pagination-default.png`                    |   137,984 |           134,013 |        +133,339 |              0 |
+| `light-progress-states.png`                       |   131,824 |           128,533 |        +127,859 |              0 |
+| `light-segmentedcontrol-default.png`              |   155,232 |           150,458 |        +149,784 |              0 |
+| `light-select-states.png`                         |   271,040 |           263,742 |        +263,068 |              0 |
+| `light-skeleton-variants.png`                     |   255,024 |           248,461 |        +247,787 |              0 |
+| `light-slider-states.png`                         |   195,888 |           191,981 |        +191,307 |              0 |
+| `light-stat-variants.png`                         |   241,472 |           233,959 |        +233,285 |              0 |
+| `light-steps-default.png`                         |   190,960 |           185,533 |        +184,859 |              0 |
+| `light-table-default.png`                         |   316,624 |           308,965 |        +308,291 |              0 |
+| `light-table-empty.png`                           |   255,024 |           248,441 |        +247,767 |              0 |
+| `light-tabs-default.png`                          |   235,312 |           229,373 |        +228,699 |              0 |
+| `light-tag-variants.png`                          |   129,360 |           125,440 |        +124,766 |              0 |
+| `light-tape-chart-default.png`                    |   787,248 |           771,525 |        +770,851 |              0 |
+| `light-tape-chart-overlaps.png`                   |   822,976 |           806,454 |        +805,780 |              0 |
+| `light-tape-chart-stress.png`                     |   843,920 |           824,532 |        +823,858 |              0 |
+| `light-textarea-states.png`                       |   991,760 |           951,157 |        +950,483 |              0 |
+| `light-toggle-states.png`                         |   126,896 |           122,472 |        +121,798 |              0 |
+| `light-tooltip-default.png`                       |   140,448 |           136,698 |        +136,024 |              0 |
+| `telemetry-default.png`                           |   817,152 |           733,261 |        +732,587 |              4 |
+| `telemetry-game.png`                              |   734,464 |           654,292 |        +653,618 |              0 |
+
+**All 49 exceed the budget: `true`.** The **smallest margin** anywhere is
+`dark-dark-badges.png` at **113,509 against 674 — +112,835, a 168x margin**;
+the largest is `light-textarea-states.png` at 951,157. This is the direct
+answer to the prior run's finding that an `opacity: 0.55` perturbation passed
+all 49 snapshots under the live config.
+
+**SC-2 — legitimate rendering noise still passes, on all 49.** `run` is
+replica-a against replica-b: two **different** Linux runners inside the same
+run. All 49 are at or under the budget: `true`. The **largest observed value
+anywhere is 4**, on `telemetry-default.png` — and it is the _only_ non-zero row
+in the entire pairing. Across all 392 `run` rows (49 snapshots x 8 thresholds)
+the maximum is also **4**, so the result does not depend on the threshold the
+rule picked. The budget is a single absolute number for all 49 by design, so
+there is no per-image budget to state. Every snapshot item 2.4 classified as
+real UI change contributes **0** here, which is the arithmetic form of that
+classification: real drift is not noise, and `drift` is not a term in `N`.
+
+**Third demonstration — `defect.md` § A's own table, re-run at the written
+pair. Every row FAILs.** Same comparator
+(`utils.getComparator("image/png")` from the installed `playwright-core`
+1.62.1), same subject, same uniform brightening. Run first against the
+**pre-regeneration** baseline so it can be checked against § A row for row:
+
+| uniform delta | live {maxDiffPixels:300, threshold inherited 0.2} | count | written {threshold:0, maxDiffPixels:674} |  count |
+| ------------: | :------------------------------------------------ | ----: | :--------------------------------------- | -----: |
+|         1/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|         5/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        10/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        20/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        30/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        36/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        40/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        45/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        50/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        52/255 | PASS                                              |     0 | **FAIL**                                 | 130114 |
+|        53/255 | FAIL                                              | 88321 | **FAIL**                                 | 130114 |
+|        55/255 | FAIL                                              | 88323 | **FAIL**                                 | 130114 |
+|        60/255 | FAIL                                              | 88323 | **FAIL**                                 | 130114 |
+|        80/255 | FAIL                                              | 88323 | **FAIL**                                 | 130114 |
+
+The left two columns reproduce `defect.md` § A **row for row** — `0` through
+`52/255`, then `88,321` at 53 and `88,323` from 55 — which is the check that
+this is the same measurement and not a new one. The right two columns are the
+demonstration: **every row FAILs at the written pair**, including the four rows
+(1, 20, 36, 52) that indict the live config, and including the `36/255` shift
+`defect.md` § D records as the largest per-channel delta a prior run actually
+produced. The count is `130,114` at `t = 0` regardless of amplitude — against a
+budget of 674, a **193x** margin.
+
+And the same five deltas against the baseline that actually **ships** after
+item 3.3, so the demonstration is about the committed artifact and not a
+historical one:
+
+| uniform delta | live {maxDiffPixels:300, threshold inherited 0.2} | count | written {threshold:0, maxDiffPixels:674} |  count |
+| ------------: | :------------------------------------------------ | ----: | :--------------------------------------- | -----: |
+|         1/255 | PASS                                              |     0 | **FAIL**                                 | 136632 |
+|        20/255 | PASS                                              |     0 | **FAIL**                                 | 136632 |
+|        36/255 | PASS                                              |     0 | **FAIL**                                 | 136632 |
+|        52/255 | PASS                                              |     0 | **FAIL**                                 | 136632 |
+|        53/255 | FAIL                                              | 94942 | **FAIL**                                 | 136632 |
+
+**This is also the demonstration that revision 2's emitted pair would have
+failed.** `{threshold: 0.2, maxDiffPixels: 0}` reproduces the `PASS` column
+exactly — the per-pixel gate discards the pixels before any budget is
+consulted, so a budget of `0` changes nothing on rows 1 through 52. The
+corrected rule's rejection of `t = 0.15` and `t = 0.2` on `R = 0` is what
+removed that outcome. It is the same assertion item 3.1b now makes permanent in
+`CI Gate`; this is it shown once, as evidence.
+
+**2026-08-27 (Implement, milestone 3) — two tests elsewhere pinned the DEFECT
+and had to be re-pinned. Both found by the gates, neither a design decision.**
+
+Item 3.2's config change broke two assertions that were true only while the
+defect was live. Logged rather than quietly edited, and re-pinned to the fixed
+shape rather than deleted — the same treatment note 1.5 records for the
+`S(t) = 0` sweep point:
+
+1. **`apps/rialto-web/e2e/noise-floor-coverage.test.ts`** (item 2.1's coverage
+   test) asserted `expect(production).not.toContain("noise-floor")` to prove the
+   production config carries no perturbation branch. The provenance lines
+   `architecture.md` § Data model **mandates** are literally
+   `// noise-floor: …` and `// noise-floor-values: …`, so the two collided.
+   Failure observed verbatim:
+   `AssertionError: expected 'import { defineConfig, devices } from…' not to contain 'noise-floor'`.
+   Re-pinned to what the assertion actually means: no `stylePath`, no
+   `noise-floor-perturbation` reference, and **every** `noise-floor` mention on
+   a comment line — a mention on a live line still reds. The perturbation
+   config's own `stylePath: "./e2e/noise-floor-perturbation.css"` is caught by
+   both remaining clauses, so the test keeps its teeth.
+2. **`scripts/__tests__/visual-tolerance.test.mjs`**'s
+   `"reports the live config as it stands today — no threshold, no ratio, one
+budget"` pinned the defect in one assertion (`occurrences.threshold` is 0).
+   Fixing the defect falsified it: `AssertionError: expected 1 to be +0`.
+   Re-pinned to the fixed shape — one threshold, one budget, both readable, no
+   ratio despite the prose mention — and deliberately **by shape, never by
+   value**. Naming the numbers there would make it a second drift guard needing
+   a hand edit on the very PR that legitimately re-tunes them, which is the
+   trap `architecture.md` § `visual-tolerance-guard` rejects. Value drift stays
+   item 3.1's job, checked against the config's own provenance line.
+
+**The three gates, after both re-pins. All green.**
+
+```
+$ pnpm lint
+ Tasks:    47 successful, 47 total
+ Cached:    0 cached, 47 total
+  Time:    34.37s
+
+$ pnpm typecheck
+ Tasks:    48 successful, 48 total
+ Cached:    19 cached, 48 total
+  Time:    20.817s
+
+$ pnpm exec turbo run test --concurrency=4
+ Tasks:    50 successful, 50 total
+ Cached:    0 cached, 50 total
+  Time:    2m25.595s
+```
+
+One flake seen and ruled out on the way there: `@mattbutlerengineering/rialto`'s
+suite failed once under turbo's concurrency and passed standalone immediately
+after — `Test Files 140 passed (140) / Tests 2176 passed (2176)` — then passed
+again in the full run above. This repo has the failure class recorded (cold
+turbo cache raising ~40-task concurrency past default vitest timeouts in
+unrelated packages); nothing in this run's diff reaches that package.
+
+**2026-08-27 (Implement, item 3.6) — the baseline-regeneration procedure is
+corrected.** One bullet in `.claude/rules/gotchas.md` § CI, no other file
+touched. It now names **`visual-actuals-replica-a`** from
+`.github/workflows/visual-noise-floor.yml` as the preferred source —
+unconditionally all 49 snapshots, `runs-on: ubuntu-latest` (the same label the
+`Visual Regression (rialto-web)` job uses, verified in
+`.github/workflows/rialto-web-e2e.yml:78`), at a known commit, shipping a
+`provenance.json` so the regeneration is citable — reachable by
+`workflow_dispatch` or a push to a disposable `measure/**` ref. It keeps
+`rialto-web-visual-diffs` as the **on-failure fallback** and states why it is
+only that: it exists solely when the visual job fails and carries only the
+snapshots that failed, so a tightening that flips 40 of 49 would leave 9 stale.
+The Linux-CI-runner-specific constraint and the never-commit-a-macOS-baseline
+rule are unchanged and, if anything, stated harder. The procedure is only true
+once it has been used once, which item 3.3 just did: 49/49 byte-identical to
+the artifact.
