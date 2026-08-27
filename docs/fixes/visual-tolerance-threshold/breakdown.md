@@ -208,7 +208,7 @@ thresholds })` returns the `Measurement[]` row set of
   - Blocked by: —
   - Verification: **local**
 
-- [ ] **1.4 `scripts/visual-tolerance-rule.mjs` — `recommend()`, clauses 0-3
+- [x] **1.4 `scripts/visual-tolerance-rule.mjs` — `recommend()`, clauses 0-3
       and the four-verdict contract** — component (5). Pure arithmetic over
       the measurement rows, and the owner of saying _no pair is justified_.
       **Re-cut against revision 2:** clauses 1-3 stand verbatim from pass 1;
