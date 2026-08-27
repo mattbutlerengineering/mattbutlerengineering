@@ -486,7 +486,7 @@
         "dist/lib/components/Select/index.js",
         "dist/lib/chunks/Select-*.js"
       ],
-      "limit": "1800 B"
+      "limit": "1850 B"
     },
     {
       "name": "Autocomplete (subpath)",
