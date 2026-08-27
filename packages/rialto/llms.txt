@@ -861,4 +861,11 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="visual">
+  <file path="src/test/visual/story-url.ts">
+    <item priority="high">
+      export function buildStoryUrl(storyId: string): string { /* ... */ }
+    </item>
+  </file>
+  </section>
 </codebase>
