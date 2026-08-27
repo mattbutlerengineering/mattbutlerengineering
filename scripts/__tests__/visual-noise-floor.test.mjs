@@ -8,7 +8,9 @@ import {
   measure,
   renderMeasurementTable,
   resolvePlaywrightCoreDir,
+  shiftPngChannels,
   DEFAULT_THRESHOLDS,
+  DEFAULT_DEFECT_AMPLITUDE,
   PAIRINGS,
 } from "../visual-noise-floor.mjs";
 
@@ -106,8 +108,8 @@ describe("measure — the row set", () => {
     const { measurements } = measure(healthy());
 
     expect(DEFAULT_THRESHOLDS).toHaveLength(8);
-    expect(PAIRINGS).toEqual(["run", "drift", "signal"]);
-    expect(measurements).toHaveLength(2 * 3 * DEFAULT_THRESHOLDS.length);
+    expect(PAIRINGS).toEqual(["run", "drift", "signal", "reproduction"]);
+    expect(measurements).toHaveLength(2 * 4 * DEFAULT_THRESHOLDS.length);
 
     for (const row of measurements) {
       expect(Object.keys(row).sort()).toEqual(
@@ -133,7 +135,7 @@ describe("measure — the row set", () => {
 
   it("honours an explicit sweep and sizes the row set from it", () => {
     const { measurements } = measure({ ...healthy(), thresholds: [0, 0.1] });
-    expect(measurements).toHaveLength(2 * 3 * 2);
+    expect(measurements).toHaveLength(2 * 4 * 2);
     expect([...new Set(measurements.map((m) => m.threshold))].sort()).toEqual([0, 0.1]);
   });
 
@@ -184,10 +186,109 @@ describe("measure — the counts are the comparator's own", () => {
   });
 });
 
+describe("shiftPngChannels — defect.md § A's reproduction, verbatim", () => {
+  it("BRIGHTENS: min(255, v + D) on R, G and B, alpha untouched", () => {
+    const png = new PNG({ width: 2, height: 1 });
+    // pixel 0: mid-tone, headroom to spare. pixel 1: near-white, clamps.
+    [100, 110, 120, 200, 250, 251, 252, 128].forEach((v, i) => {
+      png.data[i] = v;
+    });
+    const shifted = PNG.sync.read(shiftPngChannels(PNG.sync.write(png), 36));
+
+    expect([...shifted.data]).toEqual([136, 146, 156, 200, 255, 255, 255, 128]);
+  });
+
+  it("is a no-op at amplitude 0 and never darkens", () => {
+    const png = new PNG({ width: 1, height: 1 });
+    [10, 20, 30, 40].forEach((v, i) => {
+      png.data[i] = v;
+    });
+    const source = PNG.sync.write(png);
+    expect([...PNG.sync.read(shiftPngChannels(source, 0)).data]).toEqual([10, 20, 30, 40]);
+    for (const d of [1, 36, 200]) {
+      const out = PNG.sync.read(shiftPngChannels(source, d));
+      for (let i = 0; i < 3; i += 1) expect(out.data[i]).toBeGreaterThanOrEqual(png.data[i]);
+    }
+  });
+});
+
+describe("measure — the fourth `reproduction` pairing", () => {
+  it("derives BOTH sides from replicaA — no other leg can move it", () => {
+    // replica-a is held constant while every other leg is replaced wholesale.
+    const names = ["light-alpha.png", "dark-beta.png"];
+    const leg = (color) => Object.fromEntries(names.map((n) => [n, flatPng(W, H, color)]));
+    const rowsOf = (dirs) =>
+      measure(dirs)
+        .measurements.filter((m) => m.pairing === "reproduction")
+        .map(({ snapshot, threshold, count, ratio }) => ({ snapshot, threshold, count, ratio }));
+
+    const first = rowsOf(
+      makeInput({
+        replicaA: leg(BASE),
+        replicaB: leg(BASE),
+        committed: leg(NEAR),
+        perturbed: leg(FAR),
+      })
+    );
+    const second = rowsOf(
+      makeInput({
+        replicaA: leg(BASE),
+        replicaB: leg(FAR), // wildly different noise
+        committed: leg(FAR), // wildly different drift
+        perturbed: leg(NEAR), // a much weaker signal
+      })
+    );
+
+    expect(first).toHaveLength(names.length * DEFAULT_THRESHOLDS.length);
+    expect(second).toEqual(first);
+  });
+
+  it("accepts no fourth input directory — the pairing is arithmetic, not a capture leg", () => {
+    const baseline = measure(healthy()).measurements;
+    const withExtra = measure({ ...healthy(), reproduction: join(root, "does-not-exist") });
+    expect(withExtra.measurements).toHaveLength(baseline.length);
+    expect(MODULE_SOURCE).not.toContain("--reproduction");
+  });
+
+  it("reproduces the defect at the DEFAULT amplitude: visible to t = 0.1, invisible at 0.15 and 0.2", () => {
+    // defect.md § B measured the smallest FAILING uniform delta as 40/255 at
+    // t = 0.15 and 53/255 at t = 0.2. The default amplitude, 36, is under both,
+    // so the reproduction vanishes at exactly those two sweep points — which is
+    // the defect occurring, expressed as a measurement.
+    const { measurements } = measure(healthy());
+    for (const t of [0, 0.005, 0.01, 0.02, 0.05, 0.1]) {
+      expect(rowFor(measurements, "light-alpha.png", "reproduction", t).count).toBe(AREA);
+    }
+    for (const t of [0.15, 0.2]) {
+      expect(rowFor(measurements, "light-alpha.png", "reproduction", t).count).toBe(0);
+    }
+  });
+
+  it("is a function of the amplitude — a larger one survives further up the sweep", () => {
+    const { measurements } = measure({ ...healthy(), defectAmplitude: 53 });
+    expect(rowFor(measurements, "light-alpha.png", "reproduction", 0.2).count).toBe(AREA);
+  });
+
+  it("exposes the amplitude on the CLI, and defaults it so the committed workflow needs no edit", () => {
+    expect(MODULE_SOURCE).toContain("--defect-amplitude");
+    const workflow = readFileSync(
+      resolve(ROOT, ".github/workflows/visual-noise-floor.yml"),
+      "utf8"
+    );
+    expect(workflow).not.toContain("--defect-amplitude");
+  });
+});
+
 describe("measure — provenance", () => {
   it("returns the merged tuple when all three legs agree", () => {
     const { provenance } = measure(healthy());
-    expect(provenance).toEqual(PROVENANCE);
+    expect(provenance).toEqual({ ...PROVENANCE, defectAmplitude: DEFAULT_DEFECT_AMPLITUDE });
+  });
+
+  it("echoes the RESOLVED defectAmplitude into provenance — a different amplitude is a different measurement", () => {
+    expect(DEFAULT_DEFECT_AMPLITUDE).toBe(36);
+    expect(measure(healthy()).provenance.defectAmplitude).toBe(36);
+    expect(measure({ ...healthy(), defectAmplitude: 12 }).provenance.defectAmplitude).toBe(12);
   });
 
   it("refuses to difference legs whose provenance disagrees", () => {

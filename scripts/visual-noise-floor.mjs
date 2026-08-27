@@ -17,7 +17,7 @@
  * of a lookalike. It also keeps `pnpm-lock.yaml` (a turbo `globalDependencies`
  * entry) untouched.
  *
- * Emits the `Measurement` row set of
+ * Emits the four-pairing `Measurement` row set of
  * docs/fixes/visual-tolerance-threshold/architecture.md § Data model, plus the
  * merged provenance tuple. Every failure is HARD and names the offending
  * snapshot: a skipped snapshot would lower every max and every percentile,
@@ -27,7 +27,7 @@
  * Usage:
  *   node scripts/visual-noise-floor.mjs \
  *     --replica-a <dir> --replica-b <dir> --perturbed <dir> --committed <dir> \
- *     [--thresholds 0,0.005,…] [--out measurement.json]
+ *     [--thresholds 0,0.005,…] [--defect-amplitude 36] [--out measurement.json]
  */
 
 import { readFileSync, readdirSync, writeFileSync, appendFileSync, statSync } from "node:fs";
@@ -42,14 +42,31 @@ const require_ = createRequire(import.meta.url);
  * rather than one it silently skips a clause on. */
 export const DEFAULT_THRESHOLDS = [0, 0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2];
 
-/** The three pairings, in § Data model order. */
-export const PAIRINGS = ["run", "drift", "signal"];
+/** The four pairings, in § Data model order. */
+export const PAIRINGS = ["run", "drift", "signal", "reproduction"];
 
-/** Which two legs each pairing differences, `[actual, expected]`. */
+/**
+ * The per-channel shift behind the `reproduction` pairing.
+ *
+ * 36/255 is not invented here: it is the prior run's measured largest
+ * per-channel delta of the `opacity: 0.55` regression that shipped undetected
+ * (`defect.md` § D). It is the strongest amplitude this suite is known to have
+ * missed, and therefore the weakest thing the fix has to catch.
+ */
+export const DEFAULT_DEFECT_AMPLITUDE = 36;
+
+/**
+ * Which two legs each pairing differences, `[actual, expected]`.
+ *
+ * `reproduction` differences a DERIVED leg — replica-a shifted by
+ * `defectAmplitude` — against replica-a itself. Both of its sides come from one
+ * PNG, so it needs no runner, no capture leg and no fourth input directory.
+ */
 const PAIRING_LEGS = {
   run: ["replicaA", "replicaB"],
   drift: ["replicaA", "committed"],
   signal: ["perturbed", "replicaA"],
+  reproduction: ["reproduction", "replicaA"],
 };
 
 /** Legs that carry a `provenance.json`. `committed` is the checkout's own
@@ -99,6 +116,44 @@ function comparator() {
     comparatorCache = utils.getComparator("image/png");
   }
   return comparatorCache;
+}
+
+let pngCache = null;
+
+/** The PNG codec the installed playwright-core already bundles — same reason
+ * as the comparator: adding `pngjs` would touch `pnpm-lock.yaml`, a turbo
+ * `globalDependencies` entry, and would decode with a lookalike. */
+function png() {
+  if (pngCache === null) {
+    pngCache = require_(join(resolvePlaywrightCoreDir(), "lib/utilsBundle.js")).PNG;
+  }
+  return pngCache;
+}
+
+/**
+ * `defect.md` § A's reproduction, verbatim: add a constant delta to R, G and B
+ * of **every** pixel, clamped at 255, alpha untouched.
+ *
+ * The direction is load-bearing — brightening, `min(255, v + D)` — because it
+ * is the direction § A measured, and a darkening shift would clamp on a
+ * different set of pixels and count differently. Returns a new buffer; the
+ * input is never mutated.
+ *
+ * @param {Buffer} buffer a PNG
+ * @param {number} amplitude per-channel delta
+ * @returns {Buffer} the shifted PNG
+ */
+export function shiftPngChannels(buffer, amplitude) {
+  const PNG = png();
+  const source = PNG.sync.read(buffer);
+  const out = new PNG({ width: source.width, height: source.height });
+  source.data.copy(out.data);
+  for (let i = 0; i < out.data.length; i += 4) {
+    out.data[i] = Math.min(255, out.data[i] + amplitude);
+    out.data[i + 1] = Math.min(255, out.data[i + 1] + amplitude);
+    out.data[i + 2] = Math.min(255, out.data[i + 2] + amplitude);
+  }
+  return PNG.sync.write(out);
 }
 
 /**
@@ -199,6 +254,7 @@ function mergeProvenance(byLeg) {
  * @param {string} input.perturbed directory of PNGs (the known-regression leg)
  * @param {string} input.committed the checkout's `e2e/screenshots/`
  * @param {number[]} [input.thresholds] sweep points; defaults to DEFAULT_THRESHOLDS
+ * @param {number} [input.defectAmplitude] per-channel shift behind `reproduction`
  * @returns {{measurements: Array<object>, provenance: object}}
  */
 export function measure({
@@ -207,6 +263,7 @@ export function measure({
   perturbed,
   committed,
   thresholds = DEFAULT_THRESHOLDS,
+  defectAmplitude = DEFAULT_DEFECT_AMPLITUDE,
 }) {
   const dirs = { replicaA, replicaB, perturbed, committed };
   const legs = Object.fromEntries(
@@ -246,8 +303,23 @@ export function measure({
     }
   }
 
-  const provenance = mergeProvenance(
-    Object.fromEntries(PROVENANCE_LEGS.map((leg) => [leg, readProvenance(dirs[leg], leg)]))
+  const provenance = {
+    ...mergeProvenance(
+      Object.fromEntries(PROVENANCE_LEGS.map((leg) => [leg, readProvenance(dirs[leg], leg)]))
+    ),
+    // A set whose reproduction rows were taken at a different amplitude is a
+    // DIFFERENT measurement, not a comparable one — so the amplitude travels
+    // with the tuple that already defines the unit of validity.
+    defectAmplitude,
+  };
+
+  // The derived fifth leg. Built after validation because it is not an input:
+  // it is replica-a's own bytes, shifted. Nothing on disk corresponds to it.
+  legs.reproduction = new Map(
+    names.map((name) => [
+      name,
+      { buffer: shiftPngChannels(legs.replicaA.get(name).buffer, defectAmplitude) },
+    ])
   );
 
   const compare = comparator();
@@ -303,17 +375,19 @@ export function renderMeasurementTable(measurements) {
       .map((m) => m.count);
 
   const lines = [
-    "| threshold | run max | drift P90 | drift max | signal min | signal max |",
-    "| --------- | ------- | --------- | --------- | ---------- | ---------- |",
+    "| threshold | run max | drift P90 | drift max | signal min | signal max | reproduction min |",
+    "| --------- | ------- | --------- | --------- | ---------- | ---------- | ---------------- |",
   ];
   for (const threshold of thresholds) {
     const run = countsAt("run", threshold);
     const drift = countsAt("drift", threshold);
     const signal = countsAt("signal", threshold);
+    const reproduction = countsAt("reproduction", threshold);
     lines.push(
       `| ${threshold} | ${Math.max(0, ...run)} | ${aggregate(drift, 90)} | ` +
         `${Math.max(0, ...drift)} | ${signal.length ? Math.min(...signal) : 0} | ` +
-        `${Math.max(0, ...signal)} |`
+        `${Math.max(0, ...signal)} | ` +
+        `${reproduction.length ? Math.min(...reproduction) : 0} |`
     );
   }
   return `${lines.join("\n")}\n`;
@@ -339,15 +413,17 @@ function main() {
     console.error(
       `visual-noise-floor.mjs: missing ${missing.join(", ")}\n` +
         "Usage: --replica-a <dir> --replica-b <dir> --perturbed <dir> --committed <dir> " +
-        "[--thresholds 0,0.01,…] [--out measurement.json]"
+        "[--thresholds 0,0.01,…] [--defect-amplitude 36] [--out measurement.json]"
     );
     process.exit(1);
   }
 
   const sweep = readFlag(args, "--thresholds");
+  const amplitude = readFlag(args, "--defect-amplitude");
   const { measurements, provenance } = measure({
     ...required,
     ...(sweep ? { thresholds: sweep.split(",").map(Number) } : {}),
+    ...(amplitude ? { defectAmplitude: Number(amplitude) } : {}),
   });
 
   const payload = JSON.stringify({ provenance, measurements }, null, 2);

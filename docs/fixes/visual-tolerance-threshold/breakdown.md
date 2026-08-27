@@ -196,7 +196,7 @@ tolerance values written.
   - **Revision 3: unchanged, stays checked.** Landed in `de85c8bb1`. Items
     3.1 and 3.1b both consume this reader, and neither adds a second one.
 
-- [ ] **1.3 `scripts/visual-noise-floor.mjs` — `measure()`, now with the
+- [x] **1.3 `scripts/visual-noise-floor.mjs` — `measure()`, now with the
       fourth `reproduction` pairing** — component (4). The only place outside
       Playwright that invokes the comparator: it calls
       `utils.getComparator("image/png")` from the installed
