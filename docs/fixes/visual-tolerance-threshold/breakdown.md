@@ -696,7 +696,7 @@ claims. Nothing is merged.
 
 **Every item in this milestone is blocked by 2.5 returning `verdict: "ok"`.**
 
-- [ ] **3.1 `scripts/__tests__/visual-tolerance-guard.test.mjs`, authored RED**
+- [x] **3.1 `scripts/__tests__/visual-tolerance-guard.test.mjs`, authored RED**
       — component (7), the drift guard. Written **before** the config change,
       TDD order, so its failure against today's config is observed rather than
       assumed.
@@ -734,7 +734,7 @@ claims. Nothing is merged.
   - Verification: **local**
   - **Revision 3: unchanged.** Its five assertions still name no number.
 
-- [ ] **3.1b `scripts/__tests__/visual-defect-reproduction.test.mjs`, authored
+- [x] **3.1b `scripts/__tests__/visual-defect-reproduction.test.mjs`, authored
       RED** — **component (8), new in revision 3.** The standing regression
       test that turns `defect.md` § A from a one-off Capture measurement into a
       permanent assertion against the **live** config, inside `CI Gate`.
@@ -2004,3 +2004,72 @@ front, per the item, so nobody meets them as a surprise:
 **Also carried:** `driftReview: "regeneration-required"`, which item 2.4
 triaged and item 3.3 discharges. No number was guessed anywhere; the pair
 written in 3.2 is the rule's output byte for byte.
+
+**2026-08-27 (Implement, item 3.1) — the drift guard, observed RED against the
+unmodified config.** Written before the config change, TDD order, so its failure
+is observed rather than assumed. `scripts/__tests__/visual-tolerance-guard.test.mjs`
+names **no tolerance value** — its load-bearing assertion compares the config
+against itself. Verbatim:
+
+```
+ ❯ scripts/__tests__/visual-tolerance-guard.test.mjs (5 tests | 3 failed) 7ms
+     × declares `threshold` explicitly instead of inheriting Playwright's default 4ms
+     ✓ keeps the budget an absolute pixel count, with no ratio anywhere 0ms
+     ✓ lets no `toHaveScreenshot` call site override the suite-wide tolerance 0ms
+     × carries both provenance lines, in the data model's grammar 1ms
+     × keeps the live directives and their evidence line in agreement, key for key 0ms
+
+ FAIL  … > declares `threshold` explicitly instead of inheriting Playwright's default
+AssertionError: expected +0 to be 1 // Object.is equality
+ ❯ scripts/__tests__/visual-tolerance-guard.test.mjs:68:46
+     68|     expect(directives.occurrences.threshold).toBe(1);
+
+ FAIL  … > carries both provenance lines, in the data model's grammar
+AssertionError: apps/rialto-web/playwright.config.ts is missing the `// noise-floor:` provenance line: expected null not to be null
+
+ FAIL  … > keeps the live directives and their evidence line in agreement, key for key
+AssertionError: apps/rialto-web/playwright.config.ts is missing the `// noise-floor-values:` provenance line: expected null not to be null
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+```
+
+**Exactly the RED the item predicted**: assertion 1 reds (`threshold` absent —
+`occurrences.threshold` is 0), assertion 4 reds (neither provenance line
+exists), and assertion 5 reds as a consequence of 4. **Assertions 2 and 3 pass
+today** — the live config already carries `maxDiffPixels: 300` with no ratio,
+and all four `toHaveScreenshot` call sites in `visual.spec.ts` pass only
+`timeout`. That split is the point: the guard reds on what the defect _is_, not
+on everything.
+
+**2026-08-27 (Implement, item 3.1b) — the defect-reproduction test, observed
+RED against the unmodified config. RED is total: 49 of 49.**
+`scripts/__tests__/visual-defect-reproduction.test.mjs` reads the live pair
+through item 1.2's `readToleranceDirectives` and holds **no tolerance value of
+its own** — the one number it names is the amplitude, `36`, which is
+`defect.md` § D's measured worst case and is the thing under test. A directive
+the config does not declare is **omitted** from the comparator options, so
+Playwright's own default applies — reproducing the defect means reproducing the
+defaults it hid behind. Verbatim tail:
+
+```
+ FAIL  scripts/__tests__/visual-defect-reproduction.test.mjs > the declared visual sensitivity can see defect.md § A's reproduction > telemetry-game.png
+AssertionError: a uniform +36/255 shift on every pixel of telemetry-game.png is invisible to the tolerance declared in apps/rialto-web/playwright.config.ts: expected null not to be null
+ ❯ scripts/__tests__/visual-defect-reproduction.test.mjs:92:11
+     92|     ).not.toBeNull();
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/49]⎯
+
+ Test Files  1 failed (1)
+      Tests  49 failed | 1 passed (50)
+   Duration  2.40s (transform 25ms, setup 0ms, import 184ms, tests 2.10s, environment 0ms)
+```
+
+Under the live config (`threshold` unset -> Playwright's 0.2,
+`maxDiffPixels: 300`) a 36/255 whole-image shift returns `null` — "no
+difference" — on **every one of the 49 baselines**. That is `defect.md` § A's
+table run against the whole suite. The one passing case is the
+`has baselines to test at all` sanity check (50 tests, 49 assertions): a
+silently-empty baseline set would make every assertion vacuous, which is this
+repo's own recorded failure mode of work that passes because it never ran.
+**Measured cost 2.40s** for all 49 at one threshold — within the ~2.5s
+architecture.md § Components 8 predicted, so the set is not trimmed.
