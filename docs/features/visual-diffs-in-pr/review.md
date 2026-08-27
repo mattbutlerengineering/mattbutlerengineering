@@ -396,6 +396,71 @@ summary — the summary is not evidence. Second, SC-1, SC-3, SC-4, SC-5, SC-7 an
 undischarged exactly as `verification.md` records; the delivery path has never executed end to
 end, and no amount of review substitutes for the perturbed pull request item 3.5 describes.
 
+## Second review pass — adversarial, orchestrator-dispatched
+
+Recorded 2026-08-26, after the fact. The Review stage above ran as one
+subagent producing this artifact. The autorun orchestrator **also** dispatched
+a second, independent adversarial reviewer against the same diff, prompted to
+find what was wrong rather than to confirm the work. Its findings drove five of
+the nine fixes in the fix pass, but it returned only to the orchestrator's
+transcript and was never written into this run directory — so for a day the
+repo carried the fixes with no record of the reasoning that produced them.
+The `retro.md` Operate stage caught the gap by refusing to restate an
+unevidenced claim; this section closes it.
+
+**Verdict:** `flag`, score **4/10** — "a single major functional defect caps
+this at 4 under the rubric; the green gates and the strong mutation results are
+why it is a 4 and not lower."
+
+**Converged with this artifact on F1**, reached independently. Its reproduction
+was its own — a scratch bare repo, plus a separate proof that two `commit-tree`
+calls on a byte-identical tree one second apart yield different SHAs, closing
+the "identical re-run" escape:
+
+```
+$ git push origin d970162...:refs/heads/visual-diffs/pr-1/run-999
+ * [new branch]      d970162... -> visual-diffs/pr-1/run-999
+$ git push origin 6984e4a...:refs/heads/visual-diffs/pr-1/run-999
+ ! [rejected]        6984e4a... -> visual-diffs/pr-1/run-999 (non-fast-forward)
+```
+
+### Findings it contributed that this artifact did not have
+
+- **The comment reported hard-failing specs as "unchanged."** `unchanged =
+total - all.length` in `visual-diff-comment.mjs`; a spec that failed with no
+  `-actual` attachment was absent from both counts. Reproduced against a
+  3-spec report (one 579 px diff, one `net::ERR_CONNECTION_REFUSED`, one
+  `Test timeout of 30000ms exceeded`) rendering `1 of 3 changed` /
+  `2 of 3 snapshots unchanged`. It misinformed the exact reader PRD user story
+  4 exists for. Fixed by splitting `parseVisualReport` into three buckets.
+- **`planRefSweep` deleted the only ref of an open PR** when the run id was
+  non-numeric: `newestRunIdByPr` stored `Number(runId)`, `parseRefName`'s regex
+  admits `run-([0-9A-Za-z._-]+)`, and the keep-clause `NaN === NaN` is false.
+  The same fail-unsafe direction as the epoch bug, one clause away from it.
+  Fixed by rejecting a non-numeric ordinal in `parseRefName` (returns `null`,
+  which retains).
+- **Array-form snapshot names bypass Playwright's sanitiser.** String names go
+  through `sanitizeFilePathBeforeExtension`; the `path.join(...name)` branch
+  does not, so a raw `"` reaches the `<img src>` attribute and the blob name.
+  Bounded, reported as hardening rather than a shipped vulnerability. Fixed
+  with `codeSpan()` and `encodeURIComponent`.
+- **One non-binding test** — the flake guard in `visual-diff-report.test.mjs`,
+  the **only survivor of 23 mutations** it ran across the four modules. Stated
+  as one soft spot in an otherwise strongly-binding suite, not a pattern.
+
+### Where it corrected this artifact on evidence
+
+This artifact's Finding F6 said the display cap has no binding assertion. The
+adversarial pass measured `MAX_IMAGE_ROWS 6 -> 600` killing **5 tests** — so
+the _constant_ is bound, and it is the call-site wiring in `main()` that is
+not. The fix pass acted on the corrected reading.
+
+### On `verification.md`
+
+Its unprompted assessment, worth preserving: `verification.md` is "the most
+honest artifact in the run — it declines to claim six of eight criteria and
+says out loud that the delivery path has never executed."
+
 ## Next stage
 
 Ship, writing `docs/features/visual-diffs-in-pr/release.md` — after F1 routes back to Implement.
