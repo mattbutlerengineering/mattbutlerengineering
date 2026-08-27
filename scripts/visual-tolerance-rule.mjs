@@ -305,23 +305,24 @@ function drivingSnapshotsAt({ snapshots, signalSet, at }, threshold, agg) {
  * are compared as HEADROOM — decades of room between the noise ceiling and the
  * signal floor at the selected `t`:
  *
- *   H_abs   = log10( (S  / signalMargin) / max(noiseHeadroom × N,  1) )
+ *   H_abs   = log10( (S  / signalMargin) / (noiseHeadroom × Ñ) )
  *   H_ratio = log10( (Sr / signalMargin) / max(noiseHeadroom × Nr, 1 / maxArea) )
  *
- * Each floor is that domain's smallest resolvable non-zero quantity. The ratio
- * domain keeps its
- * `1 / maxArea` quantum — one pixel in the largest image, the smallest
- * resolvable non-zero quantity there, and the reading recorded in
- * breakdown.md § Design gaps. `Nr` and `maxArea` are both reported, so a
- * reviewer can see when the comparison rests on the floor.
+ * `H_abs` takes its floor from clause 3 rather than inventing one: `Ñ(t)` is
+ * already floored on `N0`, a measurement, so `max(…, 1)` would be a constant
+ * with nothing behind it. `H_ratio` is untouched and keeps its `1 / maxArea`
+ * quantum — one pixel in the largest image, the smallest resolvable non-zero
+ * quantity in that domain, and the reading recorded in breakdown.md § Design
+ * gaps. `Nr` and `maxArea` are both reported, so a reviewer can see when the
+ * comparison rests on the floor.
  *
  * This clause NEVER changes what is emitted. It is a trigger to re-open the
  * form question with a number attached, not a reversal.
  */
-function headroomAt(set, threshold, opts, maxArea, { S, N }) {
+function headroomAt(set, threshold, opts, maxArea, { S, Ntilde }) {
   const rat = aggregatesAt(set, threshold, opts, "ratio");
 
-  const hAbs = Math.log10(S / opts.signalMargin / Math.max(opts.noiseHeadroom * N, 1));
+  const hAbs = Math.log10(S / opts.signalMargin / (opts.noiseHeadroom * Ntilde));
   const hRatio = Math.log10(
     rat.s / opts.signalMargin / Math.max(opts.noiseHeadroom * rat.n, 1 / maxArea)
   );

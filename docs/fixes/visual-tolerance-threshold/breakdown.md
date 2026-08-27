@@ -336,7 +336,7 @@ tolerance values written.
     imports the analyzer)
   - Verification: **local**
 
-- [ ] **1.5 `recommend()`'s clause 4 — the budget form and its headroom
+- [x] **1.5 `recommend()`'s clause 4 — the budget form and its headroom
       diagnostic** — the clause meant to end the #4450 -> #4496 flip-flop.
       **RE-OPENED by revision 3, minimally.** Landed once as `66a237886`. Both
       branches, the 0.3-decade boundary, the fixed `maxDiffPixels` form and the
@@ -1174,3 +1174,39 @@ live suite reports this snapshot as passing today**. A whole-image, sub-threshol
 change sitting on `main` right now that the visual job calls "no difference".
 It is item **2.4**'s first input and item **3.3**'s first regeneration
 precondition.
+
+**2026-08-27 (Implement, items 1.3-1.5) — four deviations from the letter of
+the re-cut, none of them design decisions.**
+
+1. **1.3 — the provenance-shape test was re-pinned, not the tuple.**
+   `architecture.md` has `defectAmplitude` "echoed into the emitted set's
+   provenance", which changes the shape the analyzer's existing
+   `expect(provenance).toEqual(PROVENANCE)` test pins. The four merged
+   `PROVENANCE_FIELDS` (`ImageOS`, `ImageVersion`, `playwrightVersion`,
+   `chromiumRevision`) are byte-identical to before, so item **2.3b**'s
+   criterion 4 still reads run `33107801311`'s own tuple unchanged;
+   `defectAmplitude` sits alongside them.
+2. **1.4 — `Nr_drift` is gone from clause 4's evidence.** Pass 2 reported
+   `Nr_run` and `Nr_drift` beside `Nr` because `N` was a max over both
+   pairings. `N(t) = N_run(t)` since revision 3, so a ratio-domain drift
+   aggregate is a term of nothing. `Nr` and `Nr_run` both stay (now equal by
+   construction, which is itself the readable fact). The absolute-domain drift
+   evidence — `driftP90`, `driftOutliers`, `driftAboveBudget` — is untouched.
+3. **1.4 — clause 2's two hard stops were made total on eligibility, not on
+   the prose.** `architecture.md` words them as "all unseparated" ->
+   `no-separation` and "some point is not unseparated but none is feasible" ->
+   `defect-not-caught`, which is not literally exhaustive. Implemented off the
+   eligibility definition instead: no eligible point and every point
+   `unseparated` -> `no-separation`; no eligible point otherwise ->
+   `defect-not-caught`. Both readings agree everywhere the prose is defined;
+   this one also answers where it is silent, and cannot fall through.
+4. **1.4 — `evidence.driftReview` is additive.** Not in `architecture.md`
+   § `recommend`'s Output contract. It is `"regeneration-required"` when
+   `driftAboveBudget` is non-empty and `"no-regeneration-required"` otherwise —
+   a summary of a field the contract does require, per § Design gaps' "recorded,
+   not routed". It can never change the emitted pair.
+
+**1.5 carried no deviation.** Exactly one term moved: `H_abs`'s denominator
+from `max(noiseHeadroom x N, 1)` to `noiseHeadroom x Ntilde(t)`. `H_ratio`,
+both branches, the 0.3-decade boundary and the fixed `maxDiffPixels` form are
+untouched, and their tests went green without edit.

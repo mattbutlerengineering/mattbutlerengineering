@@ -796,6 +796,47 @@ describe("recommend — clause 4, the headroom diagnostic", () => {
     expect(evidence.H_ratio).toBeCloseTo(evidence.H_abs, 9);
   });
 
+  it("takes its floor from Ñ even where N itself measures 0", () => {
+    // The discriminating case. At t = 0.1 the run pairing measures 0, so pass
+    // 2's `max(noiseHeadroom x N, 1)` collapsed onto the constant — a floor
+    // with no measurement behind it. Clause 3 already floors Ñ on N0, so the
+    // denominator is `noiseHeadroom x Ñ` and nothing else.
+    //
+    // Noise lives in `noisy`, the weak signal in `quiet`, so clause 0 — which
+    // is per-snapshot against that snapshot's OWN run count — passes on both
+    // while clause 1(a), reading S as a min against N as a max, does not.
+    //
+    //   t    | N_run = N | Ñ (N0 = 4) | S  | separationState | eligible
+    //   0    |     4     |     4      | 36 | unseparated (9x)| no
+    //   0.1  |     0     |     4      | 32 | unbounded       | yes
+    const { evidence, threshold, maxDiffPixels } = recommend(
+      buildRows({
+        snapshots: ["quiet", "noisy"],
+        thresholds: [0, 0.1],
+        counts: (pairing, snapshot, t) => {
+          if (pairing === "run") return snapshot === "noisy" && t === 0 ? 4 : 0;
+          if (pairing === "drift") return 0;
+          if (snapshot === "noisy") return t === 0 ? 400 : 350;
+          return t === 0 ? 36 : 32;
+        },
+      })
+    );
+
+    expect(threshold).toBe(0.1);
+    expect(evidence.N).toBe(0);
+    expect(evidence.N0).toBe(4);
+    expect(evidence.Ntilde).toBe(4);
+    // (S / signalMargin) / (noiseHeadroom x Ñ) = (32/2) / (2 x 4) = 2.
+    expect(evidence.H_abs).toBeCloseTo(Math.log10(2), 9);
+    // H_ratio is untouched and still rests on its own `1 / maxArea` quantum,
+    // which at Nr = 0 leaves it a factor of 8 above H_abs — so the same floor
+    // change is what lets clause 4 see the gap at all.
+    expect(evidence.H_ratio).toBeCloseTo(Math.log10(16), 9);
+    expect(evidence.formReview).toBe("ratio-has-more-headroom");
+    // And it changes nothing that is emitted.
+    expect(maxDiffPixels).toBe(11); // round(sqrt(4 x 32)), inside [8, 16]
+  });
+
   it("reports the ratio-domain aggregates it was computed from", () => {
     const { evidence } = recommend(ratioFavouring());
     expect(evidence.Sr).toBeCloseTo(0.5, 9);
@@ -849,8 +890,10 @@ describe("recommend — clause 4, the headroom diagnostic", () => {
     expect(evidence.maxArea).toBe(1000);
     expect(Number.isFinite(evidence.H_ratio)).toBe(true);
     expect(evidence.H_ratio).toBeCloseTo(Math.log10(400), 9);
-    expect(evidence.H_abs).toBeCloseTo(Math.log10(400), 9);
-    expect(evidence.formReview).toBe("absolute-confirmed");
+    // H_abs's floor is Ñ = max(N(0), N0) = max(0, 1) = 1, so its denominator is
+    // `noiseHeadroom x 1` = 2 — half the ratio domain's, one log10(2) apart.
+    expect(evidence.H_abs).toBeCloseTo(Math.log10(200), 9);
+    expect(evidence.formReview).toBe("ratio-has-more-headroom");
     expect(maxDiffPixels).toBe(28); // round(sqrt(1 x 800)), inside [2, 400]
   });
 });
