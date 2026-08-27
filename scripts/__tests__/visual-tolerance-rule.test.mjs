@@ -376,3 +376,161 @@ describe("the rule is the policy — it reaches nothing", () => {
     expect(TEST_SOURCE).not.toMatch(/^\s*import\s.*(playwright|visual-noise-floor)/m);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Clause 4 — the budget form is FIXED, and reviewed against a named statistic
+// ---------------------------------------------------------------------------
+
+/**
+ * Absolute separation is 12.5x (5000 vs 400), so the verdict is `ok` — but the
+ * noise is concentrated in the large image while the signal is proportionally
+ * identical in both, so the RATIO domain leaves two decades more slack.
+ *
+ *   S  = 5000     N  = 400        H_abs   = log10((5000/2) / 800)   = 0.49485
+ *   Sr = 0.5      Nr = 0.0004     H_ratio = log10((0.5/2) / 0.0008) = 2.49485
+ */
+function ratioFavouring() {
+  return buildRows({
+    snapshots: ["small", "large"],
+    thresholds: [0],
+    area: (s) => (s === "small" ? 10000 : 1000000),
+    counts: (pairing, snapshot) => {
+      if (pairing === "run") return 1;
+      if (pairing === "drift") return snapshot === "small" ? 1 : 400;
+      return snapshot === "small" ? 5000 : 500000;
+    },
+  });
+}
+
+describe("recommend — clause 4, the emitted form", () => {
+  it("emits maxDiffPixels and never maxDiffPixelRatio, on every return shape", () => {
+    const ok = recommend(healthy());
+    expect(ok.verdict).toBe("ok");
+    expect(ok).toHaveProperty("maxDiffPixels");
+    expect(ok).not.toHaveProperty("maxDiffPixelRatio");
+
+    const notObserved = recommend(
+      buildRows({
+        snapshots: ["a"],
+        thresholds: [0],
+        counts: (pairing) => (pairing === "signal" ? 5 : 1),
+      })
+    );
+    expect(notObserved.verdict).toBe("signal-not-observed");
+    expect(notObserved).not.toHaveProperty("maxDiffPixelRatio");
+
+    const noSeparation = recommend(
+      buildRows({
+        snapshots: ["a", "b"],
+        thresholds: [0],
+        counts: (pairing) => {
+          if (pairing === "run") return 1;
+          if (pairing === "drift") return 50;
+          return 100;
+        },
+      })
+    );
+    expect(noSeparation.verdict).toBe("no-separation");
+    expect(noSeparation).not.toHaveProperty("maxDiffPixelRatio");
+  });
+});
+
+describe("recommend — clause 4, the headroom diagnostic", () => {
+  it("computes H_abs and H_ratio at the selected t, in decades", () => {
+    const { evidence } = recommend(healthy());
+    // Uniform areas: the ratio domain is the absolute domain scaled by a
+    // constant, so the two headrooms coincide exactly.
+    expect(evidence.H_abs).toBeCloseTo(Math.log10(250 / 16), 9);
+    expect(evidence.H_ratio).toBeCloseTo(evidence.H_abs, 9);
+  });
+
+  it("reports the ratio-domain aggregates it was computed from", () => {
+    const { evidence } = recommend(ratioFavouring());
+    expect(evidence.Sr).toBeCloseTo(0.5, 9);
+    expect(evidence.Nr_run).toBeCloseTo(0.0001, 9);
+    expect(evidence.Nr_drift).toBeCloseTo(0.0004, 9);
+    expect(evidence.Nr).toBeCloseTo(0.0004, 9);
+    expect(evidence.maxArea).toBe(1000000);
+  });
+
+  it("flags ratio-has-more-headroom past the 0.3-decade boundary, carrying both numbers", () => {
+    const { evidence } = recommend(ratioFavouring());
+    expect(evidence.H_abs).toBeCloseTo(0.494850021, 8);
+    expect(evidence.H_ratio).toBeCloseTo(2.494850021, 8);
+    expect(evidence.H_ratio - evidence.H_abs).toBeCloseTo(2, 8);
+    expect(evidence.formReview).toBe("ratio-has-more-headroom");
+  });
+
+  it("does NOT change the emitted form on that branch — it is a trigger to re-open, not a reversal", () => {
+    const result = recommend(ratioFavouring());
+    expect(result.evidence.formReview).toBe("ratio-has-more-headroom");
+    expect(result.verdict).toBe("ok");
+    expect(result.threshold).toBe(0);
+    expect(result.maxDiffPixels).toBe(1414); // round(sqrt(400 * 5000)), inside [800, 2500]
+    expect(result).not.toHaveProperty("maxDiffPixelRatio");
+  });
+
+  it("reports absolute-confirmed otherwise, and the boundary is strictly greater-than", () => {
+    expect(recommend(healthy()).evidence.formReview).toBe("absolute-confirmed");
+
+    // The same set, read against a boundary it hits exactly: 2 decades.
+    expect(recommend(ratioFavouring(), { formReviewDecades: 2 }).evidence.formReview).toBe(
+      "absolute-confirmed"
+    );
+    expect(recommend(ratioFavouring(), { formReviewDecades: 1.999 }).evidence.formReview).toBe(
+      "ratio-has-more-headroom"
+    );
+  });
+
+  it("keeps H_ratio finite when the ratio-domain noise floor measures exactly 0", () => {
+    // The floor is one pixel in the largest image — `1 / maxArea`, the reading
+    // recorded in breakdown.md § Design gaps. With Nr = 0 it is what H_ratio
+    // rests on, so evidence names both Nr and maxArea for the reviewer.
+    const { evidence, maxDiffPixels } = recommend(
+      buildRows({
+        snapshots: ["a"],
+        thresholds: [0],
+        area: 1000,
+        counts: (pairing) => (pairing === "signal" ? 800 : 0),
+      })
+    );
+    expect(evidence.Nr).toBe(0);
+    expect(evidence.maxArea).toBe(1000);
+    expect(Number.isFinite(evidence.H_ratio)).toBe(true);
+    expect(evidence.H_ratio).toBeCloseTo(Math.log10(400), 9);
+    expect(evidence.H_abs).toBeCloseTo(Math.log10(400), 9);
+    expect(evidence.formReview).toBe("absolute-confirmed");
+    expect(maxDiffPixels).toBe(0);
+  });
+});
+
+describe("recommend — clause 4 at the degenerate sweep point architecture.md does not name", () => {
+  it("stays on the two specified branches when S(t) itself measures 0", () => {
+    // Reachable: at a high t the perturbation can vanish alongside the noise,
+    // and `0 >= separationFactor x 0` qualifies. Recorded rather than routed
+    // back — the emitted pair is TIGHTER (budget 0), the safe direction, and
+    // clause 4 is diagnostic only. Pinned so it is known, not discovered.
+    const result = recommend(
+      buildRows({
+        snapshots: ["a"],
+        thresholds: [0, 0.1],
+        counts: (pairing, _s, t) => (pairing === "signal" && t === 0 ? 100 : 0),
+      })
+    );
+    expect(result.verdict).toBe("ok");
+    expect(result.threshold).toBe(0.1);
+    expect(result.maxDiffPixels).toBe(0);
+
+    // log10(0) is -Infinity in both domains, so the difference is NaN and the
+    // strict `>` lands on the second branch. Two branches, still exhaustive.
+    expect(result.evidence.H_abs).toBe(-Infinity);
+    expect(result.evidence.H_ratio).toBe(-Infinity);
+    expect(result.evidence.formReview).toBe("absolute-confirmed");
+
+    // JSON has no spelling for -Infinity, so the recorded artifact reads null.
+    const roundTripped = JSON.parse(JSON.stringify(result));
+    expect(roundTripped.evidence.H_abs).toBeNull();
+    expect(roundTripped.evidence.H_ratio).toBeNull();
+    expect(roundTripped.evidence.formReview).toBe("absolute-confirmed");
+  });
+});

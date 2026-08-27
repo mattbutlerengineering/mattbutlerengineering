@@ -272,7 +272,7 @@ thresholds })` returns the `Measurement[]` row set of
     imports the analyzer)
   - Verification: **local**
 
-- [ ] **1.5 `recommend()`'s clause 4 — the budget form and its headroom
+- [x] **1.5 `recommend()`'s clause 4 — the budget form and its headroom
       diagnostic** — the clause meant to end the #4450 → #4496 flip-flop.
       Revision 2 replaces revision 1's undecidable correlation branch with a
       **decision** (the form is fixed) and a **diagnostic** (a named statistic
@@ -897,3 +897,23 @@ Recorded so Implement and Review do not re-derive them:
   no `threshold`, and no live `maxDiffPixelRatio` (only a prose mention inside
   the explanatory comment) — so guard assertion 2 passes today and assertions
   1 and 4 are the RED item 3.1 must observe.
+
+**2026-08-27 (Implement, item 1.5) — clause 4 at a sweep point the formula does
+not name.** `H_abs`/`H_ratio` are `log10` of a quantity whose numerator is
+`S(t) / signalMargin`; both floors guard the DENOMINATOR, so neither guards
+`S(t) = 0`. That point is reachable: at a high `t` the perturbation can vanish
+alongside the noise, and `0 >= separationFactor x 0` qualifies, so clause 1 can
+select it. Measured on such a set: `verdict ok`, `threshold 0.1`,
+`maxDiffPixels 0`, `H_abs`/`H_ratio` both `-Infinity`, difference `NaN`, and the
+strict `>` therefore lands on `absolute-confirmed` — the two specified branches
+stay exhaustive and deterministic. `JSON.stringify` writes `-Infinity` as
+`null`, so the recorded artifact reads `"H_abs": null`.
+
+**Recorded, not routed.** Blast radius is zero in the direction that matters:
+the emitted pair is _tighter_ (a budget of 0), not looser, and `formReview` is
+reported and never acted on. Pinned by a dedicated test
+(`scripts/__tests__/visual-tolerance-rule.test.mjs`, "stays on the two specified
+branches when S(t) itself measures 0") so a future reader meets it as a decision
+rather than a surprise. If item 2.3's real measurement ever selects a `t` where
+`S(t) = 0`, that is a signal about the perturbation's strength, not about this
+clause — read item 2.4's outlier pass first.
