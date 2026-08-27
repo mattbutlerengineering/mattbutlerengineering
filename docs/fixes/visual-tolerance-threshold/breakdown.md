@@ -867,7 +867,7 @@ claims. Nothing is merged.
   - Verification: **local** (arithmetic over CI-produced artifacts), with 3.5
     supplying the independent live confirmation of SC-2.
 
-- [ ] **3.5 Open the single PR, confirm its own visual job is green, delete the
+- [x] **3.5 Open the single PR, confirm its own visual job is green, delete the
       measurement ref — and stop** — `architecture.md` § Blast-radius ordering
       is a design constraint, and this is the item that satisfies it.
   - Accept: exactly **one** PR carries the tolerance change (3.2), both guards
@@ -2373,3 +2373,84 @@ The Linux-CI-runner-specific constraint and the never-commit-a-macOS-baseline
 rule are unchanged and, if anything, stated harder. The procedure is only true
 once it has been used once, which item 3.3 just did: 49/49 byte-identical to
 the artifact.
+
+**2026-08-27 (Implement, item 3.5) — one PR, its own visual job green on a
+third real Linux runner, the measurement ref deleted. Nothing merged.**
+
+**PR [#4613](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/4613)**,
+`fix/visual-tolerance-threshold` -> `main`, observed at head `b43ccbb7b`.
+
+**Single-PR shape, as the design constraint requires.** One PR carries the
+tolerance change (3.2), **both** guards (3.1, 3.1b) **and** the regenerated
+baselines (3.3) — 30 files, and a PR carrying any one of those without the
+others could not have been produced by the designed path. This is the direct
+answer to #4496, which split a sensitivity change from the baselines it
+invalidated and left `main` red for 41h14m.
+
+**The decisive conclusion — `Visual Regression (rialto-web)`: `success`.**
+
+```
+$ gh run view 33116188371 --json status,conclusion,jobs
+RUN: completed success
+JOB: completed success Functional (rialto-web)
+JOB: completed success Visual Regression (rialto-web)
+JOB: completed success Publish Visual Diffs
+```
+
+That job runs `playwright test --config apps/rialto-web/playwright.config.ts
+apps/rialto-web/e2e/visual.spec.ts` on `ubuntu-latest` — **a third real Linux
+runner**, independent of the two replicas the measurement came from, rendering
+all 49 snapshots at `{threshold: 0, maxDiffPixels: 674}` against the newly
+committed baselines and finding every one of them within budget. It is a live
+confirmation of item 3.4's SC-2 arithmetic, produced by a different host on a
+different day from the run that predicted it.
+
+**`CI Gate`: `success`, and with it both new guards.** The full rollup is
+**40 pass / 4 skipping / 0 fail / 0 pending**:
+
+```
+pass  CI Gate                          pass  Test (Node 22)
+pass  Visual Regression (rialto-web)   pass  Integrity
+pass  Functional (rialto-web)          pass  Architecture Audit
+pass  Lint                             pass  Typecheck
+pass  Build                            pass  codecov/patch
+```
+
+`Test (Node 22)` is where `visual-tolerance-guard.test.mjs` and
+`visual-defect-reproduction.test.mjs` run — the two guards are green **in CI**,
+not just locally, which is the whole point of putting them in `CI Gate`.
+
+**The residual hazard did not fire.** `main` moved two commits between the
+capture and this PR (`6e2cc27f7`, `d5666327d`); both are metrics/ACMM JSON and
+neither touches rialto-web source, so the captured baselines were not
+invalidated. Had they been, the detection would have been free — this job going
+red — and the recovery a fresh `measure/**` push at the new base commit, never
+a force-through and never a locally regenerated baseline.
+
+**Run-close housekeeping — the disposable ref is deleted** (re-homed here from
+item 2.3 criterion 7), and deliberately only _after_ the PR was open and its CI
+observed, so the measurement's provenance stayed reachable until it was no
+longer needed:
+
+```
+$ git push origin --delete measure/visual-noise-floor-1
+ - [deleted]             measure/visual-noise-floor-1
+$ git ls-remote origin 'refs/heads/measure/*'
+(no output)
+```
+
+Deleting it invalidates nothing. Run `33107801311` is still `success` at head
+`defe2c62256767434912765fbb72652fafede000`, its artifacts are still attached to
+it, and that SHA remains reachable from this branch's own history — so the
+provenance line in `playwright.config.ts` still resolves.
+
+**Nothing was merged.** Measured, not asserted:
+`{"autoMerge": null, "state": "OPEN", "mergedAt": null,
+"mergeState": "CLEAN", "mergeable": "MERGEABLE"}`. No
+`gh pr merge` was issued in any form, auto-merge was **not** enabled, and the
+`auto-merge` label was never applied. The one label on the PR, `tier:standard`,
+was added by the repo's own `tier-classifier` workflow. Release authorization
+is NONE; the PR is prepared and left for a human.
+
+**No tracker interaction beyond opening this PR** — no issues filed, no labels
+applied by this run, no comments on other PRs.
