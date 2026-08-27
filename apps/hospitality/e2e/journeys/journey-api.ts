@@ -40,6 +40,19 @@ export async function authenticateAgainstLiveSite(page: Page): Promise<string> {
 }
 
 /**
+ * Whether the non-admin journey identity's credentials are provisioned.
+ * `resolveNonAdminAuthEnv` throws once they're read, which is right for a
+ * step already committed to running — this lets the caller check first and
+ * skip the step instead (see #4527: unprovisioned repos should not hard-fail
+ * the whole journey over one never-created Auth0 test account).
+ */
+export function isNonAdminAuthConfigured(
+  env: Record<string, string | undefined> = process.env
+): boolean {
+  return Boolean(env["E2E_NONADMIN_AUTH_EMAIL"]) && Boolean(env["E2E_NONADMIN_AUTH_PASSWORD"]);
+}
+
+/**
  * Builds the env the NON-ADMIN journey identity authenticates with: the same
  * tenant, client and audience as the admin identity, but different
  * credentials.

@@ -4,6 +4,7 @@ import {
   authenticateNonAdmin,
   createVenueAs,
   deleteVenue,
+  isNonAdminAuthConfigured,
   listSyntheticVenues,
   sweepSyntheticVenues,
   SYNTHETIC_VENUE_PREFIX,
@@ -112,29 +113,42 @@ test("venue onboarding journey against the live site", async ({ page }) => {
   // Deliberately LAST: a failed step marks every later step skipped, so an
   // unprovisioned non-admin account here must not wipe out the wizard
   // coverage above. Cleanup still runs — it is outside the step chain.
-  await journey.step("A non-admin identity can bootstrap its first venue", async () => {
-    // ADR-020's third case. Runs against a SEPARATE, deliberately non-admin
-    // account: the admin identity above takes requireVenueCreateAccess's
-    // skip-the-lookup branch, so it would exercise none of this.
-    const nonAdmin = await authenticateNonAdmin();
+  const NON_ADMIN_STEP_NAME = "A non-admin identity can bootstrap its first venue";
+  if (isNonAdminAuthConfigured()) {
+    await journey.step(NON_ADMIN_STEP_NAME, async () => {
+      // ADR-020's third case. Runs against a SEPARATE, deliberately non-admin
+      // account: the admin identity above takes requireVenueCreateAccess's
+      // skip-the-lookup branch, so it would exercise none of this.
+      const nonAdmin = await authenticateNonAdmin();
 
-    // Assert the identity, not just the outcome. If this account is ever
-    // granted the admin role, every assertion below would still pass — via the
-    // admin branch — and the bootstrap path would silently stop being covered.
-    expect(
-      nonAdmin.permissions,
-      "the non-admin journey account must NOT hold the admin permission, or this case proves nothing"
-    ).not.toContain("admin");
+      // Assert the identity, not just the outcome. If this account is ever
+      // granted the admin role, every assertion below would still pass — via the
+      // admin branch — and the bootstrap path would silently stop being covered.
+      expect(
+        nonAdmin.permissions,
+        "the non-admin journey account must NOT hold the admin permission, or this case proves nothing"
+      ).not.toContain("admin");
 
-    const first = await createVenueAs(nonAdmin.accessToken, `${venueName}-bootstrap`);
-    createdVenueNames.push(`${venueName}-bootstrap`);
-    expect(first.status).toBe(201);
+      const first = await createVenueAs(nonAdmin.accessToken, `${venueName}-bootstrap`);
+      createdVenueNames.push(`${venueName}-bootstrap`);
+      expect(first.status).toBe(201);
 
-    // The invariant: the relaxation is for the FIRST venue only.
-    const second = await createVenueAs(nonAdmin.accessToken, `${venueName}-second`);
-    createdVenueNames.push(`${venueName}-second`);
-    expect(second.status).toBe(403);
-  });
+      // The invariant: the relaxation is for the FIRST venue only.
+      const second = await createVenueAs(nonAdmin.accessToken, `${venueName}-second`);
+      createdVenueNames.push(`${venueName}-second`);
+      expect(second.status).toBe(403);
+    });
+  } else {
+    // Environmental, not a code defect — E2E_NONADMIN_AUTH_EMAIL/PASSWORD were
+    // never provisioned (#4527, blocked on a human: creating the Auth0 test
+    // account). Skipping (not failing) stops this from hard-failing the whole
+    // journey daily over a gap no agent can close; the friction-log note keeps
+    // the gap visible without filing a repeat `ready` issue.
+    journey.note(
+      `${NON_ADMIN_STEP_NAME}: skipped — E2E_NONADMIN_AUTH_EMAIL/PASSWORD are not configured. See #4527.`
+    );
+    journey.skip(NON_ADMIN_STEP_NAME);
+  }
 
   // Runs even when the wizard broke: the venue may already exist in prod. The
   // `finally` means a test-level timeout still leaves a report behind for the
