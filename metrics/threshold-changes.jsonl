@@ -2,3 +2,4 @@
 {"date":"2026-05-10","reason":"Acceptance rate 100% is excellent (>=95%). Stuck-turns threshold relaxed from 8 to 9 — agents are producing quality work and may benefit from more turns."}
 {"timestamp":"2026-08-11T00:00:00.000Z","criterion":"ci-fix","old_value":1,"new_value":1.03,"trigger":"headroom"}
 {"timestamp":"2026-08-27T00:00:00.000Z","criterion":"ci-fix","old_value":1.03,"new_value":1.06,"trigger":"headroom"}
+{"timestamp":"2026-08-28T00:00:00.000Z","criterion":"ci-fix","old_value":1.06,"new_value":1.09,"trigger":"headroom"}
