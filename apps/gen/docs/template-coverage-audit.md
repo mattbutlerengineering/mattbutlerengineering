@@ -189,3 +189,72 @@ reference template.
 Total: **19 components** across the five groups, within the requested 15–20 range.
 The two follow-up issues should split this list (roughly by category, or by count)
 into two template-adding batches.
+
+## Batch 3 candidate tier: next uncovered components below rank 19
+
+Third batch (source proposal #4530), grounded by re-running the same method (§
+Method, signal 1) against the **57 − 19 = 38** components still marked "No" in the
+coverage table above that were _not_ already in the top-19 priority list. Ranked by
+usage count descending, ties broken alphabetically, taking the top 16 (a 4-way tie
+at usage count 14 lands exactly on ranks 13–16, within the requested 10–16 range —
+see the note on ties below):
+
+| Rank | Component       | Usage count | Category          |
+| ---- | --------------- | ----------- | ----------------- |
+| 1    | TapeChart       | 26          | Data display      |
+| 2    | Calendar        | 23          | Form controls     |
+| 3    | Odometer        | 23          | Data display      |
+| 4    | ConfirmDialog   | 21          | Feedback/overlay  |
+| 5    | DisabledTooltip | 18          | Feedback/overlay  |
+| 6    | HoverCard       | 18          | Feedback/overlay  |
+| 7    | PinInput        | 18          | Form controls     |
+| 8    | Popover         | 18          | Feedback/overlay  |
+| 9    | IconButton      | 17          | Form controls     |
+| 10   | Chalkboard      | 16          | Data display      |
+| 11   | CommandPalette  | 16          | Feedback/overlay  |
+| 12   | SplitFlap       | 16          | Data display      |
+| 13   | Accordion       | 14          | Navigation/layout |
+| 14   | Combobox        | 14          | Form controls     |
+| 15   | DatePicker      | 14          | Form controls     |
+| 16   | GlobalNav       | 14          | Navigation/layout |
+
+Note on ties: usage count 14 is a 4-way tie (Accordion, Combobox, DatePicker,
+GlobalNav) sitting exactly at ranks 13–16 — all four are included rather than
+truncated mid-tie, matching the existing table's own precedent of not breaking ties
+arbitrarily.
+
+Note on TapeChart: its live-verified count (26) is meaningfully higher than the
+count recorded in the main coverage table above (16, row 75) — the gap traces to
+visual-test-harness coverage added since that table was last populated
+(`apps/rialto-web/src/pages/data/TapeChartPage.tsx`,
+`apps/rialto-web/src/pages/visual-test/TapeChartSections.tsx`, and a TapeChart
+section in `DarkModeSection.tsx`), not a change in grep method. Membership in this
+tier is determined by exclusion from the original top-19 list, not by count, so
+TapeChart's higher current count doesn't retroactively belong in the batch-1/2
+list — it is ranked here on its own current merits.
+
+Calendar and Odometer (ranks 2–3, both count 23) were already named as "the next
+two below the cutoff" in § Priority ordering above; this table confirms that with a
+live re-run and extends the ranking further down.
+
+### Grouped by category (for batch 3)
+
+**Data display (4):** TapeChart, Odometer, Chalkboard, SplitFlap — e.g. a
+"Live Departures / Ops Board" template (TapeChart, Chalkboard), a "Metrics Ticker"
+template (Odometer, SplitFlap).
+
+**Feedback/overlay (5):** ConfirmDialog, DisabledTooltip, HoverCard, Popover,
+CommandPalette — e.g. a "Destructive Action Confirmation" template (ConfirmDialog,
+DisabledTooltip), a "Quick Actions / Search" template (CommandPalette, Popover,
+HoverCard).
+
+**Form controls (5):** Calendar, PinInput, IconButton, Combobox, DatePicker — e.g.
+a "Booking / Scheduling" template (Calendar, DatePicker), a "Secure Verification"
+template (PinInput), a "Compact Toolbar" template (IconButton, Combobox).
+
+**Navigation/layout (2):** Accordion, GlobalNav — e.g. a "FAQ / Docs Sidebar"
+template (Accordion), folded into a fuller "App Shell" template alongside the
+existing landing-page Hero (GlobalNav).
+
+Total: **16 components** across the four groups, within the requested 10–16 range.
+A follow-up batch-3 issue should draw its template-adding work from this list.
