@@ -11,9 +11,20 @@ import {
 vi.mock("@fastify/cors", () => ({
   default: vi.fn().mockImplementation(async () => {}),
 }));
-vi.mock("@fastify/rate-limit", () => ({
-  default: vi.fn().mockImplementation(async () => {}),
-}));
+vi.mock("@fastify/rate-limit", async () => {
+  const { default: fp } = await import("fastify-plugin");
+  // Real plugin decorates `rateLimit` — createServiceApp's not-found
+  // handler calls it to build its preHandler (see create-service-app.ts).
+  // fp() must wrap the mock fn itself (not an inner fn passed to
+  // mockImplementation) — it marks encapsulation-skip via a Symbol set on
+  // the exact function object Fastify's register() receives, so the
+  // decoration is visible on the outer instance, not just the register()
+  // child scope.
+  const mockPlugin = vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
+    fastify.decorate("rateLimit", () => async () => {});
+  });
+  return { default: fp(mockPlugin) };
+});
 vi.mock("@fastify/swagger", () => ({
   default: vi.fn().mockImplementation(async (fastify: FastifyInstance) => {
     fastify.decorate("swagger", () => ({}));
