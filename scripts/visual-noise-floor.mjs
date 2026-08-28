@@ -198,7 +198,7 @@ function readLeg(dir, leg) {
     if (!statSync(dir).isDirectory()) throw new Error("not a directory");
     entries = readdirSync(dir);
   } catch (error) {
-    throw new Error(`${leg}: cannot read directory ${dir} — ${error.message}`);
+    throw new Error(`${leg}: cannot read directory ${dir} — ${error.message}`, { cause: error });
   }
 
   const snapshots = new Map();
@@ -223,7 +223,9 @@ function readProvenance(dir, leg) {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`${leg}: ${PROVENANCE_FILENAME} is not valid JSON — ${error.message}`);
+    throw new Error(`${leg}: ${PROVENANCE_FILENAME} is not valid JSON — ${error.message}`, {
+      cause: error,
+    });
   }
   return Object.fromEntries(PROVENANCE_FIELDS.map((f) => [f, parsed?.[f] ?? null]));
 }

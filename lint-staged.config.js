@@ -30,11 +30,11 @@ const quote = (files) => files.map((f) => `"${f}"`).join(" ");
 const prettierWrite = (files) => `prettier --config .prettierrc.js --write ${quote(files)}`;
 
 // Everything Prettier owns that ESLint does not also touch. Kept disjoint
-// from the `{ts,tsx}` glob below on purpose: lint-staged runs separate globs
-// concurrently, so an overlapping glob would let `eslint --fix` and
-// `prettier --write` write the same file at the same time. Within one glob,
-// commands run in order, which is why the ts/tsx entry chains them instead.
-const PRETTIER_ONLY_GLOB = "**/*.{js,jsx,mjs,cjs,json,css,scss,less,html,md,yml,yaml,graphql}";
+// from the `{ts,tsx}` and `mjs` globs below on purpose: lint-staged runs
+// separate globs concurrently, so an overlapping glob would let `eslint --fix`
+// and `prettier --write` write the same file at the same time. Within one
+// glob, commands run in order, which is why the other entries chain them.
+const PRETTIER_ONLY_GLOB = "**/*.{js,jsx,cjs,json,css,scss,less,html,md,yml,yaml,graphql}";
 
 export default {
   "**/*.{ts,tsx}": (files) => {
@@ -54,6 +54,17 @@ export default {
     // matched, lint-staged reported "1 file", and nothing ran on it.
     commands.push(prettierWrite(filtered));
     return commands;
+  },
+
+  // .mjs is repo automation (scripts/**, .claude/hooks/**) that mostly lives
+  // outside the four dirs `groupByPackage` recognises, so no per-package
+  // grouping: ESLint 10 resolves the nearest eslint.config.js from each
+  // file's own location. The `/generated/` filter stays mandatory — ESLint
+  // 10's `ignores` array does not apply to explicitly-passed paths.
+  "**/*.mjs": (files) => {
+    const filtered = files.filter((f) => !f.includes("/generated/"));
+    if (filtered.length === 0) return [];
+    return [`eslint --fix ${quote(filtered)}`, prettierWrite(filtered)];
   },
 
   [PRETTIER_ONLY_GLOB]: (files) => [prettierWrite(files)],
