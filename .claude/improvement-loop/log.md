@@ -915,3 +915,12 @@ None (`agent-skip` count is 0).
 ### Skipped Issues
 
 - #4287 (`ci-fix: Chaos Agent has failed 3 consecutive scheduled runs`, pre-existing `agent-skip`, not touched this iteration — outside this run's claimed batch).
+
+## 2026-08-28 (learning-loop)
+
+**Sensors:** 10/16 available (domainActivity, agentCost, lighthouse, mutationScore, flakyTests unavailable; issueFeedback errored on GitHub REST-fallback 403)
+**Regressions:** 1 detected, 1 issue created — `issues.closure_rate` 62 → 46 (-16, medium). Filed **#4641** (`ready`, `bug`); searched open issues first, no duplicate found.
+**Sentry triage:** skipped (Sentry MCP connected mid-run but `find_organizations` 403'd — "Host not in allowlist: sentry.io" — this cloud sandbox has no egress to sentry.io, same class as the no-egress-to-production constraint in #2920)
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — no completed CI runs / no Lighthouse inventory reachable for #4609/#4586/#4584/#4593/#4577 in this no-egress sandbox, per #2920)
+**Skill proposals:** 0 (Friday — `.claude/session-logs/` is empty, nothing to mine this week)
+**Threshold notes:** ci-fix auto-tuned 1.06 → 1.09 (headroom) by verify-fixes.mjs. False-positive rate ~0/100 sampled closed issues (30d) checked `not_planned` — no loosening needed. Fix-effectiveness reads 0% in the 30d verification log, but every non-June entry in that window is an environmental `skip` (no CI-run/Lighthouse data reachable), not a real failed fix — not a real effectiveness signal here, consistent with the 08-11 note. `collect-ai-issue-feedback.mjs` and the `issueFeedback` sensor both hit the known GITHUB_TOKEN REST-fallback 403 (unresolved since 2026-08-11) — issue-creation budget defaulted to 3/category (used 1/3 on the `issues` regression).

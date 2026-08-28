@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-28T01:11:26.403Z",
+  "generated_at": "2026-08-28T18:09:29.781Z",
   "period": {
     "start": "2026-08-21",
     "end": "2026-08-28"
@@ -38,24 +38,24 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 95,
-      "total_merged": 94,
+      "total_prs": 94,
+      "total_merged": 93,
       "total_closed_without_merge": 1,
       "by_category": {
-        "tier:standard": {
-          "merged": 29,
+        "tier:trivial": {
+          "merged": 42,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:trivial": {
-          "merged": 41,
+        "tier:standard": {
+          "merged": 30,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 10,
+          "merged": 8,
           "closed_without_merge": 1,
-          "acceptance_rate": 0.91
+          "acceptance_rate": 0.89
         },
         "tier:critical": {
           "merged": 8,
@@ -63,7 +63,7 @@
           "acceptance_rate": 1
         },
         "dependencies": {
-          "merged": 5,
+          "merged": 4,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -82,42 +82,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 46229371,
-      "output_tokens": 78603,
-      "cache_creation_tokens": 980361,
-      "cache_hit_rate": 0.9792,
+      "cache_read_tokens": 1112936,
+      "output_tokens": 2285,
+      "cache_creation_tokens": 104548,
+      "cache_hit_rate": 0.9141,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 472,
-          "output_tokens": 77825,
-          "cache_read_tokens": 45281090,
-          "cache_creation_tokens": 877576
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 236,
-          "output_tokens": 778,
-          "cache_read_tokens": 948281,
-          "cache_creation_tokens": 102785
+          "input_tokens": 24,
+          "output_tokens": 2285,
+          "cache_read_tokens": 1112936,
+          "cache_creation_tokens": 104548
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 28,
+      "completed": 30,
       "passed": 20,
       "failed": 0,
-      "pass_rate_pct": 71,
+      "pass_rate_pct": 67,
       "most_recent": {
-        "databaseId": 33132088956,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-08-28T01:11:29Z",
-        "name": "Auto-Merge Policy",
+        "databaseId": 33189824155,
+        "status": "completed",
+        "conclusion": "skipped",
+        "createdAt": "2026-08-28T16:24:37Z",
+        "name": "claude",
         "headBranch": "main",
-        "headSha": "6665ccbc519b6f2f4d1d5e4aef65d4f5ff850378"
+        "headSha": "f4a858134836070886ce04263380a2ec7164566f"
       }
     },
     "lighthouse": {
@@ -126,9 +119,9 @@
     "issues": {
       "available": true,
       "created_7d": 50,
-      "closed_7d": 31,
-      "closure_rate": 62,
-      "queue_depth": 8,
+      "closed_7d": 23,
+      "closure_rate": 46,
+      "queue_depth": 17,
       "agent_failed": 0
     },
     "issueFeedback": {
@@ -139,17 +132,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 7,
-      "logs_7d": 7,
-      "total_commits_7d": 42,
-      "unique_branches_7d": 1,
-      "branches_7d": ["main"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 516625,
-      "lines_churned_7d": 367,
+      "total_lines_added_7d": 517070,
+      "lines_churned_7d": 409,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -163,41 +156,41 @@
     "e2eStability": {
       "available": true,
       "consecutive_failures": 0,
-      "total_runs": 30,
-      "total_non_frontend_runs": 22,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (22 runs checked)"
+      "total_runs": 21,
+      "total_non_frontend_runs": 21,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (21 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.948,
+      "composite": 0.936,
       "sub_metrics": {
-        "issues_merged": 23,
-        "first_pass_success_rate": 0.87,
+        "issues_merged": 25,
+        "first_pass_success_rate": 0.84,
         "median_time_to_merge_hours": 0.3,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
         "review_coverage": 1
       },
       "distribution": {
-        "size:s": {
-          "count": 8,
-          "avg_commits": 1.5,
-          "avg_ttm_hours": 0.9
+        "size:m": {
+          "count": 2,
+          "avg_commits": 2,
+          "avg_ttm_hours": 0.5
         },
         "size:xs": {
-          "count": 13,
-          "avg_commits": 1.2,
+          "count": 14,
+          "avg_commits": 1.3,
+          "avg_ttm_hours": 0.8
+        },
+        "size:s": {
+          "count": 8,
+          "avg_commits": 1.6,
           "avg_ttm_hours": 0.9
         },
         "size:l": {
           "count": 1,
           "avg_commits": 2,
           "avg_ttm_hours": 0.4
-        },
-        "size:m": {
-          "count": 1,
-          "avg_commits": 3,
-          "avg_ttm_hours": 0.6
         }
       },
       "baseline": null,
@@ -216,12 +209,12 @@
   },
   "regressions": [
     {
-      "sensor": "ciHealth",
-      "metric": "pass_rate_pct",
-      "current": 71,
-      "previous": 80,
-      "delta": -9,
-      "severity": "high"
+      "sensor": "issues",
+      "metric": "closure_rate",
+      "current": 46,
+      "previous": 62,
+      "delta": -16,
+      "severity": "medium"
     }
   ],
   "summary": {
