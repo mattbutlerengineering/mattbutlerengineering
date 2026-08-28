@@ -45,7 +45,9 @@ const ghClient = createGhClient();
 
 const TARGET_APPS = ["apps/marketing", "apps/hospitality", "apps/rialto-web"];
 
-export function findTargetFile(type) {
+// `_type` is accepted for call-site symmetry but unused: target selection is
+// currently type-independent (a random .tsx under a random target app).
+export function findTargetFile(_type) {
   const app = TARGET_APPS[Math.floor(Math.random() * TARGET_APPS.length)];
   const files = execFileSync("find", [path.join(ROOT, app, "src"), "-name", "*.tsx"], {
     encoding: "utf-8",

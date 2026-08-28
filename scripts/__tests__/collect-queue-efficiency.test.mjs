@@ -52,15 +52,6 @@ const PRS_WITH_HISTORY = [
   makePr({ number: 20, commitCount: 1, createdAt: isoAgo(19), mergedAt: isoAgo(17) }),
 ];
 
-/** Regression scenario: current week has many rework cycles */
-const REGRESSION_PRS = [
-  ...PRS_WITH_HISTORY,
-  // Override current PRs — many commits = rework
-  makePr({ number: 30, commitCount: 5, createdAt: isoAgo(4), mergedAt: isoAgo(3) }),
-  makePr({ number: 31, commitCount: 6, createdAt: isoAgo(5), mergedAt: isoAgo(4) }),
-  makePr({ number: 32, commitCount: 4, createdAt: isoAgo(6), mergedAt: isoAgo(5) }),
-];
-
 /** Non-AI PRs (no agent-authored/has-pr label, no worktree-agent- branch) */
 const HUMAN_PRS = [
   {

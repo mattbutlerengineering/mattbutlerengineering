@@ -10,7 +10,7 @@
  * Requires: tsx (available via @mbe/cli workspace)
  */
 
-import { writeFileSync, readdirSync, readFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,7 +30,7 @@ for (const service of SERVICES) {
   const mod = await import(schemasPath);
 
   const baseline = {};
-  for (const [exportName, value] of Object.entries(mod)) {
+  for (const value of Object.values(mod)) {
     if (value && typeof value === "object" && "$id" in value && "properties" in value) {
       // Deep clone to strip TypeScript readonly markers
       baseline[value.$id] = JSON.parse(JSON.stringify(value));

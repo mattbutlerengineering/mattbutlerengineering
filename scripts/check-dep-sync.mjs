@@ -48,7 +48,7 @@ for (const dir of DIRS) {
       } else {
         console.log(`   ✅ All imports matched in package.json`);
       }
-    } catch (err) {
+    } catch {
       console.error(`   ⚠️  Audit failed for ${dir}/${name}: Could not parse JSON output.`);
       if (child.stderr) console.error(`   Stderr: ${child.stderr.trim()}`);
       if (child.stdout) console.error(`   Stdout: ${child.stdout.trim()}`);
