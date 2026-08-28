@@ -576,6 +576,12 @@
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
+  <file path="src/hooks/useWaitlist.ts">
+    export const WAITLIST_QUERY_KEY = "waitlist" as const;
+    export interface UseWaitlistParams {
+      venueId: string;
+    }
+  </file>
   </section>
   <section priority="medium" role="journeys">
   <file path="e2e/journeys/journey-api.ts">

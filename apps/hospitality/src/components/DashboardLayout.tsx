@@ -34,6 +34,7 @@ const ROUTE_LABELS: Record<string, string> = {
   timeline: "Timeline",
   reservations: "Reservations",
   guests: "Guests",
+  waitlist: "Waitlist",
   "floor-plans": "Floor Plans",
   "booking-widget": "Booking Widget",
   onboarding: "New Venue",

@@ -430,6 +430,16 @@
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="src/hooks/useWaitlist.ts">
+    <item priority="high">
+      export const WAITLIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseWaitlistParams {
+        venueId: string;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="journeys">
   <file path="e2e/journeys/journey-api.ts">
