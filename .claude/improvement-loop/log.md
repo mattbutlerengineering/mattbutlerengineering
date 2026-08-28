@@ -869,3 +869,48 @@ None (`agent-skip` count is 0).
 **queueEfficiency:** composite 0.948 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:8, size:xs:13, size:l:1, size:m:1
 **Issues filed:** 0
+## 2026-08-28 (mbe-evening)
+
+### Metrics
+
+| Metric                   | Value                                                                                                                                                                                        | Target    | Status |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------ |
+| Created (7d)             | 24 (13 audit + 11 ci-fix)                                                                                                                                                                    | -         | -      |
+| Closed (7d)              | 20 (10 audit + 10 ci-fix)                                                                                                                                                                    | -         | -      |
+| Closure Rate             | ~83.3%                                                                                                                                                                                       | >80%      | green  |
+| Time-to-Close            | not computed precisely (no `closed_at` via MCP `list_issues`); same-day to next-day turnaround typical for closed audit/ci-fix issues this window                                            | <24h      | n/a    |
+| Agent Success            | this iteration: 2/2 claimed issues reached a merged PR (#4600→#4616, #4603→#4615), 0 `agent-failed`/`agent-skip` produced                                                                    | >70%      | green  |
+| CI Pass (main, `ci.yml`) | 27/30 non-cancelled = 90% (3 `cancelled` — concurrency-superseded, not failures; 0 `failure` in the sampled window)                                                                          | >95%      | green  |
+| Queue (ready)            | 8 open (#4594, #4597–4599, #4601, #4604–4606) — mostly blocked on same-file/same-zone predecessors within their own decompose chains, not idle                                               | <5        | yellow |
+| Stale (ready>7d)         | 0 (oldest `ready` issue created 2026-08-27)                                                                                                                                                  | 0         | green  |
+| Blocked (agent-failed)   | 0                                                                                                                                                                                            | 0         | green  |
+| Skipped (agent-skip)     | 1 (#4287, `ci-fix: Chaos Agent has failed 3 consecutive scheduled runs` — pre-existing, not from this iteration)                                                                             | 0         | yellow |
+| Reverts (7d)             | 2                                                                                                                                                                                            | <3/wk     | green  |
+| Merged PRs (7d)          | ~140 (paginated MCP sample across 3 pages, `main` is an extremely high-throughput automation repo)                                                                                           | -         | -      |
+| Daily/7d Spend           | `.claude/agent-spend/sessions.jsonl` present but empty (0 bytes) since at least the commit that last touched it, 2026-08-24 (`fa0343d`, PR #4541) — unavailable, 4th occurrence, filed #4618 | <$10/<$50 | n/a    |
+| Cost/Issue               | unavailable, same reason                                                                                                                                                                     | <$2       | n/a    |
+
+### This iteration's implement-queue run
+
+- Phase 0 pre-flight: main green (`CI Gate` success on latest 30 sampled `ci.yml` runs, only concurrency-cancelled runs, no failures). 3 open PRs surveyed, all out of scope for automated merge: **#4613** (`fix(rialto-web): visual tolerance threshold`, CI green, but its own ship-stage commit message states "Merging PR #4613 is the user's call alone" — prepare-and-stop by design, left untouched), **#4566** (a `/chaos-agent` synthetic-bug PR meant to be _caught_ by audit loops, not merged), **#4565** (`draft: true`, explicit "needs a human call before it merges" — production ingress/Pulumi change).
+- Phase 1: 10 `ready` issues surveyed. Dependency/zone filtering left exactly 2 independent, distinct-zone candidates: **#4600** (`apps/hospitality` zone — waitlist stat tiles, unblocked now that its dependency #4596 merged via #4610) and **#4603** (`root`/`scripts` zone — human-touch-classifier identity fix). The rest were either blocked on open sibling issues in the same decompose chain (#4597–4599, #4601, #4605, #4606) or deferred by the zone-spread selector (#4604 same zone as #4603; #4594 same zone as #4600, lower priority tier).
+- Phase 2: dispatched 2 `implement-queue-worker` agents (isolation: worktree, tier: sonnet) in parallel. Both completed clean TDD cycles with all local gates green; neither could open its own PR (no `gh` CLI, no GitHub MCP tools in the worker's own tool set) — orchestrator opened both PRs via `mcp__github__create_pull_request` from the reported branch/SHA.
+- Worker→train boundary: **PR #4615** (#4603) — not low-risk (`scripts/` diff), 0 specialist reviewers matched, general Reviewer verdict `pass` 9/10, CI Gate green, merged. **PR #4616** (#4600) — not low-risk, `generated-artifact-determinism-reviewer` matched (llms-full.txt touched), both general Reviewer (`pass` 9/10) and the specialist (`pass`, diff correspondence verified) returned clean verdicts; `codecov/patch` failed (56.25% vs 75% target) but is explicitly advisory per `.claude/rules/gotchas.md` § CI — posted a standing-down comment naming the non-required check, then merged on the required `CI Gate` green.
+- Metrics: appended 2 telemetry rows (`metrics/queue-telemetry.jsonl`) for #4603/#4600, committed on `chore/queue-telemetry-2026-08-28`, opened PR #4617 (qualifies for the low-risk fast path — `metrics/**`-only diff — auto-merge enabled).
+- Circuit breaker: not triggered (2/2 succeeded).
+
+### Patterns
+
+- The `ready` queue (8) is over target but not actually idle backlog — 6 of 8 are downstream slices of two decompose chains (`hospitality-waitlist`, `human-touch-classifier`) waiting on their own siblings, which the zone-spread selector is correctly refusing to co-schedule. Queue-depth alone overstates the problem; a "ready and unblocked" sub-metric would be more actionable than raw `ready` count for these decompose-chain batches.
+- `.claude/agent-spend/sessions.jsonl` empty for the 2nd consecutive daily log entry (08-27, 08-28), 4th occurrence overall counting #3695's three prior closures — filed **#4618** rather than re-describing the same symptom a 5th time; recommends checking whether #3695's fix actually covers the `implement-queue-worker`/`mbe agent run` code path in current use, not just re-verifying the symptom.
+- A pre-existing, non-implement-queue PR (**#4613**) sat CI-green and review-ready but was explicitly deferred by its own author's commit message to a human merge decision — worth noting as a correctly-functioning guard: the "no tier hold" auto-merge policy did not override an explicit prepare-and-stop marker.
+
+### Recommendations
+
+- Consider a "ready AND unblocked" queue metric (independence-filtered, per the Phase 1 selection logic) alongside raw `ready` count, so a chain-heavy backlog doesn't read as unhealthy when it's actually well-ordered.
+- Follow up on #4618 before the next `/progress-tracker` run auto-closes it as "fixed" without checking whether the underlying `recordSpend` call site actually changed.
+- #4613 (visual tolerance threshold, 34 files, CI green, reviewed-and-ready per its own verification section) is waiting purely on a human merge decision — surface it to Matt directly rather than leaving it to be rediscovered by the next scheduled routine.
+
+### Skipped Issues
+
+- #4287 (`ci-fix: Chaos Agent has failed 3 consecutive scheduled runs`, pre-existing `agent-skip`, not touched this iteration — outside this run's claimed batch).
