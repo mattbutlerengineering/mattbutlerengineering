@@ -15,6 +15,7 @@ import {
 import { randomUUID } from "crypto";
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
+import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 
 // Session ID header name
 const SESSION_ID_HEADER = "x-session-id";
@@ -151,6 +152,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      // Issue #4487 (shared-subset hardening): same per-IP public cap as the
+      // /public/v1 sibling (public-holds.ts), as a preHandler ON TOP of the
+      // service-wide 100/min onRequest limiter. Deliberately NOT a route-level
+      // config.rateLimit — that would replace the global limiter and (#4492)
+      // leave stages before the preHandler with no bound at all.
+      preHandler: publicRateLimitHook,
       schema: {
         summary: "Get hold status",
         operationId: "getHold",
@@ -194,6 +201,8 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
+      // See the GET /:id comment — per-IP public cap on top of the global limiter.
+      preHandler: publicRateLimitHook,
       schema: {
         summary: "Release a hold",
         operationId: "releaseHold",
@@ -260,6 +269,8 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/confirm",
     {
+      // See the GET /:id comment — per-IP public cap on top of the global limiter.
+      preHandler: publicRateLimitHook,
       schema: {
         summary: "Confirm a hold and create reservation",
         operationId: "confirmHold",
