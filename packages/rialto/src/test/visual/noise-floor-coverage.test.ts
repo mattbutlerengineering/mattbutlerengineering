@@ -186,10 +186,10 @@ describe("the perturbation config actually loads the CSS", () => {
     const production = readFileSync(PRODUCTION_CONFIG_PATH, "utf8");
     expect(production).not.toContain("stylePath");
 
-    // The production config legitimately MENTIONS noise-floor in comments (the
-    // provisional-tolerance rationale and the measurement workflow's name).
-    // A mention on a line that is NOT a comment is what this catches: a
-    // perturbation reaching production.
+    // A comment in the production config may legitimately MENTION noise-floor
+    // (e.g. the provenance lines a measured re-tune will add). A mention on a
+    // line that is NOT a comment is what this catches: a perturbation
+    // reaching production.
     const live = production
       .split("\n")
       .filter((line) => line.includes("noise-floor") && !/^\s*\/\//.test(line));
