@@ -163,6 +163,12 @@ jobs:
           HOSPITALITY: ${{ needs.detect-changes.outputs.hospitality }}
           RIALTO: ${{ needs.detect-changes.outputs.rialto }}
         run: |
+          # pipefail matters here: without it the `gh api | node` lookup below
+          # reports node's exit code even when the listing itself failed, and a
+          # broken listing silently reads as "no existing comment" — a
+          # duplicate post instead of a loud failure.
+          set -euo pipefail
+
           # Real deployed URLs, read back from wrangler's own output by the
           # deploy-preview matrix (see its "Deploy preview Worker" step) —
           # never hand-composed, which used to omit the account subdomain
@@ -180,8 +186,16 @@ jobs:
 
           BODY=$(printf "## Preview Deployed\n\n${URLS}\n*Auto-deployed. Cleaned up on merge/close.*")
 
+          # jq does projection only; the decision — including the
+          # github-actions[bot] author check — is scripts/preview-comment.mjs,
+          # where it is unit-tested. An author-blind contains() lookup let any
+          # commenter pre-post the marker and capture every later run's PATCH
+          # (the same gap review finding F4 closed in the visual-diff
+          # publisher's isStandingComment).
           EXISTING=$(gh api "repos/$GITHUB_REPOSITORY/issues/${PR_NUM}/comments" \
-            --jq '.[] | select(.body | contains("Preview Deployed")) | .id' | head -1)
+            --paginate \
+            --jq '.[] | {id: .id, body: .body, login: .user.login}' \
+            | node scripts/preview-comment.mjs)
 
           if [ -n "$EXISTING" ]; then
             gh api "repos/$GITHUB_REPOSITORY/issues/comments/${EXISTING}" \
