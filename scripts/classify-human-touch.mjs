@@ -41,10 +41,13 @@ const LINT_FIXUP_MESSAGE_RE =
 // eslint.config.js, lint-staged.config.js, .prettierignore).
 const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)$/i;
 // Generated-artifact filenames a regen cycle rewrites (see
-// .claude/rules/gotchas.md § Build / pnpm / turbo). Matched by exact
-// basename so a nested path (e.g. packages/rialto/llms.txt) still counts.
+// .claude/rules/gotchas.md § Build / pnpm / turbo), plus mechanical
+// self-tracking bookkeeping files a script rewrites and a human commits
+// verbatim (e.g. the AI-antipattern ratchet baseline — see
+// scripts/check-ai-antipatterns.mjs --update). Matched by exact basename so
+// a nested path (e.g. packages/rialto/llms.txt) still counts.
 const GENERATED_ARTIFACT_PATH_RE =
-  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml)$/;
+  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml|ai-antipattern-baselines\.json)$/;
 // "retry"/"rerun"/"re-run" language — a human nudging CI rather than
 // changing code.
 const CI_RERUN_MESSAGE_RE = /\b(retry|re-?run(?:ning)?)\b/i;

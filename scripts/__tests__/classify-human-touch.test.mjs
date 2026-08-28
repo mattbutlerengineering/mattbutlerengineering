@@ -100,6 +100,14 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
   });
 
+  it("classifies generated-artifact-regen for a metrics/ai-antipattern-baselines.json bookkeeping commit", () => {
+    const commit = {
+      message: "chore: accept +1 consoleLogs antipattern baseline for human-touch-reasons CLI",
+      files: ["metrics/ai-antipattern-baselines.json"],
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("generated-artifact-regen");
+  });
+
   it("does NOT classify generated-artifact-regen when the diff mixes generated and source files", () => {
     const commit = {
       message: "regenerate stale artifacts",
