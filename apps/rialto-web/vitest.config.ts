@@ -8,7 +8,11 @@ export default defineVitestConfig({
   // spec), listed by exact path rather than a glob — e2e/a11y.test.ts is a
   // pre-existing Playwright-authored *.test.ts file and would break under
   // vitest if a broader glob picked it up too.
-  include: ["src/**/*.test.{ts,tsx}", "e2e/workflow-coverage.test.ts"],
+  include: [
+    "src/**/*.test.{ts,tsx}",
+    "e2e/workflow-coverage.test.ts",
+    "e2e/noise-floor-coverage.test.ts",
+  ],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],
     exclude: [
