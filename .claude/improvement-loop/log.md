@@ -863,3 +863,9 @@ None (`agent-skip` count is 0).
 **Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — no completed CI runs / no Lighthouse inventory yet for those issues)
 **Skill proposals:** 0 (Thursday — Friday-only)
 **Threshold notes:** ci-fix auto-tuned 1.03 → 1.06 (headroom) by verify-fixes.mjs. False-positive rate 4/210 (~1.9%) closed not_planned in last 30d — no loosening needed. Fix-effectiveness 3/4 (75%) non-skip verifications — healthy. `collect-ai-issue-feedback.mjs` and the `issueFeedback` sensor both hit the known GITHUB_TOKEN REST-fallback 403 (unresolved since 2026-08-11) — issue-creation budgets defaulted to 3/category (moot this run, 0 regressions).
+
+## 2026-08-28
+
+**queueEfficiency:** composite 0.948 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:8, size:xs:13, size:l:1, size:m:1
+**Issues filed:** 0
