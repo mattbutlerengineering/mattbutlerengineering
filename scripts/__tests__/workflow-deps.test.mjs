@@ -235,12 +235,10 @@ describe("check-workflow-deps", () => {
   });
 
   describe("the real repository — #4225 target workflows", () => {
-    // Scoped to the four workflows #4225 fixes, not every workflow in the
-    // repo: revert-rca-loop.yml has the same underlying bug (no install
-    // step) but is explicitly out of scope for this issue (its status is
-    // "unknown" per the issue body, since it's skipped on almost every
-    // run) — asserting repo-wide zero findings here would force fixing it
-    // as an unrelated drive-by change.
+    // Scoped to the four workflows #4225 fixes. The repo-wide assertion
+    // that supersedes this one lives in "the real repository — every
+    // workflow" below; this stays as the narrow regression guard for the
+    // original four.
     const TARGET_WORKFLOWS = [
       "resource-audit.yml",
       "auto-issue.yml",
@@ -256,6 +254,111 @@ describe("check-workflow-deps", () => {
       const targetFindings = findings.filter((f) => TARGET_WORKFLOWS.includes(f.workflow));
 
       expect(targetFindings).toEqual([]);
+    });
+  });
+
+  describe("workspace packages that resolve through dist/ also need a build", () => {
+    // `pnpm install` alone does not produce `packages/*/dist`. A workspace
+    // package whose exports map sends the `node` condition to `./dist/…`
+    // therefore still throws ERR_MODULE_NOT_FOUND after a successful
+    // install unless the workflow also runs `pnpm build`.
+    function writeWorkspacePackage(root, dir, name, exportsField) {
+      const abs = path.join(root, dir);
+      fs.mkdirSync(abs, { recursive: true });
+      fs.writeFileSync(
+        path.join(abs, "package.json"),
+        JSON.stringify({ name, exports: exportsField })
+      );
+    }
+
+    const INSTALL_ONLY = [
+      "name: Install only",
+      "jobs:",
+      "  audit:",
+      "    steps:",
+      "      - uses: ./.github/actions/setup-workspace",
+      "      - run: node scripts/foo.mjs",
+      "",
+    ].join("\n");
+
+    const INSTALL_AND_BUILD = [
+      "name: Install and build",
+      "jobs:",
+      "  audit:",
+      "    steps:",
+      "      - uses: ./.github/actions/setup-workspace",
+      "      - run: pnpm build --filter @mbe/gh-client...",
+      "      - run: node scripts/foo.mjs",
+      "",
+    ].join("\n");
+
+    test("flags a workflow that installs but never builds a dist-resolved workspace package", async () => {
+      writeScript(tmpDir, "scripts/foo.mjs", 'import { createGhClient } from "@mbe/gh-client";\n');
+      writeWorkspacePackage(tmpDir, "packages/gh-client", "@mbe/gh-client", {
+        ".": { types: "./src/index.ts", node: "./dist/index.js", default: "./src/index.ts" },
+      });
+      writeWorkflow(tmpDir, "broken.yml", INSTALL_ONLY);
+
+      const { findWorkflowDepsFindings } = await import("../check-workflow-deps.mjs");
+      const { findings } = findWorkflowDepsFindings(tmpDir);
+
+      expect(findings).toHaveLength(1);
+      expect(findings[0].workflow).toBe("broken.yml");
+      expect(findings[0].error).toMatch(/@mbe\/gh-client/);
+      expect(findings[0].error).toMatch(/pnpm build/);
+    });
+
+    test("accepts the same workflow once it runs pnpm build", async () => {
+      writeScript(tmpDir, "scripts/foo.mjs", 'import { createGhClient } from "@mbe/gh-client";\n');
+      writeWorkspacePackage(tmpDir, "packages/gh-client", "@mbe/gh-client", {
+        ".": { types: "./src/index.ts", node: "./dist/index.js", default: "./src/index.ts" },
+      });
+      writeWorkflow(tmpDir, "fine.yml", INSTALL_AND_BUILD);
+
+      const { findWorkflowDepsFindings } = await import("../check-workflow-deps.mjs");
+      const { findings } = findWorkflowDepsFindings(tmpDir);
+
+      expect(findings).toEqual([]);
+    });
+
+    test("does not require a build for a workspace package that exports source directly", async () => {
+      writeScript(tmpDir, "scripts/foo.mjs", 'import { thing } from "@mbe/config";\n');
+      writeWorkspacePackage(tmpDir, "packages/config", "@mbe/config", {
+        ".": "./src/index.ts",
+      });
+      writeWorkflow(tmpDir, "fine.yml", INSTALL_ONLY);
+
+      const { findWorkflowDepsFindings } = await import("../check-workflow-deps.mjs");
+      const { findings } = findWorkflowDepsFindings(tmpDir);
+
+      expect(findings).toEqual([]);
+    });
+
+    test("does not require a build for a plain npm dependency", async () => {
+      writeScript(tmpDir, "scripts/foo.mjs", 'import prettier from "prettier";\n');
+      writeWorkflow(tmpDir, "fine.yml", INSTALL_ONLY);
+
+      const { findWorkflowDepsFindings } = await import("../check-workflow-deps.mjs");
+      const { findings } = findWorkflowDepsFindings(tmpDir);
+
+      expect(findings).toEqual([]);
+    });
+  });
+
+  describe("the real repository — every workflow", () => {
+    test("no workflow runs a node script without the deps that script needs", async () => {
+      const repoRoot = path.resolve(import.meta.dirname, "..", "..");
+      const { findWorkflowDepsFindings } = await import("../check-workflow-deps.mjs");
+      const { findings } = findWorkflowDepsFindings(repoRoot);
+
+      expect(findings).toEqual([]);
+    });
+
+    test("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", async () => {
+      const repoRoot = path.resolve(import.meta.dirname, "..", "..");
+      const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf-8"));
+
+      expect(pkg.scripts["repo-audit"]).toContain("check-workflow-deps.mjs");
     });
   });
 

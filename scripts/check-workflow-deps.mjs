@@ -22,8 +22,16 @@
  * would have missed it), and flags any workflow that reaches a bare
  * specifier without using the shared setup action.
  *
+ * Installing is necessary but not sufficient. Most workspace packages
+ * export their `node` condition from `./dist/…`, which `pnpm install`
+ * never produces — so a workflow that installs but skips `pnpm build`
+ * fails with the same ERR_MODULE_NOT_FOUND. That second dimension is
+ * checked against each package's own manifest rather than a hardcoded
+ * list, so a package that switches to source-only exports stops requiring
+ * a build automatically.
+ *
  * Usage: node scripts/check-workflow-deps.mjs
- * Exit code: 0 if every dependency-needing workflow installs first, 1 otherwise
+ * Exit code: 0 if every dependency-needing workflow is prepared, 1 otherwise
  */
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -45,6 +53,19 @@ const NODE_SCRIPT_RE = /\bnode\s+((?:[\w.-]+\/)+[\w.-]+\.(?:mjs|cjs|js|ts))/g;
 // installs correctly).
 const SETUP_WORKSPACE_RE = /uses:\s*\.\/\.github\/actions\/setup-workspace/;
 const INLINE_INSTALL_RE = /\bpnpm\s+install\b/;
+
+// Installing is necessary but not always sufficient. `pnpm install` links
+// workspace packages into node_modules but never runs their `build`, so a
+// package whose exports map sends the `node` condition to `./dist/…` still
+// throws ERR_MODULE_NOT_FOUND after a clean install. Those workflows need a
+// `pnpm build` too — see stale-human-blocked.yml, which already documents
+// this in an inline comment.
+const BUILD_RE = /\bpnpm\s+build\b/;
+
+// Workspace roots, mirroring pnpm-workspace.yaml. Only used to decide
+// whether a bare specifier is a local package (build-sensitive) or an npm
+// dependency (install is enough).
+const WORKSPACE_GLOB_ROOTS = ["apps", "services", "packages", "tools"];
 
 // Deliberately grammar-narrow, not a general JS parser: the clause between
 // `import`/`export` and `from` is restricted to characters that can
@@ -129,9 +150,50 @@ export function collectReachableBareSpecifiers(entryPath, visited = new Set()) {
 }
 
 /**
+ * Indexes the workspace by package name, recording whether each package
+ * resolves through a build output. A package is "build-required" when its
+ * `exports` map (or `main`) points into `dist/` — `pnpm install` alone
+ * leaves that path missing.
+ *
+ * @param {string} root - repo root
+ * @returns {Map<string, boolean>} package name -> needs `pnpm build`
+ */
+export function workspaceBuildIndex(root = DEFAULT_ROOT) {
+  const index = new Map();
+
+  for (const globRoot of WORKSPACE_GLOB_ROOTS) {
+    const dir = join(root, globRoot);
+    if (!existsSync(dir)) continue;
+
+    for (const entry of readdirSync(dir)) {
+      const manifestPath = join(dir, entry, "package.json");
+      if (!existsSync(manifestPath)) continue;
+
+      try {
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+        if (!manifest.name) continue;
+        const target = JSON.stringify(manifest.exports ?? manifest.main ?? "");
+        index.set(manifest.name, target.includes("dist"));
+      } catch {
+        // An unparseable manifest is not this check's business to report.
+      }
+    }
+  }
+
+  return index;
+}
+
+/** `@mbe/api-client/streaming` -> `@mbe/api-client`; `prettier/x` -> `prettier`. */
+function packageNameOf(specifier) {
+  const segments = specifier.split("/");
+  return specifier.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0];
+}
+
+/**
  * Checks one workflow file: finds every `node <script>` invocation, resolves
  * each script's transitive bare-specifier set, and flags the workflow if it
- * needs dependencies but never installs them.
+ * needs dependencies but never installs them — or if it installs but never
+ * builds a workspace package that only resolves through `dist/`.
  *
  * @param {string} name - workflow file name, for reporting
  * @param {string} content - raw workflow YAML
@@ -140,6 +202,7 @@ export function collectReachableBareSpecifiers(entryPath, visited = new Set()) {
 export function checkWorkflowDeps(name, content, root = DEFAULT_ROOT) {
   const scriptPaths = [...new Set([...content.matchAll(NODE_SCRIPT_RE)].map((m) => m[1]))];
   const installsDeps = SETUP_WORKSPACE_RE.test(content) || INLINE_INSTALL_RE.test(content);
+  const buildsDeps = BUILD_RE.test(content);
 
   const bareSpecifiers = new Set();
   for (const scriptPath of scriptPaths) {
@@ -150,6 +213,11 @@ export function checkWorkflowDeps(name, content, root = DEFAULT_ROOT) {
     }
   }
 
+  const buildIndex = workspaceBuildIndex(root);
+  const buildRequired = [...bareSpecifiers]
+    .filter((specifier) => buildIndex.get(packageNameOf(specifier)) === true)
+    .sort();
+
   const errors = [];
   if (bareSpecifiers.size > 0 && !installsDeps) {
     errors.push(
@@ -157,9 +225,24 @@ export function checkWorkflowDeps(name, content, root = DEFAULT_ROOT) {
         `specifier(s) [${[...bareSpecifiers].sort().join(", ")}] but never installs dependencies ` +
         "(no `uses: ./.github/actions/setup-workspace` and no `pnpm install` run step)"
     );
+  } else if (buildRequired.length > 0 && !buildsDeps) {
+    errors.push(
+      `invokes node script(s) [${scriptPaths.join(", ")}] whose import graph reaches workspace ` +
+        `package(s) [${buildRequired.join(", ")}] that resolve through dist/, but never runs ` +
+        "`pnpm build` — `pnpm install` does not produce dist/, so these still fail with " +
+        "ERR_MODULE_NOT_FOUND"
+    );
   }
 
-  return { name, scriptPaths, bareSpecifiers: [...bareSpecifiers], installsDeps, errors };
+  return {
+    name,
+    scriptPaths,
+    bareSpecifiers: [...bareSpecifiers],
+    installsDeps,
+    buildsDeps,
+    buildRequired,
+    errors,
+  };
 }
 
 /** Scans every workflow in `<root>/.github/workflows`. */
@@ -191,13 +274,17 @@ if (isMain) {
     name: "Workflow dependency installs",
     findings,
     formatFinding: (finding) => `${finding.workflow}: ${finding.error}`,
-    passMessage: "PASS: Every dependency-needing workflow installs before running its script.",
+    passMessage:
+      "PASS: Every dependency-needing workflow installs (and builds, where the " +
+      "script reaches a dist-resolved workspace package) before running its script.",
     failMessage:
-      "FAIL: Some workflows run a node script without installing dependencies first.\n" +
+      "FAIL: Some workflows run a node script without the dependencies it needs.\n" +
       "A bare `actions/setup-node` step does not create node_modules — any workspace-\n" +
       "package or npm import in the script (or anything it imports transitively) fails\n" +
       "with ERR_MODULE_NOT_FOUND. Replace the setup-node step with\n" +
-      "`uses: ./.github/actions/setup-workspace` — see .github/workflows/branch-cleanup.yml.",
+      "`uses: ./.github/actions/setup-workspace`. If the script imports a workspace\n" +
+      "package that resolves through dist/, add `pnpm build --filter <pkg>...` too —\n" +
+      "installing does not build. See .github/workflows/branch-cleanup.yml.",
   });
   process.exit(exitCode);
 }
