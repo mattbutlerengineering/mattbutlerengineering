@@ -391,6 +391,8 @@
       upcomingCount: number;
       cancellationRate: number;
       cancellationTrend: "up" | "down" | "neutral";
+      waitlistCount: number;
+      longestWaitMinutes: number;
     }
     export interface UseDashboardStatsQueryResult {
       reservations: readonly Reservation[];
