@@ -53,4 +53,4 @@ if (uncovered.length > 0) {
   process.exit(1);
 }
 
-console.log("All budget-worthy vendor chunks have size-limit coverage.");
+process.stdout.write("All budget-worthy vendor chunks have size-limit coverage.\n");
