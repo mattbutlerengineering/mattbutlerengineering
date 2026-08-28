@@ -44,7 +44,34 @@ jobs:
       - name: Generate changelog
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: changelogen --output CHANGELOG.md
+        run: |
+          set -o pipefail
+
+          # No --from walks back to the nearest reachable tag --
+          # packages/rialto's last release, 2200+ commits back here -- past
+          # Node's 1 MB default child_process maxBuffer, which throws a bare
+          # ENOBUFS before changelogen ever writes CHANGELOG.md. This is a
+          # monthly job, so bound the range to the preceding calendar month.
+          FROM_REF=$(git rev-list -1 --before="$(date -u -d '1 month ago' +%Y-%m-01)" HEAD)
+          if [ -z "$FROM_REF" ]; then
+            echo "No commit found before the 1-month boundary; nothing to summarize."
+            exit 0
+          fi
+
+          # A month-bound is not a permanent fix -- one month's log is
+          # already 758,785 bytes across 701 commits as of 2026-08, and this
+          # repo's commit volume will cross the 1 MB maxBuffer again within a
+          # few months. Fail loud and diagnosable here instead of letting
+          # changelogen's internal git-log shell-out die with a bare,
+          # undiagnosable ENOBUFS like it has every month since 2026-07.
+          LOG_BYTES=$(git log "${FROM_REF}..HEAD" --format='%H%n%B' | wc -c)
+          MAX_SAFE_BYTES=900000
+          if [ "$LOG_BYTES" -gt "$MAX_SAFE_BYTES" ]; then
+            echo "::error::Commit log for ${FROM_REF}..HEAD is ${LOG_BYTES} bytes, over the ${MAX_SAFE_BYTES}-byte safety margin below Node's 1 MB child_process maxBuffer that broke this job with a bare ENOBUFS from 2026-07 onward. Narrow the range (e.g. two weeks instead of a month) rather than widening it."
+            exit 1
+          fi
+
+          changelogen --output CHANGELOG.md --from "$FROM_REF"
 
       - name: Create PR with changelog
         env:
@@ -52,7 +79,15 @@ jobs:
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
           MONTH_LABEL: ${{ github.event_name == 'schedule' && 'monthly' || 'manual' }}
         run: |
-          if git diff --quiet CHANGELOG.md 2>/dev/null; then
+          set -o pipefail
+
+          # `git diff --quiet CHANGELOG.md` ignores untracked files -- and
+          # there is no root CHANGELOG.md in this repo, so changelogen always
+          # creates a brand-new, untracked one. That made this check take the
+          # "no changes" branch on every single run since this workflow was
+          # added. `git status --porcelain` reports untracked (`??`) and
+          # modified-tracked files alike, so it catches both cases.
+          if [ -z "$(git status --porcelain -- CHANGELOG.md)" ]; then
             echo "No changelog changes detected"
             exit 0
           fi
