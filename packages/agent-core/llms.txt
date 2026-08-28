@@ -126,7 +126,7 @@
       export const COST_SUITE_DIR: unknown;
     </item>
     <item priority="high">
-      export function resolveSuitePath(suite: string): string { /* ... */ }
+      export const NAMED_SUITES: Readonly<Record<string, string>>;
     </item>
   </file>
   <file path="src/eval/eval-harness.ts">

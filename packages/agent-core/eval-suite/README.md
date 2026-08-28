@@ -19,8 +19,15 @@ as `mbe stats`), so suite quality can be charted over time.
 
 ## Adding a golden task
 
-A task is a single JSON file in this directory (or a subdirectory — the loader
-recurses). Growing coverage is meant to be cheap: drop a file in, no code change.
+A task is a single JSON file at the **top level** of this directory — the
+loader does not recurse into subdirectories. Growing coverage is meant to be
+cheap: drop a file in, no code change.
+
+Subdirectories here are separate, explicitly-registered named suites, not
+extra coverage for the default suite — [`cost/`](./cost) is the example,
+wired up in [`../src/eval/cost-suite.ts`](../src/eval/cost-suite.ts) and run
+via `mbe agent eval --suite cost`. A `*.json` file dropped into an
+unregistered subdirectory is checked in, valid, and never runs.
 
 Copy [`example-bugfix.json`](./example-bugfix.json) as a starting point. The
 schema is defined and validated by `taskSchema` in
