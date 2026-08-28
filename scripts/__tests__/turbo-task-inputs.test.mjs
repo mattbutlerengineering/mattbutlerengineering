@@ -69,6 +69,8 @@ function atomicWrite(target, contents) {
 /** Append a semantically inert comment to `target`, run `fn`, restore byte-identically. */
 function withAppendedProbe(target, fn) {
   const original = readFileSync(target);
+  let result;
+  let fnError;
   try {
     atomicWrite(
       target,
@@ -77,15 +79,21 @@ function withAppendedProbe(target, fn) {
         Buffer.from(`\n// turbo-input-hash-probe ${process.pid}-${Date.now()}\n`),
       ])
     );
-    return fn();
+    result = fn();
+  } catch (error) {
+    fnError = error;
   } finally {
     atomicWrite(target, original);
-    if (!readFileSync(target).equals(original)) {
-      // Restore failure outranks any assertion error this masks: a dirty
-      // working tree poisons every later hash comparison and git state.
-      throw new Error(`failed to restore ${target} byte-identically`);
-    }
   }
+  if (!readFileSync(target).equals(original)) {
+    // Restore failure outranks any assertion error from `fn`: a dirty working
+    // tree poisons every later hash comparison and git state. The outranked
+    // error rides along as `cause` instead of being swallowed (the previous
+    // throw-in-finally form masked it entirely — no-unsafe-finally).
+    throw new Error(`failed to restore ${target} byte-identically`, { cause: fnError });
+  }
+  if (fnError) throw fnError;
+  return result;
 }
 
 describe("@mbe/scripts turbo task hashes see the suite's real inputs", () => {
