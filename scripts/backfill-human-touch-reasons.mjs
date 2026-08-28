@@ -97,6 +97,16 @@ export function normalizeAuthorLogin(login) {
 const MERGE_COMMIT_RE = /^Merge (branch|pull request|remote-tracking branch) /;
 const REGEN_FIXUP_MESSAGE = "chore: regenerate stale artifacts";
 
+/** Known agent GitHub identities whose commits are never a human touch,
+ * regardless of which account opened the PR. `claude` (id 81847) is the real
+ * account git resolves `Claude <noreply@anthropic.com>` commit authorship
+ * to — distinct from both `mattbutlerengineering` and the `claude[bot]` App
+ * (id 209825114) used elsewhere in this repo. See #4603.
+ *
+ * @type {ReadonlySet<string>}
+ */
+const AGENT_AUTHOR_LOGINS = new Set(["claude", "claude[bot]"]);
+
 /** Branch-freshening merges and the regen-fixup hook's commit are automation,
  * not a human decision, regardless of whose identity pushed them.
  *
@@ -114,16 +124,21 @@ export function isMechanicalCommit(messageHeadline) {
  * happened here". Returns -1 when no commit qualifies (including when the PR
  * author identity itself is unknown — nothing to discriminate against).
  *
+ * A commit authored by a known agent identity (`claude`, `claude[bot]`) is
+ * never treated as a human touch, even when the PR itself was opened under a
+ * different (human) account — see #4603.
+ *
  * @param {Array<{ authors?: Array<{ login?: string }>, messageHeadline?: string }>} commits
  * @param {string} prAuthorLogin
  * @returns {number}
  */
-function findHumanCommitIndex(commits, prAuthorLogin) {
+export function findHumanCommitIndex(commits, prAuthorLogin) {
   if (!prAuthorLogin) return -1;
   return commits.findIndex((c) => {
     const authors = Array.isArray(c.authors) ? c.authors : [];
     const sharesAuthor = authors.some((a) => a?.login === prAuthorLogin);
-    return !sharesAuthor && !isMechanicalCommit(c.messageHeadline);
+    const isAgentAuthored = authors.some((a) => AGENT_AUTHOR_LOGINS.has(a?.login));
+    return !sharesAuthor && !isAgentAuthored && !isMechanicalCommit(c.messageHeadline);
   });
 }
 
