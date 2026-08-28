@@ -1836,6 +1836,16 @@
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useWaitlist.ts">
+    <item priority="high">
+      export const WAITLIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseWaitlistParams {
+        venueId: string;
+      }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     <item priority="low">
       interface PropDef {

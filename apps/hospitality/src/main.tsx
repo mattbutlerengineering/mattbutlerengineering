@@ -42,6 +42,9 @@ const ReservationsPage = lazy(() =>
 const GuestsPage = lazy(() =>
   import("./pages/GuestsPage.js").then((m) => ({ default: m.GuestsPage }))
 );
+const WaitlistPage = lazy(() =>
+  import("./pages/WaitlistPage.js").then((m) => ({ default: m.WaitlistPage }))
+);
 const FloorPlansPage = lazy(() =>
   import("./pages/FloorPlansPage.js").then((m) => ({
     default: m.FloorPlansPage,
@@ -209,6 +212,14 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <GuestsPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "waitlist",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <WaitlistPage />
                 </Suspense>
               ),
             },
