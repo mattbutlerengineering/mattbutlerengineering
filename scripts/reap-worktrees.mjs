@@ -37,8 +37,8 @@
  * This script enumerates every worktree registered under this repo's
  * `.claude/worktrees/` ("agent" + "hand-created") and applies the shared
  * safety rails before ANY of them is eligible for removal: no live owning
- * process, no open PR on its branch, and no recent filesystem activity —
- * "hand-created" additionally requires the merge evidence above. The
+ * process, no open PR on its branch, no recent filesystem activity — and,
+ * since 2026-08-28, positive merged-PR evidence for BOTH categories. The
  * decision logic (`decideWorktreeReap`/`planReap`/`buildReapReport`) is
  * pure and unit-tested; only the CLI helpers below it shell out to
  * `git`/`gh`/`lsof`, always via `execFileSync` with argv arrays (never
@@ -87,6 +87,33 @@
  * owns this still working"). No lock file, no change to worker dispatch —
  * just a second way to observe the same underlying fact `lsof` was trying
  * (and failing) to observe on its own.
+ *
+ * 2026-08-28 REVISITS #3986's compensation, because it was measured failing
+ * too: worktree `agent-a9aebed17bbbd1388`, whose agent was verifiably still
+ * running, read `isLive: false` (0 open fds), `hasOpenPr: false` (not yet
+ * pushed), AND `isRecentlyActive: false` — its newest non-excluded mtime was
+ * 72.6 min old, past the 45-min window, because workers spend long
+ * uninterrupted stretches in `pnpm install`/build/model round-trips where
+ * only excluded dirs (node_modules) churn. The dry run listed the live
+ * worker under "Would remove". A better process-table probe cannot close
+ * this either — measured against a live worker's worktree, the only
+ * PERSISTENT owning process (the `claude` harness itself) keeps its cwd at
+ * the MAIN checkout, not the worktree, so a cwd-scan (`lsof -a -d cwd +D`)
+ * reads zero between tool calls exactly like the fd-scan; only transient
+ * per-tool-call children ever appear under the worktree. No observation of
+ * the process table or the filesystem can distinguish "quiet but alive"
+ * from "dead", so eligibility must not rest on absence of evidence of life.
+ * Fix: "agent" worktrees now require the SAME positive evidence of death
+ * "hand-created" ones always did — `hasMergedPr === true`. The asymmetry
+ * this encodes: deleting a live worker's uncommitted work is catastrophic
+ * and unrecoverable; retaining a dead worktree costs disk. A merged PR is
+ * the one signal under which nothing unrecoverable can be destroyed — the
+ * work already landed on the server — so it is the only ticket to
+ * eligibility. Known cost, accepted deliberately: worktrees whose worker
+ * failed before pushing, or whose PR closed unmerged, are never auto-reaped
+ * and need a manual sweep. `isLive`/`isRecentlyActive`/`hasOpenPr` remain
+ * as refusal-only signals (they still shield a just-merged worker that is
+ * wrapping up).
  *
  * All three checks fail SAFE: any error (missing `lsof`, `gh` auth failure,
  * network blip, an unreadable worktree directory) is treated as "refuse to
@@ -152,9 +179,11 @@ export function isInTreeWorktreePath(worktreePath) {
  * Pure (#4122): classifies a worktree path into the three non-overlapping
  * categories the reaper reasons about:
  *
- *   - "agent": `.claude/worktrees/agent-*` — implement-queue-spawned,
- *     reconstructible from its PR. Existing `decideWorktreeReap` rules
- *     (no live process, no open PR, no recent activity) apply unchanged.
+ *   - "agent": `.claude/worktrees/agent-*` — implement-queue-spawned.
+ *     Since 2026-08-28, subject to the same positive-evidence rule as
+ *     "hand-created" (see module header): the refusals (no live process,
+ *     no open PR, no recent activity) still apply, and eligibility
+ *     additionally requires a merged PR.
  *   - "hand-created": `.claude/worktrees/<anything else>` — may hold
  *     uncommitted human work. Only removable on POSITIVE merged-branch
  *     evidence (a merged PR reported by `gh`), never on ancestry or
@@ -184,11 +213,13 @@ export function classifyWorktreeCategory(worktreePath) {
  * signal that catches that window.
  *
  * Beyond those three shared refusals:
- *   - "agent" worktrees are eligible once they clear all three (unchanged).
- *   - "hand-created" worktrees need ONE more thing: `hasMergedPr === true`
- *     — positive, server-side evidence that the branch's PR merged. Missing
- *     or `false` evidence retains the worktree (`no-merge-evidence`); this
- *     never falls back to inferring "probably fine" from any other signal.
+ *   - BOTH "agent" and "hand-created" worktrees need ONE more thing:
+ *     `hasMergedPr === true` — positive, server-side evidence that the
+ *     branch's PR merged. Missing or `false` evidence retains the worktree
+ *     (`no-merge-evidence`); this never falls back to inferring "probably
+ *     fine" from any other signal. Until 2026-08-28 "agent" worktrees were
+ *     eligible on clearing the three refusals alone — an absence-of-evidence
+ *     default that was measured reaping a live worker (see module header).
  *   - "out-of-tree" worktrees are refused unconditionally, before any of
  *     the above checks even run — they are never examined, by design, so a
  *     never-examined worktree can never read as "eligible".
@@ -210,12 +241,17 @@ export function decideWorktreeReap(worktree) {
   if (worktree.isRecentlyActive) {
     return { eligible: false, reason: "recent-activity" };
   }
-  if (category === "hand-created") {
-    return worktree.hasMergedPr === true
-      ? { eligible: true, reason: "eligible-merged" }
-      : { eligible: false, reason: "no-merge-evidence" };
-  }
-  return { eligible: true, reason: "eligible" };
+  // 2026-08-28: BOTH in-tree categories now require positive merged-PR
+  // evidence. The asymmetry that forces this default: deleting a live
+  // worker's uncommitted work is catastrophic and unrecoverable, while
+  // retaining a dead worktree merely costs disk — so eligibility can never
+  // rest on an absence of evidence of life (all three refusals above were
+  // measured false simultaneously on a live worker; see module header).
+  // A merged PR means the work is preserved server-side, bounding even a
+  // mistimed removal to inconvenience, never loss.
+  return worktree.hasMergedPr === true
+    ? { eligible: true, reason: "eligible-merged" }
+    : { eligible: false, reason: "no-merge-evidence" };
 }
 
 /**
@@ -470,11 +506,12 @@ export function hasRecentFileActivity(
  * worktrees never enter this inventory at all — they are reported
  * separately by the caller, never queried here.
  *
- * `hasMergedPr` is fetched (one `gh` call) ONLY for a "hand-created"
- * worktree that has already cleared the live/open-pr/recent-activity
- * refusals — those refusals decide the outcome regardless of merge
- * evidence, so fetching it earlier would just be a wasted API call. It
- * stays `undefined` for every "agent" worktree, which never looks at it.
+ * `hasMergedPr` is fetched (one `gh` call) ONLY for a worktree that has
+ * already cleared the live/open-pr/recent-activity refusals — those
+ * refusals decide the outcome regardless of merge evidence, so fetching it
+ * earlier would just be a wasted API call. Since 2026-08-28 BOTH in-tree
+ * categories require it (see `decideWorktreeReap`), so it is fetched for
+ * "agent" candidates too, not just "hand-created" ones.
  *
  * @param {{cwd?: string, exec?: Function}} [opts]
  * @returns {Array<{path:string, branch:string|null, category:string, isLive:boolean, hasOpenPr:boolean, isRecentlyActive:boolean, hasMergedPr?:boolean}>}
@@ -487,8 +524,7 @@ export function buildReapInventory({ cwd = process.cwd(), exec = execFileSync } 
       const isLive = isWorktreeLive(w.path, { exec });
       const hasOpenPr = hasOpenPrForBranch(w.branch, { exec });
       const isRecentlyActive = hasRecentFileActivity(w.path);
-      const needsMergeEvidence =
-        category === "hand-created" && !isLive && !hasOpenPr && !isRecentlyActive;
+      const needsMergeEvidence = !isLive && !hasOpenPr && !isRecentlyActive;
       const hasMergedPr = needsMergeEvidence ? hasMergedPrForBranch(w.branch, { exec }) : undefined;
       return {
         path: w.path,
@@ -505,22 +541,24 @@ export function buildReapInventory({ cwd = process.cwd(), exec = execFileSync } 
 /**
  * Guard used independently of `decideWorktreeReap` — `removeWorktree` never
  * shells a destructive git call without re-validating the worktree itself,
- * even if a caller bypassed the plan. #4122 widens this DELIBERATELY and
- * NARROWLY: an "agent" path is still always safe (unchanged); a
- * "hand-created" path is safe ONLY when the exact call carries
- * `hasMergedPr === true` — never inferred from the path shape alone, and
- * never satisfied by any other field on `worktree`. Every other category
- * ("out-of-tree", or "hand-created" without that exact evidence) still
- * throws, hard, with no override.
+ * even if a caller bypassed the plan. #4122 widened this to "hand-created"
+ * paths carrying `hasMergedPr === true`; 2026-08-28 tightens the "agent"
+ * side to the SAME requirement — path shape alone no longer authorizes
+ * removal, because an agent path can belong to a live worker whose
+ * uncommitted work is unrecoverable (see module header). The exact call
+ * must carry `hasMergedPr === true` — never inferred from the path, and
+ * never satisfied by any other field on `worktree`. Everything else
+ * ("out-of-tree", or any in-tree path without that exact evidence) throws,
+ * hard, with no override.
  *
  * @param {{path:string, hasMergedPr?: boolean}} worktree
  */
 function assertSafeWorktreeRemoval(worktree) {
-  const category = classifyWorktreeCategory(worktree.path);
-  if (category === "agent") return;
-  if (category === "hand-created" && worktree.hasMergedPr === true) return;
+  if (isInTreeWorktreePath(worktree.path) && worktree.hasMergedPr === true) {
+    return;
+  }
   throw new Error(
-    `refusing to remove non-agent-worktree path without positive merge evidence: ${worktree.path}`
+    `refusing to remove worktree path without positive merge evidence: ${worktree.path}`
   );
 }
 
