@@ -690,9 +690,9 @@
   </file>
   <file path="src/eval/cost-suite.ts">
     export const COST_SUITE_DIR = "packages/agent-core/eval-suite/cost";
-    export function resolveSuitePath(suite: string): string {
-      return NAMED_SUITES[suite] ?? suite;
-    }
+    export const NAMED_SUITES: Readonly<Record<string, string>> = {
+      cost: COST_SUITE_DIR,
+    };
   </file>
   <file path="src/eval/eval-harness.ts">
     export interface RunEvalSuiteOptions {
