@@ -18,6 +18,7 @@ src/
 │   ├── compound.ts    # compound — chain multiple commands as a single task
 │   ├── generate.ts    # generate — scaffold code from templates
 │   ├── health.ts      # health — check service/infra health endpoints
+│   ├── issue.ts       # issue transition — apply label-machine state transitions
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval
@@ -88,6 +89,8 @@ mbe generate <template>    # Generate code from templates
 mbe check-adr --staged     # Validate staged changes against ADRs
 mbe check-deps             # Enforce dependency version constraints
 mbe cleanup-worktrees      # Remove stale agent worktrees
+mbe issue transition <n>   # Apply a label-machine state transition to a GitHub issue
+  --to <state>              # ready|in-progress|has-pr|agent-failed|agent-skip
 ```
 
 ### Observability
