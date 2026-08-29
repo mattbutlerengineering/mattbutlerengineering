@@ -8,7 +8,8 @@
 # old SHA — so auto-merge fires on stale code or a fix never lands.
 #
 # Wired via .claude/settings.json PostToolUse Bash matcher.
-# Reads the just-executed command from $CLAUDE_BASH_COMMAND.
+# Receives the hook payload as JSON on stdin; the just-executed command
+# is read via hook-input.mjs (measured contract: scripts/hook-input.mjs).
 #
 # Behavior:
 #   - Only fires for `git push` (skips --dry-run, --delete, tag-only pushes)
@@ -20,7 +21,8 @@
 # visible so Claude re-pushes instead of arming auto-merge on stale code.
 set -uo pipefail
 
-cmd="${CLAUDE_BASH_COMMAND:-}"
+cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
+[ -n "$cmd" ] || exit 0
 
 # Only intercept git push; skip non-pushing / destructive / dry forms.
 case "$cmd" in

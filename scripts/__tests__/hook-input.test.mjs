@@ -21,9 +21,11 @@ import {
   mkdirSync,
   writeFileSync,
   readFileSync,
+  readdirSync,
   existsSync,
   rmSync,
   chmodSync,
+  symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -241,4 +243,201 @@ describe("hook seam: the PreToolUse guard blocks protected paths", () => {
     },
     SEAM_TIMEOUT_MS
   );
+});
+/** Every `command` hook whose matcher applies to a Bash tool call. */
+function bashHookCommands() {
+  const events = [...(settings.hooks?.PreToolUse ?? []), ...(settings.hooks?.PostToolUse ?? [])];
+  return events
+    .filter((entry) => new RegExp(entry.matcher ?? "").test("Bash"))
+    .flatMap((entry) => entry.hooks ?? [])
+    .filter((hook) => hook.type === "command")
+    .map((hook) => hook.command);
+}
+
+const bashCommandContaining = (needle) => bashHookCommands().find((cmd) => cmd.includes(needle));
+
+/**
+ * The three hooks repaired off the fictional `$CLAUDE_BASH_COMMAND`.
+ * `regen-after-update-branch.sh` is deliberately NOT here — see the
+ * env-var scan below.
+ */
+const REPAIRED_BASH_HOOKS = ["pre-bash-guard.sh", "pre-push-typecheck.sh", "verify-push-sha.sh"];
+
+const bashPayloadFor = (command) =>
+  JSON.stringify({
+    session_id: "test-session",
+    hook_event_name: "PreToolUse",
+    tool_name: "Bash",
+    tool_input: { command, description: "test" },
+    tool_use_id: "toolu_test",
+  });
+
+describe("hook seam: Bash hooks read the command from the stdin payload", () => {
+  let sandbox;
+  let env;
+  let pnpmLog;
+
+  const git = (cwd, ...args) =>
+    spawnSync(
+      "git",
+      [
+        "-c",
+        "user.email=hook-test@example.com",
+        "-c",
+        "user.name=hook-test",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { cwd, encoding: "utf8" }
+    );
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), "hook-bash-cmd-"));
+    pnpmLog = join(sandbox, "pnpm-calls.log");
+
+    // The hooks resolve their input adapter via $CLAUDE_PROJECT_DIR, and
+    // pre-bash-guard checks $CLAUDE_PROJECT_DIR/node_modules — so the project
+    // dir is the sandbox (no node_modules), with the real hook and adapter
+    // sources linked in. Node realpaths the adapter on execution, so its
+    // relative import of scripts/hook-input.mjs still resolves in the repo.
+    symlinkSync(join(REPO_ROOT, ".claude"), join(sandbox, ".claude"));
+    symlinkSync(join(REPO_ROOT, "scripts"), join(sandbox, "scripts"));
+
+    // Stub `pnpm` (logs its args, exits 1) so the typecheck path is
+    // observable — and observably blocking — without a real workspace.
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin);
+    const stub = join(bin, "pnpm");
+    writeFileSync(
+      stub,
+      `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> ${JSON.stringify(pnpmLog)}\nexit 1\n`
+    );
+    chmodSync(stub, 0o755);
+
+    env = {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      CLAUDE_PROJECT_DIR: sandbox,
+    };
+    delete env.SKIP_BASH_GUARD;
+    delete env.SKIP_PUSH_TYPECHECK;
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  const run = (hookFile, payload, cwd = sandbox) =>
+    spawnSync("bash", ["-c", bashCommandContaining(hookFile)], {
+      cwd,
+      env,
+      input: payload,
+      encoding: "utf8",
+    });
+
+  /** A work repo one unpushed .ts commit ahead of its bare origin. */
+  function gitFixtureAheadOfOrigin() {
+    const origin = join(sandbox, "origin.git");
+    const work = join(sandbox, "work");
+    git(sandbox, "init", "-q", "--bare", "-b", "main", origin);
+    git(sandbox, "init", "-q", "-b", "main", work);
+    writeFileSync(join(work, "a.ts"), "export const a = 1;\n");
+    git(work, "add", "a.ts");
+    git(work, "commit", "-qm", "init");
+    git(work, "remote", "add", "origin", origin);
+    git(work, "push", "-qu", "origin", "main");
+    writeFileSync(join(work, "a.ts"), "export const a = 2;\n");
+    git(work, "add", "a.ts");
+    git(work, "commit", "-qm", "unpushed ts change");
+    return work;
+  }
+
+  it("wires all three repaired hooks in settings.json under a Bash matcher", () => {
+    for (const hookFile of REPAIRED_BASH_HOOKS) {
+      expect(bashCommandContaining(hookFile), `${hookFile} not wired for Bash`).toBeTruthy();
+    }
+  });
+
+  it(
+    "pre-bash-guard blocks `pnpm test` when node_modules is missing",
+    () => {
+      const result = run("pre-bash-guard.sh", bashPayloadFor("pnpm test"));
+      expect(result.stderr).toContain("node_modules missing");
+      expect(result.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck typechecks a `git push` with unpushed .ts changes and blocks on failure",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push origin HEAD"), work);
+      expect(result.stderr).toContain("BLOCK: typecheck failed");
+      expect(result.status).toBe(2);
+      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha reports a push that did not land (remote behind local)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      const result = run("verify-push-sha.sh", bashPayloadFor("git push origin HEAD"), work);
+      expect(result.stderr).toContain("did NOT land");
+      expect(result.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it.each([
+    ["completely empty stdin", ""],
+    ["malformed JSON", "{not json"],
+    ["a payload with no command", '{"tool_name":"Bash","tool_input":{}}'],
+  ])(
+    "leaves every repaired Bash hook a silent no-op given %s",
+    (_label, payload) => {
+      // Run inside the ahead-of-origin fixture so a hook that wrongly
+      // proceeded without a command would have something to trip on.
+      const work = gitFixtureAheadOfOrigin();
+      for (const hookFile of REPAIRED_BASH_HOOKS) {
+        const result = run(hookFile, payload, work);
+        expect(result.status, `hook exited non-zero: ${hookFile}\n${result.stderr}`).toBe(0);
+        expect(result.stderr, `hook was not silent: ${hookFile}`).toBe("");
+      }
+      expect(existsSync(pnpmLog), "typecheck ran without a command in the payload").toBe(false);
+    },
+    SEAM_TIMEOUT_MS
+  );
+});
+
+describe("no hook reads the fictional Bash-tool env vars", () => {
+  const HOOKS_DIR = join(REPO_ROOT, ".claude", "hooks");
+  const hookFiles = readdirSync(HOOKS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .sort();
+
+  const filesContaining = (needles) =>
+    hookFiles.filter((name) => {
+      const text = readFileSync(join(HOOKS_DIR, name), "utf8");
+      return needles.some((needle) => text.includes(needle));
+    });
+
+  it("references no CLAUDE_BASH_COMMAND anywhere under .claude/hooks/", () => {
+    expect(filesContaining(["CLAUDE_BASH_COMMAND"])).toEqual([]);
+  });
+
+  it("confines CLAUDE_TOOL_INPUT/CLAUDE_TOOL_OUTPUT to the one known-inert hook", () => {
+    // regen-after-update-branch.sh is deliberately left inert: repairing its
+    // input would arm never-executed `git checkout origin/$branch --detach`
+    // + `git push --no-verify` against the live working tree (lines 36-58).
+    // Recorded in docs/backlog.md; rewrite those lines before adopting the
+    // adapter there. Exact equality keeps that repair a deliberate act.
+    expect(filesContaining(["CLAUDE_TOOL_INPUT", "CLAUDE_TOOL_OUTPUT"])).toEqual([
+      "regen-after-update-branch.sh",
+    ]);
+  });
 });
