@@ -469,6 +469,74 @@ describe("sensors-registry", () => {
       expect(result.error).toMatch(/auth/i);
     });
 
+    // #4641: a single `--limit 50 --state all` fetch sorted by createdAt desc
+    // gets crowded out by a creation burst — issues closed in the window but
+    // created before it fall off the top-50 and silently vanish from
+    // closed_7d, even though they really did close. Scoping created/closed
+    // counts to two independent server-side searches (rather than filtering
+    // one shared, capped array) means closed_7d can never be truncated by
+    // creation volume.
+    it("issues sensor scopes created/closed counts to independent search queries, not one shared capped list", () => {
+      const now = new Date("2026-08-29T00:00:00Z");
+      const ghClient = {
+        issue: {
+          list: vi
+            .fn()
+            // 1st call: issues created in the window
+            .mockReturnValueOnce([{ number: 1 }, { number: 2 }])
+            // 2nd call: issues closed in the window — #3 was created well
+            // before the window and would have been pushed out of any
+            // shared, creation-sorted, capped fetch.
+            .mockReturnValueOnce([{ number: 3 }])
+            // 3rd call: currently-open issues, for queue_depth/agent_failed
+            .mockReturnValueOnce([
+              { number: 4, labels: [{ name: "ready" }] },
+              { number: 5, labels: [{ name: "agent-failed" }] },
+            ]),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "issues");
+
+      const result = sensor.collect({ ghClient, now });
+
+      expect(result).toEqual({
+        available: true,
+        created_7d: 2,
+        closed_7d: 1,
+        closure_rate: 50,
+        queue_depth: 1,
+        agent_failed: 1,
+      });
+      expect(ghClient.issue.list).toHaveBeenNthCalledWith(1, [
+        "--state",
+        "all",
+        "--search",
+        "created:>=2026-08-22",
+        "--limit",
+        "200",
+        "--json",
+        "number,createdAt",
+      ]);
+      expect(ghClient.issue.list).toHaveBeenNthCalledWith(2, [
+        "--state",
+        "closed",
+        "--search",
+        "closed:>=2026-08-22",
+        "--limit",
+        "200",
+        "--json",
+        "number,closedAt",
+      ]);
+      expect(ghClient.issue.list).toHaveBeenNthCalledWith(3, [
+        "--state",
+        "open",
+        "--limit",
+        "200",
+        "--json",
+        "number,labels",
+      ]);
+    });
+
     // readQueueEfficiencyPrs is exercised directly (rather than through the
     // full queueEfficiency sensor.collect()) so the test doesn't also invoke
     // collectQueueEfficiency's real (network-calling) default ccusage reader.

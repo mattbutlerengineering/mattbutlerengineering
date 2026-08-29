@@ -640,40 +640,66 @@ export const SENSORS = [
     id: "issues",
     category: "quality",
     collect: ({ ghClient, now }) => {
+      // #4641: a single `--limit 50 --state all` fetch (sorted by createdAt
+      // desc) gets crowded out by a creation burst — issues closed in the
+      // window but created before it fall off the top-50 and silently
+      // vanish from closed_7d, even though they really did close. That
+      // makes closure_rate mechanically drop whenever issue creation
+      // volume rises, independent of actual closure throughput. Scoping
+      // created/closed counts to two independent server-side searches
+      // (rather than filtering one shared, capped array) means closed_7d
+      // can never be truncated by creation volume.
       const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-      let issuesRaw;
+      const sinceDate = sevenDaysAgo.toISOString().slice(0, 10);
+      let createdIssues;
+      let closedIssues;
+      let openIssues;
       try {
-        issuesRaw = ghClient.issue.list([
+        createdIssues = ghClient.issue.list([
           "--state",
           "all",
+          "--search",
+          `created:>=${sinceDate}`,
           "--limit",
-          "50",
+          "200",
           "--json",
-          "number,state,labels,createdAt,closedAt",
+          "number,createdAt",
+        ]);
+        closedIssues = ghClient.issue.list([
+          "--state",
+          "closed",
+          "--search",
+          `closed:>=${sinceDate}`,
+          "--limit",
+          "200",
+          "--json",
+          "number,closedAt",
+        ]);
+        openIssues = ghClient.issue.list([
+          "--state",
+          "open",
+          "--limit",
+          "200",
+          "--json",
+          "number,labels",
         ]);
       } catch (err) {
         // Distinguishable from "no issues" (#3937) — a thrown error (e.g.
         // auth failure) is a query failure, not an empty-but-valid result.
         return { available: false, error: describeGhError(err) };
       }
-      const recentIssues = issuesRaw.filter((i) => new Date(i.createdAt) >= sevenDaysAgo);
-      const recentClosed = issuesRaw.filter(
-        (i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo
-      );
-      const openReady = issuesRaw.filter(
-        (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "ready")
-      );
-      const agentFailed = issuesRaw.filter(
-        (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "agent-failed")
+      const openReady = openIssues.filter((i) => (i.labels ?? []).some((l) => l.name === "ready"));
+      const agentFailed = openIssues.filter((i) =>
+        (i.labels ?? []).some((l) => l.name === "agent-failed")
       );
 
       return {
         available: true,
-        created_7d: recentIssues.length,
-        closed_7d: recentClosed.length,
+        created_7d: createdIssues.length,
+        closed_7d: closedIssues.length,
         closure_rate:
-          recentIssues.length > 0
-            ? Math.round((recentClosed.length / recentIssues.length) * 100)
+          createdIssues.length > 0
+            ? Math.round((closedIssues.length / createdIssues.length) * 100)
             : 100,
         queue_depth: openReady.length,
         agent_failed: agentFailed.length,
