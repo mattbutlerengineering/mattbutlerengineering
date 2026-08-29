@@ -659,6 +659,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="apps/rialto-web/src/pages/auth/authFlowMachine.ts">
+    <item priority="high">
+      export const STATIONS: unknown;
+    </item>
+    <item priority="low">
+      type StationId = (typeof STATIONS)[number];
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -1757,6 +1767,14 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useSessionClock.ts">
+    <item priority="high">
+      export const REFRESH_WINDOW_MS: unknown;
+    </item>
+    <item priority="low">
+      type SessionPhase = "fresh" | "refresh-window" | "expired";
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -2027,6 +2045,18 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/describe-auth-error.ts">
+    <item priority="low">
+      interface AuthErrorDescription {
+        title: string;
+        body: string;
+        canRetry: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function oidcErrorCode(error: Error): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];
