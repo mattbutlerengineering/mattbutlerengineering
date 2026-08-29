@@ -535,6 +535,14 @@
       }
     </item>
   </file>
+  <file path="src/return-to-store.ts">
+    <item priority="high">
+      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readReturnTo(): string | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="src/vite-env.d.ts">
     <item priority="high">
       interface ImportMetaEnv {

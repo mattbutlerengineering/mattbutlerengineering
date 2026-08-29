@@ -21,6 +21,7 @@ const makeOIDCAuth = (overrides: Record<string, unknown> = {}) => ({
   isAuthenticated: false,
   user: null,
   error: undefined,
+  settings: { redirect_uri: "http://localhost:3000/callback" },
   signinRedirect: mockSigninRedirect,
   signoutRedirect: mockSignoutRedirect,
   signinSilent: mockSigninSilent,
@@ -128,6 +129,38 @@ describe("useAuth", () => {
     });
 
     expect(mockSigninSilent).toHaveBeenCalledOnce();
+  });
+
+  it("passes an explicit returnTo through OIDC state when signIn is invoked", () => {
+    mockUseAuth.mockReturnValue(makeOIDCAuth());
+
+    const { result } = renderHook(() => useAuth());
+    act(() => {
+      result.current.signIn({ returnTo: "/reservations?date=2026-09-01" });
+    });
+
+    expect(mockSigninRedirect).toHaveBeenCalledWith({
+      state: { returnTo: "/reservations?date=2026-09-01" },
+    });
+  });
+
+  it("defaults returnTo to the current location relative to the app base path", () => {
+    window.history.replaceState(null, "", "/hospitality/guests?q=1");
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({
+        settings: { redirect_uri: "http://localhost:3000/hospitality/callback" },
+      })
+    );
+
+    const { result } = renderHook(() => useAuth());
+    act(() => {
+      result.current.signIn();
+    });
+
+    expect(mockSigninRedirect).toHaveBeenCalledWith({
+      state: { returnTo: "/guests?q=1" },
+    });
+    window.history.replaceState(null, "", "/");
   });
 
   it("maps user profile fields correctly when optional fields are missing", () => {
@@ -333,6 +366,24 @@ describe("useRequireAuth", () => {
     renderHook(() => useRequireAuth());
 
     expect(mockSigninRedirect).not.toHaveBeenCalled();
+  });
+
+  it("passes the current location as returnTo when redirecting to sign-in", () => {
+    window.history.replaceState(null, "", "/hospitality/reservations?date=2026-09-01");
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({
+        isLoading: false,
+        isAuthenticated: false,
+        settings: { redirect_uri: "http://localhost:3000/hospitality/callback" },
+      })
+    );
+
+    renderHook(() => useRequireAuth());
+
+    expect(mockSigninRedirect).toHaveBeenCalledWith({
+      state: { returnTo: "/reservations?date=2026-09-01" },
+    });
+    window.history.replaceState(null, "", "/");
   });
 
   it("returns auth state including user info", () => {
