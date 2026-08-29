@@ -659,6 +659,32 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="apps/rialto-web/src/pages/auth/auth-validation.ts">
+    <item priority="high">
+      export const MFA_CODE_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MFA_REJECT_CODE: unknown;
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/authFlowMachine.ts">
+    <item priority="high">
+      export const STATIONS: unknown;
+    </item>
+    <item priority="low">
+      type StationId = (typeof STATIONS)[number];
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/score-password.ts">
+    <item priority="high">
+      export const MIN_PASSWORD_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const BONUS_LENGTH: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -1757,6 +1783,14 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useSessionClock.ts">
+    <item priority="high">
+      export const REFRESH_WINDOW_MS: unknown;
+    </item>
+    <item priority="low">
+      type SessionPhase = "fresh" | "refresh-window" | "expired";
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -2027,6 +2061,18 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/describe-auth-error.ts">
+    <item priority="low">
+      interface AuthErrorDescription {
+        title: string;
+        body: string;
+        canRetry: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function oidcErrorCode(error: Error): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];
@@ -2325,6 +2371,16 @@
         accessToken: string | null;
         refreshError: Error | null;
       }
+    </item>
+  </file>
+  <file path="packages/auth/src/react/return-to.ts">
+    <item priority="low">
+      interface SignInOptions {
+        returnTo?: string;
+      }
+    </item>
+    <item priority="high">
+      export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
     </item>
   </file>
   </section>
@@ -3859,6 +3915,14 @@
         label?: string;
         items: NavItem[];
       }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/return-to-store.ts">
+    <item priority="high">
+      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readReturnTo(): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/vite-env.d.ts">

@@ -1895,6 +1895,20 @@
     }
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="apps/rialto-web/src/pages/auth/auth-validation.ts">
+    export const MFA_CODE_LENGTH = 6;
+    export const MFA_REJECT_CODE = "000000";
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/authFlowMachine.ts">
+    export const STATIONS = ["browser", "idp", "api"] as const;
+    export type StationId = (typeof STATIONS)[number];
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/score-password.ts">
+    export const MIN_PASSWORD_LENGTH = 12;
+    export const BONUS_LENGTH = 16;
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     export interface EffectiveDepositPolicyParams {
@@ -3269,10 +3283,12 @@
     export const DEMO_ROUTES = {
       signIn: `${DEMOS_BASE}/login`,
       signUp: `${DEMOS_BASE}/signup`,
+      sessionExpired: `${DEMOS_BASE}/session-expired`,
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
       telemetry: `${DEMOS_BASE}/telemetry`,
+      authFlow: `${DEMOS_BASE}/auth-flow`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
@@ -4638,6 +4654,10 @@
       enabled?: boolean;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useSessionClock.ts">
+    export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
+    export type SessionPhase = "fresh" | "refresh-window" | "expired";
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
@@ -5161,6 +5181,20 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/describe-auth-error.ts">
+    export interface AuthErrorDescription {
+      /** Short, human headline for the error screen. */
+      readonly title: string;
+      /** One-sentence explanation in user language. */
+      readonly body: string;
+      /** Whether offering a retry action makes sense for this category. */
+      readonly canRetry: boolean;
+    }
+    function oidcErrorCode(error: Error): string {
+      const code = (error as Error & { error?: unknown }).error;
+      return typeof code === "string" ? code : "";
+    }
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
@@ -6242,8 +6276,18 @@
         user,
         /** Access token for API calls */
         accessToken: auth.user?.access_token ?? null,
-        /** Sign in - redirects to OIDC provider */
-        signIn: () => auth.signinRedirect(),
+        /**
+         * Sign in - redirects to OIDC provider. Carries `returnTo` (an
+         * app-relative path, defaulting to the current location relative to the
+         * app base path) through the OIDC `state` so the destination survives the
+         * round-trip. Consumers receive it back via the provider's
+         * `onSigninCallback(returnTo)`.
+         */
+        signIn: (options?: SignInOptions) => {
+          const returnTo =
+            options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
+          return auth.signinRedirect({ state: { returnTo } });
+        },
         /** Sign out - redirects to OIDC provider */
         signOut: () => auth.signoutRedirect(),
         /** Sign in silently (refresh token) */
@@ -6260,6 +6304,21 @@
        * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
        */
       refreshError: Error | null;
+    }
+  </file>
+  <file path="packages/auth/src/react/return-to.ts">
+    export interface SignInOptions {
+      /**
+       * App-relative path (starting with "/", relative to the router basename) to
+       * restore after sign-in. Defaults to the current location.
+       */
+      returnTo?: string;
+    }
+    export function isSafeReturnTo(value: unknown): value is string {
+      if (typeof value !== "string" || value.length === 0) return false;
+      if (!value.startsWith("/")) return false;
+      if (value.startsWith("//") || value.startsWith("/\\")) return false;
+      return true;
     }
   </file>
   </section>
@@ -13682,6 +13741,14 @@
     export interface NavSection {
       label?: string;
       items: NavItem[];
+    }
+  </file>
+  <file path="apps/hospitality/src/return-to-store.ts">
+    export function rememberReturnTo(returnTo?: string): void {
+      storedReturnTo = returnTo;
+    }
+    export function readReturnTo(): string | undefined {
+      return storedReturnTo;
     }
   </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
