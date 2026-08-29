@@ -101,19 +101,25 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </dl>
   ),
   Divider: () => <hr />,
-  Meter: ({ label, value }: any) => (
+  Meter: ({ label, value }: { label?: string; value?: number | null }) => (
     <div
       data-testid="meter"
       aria-label={label}
       data-value={value === null ? "null" : String(value)}
     />
   ),
-  Odometer: ({ value, "aria-label": ariaLabel }: any) => (
+  Odometer: ({
+    value,
+    "aria-label": ariaLabel,
+  }: {
+    value?: number | string;
+    "aria-label"?: string;
+  }) => (
     <span data-testid="odometer" aria-label={ariaLabel}>
       {String(value)}
     </span>
   ),
-  StatusLED: ({ variant, pulse, label }: any) => (
+  StatusLED: ({ variant, pulse, label }: { variant?: string; pulse?: boolean; label?: string }) => (
     <span data-testid={`status-led-${variant}`} data-pulse={String(Boolean(pulse))}>
       {label}
     </span>
@@ -547,12 +553,14 @@ describe("ProfilePage", () => {
     function mockSessionClaims(claims: Record<string, unknown> | undefined) {
       vi.mocked(useAuth).mockReturnValue({
         user: { ...defaultAuthUser, raw: claims },
-      } as any);
+      } as unknown as ReturnType<typeof useAuth>);
     }
 
     afterEach(() => {
       // Restore the factory default so later tests see the raw-less auth user.
-      vi.mocked(useAuth).mockImplementation(() => ({ user: defaultAuthUser }) as any);
+      vi.mocked(useAuth).mockImplementation(
+        () => ({ user: defaultAuthUser }) as unknown as ReturnType<typeof useAuth>
+      );
     });
 
     it("renders the countdown and a pulsing success LED when plenty of life remains", async () => {
