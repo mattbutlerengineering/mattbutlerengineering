@@ -20,6 +20,7 @@ export const DEMO_ROUTES = {
   teamCreate: `${DEMOS_BASE}/teams/new`,
   layouts: `${DEMOS_BASE}/layouts`,
   telemetry: `${DEMOS_BASE}/telemetry`,
+  authFlow: `${DEMOS_BASE}/auth-flow`,
   drivers: `${DEMOS_BASE}/drivers`,
   driverNew: `${DEMOS_BASE}/drivers/new`,
   driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,

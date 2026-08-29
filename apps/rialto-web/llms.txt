@@ -17,6 +17,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="src/pages/auth/authFlowMachine.ts">
+    <item priority="high">
+      export const STATIONS: unknown;
+    </item>
+    <item priority="low">
+      type StationId = (typeof STATIONS)[number];
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="src/data/demo-routes.ts">
     <item priority="high">
