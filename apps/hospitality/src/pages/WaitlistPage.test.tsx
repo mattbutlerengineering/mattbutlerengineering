@@ -9,8 +9,11 @@ import {
   useCreateWaitlistEntry,
   useNotifyWaitlistEntry,
   useCancelWaitlistEntry,
+  useSeatWaitlistEntry,
 } from "../hooks/useWaitlist.js";
-import type { WaitlistEntry } from "@mbe/types";
+import { useTables } from "../hooks/useTables.js";
+import { useApiClient } from "../hooks/useApiClient.js";
+import type { Table, WaitlistEntry } from "@mbe/types";
 import React from "react";
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
@@ -19,7 +22,10 @@ vi.mock("../hooks/useWaitlist.js", () => ({
   useCreateWaitlistEntry: vi.fn(),
   useNotifyWaitlistEntry: vi.fn(),
   useCancelWaitlistEntry: vi.fn(),
+  useSeatWaitlistEntry: vi.fn(),
 }));
+vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
+vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
@@ -69,6 +75,30 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
         <input ref={ref} {...props} />
       </label>
     )),
+    Select: ({
+      label,
+      value,
+      onChange,
+      options,
+      disabled,
+    }: {
+      label?: string;
+      value?: string;
+      onChange?: (value: string) => void;
+      options: { value: string; label: string }[];
+      disabled?: boolean;
+    }) => (
+      <label>
+        {label}
+        <select value={value} disabled={disabled} onChange={(e) => onChange?.(e.target.value)}>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    ),
     Skeleton: () => <div data-testid="skeleton" />,
     SkeletonGroup: ({ children }: { children: React.ReactNode }) => (
       <div data-testid="skeleton-group">{children}</div>
@@ -118,11 +148,29 @@ function getRowCards(container: HTMLElement) {
   return within(cardsList as HTMLElement).getAllByTestId("card");
 }
 
+const makeTable = (overrides: Partial<Table> = {}): Table => ({
+  id: "table-1",
+  name: "Table 1",
+  capacity: 4,
+  isActive: true,
+  status: "AVAILABLE",
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 100,
+  shape: "RECTANGLE",
+  rotation: 0,
+  venueId: "venue-abc",
+  floorPlanId: "fp-1",
+  ...overrides,
+});
+
 function mockMutationHooks(
   overrides: {
     create?: Partial<ReturnType<typeof useCreateWaitlistEntry>>;
     notify?: Partial<ReturnType<typeof useNotifyWaitlistEntry>>;
     cancel?: Partial<ReturnType<typeof useCancelWaitlistEntry>>;
+    seat?: Partial<ReturnType<typeof useSeatWaitlistEntry>>;
   } = {}
 ) {
   vi.mocked(useCreateWaitlistEntry).mockReturnValue({
@@ -152,11 +200,29 @@ function mockMutationHooks(
     error: null,
     ...overrides.cancel,
   });
+  vi.mocked(useSeatWaitlistEntry).mockReturnValue({
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue(makeEntry({ status: "seated" })),
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    error: null,
+    ...overrides.seat,
+  });
 }
 
 describe("WaitlistPage", () => {
   beforeEach(() => {
     vi.mocked(useVenue).mockReturnValue(mockVenue);
+    vi.mocked(useTables).mockReturnValue({
+      data: [makeTable()],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    vi.mocked(useApiClient).mockReturnValue({
+      reservations: { walkIn: vi.fn().mockResolvedValue({ id: "res-1" }) },
+    } as unknown as ReturnType<typeof useApiClient>);
     mockMutationHooks();
   });
 
@@ -381,6 +447,83 @@ describe("WaitlistPage", () => {
       await waitFor(() => {
         expect(screen.getByText("SMS provider unavailable")).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("seat action", () => {
+    it("creates a walk-in reservation then marks the entry seated on success", async () => {
+      const walkIn = vi.fn().mockResolvedValue({ id: "res-1" });
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      const seatMutateAsync = vi.fn().mockResolvedValue(makeEntry({ status: "seated" }));
+      mockMutationHooks({ seat: { mutateAsync: seatMutateAsync } });
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", partySize: 4, guestName: "Jane Doe" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+
+      await waitFor(() => {
+        expect(walkIn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            partySize: 4,
+            guestName: "Jane Doe",
+            venueId: "venue-abc",
+            tableId: "table-1",
+          })
+        );
+      });
+      await waitFor(() => {
+        expect(seatMutateAsync).toHaveBeenCalledWith("wl-1");
+      });
+    });
+
+    it("on a 409 table-unavailable failure, leaves the entry waiting and shows an error without marking it seated", async () => {
+      const walkIn = vi.fn().mockRejectedValue(new Error("Table is not available"));
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      const seatMutateAsync = vi.fn().mockResolvedValue(makeEntry({ status: "seated" }));
+      mockMutationHooks({ seat: { mutateAsync: seatMutateAsync } });
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", partySize: 4, guestName: "Jane Doe" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+
+      await waitFor(() => {
+        expect(screen.getByText("Table is not available")).toBeInTheDocument();
+      });
+      expect(seatMutateAsync).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Seat" })).toBeInTheDocument();
+    });
+
+    it("disables seating when no table is available for the party size", () => {
+      vi.mocked(useTables).mockReturnValue({
+        data: [makeTable({ capacity: 2 })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", partySize: 4 })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+
+      expect(screen.getByRole("button", { name: "Seat" })).toBeDisabled();
     });
   });
 });

@@ -7,19 +7,23 @@ import {
   Card,
   EmptyState,
   Input,
+  Select,
   Skeleton,
   SkeletonGroup,
   Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { WaitlistEntry } from "@mbe/types";
+import type { Table, WaitlistEntry } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import {
   useCancelWaitlistEntry,
   useCreateWaitlistEntry,
   useNotifyWaitlistEntry,
+  useSeatWaitlistEntry,
   useWaitlist,
 } from "../hooks/useWaitlist.js";
+import { useTables } from "../hooks/useTables.js";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./WaitlistPage.module.css";
 
@@ -165,12 +169,35 @@ function AddToWaitlistForm({ venueId }: { venueId: string }) {
   );
 }
 
+/* ── Table selection for seating ─────────────────────── */
+
+/** Available tables large enough for the party, smallest-fit first. */
+function eligibleTables(tables: Table[], partySize: number): Table[] {
+  return tables
+    .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
+    .sort((a, b) => a.capacity - b.capacity);
+}
+
 /* ── Waitlist row ─────────────────────────────────── */
 
-function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
+function WaitlistRow({
+  entry,
+  tables,
+  venueId,
+}: {
+  entry: WaitlistEntry;
+  tables: Table[];
+  venueId: string;
+}) {
   const { mutateAsync: notify, isPending: isNotifying } = useNotifyWaitlistEntry();
   const { mutateAsync: cancelEntry, isPending: isCancelling } = useCancelWaitlistEntry();
+  const { mutateAsync: markSeated } = useSeatWaitlistEntry();
+  const api = useApiClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isSeating, setIsSeating] = useState(false);
+
+  const availableTables = eligibleTables(tables, entry.partySize);
+  const [tableId, setTableId] = useState(() => availableTables[0]?.id ?? "");
 
   const handleNotify = async () => {
     setActionError(null);
@@ -187,6 +214,27 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
       await cancelEntry(entry.id);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to cancel entry.");
+    }
+  };
+
+  const handleSeat = async () => {
+    if (!tableId) {
+      setActionError("Please select a table.");
+      return;
+    }
+    setActionError(null);
+    setIsSeating(true);
+    try {
+      await api.reservations.walkIn({
+        partySize: entry.partySize,
+        tableId,
+        venueId,
+        guestName: entry.guestName,
+      });
+      await markSeated(entry.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to seat guest.");
+      setIsSeating(false);
     }
   };
 
@@ -218,6 +266,32 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
           </Badge>
         )}
         <div className={styles.actions}>
+          {availableTables.length > 0 ? (
+            <Select
+              label="Table"
+              value={tableId}
+              onChange={setTableId}
+              disabled={isSeating}
+              options={availableTables.map((t) => ({
+                value: t.id,
+                label: `${t.name} (seats ${t.capacity})`,
+              }))}
+            />
+          ) : (
+            <Text variant="caption" color="secondary">
+              No tables available
+            </Text>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSeat}
+            isLoading={isSeating}
+            loadingText="Seating…"
+            disabled={availableTables.length === 0}
+          >
+            Seat
+          </Button>
           {!entry.notifiedAt && (
             <Button
               variant="secondary"
@@ -253,6 +327,7 @@ export function WaitlistPage() {
     isLoading,
     error: queryError,
   } = useWaitlist({ venueId: selectedVenueId ?? "" });
+  const { data: tables } = useTables({ venueId: selectedVenueId ?? "" });
 
   const error = queryError?.message ?? null;
   const displayEntries = [...(entries ?? [])].sort((a, b) => a.position - b.position);
@@ -286,7 +361,12 @@ export function WaitlistPage() {
       {!isLoading && !error && displayEntries.length > 0 && (
         <div className={styles.cards} aria-live="polite">
           {displayEntries.map((entry) => (
-            <WaitlistRow key={entry.id} entry={entry} />
+            <WaitlistRow
+              key={entry.id}
+              entry={entry}
+              tables={tables ?? []}
+              venueId={selectedVenueId ?? ""}
+            />
           ))}
         </div>
       )}

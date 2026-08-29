@@ -26,6 +26,11 @@ export const useCreateWaitlistEntry = createMutationHook<CreateWaitlistEntryRequ
   }
 );
 
+export const useSeatWaitlistEntry = createMutationHook<string, WaitlistEntry>({
+  invalidateKeys: WAITLIST_QUERY_KEY,
+  mutationFn: (api, id) => api.waitlist.seat(id),
+});
+
 export const useNotifyWaitlistEntry = createMutationHook<string, WaitlistEntry>({
   invalidateKeys: WAITLIST_QUERY_KEY,
   mutationFn: (api, id) => api.waitlist.notify(id),
