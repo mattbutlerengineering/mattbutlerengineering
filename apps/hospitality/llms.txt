@@ -477,6 +477,18 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-auth-error.ts">
+    <item priority="low">
+      interface AuthErrorDescription {
+        title: string;
+        body: string;
+        canRetry: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function oidcErrorCode(error: Error): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];

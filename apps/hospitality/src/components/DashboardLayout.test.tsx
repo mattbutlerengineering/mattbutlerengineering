@@ -62,6 +62,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Kbd: () => <div />,
+  WatchLoader: ({ "aria-label": ariaLabel }: { "aria-label": string }) => (
+    <div role="img" aria-label={ariaLabel} />
+  ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
@@ -125,7 +128,7 @@ describe("DashboardLayout", () => {
     // No dashboard chrome and no outlet content while readiness is unknown.
     expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
     expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Loading" })).toBeInTheDocument();
   });
 
   it("redirects to onboarding when no venue exists, without ever rendering dashboard chrome", () => {
