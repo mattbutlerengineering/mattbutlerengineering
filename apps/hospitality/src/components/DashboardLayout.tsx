@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, useAccessToken } from "@mbe/auth/react";
 import {
+  Banner,
   Breadcrumb,
   CommandPalette,
   ErrorBoundary,
@@ -56,7 +57,8 @@ const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
 function DashboardLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, accessToken } = useAuth();
+  const { signIn, signOut, accessToken } = useAuth();
+  const { refreshError } = useAccessToken();
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
@@ -65,6 +67,12 @@ function DashboardLayoutInner() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Silent-refresh failure banner: dismissal is tracked per error instance so
+  // a NEW failure after dismissal surfaces again (render-time derivation, no
+  // effect-driven state sync).
+  const [dismissedRefreshError, setDismissedRefreshError] = useState<Error | null>(null);
+  const showRefreshBanner = refreshError !== null && refreshError !== dismissedRefreshError;
 
   const path = location.pathname.replace(/^\/hospitality/, "");
 
@@ -135,6 +143,13 @@ function DashboardLayoutInner() {
   const handleMobileToggle = useCallback(() => {
     setIsMobileMenuOpen((prev) => !prev);
   }, []);
+
+  // Re-authenticate after a failed silent refresh, preserving the current
+  // page (app-relative, so the post-login restore doesn't double-prefix the
+  // /hospitality basename) through the OIDC round-trip.
+  const handleSignInAgain = useCallback(() => {
+    signIn({ returnTo: (path || "/") + location.search + location.hash });
+  }, [signIn, path, location.search, location.hash]);
 
   // Build extra items to inject into named sections (immutable map)
   const extraItems = useMemo(() => {
@@ -307,6 +322,20 @@ function DashboardLayoutInner() {
           className={styles.content}
           style={{ outline: "none" }}
         >
+          {showRefreshBanner && (
+            <Banner
+              variant="warning"
+              dismissible
+              onDismiss={() => setDismissedRefreshError(refreshError)}
+              action={
+                <Button variant="secondary" onClick={handleSignInAgain}>
+                  Sign in again
+                </Button>
+              }
+            >
+              Your session couldn&apos;t refresh — sign in again to keep working.
+            </Banner>
+          )}
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
             <SystemHealthBadge />

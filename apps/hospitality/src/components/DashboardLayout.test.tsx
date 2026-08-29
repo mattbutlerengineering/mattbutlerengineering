@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, useAccessToken } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
 import { DashboardLayout } from "./DashboardLayout.js";
@@ -11,6 +11,7 @@ import React from "react";
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
+  useAccessToken: vi.fn(),
 }));
 
 vi.mock("../hooks/useVenueReadiness.js", () => ({
@@ -38,6 +39,27 @@ vi.mock("../hooks/use-command-palette.js", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
+  Banner: ({
+    children,
+    action,
+    onDismiss,
+    dismissible,
+  }: {
+    children: React.ReactNode;
+    action?: React.ReactNode;
+    onDismiss?: () => void;
+    dismissible?: boolean;
+  }) => (
+    <div role="alert" data-testid="refresh-banner">
+      {children}
+      {action}
+      {dismissible && (
+        <button aria-label="Dismiss" onClick={onDismiss}>
+          x
+        </button>
+      )}
+    </div>
+  ),
   Breadcrumb: ({ items }: { items: Array<{ label: string; onClick?: () => void }> }) => (
     <nav data-testid="breadcrumb" aria-label="Breadcrumb">
       <ol>
@@ -83,9 +105,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 describe("DashboardLayout", () => {
   beforeEach(() => {
     vi.mocked(useAuth).mockReturnValue({
+      signIn: vi.fn(),
       signOut: vi.fn(),
       accessToken: "test-token",
-    } as ReturnType<typeof useAuth>);
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(useAccessToken).mockReturnValue({
+      accessToken: "test-token",
+      refreshError: null,
+    });
   });
 
   // "onboarding" is a top-level sibling route here — matching the real app's
@@ -348,6 +375,66 @@ describe("DashboardLayout", () => {
     const wrapper = screen.getByTestId("chat-panel").closest("[data-chat-wrapper]") as HTMLElement;
     expect(wrapper).not.toBeNull();
     expect(wrapper.style.zIndex).toBeTruthy();
+  });
+
+  describe("session refresh banner", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("renders an alert banner when the silent refresh fails", () => {
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/timeline");
+
+      expect(screen.getByTestId("refresh-banner")).toHaveTextContent(/session couldn't refresh/i);
+    });
+
+    it("does not render the banner when there is no refresh error", () => {
+      renderLayout("/timeline");
+
+      expect(screen.queryByTestId("refresh-banner")).not.toBeInTheDocument();
+    });
+
+    it("hides the banner when dismissed", async () => {
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/timeline");
+      const user = userEvent.setup();
+      await user.click(screen.getByLabelText("Dismiss"));
+
+      expect(screen.queryByTestId("refresh-banner")).not.toBeInTheDocument();
+    });
+
+    it("signs in again with the current location as returnTo", async () => {
+      const signIn = vi.fn();
+      vi.mocked(useAuth).mockReturnValue({
+        signIn,
+        signOut: vi.fn(),
+        accessToken: "test-token",
+      } as unknown as ReturnType<typeof useAuth>);
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/reservations?date=2026-09-01");
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: /sign in again/i }));
+
+      expect(signIn).toHaveBeenCalledWith({ returnTo: "/reservations?date=2026-09-01" });
+    });
   });
 
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {

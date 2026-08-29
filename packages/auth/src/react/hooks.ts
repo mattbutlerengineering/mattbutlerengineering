@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth as useOIDCAuth } from "react-oidc-context";
 import type { AuthUser, JWTPayload } from "../types/index.js";
+import { deriveReturnTo } from "./return-to.js";
+import type { SignInOptions } from "./return-to.js";
 
 /**
  * Hook to access authentication state and methods
@@ -28,8 +30,18 @@ export function useAuth() {
     user,
     /** Access token for API calls */
     accessToken: auth.user?.access_token ?? null,
-    /** Sign in - redirects to OIDC provider */
-    signIn: () => auth.signinRedirect(),
+    /**
+     * Sign in - redirects to OIDC provider. Carries `returnTo` (an
+     * app-relative path, defaulting to the current location relative to the
+     * app base path) through the OIDC `state` so the destination survives the
+     * round-trip. Consumers receive it back via the provider's
+     * `onSigninCallback(returnTo)`.
+     */
+    signIn: (options?: SignInOptions) => {
+      const returnTo =
+        options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
+      return auth.signinRedirect({ state: { returnTo } });
+    },
     /** Sign out - redirects to OIDC provider */
     signOut: () => auth.signoutRedirect(),
     /** Sign in silently (refresh token) */

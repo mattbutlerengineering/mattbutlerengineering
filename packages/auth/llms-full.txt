@@ -68,8 +68,18 @@
         user,
         /** Access token for API calls */
         accessToken: auth.user?.access_token ?? null,
-        /** Sign in - redirects to OIDC provider */
-        signIn: () => auth.signinRedirect(),
+        /**
+         * Sign in - redirects to OIDC provider. Carries `returnTo` (an
+         * app-relative path, defaulting to the current location relative to the
+         * app base path) through the OIDC `state` so the destination survives the
+         * round-trip. Consumers receive it back via the provider's
+         * `onSigninCallback(returnTo)`.
+         */
+        signIn: (options?: SignInOptions) => {
+          const returnTo =
+            options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
+          return auth.signinRedirect({ state: { returnTo } });
+        },
         /** Sign out - redirects to OIDC provider */
         signOut: () => auth.signoutRedirect(),
         /** Sign in silently (refresh token) */
@@ -86,6 +96,21 @@
        * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
        */
       refreshError: Error | null;
+    }
+  </file>
+  <file path="src/react/return-to.ts">
+    export interface SignInOptions {
+      /**
+       * App-relative path (starting with "/", relative to the router basename) to
+       * restore after sign-in. Defaults to the current location.
+       */
+      returnTo?: string;
+    }
+    export function isSafeReturnTo(value: unknown): value is string {
+      if (typeof value !== "string" || value.length === 0) return false;
+      if (!value.startsWith("/")) return false;
+      if (value.startsWith("//") || value.startsWith("/\\")) return false;
+      return true;
     }
   </file>
   </section>

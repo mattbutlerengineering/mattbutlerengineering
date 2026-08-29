@@ -2,12 +2,13 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, isSafeReturnTo } from "@mbe/auth/react";
 import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
 import { describeAuthError } from "./lib/describe-auth-error";
+import { readReturnTo } from "./return-to-store";
 import styles from "./App.module.css";
 
 /**
@@ -130,9 +131,13 @@ export function App() {
 }
 
 /**
- * Redirect helper for the callback route — after successful auth,
- * navigates to home.
+ * Redirect helper for the callback route — after successful auth, navigates
+ * to the deep link preserved through sign-in (see return-to-store), or home
+ * when none was carried. The stored value originates from the OIDC state
+ * param, which is attacker-influenceable, so it is re-validated against open
+ * redirects before navigating.
  */
 export function CallbackRedirect() {
-  return <Navigate to="/" replace />;
+  const returnTo = readReturnTo();
+  return <Navigate to={isSafeReturnTo(returnTo) ? returnTo : "/"} replace />;
 }
