@@ -507,6 +507,36 @@ describe("WaitlistPage", () => {
       expect(screen.getByRole("button", { name: "Seat" })).toBeInTheDocument();
     });
 
+    it("surfaces a distinct partial-state error when walk-in succeeds but marking seated fails", async () => {
+      const walkIn = vi.fn().mockResolvedValue({ id: "res-1" });
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      const seatMutateAsync = vi.fn().mockRejectedValue(new Error("Network error"));
+      mockMutationHooks({ seat: { mutateAsync: seatMutateAsync } });
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", partySize: 4, guestName: "Jane Doe" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+
+      await waitFor(() => {
+        expect(walkIn).toHaveBeenCalled();
+      });
+      await waitFor(() => {
+        expect(seatMutateAsync).toHaveBeenCalledWith("wl-1");
+      });
+      await waitFor(() => {
+        expect(
+          screen.getByText(/reservation created but the waitlist entry could not be marked seated/i)
+        ).toBeInTheDocument();
+      });
+    });
+
     it("disables seating when no table is available for the party size", () => {
       vi.mocked(useTables).mockReturnValue({
         data: [makeTable({ capacity: 2 })],
@@ -524,6 +554,108 @@ describe("WaitlistPage", () => {
       renderPage();
 
       expect(screen.getByRole("button", { name: "Seat" })).toBeDisabled();
+    });
+  });
+
+  describe("table auto-select", () => {
+    /**
+     * Asserting on the <select> element's DOM `.value` is not reliable here:
+     * jsdom (like real browsers) falls back to displaying the first <option>
+     * whenever the controlled `value` prop doesn't match any option, which
+     * masks whether the underlying React `tableId` state was actually set.
+     * Clicking Seat exercises the real state — an unset `tableId` short-circuits
+     * with "Please select a table." instead of calling `walkIn`.
+     */
+    it("auto-selects the first eligible table once table data arrives asynchronously", async () => {
+      const walkIn = vi.fn().mockResolvedValue({ id: "res-1" });
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", partySize: 4 })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      // Simulate useTables not having resolved yet on first render.
+      vi.mocked(useTables).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      const { rerender } = renderPage();
+
+      expect(screen.queryByLabelText(/table/i)).not.toBeInTheDocument();
+
+      // Table data resolves on a subsequent render.
+      vi.mocked(useTables).mockReturnValue({
+        data: [makeTable({ id: "table-9", name: "Table 9", capacity: 4 })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      rerender(
+        <MemoryRouter>
+          <WaitlistPage />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+
+      await waitFor(() => {
+        expect(walkIn).toHaveBeenCalledWith(expect.objectContaining({ tableId: "table-9" }));
+      });
+      expect(screen.queryByText(/please select a table/i)).not.toBeInTheDocument();
+    });
+
+    it("does not overwrite a table the staff member already manually selected", async () => {
+      const walkIn = vi.fn().mockResolvedValue({ id: "res-1" });
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", partySize: 4 })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      vi.mocked(useTables).mockReturnValue({
+        data: [
+          makeTable({ id: "table-1", name: "Table 1", capacity: 4 }),
+          makeTable({ id: "table-2", name: "Table 2", capacity: 6 }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      const { rerender } = renderPage();
+
+      fireEvent.change(screen.getByLabelText(/table/i), { target: { value: "table-2" } });
+
+      // A new, differently-ordered table list arrives (e.g. a background refetch).
+      vi.mocked(useTables).mockReturnValue({
+        data: [
+          makeTable({ id: "table-3", name: "Table 3", capacity: 4 }),
+          makeTable({ id: "table-2", name: "Table 2", capacity: 6 }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      rerender(
+        <MemoryRouter>
+          <WaitlistPage />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+
+      await waitFor(() => {
+        expect(walkIn).toHaveBeenCalledWith(expect.objectContaining({ tableId: "table-2" }));
+      });
     });
   });
 });

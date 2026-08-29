@@ -197,7 +197,22 @@ function WaitlistRow({
   const [isSeating, setIsSeating] = useState(false);
 
   const availableTables = eligibleTables(tables, entry.partySize);
+  const availableTableIds = availableTables.map((t) => t.id).join(",");
   const [tableId, setTableId] = useState(() => availableTables[0]?.id ?? "");
+
+  // useTables resolves asynchronously and independently of useWaitlist, so a
+  // row typically mounts before table data arrives. Auto-select the first
+  // eligible table once it shows up, but never clobber a table the staff
+  // member already picked themselves. Render-time derivation (React's
+  // "adjusting state when a prop changes" pattern) rather than a
+  // useEffect+setState sync, which would cause an extra render pass.
+  const [seenTableIds, setSeenTableIds] = useState(availableTableIds);
+  if (availableTableIds !== seenTableIds) {
+    setSeenTableIds(availableTableIds);
+    if (!tableId || !availableTables.some((t) => t.id === tableId)) {
+      setTableId(availableTables[0]?.id ?? "");
+    }
+  }
 
   const handleNotify = async () => {
     setActionError(null);
@@ -224,6 +239,7 @@ function WaitlistRow({
     }
     setActionError(null);
     setIsSeating(true);
+    let reservationCreated = false;
     try {
       await api.reservations.walkIn({
         partySize: entry.partySize,
@@ -231,9 +247,15 @@ function WaitlistRow({
         venueId,
         guestName: entry.guestName,
       });
+      reservationCreated = true;
       await markSeated(entry.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to seat guest.");
+      const message = err instanceof Error ? err.message : undefined;
+      setActionError(
+        reservationCreated
+          ? "Reservation created but the waitlist entry could not be marked seated — refresh and update it manually."
+          : (message ?? "Failed to seat guest.")
+      );
       setIsSeating(false);
     }
   };
