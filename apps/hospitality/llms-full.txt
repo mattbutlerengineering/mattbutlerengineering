@@ -495,6 +495,10 @@
       enabled?: boolean;
     }
   </file>
+  <file path="src/hooks/useSessionClock.ts">
+    export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
+    export type SessionPhase = "fresh" | "refresh-window" | "expired";
+  </file>
   <file path="src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {

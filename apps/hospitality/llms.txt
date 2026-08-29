@@ -351,6 +351,14 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useSessionClock.ts">
+    <item priority="high">
+      export const REFRESH_WINDOW_MS: unknown;
+    </item>
+    <item priority="low">
+      type SessionPhase = "fresh" | "refresh-window" | "expired";
+    </item>
+  </file>
   <file path="src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;

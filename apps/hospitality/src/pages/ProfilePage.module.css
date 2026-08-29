@@ -76,6 +76,43 @@
   border-radius: var(--rialto-radius-default);
 }
 
+/* ── Session Instrument Cluster ─────────────── */
+
+.sessionCluster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.sessionReadout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-lg);
+  padding: var(--rialto-space-md) var(--rialto-space-lg);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+}
+
+.sessionCountdown {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+.sessionSeparator {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xl);
+  color: var(--rialto-text-tertiary);
+}
+
+.sessionStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
 /* ── Loading Skeletons ──────────────────────── */
 
 .heroSkeleton {
@@ -114,5 +151,10 @@
 
   .activityGrid {
     grid-template-columns: 1fr;
+  }
+
+  .sessionReadout {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
