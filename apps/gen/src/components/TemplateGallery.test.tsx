@@ -87,10 +87,10 @@ describe("TemplateGallery", () => {
   it("renders per-category sidebar counts matching the template catalog", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
-    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("6");
-    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("6");
+    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("8");
+    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("8");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("5");
-    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("4");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("5");
   });
 
   it("renders template cards with titles", () => {
@@ -189,7 +189,7 @@ describe("TemplateGallery", () => {
   it("renders the All button with total template count", () => {
     render(<TemplateGallery {...defaultProps} />);
     const allButton = screen.getByRole("button", { name: /^All/ });
-    expect(allButton.textContent).toContain("24");
+    expect(allButton.textContent).toContain("29");
   });
 
   it("resets to All category and clears search when reopened", () => {
@@ -204,7 +204,7 @@ describe("TemplateGallery", () => {
 
     const newSearchInput = screen.getByRole("textbox", { name: /search templates/i });
     expect((newSearchInput as HTMLInputElement).value).toBe("");
-    // All 24 templates should show again
+    // All 29 templates should show again
     expect(screen.getByText("Analytics Dashboard")).toBeDefined();
     expect(screen.getByText("Registration Form")).toBeDefined();
   });

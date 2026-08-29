@@ -233,6 +233,52 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       "Inventory management form listing products with stepper-based number inputs for adjusting stock quantity",
   },
+
+  // Forms (continued)
+  {
+    id: "appointment-scheduler",
+    title: "Appointment Scheduler",
+    description: "Calendar month grid, a quick date picker field, and a time-slot popover",
+    category: "Forms",
+    prompt:
+      "Appointment scheduling flow with a full calendar month grid for browsing available days, a compact date picker field for jumping directly to a specific date, and a popover that shows available time slots when a day is selected",
+  },
+  {
+    id: "compact-toolbar",
+    title: "Compact Toolbar",
+    description: "Icon button actions, a searchable combobox, and a grouped filters accordion",
+    category: "Forms",
+    prompt:
+      "Compact toolbar with icon buttons for quick actions, a combobox field for searching and selecting an item, and an accordion panel below for grouped advanced filter options",
+  },
+
+  // Data Display (continued)
+  {
+    id: "restaurant-reservations-board",
+    title: "Restaurant Reservations Board",
+    description: "Tape chart of table reservations across the day and a chalkboard specials board",
+    category: "Data Display",
+    prompt:
+      "Restaurant operations board showing a tape chart of table reservations across the day broken out by table and time slot, alongside a chalkboard-style board listing today's specials in a handwritten look",
+  },
+  {
+    id: "metrics-ticker",
+    title: "Metrics Ticker",
+    description: "Odometer-style rolling counters next to a split-flap announcement display",
+    category: "Data Display",
+    prompt:
+      "Live metrics ticker with odometer-style rolling digit counters showing real-time stats like active users and orders, and a split-flap display panel cycling through headline announcements",
+  },
+
+  // Feedback (continued)
+  {
+    id: "command-search-palette",
+    title: "Command Search Palette",
+    description: "Command palette with hover-card previews and disabled-tooltip explanations",
+    category: "Feedback",
+    prompt:
+      "Command search palette overlay for quickly jumping to actions and pages, with hover cards previewing extra detail on each result, and disabled-state tooltips explaining why an unavailable command can't be run",
+  },
 ] as const;
 
 // ---------------------------------------------------------------------------
