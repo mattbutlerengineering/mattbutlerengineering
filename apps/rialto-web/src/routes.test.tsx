@@ -87,6 +87,7 @@ describe("demo route table resolution", () => {
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.dashboard}`)).toBe("dashboard");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.teamCreate}`)).toBe("teams/new");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.layouts}`)).toBe("layouts");
+    expect(leafFor(`${BASENAME}${DEMO_ROUTES.authFlow}`)).toBe("auth-flow");
   });
 
   it("legacy un-prefixed demo paths fall through to the catch-all (documents the bug)", () => {

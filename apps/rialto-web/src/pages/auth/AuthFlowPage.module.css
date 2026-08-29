@@ -1,0 +1,142 @@
+.page {
+  max-inline-size: 880px;
+  margin-inline: auto;
+  padding-block: var(--rialto-space-2xl);
+  padding-inline: var(--rialto-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xl);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Instrument panel ─────────────────────────── */
+
+.panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-lg);
+  background: var(--rialto-surface);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.stations {
+  grid-column: 1 / 4;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-md);
+}
+
+.station {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-md);
+  text-align: center;
+}
+
+.stationName {
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-sm);
+  font-weight: 500;
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  text-transform: uppercase;
+}
+
+/* ── Signal channels ──────────────────────────── */
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+/* Lane spans are tuned so each groove runs station-center to station-center. */
+.laneIdp {
+  grid-column: 1 / 3;
+  margin-inline: 22%;
+}
+
+.laneApi {
+  grid-column: 1 / 4;
+  margin-inline: 15%;
+}
+
+.laneLabel {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.groove {
+  position: relative;
+  block-size: 12px;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-recessed);
+  box-shadow: var(--rialto-shadow-pressed);
+  transition: border-color var(--rialto-duration-standard) var(--rialto-ease-precision);
+  border: 1px solid var(--rialto-border);
+}
+
+.groove[data-active] {
+  border-color: var(--rialto-border-strong);
+}
+
+/* The credential in flight — the one legitimately gold moving element. */
+.pulse {
+  position: absolute;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  inline-size: 18px;
+  block-size: 6px;
+  border-radius: var(--rialto-radius-sharp);
+  background: var(--rialto-accent);
+  box-shadow: 0 0 6px 1px var(--rialto-accent);
+}
+
+/* ── Readout, caption, controls ───────────────── */
+
+.readoutRow {
+  display: flex;
+  justify-content: center;
+}
+
+.caption {
+  min-block-size: 3lh;
+  text-align: center;
+  max-inline-size: 60ch;
+  margin-inline: auto;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+}
+
+.errorToggle {
+  margin-inline-start: var(--rialto-space-lg);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: var(--rialto-space-md);
+  }
+
+  .stationName {
+    font-size: var(--rialto-text-xs);
+  }
+}

@@ -40,6 +40,9 @@ const LayoutDemo = lazy(() =>
 const Telemetry = lazy(() =>
   import("./pages/telemetry/Telemetry").then((m) => ({ default: m.Telemetry }))
 );
+const AuthFlowPage = lazy(() =>
+  import("./pages/auth/AuthFlowPage").then((m) => ({ default: m.AuthFlowPage }))
+);
 const DemoLayout = lazy(() =>
   import("./layouts/DemoLayout").then((m) => ({ default: m.DemoLayout }))
 );
@@ -107,6 +110,7 @@ export const routeTree: RouteObject[] = [
       { path: "teams/new", element: suspended(TeamCreate) },
       { path: "layouts", element: suspended(LayoutDemo) },
       { path: "telemetry", element: suspended(Telemetry) },
+      { path: "auth-flow", element: suspended(AuthFlowPage) },
       { path: "visual-test", element: suspended(VisualTest) },
       {
         element: suspended(DriverProvider),

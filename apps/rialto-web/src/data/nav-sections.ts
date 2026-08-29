@@ -38,4 +38,5 @@ export const DEMO_PAGES: readonly NavItem[] = [
   { id: "teams", label: "Team Create", path: DEMO_ROUTES.teamCreate },
   { id: "layouts", label: "Layout Demo", path: DEMO_ROUTES.layouts },
   { id: "telemetry", label: "Telemetry HUD", path: DEMO_ROUTES.telemetry },
+  { id: "auth-flow", label: "Auth Flow", path: DEMO_ROUTES.authFlow },
 ] as const;
