@@ -68,21 +68,30 @@ passing test can't prove.
 ```json
 {
   "id": "example-bugfix",
-  "category": "bugfix",
-  "prompt": "A reservation cancellation email is sent even when the guest opted out of notifications. Fix the bug so opted-out guests receive no cancellation email, and add a regression test.",
+  "category": "test-writing",
+  "prompt": "Add a regression test to services/reservations/src/services/booking-notifications.test.ts, in the cancelBookingNotifications describe block, that locks in an existing (correct) behavior: a reservation cancellation email is transactional, per services/reservations/src/services/contact-policy.ts, so it must still be sent even when the guest has unsubscribed from marketing. Build a reservation whose guest carries unsubscribed: true (see the existing makeReservation/makeDeps helpers and communicationPreference-based test cases in the same describe block for the pattern), call cancelBookingNotifications, and assert notificationAdapter.sendBookingCancelled was still invoked. Do not change any production code — the behavior is already correct; only the test coverage is missing.",
   "fixtureRef": "services/reservations",
   "rubric": {
     "testsMustPass": true,
     "typecheckMustPass": true,
     "lintMustPass": false,
     "judgeCriteria": [
-      "The fix gates the cancellation email on the guest's notification opt-in",
-      "A regression test covers the opted-out path"
+      "The new test builds a reservation whose guest has unsubscribed: true and asserts sendBookingCancelled is still called",
+      "No production code is changed — only test coverage is added"
     ]
   },
-  "budget": { "maxTurns": 40, "maxCostUsd": 1.0 }
+  "budget": { "maxTurns": 20, "maxCostUsd": 0.5 }
 }
 ```
+
+> **Why this task reads as "add a test" rather than "fix a bug":** the original version of
+> this example asked the agent to _gate_ the cancellation email on guest opt-in — but
+> `contact-policy.ts` already, deliberately, treats cancellation as a transactional
+> message that bypasses the marketing consent gate (`unsubscribed`), and a passing test
+> (`contact-policy.test.ts`) already locks that policy in. The prompt's premise was
+> false relative to the fixture (see #4630), which is exactly the "surrounding code
+> churned out from under the task" failure mode called out below — a live worked
+> example of the "pick a stable `fixtureRef`" tip, not just a hypothetical.
 
 ## Authoring tips
 
