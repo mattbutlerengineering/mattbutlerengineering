@@ -535,8 +535,11 @@ export const SENSORS = [
       const completed = runs.filter((r) => r.status === "completed");
       const passed = completed.filter((r) => r.conclusion === "success");
       const failed = completed.filter((r) => r.conclusion === "failure");
-      const passRate =
-        completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 100;
+      // #4685: skipped (intentional no-op) and cancelled (concurrency-superseded
+      // rerun) conclusions are neither passes nor failures — excluding them from
+      // the denominator keeps the metric scoped to real pass/fail outcomes.
+      const scored = passed.length + failed.length;
+      const passRate = scored > 0 ? Math.round((passed.length / scored) * 100) : 100;
 
       return {
         available: true,
