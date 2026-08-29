@@ -36,7 +36,7 @@ inside this worktree:
 
 | #   | Component        | Covered? | Template(s) that plausibly exercise it                                                                       | Usage count (hospitality+rialto-web) |
 | --- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| 1   | Accordion        | No       | —                                                                                                            | 14                                   |
+| 1   | Accordion        | **Yes**  | compact-toolbar (grouped advanced filters)                                                                   | 14                                   |
 | 2   | Alert            | No       | —                                                                                                            | 138                                  |
 | 3   | AppBar           | No       | —                                                                                                            | 0                                    |
 | 4   | AspectRatio      | **Yes**  | blog-layout (featured image)                                                                                 | 10                                   |
@@ -46,24 +46,24 @@ inside this worktree:
 | 8   | Banner           | No       | —                                                                                                            | 57                                   |
 | 9   | Breadcrumb       | No       | —                                                                                                            | 29                                   |
 | 10  | Button           | **Yes**  | registration-form, checkout-form, admin-dashboard (quick actions), landing-page (CTA)                        | 956                                  |
-| 11  | Calendar         | No       | —                                                                                                            | 23                                   |
+| 11  | Calendar         | **Yes**  | appointment-scheduler (month grid)                                                                           | 23                                   |
 | 12  | Card             | **Yes**  | analytics-dashboard, admin-dashboard, checkout-form (order summary), kanban-board, landing-page, blog-layout | 540                                  |
-| 13  | Chalkboard       | No       | —                                                                                                            | 16                                   |
+| 13  | Chalkboard       | **Yes**  | restaurant-reservations-board (specials board)                                                               | 16                                   |
 | 14  | ChatPanel        | No       | —                                                                                                            | 8                                    |
 | 15  | Checkbox         | **Yes**  | registration-form (preferences), data-table (bulk actions), pricing-page (feature checklist)                 | 122                                  |
 | 16  | Collapsible      | **Yes**  | timeline (expandable details)                                                                                | 21                                   |
-| 17  | Combobox         | No       | —                                                                                                            | 14                                   |
-| 18  | CommandPalette   | No       | —                                                                                                            | 16                                   |
+| 17  | Combobox         | **Yes**  | compact-toolbar (search field)                                                                               | 14                                   |
+| 18  | CommandPalette   | **Yes**  | command-search-palette                                                                                       | 16                                   |
 | 19  | ConfirmDialog    | No       | —                                                                                                            | 21                                   |
 | 20  | ContextMenu      | No       | —                                                                                                            | 7                                    |
 | 21  | DataList         | No       | —                                                                                                            | 205                                  |
 | 22  | DataTable        | **Yes**  | data-table                                                                                                   | 40                                   |
-| 23  | DatePicker       | No       | —                                                                                                            | 14                                   |
+| 23  | DatePicker       | **Yes**  | appointment-scheduler (date jump field)                                                                      | 14                                   |
 | 24  | DateRange        | No       | —                                                                                                            | 5                                    |
 | 25  | DateRangePicker  | No       | —                                                                                                            | 0                                    |
 | 26  | DepartureBoard   | No       | —                                                                                                            | 11                                   |
 | 27  | Dialog           | No       | —                                                                                                            | 40                                   |
-| 28  | DisabledTooltip  | No       | —                                                                                                            | 18                                   |
+| 28  | DisabledTooltip  | **Yes**  | command-search-palette (unavailable command explanation)                                                     | 18                                   |
 | 29  | Divider          | **Yes**  | blog-layout, generic section separator                                                                       | 112                                  |
 | 30  | Drawer           | No       | —                                                                                                            | 39                                   |
 | 31  | DropdownMenu     | No       | —                                                                                                            | 11                                   |
@@ -77,8 +77,8 @@ inside this worktree:
 | 39  | GlobalNav        | No       | —                                                                                                            | 14                                   |
 | 40  | Heading          | **Yes**  | landing-page, blog-layout (generic titles)                                                                   | 47                                   |
 | 41  | Hero             | **Yes**  | landing-page                                                                                                 | 33                                   |
-| 42  | HoverCard        | No       | —                                                                                                            | 18                                   |
-| 43  | IconButton       | No       | —                                                                                                            | 17                                   |
+| 42  | HoverCard        | **Yes**  | command-search-palette (result previews)                                                                     | 18                                   |
+| 43  | IconButton       | **Yes**  | compact-toolbar (quick actions)                                                                              | 17                                   |
 | 44  | ImageUpload      | No       | —                                                                                                            | 0                                    |
 | 45  | Input            | **Yes**  | registration-form, checkout-form, data-table (search)                                                        | 264                                  |
 | 46  | InputGroup       | **Yes**  | checkout-form (address/payment groups)                                                                       | 21                                   |
@@ -88,11 +88,11 @@ inside this worktree:
 | 50  | Navbar           | No       | —                                                                                                            | 9                                    |
 | 51  | NavigationMenu   | No       | —                                                                                                            | 6                                    |
 | 52  | NumberInput      | No       | —                                                                                                            | 28                                   |
-| 53  | Odometer         | No       | —                                                                                                            | 23                                   |
+| 53  | Odometer         | **Yes**  | metrics-ticker (rolling digit counters)                                                                      | 23                                   |
 | 54  | PageHeader       | No       | —                                                                                                            | 105                                  |
 | 55  | Pagination       | **Yes**  | data-table                                                                                                   | 31                                   |
 | 56  | PinInput         | No       | —                                                                                                            | 18                                   |
-| 57  | Popover          | No       | —                                                                                                            | 18                                   |
+| 57  | Popover          | **Yes**  | appointment-scheduler (time-slot popover)                                                                    | 18                                   |
 | 58  | Progress         | **Yes**  | survey-form (progress bar), sales-dashboard (conversion funnel)                                              | 38                                   |
 | 59  | ScrollArea       | No       | —                                                                                                            | 12                                   |
 | 60  | SegmentedControl | No       | —                                                                                                            | 59                                   |
@@ -101,7 +101,7 @@ inside this worktree:
 | 63  | SilkFlow         | No       | —                                                                                                            | 7                                    |
 | 64  | Skeleton         | No       | —                                                                                                            | 117                                  |
 | 65  | Slider           | **Yes**  | survey-form (rating scales)                                                                                  | 25                                   |
-| 66  | SplitFlap        | No       | —                                                                                                            | 16                                   |
+| 66  | SplitFlap        | **Yes**  | metrics-ticker (announcement display)                                                                        | 16                                   |
 | 67  | SplitScreenExit  | No       | —                                                                                                            | 5                                    |
 | 68  | Stack            | **Yes**  | generic layout primitive, all templates                                                                      | 993                                  |
 | 69  | Stat             | **Yes**  | analytics-dashboard, admin-dashboard, sales-dashboard (KPI/revenue)                                          | 78                                   |
@@ -110,7 +110,7 @@ inside this worktree:
 | 72  | Table            | **Yes**  | analytics-dashboard, sales-dashboard, pricing-page (comparison table)                                        | 337                                  |
 | 73  | Tabs             | No       | —                                                                                                            | 26                                   |
 | 74  | Tag              | **Yes**  | kanban-board, pricing-page                                                                                   | 111                                  |
-| 75  | TapeChart        | No       | —                                                                                                            | 16                                   |
+| 75  | TapeChart        | **Yes**  | restaurant-reservations-board                                                                                | 16                                   |
 | 76  | Text             | **Yes**  | generic body copy, all templates                                                                             | 1704                                 |
 | 77  | TextArea         | **Yes**  | survey-form                                                                                                  | 43                                   |
 | 78  | ThemeToggle      | No       | —                                                                                                            | 0                                    |
@@ -122,8 +122,10 @@ inside this worktree:
 | 84  | Tree             | No       | —                                                                                                            | 7                                    |
 | 85  | WatchLoader      | No       | —                                                                                                            | 0                                    |
 
-**Summary: 28 of 85 components (33%) are plausibly covered by an existing template
-prompt; 57 (67%) are never mentioned or implied by any of the 12 prompts.**
+**Summary: 41 of 85 components (48%) are plausibly covered by an existing template
+prompt; 44 (52%) are never mentioned or implied by any of the prompts.** (Updated by
+the batch-3 template additions — see the batch-3 candidate tier section below for
+which components those templates target.)
 
 Note: no template's language implies a chart component (`line chart`, `bar chart`,
 `revenue chart`), because **rialto has no `Chart` component at all** — the analytics/
