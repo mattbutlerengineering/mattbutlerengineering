@@ -604,6 +604,20 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-auth-error.ts">
+    export interface AuthErrorDescription {
+      /** Short, human headline for the error screen. */
+      readonly title: string;
+      /** One-sentence explanation in user language. */
+      readonly body: string;
+      /** Whether offering a retry action makes sense for this category. */
+      readonly canRetry: boolean;
+    }
+    function oidcErrorCode(error: Error): string {
+      const code = (error as Error & { error?: unknown }).error;
+      return typeof code === "string" ? code : "";
+    }
+  </file>
   <file path="src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {

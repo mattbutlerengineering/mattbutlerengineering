@@ -22,6 +22,19 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   GlobalNav: () => <nav data-testid="global-nav" />,
   Footer: ({ children }: { children: React.ReactNode }) => <footer>{children}</footer>,
+  DepartureBoard: ({
+    phrases,
+    role,
+    "aria-label": ariaLabel,
+  }: {
+    phrases: string[];
+    role?: string;
+    "aria-label"?: string;
+  }) => (
+    <div role={role} aria-label={ariaLabel}>
+      {phrases.join(" ")}
+    </div>
+  ),
   resolveTheme: vi.fn((t) => t),
 }));
 
@@ -48,23 +61,39 @@ describe("App", () => {
     expect(screen.getByTestId("loading-page")).toBeDefined();
   });
 
-  it("renders error page when auth fails", () => {
+  it("renders a categorized error page when auth fails", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       error: new Error("Auth Failed"),
     } as ReturnType<typeof useAuth>);
     renderApp();
-    expect(screen.getByText("Authentication Error")).toBeDefined();
+    // "Auth Failed" matches no category — falls back to the generic headline.
+    expect(screen.getByText("Sign-in hit a snag")).toBeDefined();
+    expect(screen.getByText("Try Again")).toBeDefined();
+    // Raw message stays available for debugging, demoted to the details line.
     expect(screen.getByText("Auth Failed")).toBeDefined();
+    expect(screen.getByText("Technical details")).toBeDefined();
   });
 
-  it("renders login prompt when not authenticated", () => {
+  it("omits the retry action for access-denied errors", () => {
+    vi.mocked(useAuth).mockReturnValue({
+      isLoading: false,
+      error: Object.assign(new Error("not permitted"), { error: "access_denied" }),
+    } as ReturnType<typeof useAuth>);
+    renderApp();
+    expect(screen.getByText("Access denied")).toBeDefined();
+    expect(screen.queryByText("Try Again")).toBeNull();
+    expect(screen.getByText("not permitted")).toBeDefined();
+  });
+
+  it("renders login gate when not authenticated", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       isAuthenticated: false,
       signIn: vi.fn(),
     } as ReturnType<typeof useAuth>);
     renderApp();
+    expect(screen.getByTestId("login-prompt")).toBeDefined();
     expect(screen.getByText("Sign In")).toBeDefined();
     expect(screen.getByText("Hospitality")).toBeDefined();
   });

@@ -6,6 +6,8 @@ import { useAuth } from "@mbe/auth/react";
 import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
+import { LoginGate } from "./components/LoginGate";
+import { describeAuthError } from "./lib/describe-auth-error";
 import styles from "./App.module.css";
 
 /**
@@ -72,20 +74,30 @@ export function App() {
   const isCallback = window.location.pathname.endsWith("/callback");
 
   if (error) {
+    const described = describeAuthError(error);
     return (
       <UnauthenticatedShell nav={nav}>
         <Stack gap="lg" align="center">
           <Stack gap="sm" align="center">
             <Text as="h1" variant="display" color="primary">
-              Authentication Error
+              {described.title}
             </Text>
             <Text variant="body" color="secondary">
-              {error.message}
+              {described.body}
             </Text>
           </Stack>
-          <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
-            Try Again
-          </Button>
+          {described.canRetry && (
+            <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
+              Try Again
+            </Button>
+          )}
+          {/* Raw message stays reachable for debugging, demoted below the fold. */}
+          <details className={styles.errorDetails}>
+            <summary>Technical details</summary>
+            <Text variant="caption" color="tertiary">
+              {error.message}
+            </Text>
+          </details>
         </Stack>
       </UnauthenticatedShell>
     );
@@ -102,7 +114,7 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoginPrompt />
+        <LoginGate />
       </UnauthenticatedShell>
     );
   }
@@ -114,29 +126,6 @@ export function App() {
         <Outlet />
       </Suspense>
     </div>
-  );
-}
-
-function LoginPrompt() {
-  const { signIn } = useAuth();
-
-  return (
-    <Stack gap="lg" align="center" data-testid="login-prompt">
-      <Stack gap="sm" align="center">
-        <Text as="h1" variant="display" color="primary">
-          Hospitality
-        </Text>
-        <Text variant="body" color="secondary">
-          Restaurant management, simplified.
-        </Text>
-      </Stack>
-      <Button variant="primary" size="lg" onClick={() => signIn()}>
-        Sign In
-      </Button>
-      <Text variant="caption" color="tertiary">
-        Manage reservations, guests, and floor plans
-      </Text>
-    </Stack>
   );
 }
 
