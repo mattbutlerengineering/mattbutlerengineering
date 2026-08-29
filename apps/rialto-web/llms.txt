@@ -18,12 +18,28 @@
   </file>
   </section>
   <section priority="medium" role="auth">
+  <file path="src/pages/auth/auth-validation.ts">
+    <item priority="high">
+      export const MFA_CODE_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MFA_REJECT_CODE: unknown;
+    </item>
+  </file>
   <file path="src/pages/auth/authFlowMachine.ts">
     <item priority="high">
       export const STATIONS: unknown;
     </item>
     <item priority="low">
       type StationId = (typeof STATIONS)[number];
+    </item>
+  </file>
+  <file path="src/pages/auth/score-password.ts">
+    <item priority="high">
+      export const MIN_PASSWORD_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const BONUS_LENGTH: unknown;
     </item>
   </file>
   </section>

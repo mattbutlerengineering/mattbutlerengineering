@@ -16,6 +16,7 @@ export const DEMOS_BASE = "/demos";
 export const DEMO_ROUTES = {
   signIn: `${DEMOS_BASE}/login`,
   signUp: `${DEMOS_BASE}/signup`,
+  sessionExpired: `${DEMOS_BASE}/session-expired`,
   dashboard: `${DEMOS_BASE}/dashboard`,
   teamCreate: `${DEMOS_BASE}/teams/new`,
   layouts: `${DEMOS_BASE}/layouts`,
