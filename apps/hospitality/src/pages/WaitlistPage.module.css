@@ -21,3 +21,24 @@
   gap: var(--rialto-space-xs);
   flex: 1;
 }
+
+.actions {
+  display: flex;
+  gap: var(--rialto-space-sm);
+}
+
+.fieldRow {
+  display: flex;
+  gap: var(--rialto-space-md);
+}
+
+.fieldRow > * {
+  flex: 1;
+}
+
+.partySizeRow {
+  display: flex;
+  gap: var(--rialto-space-xs);
+  flex-wrap: wrap;
+  margin-block-start: var(--rialto-space-xs);
+}

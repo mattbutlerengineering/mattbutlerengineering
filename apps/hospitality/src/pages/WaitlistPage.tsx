@@ -1,17 +1,29 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import {
   Alert,
   Badge,
+  Button,
   Card,
   EmptyState,
+  Input,
   Skeleton,
   SkeletonGroup,
+  Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { WaitlistEntry } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
-import { useWaitlist } from "../hooks/useWaitlist.js";
+import {
+  useCancelWaitlistEntry,
+  useCreateWaitlistEntry,
+  useNotifyWaitlistEntry,
+  useWaitlist,
+} from "../hooks/useWaitlist.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./WaitlistPage.module.css";
+
+const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /* ── Loading skeleton ────────────────────────────── */
 
@@ -33,9 +45,151 @@ function formatWait(minutes: number): string {
   return `~${minutes} min`;
 }
 
+/**
+ * Mirrors the server-side check in
+ * services/reservations/src/services/waitlist-notifier.ts's `validatePhone` —
+ * at least 7 digits, ignoring formatting characters — so a bad phone number
+ * fails fast instead of round-tripping a 400.
+ */
+function isValidGuestPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 7;
+}
+
+/* ── Add-to-waitlist form ────────────────────────────── */
+
+interface WaitlistFormData {
+  guestName: string;
+  guestPhone: string;
+}
+
+function AddToWaitlistForm({ venueId }: { venueId: string }) {
+  const { mutateAsync: createEntry, isPending } = useCreateWaitlistEntry();
+  const [partySize, setPartySize] = useState(2);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<WaitlistFormData>({
+    defaultValues: { guestName: "", guestPhone: "" },
+  });
+
+  const onSubmit = async (data: WaitlistFormData) => {
+    setSubmitError(null);
+    try {
+      await createEntry({
+        venueId,
+        partySize,
+        guestName: data.guestName.trim(),
+        guestPhone: data.guestPhone.trim(),
+      });
+      reset();
+      setPartySize(2);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to add guest to waitlist.");
+    }
+  };
+
+  const validationError = errors.guestName?.message ?? errors.guestPhone?.message ?? submitError;
+
+  return (
+    <Card>
+      <form noValidate onSubmit={handleSubmit(onSubmit)}>
+        <Stack gap="md">
+          <Text variant="label" color="secondary">
+            Add to waitlist
+          </Text>
+
+          {validationError && <Alert variant="error">{validationError}</Alert>}
+
+          <div className={styles.fieldRow}>
+            <Input
+              label="Guest Name"
+              type="text"
+              placeholder="e.g. Smith"
+              disabled={isPending}
+              {...register("guestName", { required: "Guest name is required." })}
+            />
+            <Input
+              label="Guest Phone"
+              type="tel"
+              placeholder="(555) 123-4567"
+              disabled={isPending}
+              {...register("guestPhone", {
+                required: "Guest phone is required.",
+                validate: (value) => isValidGuestPhone(value) || "Enter a valid phone number.",
+              })}
+            />
+          </div>
+
+          <div>
+            <Text
+              variant="label"
+              color="secondary"
+              style={{ marginBottom: "var(--rialto-space-xs)" }}
+            >
+              Party Size
+            </Text>
+            <div className={styles.partySizeRow}>
+              {PARTY_SIZE_OPTIONS.map((size) => (
+                <Button
+                  key={size}
+                  variant={partySize === size ? "primary" : "secondary"}
+                  size="sm"
+                  type="button"
+                  onClick={() => setPartySize(size)}
+                  disabled={isPending}
+                  aria-pressed={partySize === size}
+                >
+                  {size}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            variant="primary"
+            type="submit"
+            isLoading={isPending}
+            loadingText="Adding…"
+            style={{ alignSelf: "flex-start" }}
+          >
+            Add to Waitlist
+          </Button>
+        </Stack>
+      </form>
+    </Card>
+  );
+}
+
 /* ── Waitlist row ─────────────────────────────────── */
 
 function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
+  const { mutateAsync: notify, isPending: isNotifying } = useNotifyWaitlistEntry();
+  const { mutateAsync: cancelEntry, isPending: isCancelling } = useCancelWaitlistEntry();
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleNotify = async () => {
+    setActionError(null);
+    try {
+      await notify(entry.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to notify guest.");
+    }
+  };
+
+  const handleCancel = async () => {
+    setActionError(null);
+    try {
+      await cancelEntry(entry.id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to cancel entry.");
+    }
+  };
+
   return (
     <Card>
       <div className={styles.row}>
@@ -49,10 +203,42 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
           <Text variant="caption" color="secondary">
             Party of {entry.partySize}
           </Text>
+          {actionError && (
+            <Text variant="caption" color="error">
+              {actionError}
+            </Text>
+          )}
         </div>
         <Text variant="caption" color="secondary">
           {formatWait(entry.estimatedWaitMinutes)}
         </Text>
+        {entry.notifiedAt && (
+          <Badge variant="success" size="sm">
+            Notified
+          </Badge>
+        )}
+        <div className={styles.actions}>
+          {!entry.notifiedAt && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleNotify}
+              isLoading={isNotifying}
+              loadingText="Notifying…"
+            >
+              Notify
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancel}
+            isLoading={isCancelling}
+            loadingText="Cancelling…"
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -82,6 +268,12 @@ export function WaitlistPage() {
       {error && (
         <div style={{ marginBlock: "var(--rialto-space-md)" }}>
           <Alert variant="error">{error}</Alert>
+        </div>
+      )}
+
+      {selectedVenueId && (
+        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+          <AddToWaitlistForm venueId={selectedVenueId} />
         </div>
       )}
 
