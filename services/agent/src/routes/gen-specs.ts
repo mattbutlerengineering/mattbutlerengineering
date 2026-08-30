@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { requireAuth } from "@mbe/auth/fastify";
 import { createProblemDetails } from "@mbe/types";
 import { z } from "zod";
-import { storedSpecService, mapStoredSpec } from "../services/stored-spec.js";
+import { storedSpecService, mapStoredSpec, mapStoredSpecPublic } from "../services/stored-spec.js";
 
 const CreateSpecBodySchema = z.object({
   prompt: z.string().min(1).max(2000),
@@ -65,7 +65,7 @@ export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
     }
 
-    return reply.code(200).send({ data: mapStoredSpec(result) });
+    return reply.code(200).send({ data: mapStoredSpecPublic(result) });
   });
 
   // PATCH /api/gen/specs/:id/favorite — toggle isFavorite for the owner (auth required)
