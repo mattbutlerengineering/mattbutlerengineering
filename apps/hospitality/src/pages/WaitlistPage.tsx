@@ -7,19 +7,23 @@ import {
   Card,
   EmptyState,
   Input,
+  Select,
   Skeleton,
   SkeletonGroup,
   Stack,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { WaitlistEntry } from "@mbe/types";
+import type { Table, WaitlistEntry } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import {
   useCancelWaitlistEntry,
   useCreateWaitlistEntry,
   useNotifyWaitlistEntry,
+  useSeatWaitlistEntry,
   useWaitlist,
 } from "../hooks/useWaitlist.js";
+import { useTables } from "../hooks/useTables.js";
+import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./WaitlistPage.module.css";
 
@@ -165,12 +169,50 @@ function AddToWaitlistForm({ venueId }: { venueId: string }) {
   );
 }
 
+/* ── Table selection for seating ─────────────────────── */
+
+/** Available tables large enough for the party, smallest-fit first. */
+function eligibleTables(tables: Table[], partySize: number): Table[] {
+  return tables
+    .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
+    .sort((a, b) => a.capacity - b.capacity);
+}
+
 /* ── Waitlist row ─────────────────────────────────── */
 
-function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
+function WaitlistRow({
+  entry,
+  tables,
+  venueId,
+}: {
+  entry: WaitlistEntry;
+  tables: Table[];
+  venueId: string;
+}) {
   const { mutateAsync: notify, isPending: isNotifying } = useNotifyWaitlistEntry();
   const { mutateAsync: cancelEntry, isPending: isCancelling } = useCancelWaitlistEntry();
+  const { mutateAsync: markSeated } = useSeatWaitlistEntry();
+  const api = useApiClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isSeating, setIsSeating] = useState(false);
+
+  const availableTables = eligibleTables(tables, entry.partySize);
+  const availableTableIds = availableTables.map((t) => t.id).join(",");
+  const [tableId, setTableId] = useState(() => availableTables[0]?.id ?? "");
+
+  // useTables resolves asynchronously and independently of useWaitlist, so a
+  // row typically mounts before table data arrives. Auto-select the first
+  // eligible table once it shows up, but never clobber a table the staff
+  // member already picked themselves. Render-time derivation (React's
+  // "adjusting state when a prop changes" pattern) rather than a
+  // useEffect+setState sync, which would cause an extra render pass.
+  const [seenTableIds, setSeenTableIds] = useState(availableTableIds);
+  if (availableTableIds !== seenTableIds) {
+    setSeenTableIds(availableTableIds);
+    if (!tableId || !availableTables.some((t) => t.id === tableId)) {
+      setTableId(availableTables[0]?.id ?? "");
+    }
+  }
 
   const handleNotify = async () => {
     setActionError(null);
@@ -187,6 +229,34 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
       await cancelEntry(entry.id);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to cancel entry.");
+    }
+  };
+
+  const handleSeat = async () => {
+    if (!tableId) {
+      setActionError("Please select a table.");
+      return;
+    }
+    setActionError(null);
+    setIsSeating(true);
+    let reservationCreated = false;
+    try {
+      await api.reservations.walkIn({
+        partySize: entry.partySize,
+        tableId,
+        venueId,
+        guestName: entry.guestName,
+      });
+      reservationCreated = true;
+      await markSeated(entry.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : undefined;
+      setActionError(
+        reservationCreated
+          ? "Reservation created but the waitlist entry could not be marked seated — refresh and update it manually."
+          : (message ?? "Failed to seat guest.")
+      );
+      setIsSeating(false);
     }
   };
 
@@ -218,6 +288,32 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
           </Badge>
         )}
         <div className={styles.actions}>
+          {availableTables.length > 0 ? (
+            <Select
+              label="Table"
+              value={tableId}
+              onChange={setTableId}
+              disabled={isSeating}
+              options={availableTables.map((t) => ({
+                value: t.id,
+                label: `${t.name} (seats ${t.capacity})`,
+              }))}
+            />
+          ) : (
+            <Text variant="caption" color="secondary">
+              No tables available
+            </Text>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSeat}
+            isLoading={isSeating}
+            loadingText="Seating…"
+            disabled={availableTables.length === 0}
+          >
+            Seat
+          </Button>
           {!entry.notifiedAt && (
             <Button
               variant="secondary"
@@ -253,6 +349,7 @@ export function WaitlistPage() {
     isLoading,
     error: queryError,
   } = useWaitlist({ venueId: selectedVenueId ?? "" });
+  const { data: tables } = useTables({ venueId: selectedVenueId ?? "" });
 
   const error = queryError?.message ?? null;
   const displayEntries = [...(entries ?? [])].sort((a, b) => a.position - b.position);
@@ -286,7 +383,12 @@ export function WaitlistPage() {
       {!isLoading && !error && displayEntries.length > 0 && (
         <div className={styles.cards} aria-live="polite">
           {displayEntries.map((entry) => (
-            <WaitlistRow key={entry.id} entry={entry} />
+            <WaitlistRow
+              key={entry.id}
+              entry={entry}
+              tables={tables ?? []}
+              venueId={selectedVenueId ?? ""}
+            />
           ))}
         </div>
       )}
