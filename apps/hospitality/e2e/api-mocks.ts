@@ -275,6 +275,92 @@ export async function mockApi(page: Page): Promise<void> {
     route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
   );
 
+  // Waitlist
+  // Per-context stateful store, empty at session start (unlike reservations,
+  // which layers on top of a base fixture). POST adds a "waiting" entry with
+  // the next position; PUT .../seat|notify|cancel transitions it in place so
+  // add -> list -> seat composes across requests instead of every call
+  // returning the same static shape (the stateful-mock gap this class of
+  // Playwright spec is meant to catch).
+  const waitlistEntries: Array<Record<string, unknown>> = [];
+
+  function waitingEntries(): Array<Record<string, unknown>> {
+    return waitlistEntries
+      .filter((e) => e.status === "waiting")
+      .sort((a, b) => (a.position as number) - (b.position as number));
+  }
+
+  function buildWaitlistEntry(body: Record<string, unknown>): Record<string, unknown> {
+    const now = new Date().toISOString();
+    return {
+      id: `wl_e2e_${Date.now()}`,
+      venueId: body.venueId ?? "ven_e2e_001",
+      partySize: body.partySize ?? 2,
+      guestName: body.guestName ?? "Guest",
+      guestPhone: body.guestPhone ?? "555-0100",
+      position: waitingEntries().length + 1,
+      estimatedWaitMinutes: 15,
+      status: "waiting",
+      notifiedAt: null,
+      expiresAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  function updateWaitlistEntry(id: string, patch: Record<string, unknown>): unknown {
+    const index = waitlistEntries.findIndex((e) => e.id === id);
+    if (index === -1) return null;
+    const updated = { ...waitlistEntries[index], ...patch, updatedAt: new Date().toISOString() };
+    waitlistEntries[index] = updated;
+    return updated;
+  }
+
+  function waitlistIdFromUrl(url: string, suffix: string): string {
+    return (
+      url
+        .replace(/\?.*$/, "")
+        .replace(new RegExp(`/${suffix}$`), "")
+        .split("/")
+        .pop() ?? ""
+    );
+  }
+
+  await page.route("**/api/v1/waitlist?*", (route) => jsonOk(route, waitingEntries()));
+  await page.route("**/api/v1/waitlist", (route) => {
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = route.request().postDataJSON();
+      if (parsed !== null && typeof parsed === "object") {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no body — leave empty
+    }
+    const entry = buildWaitlistEntry(body);
+    waitlistEntries.push(entry);
+    return route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ data: entry }),
+    });
+  });
+  await page.route(/\/api\/v1\/waitlist\/[^/?]+\/seat$/, (route) => {
+    const id = waitlistIdFromUrl(route.request().url(), "seat");
+    return jsonOk(route, updateWaitlistEntry(id, { status: "seated" }));
+  });
+  await page.route(/\/api\/v1\/waitlist\/[^/?]+\/notify$/, (route) => {
+    const id = waitlistIdFromUrl(route.request().url(), "notify");
+    return jsonOk(
+      route,
+      updateWaitlistEntry(id, { status: "notified", notifiedAt: new Date().toISOString() })
+    );
+  });
+  await page.route(/\/api\/v1\/waitlist\/[^/?]+\/cancel$/, (route) => {
+    const id = waitlistIdFromUrl(route.request().url(), "cancel");
+    return jsonOk(route, updateWaitlistEntry(id, { status: "cancelled" }));
+  });
+
   // Guests
   // Filter search results by the `query` URL param so empty-search assertions work.
   // With no query (or empty query), return the full fixture unfiltered.
