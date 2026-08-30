@@ -75,6 +75,15 @@ vi.mock("../services/stored-spec.js", () => ({
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
   })),
+  mapStoredSpecPublic: vi.fn((s) => ({
+    id: s.id,
+    prompt: s.prompt,
+    spec: s.spec,
+    rawLines: s.rawLines,
+    isFavorite: s.isFavorite,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+  })),
 }));
 
 import { storedSpecService } from "../services/stored-spec.js";
@@ -119,8 +128,9 @@ describe("Gen Specs Routes", () => {
       });
 
       expect(response.statusCode).toBe(201);
-      const body = JSON.parse(response.body) as { data: { id: string } };
+      const body = JSON.parse(response.body) as { data: { id: string; userId?: string } };
       expect(body.data.id).toBe("spec-123");
+      expect(body.data.userId).toBe("test-user");
     });
 
     it("returns 400 for missing prompt", async () => {
@@ -171,9 +181,10 @@ describe("Gen Specs Routes", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body) as { data: unknown[] };
+      const body = JSON.parse(response.body) as { data: Array<{ userId?: string }> };
       expect(Array.isArray(body.data)).toBe(true);
       expect(body.data).toHaveLength(1);
+      expect(body.data[0]?.userId).toBe("test-user");
     });
 
     it("returns 401 without auth", async () => {
@@ -206,8 +217,10 @@ describe("Gen Specs Routes", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body) as { data: { id: string } };
+      const body = JSON.parse(response.body) as { data: { id: string; userId?: string } };
       expect(body.data.id).toBe("spec-123");
+      expect(body.data.userId).toBeUndefined();
+      expect(Object.prototype.hasOwnProperty.call(body.data, "userId")).toBe(false);
     });
 
     it("returns 404 for missing spec", async () => {
