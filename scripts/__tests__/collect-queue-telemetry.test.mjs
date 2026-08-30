@@ -152,6 +152,7 @@ describe("appendTelemetryRow", () => {
       "generated-artifact-regen",
       "ci-rerun",
       "scope-change",
+      "reviewer-flagged-rework",
       "other",
     ]);
   });
