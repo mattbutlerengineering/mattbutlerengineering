@@ -255,16 +255,20 @@ signal; one is noise. Recording the number, not a direction.
    — but a targeted fitness check: a PR that changes visual tolerance or
    snapshot config **and** leaves its own visual check red, or changes the
    tolerance without regenerating baselines in the same PR, fails the gate.
+   → filed as **#4711**.
 2. **Stop the phantom-failure flood at its source.** 100 of 192 failures are
    parked automation runs that nobody approved in time. Giving
    `approve-automation-runs.mjs` a bounded poll instead of a single-shot query
    removes half the failure ledger and restores the signal for every tool and
-   human that reads it.
+   human that reads it. → filed as **#4712** (which asks a worker to confirm the
+   race from the job logs before implementing, since this run could not read
+   them).
 3. **Write the `ciHealth` class into `gotchas.md`.** Three false-positive
    high-severity issues in 13 days, two code fixes, zero documentation. One
    `gotchas.md` entry — sensors that compute a rate over raw workflow-run counts
    must scope the branch and exclude non-outcome conclusions — costs minutes and
-   stops the next sensor author from rebuilding the same trap.
+   stops the next sensor author from rebuilding the same trap. → filed as
+   **#4713**.
 
 ### Escalations
 
