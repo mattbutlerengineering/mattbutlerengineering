@@ -141,6 +141,28 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
   });
 
+  it("classifies reviewer-flagged-rework for a 'Rework of #N' commit message (PR #4218 shape)", () => {
+    const commit = {
+      message:
+        "Rework of #4218: making gemini/opencode's genuine successes reach persistReport()\n\n" +
+        "## Rework (review verdict: flag, 4/10, category: regression)\n\n" +
+        "had a side effect the original work didn't address.",
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("reviewer-flagged-rework");
+  });
+
+  it("classifies reviewer-flagged-rework for a 'defects from PR #N review' commit message (PR #4220 shape)", () => {
+    const commit = {
+      message: "Two defects from PR #4220 review: 1. ... 2. ...",
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("reviewer-flagged-rework");
+  });
+
+  it("classifies reviewer-flagged-rework from 'review verdict:' language alone", () => {
+    const commit = { message: "review verdict: flag, 3/10, category: hallucination" };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("reviewer-flagged-rework");
+  });
+
   it("classifies other when no pattern matches on an agent PR", () => {
     const commit = { message: "tidy up variable names", ciConclusion: "success" };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("other");
@@ -160,6 +182,7 @@ describe("classifyHumanTouch: taxonomy branches", () => {
       classifyHumanTouch(agentPr(), { reviewCommentsBefore: 1 }),
       classifyHumanTouch(agentPr(), { message: "reduce scope of this PR" }),
       classifyHumanTouch(agentPr(), { message: "retry the flaky job" }),
+      classifyHumanTouch(agentPr(), { message: "Rework of #4218: fix the regression" }),
       classifyHumanTouch(agentPr(), {}),
     ];
     for (const reason of results) {
@@ -221,6 +244,28 @@ describe("classifyHumanTouch: precedence", () => {
   it("prefers ci-rerun over review-fix when both signals are present", () => {
     const commit = { message: "rerun CI", reviewCommentsBefore: 2 };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("ci-rerun");
+  });
+
+  it("prefers merge-conflict over reviewer-flagged-rework when both signals are present", () => {
+    const commit = {
+      message: "<<<<<<< HEAD\n=======\n>>>>>>> x\nRework of #4218: ...",
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("merge-conflict");
+  });
+
+  it("prefers reviewer-flagged-rework over review-fix when both signals are present", () => {
+    const commit = {
+      message: "Rework of #4220: address reviewer findings",
+      reviewCommentsBefore: 3,
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("reviewer-flagged-rework");
+  });
+
+  it("prefers reviewer-flagged-rework over scope-change when both signals are present", () => {
+    const commit = {
+      message: "Rework of #4218: descope the CSV export for now",
+    };
+    expect(classifyHumanTouch(agentPr(), commit)).toBe("reviewer-flagged-rework");
   });
 });
 
