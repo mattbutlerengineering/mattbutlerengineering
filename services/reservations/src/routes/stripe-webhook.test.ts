@@ -442,6 +442,42 @@ describe("POST /api/v1/stripe/webhook", () => {
     await app.close();
   });
 
+  it("verifies against the literal raw request bytes, not a JSON.stringify(JSON.parse()) reconstruction", async () => {
+    const mockEvent = {
+      type: "customer.created",
+      data: { object: { id: "cus_123" } },
+    };
+    mockWebhooks.constructEvent.mockReturnValueOnce(mockEvent);
+
+    // Deliberately non-canonical JSON: extra whitespace and a number written in
+    // exponential form. JSON.parse(rawPayload) then JSON.stringify(...) collapses
+    // the whitespace and reformats 1.50e2 as 150 — so a re-serialized fallback
+    // would NOT byte-match this buffer, while the real raw bytes always do.
+    const rawPayload = Buffer.from(
+      '{ "type":  "customer.created", "data": { "object": { "id": "cus_123" } }, "amount": 1.50e2 }'
+    );
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/stripe/webhook",
+      payload: rawPayload,
+      headers: {
+        "content-type": "application/json",
+        "stripe-signature": "valid_test_sig",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockWebhooks.constructEvent).toHaveBeenCalledTimes(1);
+    const verifiedBuffer = mockWebhooks.constructEvent.mock.calls[0]?.[0] as Buffer;
+    expect(Buffer.isBuffer(verifiedBuffer)).toBe(true);
+    expect(verifiedBuffer.equals(rawPayload)).toBe(true);
+    await app.close();
+  });
+
   it("does NOT call depositService.refund for payment_intent.canceled when deposit is pending", async () => {
     const mockEvent = {
       type: "payment_intent.canceled",
