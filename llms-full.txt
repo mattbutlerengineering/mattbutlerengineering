@@ -6771,7 +6771,7 @@
           return reply.code(404).send(createProblemDetails(404, "Not Found", "Spec not found"));
         }
     
-        return reply.code(200).send({ data: mapStoredSpec(result) });
+        return reply.code(200).send({ data: mapStoredSpecPublic(result) });
       });
     
       // PATCH /api/gen/specs/:id/favorite — toggle isFavorite for the owner (auth required)
@@ -11751,18 +11751,7 @@
       createdAt: string;
       updatedAt: string;
     }
-    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
-      return {
-        id: s.id,
-        userId: s.userId,
-        prompt: s.prompt,
-        spec: s.spec,
-        rawLines: s.rawLines,
-        isFavorite: s.isFavorite,
-        createdAt: s.createdAt.toISOString(),
-        updatedAt: s.updatedAt.toISOString(),
-      };
-    }
+    export type StoredSpecPublicResponse = Omit<StoredSpecResponse, "userId">;
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
     export type BookableError =
