@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-29T02:10:12.395Z",
+  "generated_at": "2026-08-30T18:08:56.545Z",
   "period": {
-    "start": "2026-08-22",
-    "end": "2026-08-29"
+    "start": "2026-08-23",
+    "end": "2026-08-30"
   },
   "sensors": {
     "acmm": {
@@ -11,7 +11,17 @@
       "level_name": "Semi-Automated",
       "criteria_met": 96,
       "criteria_total": 114,
-      "last_run": "2026-08-28T16:07:39.292Z"
+      "last_run": "2026-08-29T16:04:55.593Z",
+      "capped": false,
+      "failing_gates": [
+        {
+          "name": "human-touch-ratio",
+          "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
+          "value": 0.7307692307692307,
+          "threshold": 0.5,
+          "direction": "below"
+        }
+      ]
     },
     "prMetrics": {
       "available": true,
@@ -39,35 +49,31 @@
     "prCategoryMetrics": {
       "available": true,
       "total_prs": 96,
-      "total_merged": 95,
-      "total_closed_without_merge": 1,
+      "total_merged": 96,
+      "total_closed_without_merge": 0,
       "by_category": {
         "tier:trivial": {
-          "merged": 42,
+          "merged": 44,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 34,
+          "merged": 35,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 7,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.88
+          "merged": 9,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         },
         "tier:critical": {
           "merged": 8,
           "closed_without_merge": 0,
           "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 4,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
         }
-      }
+      },
+      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
     },
     "agentCost": {
       "available": false
@@ -77,42 +83,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 147913413,
-      "output_tokens": 125608,
-      "cache_creation_tokens": 2058916,
-      "cache_hit_rate": 0.9863,
+      "cache_read_tokens": 1211760,
+      "output_tokens": 2943,
+      "cache_creation_tokens": 107203,
+      "cache_hit_rate": 0.9187,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 1090,
-          "output_tokens": 123912,
-          "cache_read_tokens": 141147206,
-          "cache_creation_tokens": 1559607
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 1088,
-          "output_tokens": 1696,
-          "cache_read_tokens": 6766207,
-          "cache_creation_tokens": 499309
+          "input_tokens": 26,
+          "output_tokens": 2943,
+          "cache_read_tokens": 1211760,
+          "cache_creation_tokens": 107203
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 28,
-      "passed": 21,
+      "completed": 30,
+      "passed": 25,
       "failed": 0,
-      "pass_rate_pct": 75,
+      "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 33228256457,
+        "databaseId": 33327141408,
         "status": "completed",
         "conclusion": "success",
-        "createdAt": "2026-08-29T02:09:54Z",
-        "name": "Auto-Merge Policy",
+        "createdAt": "2026-08-30T18:07:03Z",
+        "name": "Merge Queue",
         "headBranch": "main",
-        "headSha": "b7414e33e26dde0895972340c1a9492e4cb8f655"
+        "headSha": "e168bac98f3946e2d82546e0bb556b736151c299"
       }
     },
     "lighthouse": {
@@ -130,24 +129,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 35,
-      "logs_7d": 35,
-      "total_commits_7d": 700,
-      "unique_branches_7d": 6,
-      "branches_7d": [
-        "ci-fix/prettier-backlog-md",
-        "upd-4661",
-        "upd-4659",
-        "fix-4659-tests",
-        "chore/queue-telemetry-2026-08-29",
-        "metrics/progress-tracker-2026-08-29"
-      ]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 530164,
-      "lines_churned_7d": 616,
+      "total_lines_added_7d": 536627,
+      "lines_churned_7d": 542,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -161,41 +153,41 @@
     "e2eStability": {
       "available": true,
       "consecutive_failures": 0,
-      "total_runs": 28,
-      "total_non_frontend_runs": 20,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (20 runs checked)"
+      "total_runs": 17,
+      "total_non_frontend_runs": 17,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (17 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.959,
+      "composite": 0.927,
       "sub_metrics": {
-        "issues_merged": 29,
-        "first_pass_success_rate": 0.897,
-        "median_time_to_merge_hours": 0.3,
+        "issues_merged": 22,
+        "first_pass_success_rate": 0.818,
+        "median_time_to_merge_hours": 0.4,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
         "review_coverage": 1
       },
       "distribution": {
-        "size:xs": {
-          "count": 12,
-          "avg_commits": 1.3,
-          "avg_ttm_hours": 0.9
-        },
         "size:s": {
           "count": 11,
-          "avg_commits": 1.6,
-          "avg_ttm_hours": 0.6
+          "avg_commits": 1.7,
+          "avg_ttm_hours": 0.8
         },
         "size:m": {
+          "count": 5,
+          "avg_commits": 2,
+          "avg_ttm_hours": 1.1
+        },
+        "size:xs": {
           "count": 4,
-          "avg_commits": 1,
-          "avg_ttm_hours": 0.3
+          "avg_commits": 1.3,
+          "avg_ttm_hours": 1.3
         },
         "size:l": {
           "count": 2,
-          "avg_commits": 2,
-          "avg_ttm_hours": 1.1
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 1.3
         }
       },
       "baseline": null,
