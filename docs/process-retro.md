@@ -228,6 +228,64 @@ sensor's `format:` string still prints `${data.passed}/${data.completed}`
 "100% pass rate (11/30)" — which is precisely the kind of thing that makes the
 _fourth_ triage confusing.
 
+#### The tier classifier escalates any PR that says the word "secrets"
+
+Found by this retro's own PR. **#4710 — a markdown-only change to this file —
+was labelled `tier:critical`**, with the reason
+`docs/process-retro.md -> T1: markdown only · escalate to T4: title/body
+mentions secrets or incident`. Per `docs/change-tiers.md:119`, T4 blocks merge
+until Matt personally approves and requires an ADR reference in the PR body.
+
+The trigger is the Escalations table above, which says "add `TURBO_TOKEN` +
+`TURBO_TEAM` to repo secrets". That phrasing is not incidental — this routine's
+own brief mandates it ("'Needs review' is not an ask; 'add TURBO_TOKEN to repo
+secrets' is"). **Every future weekly retro will be `tier:critical` by
+construction**, as will every doc-rot sweep or audit summary that names a
+credential.
+
+It is not just this routine. Three of the six `tier:critical` PRs created in the
+window carry that same reason on an otherwise T1/T2 change:
+
+| PR    | Classifier reason                                                                     |
+| ----- | ------------------------------------------------------------------------------------- |
+| #4547 | `docs/SECRETS.md -> T1: markdown only · escalate to T4: … mentions secrets`           |
+| #4563 | `unmatched paths default to T2: .github/workflows/ci.yml · escalate to T4: … secrets` |
+| #4710 | `docs/process-retro.md -> T1: markdown only · escalate to T4: … secrets`              |
+
+#4547 is the purest case: a PR that **edits the secrets documentation file**
+will always mention "secret", so `docs/SECRETS.md` can never be edited without
+tripping T4.
+
+The cause is bare mention-matching at `.github/workflows/tier-classifier.yml:159`:
+
+```js
+if (/secret|credential|rotate|leak|incident/i.test(title + " " + bodyProse)) {
+```
+
+No word boundaries, no request cue, no distinction between _doing_ something to
+a secret and _naming_ one. **The identical bug was already fixed one rule
+below.** The bypass modifier at lines 164-192 used to match any mention; it now
+requires a request cue or line-leading imperative, was validated by replaying
+the 300 most recent PR bodies (9 escalations, all descriptive — #3919 → #3921),
+and is pinned by `scripts/__tests__/tier-classifier-workflow.test.mjs`. The
+comment at line 169 even names the secrets rule as "the same class". #3606
+narrowed it once, by stripping `- [ ]` template checklist lines, but that
+addressed one false-positive source rather than the matching strategy.
+
+The fix is to apply the bypass rule's own proven shape to the secrets rule:
+require an action cue near the keyword (rotate/leak/exposed/committed/revoke),
+and treat a keyword inside an inline-code span or a table cell as a mention,
+not an action — then validate by replay and pin it with tests, exactly as
+#3921 did.
+
+**This is not filed as an issue.** The three-issue cap was already spent on
+#4711/#4712/#4713 before this surfaced, and on leverage it would have displaced
+#4713 (which documents an already-fixed bug) had the order been reversed. It is
+raised once on #4710 with the proposed patch, and it should be the first thing
+filed next week if nobody picks it up sooner. It is not filed here because this
+run's PR is scoped to `docs/process-retro.md` and must not touch
+`.github/workflows/`.
+
 ### Throughput
 
 **61 issues filed, 55 closed — the backlog grew by 6.** 32 issues open at the
