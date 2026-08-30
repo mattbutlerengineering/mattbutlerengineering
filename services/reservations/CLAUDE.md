@@ -441,18 +441,31 @@ eventSource.onmessage = (event) => {
 | `OUTSIDE_HOURS`            | 422  | Requested time outside operating hours |
 | `PARTY_SIZE_EXCEEDS_TABLE` | 422  | Party larger than table capacity       |
 
-### Error Response Format
+### Standard Error Response
+
+```typescript
+// RFC 7807 Problem Details (ADR-008) — the single error shape on the wire.
+interface ProblemDetails {
+  type: string; // URI identifying the error type (default: "about:blank")
+  title: string; // Short human-readable summary (e.g. "Conflict")
+  status: number; // HTTP status code
+  detail: string; // Human-readable explanation for this occurrence
+  instance?: string; // URI identifying this specific occurrence
+}
+```
+
+Domain-specific context (e.g. which table conflicted) is carried as RFC 7807
+extension members (Section 3.2) alongside the standard fields, not nested in a
+`details` bag — see ADR-008's "Extension Members" example:
 
 ```json
 {
-  "error": "TABLE_NOT_AVAILABLE",
-  "message": "Table 5 is already booked for 19:00",
-  "statusCode": 409,
-  "details": {
-    "tableId": "table-5",
-    "requestedTime": "19:00",
-    "conflictingReservationId": "res-123"
-  }
+  "type": "/errors/table-not-available",
+  "title": "Table Not Available",
+  "status": 409,
+  "detail": "Table 5 is already booked for 19:00",
+  "tableId": "table-5",
+  "conflictingReservationId": "res-123"
 }
 ```
 

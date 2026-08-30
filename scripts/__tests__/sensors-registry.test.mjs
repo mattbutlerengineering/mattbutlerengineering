@@ -453,6 +453,33 @@ describe("sensors-registry", () => {
       ]);
     });
 
+    // #4685: skipped/cancelled conclusions are intentional no-ops (e.g.
+    // Auto-Rollback / Revert Watchdog skipping when their trigger condition
+    // isn't met, or a concurrency-superseded rerun) — they must not dilute
+    // the pass-rate denominator alongside genuine failures.
+    it("ci sensor excludes skipped and cancelled conclusions from the pass-rate denominator", () => {
+      const runs = [
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "skipped" },
+        { status: "completed", conclusion: "skipped" },
+        { status: "completed", conclusion: "cancelled" },
+      ];
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue(runs) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.failed).toBe(0);
+      expect(result.passed).toBe(7);
+      expect(result.pass_rate_pct).toBe(100);
+    });
+
     it("issues sensor reports the auth-capability gap distinctly when ghClient.issue.list throws GhAuthError", () => {
       const ghClient = {
         issue: {

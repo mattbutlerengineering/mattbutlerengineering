@@ -280,17 +280,32 @@ interface StoredSpec {
 | `WORKTREE_CONFLICT`  | 409  | Worktree creation failed        |
 | `GITHUB_AUTH_FAILED` | 401  | GitHub token invalid            |
 
-### Error Response
+### Standard Error Response
+
+```typescript
+// RFC 7807 Problem Details (ADR-008) — the single error shape on the wire.
+interface ProblemDetails {
+  type: string; // URI identifying the error type (default: "about:blank")
+  title: string; // Short human-readable summary (e.g. "Payment Required")
+  status: number; // HTTP status code
+  detail: string; // Human-readable explanation for this occurrence
+  instance?: string; // URI identifying this specific occurrence
+}
+```
+
+Domain-specific context (e.g. the budget figures that triggered the error) is
+carried as RFC 7807 extension members (Section 3.2) alongside the standard
+fields, not nested in a `details` bag — see ADR-008's "Extension Members"
+example:
 
 ```json
 {
-  "error": "BUDGET_EXCEEDED",
-  "message": "Session cost ($1.05) exceeded budget ($1.00)",
-  "statusCode": 402,
-  "details": {
-    "totalCostUsd": 1.05,
-    "maxBudgetUsd": 1.0
-  }
+  "type": "/errors/budget-exceeded",
+  "title": "Budget Exceeded",
+  "status": 402,
+  "detail": "Session cost ($1.05) exceeded budget ($1.00)",
+  "totalCostUsd": 1.05,
+  "maxBudgetUsd": 1.0
 }
 ```
 
