@@ -201,7 +201,7 @@ describe("decideWorktreeReap", () => {
     expect(decision).toEqual({ eligible: false, reason: "live-session" });
   });
 
-  test("is eligible when not live, no open PR — even if the branch is squash-merge-orphaned and the tree is dirty", () => {
+  test("is eligible when not live, no open PR, and the PR merged — even if the branch is squash-merge-orphaned and the tree is dirty", () => {
     // No `dirty` or `mergedIntoMain` field exists on the input at all: this
     // test proves the decision genuinely cannot see those signals, not just
     // that it ignores them when present.
@@ -210,8 +210,9 @@ describe("decideWorktreeReap", () => {
       branch: "worktree-agent-abc123",
       isLive: false,
       hasOpenPr: false,
+      hasMergedPr: true,
     });
-    expect(decision).toEqual({ eligible: true, reason: "eligible" });
+    expect(decision).toEqual({ eligible: true, reason: "eligible-merged" });
   });
 
   // #3986: `isLive` (lsof) samples zero PIDs for long stretches of a
@@ -233,15 +234,16 @@ describe("decideWorktreeReap", () => {
     expect(decision).toEqual({ eligible: false, reason: "recent-activity" });
   });
 
-  test("is eligible when not live, no open PR, and no recent activity — genuinely abandoned worktrees are still reaped", () => {
+  test("is eligible when not live, no open PR, no recent activity, and the PR merged — the leaked-after-merge class is still reaped", () => {
     const decision = decideWorktreeReap({
       path: agentPath,
       branch: "worktree-agent-abc123",
       isLive: false,
       hasOpenPr: false,
       isRecentlyActive: false,
+      hasMergedPr: true,
     });
-    expect(decision).toEqual({ eligible: true, reason: "eligible" });
+    expect(decision).toEqual({ eligible: true, reason: "eligible-merged" });
   });
 });
 
@@ -383,6 +385,7 @@ describe("planReap", () => {
         branch: "worktree-agent-dead",
         isLive: false,
         hasOpenPr: false,
+        hasMergedPr: true,
       },
     ];
     const snapshot = JSON.stringify(worktrees);
@@ -685,8 +688,9 @@ describe("findUnregisteredOnDiskWorktrees", () => {
 });
 
 // ---------------------------------------------------------------------------
-// removeWorktree — refuses to touch a non-agent-worktree path even when
-// directly invoked (defense in depth, independent of decideWorktreeReap).
+// removeWorktree — refuses to touch ANY path not carrying positive merged-PR
+// evidence even when directly invoked (defense in depth, independent of
+// decideWorktreeReap). 2026-08-28: this now covers agent paths too.
 // ---------------------------------------------------------------------------
 
 describe("removeWorktree safety guard", () => {
@@ -714,6 +718,42 @@ describe("removeWorktree safety guard", () => {
         {
           path: "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/3169-node20-eslint",
           branch: "fix/3169-node20-eslint-guardrail",
+        },
+        { exec }
+      )
+    ).toThrow(/refus/i);
+  });
+
+  // 2026-08-28: the guard mirrors the decision gate — an AGENT path is no
+  // longer removable on path shape alone either; the exact call must carry
+  // hasMergedPr: true, the same positive evidence of death the decision
+  // requires. A live worker's worktree can otherwise still be destroyed by
+  // a caller that bypassed planReap.
+  test("throws for an agent worktree path without hasMergedPr — path shape alone is no longer enough", () => {
+    const exec = () => {
+      throw new Error("exec should never be called");
+    };
+    expect(() =>
+      removeWorktree(
+        {
+          path: "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a9aebed17bbbd1388",
+          branch: "worktree-agent-a9aebed17bbbd1388",
+        },
+        { exec }
+      )
+    ).toThrow(/refus/i);
+  });
+
+  test("throws for an agent worktree path when hasMergedPr is explicitly false", () => {
+    const exec = () => {
+      throw new Error("exec should never be called");
+    };
+    expect(() =>
+      removeWorktree(
+        {
+          path: "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a9aebed17bbbd1388",
+          branch: "worktree-agent-a9aebed17bbbd1388",
+          hasMergedPr: false,
         },
         { exec }
       )
@@ -780,7 +820,12 @@ describe("removeWorktree integration (throwaway repo)", () => {
 
     expect(fs.existsSync(worktreePath)).toBe(true);
 
-    removeWorktree({ path: worktreePath, branch: "worktree-agent-fixture01" }, { cwd: repoDir });
+    // 2026-08-28: agent removal now also requires the positive merged-PR
+    // evidence attached to the exact call, same as hand-created below.
+    removeWorktree(
+      { path: worktreePath, branch: "worktree-agent-fixture01", hasMergedPr: true },
+      { cwd: repoDir }
+    );
 
     expect(fs.existsSync(worktreePath)).toBe(false);
     const branches = execFileSync("git", ["branch", "--list", "worktree-agent-fixture01"], {
@@ -825,5 +870,151 @@ describe("removeWorktree integration (throwaway repo)", () => {
       encoding: "utf8",
     });
     expect(branches.trim()).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decideWorktreeReap — agent worktrees require POSITIVE evidence of death.
+// Measured live (2026-08-28, worktree agent-a9aebed17bbbd1388): a worker that
+// was verifiably still running read isLive: false (lsof -t +D sampled 0 open
+// fds — the worker was in a model round-trip, and the harness process's cwd
+// is the MAIN checkout, not the worktree), hasOpenPr: false (it had not yet
+// pushed), and isRecentlyActive: false (newest non-excluded mtime 72.6 min
+// old, past the 45-min window — node_modules churn is excluded, and install/
+// build/model phases routinely exceed 45 min of "quiet"). All three
+// absence-of-evidence gates failed together and the dry run listed the live
+// worker under "Would remove". The fix: like hand-created worktrees, agent
+// worktrees are only eligible on hasMergedPr === true — evidence the work is
+// preserved server-side, so even a mistimed reap can never destroy
+// unrecoverable work.
+// ---------------------------------------------------------------------------
+
+describe("decideWorktreeReap — agent worktrees require positive evidence of death", () => {
+  const measuredPath =
+    "/Users/mbutler/github/mattbutlerengineering/.claude/worktrees/agent-a9aebed17bbbd1388";
+
+  test("refuses the measured live-but-quiet worker: isLive false, hasOpenPr false, isRecentlyActive false, no merge evidence", () => {
+    const decision = decideWorktreeReap({
+      path: measuredPath,
+      branch: "worktree-agent-a9aebed17bbbd1388",
+      isLive: false,
+      hasOpenPr: false,
+      isRecentlyActive: false,
+    });
+    expect(decision).toEqual({ eligible: false, reason: "no-merge-evidence" });
+  });
+
+  test("refuses when hasMergedPr is explicitly false (PR closed unmerged, or none ever opened)", () => {
+    const decision = decideWorktreeReap({
+      path: measuredPath,
+      branch: "worktree-agent-a9aebed17bbbd1388",
+      isLive: false,
+      hasOpenPr: false,
+      isRecentlyActive: false,
+      hasMergedPr: false,
+    });
+    expect(decision).toEqual({ eligible: false, reason: "no-merge-evidence" });
+  });
+
+  test("eligible only with hasMergedPr === true — the work is preserved server-side", () => {
+    const decision = decideWorktreeReap({
+      path: measuredPath,
+      branch: "worktree-agent-a9aebed17bbbd1388",
+      isLive: false,
+      hasOpenPr: false,
+      isRecentlyActive: false,
+      hasMergedPr: true,
+    });
+    expect(decision).toEqual({ eligible: true, reason: "eligible-merged" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildReapInventory — 2026-08-28: `hasMergedPr` is now fetched for AGENT
+// candidates that clear the live/open-pr/recent-activity refusals (it used
+// to stay undefined for every agent worktree, which the new decision rule
+// would read as "retain forever" even for the merged-and-leaked class the
+// reaper exists to reclaim). Still lazy: a candidate refused earlier never
+// costs the extra gh call. Real fs only for the mtime probe; git/lsof/gh
+// are injected fakes — no real worktree is ever created or touched.
+// ---------------------------------------------------------------------------
+
+describe("buildReapInventory", () => {
+  let fixtureRoot;
+
+  afterEach(() => {
+    if (fixtureRoot) fs.rmSync(fixtureRoot, { recursive: true, force: true });
+    fixtureRoot = undefined;
+  });
+
+  function makeAgentWorktreeDir({ mtimeMs }) {
+    fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "reap-inventory-"));
+    const wtPath = path.join(fixtureRoot, ".claude", "worktrees", "agent-fixture99");
+    fs.mkdirSync(wtPath, { recursive: true });
+    const file = path.join(wtPath, "notes.txt");
+    fs.writeFileSync(file, "x");
+    const t = new Date(mtimeMs);
+    fs.utimesSync(file, t, t);
+    fs.utimesSync(wtPath, t, t);
+    return wtPath;
+  }
+
+  function makeExec(wtPath, calls) {
+    return (cmd, args) => {
+      calls.push([cmd, ...args]);
+      if (cmd === "git") {
+        return [
+          `worktree ${wtPath}`,
+          "HEAD abc123",
+          "branch refs/heads/worktree-agent-fixture99",
+          "",
+        ].join("\n");
+      }
+      if (cmd === "lsof") {
+        const err = new Error("no matches");
+        err.status = 1;
+        err.stdout = "";
+        throw err;
+      }
+      if (cmd === "gh" && args.includes("open")) return "[]";
+      if (cmd === "gh" && args.includes("all")) {
+        return JSON.stringify([{ number: 4650, mergedAt: "2026-08-27T00:00:00Z" }]);
+      }
+      throw new Error(`unexpected exec: ${cmd} ${args.join(" ")}`);
+    };
+  }
+
+  test("fetches hasMergedPr for an agent worktree that cleared every refusal", async () => {
+    const { buildReapInventory } = await import("../reap-worktrees.mjs");
+    // Every mtime 3h in the past — well outside the 45-min activity window.
+    const wtPath = makeAgentWorktreeDir({ mtimeMs: Date.now() - 3 * 60 * 60 * 1000 });
+    const calls = [];
+    const inventory = buildReapInventory({ cwd: fixtureRoot, exec: makeExec(wtPath, calls) });
+
+    expect(inventory).toHaveLength(1);
+    expect(inventory[0]).toMatchObject({
+      category: "agent",
+      isLive: false,
+      hasOpenPr: false,
+      isRecentlyActive: false,
+      hasMergedPr: true,
+    });
+    expect(decideWorktreeReap(inventory[0])).toEqual({ eligible: true, reason: "eligible-merged" });
+  });
+
+  test("stays lazy: a recently-active agent worktree never costs the merged-PR gh call", async () => {
+    const { buildReapInventory } = await import("../reap-worktrees.mjs");
+    const wtPath = makeAgentWorktreeDir({ mtimeMs: Date.now() });
+    const calls = [];
+    const inventory = buildReapInventory({ cwd: fixtureRoot, exec: makeExec(wtPath, calls) });
+
+    expect(inventory).toHaveLength(1);
+    expect(inventory[0].isRecentlyActive).toBe(true);
+    expect(inventory[0].hasMergedPr).toBeUndefined();
+    expect(calls.some(([cmd, ...args]) => cmd === "gh" && args.includes("all"))).toBe(false);
+    expect(decideWorktreeReap(inventory[0])).toEqual({
+      eligible: false,
+      reason: "recent-activity",
+    });
   });
 });

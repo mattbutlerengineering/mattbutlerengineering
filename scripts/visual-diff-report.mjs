@@ -17,6 +17,8 @@
  * `scripts/__tests__/visual-diff-report.test.mjs` and its fixtures.
  */
 
+import { readToleranceDirectives } from "./visual-tolerance.mjs";
+
 /** ANSI SGR escapes. The JSON reporter formats through `nonTerminalScreen`,
  * whose colors are inherited from the terminal screen and are therefore
  * environment-dependent — a real message arrives escape-wrapped. */
@@ -180,62 +182,13 @@ export function parseVisualReport(report) {
 // ---------------------------------------------------------------------------
 
 /**
- * Pure: strip `//` and block comments while respecting string and template
- * literals, so a `baseURL: "http://…"` cannot swallow the rest of its line.
- *
- * Regex literals are deliberately not tracked: a `/` inside one could be read
- * as a comment start, which degrades the answer to `null` (say less) rather
- * than producing a wrong number.
- */
-function stripComments(source) {
-  let out = "";
-  let quote = null;
-  for (let i = 0; i < source.length; i++) {
-    const ch = source[i];
-    const next = source[i + 1];
-
-    if (quote) {
-      out += ch;
-      if (ch === "\\") {
-        out += next ?? "";
-        i++;
-      } else if (ch === quote) {
-        quote = null;
-      }
-      continue;
-    }
-
-    if (ch === '"' || ch === "'" || ch === "`") {
-      quote = ch;
-      out += ch;
-      continue;
-    }
-
-    if (ch === "/" && next === "/") {
-      while (i < source.length && source[i] !== "\n") i++;
-      out += "\n";
-      continue;
-    }
-
-    if (ch === "/" && next === "*") {
-      i += 2;
-      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) i++;
-      i++;
-      out += " ";
-      continue;
-    }
-
-    out += ch;
-  }
-  return out;
-}
-
-const MAX_DIFF_PIXELS_PATTERN = /\bmaxDiffPixels\s*:\s*(\d[\d_]*)/g;
-const MAX_DIFF_PIXEL_RATIO_PATTERN = /\bmaxDiffPixelRatio\s*:/g;
-const ANY_MAX_DIFF_PIXELS_KEY_PATTERN = /\bmaxDiffPixels\s*:/g;
-
-/**
  * Pure: the suite-wide `expect.toHaveScreenshot.maxDiffPixels`, or `null`.
+ *
+ * A thin POLICY over `readToleranceDirectives` (`scripts/visual-tolerance.mjs`),
+ * which owns the comment-aware lexing. The lexer lives there because the drift
+ * guard needs the identical reading of the identical file — two copies of "how
+ * do you strip a comment from this file" is the shape where one gets fixed and
+ * the other does not.
  *
  * Text, not `import()`: the publisher job deliberately runs no `pnpm install`
  * — that absence is what keeps the pull request's dependency tree from
@@ -246,6 +199,7 @@ const ANY_MAX_DIFF_PIXELS_KEY_PATTERN = /\bmaxDiffPixels\s*:/g;
  * single unambiguous value:
  *   - no `maxDiffPixels` at all;
  *   - more than one (a project override makes it per-project);
+ *   - one that is present but unreadable (an identifier, an expression);
  *   - a LIVE `maxDiffPixelRatio` alongside it, because the enforced budget is
  *     then `min(maxDiffPixels, w × h × ratio)` (`coreBundle.js:7556-7562`),
  *     which is per-image and not a single number a comment could name.
@@ -258,17 +212,10 @@ const ANY_MAX_DIFF_PIXELS_KEY_PATTERN = /\bmaxDiffPixels\s*:/g;
  * @returns {number|null}
  */
 export function parseMaxDiffPixels(configSource) {
-  if (typeof configSource !== "string" || configSource === "") return null;
+  const { maxDiffPixels, occurrences } = readToleranceDirectives(configSource);
 
-  const source = stripComments(configSource);
+  if (occurrences.maxDiffPixelRatio > 0) return null;
+  if (occurrences.maxDiffPixels !== 1) return null;
 
-  if (source.match(MAX_DIFF_PIXEL_RATIO_PATTERN)) return null;
-
-  const keys = source.match(ANY_MAX_DIFF_PIXELS_KEY_PATTERN) ?? [];
-  if (keys.length !== 1) return null;
-
-  const values = [...source.matchAll(MAX_DIFF_PIXELS_PATTERN)];
-  if (values.length !== 1) return null;
-
-  return Number(values[0][1].replace(/_/g, ""));
+  return maxDiffPixels;
 }

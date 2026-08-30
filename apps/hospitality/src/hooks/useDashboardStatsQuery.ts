@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { toDateString, type Reservation } from "@mbe/types";
+import { toDateString, type Reservation, type WaitlistEntry } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { useApiClient } from "./useApiClient.js";
@@ -12,6 +12,8 @@ export interface DashboardStats {
   upcomingCount: number;
   cancellationRate: number;
   cancellationTrend: "up" | "down" | "neutral";
+  waitlistCount: number;
+  longestWaitMinutes: number;
 }
 
 export interface UseDashboardStatsQueryResult {
@@ -22,14 +24,27 @@ export interface UseDashboardStatsQueryResult {
   refetch: () => void;
 }
 
+/** Stats derived from reservations only — see {@link computeStatsFromReservations}. */
+type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+
+/** Stats derived from waitlist entries only — see {@link computeWaitlistStats}. */
+type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+
 /* ── Helpers ─────────────────────────────────────────── */
 
-const FALLBACK_STATS: DashboardStats = {
+const WAITLIST_QUERY_KEY = "waitlist" as const;
+
+const FALLBACK_RESERVATION_STATS: ReservationStats = {
   totalReservations: 0,
   expectedCovers: 0,
   upcomingCount: 0,
   cancellationRate: 0,
   cancellationTrend: "neutral",
+};
+
+const FALLBACK_WAITLIST_STATS: WaitlistStats = {
+  waitlistCount: 0,
+  longestWaitMinutes: 0,
 };
 
 function getTodayString(): string {
@@ -47,8 +62,10 @@ function computeUpcoming(reservations: readonly Reservation[]): number {
   }).length;
 }
 
-export function computeStatsFromReservations(reservations: readonly Reservation[]): DashboardStats {
-  if (reservations.length === 0) return FALLBACK_STATS;
+export function computeStatsFromReservations(
+  reservations: readonly Reservation[]
+): ReservationStats {
+  if (reservations.length === 0) return FALLBACK_RESERVATION_STATS;
 
   const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
   const cancelled = reservations.filter((r) => r.status === "CANCELLED");
@@ -64,6 +81,15 @@ export function computeStatsFromReservations(reservations: readonly Reservation[
   };
 }
 
+export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats {
+  if (entries.length === 0) return FALLBACK_WAITLIST_STATS;
+
+  return {
+    waitlistCount: entries.length,
+    longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
+  };
+}
+
 /* ── Hook ────────────────────────────────────────────── */
 
 export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
@@ -71,7 +97,7 @@ export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
   const api = useApiClient();
   const today = getTodayString();
 
-  const query = useQuery({
+  const reservationsQuery = useQuery({
     queryKey: [RESERVATIONS_QUERY_KEY, { date: today, venueId: selectedVenueId, limit: 100 }],
     queryFn: async () => {
       const response = await api.reservations.list({
@@ -83,14 +109,25 @@ export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
     },
   });
 
-  const reservations = query.data ?? [];
-  const stats = computeStatsFromReservations(reservations);
+  const waitlistQuery = useQuery({
+    queryKey: [WAITLIST_QUERY_KEY, { venueId: selectedVenueId }],
+    queryFn: () => api.waitlist.list(selectedVenueId ?? ""),
+    enabled: Boolean(selectedVenueId),
+  });
+
+  const reservations = reservationsQuery.data ?? [];
+  const waitlistEntries = waitlistQuery.data ?? [];
+
+  const stats: DashboardStats = {
+    ...computeStatsFromReservations(reservations),
+    ...computeWaitlistStats(waitlistEntries),
+  };
 
   return {
     reservations,
     stats,
-    isLoading: query.isLoading,
-    error: query.error ?? null,
-    refetch: query.refetch,
+    isLoading: reservationsQuery.isLoading,
+    error: reservationsQuery.error ?? null,
+    refetch: reservationsQuery.refetch,
   };
 }

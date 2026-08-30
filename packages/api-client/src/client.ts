@@ -162,6 +162,23 @@ export class ApiClient {
     );
   }
 
+  put<T>(
+    path: string,
+    body: unknown,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
+    return this.request<T>(
+      path,
+      {
+        method: "PUT",
+        body: JSON.stringify(body),
+      },
+      schema,
+      override
+    );
+  }
+
   delete(path: string, override?: PerRequestOptions): Promise<void> {
     return this.request<void>(path, { method: "DELETE" }, undefined, override);
   }
@@ -211,6 +228,22 @@ export class ApiClient {
   ): Promise<T> {
     const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
     const response = await this.patch<{ data: T }>(path, body, envelopeSchema, override);
+    return response.data;
+  }
+
+  /**
+   * PUT + unwrap `.data` from ApiResponse envelope.
+   * Use for state-transition endpoints (e.g. seat/cancel/expire) that return `{ data: T }`.
+   * Pass a Zod schema to validate the unwrapped value at runtime.
+   */
+  async putOne<T>(
+    path: string,
+    body: unknown,
+    schema?: z.ZodSchema<T>,
+    override?: PerRequestOptions
+  ): Promise<T> {
+    const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+    const response = await this.put<{ data: T }>(path, body, envelopeSchema, override);
     return response.data;
   }
 

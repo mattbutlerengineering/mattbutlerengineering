@@ -14,13 +14,9 @@
  *   node scripts/revert-rca.mjs --pr <number>
  */
 
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { fileIssue } from "./lib/issue-filing.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "..");
 
 const ghClient = createGhClient();
 

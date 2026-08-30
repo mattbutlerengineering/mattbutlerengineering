@@ -659,6 +659,32 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="apps/rialto-web/src/pages/auth/auth-validation.ts">
+    <item priority="high">
+      export const MFA_CODE_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MFA_REJECT_CODE: unknown;
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/authFlowMachine.ts">
+    <item priority="high">
+      export const STATIONS: unknown;
+    </item>
+    <item priority="low">
+      type StationId = (typeof STATIONS)[number];
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/score-password.ts">
+    <item priority="high">
+      export const MIN_PASSWORD_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const BONUS_LENGTH: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     <item priority="low">
@@ -1206,7 +1232,7 @@
       export const COST_SUITE_DIR: unknown;
     </item>
     <item priority="high">
-      export function resolveSuitePath(suite: string): string { /* ... */ }
+      export const NAMED_SUITES: Readonly<Record<string, string>>;
     </item>
   </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">
@@ -1757,6 +1783,14 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useSessionClock.ts">
+    <item priority="high">
+      export const REFRESH_WINDOW_MS: unknown;
+    </item>
+    <item priority="low">
+      type SessionPhase = "fresh" | "refresh-window" | "expired";
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -1834,6 +1868,16 @@
     </item>
     <item priority="high">
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useWaitlist.ts">
+    <item priority="high">
+      export const WAITLIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseWaitlistParams {
+        venueId: string;
+      }
     </item>
   </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
@@ -2017,6 +2061,18 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/describe-auth-error.ts">
+    <item priority="low">
+      interface AuthErrorDescription {
+        title: string;
+        body: string;
+        canRetry: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function oidcErrorCode(error: Error): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];
@@ -2320,6 +2376,16 @@
         accessToken: string | null;
         refreshError: Error | null;
       }
+    </item>
+  </file>
+  <file path="packages/auth/src/react/return-to.ts">
+    <item priority="low">
+      interface SignInOptions {
+        returnTo?: string;
+      }
+    </item>
+    <item priority="high">
+      export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
     </item>
   </file>
   </section>
@@ -3856,6 +3922,14 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/return-to-store.ts">
+    <item priority="high">
+      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readReturnTo(): string | undefined { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
     <item priority="high">
       interface ImportMetaEnv {
@@ -4951,6 +5025,16 @@
         async get(): Promise<unknown>;
         async getBySlug(): Promise<unknown>;
         async create(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="packages/api-client/src/waitlist.ts">
+    <item priority="high">
+      class WaitlistClient {
+        async list(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+        async seat(): Promise<unknown>;
       }
     </item>
   </file>

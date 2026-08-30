@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { computeStatsFromReservations } from "./useDashboardStatsQuery.js";
-import type { Reservation } from "@mbe/types";
+import { computeStatsFromReservations, computeWaitlistStats } from "./useDashboardStatsQuery.js";
+import type { Reservation, WaitlistEntry } from "@mbe/types";
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -129,5 +129,45 @@ describe("computeStatsFromReservations", () => {
 
     const stats = computeStatsFromReservations(reservations);
     expect(stats.upcomingCount).toBe(0);
+  });
+});
+
+/* ── Waitlist stats ──────────────────────────────────── */
+
+function makeWaitlistEntry(overrides: Partial<WaitlistEntry> = {}): WaitlistEntry {
+  return {
+    id: "wl-1",
+    venueId: "venue-1",
+    partySize: 2,
+    guestName: "Test Guest",
+    guestPhone: "555-0100",
+    position: 1,
+    estimatedWaitMinutes: 15,
+    status: "waiting",
+    notifiedAt: null,
+    expiresAt: null,
+    createdAt: "2026-01-15T00:00:00Z",
+    updatedAt: "2026-01-15T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("computeWaitlistStats", () => {
+  it("returns 0/0 when nobody is waiting", () => {
+    const stats = computeWaitlistStats([]);
+    expect(stats.waitlistCount).toBe(0);
+    expect(stats.longestWaitMinutes).toBe(0);
+  });
+
+  it("counts entries and finds the longest estimated wait", () => {
+    const entries = [
+      makeWaitlistEntry({ id: "wl-1", estimatedWaitMinutes: 10 }),
+      makeWaitlistEntry({ id: "wl-2", estimatedWaitMinutes: 35 }),
+      makeWaitlistEntry({ id: "wl-3", estimatedWaitMinutes: 20 }),
+    ];
+
+    const stats = computeWaitlistStats(entries);
+    expect(stats.waitlistCount).toBe(3);
+    expect(stats.longestWaitMinutes).toBe(35);
   });
 });

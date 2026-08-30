@@ -54,6 +54,16 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       </table>
     ),
     useToast: () => ({ toast: vi.fn() }),
+    PinInput: () => <input />,
+    Steps: () => null,
+    Meter: () => null,
+    StatusLED: () => null,
+    useMotionPreset: () => ({
+      precision: { duration: 0 },
+      spring: { duration: 0 },
+      springGentle: { duration: 0 },
+      tilt: { stiffness: 500, damping: 22, mass: 0.35 },
+    }),
   };
 });
 
@@ -84,9 +94,11 @@ describe("demo route table resolution", () => {
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.driverEdit("1")}`)).toBe("drivers/:id/edit");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.signIn}`)).toBe("login");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.signUp}`)).toBe("signup");
+    expect(leafFor(`${BASENAME}${DEMO_ROUTES.sessionExpired}`)).toBe("session-expired");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.dashboard}`)).toBe("dashboard");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.teamCreate}`)).toBe("teams/new");
     expect(leafFor(`${BASENAME}${DEMO_ROUTES.layouts}`)).toBe("layouts");
+    expect(leafFor(`${BASENAME}${DEMO_ROUTES.authFlow}`)).toBe("auth-flow");
   });
 
   it("legacy un-prefixed demo paths fall through to the catch-all (documents the bug)", () => {
@@ -107,6 +119,18 @@ describe("demo pages emit in-demos cross-links", () => {
     const href = screen.getByRole("link", { name: /sign up/i }).getAttribute("href");
     expect(href).toBe(`${BASENAME}${DEMO_ROUTES.signUp}`);
     expect(leafFor(href!)).toBe("signup");
+  });
+
+  it("SignIn 'Session expired' footer link resolves to the session-expired demo, not the catch-all", () => {
+    render(
+      <MemoryRouter basename={BASENAME} initialEntries={[`${BASENAME}${DEMO_ROUTES.signIn}`]}>
+        <SignIn />
+      </MemoryRouter>
+    );
+
+    const href = screen.getByRole("link", { name: /session expired/i }).getAttribute("href");
+    expect(href).toBe(`${BASENAME}${DEMO_ROUTES.sessionExpired}`);
+    expect(leafFor(href!)).toBe("session-expired");
   });
 
   it("SignUp 'Sign in' link resolves to the login demo, not the catch-all", () => {

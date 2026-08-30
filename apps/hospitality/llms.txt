@@ -351,6 +351,14 @@
       }
     </item>
   </file>
+  <file path="src/hooks/useSessionClock.ts">
+    <item priority="high">
+      export const REFRESH_WINDOW_MS: unknown;
+    </item>
+    <item priority="low">
+      type SessionPhase = "fresh" | "refresh-window" | "expired";
+    </item>
+  </file>
   <file path="src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -430,6 +438,16 @@
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="src/hooks/useWaitlist.ts">
+    <item priority="high">
+      export const WAITLIST_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseWaitlistParams {
+        venueId: string;
+      }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="journeys">
   <file path="e2e/journeys/journey-api.ts">
@@ -459,6 +477,18 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-auth-error.ts">
+    <item priority="low">
+      interface AuthErrorDescription {
+        title: string;
+        body: string;
+        canRetry: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function oidcErrorCode(error: Error): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/offline-cache.ts">
     <item priority="low">
       type FloorPlanSnapshot = TableStatusDelta[];
@@ -503,6 +533,14 @@
         label?: string;
         items: NavItem[];
       }
+    </item>
+  </file>
+  <file path="src/return-to-store.ts">
+    <item priority="high">
+      export function rememberReturnTo(returnTo?: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readReturnTo(): string | undefined { /* ... */ }
     </item>
   </file>
   <file path="src/vite-env.d.ts">

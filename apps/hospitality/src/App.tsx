@@ -2,10 +2,13 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, isSafeReturnTo } from "@mbe/auth/react";
 import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
+import { LoginGate } from "./components/LoginGate";
+import { describeAuthError } from "./lib/describe-auth-error";
+import { readReturnTo } from "./return-to-store";
 import styles from "./App.module.css";
 
 /**
@@ -72,20 +75,30 @@ export function App() {
   const isCallback = window.location.pathname.endsWith("/callback");
 
   if (error) {
+    const described = describeAuthError(error);
     return (
       <UnauthenticatedShell nav={nav}>
         <Stack gap="lg" align="center">
           <Stack gap="sm" align="center">
             <Text as="h1" variant="display" color="primary">
-              Authentication Error
+              {described.title}
             </Text>
             <Text variant="body" color="secondary">
-              {error.message}
+              {described.body}
             </Text>
           </Stack>
-          <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
-            Try Again
-          </Button>
+          {described.canRetry && (
+            <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
+              Try Again
+            </Button>
+          )}
+          {/* Raw message stays reachable for debugging, demoted below the fold. */}
+          <details className={styles.errorDetails}>
+            <summary>Technical details</summary>
+            <Text variant="caption" color="tertiary">
+              {error.message}
+            </Text>
+          </details>
         </Stack>
       </UnauthenticatedShell>
     );
@@ -102,7 +115,7 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoginPrompt />
+        <LoginGate />
       </UnauthenticatedShell>
     );
   }
@@ -117,33 +130,14 @@ export function App() {
   );
 }
 
-function LoginPrompt() {
-  const { signIn } = useAuth();
-
-  return (
-    <Stack gap="lg" align="center" data-testid="login-prompt">
-      <Stack gap="sm" align="center">
-        <Text as="h1" variant="display" color="primary">
-          Hospitality
-        </Text>
-        <Text variant="body" color="secondary">
-          Restaurant management, simplified.
-        </Text>
-      </Stack>
-      <Button variant="primary" size="lg" onClick={() => signIn()}>
-        Sign In
-      </Button>
-      <Text variant="caption" color="tertiary">
-        Manage reservations, guests, and floor plans
-      </Text>
-    </Stack>
-  );
-}
-
 /**
- * Redirect helper for the callback route — after successful auth,
- * navigates to home.
+ * Redirect helper for the callback route — after successful auth, navigates
+ * to the deep link preserved through sign-in (see return-to-store), or home
+ * when none was carried. The stored value originates from the OIDC state
+ * param, which is attacker-influenceable, so it is re-validated against open
+ * redirects before navigating.
  */
 export function CallbackRedirect() {
-  return <Navigate to="/" replace />;
+  const returnTo = readReturnTo();
+  return <Navigate to={isSafeReturnTo(returnTo) ? returnTo : "/"} replace />;
 }

@@ -1895,6 +1895,20 @@
     }
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="apps/rialto-web/src/pages/auth/auth-validation.ts">
+    export const MFA_CODE_LENGTH = 6;
+    export const MFA_REJECT_CODE = "000000";
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/authFlowMachine.ts">
+    export const STATIONS = ["browser", "idp", "api"] as const;
+    export type StationId = (typeof STATIONS)[number];
+  </file>
+  <file path="apps/rialto-web/src/pages/auth/score-password.ts">
+    export const MIN_PASSWORD_LENGTH = 12;
+    export const BONUS_LENGTH = 16;
+  </file>
+  </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">
     export interface EffectiveDepositPolicyParams {
@@ -3269,10 +3283,12 @@
     export const DEMO_ROUTES = {
       signIn: `${DEMOS_BASE}/login`,
       signUp: `${DEMOS_BASE}/signup`,
+      sessionExpired: `${DEMOS_BASE}/session-expired`,
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
       telemetry: `${DEMOS_BASE}/telemetry`,
+      authFlow: `${DEMOS_BASE}/auth-flow`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
@@ -3504,9 +3520,9 @@
   </file>
   <file path="packages/agent-core/src/eval/cost-suite.ts">
     export const COST_SUITE_DIR = "packages/agent-core/eval-suite/cost";
-    export function resolveSuitePath(suite: string): string {
-      return NAMED_SUITES[suite] ?? suite;
-    }
+    export const NAMED_SUITES: Readonly<Record<string, string>> = {
+      cost: COST_SUITE_DIR,
+    };
   </file>
   <file path="packages/agent-core/src/eval/eval-harness.ts">
     export interface RunEvalSuiteOptions {
@@ -4534,6 +4550,8 @@
       upcomingCount: number;
       cancellationRate: number;
       cancellationTrend: "up" | "down" | "neutral";
+      waitlistCount: number;
+      longestWaitMinutes: number;
     }
     export interface UseDashboardStatsQueryResult {
       reservations: readonly Reservation[];
@@ -4636,6 +4654,10 @@
       enabled?: boolean;
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useSessionClock.ts">
+    export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
+    export type SessionPhase = "fresh" | "refresh-window" | "expired";
+  </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
@@ -4716,6 +4738,12 @@
   <file path="apps/hospitality/src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
+  </file>
+  <file path="apps/hospitality/src/hooks/useWaitlist.ts">
+    export const WAITLIST_QUERY_KEY = "waitlist" as const;
+    export interface UseWaitlistParams {
+      venueId: string;
+    }
   </file>
   <file path="apps/rialto-web/src/hooks/use-props-from-manifest.ts">
     export interface PropDef {
@@ -5153,6 +5181,20 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="apps/hospitality/src/lib/describe-auth-error.ts">
+    export interface AuthErrorDescription {
+      /** Short, human headline for the error screen. */
+      readonly title: string;
+      /** One-sentence explanation in user language. */
+      readonly body: string;
+      /** Whether offering a retry action makes sense for this category. */
+      readonly canRetry: boolean;
+    }
+    function oidcErrorCode(error: Error): string {
+      const code = (error as Error & { error?: unknown }).error;
+      return typeof code === "string" ? code : "";
+    }
+  </file>
   <file path="apps/hospitality/src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
@@ -6182,6 +6224,10 @@
       webOrigins: webOrigins,
       allowedOrigins: webOrigins,
       oidcConformant: true,
+      // Matches the live prod tenant's `sso: true`. Left undeclared, Pulumi reads
+      // the live value as drift and plans to reset it to the provider default on
+      // the next `pulumi up` — see index.test.ts's "declares sso: true" test.
+      sso: true,
       jwtConfiguration: {
         alg: "RS256",
         lifetimeInSeconds: 36000,
@@ -6243,8 +6289,18 @@
         user,
         /** Access token for API calls */
         accessToken: auth.user?.access_token ?? null,
-        /** Sign in - redirects to OIDC provider */
-        signIn: () => auth.signinRedirect(),
+        /**
+         * Sign in - redirects to OIDC provider. Carries `returnTo` (an
+         * app-relative path, defaulting to the current location relative to the
+         * app base path) through the OIDC `state` so the destination survives the
+         * round-trip. Consumers receive it back via the provider's
+         * `onSigninCallback(returnTo)`.
+         */
+        signIn: (options?: SignInOptions) => {
+          const returnTo =
+            options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
+          return auth.signinRedirect({ state: { returnTo } });
+        },
         /** Sign out - redirects to OIDC provider */
         signOut: () => auth.signoutRedirect(),
         /** Sign in silently (refresh token) */
@@ -6261,6 +6317,21 @@
        * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
        */
       refreshError: Error | null;
+    }
+  </file>
+  <file path="packages/auth/src/react/return-to.ts">
+    export interface SignInOptions {
+      /**
+       * App-relative path (starting with "/", relative to the router basename) to
+       * restore after sign-in. Defaults to the current location.
+       */
+      returnTo?: string;
+    }
+    export function isSafeReturnTo(value: unknown): value is string {
+      if (typeof value !== "string" || value.length === 0) return false;
+      if (!value.startsWith("/")) return false;
+      if (value.startsWith("//") || value.startsWith("/\\")) return false;
+      return true;
     }
   </file>
   </section>
@@ -8665,6 +8736,12 @@
       }>(
         "/:id",
         {
+          // Issue #4487 (shared-subset hardening): same per-IP public cap as the
+          // /public/v1 sibling (public-holds.ts), as a preHandler ON TOP of the
+          // service-wide 100/min onRequest limiter. Deliberately NOT a route-level
+          // config.rateLimit — that would replace the global limiter and (#4492)
+          // leave stages before the preHandler with no bound at all.
+          preHandler: publicRateLimitHook,
           schema: {
             summary: "Get hold status",
             operationId: "getHold",
@@ -8708,6 +8785,8 @@
       }>(
         "/:id",
         {
+          // See the GET /:id comment — per-IP public cap on top of the global limiter.
+          preHandler: publicRateLimitHook,
           schema: {
             summary: "Release a hold",
             operationId: "releaseHold",
@@ -8774,6 +8853,8 @@
       }>(
         "/:id/confirm",
         {
+          // See the GET /:id comment — per-IP public cap on top of the global limiter.
+          preHandler: publicRateLimitHook,
           schema: {
             summary: "Confirm a hold and create reservation",
             operationId: "confirmHold",
@@ -13675,6 +13756,14 @@
       items: NavItem[];
     }
   </file>
+  <file path="apps/hospitality/src/return-to-store.ts">
+    export function rememberReturnTo(returnTo?: string): void {
+      storedReturnTo = returnTo;
+    }
+    export function readReturnTo(): string | undefined {
+      return storedReturnTo;
+    }
+  </file>
   <file path="apps/hospitality/src/vite-env.d.ts">
     interface ImportMetaEnv {
       readonly VITE_AUTH_AUTHORITY: string;
@@ -15346,6 +15435,7 @@
         guests: new GuestsClient(client),
         floorPlans: new FloorPlansClient(client),
         publicVenue: new PublicVenueClient(client),
+        waitlist: new WaitlistClient(client),
         availability: new AvailabilityClient(client),
         holds: new HoldsClient(client),
         briefing: new BriefingClient(client),
@@ -15825,6 +15915,80 @@
        */
       async delete(id: string): Promise<void> {
         await this.client.delete(`/api/v1/venues/groups/${id}`);
+      }
+    }
+  </file>
+  <file path="packages/api-client/src/waitlist.ts">
+    export class WaitlistClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List waiting entries for a venue
+       */
+      async list(venueId: string): Promise<WaitlistEntry[]> {
+        return this.client.getOne<WaitlistEntry[]>(WAITLIST_BASE_PATH, { venueId }, waitlistListSchema);
+      }
+    
+      /**
+       * Get a waitlist entry by ID
+       */
+      async get(id: string): Promise<WaitlistEntry> {
+        return this.client.getOne<WaitlistEntry>(
+          `${WAITLIST_BASE_PATH}/${id}`,
+          undefined,
+          WaitlistEntrySchema
+        );
+      }
+    
+      /**
+       * Add a guest to the waitlist
+       */
+      async create(data: CreateWaitlistEntryRequest): Promise<WaitlistEntry> {
+        return this.client.postOne<WaitlistEntry>(WAITLIST_BASE_PATH, data, WaitlistEntrySchema);
+      }
+    
+      /**
+       * Mark a waitlist entry as seated
+       */
+      async seat(id: string): Promise<WaitlistEntry> {
+        return this.client.putOne<WaitlistEntry>(
+          `${WAITLIST_BASE_PATH}/${id}/seat`,
+          undefined,
+          WaitlistEntrySchema
+        );
+      }
+    
+      /**
+       * Cancel a waitlist entry
+       */
+      async cancel(id: string): Promise<WaitlistEntry> {
+        return this.client.putOne<WaitlistEntry>(
+          `${WAITLIST_BASE_PATH}/${id}/cancel`,
+          undefined,
+          WaitlistEntrySchema
+        );
+      }
+    
+      /**
+       * Notify a guest their table is ready
+       */
+      async notify(id: string): Promise<WaitlistEntry> {
+        return this.client.putOne<WaitlistEntry>(
+          `${WAITLIST_BASE_PATH}/${id}/notify`,
+          undefined,
+          WaitlistEntrySchema
+        );
+      }
+    
+      /**
+       * Mark a waitlist entry as expired
+       */
+      async expire(id: string): Promise<WaitlistEntry> {
+        return this.client.putOne<WaitlistEntry>(
+          `${WAITLIST_BASE_PATH}/${id}/expire`,
+          undefined,
+          WaitlistEntrySchema
+        );
       }
     }
   </file>

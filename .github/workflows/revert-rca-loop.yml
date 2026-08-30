@@ -18,6 +18,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
+      - uses: ./.github/actions/setup-workspace
+
+      # revert-rca.mjs imports @mbe/gh-client, whose exports map sends the
+      # `node` condition to ./dist/index.js. `pnpm install` links the package
+      # but never builds it, so a bare `node scripts/revert-rca.mjs` throws
+      # ERR_MODULE_NOT_FOUND without this step.
+      - name: Build gh-client
+        run: pnpm build --filter @mbe/gh-client...
+
       - name: Identify Reverted PR
         id: info
         env:

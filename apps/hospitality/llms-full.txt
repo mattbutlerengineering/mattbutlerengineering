@@ -391,6 +391,8 @@
       upcomingCount: number;
       cancellationRate: number;
       cancellationTrend: "up" | "down" | "neutral";
+      waitlistCount: number;
+      longestWaitMinutes: number;
     }
     export interface UseDashboardStatsQueryResult {
       reservations: readonly Reservation[];
@@ -493,6 +495,10 @@
       enabled?: boolean;
     }
   </file>
+  <file path="src/hooks/useSessionClock.ts">
+    export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
+    export type SessionPhase = "fresh" | "refresh-window" | "expired";
+  </file>
   <file path="src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
@@ -574,6 +580,12 @@
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
   </file>
+  <file path="src/hooks/useWaitlist.ts">
+    export const WAITLIST_QUERY_KEY = "waitlist" as const;
+    export interface UseWaitlistParams {
+      venueId: string;
+    }
+  </file>
   </section>
   <section priority="medium" role="journeys">
   <file path="e2e/journeys/journey-api.ts">
@@ -596,6 +608,20 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-auth-error.ts">
+    export interface AuthErrorDescription {
+      /** Short, human headline for the error screen. */
+      readonly title: string;
+      /** One-sentence explanation in user language. */
+      readonly body: string;
+      /** Whether offering a retry action makes sense for this category. */
+      readonly canRetry: boolean;
+    }
+    function oidcErrorCode(error: Error): string {
+      const code = (error as Error & { error?: unknown }).error;
+      return typeof code === "string" ? code : "";
+    }
+  </file>
   <file path="src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
     interface ReservationsCacheEntry {
@@ -643,6 +669,14 @@
     export interface NavSection {
       label?: string;
       items: NavItem[];
+    }
+  </file>
+  <file path="src/return-to-store.ts">
+    export function rememberReturnTo(returnTo?: string): void {
+      storedReturnTo = returnTo;
+    }
+    export function readReturnTo(): string | undefined {
+      return storedReturnTo;
     }
   </file>
   <file path="src/vite-env.d.ts">

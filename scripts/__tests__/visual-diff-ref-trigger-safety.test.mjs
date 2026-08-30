@@ -171,16 +171,19 @@ function globToRegExp(glob) {
   return new RegExp(`^${out}$`);
 }
 
-function matchesSample(patterns) {
+function matchesRef(patterns, ref) {
   const positive = patterns.filter((p) => !p.startsWith("!"));
   const negative = patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1));
-  if (!positive.some((p) => globToRegExp(p).test(SAMPLE_REF))) return false;
-  return !negative.some((p) => globToRegExp(p).test(SAMPLE_REF));
+  if (!positive.some((p) => globToRegExp(p).test(ref))) return false;
+  return !negative.some((p) => globToRegExp(p).test(ref));
 }
 
 /**
  * The guard. Returns a list of human-readable violations for one workflow
- * source — empty means this workflow cannot fire for a `visual-diffs/` ref.
+ * source — empty means this workflow cannot fire for `ref`, which defaults to
+ * the `visual-diffs/` sample. The ref is a parameter rather than a constant so
+ * a second disposable namespace can be asked the same question through the
+ * same normaliser, instead of growing a parallel checker that would drift.
  *
  * Deliberately does NOT flag a `tags:`/`tags-ignore:` filter. A tag push does
  * not create a branch ref and this feature never writes a tag, so flagging one
@@ -189,7 +192,7 @@ function matchesSample(patterns) {
  * never read for the same reason: the presence of a tag filter is what scopes
  * the trigger away from branch refs.
  */
-export function findTriggerViolations(source, fileName = "<source>") {
+export function findTriggerViolations(source, fileName = "<source>", ref = SAMPLE_REF) {
   const violations = [];
   const parsed = parseOnSection(source);
 
@@ -216,18 +219,16 @@ export function findTriggerViolations(source, fileName = "<source>") {
   }
 
   if (branches) {
-    if (matchesSample(branches)) {
-      violations.push(
-        `${fileName}: \`push.branches\` [${branches.join(", ")}] matches ${SAMPLE_REF}`
-      );
+    if (matchesRef(branches, ref)) {
+      violations.push(`${fileName}: \`push.branches\` [${branches.join(", ")}] matches ${ref}`);
     }
     return violations;
   }
 
   if (branchesIgnore) {
-    if (!branchesIgnore.some((p) => globToRegExp(p).test(SAMPLE_REF))) {
+    if (!branchesIgnore.some((p) => globToRegExp(p).test(ref))) {
       violations.push(
-        `${fileName}: \`push.branches-ignore\` [${branchesIgnore.join(", ")}] does not exclude ${SAMPLE_REF}`
+        `${fileName}: \`push.branches-ignore\` [${branchesIgnore.join(", ")}] does not exclude ${ref}`
       );
     }
     return violations;
@@ -440,5 +441,56 @@ describe("findTriggerViolations normalises every shape `on:` can take", () => {
   it("does NOT flag a scalar branches: main — a plain string is still a filter", () => {
     const source = "name: X\non:\n  push:\n    branches: main\njobs: {}\n";
     expect(findTriggerViolations(source, "synthetic.yml")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The second disposable namespace: `measure/**`, the noise-floor measurement's
+// pre-merge trigger path.
+//
+// Asked through the SAME normaliser above rather than a parallel checker — the
+// only difference is the ref. `workflow_dispatch` cannot fire for a file that
+// is not on the default branch, and this run may not merge, so the measurement
+// is reachable today only by pushing a ref. That is safe exactly as long as
+// pushing it starts the measurement AND NOTHING ELSE, which is a fact about
+// every file in .github/workflows/, not a property of the one being added.
+// ---------------------------------------------------------------------------
+
+const MEASURE_REF = "measure/visual-noise-floor-1";
+const NOISE_FLOOR_WORKFLOW = "visual-noise-floor.yml";
+
+describe("the measure/ ref namespace starts the measurement and nothing else", () => {
+  const files = readdirSync(WORKFLOW_DIR).filter((f) => /\.ya?ml$/.test(f));
+  const read = (file) => readFileSync(resolve(WORKFLOW_DIR, file), "utf8");
+
+  it("fires exactly one workflow for measure/visual-noise-floor-1", () => {
+    const firing = files.filter(
+      (file) => findTriggerViolations(read(file), file, MEASURE_REF).length > 0
+    );
+    expect(firing, `workflows that fire for ${MEASURE_REF}: ${firing.join(", ")}`).toEqual([
+      NOISE_FLOOR_WORKFLOW,
+    ]);
+  });
+
+  it("declares exactly two triggers — workflow_dispatch and a filtered push", () => {
+    const parsed = parseOnSection(read(NOISE_FLOOR_WORKFLOW));
+    expect(parsed.unreadable).toBeUndefined();
+    expect([...parsed.triggers.keys()].sort()).toEqual(["push", "workflow_dispatch"]);
+  });
+
+  it("cannot fire for a visual-diffs/ ref, so it does not weaken the guard above", () => {
+    // measure/** cannot match visual-diffs/pr-…/run-…; a future loosening to
+    // branches: ['**'] would red this and the repo-wide scan together.
+    expect(findTriggerViolations(read(NOISE_FLOOR_WORKFLOW), NOISE_FLOOR_WORKFLOW)).toEqual([]);
+  });
+
+  it("reaches the real trigger rather than passing vacuously", () => {
+    // Narrow the filter to a branch the measurement never uses and the "fires
+    // exactly one" assertion above must go empty — otherwise it is measuring
+    // an absence it never actually parsed.
+    const real = read(NOISE_FLOOR_WORKFLOW);
+    const narrowed = real.replace(/branches: \["measure\/\*\*"\]/, 'branches: ["main"]');
+    expect(narrowed).not.toBe(real);
+    expect(findTriggerViolations(narrowed, NOISE_FLOOR_WORKFLOW, MEASURE_REF)).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { forwardRef, useRef, useEffect, type KeyboardEvent } from "react";
+import { forwardRef, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { springGentle } from "../../tokens/motion";
@@ -109,10 +109,6 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       el?.scrollIntoView({ block: "nearest" });
     }, [open, focusedIndex]);
 
-    const onTriggerKeyDown = (e: KeyboardEvent) => handleKeyDown(e);
-
-    const focusedOption = focusedIndex >= 0 ? options[focusedIndex] : undefined;
-
     const mergeRef = (node: HTMLDivElement | null) => {
       wrapperRef.current = node;
       if (typeof ref === "function") ref(node);
@@ -132,7 +128,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           <button
             ref={triggerRef}
             id={triggerId}
-            onKeyDown={disabled ? undefined : onTriggerKeyDown}
+            onKeyDown={disabled ? undefined : handleKeyDown}
             className={styles.trigger}
             type="button"
             role="combobox"
@@ -141,7 +137,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
             aria-expanded={open}
             aria-controls={listboxId}
             aria-haspopup="listbox"
-            aria-activedescendant={open && focusedOption ? optionId(focusedIndex) : undefined}
+            aria-activedescendant={open && focusedIndex >= 0 ? optionId(focusedIndex) : undefined}
             aria-disabled={disabled || undefined}
             aria-invalid={error ? true : undefined}
             aria-describedby={field.controlProps["aria-describedby"]}
@@ -198,7 +194,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
                   data-focused={index === focusedIndex}
                   data-disabled={option.disabled || undefined}
                   onClick={option.disabled ? undefined : () => select(option.value)}
-                  onKeyDown={onTriggerKeyDown}
+                  onKeyDown={handleKeyDown}
                   onMouseEnter={() => setFocusedIndex(index)}
                 >
                   <svg

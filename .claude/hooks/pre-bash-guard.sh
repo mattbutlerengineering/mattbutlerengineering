@@ -4,7 +4,8 @@
 # (documented in .claude/rules/gotchas.md).
 #
 # Wired in via .claude/settings.json PreToolUse Bash matcher.
-# Receives the about-to-execute command via $CLAUDE_BASH_COMMAND.
+# Receives the hook payload as JSON on stdin; the about-to-execute command
+# is read via hook-input.mjs (measured contract: scripts/hook-input.mjs).
 #
 #   Check 1 — Node-version drift (WARN, exit 0):
 #     Repo pins Node 22 via .nvmrc. Worktree/agent shells that run on Node 20
@@ -21,8 +22,8 @@
 #   - $SKIP_BASH_GUARD=1 → bypass both checks entirely.
 set -uo pipefail
 
-cmd="${CLAUDE_BASH_COMMAND:-}"
-[[ -z "$cmd" ]] && exit 0
+cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
+[ -n "$cmd" ] || exit 0
 [[ "${SKIP_BASH_GUARD:-}" == "1" ]] && exit 0
 
 # ---------------------------------------------------------------------------

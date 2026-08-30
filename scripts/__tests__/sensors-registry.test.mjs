@@ -360,6 +360,130 @@ describe("sensors-registry", () => {
     });
   });
 
+  describe("acmm sensor", () => {
+    let tmpDir;
+
+    const writeState = (state) => {
+      tmpDir = mkdtempSync(join(tmpdir(), "acmm-sensor-"));
+      mkdirSync(join(tmpDir, ".claude", "acmm"), { recursive: true });
+      writeFileSync(join(tmpDir, ".claude", "acmm", "state.json"), JSON.stringify(state));
+      return SENSORS.find((s) => s.id === "acmm");
+    };
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it("returns failing_gates populated and capped:true when a gate has passed:false", () => {
+      const sensor = writeState({
+        currentLevel: 3,
+        levelName: "Managed",
+        lastRun: "2026-08-29T00:00:00Z",
+        checks: { a: { passed: true }, b: { passed: false } },
+        computation: {
+          capped: true,
+          behavioralGates: [
+            {
+              level: 4,
+              name: "human-touch-ratio",
+              description:
+                "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
+              passed: false,
+              value: 0.7307,
+              threshold: 0.5,
+              direction: "below",
+              strict: true,
+            },
+            {
+              level: 4,
+              name: "some-other-gate",
+              description: "Another gate that is passing",
+              passed: true,
+              value: 0.9,
+              threshold: 0.8,
+              direction: "above",
+              strict: false,
+            },
+          ],
+        },
+      });
+
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({
+        available: true,
+        level: 3,
+        level_name: "Managed",
+        criteria_met: 1,
+        criteria_total: 2,
+        last_run: "2026-08-29T00:00:00Z",
+        capped: true,
+        failing_gates: [
+          {
+            name: "human-touch-ratio",
+            description:
+              "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
+            value: 0.7307,
+            threshold: 0.5,
+            direction: "below",
+          },
+        ],
+      });
+    });
+
+    it("returns failing_gates: [] and capped:false when all gates pass", () => {
+      const sensor = writeState({
+        currentLevel: 4,
+        levelName: "Optimizing",
+        lastRun: "2026-08-29T00:00:00Z",
+        checks: { a: { passed: true } },
+        computation: {
+          capped: false,
+          behavioralGates: [
+            {
+              level: 4,
+              name: "human-touch-ratio",
+              description: "Human-touch ratio must be below 50%",
+              passed: true,
+              value: 0.3,
+              threshold: 0.5,
+              direction: "below",
+              strict: true,
+            },
+          ],
+        },
+      });
+
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result.capped).toBe(false);
+      expect(result.failing_gates).toEqual([]);
+    });
+
+    it("defaults capped to false and failing_gates to [] when state.computation is absent", () => {
+      const sensor = writeState({
+        currentLevel: 2,
+        levelName: "Repeatable",
+        lastRun: "2026-08-29T00:00:00Z",
+        checks: { a: { passed: true } },
+      });
+
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result.capped).toBe(false);
+      expect(result.failing_gates).toEqual([]);
+    });
+
+    it("does not throw and returns { available: false } when state.json does not exist", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "acmm-sensor-"));
+
+      const sensor = SENSORS.find((s) => s.id === "acmm");
+
+      expect(() => sensor.collect({ root: tmpDir })).not.toThrow();
+      expect(sensor.collect({ root: tmpDir })).toEqual({ available: false });
+    });
+  });
+
   describe('collectors use the injected ghClient, not raw execFileSync("gh")', () => {
     it("prCategoryMetrics collects PRs via ghClient.pr.list", () => {
       const prs = [
@@ -453,6 +577,33 @@ describe("sensors-registry", () => {
       ]);
     });
 
+    // #4685: skipped/cancelled conclusions are intentional no-ops (e.g.
+    // Auto-Rollback / Revert Watchdog skipping when their trigger condition
+    // isn't met, or a concurrency-superseded rerun) — they must not dilute
+    // the pass-rate denominator alongside genuine failures.
+    it("ci sensor excludes skipped and cancelled conclusions from the pass-rate denominator", () => {
+      const runs = [
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "success" },
+        { status: "completed", conclusion: "skipped" },
+        { status: "completed", conclusion: "skipped" },
+        { status: "completed", conclusion: "cancelled" },
+      ];
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue(runs) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      const result = sensor.collect({ ghClient });
+
+      expect(result.failed).toBe(0);
+      expect(result.passed).toBe(7);
+      expect(result.pass_rate_pct).toBe(100);
+    });
+
     it("issues sensor reports the auth-capability gap distinctly when ghClient.issue.list throws GhAuthError", () => {
       const ghClient = {
         issue: {
@@ -467,6 +618,74 @@ describe("sensors-registry", () => {
 
       expect(result.available).toBe(false);
       expect(result.error).toMatch(/auth/i);
+    });
+
+    // #4641: a single `--limit 50 --state all` fetch sorted by createdAt desc
+    // gets crowded out by a creation burst — issues closed in the window but
+    // created before it fall off the top-50 and silently vanish from
+    // closed_7d, even though they really did close. Scoping created/closed
+    // counts to two independent server-side searches (rather than filtering
+    // one shared, capped array) means closed_7d can never be truncated by
+    // creation volume.
+    it("issues sensor scopes created/closed counts to independent search queries, not one shared capped list", () => {
+      const now = new Date("2026-08-29T00:00:00Z");
+      const ghClient = {
+        issue: {
+          list: vi
+            .fn()
+            // 1st call: issues created in the window
+            .mockReturnValueOnce([{ number: 1 }, { number: 2 }])
+            // 2nd call: issues closed in the window — #3 was created well
+            // before the window and would have been pushed out of any
+            // shared, creation-sorted, capped fetch.
+            .mockReturnValueOnce([{ number: 3 }])
+            // 3rd call: currently-open issues, for queue_depth/agent_failed
+            .mockReturnValueOnce([
+              { number: 4, labels: [{ name: "ready" }] },
+              { number: 5, labels: [{ name: "agent-failed" }] },
+            ]),
+        },
+      };
+      const sensor = SENSORS.find((s) => s.id === "issues");
+
+      const result = sensor.collect({ ghClient, now });
+
+      expect(result).toEqual({
+        available: true,
+        created_7d: 2,
+        closed_7d: 1,
+        closure_rate: 50,
+        queue_depth: 1,
+        agent_failed: 1,
+      });
+      expect(ghClient.issue.list).toHaveBeenNthCalledWith(1, [
+        "--state",
+        "all",
+        "--search",
+        "created:>=2026-08-22",
+        "--limit",
+        "200",
+        "--json",
+        "number,createdAt",
+      ]);
+      expect(ghClient.issue.list).toHaveBeenNthCalledWith(2, [
+        "--state",
+        "closed",
+        "--search",
+        "closed:>=2026-08-22",
+        "--limit",
+        "200",
+        "--json",
+        "number,closedAt",
+      ]);
+      expect(ghClient.issue.list).toHaveBeenNthCalledWith(3, [
+        "--state",
+        "open",
+        "--limit",
+        "200",
+        "--json",
+        "number,labels",
+      ]);
     });
 
     // readQueueEfficiencyPrs is exercised directly (rather than through the

@@ -13,16 +13,32 @@
     }
   </file>
   </section>
+  <section priority="medium" role="auth">
+  <file path="src/pages/auth/auth-validation.ts">
+    export const MFA_CODE_LENGTH = 6;
+    export const MFA_REJECT_CODE = "000000";
+  </file>
+  <file path="src/pages/auth/authFlowMachine.ts">
+    export const STATIONS = ["browser", "idp", "api"] as const;
+    export type StationId = (typeof STATIONS)[number];
+  </file>
+  <file path="src/pages/auth/score-password.ts">
+    export const MIN_PASSWORD_LENGTH = 12;
+    export const BONUS_LENGTH = 16;
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="src/data/demo-routes.ts">
     export const DEMOS_BASE = "/demos";
     export const DEMO_ROUTES = {
       signIn: `${DEMOS_BASE}/login`,
       signUp: `${DEMOS_BASE}/signup`,
+      sessionExpired: `${DEMOS_BASE}/session-expired`,
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
       telemetry: `${DEMOS_BASE}/telemetry`,
+      authFlow: `${DEMOS_BASE}/auth-flow`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,

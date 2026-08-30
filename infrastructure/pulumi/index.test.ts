@@ -663,6 +663,19 @@ describe("Configuration Validation", () => {
       expect(grantTypes).toContain("refresh_token");
     });
 
+    it("hospitality app declares sso: true to match the live tenant", () => {
+      // The live prod tenant has `sso: true` on this client. Until this test
+      // was added, auth0.ts declared no `sso` property at all, so Pulumi read
+      // the live value as drift and planned to reset it to the provider
+      // default on the next `pulumi up` — silently changing production Auth0
+      // SSO behaviour with zero code change. Declaring the value here makes
+      // the field a no-op in the plan instead, and this assertion is what
+      // stops a future refactor from quietly dropping the line and
+      // reintroducing that drift.
+      const client = findResource("auth0:index/client:Client");
+      expect(client!.inputs.sso).toBe(true);
+    });
+
     it("provisions a non-admin journey identity separate from the admin E2E user", () => {
       // The bootstrap journey case (ADR-020's third case) needs an identity
       // that is NOT an admin: requireVenueCreateAccess skips the membership

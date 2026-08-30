@@ -99,6 +99,8 @@ jobs:
     name: Dependency Sync
     needs: [prepare]
     runs-on: ubuntu-latest
+    # Measured 3m39s on main (run 33219164956) — 28 sequential npx spawns.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
@@ -280,6 +282,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          # Full history: repo-audit's check-rialto-changeset diffs against
+          # `git merge-base HEAD origin/main`, which a depth-1 clone cannot
+          # resolve (same requirement as migration-dry-run). The check fails
+          # closed on an unresolvable base, so dropping this breaks the job
+          # loudly rather than silently skipping the gate.
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-workspace
 

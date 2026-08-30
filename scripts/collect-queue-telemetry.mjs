@@ -56,6 +56,7 @@ export const HUMAN_TOUCH_REASONS = Object.freeze([
   "generated-artifact-regen",
   "ci-rerun",
   "scope-change",
+  "reviewer-flagged-rework",
   "other",
 ]);
 

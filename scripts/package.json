@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "eslint .",
     "test": "cd .. && vitest run --config scripts/vitest.config.mjs",
     "test:coverage": "cd .. && vitest run --config scripts/vitest.config.mjs --coverage"
   },

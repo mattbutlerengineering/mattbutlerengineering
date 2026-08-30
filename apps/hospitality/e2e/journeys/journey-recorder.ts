@@ -142,6 +142,16 @@ export function createJourneyRecorder(page: Page, venueName: string) {
       consoleErrors.push(message);
     },
 
+    /**
+     * Records a step as deliberately skipped — distinct from `passed` (its
+     * assertions never ran) and `failed` (does not fail `assertGreen()`).
+     * For steps a caller decides not to attempt at all, e.g. one gated on
+     * credentials that were never provisioned (#4527).
+     */
+    skip(name: string): void {
+      steps.push({ name, status: "skipped", durationMs: 0 });
+    },
+
     report(): JourneyReport {
       return { runId, runUrl, startedAt, venueName, steps: [...steps], consoleErrors };
     },

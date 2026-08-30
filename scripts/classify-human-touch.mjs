@@ -41,13 +41,23 @@ const LINT_FIXUP_MESSAGE_RE =
 // eslint.config.js, lint-staged.config.js, .prettierignore).
 const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)$/i;
 // Generated-artifact filenames a regen cycle rewrites (see
-// .claude/rules/gotchas.md § Build / pnpm / turbo). Matched by exact
-// basename so a nested path (e.g. packages/rialto/llms.txt) still counts.
+// .claude/rules/gotchas.md § Build / pnpm / turbo), plus mechanical
+// self-tracking bookkeeping files a script rewrites and a human commits
+// verbatim (e.g. the AI-antipattern ratchet baseline — see
+// scripts/check-ai-antipatterns.mjs --update). Matched by exact basename so
+// a nested path (e.g. packages/rialto/llms.txt) still counts.
 const GENERATED_ARTIFACT_PATH_RE =
-  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml)$/;
+  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml|ai-antipattern-baselines\.json)$/;
 // "retry"/"rerun"/"re-run" language — a human nudging CI rather than
 // changing code.
 const CI_RERUN_MESSAGE_RE = /\b(retry|re-?run(?:ning)?)\b/i;
+// The internal `reviewer` subagent's verdict never becomes a GitHub review
+// comment (see .claude/agents/reviewer.md) — it's recorded as commit/PR
+// text instead. These are the two recurring shapes observed in PR #4218
+// ("Rework of #4218: ..." commit message, PR body carrying "## Rework
+// (review verdict: flag, 4/10, category: regression)") and PR #4220 ("Two
+// defects from PR #4220 review: ...").
+const REVIEWER_REWORK_RE = /\b(rework of #\d+|review verdict:|defects from pr #\d+ review)/i;
 
 /**
  * @param {unknown} value
@@ -134,20 +144,37 @@ function hasCiRerunMessageSignal(message) {
 }
 
 /**
+ * @param {string} message
+ */
+function hasReviewerReworkSignal(message) {
+  return REVIEWER_REWORK_RE.test(message);
+}
+
+/**
  * Infer the human-touch reason for one non-author commit on a merged agent
  * PR. Checked in order of signal specificity: explicit conflict markers/
  * mentions, then a generated-artifact-only commit (files entirely a regen
  * artifact — llms.txt/llms-full.txt/generated-schemas.ts/dep-graph.json/
  * pnpm-lock.yaml), then a lint/format-only commit (files entirely
- * lint-covered and/or formatting language in the message), then CI failure
- * at commit time, then a CI-rerun nudge (an empty/no-diff commit, or
- * retry/rerun language in the message), then prior review comments, then
- * scope-change language, else `"other"`. Generated-artifact is checked
- * before lint-fixup because every artifact extension it matches
- * (.ts/.json/.yaml) is also lint-covered — the more specific category must
- * win. CI-rerun is checked after ci-failure so an actual CI failure (a
- * stronger, more specific signal) wins over generic retry language in the
- * same commit message.
+ * lint-covered and/or formatting language in the message), then a
+ * reviewer-flagged-rework marker (explicit "Rework of #N" / "review
+ * verdict:" / "defects from PR #N review" language — the internal
+ * `reviewer` subagent's verdict, which never surfaces as a GitHub review
+ * comment), then CI failure at commit time, then a CI-rerun nudge (an
+ * empty/no-diff commit, or retry/rerun language in the message), then prior
+ * review comments, then scope-change language, else `"other"`.
+ * Generated-artifact is checked before lint-fixup because every artifact
+ * extension it matches (.ts/.json/.yaml) is also lint-covered — the more
+ * specific category must win. Reviewer-flagged-rework is checked after
+ * merge-conflict/generated-artifact-regen/lint-fixup (those are more
+ * specific, mechanical signals) but before ci-failure/ci-rerun/review-fix —
+ * an explicit "Rework of #N" or "review verdict:" marker names the actual
+ * root cause (a reviewer flagged the work), so it should win over the
+ * weaker generic signals a rework commit also happens to carry (e.g. it may
+ * also mention scope changes, or land on a commit with a failing CI run).
+ * CI-rerun is checked after ci-failure so an actual CI failure (a stronger,
+ * more specific signal) wins over generic retry language in the same
+ * commit message.
  *
  * @param {unknown} pr - PR shape `isAgentPr()` expects (`headRefName`, `labels`).
  * @param {unknown} commit - Commit metadata.
@@ -157,7 +184,7 @@ function hasCiRerunMessageSignal(message) {
  * @param {number} [commit.reviewCommentsBefore] - Count of PR review
  *   comments posted before this commit's timestamp.
  * @param {string[]} [commit.files] - Paths changed by this commit.
- * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"generated-artifact-regen"|"ci-rerun"|"scope-change"|"other"}
+ * @returns {"review-fix"|"ci-failure"|"merge-conflict"|"lint-fixup"|"generated-artifact-regen"|"ci-rerun"|"scope-change"|"reviewer-flagged-rework"|"other"}
  */
 export function classifyHumanTouch(pr, commit) {
   if (!isValidPrShape(pr) || !isAgentPr(pr)) return "other";
@@ -170,6 +197,7 @@ export function classifyHumanTouch(pr, commit) {
   if (hasMergeConflictSignal(message)) return "merge-conflict";
   if (hasGeneratedArtifactOnlySignal(files)) return "generated-artifact-regen";
   if (hasLintFixupFilesSignal(files) || hasLintFixupMessageSignal(message)) return "lint-fixup";
+  if (hasReviewerReworkSignal(message)) return "reviewer-flagged-rework";
   if (ciConclusion === "failure") return "ci-failure";
   if (hasEmptyDiffSignal(files) || hasCiRerunMessageSignal(message)) return "ci-rerun";
   if (typeof reviewCommentsBefore === "number" && reviewCommentsBefore > 0) return "review-fix";

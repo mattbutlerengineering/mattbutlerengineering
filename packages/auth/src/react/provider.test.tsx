@@ -164,6 +164,61 @@ describe("AuthProvider", () => {
     expect(onSigninCallback).toHaveBeenCalledOnce();
   });
 
+  it("threads the round-tripped returnTo from OIDC state to the onSigninCallback prop", () => {
+    const onSigninCallback = vi.fn();
+
+    render(
+      <AuthProvider config={baseConfig} onSigninCallback={onSigninCallback}>
+        <div />
+      </AuthProvider>
+    );
+
+    const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
+    const oidcCallback = props.onSigninCallback as (user?: unknown) => void;
+
+    oidcCallback({ state: { returnTo: "/reservations?date=2026-09-01" } });
+
+    expect(onSigninCallback).toHaveBeenCalledWith("/reservations?date=2026-09-01");
+  });
+
+  it("passes undefined instead of an unsafe returnTo (open-redirect guard)", () => {
+    const onSigninCallback = vi.fn();
+
+    render(
+      <AuthProvider config={baseConfig} onSigninCallback={onSigninCallback}>
+        <div />
+      </AuthProvider>
+    );
+
+    const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
+    const oidcCallback = props.onSigninCallback as (user?: unknown) => void;
+
+    oidcCallback({ state: { returnTo: "https://evil.com" } });
+    oidcCallback({ state: { returnTo: "//evil.com" } });
+
+    expect(onSigninCallback).toHaveBeenNthCalledWith(1, undefined);
+    expect(onSigninCallback).toHaveBeenNthCalledWith(2, undefined);
+  });
+
+  it("passes undefined when the signed-in user carries no state", () => {
+    const onSigninCallback = vi.fn();
+
+    render(
+      <AuthProvider config={baseConfig} onSigninCallback={onSigninCallback}>
+        <div />
+      </AuthProvider>
+    );
+
+    const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
+    const oidcCallback = props.onSigninCallback as (user?: unknown) => void;
+
+    oidcCallback(undefined);
+    oidcCallback({ state: undefined });
+
+    expect(onSigninCallback).toHaveBeenNthCalledWith(1, undefined);
+    expect(onSigninCallback).toHaveBeenNthCalledWith(2, undefined);
+  });
+
   it("does not throw when onSigninCallback prop is not provided", () => {
     render(
       <AuthProvider config={baseConfig}>

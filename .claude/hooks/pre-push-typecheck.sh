@@ -5,7 +5,8 @@
 # on main that no local check surfaced before we shipped.
 #
 # Wired in via .claude/settings.json PreToolUse Bash matcher.
-# Receives the about-to-execute command on stdin via $CLAUDE_BASH_COMMAND.
+# Receives the hook payload as JSON on stdin; the about-to-execute command
+# is read via hook-input.mjs (measured contract: scripts/hook-input.mjs).
 #
 # Behavior:
 #   - Only fires when the command contains "git push"
@@ -18,7 +19,8 @@
 #   - --no-verify in the git command → bypass (matches git's own convention)
 set -uo pipefail
 
-cmd="${CLAUDE_BASH_COMMAND:-}"
+cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
+[ -n "$cmd" ] || exit 0
 
 # Only intercept git push; everything else passes through.
 case "$cmd" in

@@ -9,6 +9,7 @@ import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
+import { rememberReturnTo } from "./return-to-store";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -41,6 +42,9 @@ const ReservationsPage = lazy(() =>
 );
 const GuestsPage = lazy(() =>
   import("./pages/GuestsPage.js").then((m) => ({ default: m.GuestsPage }))
+);
+const WaitlistPage = lazy(() =>
+  import("./pages/WaitlistPage.js").then((m) => ({ default: m.WaitlistPage }))
 );
 const FloorPlansPage = lazy(() =>
   import("./pages/FloorPlansPage.js").then((m) => ({
@@ -213,6 +217,14 @@ const router = createBrowserRouter(
               ),
             },
             {
+              path: "waitlist",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <WaitlistPage />
+                </Suspense>
+              ),
+            },
+            {
               path: "briefing",
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -318,7 +330,7 @@ function Root() {
       <RialtoProvider theme={resolveTheme(themeState.theme)}>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
-            <AuthProvider config={authConfigResult.config}>
+            <AuthProvider config={authConfigResult.config} onSigninCallback={rememberReturnTo}>
               <QueryProvider>
                 <RouterProvider router={router} />
               </QueryProvider>

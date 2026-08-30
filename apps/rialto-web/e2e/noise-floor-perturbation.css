@@ -1,0 +1,23 @@
+/*
+ * The noise-floor measurement's known-regression signal.
+ *
+ * Injected by playwright.noise-floor.config.ts via
+ * `expect.toHaveScreenshot.stylePath`, so the perturbation touches no
+ * application source file — the prior run patched VisualTest.module.css
+ * directly, which is a perturbation one bad `git add` away from being
+ * committed.
+ *
+ * These two selectors target the screenshot SUBJECT rather than a list of
+ * sections: visual.spec.ts builds a subject in exactly two ways —
+ * `page.getByTestId(id)` for the harness sections and
+ * `page.locator("[data-feed-state]")` for the telemetry HUD.
+ * e2e/noise-floor-coverage.test.ts asserts that, and fails closed on a third
+ * form. Do not add a `:not(:has(...))` refinement: it would silently
+ * under-perturb any future nested subject, the dangerous direction.
+ *
+ * The value is the prior run's, unchanged (defect.md § Reproduction).
+ */
+[data-testid],
+[data-feed-state] {
+  opacity: 0.55;
+}
