@@ -978,3 +978,12 @@ None (`agent-skip` is empty this run).
 **queueEfficiency:** composite 0.959 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:12, size:s:11, size:m:4, size:l:2
 **Issues filed:** 0
+
+## 2026-08-30 (learning-loop)
+
+**Sensors:** 9/16 available (domainActivity, agentCost, lighthouse, mutationScore, flakyTests unavailable; issues + issueFeedback errored on the known GitHub REST-fallback 403). acmm L5 (96/114), ciHealth 100% (25/30), e2eStability 0 consecutive failures (17/17 non-frontend), queueEfficiency composite 0.927 (fps 0.818, ttm 0.4h, no baseline yet), codeChurn 0% (7d).
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run.
+**Sentry triage:** skipped — Sentry MCP connected but `find_organizations` 403'd ("Host not in allowlist: sentry.io"), same no-egress-to-production constraint as #2920 and the 08-28 run.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4685/#4641 had no completed CI runs to resolve against, #4669/#4625 needed a Lighthouse inventory unreachable in this sandbox, #4628 had no matching verifier for its labels).
+**Skill proposals:** 0 (Sunday, not the Friday extraction day).
+**Threshold notes:** ci-fix auto-tuned 1.09 → 1.12 (headroom) by verify-fixes.mjs. 30d verification log is still almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable in this cloud sandbox), so false-positive and fix-effectiveness rates aren't a meaningful signal yet — consistent with the 08-11/08-28 notes, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GITHUB_TOKEN REST-fallback 403 as the `issues`/`issueFeedback` sensors (unresolved since 2026-08-11).
