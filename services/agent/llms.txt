@@ -296,8 +296,8 @@
         rawLines: unknown;
       }
     </item>
-    <item priority="high">
-      export function mapStoredSpec(s: StoredSpec): StoredSpecResponse { /* ... */ }
+    <item priority="low">
+      type StoredSpecPublicResponse = Omit<StoredSpecResponse, "userId">;
     </item>
   </file>
   </section>
