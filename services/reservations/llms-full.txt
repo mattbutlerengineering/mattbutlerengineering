@@ -40,6 +40,19 @@
       return `${ip}:${venueSlug}`;
     }
   </file>
+  <file path="src/middleware/raw-body-capture.ts">
+    export function createRawBodyCaptureHook(): preParsingAsyncHookHandler {
+      return async (request, _reply, payload) => {
+        const chunks: Buffer[] = [];
+        for await (const chunk of payload) {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+        }
+        const rawBody = Buffer.concat(chunks);
+        request.rawBody = rawBody;
+        return Readable.from(rawBody);
+      };
+    }
+  </file>
   <file path="src/middleware/require-manage-token.ts">
     export async function requireManageToken(
       request: FastifyRequest<{ Querystring: { token?: string } }>,
