@@ -378,6 +378,17 @@ export const SENSORS = [
       const total = Object.keys(checks).length;
       const passed = Object.values(checks).filter((c) => c.passed).length;
 
+      const gates = state.computation?.behavioralGates ?? [];
+      const failingGates = gates
+        .filter((g) => g.passed === false)
+        .map(({ name, description, value, threshold, direction }) => ({
+          name,
+          description,
+          value,
+          threshold,
+          direction,
+        }));
+
       return {
         available: true,
         level: state.currentLevel ?? null,
@@ -385,6 +396,8 @@ export const SENSORS = [
         criteria_met: passed,
         criteria_total: total,
         last_run: state.lastRun ?? null,
+        capped: state.computation?.capped ?? false,
+        failing_gates: failingGates,
       };
     },
     format: (data, name) =>

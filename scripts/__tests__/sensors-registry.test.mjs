@@ -360,6 +360,130 @@ describe("sensors-registry", () => {
     });
   });
 
+  describe("acmm sensor", () => {
+    let tmpDir;
+
+    const writeState = (state) => {
+      tmpDir = mkdtempSync(join(tmpdir(), "acmm-sensor-"));
+      mkdirSync(join(tmpDir, ".claude", "acmm"), { recursive: true });
+      writeFileSync(join(tmpDir, ".claude", "acmm", "state.json"), JSON.stringify(state));
+      return SENSORS.find((s) => s.id === "acmm");
+    };
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it("returns failing_gates populated and capped:true when a gate has passed:false", () => {
+      const sensor = writeState({
+        currentLevel: 3,
+        levelName: "Managed",
+        lastRun: "2026-08-29T00:00:00Z",
+        checks: { a: { passed: true }, b: { passed: false } },
+        computation: {
+          capped: true,
+          behavioralGates: [
+            {
+              level: 4,
+              name: "human-touch-ratio",
+              description:
+                "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
+              passed: false,
+              value: 0.7307,
+              threshold: 0.5,
+              direction: "below",
+              strict: true,
+            },
+            {
+              level: 4,
+              name: "some-other-gate",
+              description: "Another gate that is passing",
+              passed: true,
+              value: 0.9,
+              threshold: 0.8,
+              direction: "above",
+              strict: false,
+            },
+          ],
+        },
+      });
+
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result).toEqual({
+        available: true,
+        level: 3,
+        level_name: "Managed",
+        criteria_met: 1,
+        criteria_total: 2,
+        last_run: "2026-08-29T00:00:00Z",
+        capped: true,
+        failing_gates: [
+          {
+            name: "human-touch-ratio",
+            description:
+              "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
+            value: 0.7307,
+            threshold: 0.5,
+            direction: "below",
+          },
+        ],
+      });
+    });
+
+    it("returns failing_gates: [] and capped:false when all gates pass", () => {
+      const sensor = writeState({
+        currentLevel: 4,
+        levelName: "Optimizing",
+        lastRun: "2026-08-29T00:00:00Z",
+        checks: { a: { passed: true } },
+        computation: {
+          capped: false,
+          behavioralGates: [
+            {
+              level: 4,
+              name: "human-touch-ratio",
+              description: "Human-touch ratio must be below 50%",
+              passed: true,
+              value: 0.3,
+              threshold: 0.5,
+              direction: "below",
+              strict: true,
+            },
+          ],
+        },
+      });
+
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result.capped).toBe(false);
+      expect(result.failing_gates).toEqual([]);
+    });
+
+    it("defaults capped to false and failing_gates to [] when state.computation is absent", () => {
+      const sensor = writeState({
+        currentLevel: 2,
+        levelName: "Repeatable",
+        lastRun: "2026-08-29T00:00:00Z",
+        checks: { a: { passed: true } },
+      });
+
+      const result = sensor.collect({ root: tmpDir });
+
+      expect(result.capped).toBe(false);
+      expect(result.failing_gates).toEqual([]);
+    });
+
+    it("does not throw and returns { available: false } when state.json does not exist", () => {
+      tmpDir = mkdtempSync(join(tmpdir(), "acmm-sensor-"));
+
+      const sensor = SENSORS.find((s) => s.id === "acmm");
+
+      expect(() => sensor.collect({ root: tmpDir })).not.toThrow();
+      expect(sensor.collect({ root: tmpDir })).toEqual({ available: false });
+    });
+  });
+
   describe('collectors use the injected ghClient, not raw execFileSync("gh")', () => {
     it("prCategoryMetrics collects PRs via ghClient.pr.list", () => {
       const prs = [
