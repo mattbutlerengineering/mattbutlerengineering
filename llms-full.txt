@@ -5269,9 +5269,19 @@
   <file path="services/reservations/src/middleware/raw-body-capture.ts">
     export function createRawBodyCaptureHook(): preParsingAsyncHookHandler {
       return async (request, _reply, payload) => {
+        const limit = request.server.initialConfig.bodyLimit ?? DEFAULT_BODY_LIMIT;
         const chunks: Buffer[] = [];
+        let total = 0;
         for await (const chunk of payload) {
-          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer));
+          const buf = typeof chunk === "string" ? Buffer.from(chunk) : (chunk as Buffer);
+          total += buf.length;
+          if (total > limit) {
+            throw Object.assign(new Error("Request body exceeds the configured size limit"), {
+              statusCode: 413,
+              code: "FST_ERR_CTP_BODY_TOO_LARGE",
+            });
+          }
+          chunks.push(buf);
         }
         const rawBody = Buffer.concat(chunks);
         request.rawBody = rawBody;
