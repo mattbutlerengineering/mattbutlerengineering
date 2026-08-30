@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-29T18:23:13.214Z",
+  "generatedAt": "2026-08-30T20:30:49.746Z",
   "patterns": {
     "magicTimeouts": {
-      "count": 31,
+      "count": 29,
       "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
     },
     "emptyCatch": {
@@ -14,7 +14,7 @@
       "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
     },
     "hardcodedRoutes": {
-      "count": 638,
+      "count": 639,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
