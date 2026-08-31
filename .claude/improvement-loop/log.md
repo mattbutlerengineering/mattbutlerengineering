@@ -1037,3 +1037,12 @@ None (`agent-skip` is empty this run).
 ### Skipped Issues
 
 None (`agent-skip` empty this run).
+
+## 2026-08-31 (learning-loop)
+
+**Sensors:** 6/16 available (acmm L5 96/114, prMetrics 7 entries, ccusageCost $0/30d cache_hit 93%, sessionLogs 0/7d, codeChurn 0% 7d, prCategoryMetrics 86/86 [signal uninformative: fix-forward pattern]). domainActivity/agentCost/lighthouse/mutationScore not available. ciHealth/issues/issueFeedback/flakyTests/e2eStability/queueEfficiency all query-failed — `gh-client` REST fallback either 502'd ("builtin injection failed (github)") or hit the standing 403 ("REST fallback credential is not valid for direct API calls"), the same known gap as every prior cloud-scheduled run since 08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run.
+**Sentry triage:** skipped — Sentry MCP dropped connection mid-run (`CONNECTION_CLOSED`) before it could be invoked; reconnected moments later but the step wasn't re-attempted since there was nothing else this run needed it for.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4771/#4712/#4711 had no completed CI runs to resolve against, #4699/#4698 needed a Lighthouse inventory unreachable in this sandbox).
+**Skill proposals:** 0 (Monday, not the Friday extraction day).
+**Threshold notes:** ci-fix auto-tuned 1.09 → 1.105 (headroom) by verify-fixes.mjs. 30d verification log remains almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable), so false-positive and fix-effectiveness rates still aren't a meaningful signal — consistent with 08-28/08-30 notes, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback` (unresolved since 2026-08-11); `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).

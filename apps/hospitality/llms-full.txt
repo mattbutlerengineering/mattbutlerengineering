@@ -473,6 +473,18 @@
       return Array.isArray(permissions) && permissions.includes("admin");
     }
   </file>
+  <file path="src/hooks/useNow.ts">
+    export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date {
+      const [now, setNow] = useState(() => new Date());
+    
+      useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), intervalMs);
+        return () => clearInterval(interval);
+      }, [intervalMs]);
+    
+      return now;
+    }
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     export interface UsePublicApiClientOptions {
       baseUrl?: string;
@@ -794,6 +806,35 @@
       NO_SHOW: "No Show",
     };
   </file>
+  <file path="src/utils/venueOpenLabel.ts">
+    export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
+      monday: "Monday",
+      tuesday: "Tuesday",
+      wednesday: "Wednesday",
+      thursday: "Thursday",
+      friday: "Friday",
+      saturday: "Saturday",
+      sunday: "Sunday",
+    };
+    export function formatVenueOpenLabel(s: VenueOpenState): string {
+      switch (s.state) {
+        case "open":
+          return `Open until ${formatLocalTime(s.closesAt)}`;
+        case "opening-soon":
+          return `Opens at ${formatLocalTime(s.opensAt)}`;
+        case "closed":
+          return s.opensOn === null
+            ? `Closed, opens at ${formatLocalTime(s.opensAt)}`
+            : `Closed, opens ${WEEKDAY_LABEL[s.opensOn]} at ${formatLocalTime(s.opensAt)}`;
+        case "unset":
+          return UNSET_LABEL;
+      }
+    }
+  </file>
+  <file path="src/utils/venueOpenState.ts">
+    export type Weekday = keyof OperatingHours;
+    export type LocalTime = string;
+  </file>
   </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/floor-plan-draft.ts">
@@ -836,6 +877,10 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="src/components/venue-onboarding/launch-sequence.ts">
+    export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+    export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
+  </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
     export interface OnboardingStep {
       /** Short step name shown as the rail heading. */
@@ -858,6 +903,7 @@
       locationTime: LocationTimeData;
       operatingHours: OperatingHours;
       settings: SettingsData;
+      floorPlan: FloorPlanDraft;
     }
   </file>
   </section>
