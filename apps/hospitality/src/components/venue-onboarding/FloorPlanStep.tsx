@@ -73,7 +73,7 @@ export function FloorPlanStep({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [pendingTemplateId, setPendingTemplateId] = useState<TemplateId | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const cardRefs = useRef<Map<TemplateId, HTMLButtonElement>>(new Map());
+  const cardsRef = useRef<Map<TemplateId, HTMLButtonElement>>(new Map());
 
   const applyTemplate = useCallback(
     (templateId: TemplateId) => {
@@ -122,7 +122,7 @@ export function FloorPlanStep({
       if (nextIndex === null) return;
       e.preventDefault();
       const next = FLOOR_PLAN_TEMPLATES[nextIndex]!;
-      cardRefs.current.get(next.id)?.focus();
+      cardsRef.current.get(next.id)?.focus();
       handleSelectTemplate(next.id);
     },
     [draft.templateId, handleSelectTemplate]
@@ -145,6 +145,11 @@ export function FloorPlanStep({
     if (!isWideViewport || !selectedTableId || addDialogOpen) return;
 
     const handler = (e: globalThis.KeyboardEvent) => {
+      // The template picker's own onKeyDown (handlePickerKeyDown) already
+      // calls preventDefault() when it consumes an arrow key to move
+      // radiogroup focus — bail here so this window-level listener never
+      // ALSO nudges the selected canvas table for the same keypress.
+      if (e.defaultPrevented) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
         return;
@@ -212,7 +217,7 @@ export function FloorPlanStep({
             <Button
               key={template.id}
               ref={(ref) => {
-                if (ref) cardRefs.current.set(template.id, ref);
+                if (ref) cardsRef.current.set(template.id, ref);
               }}
               variant="ghost"
               role="radio"

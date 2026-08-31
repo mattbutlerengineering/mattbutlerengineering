@@ -19195,11 +19195,12 @@
       { label: "Location", description: "Timezone & currency" },
       { label: "Hours", description: "When you're open" },
       { label: "Settings", description: "Reservation defaults" },
+      { label: "Floor plan", description: "Lay out your tables" },
       { label: "Launch", description: "Review & go live" },
     ];
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/useOnboardingWizard.ts">
-    export const TOTAL_STEPS = 5;
+    export const TOTAL_STEPS = 6;
     export interface OnboardingWizardData {
       basicInfo: BasicInfoData;
       locationTime: LocationTimeData;

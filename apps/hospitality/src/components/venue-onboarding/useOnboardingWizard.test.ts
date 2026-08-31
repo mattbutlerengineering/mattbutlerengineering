@@ -452,7 +452,7 @@ describe("buildOnboardingPayload", () => {
   });
 
   it("caps advancement at TOTAL_STEPS", () => {
-    expect(TOTAL_STEPS).toBe(5);
+    expect(TOTAL_STEPS).toBe(6);
   });
 
   // Regression: #3082 refactor returned `actions` as a fresh object literal every
