@@ -71,6 +71,18 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
       <ToastIcon variant={t.variant ?? "default"} />
       {t.title && <p className={styles.title}>{t.title}</p>}
       {t.description && <p className={styles.description}>{t.description}</p>}
+      {t.action && (
+        <button
+          type="button"
+          className={styles.action}
+          onClick={() => {
+            t.action?.onClick();
+            onDismiss(t.id);
+          }}
+        >
+          {t.action.label}
+        </button>
+      )}
 
       <button className={styles.close} onClick={() => onDismiss(t.id)} aria-label="Dismiss">
         <svg

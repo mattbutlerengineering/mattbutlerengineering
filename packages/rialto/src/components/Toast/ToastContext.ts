@@ -3,6 +3,12 @@ import { createContext, useContext } from "react";
 /* ── Types ───────────────────────────────────── */
 export type ToastVariant = "default" | "success" | "error" | "accent";
 
+/** A single, dismiss-on-click affordance rendered alongside a toast (e.g. "Undo"). */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 /**
  * Internal data shape for a single toast notification, including its unique `id` assigned
  * by the provider. Consumers should use {@link ToastInput} when calling `toast()`.
@@ -14,6 +20,8 @@ export interface ToastData {
   variant?: ToastVariant;
   /** Auto-dismiss in ms. 0 = manual dismiss only. */
   duration?: number;
+  /** Optional action button (e.g. Undo) rendered in the toast; dismisses on click. */
+  action?: ToastAction;
 }
 
 /**
