@@ -19205,6 +19205,7 @@
       locationTime: LocationTimeData;
       operatingHours: OperatingHours;
       settings: SettingsData;
+      floorPlan: FloorPlanDraft;
     }
   </file>
   </section>

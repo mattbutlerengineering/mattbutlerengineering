@@ -1,5 +1,11 @@
 import { useReducer, useCallback, useMemo } from "react";
-import type { OperatingHours, CreateVenueRequest, VenueSettings, Venue } from "@mbe/types";
+import type {
+  OperatingHours,
+  CreateVenueRequest,
+  VenueSettings,
+  Venue,
+  CreateTableRequest,
+} from "@mbe/types";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 import { validateLocationTime, detectTimezone, type LocationTimeData } from "./LocationTimeStep.js";
 import {
@@ -7,6 +13,13 @@ import {
   type OperatingHoursValidationErrors,
 } from "./OperatingHoursStep.js";
 import { validateSettings, RECOMMENDED_SETTINGS, type SettingsData } from "./SettingsStep.js";
+import {
+  EMPTY_FLOOR_PLAN_DRAFT,
+  draftTableFromCreateRequest,
+  type FloorPlanDraft,
+} from "./floor-plan-draft.js";
+import { templateById, tablesForTemplate, type TemplateId } from "./floor-plan-templates.js";
+import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 
 export const TOTAL_STEPS = 5;
 
@@ -15,6 +28,7 @@ export interface OnboardingWizardData {
   locationTime: LocationTimeData;
   operatingHours: OperatingHours;
   settings: SettingsData;
+  floorPlan: FloorPlanDraft;
 }
 
 export interface OnboardingWizardErrors {
@@ -22,7 +36,11 @@ export interface OnboardingWizardErrors {
   locationTime: Partial<Record<keyof LocationTimeData, string>>;
   operatingHours: OperatingHoursValidationErrors | null;
   settings: Partial<Record<keyof SettingsData, string>>;
+  floorPlan: string | null;
 }
+
+const FLOOR_PLAN_REQUIRED_MESSAGE =
+  "Choose a layout to continue — pick Blank to start with an empty floor.";
 
 interface OnboardingWizardState {
   step: number;
@@ -32,6 +50,7 @@ interface OnboardingWizardState {
   slugStatus: SlugStatus;
   isSubmitting: boolean;
   submitError: string | null;
+  launch: LaunchProgress;
 }
 
 type OnboardingWizardAction =
@@ -47,7 +66,12 @@ type OnboardingWizardAction =
   | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
   | { type: "SUBMIT_START" }
   | { type: "SUBMIT_SUCCESS" }
-  | { type: "SUBMIT_ERROR"; error: string };
+  | { type: "SUBMIT_ERROR"; error: string }
+  | { type: "SET_TEMPLATE"; templateId: TemplateId }
+  | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
+  | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
+  | { type: "REMOVE_DRAFT_TABLE"; localId: string }
+  | { type: "SET_LAUNCH_PROGRESS"; progress: LaunchProgress };
 
 const INITIAL_BASIC_INFO: BasicInfoData = { name: "", slug: "", venueGroupId: "" };
 
@@ -70,17 +94,20 @@ const INITIAL_STATE: OnboardingWizardState = {
     locationTime: INITIAL_LOCATION_TIME,
     operatingHours: INITIAL_OPERATING_HOURS,
     settings: INITIAL_SETTINGS,
+    floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
   },
   errors: {
     basicInfo: {},
     locationTime: {},
     operatingHours: null,
     settings: {},
+    floorPlan: null,
   },
   highestStepReached: 1,
   slugStatus: "idle",
   isSubmitting: false,
   submitError: null,
+  launch: INITIAL_LAUNCH_PROGRESS,
 };
 
 /** Recompute validation errors for the wizard's current step. Pure. */
@@ -115,6 +142,16 @@ function runStepValidation(state: OnboardingWizardState): {
       return {
         state: { ...state, errors: { ...state.errors, settings: errors } },
         valid: Object.keys(errors).length === 0,
+      };
+    }
+    case 5: {
+      const valid = state.data.floorPlan.templateId !== null;
+      return {
+        state: {
+          ...state,
+          errors: { ...state.errors, floorPlan: valid ? null : FLOOR_PLAN_REQUIRED_MESSAGE },
+        },
+        valid,
       };
     }
     default:
@@ -167,14 +204,18 @@ function reducer(
       // on-blur field validation the step inputs wire to onValidate.
       return runStepValidation(state).state;
 
-    case "BACK":
-      return { ...state, step: Math.max(state.step - 1, 1) };
+    case "BACK": {
+      const floor = state.launch.venueId !== null ? 5 : 1;
+      return { ...state, step: Math.max(state.step - 1, floor) };
+    }
 
-    case "GO_TO_STEP":
-      if (action.step >= 1 && action.step <= state.highestStepReached) {
+    case "GO_TO_STEP": {
+      const floor = state.launch.venueId !== null ? 5 : 1;
+      if (action.step >= floor && action.step <= state.highestStepReached) {
         return { ...state, step: action.step };
       }
       return state;
+    }
 
     case "SLUG_CHECK_START":
       return { ...state, slugStatus: "checking" };
@@ -206,6 +247,69 @@ function reducer(
     case "SUBMIT_ERROR":
       return { ...state, isSubmitting: false, submitError: action.error };
 
+    case "SET_TEMPLATE": {
+      const template = templateById(action.templateId);
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          floorPlan: {
+            templateId: action.templateId,
+            planName: template.planName,
+            tables: tablesForTemplate(template),
+            pristine: true,
+          },
+        },
+        errors: { ...state.errors, floorPlan: null },
+      };
+    }
+
+    case "ADD_DRAFT_TABLE": {
+      const table = draftTableFromCreateRequest(action.request, action.request.name);
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          floorPlan: {
+            ...state.data.floorPlan,
+            tables: [...state.data.floorPlan.tables, table],
+            pristine: false,
+          },
+        },
+      };
+    }
+
+    case "MOVE_DRAFT_TABLE":
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          floorPlan: {
+            ...state.data.floorPlan,
+            tables: state.data.floorPlan.tables.map((table) =>
+              table.localId === action.localId ? { ...table, x: action.x, y: action.y } : table
+            ),
+            pristine: false,
+          },
+        },
+      };
+
+    case "REMOVE_DRAFT_TABLE":
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          floorPlan: {
+            ...state.data.floorPlan,
+            tables: state.data.floorPlan.tables.filter((table) => table.localId !== action.localId),
+            pristine: false,
+          },
+        },
+      };
+
+    case "SET_LAUNCH_PROGRESS":
+      return { ...state, launch: action.progress };
+
     default:
       return state;
   }
@@ -222,6 +326,11 @@ export interface OnboardingWizardActions {
   validateStep: () => void;
   checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
   submit: (venuePromise: Promise<Venue>) => Promise<Venue>;
+  setTemplate: (templateId: TemplateId) => void;
+  addDraftTable: (request: CreateTableRequest) => void;
+  moveDraftTable: (localId: string, x: number, y: number) => void;
+  removeDraftTable: (localId: string) => void;
+  setLaunchProgress: (progress: LaunchProgress) => void;
 }
 
 export interface OnboardingWizardResult {
@@ -232,6 +341,7 @@ export interface OnboardingWizardResult {
   slugStatus: SlugStatus;
   isSubmitting: boolean;
   submitError: string | null;
+  launch: LaunchProgress;
   actions: OnboardingWizardActions;
 }
 
@@ -298,12 +408,60 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     }
   }, []);
 
+  const setTemplate = useCallback(
+    (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
+    []
+  );
+  const addDraftTable = useCallback(
+    (request: CreateTableRequest) => dispatch({ type: "ADD_DRAFT_TABLE", request }),
+    []
+  );
+  const moveDraftTable = useCallback(
+    (localId: string, x: number, y: number) =>
+      dispatch({ type: "MOVE_DRAFT_TABLE", localId, x, y }),
+    []
+  );
+  const removeDraftTable = useCallback(
+    (localId: string) => dispatch({ type: "REMOVE_DRAFT_TABLE", localId }),
+    []
+  );
+  const setLaunchProgress = useCallback(
+    (progress: LaunchProgress) => dispatch({ type: "SET_LAUNCH_PROGRESS", progress }),
+    []
+  );
+
   // Stabilise the actions object identity across renders. Each callback is
   // already memoized, so this object never changes — consumers can safely list
   // `actions` in effect dependency arrays without re-running every render.
   const actions = useMemo<OnboardingWizardActions>(
-    () => ({ setStepData, next, back, goToStep, validateStep, checkSlugAvailability, submit }),
-    [setStepData, next, back, goToStep, validateStep, checkSlugAvailability, submit]
+    () => ({
+      setStepData,
+      next,
+      back,
+      goToStep,
+      validateStep,
+      checkSlugAvailability,
+      submit,
+      setTemplate,
+      addDraftTable,
+      moveDraftTable,
+      removeDraftTable,
+      setLaunchProgress,
+    }),
+    [
+      setStepData,
+      next,
+      back,
+      goToStep,
+      validateStep,
+      checkSlugAvailability,
+      submit,
+      setTemplate,
+      addDraftTable,
+      moveDraftTable,
+      removeDraftTable,
+      setLaunchProgress,
+    ]
   );
 
   return {
@@ -314,6 +472,7 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     slugStatus: state.slugStatus,
     isSubmitting: state.isSubmitting,
     submitError: state.submitError,
+    launch: state.launch,
     actions,
   };
 }
