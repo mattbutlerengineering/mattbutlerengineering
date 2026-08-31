@@ -15,6 +15,12 @@ const BOARD_LABEL = "Reservations, guests, floor plans, waitlist, and timeline";
 /** The two parties to the redirect leg of sign-in. */
 const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
 
+/** Tagline shown after a sign-out round-trip lands back on this gate with no OIDC params. */
+const SIGNED_OUT_TAGLINE = "You're signed out. Sign in again whenever you're ready.";
+
+/** Default tagline shown on a first-visit (never-authenticated) sign-in. */
+const DEFAULT_TAGLINE = "Restaurant management, simplified.";
+
 /**
  * Branded sign-in gate for the unauthenticated shell. Atmosphere + grain
  * backdrop and a machined card per the rialto house style, with a split-flap
@@ -30,7 +36,12 @@ const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
  * the second or two before the browser leaves reads as progress, not a dead
  * click. The button's resting name stays exactly "Sign In".
  */
-export function LoginGate() {
+export interface LoginGateProps {
+  /** When true, swaps in the signed-out tagline (a sign-out round-trip landed back here). */
+  signedOut?: boolean;
+}
+
+export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
   const { signIn, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
 
@@ -46,7 +57,7 @@ export function LoginGate() {
               Hospitality
             </Text>
             <Text variant="body" color="secondary">
-              Restaurant management, simplified.
+              {signedOut ? SIGNED_OUT_TAGLINE : DEFAULT_TAGLINE}
             </Text>
           </Stack>
 
