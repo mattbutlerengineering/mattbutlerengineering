@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { MemoryRouter } from "react-router";
-import { SignUp } from "./SignUp";
+import { SignUp, SIGN_UP_PHASES } from "./SignUp";
 
 const toastSpy = vi.hoisted(() => vi.fn());
 
@@ -275,11 +275,12 @@ describe("SignUp — Handshake phase", () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
 
-    expect(screen.getByRole("img", { name: "Account created" })).toHaveAttribute(
-      "data-state",
-      "settled"
-    );
-    expect(screen.getByRole("status")).toHaveTextContent("Account created");
+    expect(
+      screen.getByRole("img", { name: "Account created — your browser and Identity agree" })
+    ).toHaveAttribute("data-state", "settled");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Account created");
+    expect(status.textContent).not.toBe("Account created — your browser and Identity agree");
     expect(toastSpy).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Account created successfully", variant: "success" })
     );
@@ -323,3 +324,12 @@ describe("SignUp — Handshake phase", () => {
     expect(toastSpy).not.toHaveBeenCalled();
   });
 });
+
+describe.each(Object.entries(SIGN_UP_PHASES).filter(([, phase]) => phase.status !== ""))(
+  "SIGN_UP_PHASES.%s",
+  (_phaseName, phase) => {
+    it("gives the image label a distinct sentence from the status line", () => {
+      expect(phase.ariaLabel).not.toBe(phase.status);
+    });
+  }
+);
