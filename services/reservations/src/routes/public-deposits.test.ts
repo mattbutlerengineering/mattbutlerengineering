@@ -649,4 +649,43 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
     expect(response.statusCode).toBe(400);
     await app.close();
   });
+
+  it("has dedicated rate limiting configured at 10 req/min, distinct from the service-wide 100/min limiter", async () => {
+    // Venue lookup fails fast (404) so we don't need to mock the full Stripe
+    // flow 11 times — the rate limiter runs at the `onRequest` stage, before
+    // any handler logic, so it must count and reject regardless of what the
+    // downstream business logic would have returned.
+    vi.mocked(venueService.getPolicyBySlug).mockResolvedValue(null);
+
+    const app = await buildApp({ logger: false });
+    await app.ready();
+
+    const responses = [];
+    for (let i = 0; i < 11; i++) {
+      const response = await app.inject({
+        method: "POST",
+        url: TEST_URL,
+        payload: { reservationId: "res-1" },
+      });
+      responses.push(response);
+    }
+
+    // First 10 requests reach the handler (404, venue not found) — proving
+    // the dedicated per-route limit (10/min), not the global 100/min cap,
+    // is the one in effect for this route.
+    for (let i = 0; i < 10; i++) {
+      const response = responses[i];
+      if (!response) throw new Error(`expected response at index ${i}`);
+      expect(response.statusCode).toBe(404);
+      expect(response.headers["x-ratelimit-limit"]).toBe("10");
+    }
+
+    // 11th is rejected by the limiter itself — proving the global limiter
+    // was NOT silently left as the only bound (it would allow up to 100).
+    const eleventh = responses[10];
+    if (!eleventh) throw new Error("expected an 11th response");
+    expect(eleventh.statusCode).toBe(429);
+
+    await app.close();
+  });
 });
