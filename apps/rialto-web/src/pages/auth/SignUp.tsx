@@ -108,9 +108,12 @@ export function SignUp() {
   const device = useDeviceContext();
   const [showPassword, setShowPassword] = useState(false);
   const [phase, setPhase] = useState<SignUpPhase>("idle");
+  const [fullName, setFullName] = useState("");
+  const [fullNameError, setFullNameError] = useState(false);
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState(false);
   const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [confirmTouched, setConfirmTouched] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -118,20 +121,28 @@ export function SignUp() {
 
   const isLoading = phase === "submitting";
   const controlsDisabled = isLoading || phase === "created";
-  const confirmMismatch = confirmTouched && confirm !== password;
+  const confirmInvalid = confirm === "" || confirm !== password;
+  const confirmMismatch = confirmTouched && confirmInvalid;
+  const confirmHint = confirmMismatch
+    ? confirm === ""
+      ? "Confirm your password"
+      : "Passwords don’t match"
+    : undefined;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!isValidEmail(email)) {
-      setEmailError(true);
-      return;
-    }
-    if (confirm !== password) {
-      setConfirmTouched(true);
-      return;
-    }
-    if (!agreed) {
-      setAgreedError(true);
+    const fullNameInvalid = fullName.trim() === "";
+    const emailInvalid = !isValidEmail(email);
+    const passwordInvalid = password === "";
+    const agreedInvalid = !agreed;
+
+    setFullNameError(fullNameInvalid);
+    setEmailError(emailInvalid);
+    setPasswordError(passwordInvalid);
+    setConfirmTouched(true);
+    setAgreedError(agreedInvalid);
+
+    if (fullNameInvalid || emailInvalid || passwordInvalid || confirmInvalid || agreedInvalid) {
       return;
     }
 
@@ -175,6 +186,13 @@ export function SignUp() {
           required
           autoComplete="name"
           disabled={controlsDisabled}
+          value={fullName}
+          error={fullNameError}
+          hint={fullNameError ? "Enter your name" : undefined}
+          onChange={(e) => {
+            setFullName(e.target.value);
+            if (fullNameError) setFullNameError(false);
+          }}
         />
         <Input
           label="Email address"
@@ -198,7 +216,12 @@ export function SignUp() {
           autoComplete="new-password"
           disabled={controlsDisabled}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          error={passwordError}
+          hint={passwordError ? "Enter a password" : undefined}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (passwordError) setPasswordError(false);
+          }}
           endIcon={
             <Button
               variant="ghost"
@@ -221,7 +244,7 @@ export function SignUp() {
           disabled={controlsDisabled}
           value={confirm}
           error={confirmMismatch}
-          hint={confirmMismatch ? "Passwords don’t match" : undefined}
+          hint={confirmHint}
           onChange={(e) => setConfirm(e.target.value)}
           onBlur={() => setConfirmTouched(confirm !== "")}
         />

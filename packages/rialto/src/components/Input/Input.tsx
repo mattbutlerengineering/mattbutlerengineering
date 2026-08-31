@@ -97,11 +97,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             )}
           </div>
           {hint && (
-            <span {...field.descriptionProps} className={styles.hint}>
+            <span
+              {...field.descriptionProps}
+              role={error ? "status" : undefined}
+              aria-live={error ? "polite" : undefined}
+              aria-atomic={error ? true : undefined}
+              className={styles.hint}
+            >
               {hint}
             </span>
           )}
-          <span {...field.liveRegionProps}>{error && hint ? hint : ""}</span>
         </div>
       </DisabledTooltip>
     );

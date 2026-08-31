@@ -224,4 +224,9 @@ describe("Input — aria-live announcements", () => {
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveTextContent("Invalid email");
   });
+
+  it("does not duplicate the error message into a separate hidden node", () => {
+    render(<Input error hint="Invalid email" />);
+    expect(screen.getAllByText("Invalid email")).toHaveLength(1);
+  });
 });
