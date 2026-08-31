@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Routes, Route } from "react-router";
 import { SignIn } from "./SignIn";
 import { MFA_REJECT_CODE } from "./auth-validation";
 
 const toastSpy = vi.hoisted(() => vi.fn());
+const deviceContextRef = vi.hoisted(() => ({ reducedMotion: false }));
 
 // ---------------------------------------------------------------------------
 // Behavioral mock of @mattbutlerengineering/rialto (house pattern — the real
@@ -60,6 +61,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     error,
     hint,
     length = 4,
+    disabled,
   }: {
     label?: string;
     value?: string;
@@ -68,6 +70,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     error?: boolean;
     hint?: string;
     length?: number;
+    disabled?: boolean;
   }) => (
     <label>
       {label}
@@ -75,6 +78,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
         aria-label={label}
         value={value}
         aria-invalid={error || undefined}
+        disabled={disabled}
         onChange={(event) => {
           const next = event.target.value;
           onChange?.(next);
@@ -134,6 +138,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     springGentle: { duration: 0 },
     tilt: { stiffness: 500, damping: 22, mass: 0.35 },
   });
+  const useDeviceContext = () => deviceContextRef;
   return {
     Input,
     PinInput,
@@ -145,6 +150,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Handshake,
     useToast,
     useMotionPreset,
+    useDeviceContext,
   };
 });
 
@@ -152,6 +158,19 @@ function renderSignIn() {
   return render(
     <MemoryRouter>
       <SignIn />
+    </MemoryRouter>
+  );
+}
+
+/** Renders SignIn behind a real route so a `navigate()` call is observable
+ *  as the dashboard route's marker mounting. */
+function renderSignInWithRoutes() {
+  return render(
+    <MemoryRouter initialEntries={["/demos/login"]}>
+      <Routes>
+        <Route path="/demos/login" element={<SignIn />} />
+        <Route path="/demos/dashboard" element={<div data-testid="dashboard-page" />} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -175,6 +194,7 @@ function codeInput() {
 beforeEach(() => {
   vi.useFakeTimers();
   toastSpy.mockClear();
+  deviceContextRef.reducedMotion = false;
 });
 
 afterEach(() => {
@@ -238,6 +258,15 @@ describe("SignIn — credentials step", () => {
     renderSignIn();
     const link = screen.getByRole("link", { name: /session expired/i });
     expect(link).toHaveAttribute("href", "/demos/session-expired");
+  });
+
+  it("doesn't navigate on 'Forgot password?' and surfaces a demo note instead", () => {
+    renderSignIn();
+    fireEvent.click(screen.getByRole("link", { name: /forgot password/i }));
+
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: expect.stringMatching(/demo/i) })
+    );
   });
 });
 
@@ -335,5 +364,45 @@ describe("SignIn — verification step", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /different account/i }));
     expect(screen.getByLabelText("Email address")).toBeInTheDocument();
+  });
+});
+
+describe("SignIn — success handoff", () => {
+  it("keeps verification controls disabled through the settle beat, then hands off to the dashboard", async () => {
+    renderSignInWithRoutes();
+    fillCredentials();
+    await submitCredentials();
+
+    fireEvent.change(codeInput(), { target: { value: "123456" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900); // verifying network delay
+    });
+
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "settled");
+    expect(codeInput()).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^verify code$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /different account/i })).toBeDisabled();
+    expect(screen.queryByTestId("dashboard-page")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1400); // settle beat + post-toast handoff beat
+    });
+
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+
+  it("shortens the handoff beat under reduced motion", async () => {
+    deviceContextRef.reducedMotion = true;
+    renderSignInWithRoutes();
+    fillCredentials();
+    await submitCredentials();
+
+    fireEvent.change(codeInput(), { target: { value: "123456" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900); // verifying network delay
+      await vi.advanceTimersByTimeAsync(500); // well under the full 1400ms standard beat
+    });
+
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
   });
 });
