@@ -4771,7 +4771,7 @@
     },
     {
       "name": "WatchLoader",
-      "description": "Loader styled after the exhibition caseback of a mechanical automatic watch:\na sweeping rotor, a meshing gear train, an oscillating balance wheel, a ticking\nescape wheel, and ruby jewels at the pivots. The metaphor is *precision in\nmotion* — an indeterminate \"working\" indicator with no progress semantics.",
+      "description": "Loader styled after the exhibition caseback of a mechanical automatic watch:\na sweeping rotor, a meshing gear train, an oscillating balance wheel, a ticking\nescape wheel, and ruby jewels at the pivots. The metaphor is *precision in\nmotion* — an indeterminate \"working\" indicator with no progress semantics.\n\nEvery moving part is driven by a CSS keyframe on a transform, so the whole\nmovement runs on the compositor thread with no JS timers.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
