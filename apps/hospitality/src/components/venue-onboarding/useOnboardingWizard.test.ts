@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import type { Venue, CreateTableRequest } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "../floor-plan/floor-plan-geometry.js";
 import { EMPTY_FLOOR_PLAN_DRAFT } from "./floor-plan-draft.js";
+import { ONBOARDING_STEPS } from "./onboarding-steps.js";
 import { INITIAL_LAUNCH_PROGRESS } from "./launch-sequence.js";
 import type { LaunchProgress } from "./launch-sequence.js";
 import { useOnboardingWizard, buildOnboardingPayload, TOTAL_STEPS } from "./useOnboardingWizard.js";
@@ -453,6 +454,13 @@ describe("buildOnboardingPayload", () => {
 
   it("caps advancement at TOTAL_STEPS", () => {
     expect(TOTAL_STEPS).toBe(6);
+  });
+
+  // Drift guard (#4822): ONBOARDING_STEPS (rail/indicator metadata) and
+  // TOTAL_STEPS (wizard-navigation cap) are two independent constants that must
+  // stay in lock-step — nothing else enforces it.
+  it("pins ONBOARDING_STEPS.length to TOTAL_STEPS", () => {
+    expect(ONBOARDING_STEPS.length).toBe(TOTAL_STEPS);
   });
 
   // Regression: #3082 refactor returned `actions` as a fresh object literal every
