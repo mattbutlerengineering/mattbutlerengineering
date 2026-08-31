@@ -1033,6 +1033,11 @@
       export const HOSPITALITY_DOMAIN_CONTEXT: DomainContext;
     </item>
   </file>
+  <file path="apps/hospitality/src/constants/session-lapse-copy.ts">
+    <item priority="high">
+      export const SESSION_LAPSE_COPY: unknown;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health.ts">

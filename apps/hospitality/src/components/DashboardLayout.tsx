@@ -16,6 +16,7 @@ import {
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
+import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
@@ -329,11 +330,11 @@ function DashboardLayoutInner() {
               onDismiss={() => setDismissedRefreshError(refreshError)}
               action={
                 <Button variant="secondary" onClick={handleSignInAgain}>
-                  Sign in again
+                  {SESSION_LAPSE_COPY.action}
                 </Button>
               }
             >
-              Your session couldn&apos;t refresh — sign in again to keep working.
+              {SESSION_LAPSE_COPY.refreshFailedLead} {SESSION_LAPSE_COPY.body}
             </Banner>
           )}
           <div className={styles.breadcrumbBar}>
