@@ -706,6 +706,7 @@
         locationTime: LocationTimeData;
         operatingHours: OperatingHours;
         settings: SettingsData;
+        floorPlan: FloorPlanDraft;
       }
     </item>
   </file>
