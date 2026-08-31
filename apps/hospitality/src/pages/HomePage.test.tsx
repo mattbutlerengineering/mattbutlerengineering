@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { HomePage } from "./HomePage.js";
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
+import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import React from "react";
@@ -114,11 +115,22 @@ const MON_10_00_PDT = "2026-08-31T17:00:00Z";
 const MON_16_59_30_PDT = "2026-08-31T23:59:30Z";
 const MON_19_00_PDT = "2026-09-01T02:00:00Z";
 
+/** Fully typed VenueContextValue for the useVenue mock — no casts. */
+const venueContextValue = (selectedVenue: Venue | null): VenueContextValue => ({
+  venues: selectedVenue ? [selectedVenue] : [],
+  selectedVenueId: selectedVenue?.id ?? null,
+  selectedVenue,
+  setVenueId: vi.fn(),
+  isLoading: false,
+  isMultiVenue: false,
+  refetchVenues: vi.fn(async () => {}),
+});
+
 describe("HomePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(useVenue).mockReturnValue({ selectedVenue: null } as any);
+    vi.mocked(useVenue).mockReturnValue(venueContextValue(null));
 
     vi.mocked(useAuth).mockReturnValue({
       user: { name: "Matt" },
@@ -272,7 +284,7 @@ describe("HomePage", () => {
 
   describe("neon sign in the header aside", () => {
     const selectVenue = (overrides: Partial<Venue> = {}) => {
-      vi.mocked(useVenue).mockReturnValue({ selectedVenue: { ...VENUE, ...overrides } } as any);
+      vi.mocked(useVenue).mockReturnValue(venueContextValue({ ...VENUE, ...overrides }));
     };
 
     beforeEach(() => {
