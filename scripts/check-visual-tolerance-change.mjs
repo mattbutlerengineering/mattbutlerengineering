@@ -160,7 +160,7 @@ function getChangedFiles() {
 
 function main() {
   const { pass, reason } = classifyVisualToleranceChange(getChangedFiles());
-  console.log(reason);
+  process.stdout.write(reason + "\n");
   process.exit(pass ? 0 : 1);
 }
 
