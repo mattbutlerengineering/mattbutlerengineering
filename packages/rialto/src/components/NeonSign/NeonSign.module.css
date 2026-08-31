@@ -83,8 +83,10 @@
   white-space: nowrap;
 }
 
-/* ── open: lit, strikes on when entered ─────── */
-.neonSign[data-state="open"] .tube {
+/* ── open: lit, strikes on when entered ───────
+   `:where()` keeps the two animating state rules at (0,2,0) so the
+   reduced-motion rules at the end of this sheet (0,3,0) win the cascade. */
+.neonSign:where([data-state="open"]) .tube {
   color: var(--rialto-success);
   text-shadow:
     0 0 2px currentColor,
@@ -101,7 +103,7 @@
 }
 
 /* ── opening-soon: warming gold, breathing ──── */
-.neonSign[data-state="opening-soon"] .tube {
+.neonSign:where([data-state="opening-soon"]) .tube {
   color: var(--rialto-accent);
   text-shadow:
     0 0 2px currentColor,
@@ -158,17 +160,19 @@
   }
 }
 
-/* ── Reduced motion: four static frames, no strike, no breathe ── */
-.reduced .tube {
+/* ── Reduced motion: four static frames, no strike, no breathe ──
+   Every rule here must outrank the (0,2,0) state animations above on
+   specificity alone; NeonSign.cascade.test.ts fails if either path slips. */
+.neonSign.reduced .tube {
   animation: none;
 }
 
-.reduced[data-state="opening-soon"] .tube {
+.neonSign.reduced[data-state="opening-soon"] .tube {
   opacity: 0.8;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tube {
+  .neonSign[data-state] .tube {
     animation: none;
   }
 
