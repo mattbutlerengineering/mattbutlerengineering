@@ -101,6 +101,14 @@
   margin-block-end: var(--rialto-space-md);
 }
 
+.lapse {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  text-align: center;
+}
+
 /* ── Form styles ────────────────────────── */
 .form {
   display: flex;
