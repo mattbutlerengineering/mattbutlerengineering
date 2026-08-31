@@ -1,4 +1,4 @@
-import { MOVEMENT, PLATE_RADIUS, findBodyOverlaps, outerReach } from "./movement";
+import { MOVEMENT, PLATE_RADIUS, findBodyOverlaps, outerReach, tipRadius } from "./movement";
 import type { MovementPart } from "./movement";
 
 /**
@@ -18,7 +18,7 @@ describe("WatchLoader movement geometry", () => {
     }
   });
 
-  it("meshing wheels actually mesh — tips reach past the neighbour's body edge", () => {
+  it("meshing wheels' tooth zones overlap — the tip circles intersect", () => {
     const { centerWheel, thirdWheel, fourthWheel } = MOVEMENT;
     const pairs: ReadonlyArray<readonly [MovementPart, MovementPart]> = [
       [centerWheel, thirdWheel],
@@ -26,9 +26,7 @@ describe("WatchLoader movement geometry", () => {
     ];
     for (const [a, b] of pairs) {
       const d = Math.hypot(a.cx - b.cx, a.cy - b.cy);
-      expect(d, `${a.id}↔${b.id}`).toBeLessThan(
-        a.radius + b.radius + a.radius * 0.28 + b.radius * 0.28
-      );
+      expect(d, `${a.id}↔${b.id}`).toBeLessThan(tipRadius(a) + tipRadius(b));
     }
   });
 });

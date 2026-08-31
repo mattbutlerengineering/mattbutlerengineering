@@ -922,6 +922,20 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="WatchLoader">
+  <file path="packages/rialto/src/components/WatchLoader/movement.ts">
+    export interface MovementPart {
+      readonly id: string;
+      readonly cx: number;
+      readonly cy: number;
+      /** Body radius (the solid disc, excluding teeth). */
+      readonly radius: number;
+      /** Tooth count for the gear train; absent on the balance and escape wheels. */
+      readonly teeth?: number;
+    }
+    export const PLATE_RADIUS = 48;
+  </file>
+  </section>
   <section priority="medium" role="__tests__">
   <file path="packages/agent-core/src/__tests__/fake-phase-deps.ts">
     export function makeFakePhaseDeps(): PhaseDeps {
