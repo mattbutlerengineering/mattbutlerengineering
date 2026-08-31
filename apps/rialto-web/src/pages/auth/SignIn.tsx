@@ -1,4 +1,11 @@
-import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+} from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Fingerprint } from "lucide-react";
@@ -234,12 +241,28 @@ function VerificationStep({
   onVerify,
   onBack,
 }: VerificationStepProps) {
+  const pinInputRef = useRef<HTMLDivElement>(null);
+  const wasRejectedRef = useRef(codeError);
+
+  // A rejected code clears every cell (see handleVerify) — without moving
+  // focus back to Digit 1, a keyboard user is stranded on document body
+  // with no way to retype except reaching for a pointer.
+  useEffect(() => {
+    if (wasRejectedRef.current === codeError) return;
+    wasRejectedRef.current = codeError;
+    if (!codeError) return;
+    pinInputRef.current
+      ?.querySelector<HTMLInputElement>(`[aria-label="Digit 1 of ${MFA_CODE_LENGTH}"]`)
+      ?.focus();
+  }, [codeError]);
+
   return (
     <div className={styles.verifyPanel}>
       <Text className={styles.verifyIntro}>
         Enter the {MFA_CODE_LENGTH}-digit code from your authenticator
       </Text>
       <PinInput
+        ref={pinInputRef}
         label="Authenticator code"
         length={MFA_CODE_LENGTH}
         type="numeric"
@@ -318,6 +341,7 @@ export function SignIn() {
 
     if (!isAcceptedMfaCode(candidate)) {
       setPhase("rejected");
+      setCode("");
       return;
     }
 
