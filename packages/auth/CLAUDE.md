@@ -40,12 +40,13 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
 
 ### Hooks
 
-| Hook                    | Returns                                                                                                                                                | Purpose                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `useAuth()`             | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error, activeNavigator, isRefreshing, sessionExpired, refreshError }` | Full auth state and methods                 |
-| `useAccessToken()`      | `{ accessToken: string \| null, refreshError: Error \| null }`                                                                                         | Access token + proactive-refresh error      |
-| `useRequireAuth()`      | Same as `useAuth()`                                                                                                                                    | Auto-redirects to login if unauthenticated  |
-| `useSessionLifecycle()` | `{ expired: boolean }`                                                                                                                                 | Raw token-expiry signal (used by `useAuth`) |
+| Hook                       | Returns                                                                                                                                                | Purpose                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `useAuth()`                | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error, activeNavigator, isRefreshing, sessionExpired, refreshError }` | Full auth state and methods                                                                                                           |
+| `useAccessToken()`         | `{ accessToken: string \| null, refreshError: Error \| null }`                                                                                         | Access token + proactive-refresh error                                                                                                |
+| `useRequireAuth()`         | Same as `useAuth()`                                                                                                                                    | Auto-redirects to login if unauthenticated                                                                                            |
+| `useSessionLifecycle()`    | `{ expired: boolean }`                                                                                                                                 | Raw token-expiry signal (used by `useAuth`)                                                                                           |
+| `hasAuthParams(location?)` | `boolean`                                                                                                                                              | react-oidc-context's own callback predicate, re-exported so an app's gate and the provider agree on whether a callback is in progress |
 
 The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`. `useAccessToken()` proactively schedules a silent refresh 5 minutes before the token expires and re-arms whenever `expires_at` changes; a failed refresh is surfaced via `refreshError` (typed `AccessTokenState`) so callers can prompt re-login.
 
@@ -55,6 +56,7 @@ The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailV
 - **`activeNavigator`** is the navigator currently in flight (`"signinSilent"`, `"signinRedirect"`, …) or `undefined`; **`isRefreshing`** is the `"signinSilent"` case. Use them for in-flight UI (a busy sign-in button, a handshake visual) instead of `isLoading`.
 - **Silent failures never reach `error`.** react-oidc-context's wrapped navigators do not reject; they dispatch an error whose `source` is `signinSilent` / `renewSilent` / `signoutSilent` (see `isSilentAuthError`). `useAuth()` routes those to **`refreshError`** and keeps `error` for interactive failures only, so a failed background refresh shows a banner instead of ejecting the user to the error page. `useAccessToken().refreshError` reads the same context-sourced value.
 - **`sessionExpired`** is true from the `accessTokenExpired` event (or a restored user whose token is already expired) until a new user loads. react-oidc-context does not re-evaluate `isAuthenticated` on expiry, so gate on this to show a deliberate "session ended" state.
+- **A bare `signIn()` invoked from the callback path derives `returnTo` as `"/"`**, so sign-in can never round-trip back onto `/callback`.
 
 ## Fastify API
 

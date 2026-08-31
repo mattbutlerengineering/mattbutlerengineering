@@ -7,3 +7,4 @@ export { useSessionLifecycle } from "./session-lifecycle-context.js";
 export type { SessionLifecycleState } from "./session-lifecycle-context.js";
 export { isSafeReturnTo } from "./return-to.js";
 export type { SignInOptions } from "./return-to.js";
+export { hasAuthParams } from "react-oidc-context";
