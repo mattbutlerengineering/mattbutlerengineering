@@ -34,7 +34,7 @@ const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
 
 type SignUpPhase = "idle" | "submitting" | "created";
 
-const SIGN_UP_PHASES: Record<
+export const SIGN_UP_PHASES: Record<
   SignUpPhase,
   { state: HandshakeState; status: string; ariaLabel: string }
 > = {
@@ -47,7 +47,7 @@ const SIGN_UP_PHASES: Record<
   created: {
     state: "settled",
     status: "Account created",
-    ariaLabel: "Account created",
+    ariaLabel: "Account created — your browser and Identity agree",
   },
 };
 

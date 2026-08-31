@@ -73,7 +73,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   const cellRefs = useRef<(HTMLInputElement | null)[]>([]);
   const shouldReduceMotion = useReducedMotion();
 
-  const chars = value.padEnd(length, "").slice(0, length).split("");
+  const chars = Array.from({ length }, (_, i) => value[i] ?? "");
 
   const focusCell = useCallback(
     (index: number) => {
