@@ -54,8 +54,15 @@ const TOLERANCE_CONFIG_FILE_PATTERNS = [
  * tolerance change. Broad edits to these directories (a selector fix, a new
  * assertion) must NOT trip this check — only edits that add/remove one of
  * the option keys below.
+ *
+ * Scoped to actual Playwright visual-test surfaces only (#4716) —
+ * `packages/rialto/` used to match the whole package, so an unrelated
+ * `threshold:` occurrence anywhere under it (e.g.
+ * `src/hooks/usePointerActivation.ts`'s pointer-hover-distance parameter)
+ * false-positived as a visual-tolerance change. `src/test/visual/` is where
+ * rialto's Storybook `toHaveScreenshot`/`toMatchSnapshot` specs live.
  */
-const TOLERANCE_CONTENT_DIR_PREFIXES = ["apps/rialto-web/e2e/", "packages/rialto/"];
+const TOLERANCE_CONTENT_DIR_PREFIXES = ["apps/rialto-web/e2e/", "packages/rialto/src/test/visual/"];
 
 /** The literal toHaveScreenshot/toMatchSnapshot threshold options this check watches for. */
 const THRESHOLD_OPTION_PATTERN = /\b(maxDiffPixels|maxDiffPixelRatio|threshold)\s*:/;

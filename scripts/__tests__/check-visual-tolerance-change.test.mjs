@@ -94,6 +94,22 @@ describe("classifyVisualToleranceChange", () => {
     expect(result.pass).toBe(true);
   });
 
+  // Regression test for #4716. usePointerActivation's `threshold` param is a
+  // pointer-hover-distance value with nothing to do with visual regression —
+  // it lives outside any real Playwright visual-config surface, so its
+  // `threshold:` keyword must not trip this check.
+  it("does not flag usePointerActivation's unrelated threshold parameter (#4716)", () => {
+    const result = classifyVisualToleranceChange([
+      {
+        path: "packages/rialto/src/hooks/usePointerActivation.ts",
+        patch:
+          "-  threshold: number = DEFAULT_THRESHOLD\n" +
+          "+  threshold: number = DEFAULT_THRESHOLD + 1\n",
+      },
+    ]);
+    expect(result.pass).toBe(true);
+  });
+
   // Regression test for #4711/#4496. #4496 ("fix(rialto-web): tighten
   // visual-regression tolerance to an absolute pixel budget") merged at
   // commit 4fc0b6adcc50905134448a168db6469e3f000a03 with `Visual Regression
