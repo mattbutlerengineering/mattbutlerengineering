@@ -1,0 +1,100 @@
+.stepContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.pickerGroup {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--rialto-space-sm);
+}
+
+.pickerCard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--rialto-space-2xs);
+  height: auto;
+  padding: var(--rialto-space-sm);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  text-align: start;
+}
+
+.pickerCardSelected {
+  border-color: var(--rialto-accent);
+  box-shadow: 0 0 0 1px var(--rialto-accent);
+}
+
+.pickerPreview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--rialto-radius-default);
+}
+
+.errorBanner {
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-error-muted);
+  border: 1px solid var(--rialto-error);
+  border-radius: var(--rialto-radius-default);
+}
+
+.canvasArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-2xs);
+  min-height: 20rem;
+  padding: var(--rialto-space-lg);
+  border: 1px dashed var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-recessed);
+  text-align: center;
+}
+
+.selectionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+}
+
+.previewBand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.previewSvg {
+  width: 100%;
+  max-width: 28rem;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--rialto-radius-soft);
+  border: 1px solid var(--rialto-border);
+}
+
+/* Screen-reader-only live region for the four announcements. */
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
