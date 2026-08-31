@@ -37,25 +37,6 @@
   outline: none;
 }
 
-/* ── Auth error details (collapsed raw message) ── */
-
-.errorDetails {
-  max-width: 480px;
-  text-align: center;
-}
-
-.errorDetails summary {
-  cursor: pointer;
-  font-size: var(--rialto-text-xs);
-  color: var(--rialto-text-tertiary);
-}
-
-.errorDetails summary:focus-visible {
-  outline: none;
-  box-shadow: var(--rialto-shadow-focus);
-  border-radius: var(--rialto-radius-sharp);
-}
-
 /* ── Authenticated layout (nav pinned, content scrolls) ── */
 
 .authLayout {

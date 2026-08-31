@@ -2,14 +2,15 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
-import { useAuth, isSafeReturnTo } from "@mbe/auth/react";
-import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
+import { useAuth, isSafeReturnTo, hasAuthParams } from "@mbe/auth/react";
+import { Text, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
 import { CallbackPage } from "./components/CallbackPage";
 import { SessionExpiredGate } from "./components/SessionExpiredGate";
-import { describeAuthError } from "./lib/describe-auth-error";
+import { AuthFailurePage } from "./pages/AuthFailurePage";
+import { SignOutPage } from "./pages/SignOutPage";
 import { readReturnTo } from "./return-to-store";
 import styles from "./App.module.css";
 
@@ -46,7 +47,7 @@ function UnauthenticatedShell({
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
-  const { isLoading, isAuthenticated, error, sessionExpired } = useAuth();
+  const { isLoading, isAuthenticated, error, sessionExpired, activeNavigator } = useAuth();
 
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -74,37 +75,21 @@ export function App() {
   if (isLoading) {
     return (
       <UnauthenticatedShell nav={nav}>
-        {isCallback ? <CallbackPage /> : <LoadingPage />}
+        {activeNavigator === "signoutRedirect" ? (
+          <SignOutPage />
+        ) : isCallback ? (
+          <CallbackPage />
+        ) : (
+          <LoadingPage />
+        )}
       </UnauthenticatedShell>
     );
   }
 
   if (error) {
-    const described = describeAuthError(error);
     return (
       <UnauthenticatedShell nav={nav}>
-        <Stack gap="lg" align="center">
-          <Stack gap="sm" align="center">
-            <Text as="h1" variant="display" color="primary">
-              {described.title}
-            </Text>
-            <Text variant="body" color="secondary">
-              {described.body}
-            </Text>
-          </Stack>
-          {described.canRetry && (
-            <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
-              Try Again
-            </Button>
-          )}
-          {/* Raw message stays reachable for debugging, demoted below the fold. */}
-          <details className={styles.errorDetails}>
-            <summary>Technical details</summary>
-            <Text variant="caption" color="tertiary">
-              {error.message}
-            </Text>
-          </details>
-        </Stack>
+        <AuthFailurePage error={error} lane={isCallback ? 1 : 0} />
       </UnauthenticatedShell>
     );
   }
@@ -112,7 +97,7 @@ export function App() {
   if (isCallback && !isAuthenticated) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <CallbackPage />
+        {hasAuthParams(window.location) ? <CallbackPage /> : <LoginGate signedOut />}
       </UnauthenticatedShell>
     );
   }

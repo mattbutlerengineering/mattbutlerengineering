@@ -2,10 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { useAuth } from "@mbe/auth/react";
+import { describeAuthError } from "./lib/describe-auth-error.js";
 import { App } from "./App.js";
 import React from "react";
+import type * as AuthReact from "@mbe/auth/react";
 
-vi.mock("@mbe/auth/react", () => ({
+vi.mock("@mbe/auth/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof AuthReact>()),
   useAuth: vi.fn(),
 }));
 
@@ -50,9 +53,25 @@ vi.mock("./components/SessionExpiredGate", () => ({
   SessionExpiredGate: () => <div data-testid="session-expired" />,
 }));
 
+vi.mock("./pages/AuthFailurePage", async () => {
+  const { describeAuthError: describe } = await import("./lib/describe-auth-error.js");
+  return {
+    AuthFailurePage: ({ error, lane }: { error: Error; lane: 0 | 1 }) => (
+      <div data-testid="auth-failure" data-lane={lane}>
+        {describe(error).body}
+      </div>
+    ),
+  };
+});
+
+vi.mock("./pages/SignOutPage", () => ({
+  SignOutPage: () => <div data-testid="sign-out-page" />,
+}));
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, "", "/");
   });
 
   const renderApp = (initialPath = "/") => {
@@ -67,31 +86,6 @@ describe("App", () => {
     vi.mocked(useAuth).mockReturnValue({ isLoading: true } as ReturnType<typeof useAuth>);
     renderApp();
     expect(screen.getByTestId("loading-page")).toBeDefined();
-  });
-
-  it("renders a categorized error page when auth fails", () => {
-    vi.mocked(useAuth).mockReturnValue({
-      isLoading: false,
-      error: new Error("Auth Failed"),
-    } as ReturnType<typeof useAuth>);
-    renderApp();
-    // "Auth Failed" matches no category — falls back to the generic headline.
-    expect(screen.getByText("Sign-in hit a snag")).toBeDefined();
-    expect(screen.getByText("Try Again")).toBeDefined();
-    // Raw message stays available for debugging, demoted to the details line.
-    expect(screen.getByText("Auth Failed")).toBeDefined();
-    expect(screen.getByText("Technical details")).toBeDefined();
-  });
-
-  it("omits the retry action for access-denied errors", () => {
-    vi.mocked(useAuth).mockReturnValue({
-      isLoading: false,
-      error: Object.assign(new Error("not permitted"), { error: "access_denied" }),
-    } as ReturnType<typeof useAuth>);
-    renderApp();
-    expect(screen.getByText("Access denied")).toBeDefined();
-    expect(screen.queryByText("Try Again")).toBeNull();
-    expect(screen.getByText("not permitted")).toBeDefined();
   });
 
   it("renders login gate when not authenticated", () => {
@@ -127,6 +121,38 @@ describe("App", () => {
     expect(wrapper.className).toContain("authLayout");
   });
 
+  describe("failed exchange", () => {
+    it("renders the failure page in place on a failed callback exchange (lane 1)", () => {
+      window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
+      const err = new Error("Auth Failed");
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        error: err,
+      } as ReturnType<typeof useAuth>);
+      renderApp("/callback");
+      const failure = screen.getByTestId("auth-failure");
+      expect(failure).toBeDefined();
+      expect(failure.getAttribute("data-lane")).toBe("1");
+      expect(screen.getByText(describeAuthError(err).body)).toBeDefined();
+      expect(screen.queryByTestId("callback-page")).toBeNull();
+      expect(screen.queryByTestId("login-prompt")).toBeNull();
+    });
+
+    it("renders the failure page in place on a failed interactive sign-in (lane 0)", () => {
+      window.history.replaceState({}, "", "/hospitality/reservations");
+      const err = Object.assign(new Error("not permitted"), { error: "access_denied" });
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        error: err,
+      } as ReturnType<typeof useAuth>);
+      renderApp("/reservations");
+      const failure = screen.getByTestId("auth-failure");
+      expect(failure).toBeDefined();
+      expect(failure.getAttribute("data-lane")).toBe("0");
+      expect(screen.getByText(describeAuthError(err).body)).toBeDefined();
+    });
+  });
+
   describe("session lifecycle", () => {
     it("renders the callback handshake instead of the generic loader while OIDC finishes on /callback", () => {
       window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
@@ -148,6 +174,34 @@ describe("App", () => {
       renderApp("/callback");
       expect(screen.getByTestId("callback-page")).toBeDefined();
       expect(screen.queryByTestId("login-prompt")).toBeNull();
+    });
+
+    it("renders the signed-out login gate when a sign-out round-trip lands on /callback with no OIDC params", () => {
+      window.history.replaceState({}, "", "/hospitality/callback");
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: false,
+        signIn: vi.fn(),
+      } as ReturnType<typeof useAuth>);
+      renderApp("/callback");
+      expect(screen.getByTestId("login-prompt")).toBeDefined();
+      expect(
+        screen.getByText("You're signed out. Sign in again whenever you're ready.")
+      ).toBeDefined();
+      expect(screen.queryByTestId("callback-page")).toBeNull();
+      expect(screen.getByRole("button", { name: "Sign In" })).toBeDefined();
+    });
+
+    it("renders the sign-out handshake while a sign-out redirect is in flight", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: true,
+        isAuthenticated: false,
+        activeNavigator: "signoutRedirect",
+      } as ReturnType<typeof useAuth>);
+      renderApp();
+      expect(screen.getByTestId("sign-out-page")).toBeDefined();
+      expect(screen.queryByTestId("loading-page")).toBeNull();
+      expect(screen.queryByTestId("callback-page")).toBeNull();
     });
 
     it("renders the session-expired gate ahead of the dashboard once the token lapses", () => {
