@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Routes, Route } from "react-router";
 import { SignUp, SIGN_UP_PHASES } from "./SignUp";
 
 const toastSpy = vi.hoisted(() => vi.fn());
+const deviceContextRef = vi.hoisted(() => ({ reducedMotion: false }));
 
 // Behavioral mock of @mattbutlerengineering/rialto (house pattern) — Input
 // round-trips value/onChange/onBlur keyed by label, Meter exposes its value,
@@ -129,13 +130,27 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     state?: string;
   }) => <div role="img" aria-label={ariaLabel} data-state={state} />;
   const useToast = () => ({ toast: toastSpy });
-  return { Input, Meter, Button, Checkbox, Divider, Text, Handshake, useToast };
+  const useDeviceContext = () => deviceContextRef;
+  return { Input, Meter, Button, Checkbox, Divider, Text, Handshake, useToast, useDeviceContext };
 });
 
 function renderSignUp() {
   return render(
     <MemoryRouter>
       <SignUp />
+    </MemoryRouter>
+  );
+}
+
+/** Renders SignUp behind a real route so a `navigate()` call is observable
+ *  as the dashboard route's marker mounting. */
+function renderSignUpWithRoutes() {
+  return render(
+    <MemoryRouter initialEntries={["/demos/signup"]}>
+      <Routes>
+        <Route path="/demos/signup" element={<SignUp />} />
+        <Route path="/demos/dashboard" element={<div data-testid="dashboard-page" />} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -157,6 +172,7 @@ function requirementRow(text: RegExp) {
 beforeEach(() => {
   vi.useFakeTimers();
   toastSpy.mockClear();
+  deviceContextRef.reducedMotion = false;
 });
 
 afterEach(() => {
@@ -384,3 +400,49 @@ describe.each(Object.entries(SIGN_UP_PHASES).filter(([, phase]) => phase.status 
     });
   }
 );
+
+describe("SignUp — success handoff", () => {
+  function fillValidForm() {
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    agreeToTerms();
+  }
+
+  it("keeps 'Create account' disabled through the handoff beat instead of re-enabling it, then hands off to the dashboard", async () => {
+    renderSignUpWithRoutes();
+    fillValidForm();
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500); // account-creation network delay
+    });
+
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "settled");
+    expect(screen.getByRole("button", { name: /create account/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Google" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
+    expect(screen.queryByTestId("dashboard-page")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1400); // post-toast handoff beat
+    });
+
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+
+  it("shortens the handoff beat under reduced motion", async () => {
+    deviceContextRef.reducedMotion = true;
+    renderSignUpWithRoutes();
+    fillValidForm();
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500); // account-creation network delay
+      await vi.advanceTimersByTimeAsync(500); // well under the full 1400ms standard beat
+    });
+
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+});

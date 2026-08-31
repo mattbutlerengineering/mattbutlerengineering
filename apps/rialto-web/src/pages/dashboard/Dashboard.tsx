@@ -24,6 +24,7 @@ import {
   Toggle,
   Tooltip,
 } from "@mattbutlerengineering/rialto";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import styles from "./Dashboard.module.css";
 
 /* ── Mock data ──────────────────────────────── */
@@ -192,7 +193,7 @@ export function Dashboard() {
       <PageHeader
         breadcrumbs={[
           { label: "Home", href: "/" },
-          { label: "Telemetry", href: "#" },
+          { label: "Telemetry", href: DEMO_ROUTES.telemetry },
           { label: "Dashboard" },
         ]}
         title="Pit Wall"

@@ -1,5 +1,5 @@
 import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Fingerprint } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
   PinInput,
   Steps,
   Text,
+  useDeviceContext,
   useMotionPreset,
   useToast,
 } from "@mattbutlerengineering/rialto";
@@ -26,6 +27,13 @@ const SIGN_IN_STEPS = [{ label: "Credentials" }, { label: "Verification" }];
 const SIMULATED_NETWORK_MS = 900;
 /** How long the "Verified" settle is visible before the success toast. */
 const VERIFIED_SETTLE_MS = 700;
+/** Shortened settle beat when the user prefers reduced motion. */
+const REDUCED_VERIFIED_SETTLE_MS = 150;
+/** Beat after the toast, giving the Handshake settle animation room to read
+ *  before handing off to the dashboard. */
+const HANDOFF_DELAY_MS = 700;
+/** Shortened handoff beat when the user prefers reduced motion. */
+const REDUCED_HANDOFF_DELAY_MS = 150;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -71,6 +79,7 @@ interface CredentialsStepProps {
   isLoading: boolean;
   onSubmit: (event: FormEvent) => void;
   onPasskey: () => void;
+  onForgotPassword: () => void;
 }
 
 function CredentialsStep({
@@ -81,6 +90,7 @@ function CredentialsStep({
   isLoading,
   onSubmit,
   onPasskey,
+  onForgotPassword,
 }: CredentialsStepProps) {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -131,7 +141,14 @@ function CredentialsStep({
           onCheckedChange={setRememberMe}
           disabled={isLoading}
         />
-        <Link to="#" className={styles.forgotLink}>
+        <Link
+          to="#"
+          className={styles.forgotLink}
+          onClick={(event) => {
+            event.preventDefault();
+            onForgotPassword();
+          }}
+        >
           Forgot password?
         </Link>
       </div>
@@ -238,7 +255,7 @@ function VerificationStep({
         type="button"
         className={styles.backButton}
         onClick={onBack}
-        disabled={isVerifying}
+        disabled={isVerifying || isVerified}
       >
         Use a different account
       </Button>
@@ -250,6 +267,8 @@ function VerificationStep({
 
 export function SignIn() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const device = useDeviceContext();
   const motionPreset = useMotionPreset();
   const [step, setStep] = useState<"credentials" | "verification">("credentials");
   const [email, setEmail] = useState("");
@@ -285,8 +304,10 @@ export function SignIn() {
     }
 
     setPhase("verified");
-    await delay(VERIFIED_SETTLE_MS);
+    await delay(device.reducedMotion ? REDUCED_VERIFIED_SETTLE_MS : VERIFIED_SETTLE_MS);
     toast({ title: "Signed in successfully", variant: "success" });
+    await delay(device.reducedMotion ? REDUCED_HANDOFF_DELAY_MS : HANDOFF_DELAY_MS);
+    navigate(DEMO_ROUTES.dashboard);
   }
 
   function handleCodeChange(value: string) {
@@ -296,6 +317,10 @@ export function SignIn() {
 
   function handlePasskey() {
     toast({ title: "Signed in with your passkey", variant: "success" });
+  }
+
+  function handleForgotPassword() {
+    toast({ title: "Demo: password resets aren't wired up yet" });
   }
 
   function handleBack() {
@@ -353,6 +378,7 @@ export function SignIn() {
             isLoading={isLoading}
             onSubmit={handleCredentialsSubmit}
             onPasskey={handlePasskey}
+            onForgotPassword={handleForgotPassword}
           />
         </motion.div>
       ) : (

@@ -65,6 +65,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       springGentle: { duration: 0 },
       tilt: { stiffness: 500, damping: 22, mass: 0.35 },
     }),
+    useDeviceContext: () => ({ reducedMotion: false }),
   };
 });
 

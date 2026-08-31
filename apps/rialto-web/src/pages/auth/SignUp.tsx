@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Check, Eye, EyeOff, Minus } from "lucide-react";
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   Input,
   Meter,
   Text,
+  useDeviceContext,
   useToast,
 } from "@mattbutlerengineering/rialto";
 import type { HandshakeState } from "@mattbutlerengineering/rialto";
@@ -26,6 +27,11 @@ import styles from "./AuthLayout.module.css";
 
 /** Simulated network round-trip — everything on this page is demo-only. */
 const SIMULATED_NETWORK_MS = 1500;
+/** Beat after "Account created" settles, giving the Handshake settle
+ *  animation room to read before handing off to the dashboard. */
+const SUCCESS_HANDOFF_MS = 1400;
+/** Shortened handoff beat when the user prefers reduced motion. */
+const REDUCED_SUCCESS_HANDOFF_MS = 300;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -98,6 +104,8 @@ function PasswordStrength({ password }: { password: string }) {
 
 export function SignUp() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const device = useDeviceContext();
   const [showPassword, setShowPassword] = useState(false);
   const [phase, setPhase] = useState<SignUpPhase>("idle");
   const [email, setEmail] = useState("");
@@ -109,6 +117,7 @@ export function SignUp() {
   const [agreedError, setAgreedError] = useState(false);
 
   const isLoading = phase === "submitting";
+  const controlsDisabled = isLoading || phase === "created";
   const confirmMismatch = confirmTouched && confirm !== password;
 
   async function handleSubmit(e: FormEvent) {
@@ -130,6 +139,8 @@ export function SignUp() {
     await delay(SIMULATED_NETWORK_MS);
     setPhase("created");
     toast({ title: "Account created successfully", variant: "success" });
+    await delay(device.reducedMotion ? REDUCED_SUCCESS_HANDOFF_MS : SUCCESS_HANDOFF_MS);
+    navigate(DEMO_ROUTES.dashboard);
   }
 
   return (
@@ -158,13 +169,19 @@ export function SignUp() {
       {/* noValidate: the page owns validation so its error affordances render,
           instead of the browser's native bubble pre-empting them. */}
       <form onSubmit={handleSubmit} className={styles.form} noValidate>
-        <Input label="Full name" type="text" required autoComplete="name" disabled={isLoading} />
+        <Input
+          label="Full name"
+          type="text"
+          required
+          autoComplete="name"
+          disabled={controlsDisabled}
+        />
         <Input
           label="Email address"
           type="email"
           required
           autoComplete="email"
-          disabled={isLoading}
+          disabled={controlsDisabled}
           value={email}
           error={emailError}
           hint={emailError ? "Enter a valid email address" : undefined}
@@ -179,7 +196,7 @@ export function SignUp() {
           type={showPassword ? "text" : "password"}
           required
           autoComplete="new-password"
-          disabled={isLoading}
+          disabled={controlsDisabled}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           endIcon={
@@ -201,7 +218,7 @@ export function SignUp() {
           type={showPassword ? "text" : "password"}
           required
           autoComplete="new-password"
-          disabled={isLoading}
+          disabled={controlsDisabled}
           value={confirm}
           error={confirmMismatch}
           hint={confirmMismatch ? "Passwords don’t match" : undefined}
@@ -223,7 +240,7 @@ export function SignUp() {
               if (agreedError) setAgreedError(false);
             }}
             required
-            disabled={isLoading}
+            disabled={controlsDisabled}
           />
           {agreedError && (
             <Text id="terms-agreement-error" variant="caption" color="error" role="alert">
@@ -238,6 +255,7 @@ export function SignUp() {
           className={styles.submitButton}
           isLoading={isLoading}
           loadingText="Creating account..."
+          disabled={controlsDisabled}
         >
           Create account
         </Button>
@@ -249,7 +267,7 @@ export function SignUp() {
             variant="secondary"
             type="button"
             className={styles.socialButton}
-            disabled={isLoading}
+            disabled={controlsDisabled}
           >
             Google
           </Button>
@@ -257,7 +275,7 @@ export function SignUp() {
             variant="secondary"
             type="button"
             className={styles.socialButton}
-            disabled={isLoading}
+            disabled={controlsDisabled}
           >
             GitHub
           </Button>
