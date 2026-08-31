@@ -35,6 +35,11 @@
       "limit": "3.5 kB"
     },
     {
+      "name": "Venue Onboarding (lazy chunk)",
+      "path": "dist/assets/VenueOnboardingPage-*.js",
+      "limit": "7.5 kB"
+    },
+    {
       "name": "Canvas Vendor (konva/react-konva, lazy chunk)",
       "path": "dist/assets/canvas-vendor-*.js",
       "limit": "100 kB"
