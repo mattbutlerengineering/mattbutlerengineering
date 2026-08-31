@@ -598,6 +598,27 @@ jobs:
       - name: Check AI antipattern counts against baseline
         run: node scripts/check-ai-antipatterns.mjs
 
+  visual-tolerance-check:
+    name: Visual Tolerance Change Check
+    # #4711: #4496 tightened apps/rialto-web/playwright.config.ts's visual
+    # tolerance without updating any baseline and merged with `Visual
+    # Regression (rialto-web)` (advisory, not part of this needs: list) red
+    # on its own head SHA — main stayed red for three days. This narrow,
+    # pure-node check fails only when a PR touches a visual-tolerance
+    # surface without also touching the baselines it measures against; it
+    # does not promote the visual suite itself to required.
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.has_code == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          fetch-depth: 0
+
+      - name: Check for a visual-tolerance change without baseline updates
+        run: node scripts/check-visual-tolerance-change.mjs
+
   report-health:
     name: Report CI Health
     needs: [lint, typecheck, build, test, migrations]
@@ -772,6 +793,7 @@ jobs:
         dependency-audit,
         integrity,
         ai-antipattern-ratchet,
+        visual-tolerance-check,
       ]
     runs-on: ubuntu-latest
     permissions:
@@ -809,8 +831,9 @@ jobs:
           DEPS: ${{ needs.dependency-audit.result }}
           INTEGRITY: ${{ needs.integrity.result }}
           ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
+          VISUAL_TOLERANCE: ${{ needs.visual-tolerance-check.result }}
         run: |
-          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS"
+          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE"
           # NOTE: "skipped" is intentionally allowed (path-filtered jobs, e.g. docs-only
           # PRs where detect-changes sets has_code=false and prepare legitimately skips).
           # Only "failure"/"cancelled" trip the gate. detect-changes and prepare are
@@ -818,7 +841,7 @@ jobs:
           # actually FAILS (not skips), every job that needs it cascades to "skipped" by
           # GitHub Actions' default behavior, which would otherwise look identical to a
           # legitimate path-filtered skip and let the gate pass on a broken setup.
-          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS"; do
+          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
