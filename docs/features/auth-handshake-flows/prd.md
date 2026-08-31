@@ -69,22 +69,22 @@ auth demos shows a deliberate, design-system-native state — no blank screen,
 no dead end, no unexplained wait — and the rialto-web demos are the reference
 implementation a consumer copies.
 
-| Transition                                   | Today                                      | Required after this run                                                          |
-| -------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------- |
-| Hospitality: Sign In pressed (redirect out)  | `LoginGate` handshake negotiating          | unchanged (#4720)                                                                |
-| Hospitality: callback in progress            | `CallbackPage` negotiating, lane 1         | unchanged (#4720)                                                                |
-| Hospitality: callback failed                 | text error page                            | `Handshake` **failed** in place, category copy kept, retry only where it applies |
-| Hospitality: callback succeeded              | immediate redirect                         | unchanged; a settled beat is an open question (Q3)                               |
-| Hospitality: returned from sign-out, no params | `CallbackPage` forever                   | a signed-out state offering Sign In, at whatever URL Auth0 returns to            |
-| Hospitality: token expired in place          | `SessionExpiredGate` idle → negotiating    | unchanged (#4720)                                                                |
-| Hospitality: silent refresh failed           | warning banner, divergent copy             | still a non-blocking banner; vocabulary and action shared with the gate          |
-| Hospitality: initial user restore            | `LoadingPage` (WatchLoader)                | unchanged — not an exchange                                                      |
-| rialto-web `/demos/login` submitting, verifying | `Button isLoading`                      | `Handshake` negotiating                                                          |
-| rialto-web `/demos/login` rejected code      | `PinInput` error only                      | plus `Handshake` **failed**                                                      |
-| rialto-web `/demos/login` verified           | "Verified" row (700 ms beat)               | `Handshake` **settled** for that beat                                            |
-| rialto-web `/demos/signup` submitting        | `Button isLoading`                         | `Handshake` negotiating                                                          |
-| rialto-web `/demos/session-expired`          | one pulsing warning `StatusLED`            | lapsed state matching hospitality's gate (`Handshake` idle + `StatusLED`)        |
-| rialto-web `/demos/auth-flow`                | hand-rolled groove/pulse, 7 directional steps | reading (a) or (b) below — undecided (Q1)                                      |
+| Transition                                      | Today                                         | Required after this run                                                          |
+| ----------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------- |
+| Hospitality: Sign In pressed (redirect out)     | `LoginGate` handshake negotiating             | unchanged (#4720)                                                                |
+| Hospitality: callback in progress               | `CallbackPage` negotiating, lane 1            | unchanged (#4720)                                                                |
+| Hospitality: callback failed                    | text error page                               | `Handshake` **failed** in place, category copy kept, retry only where it applies |
+| Hospitality: callback succeeded                 | immediate redirect                            | unchanged; a settled beat is an open question (Q3)                               |
+| Hospitality: returned from sign-out, no params  | `CallbackPage` forever                        | a signed-out state offering Sign In, at whatever URL Auth0 returns to            |
+| Hospitality: token expired in place             | `SessionExpiredGate` idle → negotiating       | unchanged (#4720)                                                                |
+| Hospitality: silent refresh failed              | warning banner, divergent copy                | still a non-blocking banner; vocabulary and action shared with the gate          |
+| Hospitality: initial user restore               | `LoadingPage` (WatchLoader)                   | unchanged — not an exchange                                                      |
+| rialto-web `/demos/login` submitting, verifying | `Button isLoading`                            | `Handshake` negotiating                                                          |
+| rialto-web `/demos/login` rejected code         | `PinInput` error only                         | plus `Handshake` **failed**                                                      |
+| rialto-web `/demos/login` verified              | "Verified" row (700 ms beat)                  | `Handshake` **settled** for that beat                                            |
+| rialto-web `/demos/signup` submitting           | `Button isLoading`                            | `Handshake` negotiating                                                          |
+| rialto-web `/demos/session-expired`             | one pulsing warning `StatusLED`               | lapsed state matching hospitality's gate (`Handshake` idle + `StatusLED`)        |
+| rialto-web `/demos/auth-flow`                   | hand-rolled groove/pulse, 7 directional steps | reading (a) or (b) below — undecided (Q1)                                        |
 
 **The `/demos/auth-flow` walkthrough (two candidate readings — not decided
 here).** The page renders seven protocol steps from `authFlowMachine.ts`; every
@@ -198,7 +198,7 @@ confirmatory when the environment allows.
       accessible name is exactly "Sign In", and `data-testid="auth-layout"`
       are untouched; `apps/hospitality/e2e/auth.spec.ts` and `auth.setup.ts`
       have no diff. Check: `LoginGate.test.tsx` contract tests green; `git
-      diff --stat` on both E2E files is empty; the spec passes when the
+  diff --stat` on both E2E files is empty; the spec passes when the
       environment allows.
 - [ ] **10. Visual job green.** The rialto-web visual job passes. Measured
       2026-08-30: `visual.spec.ts` snapshots only `/visual-test` harness
@@ -260,7 +260,7 @@ confirmatory when the environment allows.
 - rialto npm publish; redoing any part of #4720.
 - `LoadingPage` (initial user restore) — a WatchLoader, not an exchange.
 - The embedded `SignInDemo` inside `apps/rialto-web/src/pages/layout/
-  SplitScreenExitPage.tsx` — a layout demo, not an auth demo.
+SplitScreenExitPage.tsx` — a layout demo, not an auth demo.
 - Measuring production frequency of these dead ends (Sentry/analytics) —
   surfaced as a gap, not built here; a candidate backlog seed at Operate.
 

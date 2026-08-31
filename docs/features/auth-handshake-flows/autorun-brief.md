@@ -16,7 +16,7 @@ introduced:
 
 - **rialto-web auth demos** (`apps/rialto-web/src/pages/auth/` — `SignIn`,
   `SignUp`, `SessionExpired`, `AuthLayout`, `AuthFlowPage`,
-  `authFlowMachine`) become the design system's *reference* auth flow:
+  `authFlowMachine`) become the design system's _reference_ auth flow:
   submitting, verifying, session-lapsed, and failed states rendered with
   `Handshake` + `StatusLED`, not the generic spinner/pulse styles the pages
   hand-roll today (`AuthFlowPage.module.css` groove/pulse).
@@ -144,7 +144,7 @@ before push; never `status` as a zsh variable; `gh pr edit` is broken here
   `LoginGate` in-flight state. Do not redo; build on it. Merge it before
   this run's implement stage branches (its CI is being re-run after a
   changeset fix).
-- `Handshake` is *the* visualization for auth exchanges; do not introduce a
+- `Handshake` is _the_ visualization for auth exchanges; do not introduce a
   second one.
 - Merge policy: review-gate pass + `CI Gate` green → merge (`tier:*` does
   not block); no stacking.

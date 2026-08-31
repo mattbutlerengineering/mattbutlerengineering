@@ -7,7 +7,7 @@ assumptions:
   - "`AuthFailurePage` and `SignOutPage` live under `apps/hospitality/src/pages/` (the architecture's paths) and compose the gate stage from `../components/LoginGate.module.css`, the same way `SessionExpiredGate.module.css` composes from its sibling — `pages/` has no CSS stage of its own."
   - "`SignOutPage` mirrors `CallbackPage`'s layout (centred flex container, no card, `.handshake { width: min(100%, 320px) }`). ux.md's S7 spec says 'no card' while its conventions line lists a card; the S7 spec wins because it is the more specific statement and because the page is on screen for well under a second."
   - "The `DashboardLayout` refresh-failure banner changes copy only — no busy state on its action button — per architecture assumption 17. Item 5 is therefore a pure copy/constant change."
-  - "`App.test.tsx` stubs the two new pages (`auth-failure` with `data-lane`, `sign-out-page`) the way it already stubs `CallbackPage` and `SessionExpiredGate`; the category/retry assertions move to `AuthFailurePage.test.tsx`. Rendering the real page instead is explicitly allowed in the issue, with the `\"Try Again\"` → `\"Try again\"` seam noted."
+  - '`App.test.tsx` stubs the two new pages (`auth-failure` with `data-lane`, `sign-out-page`) the way it already stubs `CallbackPage` and `SessionExpiredGate`; the category/retry assertions move to `AuthFailurePage.test.tsx`. Rendering the real page instead is explicitly allowed in the issue, with the `"Try Again"` → `"Try again"` seam noted.'
   - "`hasAuthParams` is re-exported from `packages/auth/src/react/index.ts` only. The root barrel `packages/auth/src/index.ts` is deliberately selective (it does not re-export `isSafeReturnTo` either), and hospitality imports from `@mbe/auth/react`."
   - "The `/demos/session-expired` `Handshake` reuses hospitality's `SessionExpiredGate` aria-label, `Session with Identity has lapsed`. ux.md D3 says 'aria-label per ux.md' but never states the string; the demo mirrors that gate, so its label is the honest choice."
   - "The `/demos/auth-flow` `Handshake` aria-label is not specified anywhere (see Design gaps). The issue gives the worker `Authorization-code exchange between Identity, Browser, and API`, built from the page's own intro vocabulary, and asks the PR to flag it for UX override. Acceptance only requires a non-empty label distinct from the caption."
@@ -75,46 +75,46 @@ Tracking issue: **#4731**. Tree: `main` at `1d6189203` (PR #4720 merged). Ten it
 
 - **D4 `Handshake` aria-label is unspecified.** ux.md gives per-phase aria-labels for D1, D2, S3 and S7 and says D3's is "per ux.md" (which resolves to nothing), but for `/demos/auth-flow` neither ux.md nor architecture.md names the string, and the architecture only requires that it "describe the exchange" and differ from the caption. Not blocking: issue #4726 hands the worker `Authorization-code exchange between Identity, Browser, and API` and asks the PR to flag it; UX or the Architect can override in review. Recorded here, not designed around.
 - **D3 aria-label points at a string that does not exist** ("aria-label per ux.md"). Resolved by assumption (hospitality's `SessionExpiredGate` label is reused) rather than by inventing new copy; noted in #4730 so the reviewer sees it was a choice.
-- **Found at review of #4750 (2026-08-31):** the `created` phase of `/demos/signup` gives the `Handshake` img label and the `role="status"` line the same sentence ("Account created" / "Account created") — the issue contract and ux.md D2 say so verbatim, but prd.md criterion 11 and architecture.md § Demo phase tables require *two different sentences* (a screen-reader user hears it twice). The worker complied with the contract; the defect is in the spec. Fix at Verify/Review: give the `created` label a distinct sentence, e.g. "Account created — your browser and Identity agree" (mirrors SignIn's `verified` label), and PATCH the D2 row. Not filed as an issue yet.
+- **Found at review of #4750 (2026-08-31):** the `created` phase of `/demos/signup` gives the `Handshake` img label and the `role="status"` line the same sentence ("Account created" / "Account created") — the issue contract and ux.md D2 say so verbatim, but prd.md criterion 11 and architecture.md § Demo phase tables require _two different sentences_ (a screen-reader user hears it twice). The worker complied with the contract; the defect is in the spec. Fix at Verify/Review: give the `created` label a distinct sentence, e.g. "Account created — your browser and Identity agree" (mirrors SignIn's `verified` label), and PATCH the D2 row. Not filed as an issue yet.
 - **Found at determinism review of #4755 (2026-08-31) — Operate backlog candidate, out of run scope:** `scripts/check-regen-needed.mjs` reads only `git diff --name-only origin/main...HEAD` (line 51), so a NEW source file that is staged or untracked is invisible and it answers `check` while `pnpm regen --check` (which shells `mbe pack --check` against the working tree) is stale. Reproduced: all changes staged at merge-base → `check`; PR head committed → `full`. Not a prefix gap (`needsFullRegen(["apps/hospitality/src/constants/session-lapse-copy.ts"])` → `true`). Fix sketch: union the committed diff with `git diff --name-only HEAD` and `git ls-files --others --exclude-standard`, plus a unit test asserting an untracked `apps/x/src/y.ts` yields `full`.
 
 ## Coverage
 
 Checked component-by-component against `architecture.md` §Components (1–16) and criterion-by-criterion against `prd.md` §Success criteria (1–12). Every component appears in exactly one item; every criterion is covered by at least one item's acceptance line.
 
-| Architecture component | Item |
-| --- | --- |
-| 1 `deriveReturnTo` callback-path rule | #4721 |
-| 2 `hasAuthParams` re-export | #4721 |
-| 3 `packages/auth/CLAUDE.md` + llms regen | #4721 |
-| 4 `App.tsx` gate order + `App.test.tsx` seam | #4728 |
-| 5 `AuthFailurePage` | #4723 |
-| 6 `SignOutPage` | #4724 |
-| 7 `SESSION_LAPSE_COPY` | #4725 |
-| 8 `SessionExpiredGate` reads the copy | #4725 |
-| 9 `DashboardLayout` banner reads the copy | #4725 |
-| 10 `LoginGate signedOut` + `apps/hospitality/CLAUDE.md` | #4722 (prop), #4728 (CLAUDE.md) |
-| 11 `handshakeFor` + `HANDSHAKE_STATIONS` | #4726 |
-| 12 `AuthFlowPage` rewrite + CSS + test seams | #4726 |
-| 13 SignIn demo phases (D1) | #4727 |
-| 14 SignUp demo phases (D2) | #4729 |
-| 15 SessionExpired demo (D3) | #4730 |
-| 16 `AuthLayout.module.css` additions | #4727 (`.instrumentSlot`, `.statusLine`), #4730 (`.lapse`) |
+| Architecture component                                  | Item                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------- |
+| 1 `deriveReturnTo` callback-path rule                   | #4721                                                      |
+| 2 `hasAuthParams` re-export                             | #4721                                                      |
+| 3 `packages/auth/CLAUDE.md` + llms regen                | #4721                                                      |
+| 4 `App.tsx` gate order + `App.test.tsx` seam            | #4728                                                      |
+| 5 `AuthFailurePage`                                     | #4723                                                      |
+| 6 `SignOutPage`                                         | #4724                                                      |
+| 7 `SESSION_LAPSE_COPY`                                  | #4725                                                      |
+| 8 `SessionExpiredGate` reads the copy                   | #4725                                                      |
+| 9 `DashboardLayout` banner reads the copy               | #4725                                                      |
+| 10 `LoginGate signedOut` + `apps/hospitality/CLAUDE.md` | #4722 (prop), #4728 (CLAUDE.md)                            |
+| 11 `handshakeFor` + `HANDSHAKE_STATIONS`                | #4726                                                      |
+| 12 `AuthFlowPage` rewrite + CSS + test seams            | #4726                                                      |
+| 13 SignIn demo phases (D1)                              | #4727                                                      |
+| 14 SignUp demo phases (D2)                              | #4729                                                      |
+| 15 SessionExpired demo (D3)                             | #4730                                                      |
+| 16 `AuthLayout.module.css` additions                    | #4727 (`.instrumentSlot`, `.statusLine`), #4730 (`.lapse`) |
 
-| PRD criterion | Covered by |
-| --- | --- |
-| 1 Signed-out callback shows the gate synchronously, no timer | #4728 (App gate), #4722 (tagline), #4721 (`hasAuthParams`) |
-| 2 Real callback with params still shows `CallbackPage`; lifecycle tests unchanged | #4728 |
-| 3 Failed exchange renders `Handshake` failed in place, retry only when `canRetry` | #4723 (page), #4728 (wired, lane), #4721 (retry goes home, never back to `/callback`) |
-| 4 Sign-out wait shows Browser ⇄ Identity, not the generic loader | #4724 (page), #4728 (keyed on `signoutRedirect`) |
-| 5 One voice for both session lapses from one shared source | #4725 |
-| 6 `settled` has a product surface | #4727 (`grep 'state: "settled"'` in `SignIn.tsx`) |
-| 7 Demos use `Handshake` for every simulated exchange (D1–D3) | #4727, #4729, #4730 |
-| 8 Hand-rolled auth-flow motion gone (layout may remain) | #4726 |
-| 9 `Handshake` remains the single visualisation; no rialto source or changeset | every issue's Hard constraints; #4726 removes the competing one |
-| 10 E2E contract (`login-prompt`, "Sign In", `auth-layout`) and both E2E files untouched | every hospitality issue's Hard constraints + explicit `git diff --stat` AC (#4722–#4725, #4728) |
-| 11 `pnpm regen --check` clean; no visual-baseline drift | #4721 (regen gate); #4726, #4727, #4729, #4730 (`.png` AC) |
-| 12 Reduced-motion and a11y: every `Handshake` labelled, live text as separate `role="status"` | #4723, #4724, #4727, #4729, #4730 (status/label distinctness ACs); #4726 (label ≠ caption) |
+| PRD criterion                                                                                 | Covered by                                                                                      |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1 Signed-out callback shows the gate synchronously, no timer                                  | #4728 (App gate), #4722 (tagline), #4721 (`hasAuthParams`)                                      |
+| 2 Real callback with params still shows `CallbackPage`; lifecycle tests unchanged             | #4728                                                                                           |
+| 3 Failed exchange renders `Handshake` failed in place, retry only when `canRetry`             | #4723 (page), #4728 (wired, lane), #4721 (retry goes home, never back to `/callback`)           |
+| 4 Sign-out wait shows Browser ⇄ Identity, not the generic loader                              | #4724 (page), #4728 (keyed on `signoutRedirect`)                                                |
+| 5 One voice for both session lapses from one shared source                                    | #4725                                                                                           |
+| 6 `settled` has a product surface                                                             | #4727 (`grep 'state: "settled"'` in `SignIn.tsx`)                                               |
+| 7 Demos use `Handshake` for every simulated exchange (D1–D3)                                  | #4727, #4729, #4730                                                                             |
+| 8 Hand-rolled auth-flow motion gone (layout may remain)                                       | #4726                                                                                           |
+| 9 `Handshake` remains the single visualisation; no rialto source or changeset                 | every issue's Hard constraints; #4726 removes the competing one                                 |
+| 10 E2E contract (`login-prompt`, "Sign In", `auth-layout`) and both E2E files untouched       | every hospitality issue's Hard constraints + explicit `git diff --stat` AC (#4722–#4725, #4728) |
+| 11 `pnpm regen --check` clean; no visual-baseline drift                                       | #4721 (regen gate); #4726, #4727, #4729, #4730 (`.png` AC)                                      |
+| 12 Reduced-motion and a11y: every `Handshake` labelled, live text as separate `role="status"` | #4723, #4724, #4727, #4729, #4730 (status/label distinctness ACs); #4726 (label ≠ caption)      |
 
 ## Notes
 

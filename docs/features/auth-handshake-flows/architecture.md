@@ -4,17 +4,17 @@ run: feature:auth-handshake-flows
 date: 2026-08-30
 assumptions:
   - "Q1 (`/demos/auth-flow`): reading (b) — the walkthrough is simplified onto today's `Handshake` with hub station order Identity — Browser — API and a pure `handshakeFor(step)` projection; `packages/rialto/src` is not touched, so no changeset, no `registry.json`/exports regeneration. The TOKENS step is projected as negotiating on lane 0 (not settled) to avoid the API-green over-claim; REJECTED lights both endpoints of the failed leg (instrument semantics) with the caption carrying blame; `direction` is not rendered. Loser (a) recorded in Decisions."
-  - "The `returnTo` loop is closed at the write side only: `deriveReturnTo` in `packages/auth/src/react/return-to.ts` returns `\"/\"` when the current pathname equals the callback path derived from `redirectUri`. The read side (`extractReturnTo` → `CallbackRedirect`) keeps `isSafeReturnTo` alone, because OIDC `state` data is stored client-side keyed by state id and is not URL-injectable."
+  - 'The `returnTo` loop is closed at the write side only: `deriveReturnTo` in `packages/auth/src/react/return-to.ts` returns `"/"` when the current pathname equals the callback path derived from `redirectUri`. The read side (`extractReturnTo` → `CallbackRedirect`) keeps `isSafeReturnTo` alone, because OIDC `state` data is stored client-side keyed by state id and is not URL-injectable.'
   - "Post-logout URL is the existing provider fallback (`post_logout_redirect_uri: config.postLogoutRedirectUri ?? config.redirectUri`), i.e. `https://mattbutlerengineering.com/hospitality/callback` in production. No new env var, no new route; `App` gains a no-params branch on `/callback`."
   - "The no-params predicate is react-oidc-context's own `hasAuthParams(location?)` (verified exported at 3.3.1: `dist/types/react-oidc-context.d.ts:231`), re-exported from `@mbe/auth/react` rather than re-implemented. This is a public-API addition to `@mbe/auth`, so `packages/auth/CLAUDE.md` and the llms regen are in scope."
   - "Retry after a failed exchange goes home: the pre-failure deep link is unrecoverable because oidc-client-ts removes the stored state entry before the token exchange (`processSigninResponse`, `removeState=true`). No pre-redirect store is added — it would be speculative."
-  - "S7 (signing out) is in scope and keyed on `activeNavigator === \"signoutRedirect\"` inside the existing `isLoading` branch; `useAuth()` already keeps `isLoading` true for sign-out navigators, so no `@mbe/auth` change is needed for it."
+  - 'S7 (signing out) is in scope and keyed on `activeNavigator === "signoutRedirect"` inside the existing `isLoading` branch; `useAuth()` already keeps `isLoading` true for sign-out navigators, so no `@mbe/auth` change is needed for it.'
   - "Hospitality gets no `settled` beat: after a successful exchange `isAuthenticated` flips and `CallbackRedirect` renders `<Navigate>` in the same render pass — there is no natural zero-cost interval. The rialto-web sign-in demo (D1) carries `settled`, per the orchestrator's ruling."
   - "`SessionExpiredGate`'s instrument is unchanged (no warning `StatusLED` added); only its copy moves to the shared constant. Criterion 7's 'matching hospitality's gate' is satisfied on the `Handshake` idle state and the shared copy; the demo's warning LED remains demo-only."
   - "`AuthLayout.module.css`: only the classes the new demo markup needs are defined (`.instrumentSlot`, `.statusLine`, `.lapse` — layout-only, tokens only). The remaining never-defined classes (`.atmosphere`, `.grain`, `.verifyPanel`, `.verifyIntro`, `.stepsIndicator`, `.backButton`, `.passkeyButton`, `.strength*`, `.checklist*`, `.termsRow`, `.termsText`, `.sessionExpired`, `.sessionCopy`) are out of criterion 8 and deferred; `docs/backlog.md` is not edited by this stage."
   - "Q7: rialto-web demos keep their own phase vocabulary (no `useAuth` names — no redirect exists in a demo). Each demo's booleans collapse into one `phase` union with a render-time lookup table; timing constants (`SIMULATED_NETWORK_MS`, `VERIFIED_SETTLE_MS`, sign-up 1500 ms) are unchanged."
   - "Shared session-lapse copy lives in `apps/hospitality/src/constants/session-lapse-copy.ts` and is consumed by `SessionExpiredGate` and the `DashboardLayout` banner; the rialto-web D3 demo uses the ux.md `LAPSE_BODY_DEMO` literal because rialto-web has no dependency on hospitality and the body sentence differs."
-  - "The `DashboardLayout` refresh-failure banner keeps its structure (`Banner variant=\"warning\" dismissible` with a secondary action button, dashboard rendered beneath); only its copy changes."
+  - 'The `DashboardLayout` refresh-failure banner keeps its structure (`Banner variant="warning" dismissible` with a secondary action button, dashboard rendered beneath); only its copy changes.'
   - "`authFlowMachine`'s `leds` and `direction` fields are kept as tested protocol facts even though the rewritten page no longer renders them; deleting them is a separate cleanup, not part of this run (surgical-change rule)."
   - "`AuthFailurePage` follows the house pattern of `LoginGate`/`SessionExpiredGate` and reads `signIn`/`activeNavigator` from `useAuth()` itself; only `error` and `lane` are props. Consistency with sibling gates was chosen over a fully presentational component."
   - "`useAuth()`'s return shape does not change, so `apps/gen/src/hooks/useApi.test.ts` needs no widening; `apps/gen` is still run through its gates for criterion 12."
@@ -45,8 +45,8 @@ The feature is a state-routing problem, not a new subsystem. `useAuth()` already
 exposes every lifecycle fact the screens need (`isLoading`, `activeNavigator`,
 `error`, `sessionExpired`, `isAuthenticated`, `refreshError`), and the instrument
 (`Handshake`, `StatusLED`) already exists in rialto. What is missing is (1) two
-lifecycle states with no screen — *signed out on the callback path* and *sign-out
-in flight* — (2) the failed state rendered in place instead of a text page,
+lifecycle states with no screen — _signed out on the callback path_ and _sign-out
+in flight_ — (2) the failed state rendered in place instead of a text page,
 (3) one voice for the lapse copy, and (4) the rialto-web demos and walkthrough
 using the instrument they are supposed to be teaching.
 
@@ -113,10 +113,10 @@ Grouped by package. "New" means a new file; otherwise the file exists at
    a fresh sign-in", button busy. Composes `LoginGate.module.css` stage
    classes like its siblings.
 5. **`SignOutPage` (S7, new)** — `src/pages/SignOutPage.tsx` + `.module.css`
-   + `.test.tsx`. No props. `Handshake` negotiating lane 0, stations
-   `["Browser","Identity"]`, aria-label "Ending your session with Identity",
-   status line "Signing you out". Rendered only while the sign-out navigator is
-   in flight; the browser leaves the page when Auth0 responds.
+   - `.test.tsx`. No props. `Handshake` negotiating lane 0, stations
+     `["Browser","Identity"]`, aria-label "Ending your session with Identity",
+     status line "Signing you out". Rendered only while the sign-out navigator is
+     in flight; the browser leaves the page when Auth0 responds.
 6. **`LoginGate` `signedOut` prop (S4)** — `src/components/LoginGate.tsx`.
    `signedOut?: boolean` swaps the tagline to "You're signed out. Sign in again
    whenever you're ready." Nothing else moves: `data-testid="login-prompt"`,
@@ -196,14 +196,14 @@ baselines.
 Nothing is persisted by this feature. The screens are pure functions of four
 read-only sources; the table records each source, its owner, and who reads it.
 
-| Source | Owner | Read by | Notes |
-| --- | --- | --- | --- |
-| Lifecycle flags: `isLoading`, `activeNavigator`, `error`, `sessionExpired`, `isAuthenticated`, `refreshError` | `useAuth()` (`packages/auth/src/react/hooks.ts`) | `App.tsx`, `AuthFailurePage`, `LoginGate`, `SessionExpiredGate`, `DashboardLayout` | Shape unchanged by this feature. |
-| URL: `pathname`, OIDC params (`code`/`error` + `state` in search or hash) | the browser | `App.tsx` via `pathname.endsWith("/callback")` and `hasAuthParams(window.location)` | Synchronous; no timer (criterion 1). |
-| `returnTo` | written by `deriveReturnTo` into OIDC `state`; read by `extractReturnTo` → `rememberReturnTo` module store → `CallbackRedirect` | `CallbackRedirect` | Stored client-side by oidc-client-ts keyed by state id; consumed by `processSigninResponse` before the token exchange, so it is gone after a failed exchange. |
-| `SESSION_LAPSE_COPY` | `apps/hospitality/src/constants/session-lapse-copy.ts` | `SessionExpiredGate`, `DashboardLayout` | Frozen object; the single voice for criterion 5. |
-| Demo phase tables (`SIGN_IN_PHASES`, `SIGN_UP_PHASES`) | each demo file | the demo's render | Render-time derivation; no `setState` in `useEffect`. |
-| `FlowStep` (`channel`, `direction`, `carries`, `leds`) | `authFlowMachine.ts` | `handshakeFor(step)` reads `channel` + `carries`; captions read `id`/copy | `leds`/`direction` stay as tested protocol facts, unrendered after this change. |
+| Source                                                                                                        | Owner                                                                                                                           | Read by                                                                             | Notes                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lifecycle flags: `isLoading`, `activeNavigator`, `error`, `sessionExpired`, `isAuthenticated`, `refreshError` | `useAuth()` (`packages/auth/src/react/hooks.ts`)                                                                                | `App.tsx`, `AuthFailurePage`, `LoginGate`, `SessionExpiredGate`, `DashboardLayout`  | Shape unchanged by this feature.                                                                                                                              |
+| URL: `pathname`, OIDC params (`code`/`error` + `state` in search or hash)                                     | the browser                                                                                                                     | `App.tsx` via `pathname.endsWith("/callback")` and `hasAuthParams(window.location)` | Synchronous; no timer (criterion 1).                                                                                                                          |
+| `returnTo`                                                                                                    | written by `deriveReturnTo` into OIDC `state`; read by `extractReturnTo` → `rememberReturnTo` module store → `CallbackRedirect` | `CallbackRedirect`                                                                  | Stored client-side by oidc-client-ts keyed by state id; consumed by `processSigninResponse` before the token exchange, so it is gone after a failed exchange. |
+| `SESSION_LAPSE_COPY`                                                                                          | `apps/hospitality/src/constants/session-lapse-copy.ts`                                                                          | `SessionExpiredGate`, `DashboardLayout`                                             | Frozen object; the single voice for criterion 5.                                                                                                              |
+| Demo phase tables (`SIGN_IN_PHASES`, `SIGN_UP_PHASES`)                                                        | each demo file                                                                                                                  | the demo's render                                                                   | Render-time derivation; no `setState` in `useEffect`.                                                                                                         |
+| `FlowStep` (`channel`, `direction`, `carries`, `leds`)                                                        | `authFlowMachine.ts`                                                                                                            | `handshakeFor(step)` reads `channel` + `carries`; captions read `id`/copy           | `leds`/`direction` stay as tested protocol facts, unrendered after this change.                                                                               |
 
 Access patterns are all "read the current value on render". There are no
 writes beyond the two that already exist (`returnTo` into OIDC state; the
@@ -411,27 +411,27 @@ human call outside this run.
 Checked: every PRD success criterion and user story maps to at least one
 component above.
 
-| PRD item | Component(s) |
-| --- | --- |
-| Criterion 1 — sign-out lands on a signed-out state | 3 (`App` no-params branch), 2 (`hasAuthParams`), 6 (`LoginGate signedOut`) |
-| Criterion 2 — real callback untouched | 3 (order keeps `CallbackPage` on loading and on params present) |
-| Criterion 3 — failed exchange fails in place | 4 (`AuthFailurePage`), 3 (`error` gate, lane) |
-| Criterion 4 — retry restarts sign-in | 4 (bare `signIn()`), 1 (`deriveReturnTo` rule keeps it off `/callback`) |
-| Criterion 5 — banner and gate share one voice | 7 (`SESSION_LAPSE_COPY`), 8, 9 |
-| Criterion 6 — `failed` and `settled` have product surfaces | 4 (`state="failed"`), 13 (D1 `rejected` → failed, `verified` → settled). Note: D1's table is `state: "settled"` (object literal), so criterion 6's grep should accept `state[=:] ?"settled"` |
-| Criterion 7 — demos use the instrument | 13, 14, 15, 16 |
-| Criterion 8 — walkthrough no longer hand-rolls motion | 11, 12 |
-| Criterion 9 — E2E contract intact | 6 (contract preserved), "unchanged on purpose" list |
-| Criterion 10 — visual job green | Stack & dependencies (no snapshotted surface changes) |
-| Criterion 11 — accessible and motion-safe | 4, 5, 13, 14, 15 (required aria-labels; separate `role="status"` sentence; `Handshake` reduced-motion parking) |
-| Criterion 12 — gates and docs | 2 (`packages/auth/CLAUDE.md` + llms regen), 10 (`apps/hospitality/CLAUDE.md`), Stack & dependencies (no changeset) |
-| Story 1 — signing out lands on a signed-out page | 3, 6 |
-| Story 2 — failed sign-in fails where I was watching | 4 |
-| Story 3 — refresh failure and expiry speak with one voice | 7, 8, 9 |
-| Story 4 — every wait shows which parties are talking | 5 (`SignOutPage`), 4 (retrying variant), existing `CallbackPage`/`LoginGate` |
-| Story 5 — demos render all states with the instrument | 13, 14, 15 |
-| Story 6 — walkthrough uses the same instrument family | 11, 12 |
-| Story 7 — exact Auth0 value called out; deliberate before it is added | Surfaced item 1; 3 and 5 (deliberate behaviour either way) |
+| PRD item                                                              | Component(s)                                                                                                                                                                                 |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Criterion 1 — sign-out lands on a signed-out state                    | 3 (`App` no-params branch), 2 (`hasAuthParams`), 6 (`LoginGate signedOut`)                                                                                                                   |
+| Criterion 2 — real callback untouched                                 | 3 (order keeps `CallbackPage` on loading and on params present)                                                                                                                              |
+| Criterion 3 — failed exchange fails in place                          | 4 (`AuthFailurePage`), 3 (`error` gate, lane)                                                                                                                                                |
+| Criterion 4 — retry restarts sign-in                                  | 4 (bare `signIn()`), 1 (`deriveReturnTo` rule keeps it off `/callback`)                                                                                                                      |
+| Criterion 5 — banner and gate share one voice                         | 7 (`SESSION_LAPSE_COPY`), 8, 9                                                                                                                                                               |
+| Criterion 6 — `failed` and `settled` have product surfaces            | 4 (`state="failed"`), 13 (D1 `rejected` → failed, `verified` → settled). Note: D1's table is `state: "settled"` (object literal), so criterion 6's grep should accept `state[=:] ?"settled"` |
+| Criterion 7 — demos use the instrument                                | 13, 14, 15, 16                                                                                                                                                                               |
+| Criterion 8 — walkthrough no longer hand-rolls motion                 | 11, 12                                                                                                                                                                                       |
+| Criterion 9 — E2E contract intact                                     | 6 (contract preserved), "unchanged on purpose" list                                                                                                                                          |
+| Criterion 10 — visual job green                                       | Stack & dependencies (no snapshotted surface changes)                                                                                                                                        |
+| Criterion 11 — accessible and motion-safe                             | 4, 5, 13, 14, 15 (required aria-labels; separate `role="status"` sentence; `Handshake` reduced-motion parking)                                                                               |
+| Criterion 12 — gates and docs                                         | 2 (`packages/auth/CLAUDE.md` + llms regen), 10 (`apps/hospitality/CLAUDE.md`), Stack & dependencies (no changeset)                                                                           |
+| Story 1 — signing out lands on a signed-out page                      | 3, 6                                                                                                                                                                                         |
+| Story 2 — failed sign-in fails where I was watching                   | 4                                                                                                                                                                                            |
+| Story 3 — refresh failure and expiry speak with one voice             | 7, 8, 9                                                                                                                                                                                      |
+| Story 4 — every wait shows which parties are talking                  | 5 (`SignOutPage`), 4 (retrying variant), existing `CallbackPage`/`LoginGate`                                                                                                                 |
+| Story 5 — demos render all states with the instrument                 | 13, 14, 15                                                                                                                                                                                   |
+| Story 6 — walkthrough uses the same instrument family                 | 11, 12                                                                                                                                                                                       |
+| Story 7 — exact Auth0 value called out; deliberate before it is added | Surfaced item 1; 3 and 5 (deliberate behaviour either way)                                                                                                                                   |
 
 Open questions from the PRD resolved here: Q1 (Decision 1), post-logout URL
 (Decision 2), returnTo loop (Decision 3), Q6 retry target (Decision 4), Q7

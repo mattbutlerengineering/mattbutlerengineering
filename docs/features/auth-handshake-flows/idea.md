@@ -157,7 +157,7 @@ every remaining auth surface rather than adding anything new:
 Not this run (carried from the brief): Auth0 tenant configuration (surface
 the exact value as a human step); new providers, MFA, or a hospitality-native
 sign-up; backend/Fastify auth; changing the E2E contract selectors; a rialto
-npm publish; anything on #4487. `Handshake` is *the* visualisation for auth
+npm publish; anything on #4487. `Handshake` is _the_ visualisation for auth
 exchanges — no second one.
 
 ## Success in one sentence
@@ -176,7 +176,7 @@ with the E2E contract intact.
   (`/hospitality/callback`) is even allow-listed cannot be read from the repo,
   and the new value will need a human to add it.
 - **"Verified by E2E" may not be provable on a given day.** `Hospitality
-  E2E` is advisory and frequently red for auth/environment reasons; unit
+E2E` is advisory and frequently red for auth/environment reasons; unit
   tests must carry the gate.
 - **The auth-flow demo may not fit `Handshake`.** `authFlowMachine` steps
   have a direction and a payload and use two channels; `Handshake` has one

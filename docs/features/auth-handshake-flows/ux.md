@@ -6,15 +6,15 @@ assumptions:
   - "Sketches are unconfirmed: no live interview was possible, so every screen is grounded in the existing gates (`LoginGate`, `CallbackPage`, `SessionExpiredGate`), the rialto-web `AuthLayout` demos, the `Handshake` showcase page, and `packages/rialto/CLAUDE.md` rather than user taste."
   - "Q1 (`/demos/auth-flow`): per the orchestrator ruling this artifact gives the consumer-facing view only and describes the user-visible outcome of both readings (a) and (b); it picks neither — Architect decides."
   - "Q3 (`settled` on hospitality's successful callback): per the ruling no delay is added to a successful sign-in; hospitality renders `settled` only if Architect finds a zero-latency interval before navigation, otherwise the rialto-web sign-in demo is the product surface for `settled`."
-  - "Q4 (signed-out form): per the ruling the state is designed, not the URL; the recommendation is `LoginGate` with a signed-out note in the tagline slot, which keeps the `login-prompt` / \"Sign In\" contract by construction."
+  - 'Q4 (signed-out form): per the ruling the state is designed, not the URL; the recommendation is `LoginGate` with a signed-out note in the tagline slot, which keeps the `login-prompt` / "Sign In" contract by construction.'
   - "Q5 (shared lapse copy): UX owns the strings; the Shared copy section is the single source and both the banner and `SessionExpiredGate` reference it — final unless a human overrides."
   - "Sign-out in flight (S7) is designed although the PRD transition table has no row for it: user story 4 names every wait during sign-in and sign-out, and today that beat is the generic `LoadingPage`; Architect may scope it into the signed-out work item or defer it."
   - "The failure screen (S3) is designed for any interactive auth error, with the failed lane set by where the failure happened (lane 0 off `/callback`, lane 1 on it); PRD criterion 3 only requires the `/callback` case, so Architect may keep the text page for the redirect-failure case."
   - "rialto-web demo Handshakes are always present in the card (idle at rest) instead of swapping in only while in flight as hospitality's `LoginGate` does — chosen for zero layout shift and so a consumer sees the whole idle → negotiating → settled/failed lifecycle in one slot; the brief is silent."
   - "The sign-up demo goes `settled` on success (with its toast) — one step beyond criterion 7's negotiating-only minimum, because an instrument that lights up for the exchange and then goes dark while a success toast fires contradicts itself."
-  - "Retry on the failure screen is labelled \"Try again\" (sentence case, matching every other non-contract button) instead of today's \"Try Again\"; the E2E-contracted \"Sign In\" keeps its capitalisation."
-  - "The refresh-failure banner says the session couldn't *renew* rather than *refresh*, because \"refresh\" reads as \"reload the page\" to an operator; the banner keeps its code/doc name."
-  - "Station names are the existing hospitality vocabulary — \"Browser\", \"Identity\", \"API\" — on every new surface including the demos; the walkthrough's \"Identity Provider\" card title is recommended to shorten to \"Identity\" with the role line beneath, under either reading."
+  - 'Retry on the failure screen is labelled "Try again" (sentence case, matching every other non-contract button) instead of today''s "Try Again"; the E2E-contracted "Sign In" keeps its capitalisation.'
+  - 'The refresh-failure banner says the session couldn''t *renew* rather than *refresh*, because "refresh" reads as "reload the page" to an operator; the banner keeps its code/doc name.'
+  - 'Station names are the existing hospitality vocabulary — "Browser", "Identity", "API" — on every new surface including the demos; the walkthrough''s "Identity Provider" card title is recommended to shorten to "Identity" with the role line beneath, under either reading.'
   - "Written on #4720's branch (`feat/auth-lifecycle-handshake` at `972838439`), which is what the working tree had checked out; #4720 was still OPEN and `mergeStateStatus=BLOCKED` at write time. Every 'unchanged (#4720)' screen below is read from that branch."
 surfaced:
   - "`apps/rialto-web/src/pages/auth/AuthLayout.module.css` has never defined the classes `.atmosphere`, `.grain`, `.sessionExpired`, `.sessionCopy`, `.verifyPanel`, `.verifyIntro`, `.verifiedRow`, `.stepsIndicator`, `.backButton`, `.passkeyButton`, `.strengthBlock`, `.strengthHeader`, `.strengthLabel`, `.checklist*`, `.termsRow`, `.termsText` that `AuthLayout.tsx`, `SignIn.tsx`, `SignUp.tsx`, and `SessionExpired.tsx` reference (0 matches at HEAD and at `origin/main`; no commit in the file's history ever added them). The demos' atmosphere/grain stage and their verify/session/strength blocks are unstyled today. Whether restoring those layout rules is inside criterion 8's 'layout rules may remain' scope has no default — Architect."
@@ -30,8 +30,8 @@ the PRD's transition table. This artifact designs states, copy, and flows —
 not URLs (Q2), not `returnTo` mechanics (Q6), not phase naming (Q7). Prior-art
 screens from #4720 are sketched for completeness and marked **unchanged**.
 
-One rule runs through every screen: **the `Handshake` shows *who* is talking;
-a separate status line says *what about*.** The instrument is never the only
+One rule runs through every screen: **the `Handshake` shows _who_ is talking;
+a separate status line says _what about_.** The instrument is never the only
 signal — a caption, a heading, or a field hint always carries the words.
 
 ## Flows
@@ -65,7 +65,7 @@ Actors: **Operator** (hospitality), **Consumer** (rialto-web demos),
    endpoint. (Today this beat is the `LoadingPage` watch loader.)
 3. Auth0 clears its session and returns to the post-logout URL — today
    `/hospitality/callback` with no params; the final URL is Architect's (Q2).
-   *Boundary:* if that URL is not in Auth0's Allowed Logout URLs, Auth0 shows
+   _Boundary:_ if that URL is not in Auth0's Allowed Logout URLs, Auth0 shows
    its own error page and never returns (Maintainer step, outside the repo).
 4. App at the return URL, no OIDC params, not authenticated, not loading →
    **S4 Signed-out state**: `LoginGate` with the signed-out note, offering
@@ -80,15 +80,15 @@ Actors: **Operator** (hospitality), **Consumer** (rialto-web demos),
    wait, `Handshake` **failed** on the leg that failed, status "The exchange
    didn't go through", then `describeAuthError`'s title and body.
 2. Branch by category (all four kept):
-   - *Expired flow / network / default* → **Try again** is present. Activating
+   - _Expired flow / network / default_ → **Try again** is present. Activating
      it starts a fresh sign-in: the instrument flips to negotiating on lane 0
      (Browser ⇄ Identity), status "Starting a fresh sign-in", button busy
      "Heading to sign-in" → Auth0 → Flow 1 step 4. The operator never edits the
      URL.
-   - *Access denied* → no retry; the body tells them to contact an
+   - _Access denied_ → no retry; the body tells them to contact an
      administrator. `GlobalNav` remains, so the shell is not a trap.
 3. "Technical details" stays reachable, collapsed, beneath the action.
-4. If sign-in fails *before* the browser leaves (the redirect itself rejects),
+4. If sign-in fails _before_ the browser leaves (the redirect itself rejects),
    the same S3 renders on the root path with lane 0 failed.
 
 ### Flow 4 — A session lapses mid-shift (Operator)
@@ -99,7 +99,7 @@ Two entrances, one voice (see **Shared copy**).
   banner** slides in above the page content, non-blocking; the page beneath
   stays fully interactive. **Sign back in** → busy "Heading to sign-in" →
   Auth0 → `/callback` (S2) → back to the same page, query and hash included.
-  **Dismiss** hides it until a *new* failure occurs.
+  **Dismiss** hides it until a _new_ failure occurs.
 - **4b. Token expires in place** → **S6 SessionExpiredGate** replaces the
   dashboard: `Handshake` idle (dark) Browser ⇄ Identity, "Your session ended",
   the shared body, **Sign back in** → instrument negotiating, button busy →
@@ -110,16 +110,16 @@ Two entrances, one voice (see **Shared copy**).
 1. **D1 credentials step**: `Steps` on step 1, `Handshake` idle above the form.
    Field validation (bad email) is inline and never touches the instrument —
    nothing is being exchanged.
-2. Submit → D1 *submitting*: instrument negotiating Browser ⇄ Identity, status
+2. Submit → D1 _submitting_: instrument negotiating Browser ⇄ Identity, status
    "Sending your credentials", inputs disabled, button busy "Signing in...".
 3. `Steps` advances to Verification; instrument returns to idle. Enter the
    6-digit code.
-4. Verify → D1 *verifying*: negotiating, status "Checking your code", button
+4. Verify → D1 _verifying_: negotiating, status "Checking your code", button
    busy "Verifying...".
-5. Rejected code (`000000`) → D1 *failed*: instrument **failed**, status "The
+5. Rejected code (`000000`) → D1 _failed_: instrument **failed**, status "The
    exchange didn't go through", `PinInput` error hint "That code didn't match —
    try again". Editing the code returns the instrument to idle.
-6. Accepted code → D1 *settled*: instrument **settled** for the existing
+6. Accepted code → D1 _settled_: instrument **settled** for the existing
    700 ms beat with the "Verified" check, then the toast "Signed in
    successfully".
 7. Side exits: "Use a different account" (ghost) → step 1 with the instrument
@@ -149,17 +149,17 @@ Two entrances, one voice (see **Shared copy**).
 
 The one place these strings live. Both S5 and S6 render them; D3 reuses the
 heading and action. Names are copy keys, not code identifiers — where they
-live in code is Architect's; PRD criterion 5 accepts one shared source *or*
+live in code is Architect's; PRD criterion 5 accepts one shared source _or_
 identical strings asserted by test.
 
-| Key                   | String                                                                | Used by                         |
-| --------------------- | --------------------------------------------------------------------- | ------------------------------- |
-| `LAPSE_HEADING`       | Your session ended                                                    | S6 heading; D3 heading          |
-| `LAPSE_BODY`          | Sign back in to pick up where you left off — this page is preserved.  | S6 body; S5 second sentence     |
-| `LAPSE_BODY_DEMO`     | Sign back in to pick up where you left off.                           | D3 only (the demo preserves nothing, so it must not claim to) |
-| `REFRESH_FAILED_LEAD` | Your session couldn't renew and will end soon.                        | S5 first sentence               |
-| `LAPSE_ACTION`        | Sign back in                                                          | S5 button; S6 button; D3 button |
-| `LAPSE_ACTION_BUSY`   | Heading to sign-in                                                    | every sign-in-bound button while in flight (S1, S3, S5, S6 — S1/S6 already use it) |
+| Key                   | String                                                               | Used by                                                                            |
+| --------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `LAPSE_HEADING`       | Your session ended                                                   | S6 heading; D3 heading                                                             |
+| `LAPSE_BODY`          | Sign back in to pick up where you left off — this page is preserved. | S6 body; S5 second sentence                                                        |
+| `LAPSE_BODY_DEMO`     | Sign back in to pick up where you left off.                          | D3 only (the demo preserves nothing, so it must not claim to)                      |
+| `REFRESH_FAILED_LEAD` | Your session couldn't renew and will end soon.                       | S5 first sentence                                                                  |
+| `LAPSE_ACTION`        | Sign back in                                                         | S5 button; S6 button; D3 button                                                    |
+| `LAPSE_ACTION_BUSY`   | Heading to sign-in                                                   | every sign-in-bound button while in flight (S1, S3, S5, S6 — S1/S6 already use it) |
 
 Rendered in full:
 
@@ -170,26 +170,26 @@ Rendered in full:
   where you left off — this page is preserved."; action **Sign back in**.
   (Identical to today's gate — only the banner changes.)
 
-Why one voice: the two lapses differ only in tense — the gate's session *has*
-ended, the banner's *will* — so they share the noun ("your session"), the
+Why one voice: the two lapses differ only in tense — the gate's session _has_
+ended, the banner's _will_ — so they share the noun ("your session"), the
 promise ("pick up where you left off — this page is preserved"), and the verb
 on the button. The banner's first sentence is the only text that differs.
 
 ### Other new or changed strings (inventory, so Implement never invents)
 
-| Surface | String                                                 | Role                              |
-| ------- | ------------------------------------------------------ | --------------------------------- |
-| S3      | The exchange didn't go through                         | status line (polite) on failure   |
-| S3      | Starting a fresh sign-in                               | status line while retrying        |
-| S3      | Try again                                              | retry button (was "Try Again")    |
-| S3      | Your sign-in could not be verified                     | `Handshake` aria-label, failed    |
-| S3      | Connecting your browser to Identity                    | `Handshake` aria-label, retrying (same as S1) |
-| S4      | You're signed out. Sign in again whenever you're ready. | tagline slot on `LoginGate`      |
-| S7      | Signing you out                                        | status line                       |
-| S7      | Ending your session with Identity                      | `Handshake` aria-label            |
-| D1      | Sending your credentials / Checking your code / The exchange didn't go through / Verified | status line per phase |
-| D2      | Creating your account / Account created                | status line per phase             |
-| D3      | Session expired (unchanged title); Your session ended; Sign back in to pick up where you left off.; Sign back in | card title; heading; body; button |
+| Surface | String                                                                                                           | Role                                          |
+| ------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| S3      | The exchange didn't go through                                                                                   | status line (polite) on failure               |
+| S3      | Starting a fresh sign-in                                                                                         | status line while retrying                    |
+| S3      | Try again                                                                                                        | retry button (was "Try Again")                |
+| S3      | Your sign-in could not be verified                                                                               | `Handshake` aria-label, failed                |
+| S3      | Connecting your browser to Identity                                                                              | `Handshake` aria-label, retrying (same as S1) |
+| S4      | You're signed out. Sign in again whenever you're ready.                                                          | tagline slot on `LoginGate`                   |
+| S7      | Signing you out                                                                                                  | status line                                   |
+| S7      | Ending your session with Identity                                                                                | `Handshake` aria-label                        |
+| D1      | Sending your credentials / Checking your code / The exchange didn't go through / Verified                        | status line per phase                         |
+| D2      | Creating your account / Account created                                                                          | status line per phase                         |
+| D3      | Session expired (unchanged title); Your session ended; Sign back in to pick up where you left off.; Sign back in | card title; heading; body; button             |
 
 Status lines follow the house readout voice — present-participle, no terminal
 period ("Winding things up", "Exchanging your code for a session"). Headings
@@ -295,7 +295,7 @@ Retrying (after Try again):
 
 - Purpose: understand what happened; retry when retrying can help.
 - Empty state: n/a.
-- Loading state: the *retrying* variant — instrument negotiating on lane 0
+- Loading state: the _retrying_ variant — instrument negotiating on lane 0
   (aria-label "Connecting your browser to Identity"), status "Starting a fresh
   sign-in", button busy. Heading and body remain so nothing jumps.
 - Error state: this is the error state. All four categories render the same
@@ -334,7 +334,7 @@ one line already carries.
 ```
 
 - Purpose: confirm the sign-out and offer the way back in.
-- Empty state: this is the resting state. Because it *is* `LoginGate`,
+- Empty state: this is the resting state. Because it _is_ `LoginGate`,
   `data-testid="login-prompt"` and the "Sign In" button are present by
   construction — the E2E contract at the root URL is untouched whichever URL
   Architect chooses (Q2). At the root, the plain S1 tagline shows; at the
@@ -345,7 +345,7 @@ one line already carries.
   note are read on load like any fresh page. Reloading the page keeps the
   note — "you're signed out" is still true.
 - Also true if someone lands here without signing out (a bookmark to the
-  return URL): they *are* signed out, so the note is honest.
+  return URL): they _are_ signed out, so the note is honest.
 - Requirement for Architect: Sign In from here returns the operator home after
   sign-in, never to the signed-out URL.
 
@@ -373,7 +373,7 @@ In flight: [ ◌ Heading to sign-in ]  (button busy; banner stays)
 - Empty state: banner absent (no `refreshError`, or the current one dismissed).
 - Loading state: the action button busy with `LAPSE_ACTION_BUSY`; nothing
   else changes until the browser leaves.
-- Error state: this banner *is* the error state for a silent refresh. A new
+- Error state: this banner _is_ the error state for a silent refresh. A new
   failure after dismissal shows it again.
 - The button stays `secondary` inside the warning banner (as today); what is
   shared with S6 is the label, not the variant.
@@ -481,9 +481,9 @@ Accepted:     (●) Browser ─●─●─●─ (●) Identity   ✓ Verified 
   one slot.
 - Empty state: fields empty, instrument idle, status line empty (an empty
   polite region announces nothing).
-- Loading state: *submitting* and *verifying* — negotiating on lane 0 with
+- Loading state: _submitting_ and _verifying_ — negotiating on lane 0 with
   the phase caption; the button busy text is unchanged from today.
-- Error state: *rejected* — instrument failed plus the `PinInput` hint;
+- Error state: _rejected_ — instrument failed plus the `PinInput` hint;
   editing the code clears both (instrument back to idle). Inline email
   validation is a field error only; the instrument never reacts to local
   validation because nothing was exchanged.
@@ -516,7 +516,7 @@ Success:      (●) Browser ─●─●─●─ (●) Identity   Account creat
 
 - Purpose: reference sign-up; the instrument lights only for the exchange.
 - Empty state: fields empty, instrument idle.
-- Loading state: *submitting*.
+- Loading state: _submitting_.
 - Error state: the demo has no exchange failure; email and password-mismatch
   errors are inline field hints and leave the instrument idle.
 - aria-labels: idle "Sign-up exchange at rest"; submitting "Creating your
@@ -592,21 +592,21 @@ walkthrough because Identity and API never talk to each other. The station
 cards keep their role lines beneath the instrument's own labels, or the
 instrument's labels replace them. Per step, the consumer sees:
 
-| Step           | Instrument                          | What is lost versus today                    |
-| -------------- | ----------------------------------- | -------------------------------------------- |
-| AUTHORIZE      | idle (nothing on the wire)          | Browser's lone gold LED                      |
-| REDIRECT       | negotiating, lane 0                 | outbound direction                           |
-| CODE           | negotiating, lane 0                 | inbound direction; Identity's green LED      |
-| EXCHANGE       | negotiating, lane 0                 | outbound direction                           |
-| TOKENS         | settled                             | API turns green too, although not yet called |
-| API CALL       | negotiating, lane 1                 | outbound direction                           |
-| REFRESH        | negotiating, lane 0 (shuttle loops) | nothing — the loop is the shuttle            |
-| REJECTED       | failed, lane 0                      | Identity also turns red (it did nothing wrong) |
+| Step      | Instrument                          | What is lost versus today                      |
+| --------- | ----------------------------------- | ---------------------------------------------- |
+| AUTHORIZE | idle (nothing on the wire)          | Browser's lone gold LED                        |
+| REDIRECT  | negotiating, lane 0                 | outbound direction                             |
+| CODE      | negotiating, lane 0                 | inbound direction; Identity's green LED        |
+| EXCHANGE  | negotiating, lane 0                 | outbound direction                             |
+| TOKENS    | settled                             | API turns green too, although not yet called   |
+| API CALL  | negotiating, lane 1                 | outbound direction                             |
+| REFRESH   | negotiating, lane 0 (shuttle loops) | nothing — the loop is the shuttle              |
+| REJECTED  | failed, lane 0                      | Identity also turns red (it did nothing wrong) |
 
 **UX view on direction (the PRD's question to this stage):** per-step
 direction is not load-bearing for a consumer. The captions already say
 "redirects to" and "redirects back", the readout names the step, and a
-shuttling pulse reads as *an exchange is happening between these two* —
+shuttling pulse reads as _an exchange is happening between these two_ —
 which is the thing a consumer needs the picture for. What (b) actually
 costs is finer: the per-station nuance (who has finished, who is untouched)
 on TOKENS and REJECTED. Either is defensible; the hub ordering is what
@@ -683,7 +683,7 @@ the #4720 gates.
   is stated here.
 - Whether the demos name their phases with `useAuth()`'s vocabulary (Q7) and
   whether a sign-out E2E case is feasible (Q8).
-- An account-switch path from *Access denied* (today: no action; the
+- An account-switch path from _Access denied_ (today: no action; the
   operator contacts an administrator).
 - A signed-out phrase on the departure board, and a warning-LED telltale on
   hospitality's `SessionExpiredGate` (surfaced above as a parity question).
@@ -701,14 +701,14 @@ the #4720 gates.
 
 Every PRD user story with a UI surface is reachable through a flow above:
 
-| Story | Actor    | Reached by                                                                 |
-| ----- | -------- | -------------------------------------------------------------------------- |
-| 1     | Operator | Flow 2 → S4 (signed-out state offering Sign In; never `CallbackPage`)      |
-| 2     | Operator | Flow 3 → S3 (failed in place, category copy, retry iff it can help)        |
-| 3     | Operator | Flow 4 → S5 + S6 with the Shared copy block (one voice, one action label)  |
-| 4     | Operator | Flow 1 (S1 in flight, S2), Flow 2 (S7), Flow 3 (S3 retrying)              |
-| 5     | Consumer | Flow 5 → D1 (submitting, verifying, failed, settled); Flow 6 → D2; D3 lapsed |
-| 6     | Consumer | Flow 7 → D4 under reading (a) or (b)                                       |
+| Story | Actor      | Reached by                                                                                                                                                                                                                                    |
+| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Operator   | Flow 2 → S4 (signed-out state offering Sign In; never `CallbackPage`)                                                                                                                                                                         |
+| 2     | Operator   | Flow 3 → S3 (failed in place, category copy, retry iff it can help)                                                                                                                                                                           |
+| 3     | Operator   | Flow 4 → S5 + S6 with the Shared copy block (one voice, one action label)                                                                                                                                                                     |
+| 4     | Operator   | Flow 1 (S1 in flight, S2), Flow 2 (S7), Flow 3 (S3 retrying)                                                                                                                                                                                  |
+| 5     | Consumer   | Flow 5 → D1 (submitting, verifying, failed, settled); Flow 6 → D2; D3 lapsed                                                                                                                                                                  |
+| 6     | Consumer   | Flow 7 → D4 under reading (a) or (b)                                                                                                                                                                                                          |
 | 7     | Maintainer | No UI of their own. "Behaves deliberately before I add it" is Flow 2 step 4 at today's `/callback` (S4 renders there with no params); "the exact Auth0 value called out" is a documentation deliverable Architect fixes with Q2 — outside UX. |
 
 Every transition in the PRD table has a sketch: S1, S2 (negotiating and
