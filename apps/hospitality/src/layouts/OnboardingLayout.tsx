@@ -13,7 +13,11 @@ const TAGLINE = "Restaurant management, simplified.";
 
 /** Brand panel: product identity plus the live vertical progress rail (desktop). */
 function OnboardingBrandPanel() {
-  const { step, highestStepReached, isSubmitting, actions } = useOnboardingWizardContext();
+  const { step, highestStepReached, launch, actions } = useOnboardingWizardContext();
+  // isSubmitting was retired (#4824) — it was permanently false, so this
+  // guard never actually blocked navigation while a launch was in flight.
+  // launch.inFlightStage is the real signal.
+  const launchInFlight = launch.inFlightStage !== null;
   return (
     <aside className={styles.brand}>
       <Stack gap="md">
@@ -28,7 +32,7 @@ function OnboardingBrandPanel() {
         <VerticalStepRail
           currentStep={step}
           highestStepReached={highestStepReached}
-          onStepClick={isSubmitting ? undefined : actions.goToStep}
+          onStepClick={launchInFlight ? undefined : actions.goToStep}
         />
       </div>
     </aside>

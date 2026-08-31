@@ -63,8 +63,6 @@ interface LaunchStepProps {
   locationTime: LocationTimeData;
   operatingHours: OperatingHours;
   settings: SettingsData;
-  isSubmitting: boolean;
-  submitError: string | null;
   onLaunch: () => Promise<void>;
   onCelebrationDone: () => void;
   floorPlan?: FloorPlanDraft;
@@ -77,8 +75,6 @@ export function LaunchStep({
   locationTime,
   operatingHours,
   settings,
-  isSubmitting,
-  submitError,
   onLaunch,
   onCelebrationDone,
   floorPlan = EMPTY_FLOOR_PLAN_DRAFT,
@@ -107,7 +103,7 @@ export function LaunchStep({
       const delay = prefersReducedMotion() ? REDUCED_MOTION_CELEBRATION_MS : CELEBRATION_MS;
       timeoutRef.current = setTimeout(onCelebrationDone, delay);
     } catch {
-      // submitError is already populated by the wizard state; nothing to celebrate.
+      // launch.failedStage/errorMessage already reflect the failure; nothing to celebrate.
     }
   };
 
@@ -275,14 +271,6 @@ export function LaunchStep({
         <LaunchStagePanel progress={launch} draft={floorPlan} venueName={basicInfo.name} />
       )}
 
-      {submitError && (
-        <div className={styles.errorBanner} role="alert">
-          <Text variant="body" color="error">
-            {submitError}
-          </Text>
-        </div>
-      )}
-
       {launch.failedStage !== null && onRetry && (
         <>
           <Text variant="caption" color="secondary">
@@ -293,8 +281,8 @@ export function LaunchStep({
       )}
 
       {launch.failedStage === null && (
-        <Button variant="primary" onClick={handleLaunch} disabled={isSubmitting || launchStarted}>
-          {isSubmitting ? "Creating..." : "Launch Venue"}
+        <Button variant="primary" onClick={handleLaunch} disabled={launchStarted}>
+          Launch Venue
         </Button>
       )}
     </div>

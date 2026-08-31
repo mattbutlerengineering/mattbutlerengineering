@@ -160,17 +160,10 @@ vi.mock("../components/venue-onboarding/LaunchStep", () => ({
         Launch Venue
       </button>
       {launch?.failedStage && <span role="alert">{launch.errorMessage}</span>}
-      {launch?.failedStage && onRetry && (
-        <button
-          onClick={() => {
-            onRetry().catch(() => {
-              /* same swallow as onLaunch above */
-            });
-          }}
-        >
-          Retry
-        </button>
-      )}
+      {/* Bare call, matching the real ErrorRetryBanner (its Button's onClick
+          calls onRetry directly, unawaited) — a rejection here is only safe
+          because the page's handleRetry catches its own failure. */}
+      {launch?.failedStage && onRetry && <button onClick={onRetry}>Retry</button>}
       <button onClick={onCelebrationDone}>Finish celebration</button>
     </div>
   ),
@@ -992,5 +985,57 @@ describe("VenueOnboardingPage", () => {
     expect(payload.settings).toBeDefined();
     expect(payload.settings.defaultReservationDuration).toBe(60);
     expect(payload.settings.maxPartySize).toBe(8);
+  });
+
+  // #4824 Finding 1: isSubmitting is a permanently-false dead flag — nothing
+  // dispatches SUBMIT_START since #4804 retired actions.submit. The real
+  // in-flight signal is launch.inFlightStage. Back must stay disabled and the
+  // mobile step rail must reject navigation for as long as a launch stage is
+  // running, not just while a (never-set) isSubmitting flag is true.
+  it("#4824 Finding 1: while the launch sequence is in flight, Back is disabled and the mobile step rail rejects navigation", () => {
+    // Never resolves — holds the sequence in the "venue" in-flight stage.
+    mockVenuesCreate.mockImplementation(() => new Promise<Venue>(() => {}));
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank");
+
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    const backButton = screen.getByText("Back") as HTMLButtonElement;
+    expect(backButton.disabled).toBe(true);
+
+    // Step 1 was already reached (highestStepReached === 6) and would
+    // normally render as a clickable link in the mobile StepIndicator.
+    expect(screen.queryByRole("link", { name: /Step 1/ })).toBeNull();
+  });
+
+  // #4824 Finding 2: ErrorRetryBanner calls onRetry() bare (no .catch), and
+  // handleLaunch throws whenever result.failedStage !== null — so a second
+  // consecutive launch failure via Retry must not leave an unhandled
+  // rejection behind.
+  it("#4824 Finding 2: a retry that fails again produces no unhandled promise rejection", async () => {
+    mockVenuesCreate
+      .mockRejectedValueOnce(new Error("Slug already taken"))
+      .mockRejectedValueOnce(new Error("Slug already taken"));
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank");
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Slug already taken");
+    });
+
+    fireEvent.click(screen.getByText("Retry"));
+
+    await waitFor(() => {
+      expect(mockVenuesCreate).toHaveBeenCalledTimes(2);
+    });
+
+    // Give a rejection from a bare, un-caught handleRetry() room to surface —
+    // Vitest fails the currently-running test on an unhandled rejection.
+    await flushMicrotasks();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Slug already taken");
   });
 });

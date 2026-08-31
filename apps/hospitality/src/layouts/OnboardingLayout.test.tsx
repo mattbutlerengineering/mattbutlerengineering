@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { OnboardingLayout } from "./OnboardingLayout.js";
+import { useOnboardingWizardContext } from "../components/venue-onboarding/OnboardingWizardContext.js";
+import { INITIAL_LAUNCH_PROGRESS } from "../components/venue-onboarding/launch-sequence.js";
 
 // VenueProvider (wrapped by OnboardingLayout) reads venues via useVenues, which
 // hits the API client. Stub it so the layout renders deterministically without
@@ -23,6 +26,44 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children }: { children?: ReactNode }) => <p>{children}</p>,
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
+
+/**
+ * Drives the wizard two steps forward (basicInfo -> next -> locationTime ->
+ * next), landing on step 3 with highestStepReached === 3 — so steps 1 and 2
+ * are "reached" and would normally render as clickable rail buttons — then
+ * puts a launch stage in flight.
+ */
+function DriveIntoInFlightLaunch() {
+  const { actions } = useOnboardingWizardContext();
+  useEffect(() => {
+    actions.setStepData("basicInfo", { name: "My Venue", slug: "my-venue", venueGroupId: "" });
+    actions.next();
+    actions.setStepData("locationTime", {
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+    });
+    actions.next();
+    actions.setLaunchProgress({ ...INITIAL_LAUNCH_PROGRESS, inFlightStage: "venue" });
+    // Runs once on mount to seed a deterministic in-flight state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div>Wizard Slot</div>;
+}
+
+function renderLayoutWithInFlightLaunch() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/onboarding"]}>
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingLayout />}>
+            <Route index element={<DriveIntoInFlightLaunch />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
 
 function renderLayout() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -77,5 +118,20 @@ describe("OnboardingLayout", () => {
     expect(within(rail).getByText("Name your venue")).toBeInTheDocument();
     expect(within(rail).getByText("Launch")).toBeInTheDocument();
     expect(within(rail).getByText("Review & go live")).toBeInTheDocument();
+  });
+
+  // #4824 Finding 1: isSubmitting was a permanently-false dead flag — the
+  // desktop rail's onStepClick guard never actually blocked navigation while
+  // a launch stage was in flight. launch.inFlightStage is the real signal.
+  it("#4824 Finding 1: while the launch sequence is in flight, the desktop step rail rejects navigation to a reached step", () => {
+    renderLayoutWithInFlightLaunch();
+
+    const brand = screen.getByRole("complementary");
+    const rail = within(brand).getByRole("navigation", { name: /progress/i });
+
+    // Steps 1 and 2 are reached (highestStepReached === 3, current === 3) and
+    // would normally render as clickable buttons — none should while a stage
+    // is in flight.
+    expect(within(rail).queryByRole("button")).toBeNull();
   });
 });

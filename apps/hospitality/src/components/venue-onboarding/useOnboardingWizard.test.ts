@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { Venue, CreateTableRequest } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "../floor-plan/floor-plan-geometry.js";
@@ -67,8 +67,6 @@ describe("useOnboardingWizard", () => {
       expect(result.current.step).toBe(1);
       expect(result.current.highestStepReached).toBe(1);
       expect(result.current.slugStatus).toBe("idle");
-      expect(result.current.isSubmitting).toBe(false);
-      expect(result.current.submitError).toBeNull();
     });
 
     it("seeds data.floorPlan and launch with the additive slices' initial values", () => {
@@ -223,41 +221,6 @@ describe("useOnboardingWizard", () => {
       });
       expect(result.current.slugStatus).toBe("available");
       expect(result.current.errors.basicInfo.slug).toBeUndefined();
-    });
-  });
-
-  describe("submit", () => {
-    it("sets isSubmitting true while pending", () => {
-      const { result } = renderHook(() => useOnboardingWizard());
-      const neverResolve = new Promise<Venue>(() => {});
-      void act(() => {
-        result.current.actions.submit(neverResolve);
-      });
-      expect(result.current.isSubmitting).toBe(true);
-    });
-
-    it("resolves: clears isSubmitting and submitError, returns the venue", async () => {
-      const { result } = renderHook(() => useOnboardingWizard());
-      let resolved: Venue | undefined;
-      await act(async () => {
-        resolved = await result.current.actions.submit(Promise.resolve(mockVenue));
-      });
-      expect(resolved).toEqual(mockVenue);
-      expect(result.current.isSubmitting).toBe(false);
-      expect(result.current.submitError).toBeNull();
-    });
-
-    it("rejects: sets submitError, clears isSubmitting, and rethrows", async () => {
-      const { result } = renderHook(() => useOnboardingWizard());
-      const onCatch = vi.fn();
-      await act(async () => {
-        await result.current.actions
-          .submit(Promise.reject(new Error("Slug already taken")))
-          .catch(onCatch);
-      });
-      expect(onCatch).toHaveBeenCalledWith(new Error("Slug already taken"));
-      expect(result.current.isSubmitting).toBe(false);
-      expect(result.current.submitError).toBe("Slug already taken");
     });
   });
 
