@@ -54,6 +54,11 @@
       function getKey(ip: string, venueSlug: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/middleware/raw-body-capture.ts">
+    <item priority="high">
+      export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
+    </item>
+  </file>
   <file path="src/middleware/require-manage-token.ts">
     <item priority="high">
       export async function requireManageToken(
