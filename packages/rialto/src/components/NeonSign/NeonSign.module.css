@@ -1,0 +1,178 @@
+/* ── NeonSign ────────────────────────────────────────────────────────────
+   A neon tube spelling OPEN on a recessed housing. The tube is lit with
+   the success token while open (striking on when entered), warms gold and
+   breathes while opening soon, sits dark when closed, and is absent when
+   no hours are set. All motion is opacity only (compositor thread) and is
+   bound to `data-state`, so no React state or effect drives it.
+   ─────────────────────────────────────────────────────────────────────── */
+
+.neonSign {
+  --neon-tube: var(--rialto-text-lg);
+  --neon-pad-b: var(--rialto-space-xs);
+  --neon-pad-i: var(--rialto-space-md);
+  --neon-caption: var(--rialto-text-sm);
+  --neon-weight: var(--rialto-weight-light);
+  --neon-strike: 0.9s;
+  --neon-warm-cycle: 2.4s;
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  font-family: var(--rialto-font-sans);
+}
+
+/* ── Sizes ───────────────────────────────────── */
+.sizeSm {
+  --neon-tube: var(--rialto-text-base);
+  --neon-pad-b: var(--rialto-space-2xs);
+  --neon-pad-i: var(--rialto-space-sm);
+  --neon-caption: var(--rialto-text-xs);
+  --neon-weight: var(--rialto-weight-regular);
+}
+
+.sizeMd {
+  /* Defaults live on .neonSign; the class exists so consumers can target it. */
+  --neon-tube: var(--rialto-text-lg);
+}
+
+.sizeLg {
+  --neon-tube: var(--rialto-text-2xl);
+  --neon-pad-b: var(--rialto-space-sm);
+  --neon-pad-i: var(--rialto-space-lg);
+}
+
+/* ── Housing — the recessed plate the tube is mounted on ── */
+.housing {
+  position: relative;
+  padding-block: var(--neon-pad-b);
+  padding-inline: var(--neon-pad-i);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  box-shadow: var(--rialto-shadow-pressed);
+}
+
+/* Backboard wash — light spilling from a lit tube onto its plate. */
+.housing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--rialto-duration-slow) var(--rialto-ease-smooth);
+}
+
+/* ── Tube ────────────────────────────────────── */
+.tube {
+  position: relative;
+  font-family: var(--rialto-font-display);
+  font-weight: var(--neon-weight);
+  font-size: var(--neon-tube);
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--rialto-border);
+  transition: color var(--rialto-duration-standard) var(--rialto-ease-precision);
+}
+
+/* ── Caption — the fact in words, identical to the accessible name ── */
+.caption {
+  font-size: var(--neon-caption);
+  color: var(--rialto-text-secondary);
+  white-space: nowrap;
+}
+
+/* ── open: lit, strikes on when entered ─────── */
+.neonSign[data-state="open"] .tube {
+  color: var(--rialto-success);
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 8px currentColor;
+
+  /* Bound to the state attribute: entering `open` starts the strike, leaving
+     cancels it, re-entering restarts it; re-renders that keep the state do not. */
+  animation: rialto-neon-strike var(--neon-strike) linear 1 both;
+}
+
+.neonSign[data-state="open"] .housing::before {
+  background: var(--rialto-success-muted);
+  opacity: 1;
+}
+
+/* ── opening-soon: warming gold, breathing ──── */
+.neonSign[data-state="opening-soon"] .tube {
+  color: var(--rialto-accent);
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 8px currentColor;
+  animation: rialto-neon-breathe var(--neon-warm-cycle) var(--rialto-ease-smooth) infinite;
+}
+
+.neonSign[data-state="opening-soon"] .housing::before {
+  background: var(--rialto-accent-muted);
+  opacity: 1;
+}
+
+/* ── unset: no plate, no tube — a dashed outline where a sign would go ── */
+.neonSign[data-state="unset"] .housing {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.neonSign[data-state="unset"] .tube {
+  visibility: hidden;
+}
+
+/* ── Keyframes — opacity only ────────────────── */
+@keyframes rialto-neon-strike {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 0.3;
+  }
+  45% {
+    opacity: 1;
+  }
+  65% {
+    opacity: 0.5;
+  }
+  80%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes rialto-neon-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Reduced motion: four static frames, no strike, no breathe ── */
+.reduced .tube {
+  animation: none;
+}
+
+.reduced[data-state="opening-soon"] .tube {
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tube {
+    animation: none;
+  }
+
+  .neonSign[data-state="opening-soon"] .tube {
+    opacity: 0.8;
+  }
+}
