@@ -76,6 +76,10 @@ interface CredentialsStepProps {
   setEmail: Dispatch<SetStateAction<string>>;
   emailError: boolean;
   setEmailError: Dispatch<SetStateAction<boolean>>;
+  password: string;
+  setPassword: Dispatch<SetStateAction<string>>;
+  passwordError: boolean;
+  setPasswordError: Dispatch<SetStateAction<boolean>>;
   isLoading: boolean;
   onSubmit: (event: FormEvent) => void;
   onPasskey: () => void;
@@ -87,6 +91,10 @@ function CredentialsStep({
   setEmail,
   emailError,
   setEmailError,
+  password,
+  setPassword,
+  passwordError,
+  setPasswordError,
   isLoading,
   onSubmit,
   onPasskey,
@@ -120,6 +128,13 @@ function CredentialsStep({
         required
         autoComplete="current-password"
         disabled={isLoading}
+        value={password}
+        error={passwordError}
+        hint={passwordError ? "Enter your password" : undefined}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          if (passwordError) setPasswordError(false);
+        }}
         endIcon={
           <Button
             variant="ghost"
@@ -273,6 +288,8 @@ export function SignIn() {
   const [step, setStep] = useState<"credentials" | "verification">("credentials");
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
   const [code, setCode] = useState("");
   const [phase, setPhase] = useState<SignInPhase>("idle");
 
@@ -283,10 +300,11 @@ export function SignIn() {
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!isValidEmail(email)) {
-      setEmailError(true);
-      return;
-    }
+    const emailInvalid = !isValidEmail(email);
+    const passwordInvalid = password === "";
+    setEmailError(emailInvalid);
+    setPasswordError(passwordInvalid);
+    if (emailInvalid || passwordInvalid) return;
 
     setPhase("submitting");
     await delay(SIMULATED_NETWORK_MS);
@@ -375,6 +393,10 @@ export function SignIn() {
             setEmail={setEmail}
             emailError={emailError}
             setEmailError={setEmailError}
+            password={password}
+            setPassword={setPassword}
+            passwordError={passwordError}
+            setPasswordError={setPasswordError}
             isLoading={isLoading}
             onSubmit={handleCredentialsSubmit}
             onPasskey={handlePasskey}

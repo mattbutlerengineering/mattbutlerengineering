@@ -303,6 +303,38 @@ describe("SignUp — submit", () => {
   });
 });
 
+describe("SignUp — empty submit validation", () => {
+  it("flags every required field on a fully empty submit", () => {
+    renderSignUp();
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(screen.getByLabelText("Full name")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Email address")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent(/agree first/i);
+  });
+
+  it("shows the email error message exactly once", () => {
+    renderSignUp();
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(screen.getAllByText(/valid email/i)).toHaveLength(1);
+  });
+
+  it("flags only the still-missing fields when email is filled but the rest is empty", () => {
+    renderSignUp();
+    setField("Email address", "ada@example.com");
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(screen.getByLabelText("Email address")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("Full name")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent(/agree first/i);
+  });
+});
+
 describe("SignUp — Handshake phase", () => {
   it("rests idle with an empty status line on load", () => {
     renderSignUp();

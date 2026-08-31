@@ -240,6 +240,34 @@ describe("SignIn — credentials step", () => {
     expect(screen.queryByLabelText(/authenticator/i)).not.toBeInTheDocument();
   });
 
+  it("flags every required field on a fully empty submit", () => {
+    renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    expect(screen.getByLabelText("Email address")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/valid email/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
+  });
+
+  it("shows the email error message exactly once", () => {
+    renderSignIn();
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    expect(screen.getAllByText(/valid email/i)).toHaveLength(1);
+  });
+
+  it("flags only the still-missing field when email is filled but password is not", () => {
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "ada@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    expect(screen.getByLabelText("Email address")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("offers a passkey affordance above the social sign-in row", () => {
     renderSignIn();
     const passkey = screen.getByRole("button", { name: /use a passkey instead/i });
