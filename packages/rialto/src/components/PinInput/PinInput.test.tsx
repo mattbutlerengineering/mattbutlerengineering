@@ -20,6 +20,23 @@ describe("PinInput", () => {
       expect(cells.length).toBe(6);
     });
 
+    it("renders exactly `length` cells when value is empty", () => {
+      render(<PinInput value="" length={6} onChange={vi.fn()} />);
+      expect(screen.getAllByRole("textbox")).toHaveLength(6);
+    });
+
+    it("renders `length` cells for a partial value, filling only the leading cells", () => {
+      const { container } = render(<PinInput value="12" length={6} onChange={vi.fn()} />);
+      const inputs = getInputs(container);
+      expect(inputs).toHaveLength(6);
+      expect(inputs[0]!.value).toBe("1");
+      expect(inputs[1]!.value).toBe("2");
+      expect(inputs[2]!.value).toBe("");
+      expect(inputs[3]!.value).toBe("");
+      expect(inputs[4]!.value).toBe("");
+      expect(inputs[5]!.value).toBe("");
+    });
+
     it("renders label when provided", () => {
       render(<PinInput label="Enter code" value="1" onChange={vi.fn()} />);
       expect(screen.getByText("Enter code")).toBeInTheDocument();
