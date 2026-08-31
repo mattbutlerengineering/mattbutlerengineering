@@ -56,13 +56,37 @@ export interface DomainActivitySensor {
   readonly deposits_forfeited?: number;
 }
 
+/** A single failing ACMM behavioral gate, per `state.computation.behavioralGates`. */
+export interface AcmmFailingGate {
+  readonly name: string;
+  readonly description: string;
+  readonly value: number | null;
+  readonly threshold: number | null;
+  readonly direction: string | null;
+}
+
+/**
+ * `acmm` sensor entry shape — see `scripts/sensors-registry.mjs`'s `acmm`
+ * registry entry `collect()`, which reads `.claude/acmm/state.json`.
+ */
+export interface AcmmSensor {
+  readonly available: boolean;
+  readonly level?: number | null;
+  readonly level_name?: string | null;
+  readonly criteria_met?: number;
+  readonly criteria_total?: number;
+  readonly last_run?: string | null;
+  readonly capped?: boolean;
+  readonly failing_gates?: readonly AcmmFailingGate[];
+}
+
 /**
  * Matches `buildReport()`'s output in `scripts/build-sensor-report.mjs`
  * exactly. `sensors` is a dynamic map keyed by each registry entry's
- * `reportKey` (or `id`) — only `queueEfficiency` and `domainActivity` are
- * typed here since they're the entries this page renders dedicated panels
- * for; every other entry is read defensively as `unknown` via
- * `normalizeSensorReport` below.
+ * `reportKey` (or `id`) — only `queueEfficiency`, `domainActivity`, and
+ * `acmm` are typed here since they're the entries this page renders
+ * dedicated panels for; every other entry is read defensively as `unknown`
+ * via `normalizeSensorReport` below.
  */
 export interface SensorReport {
   readonly generated_at: string;
@@ -73,6 +97,7 @@ export interface SensorReport {
   readonly sensors: Record<string, unknown> & {
     readonly queueEfficiency?: QueueEfficiencySensor;
     readonly domainActivity?: DomainActivitySensor;
+    readonly acmm?: AcmmSensor;
   };
   readonly thresholds?: Record<string, number>;
   readonly regressions: readonly unknown[];
@@ -128,6 +153,18 @@ export interface DomainActivityMetrics {
   readonly depositsForfeited: number | null;
 }
 
+/** Safe view model for the acmm panel — null/empty fields when unavailable. */
+export interface AcmmMetrics {
+  readonly available: boolean;
+  readonly level: number | null;
+  readonly levelName: string | null;
+  readonly criteriaMet: number | null;
+  readonly criteriaTotal: number | null;
+  readonly lastRun: string | null;
+  readonly capped: boolean;
+  readonly failingGates: ReadonlyArray<AcmmFailingGate>;
+}
+
 /** Safe view model for AiHealthPage — every field is null/empty on a miss. */
 export interface HealthMetrics {
   readonly timestamp: string | null;
@@ -142,6 +179,7 @@ export interface HealthMetrics {
   readonly regressionLabels: readonly string[];
   readonly queueEfficiency: QueueEfficiencyMetrics;
   readonly domainActivity: DomainActivityMetrics;
+  readonly acmm: AcmmMetrics;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -201,6 +239,34 @@ function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivi
   };
 }
 
+function normalizeFailingGate(gate: unknown): AcmmFailingGate {
+  const g = asRecord(gate);
+  return {
+    name: readString(g.name) ?? "",
+    description: readString(g.description) ?? "",
+    value: readNumber(g.value),
+    threshold: readNumber(g.threshold),
+    direction: readString(g.direction),
+  };
+}
+
+/** Extracts the safe view model for the acmm panel from the raw sensor entry. */
+function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics {
+  const acmm = asRecord(sensors.acmm);
+  const failingGates = Array.isArray(acmm.failing_gates) ? acmm.failing_gates : [];
+
+  return {
+    available: acmm.available === true,
+    level: readNumber(acmm.level),
+    levelName: readString(acmm.level_name),
+    criteriaMet: readNumber(acmm.criteria_met),
+    criteriaTotal: readNumber(acmm.criteria_total),
+    lastRun: readString(acmm.last_run),
+    capped: acmm.capped === true,
+    failingGates: failingGates.map(normalizeFailingGate),
+  };
+}
+
 /** Normalizes a fetched sensor report (any shape) into safe display values. */
 export function normalizeSensorReport(report: unknown): HealthMetrics {
   const raw = asRecord(report);
@@ -226,5 +292,6 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
     regressionLabels: regressions.map(formatRegressionLabel),
     queueEfficiency: normalizeQueueEfficiency(sensors),
     domainActivity: normalizeDomainActivity(sensors),
+    acmm: normalizeAcmm(sensors),
   };
 }
