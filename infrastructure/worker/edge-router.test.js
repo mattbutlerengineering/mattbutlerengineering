@@ -333,18 +333,26 @@ describe("Edge Router", () => {
       expect(location).toBe("https://mattbutlerengineering.com/hospitality/settings");
     });
 
-    it("redirects /hospitality (no trailing slash) to /hospitality/", async () => {
+    it("serves /hospitality (no trailing slash) directly with no redirect hop", async () => {
       const response = await edgeRouter.fetch(makeRequest("/hospitality"), env);
-      expect(response.status).toBe(301);
-      const location = response.headers.get("Location");
-      expect(location).toContain("/hospitality/");
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Location")).toBeNull();
+      expect(env.HOSPITALITY.fetch).toHaveBeenCalled();
     });
 
-    it("redirects /rialto (no trailing slash) to /rialto/", async () => {
+    it("serves /rialto (no trailing slash) directly with no redirect hop", async () => {
       const response = await edgeRouter.fetch(makeRequest("/rialto"), env);
-      expect(response.status).toBe(301);
-      const location = response.headers.get("Location");
-      expect(location).toContain("/rialto/");
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Location")).toBeNull();
+      expect(env.RIALTO.fetch).toHaveBeenCalled();
+    });
+
+    it("strips the /rialto prefix identically for the bare and trailing-slash form", async () => {
+      const bareRequest = await edgeRouter.fetch(makeRequest("/rialto"), env);
+      const slashRequest = await edgeRouter.fetch(makeRequest("/rialto/"), env);
+      const bareBody = await bareRequest.text();
+      const slashBody = await slashRequest.text();
+      expect(bareBody).toBe(slashBody);
     });
   });
 

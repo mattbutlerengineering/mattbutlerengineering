@@ -209,21 +209,17 @@ export default {
       return new Response("Not Found", { status: 404 });
     }
 
-    // ── Trailing-slash redirects for SPA prefixes ────────────────────
-    // Without the trailing slash, the prefix strip leaves "" which
-    // normalizes to "/" and causes React Router catch-all confusion.
-    // Prefixes come from routes-config.json staticRoutes (skip catch-all).
-    const spaPrefixes = topologyConfig.staticRoutes.map((r) => r.prefix).filter((p) => p !== "");
-    if (spaPrefixes.includes(url.pathname)) {
-      return addHeaders(
-        Response.redirect(`https://${url.hostname}${url.pathname}/${url.search}`, 301),
-        url.pathname,
-        nonce,
-        kvPolicy
-      );
-    }
-
     // ── Static sites → Service Binding (CDN-free) ───────────────────
+    // Bare SPA prefixes (e.g. "/rialto", no trailing slash) are served
+    // directly rather than redirected: the prefix strip below already
+    // normalizes both "/rialto" and "/rialto/" to the same strippedPath
+    // ("/"), so a 301 hop here would only cost an extra round-trip
+    // (measured 499ms in Lighthouse, #4836) without changing what's
+    // served. Historically (#99) a redirect was added here to work
+    // around SPA basename-matching bugs; React Router's basename
+    // stripping now treats an exact-basename pathname and a
+    // basename+"/" pathname identically, so that workaround is no
+    // longer needed.
     // Route table comes from routes-config.json staticRoutes.
     // Entries are ordered: specific prefixes first, catch-all (empty prefix) last.
     const matchedRoute = topologyConfig.staticRoutes.find((r) =>
