@@ -58,6 +58,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Steps: () => null,
     Meter: () => null,
     StatusLED: () => null,
+    Handshake: () => null,
     useMotionPreset: () => ({
       precision: { duration: 0 },
       spring: { duration: 0 },

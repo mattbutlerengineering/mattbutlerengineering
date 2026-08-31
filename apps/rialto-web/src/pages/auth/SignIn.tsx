@@ -1,11 +1,12 @@
 import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { Link } from "react-router";
 import { motion } from "framer-motion";
-import { Check, Eye, EyeOff, Fingerprint } from "lucide-react";
+import { Eye, EyeOff, Fingerprint } from "lucide-react";
 import {
   Button,
   Checkbox,
   Divider,
+  Handshake,
   Input,
   PinInput,
   Steps,
@@ -13,7 +14,7 @@ import {
   useMotionPreset,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import type { MotionPreset } from "@mattbutlerengineering/rialto";
+import type { HandshakeState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";
 import { isAcceptedMfaCode, isValidEmail, MFA_CODE_LENGTH } from "./auth-validation";
@@ -27,6 +28,38 @@ const SIMULATED_NETWORK_MS = 900;
 const VERIFIED_SETTLE_MS = 700;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Stations the sign-in credential travels between — Browser and Identity. */
+const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
+
+type SignInPhase = "idle" | "submitting" | "verifying" | "rejected" | "verified";
+
+const SIGN_IN_PHASES: Record<
+  SignInPhase,
+  { state: HandshakeState; status: string; ariaLabel: string }
+> = {
+  idle: { state: "idle", status: "", ariaLabel: "Sign-in exchange at rest" },
+  submitting: {
+    state: "negotiating",
+    status: "Sending your credentials",
+    ariaLabel: "Sending your credentials to Identity",
+  },
+  verifying: {
+    state: "negotiating",
+    status: "Checking your code",
+    ariaLabel: "Checking your code with Identity",
+  },
+  rejected: {
+    state: "failed",
+    status: "The exchange didn't go through",
+    ariaLabel: "Identity rejected the code",
+  },
+  verified: {
+    state: "settled",
+    status: "Verified",
+    ariaLabel: "Signed in — your browser and Identity agree",
+  },
+};
 
 /* ── Credentials step ─────────────────────────── */
 
@@ -155,7 +188,6 @@ interface VerificationStepProps {
   codeError: boolean;
   isVerifying: boolean;
   isVerified: boolean;
-  motionPreset: MotionPreset;
   onCodeChange: (value: string) => void;
   onVerify: (value: string) => void;
   onBack: () => void;
@@ -166,7 +198,6 @@ function VerificationStep({
   codeError,
   isVerifying,
   isVerified,
-  motionPreset,
   onCodeChange,
   onVerify,
   onBack,
@@ -191,29 +222,17 @@ function VerificationStep({
         }
         disabled={isVerifying || isVerified}
       />
-      {isVerified ? (
-        <motion.div
-          className={styles.verifiedRow}
-          initial={{ scale: 0.85, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={motionPreset.spring}
-        >
-          <Check size={16} aria-hidden="true" />
-          Verified
-        </motion.div>
-      ) : (
-        <Button
-          variant="primary"
-          type="button"
-          className={styles.submitButton}
-          isLoading={isVerifying}
-          loadingText="Verifying..."
-          disabled={code.length < MFA_CODE_LENGTH}
-          onClick={() => onVerify(code)}
-        >
-          Verify code
-        </Button>
-      )}
+      <Button
+        variant="primary"
+        type="button"
+        className={styles.submitButton}
+        isLoading={isVerifying}
+        loadingText="Verifying..."
+        disabled={code.length < MFA_CODE_LENGTH || isVerified}
+        onClick={() => onVerify(code)}
+      >
+        Verify code
+      </Button>
       <Button
         variant="ghost"
         type="button"
@@ -235,11 +254,13 @@ export function SignIn() {
   const [step, setStep] = useState<"credentials" | "verification">("credentials");
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
+  const [phase, setPhase] = useState<SignInPhase>("idle");
+
+  const isLoading = phase === "submitting";
+  const isVerifying = phase === "verifying";
+  const isVerified = phase === "verified";
+  const codeError = phase === "rejected";
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault();
@@ -248,30 +269,29 @@ export function SignIn() {
       return;
     }
 
-    setIsLoading(true);
+    setPhase("submitting");
     await delay(SIMULATED_NETWORK_MS);
-    setIsLoading(false);
+    setPhase("idle");
     setStep("verification");
   }
 
   async function handleVerify(candidate: string) {
-    setIsVerifying(true);
+    setPhase("verifying");
     await delay(SIMULATED_NETWORK_MS);
-    setIsVerifying(false);
 
     if (!isAcceptedMfaCode(candidate)) {
-      setCodeError(true);
+      setPhase("rejected");
       return;
     }
 
-    setIsVerified(true);
+    setPhase("verified");
     await delay(VERIFIED_SETTLE_MS);
     toast({ title: "Signed in successfully", variant: "success" });
   }
 
   function handleCodeChange(value: string) {
     setCode(value);
-    if (codeError) setCodeError(false);
+    if (phase === "rejected") setPhase("idle");
   }
 
   function handlePasskey() {
@@ -281,8 +301,7 @@ export function SignIn() {
   function handleBack() {
     setStep("credentials");
     setCode("");
-    setCodeError(false);
-    setIsVerified(false);
+    setPhase("idle");
   }
 
   return (
@@ -305,6 +324,20 @@ export function SignIn() {
         compact
         className={styles.stepsIndicator}
       />
+      <div className={styles.instrumentSlot}>
+        <Handshake
+          size="md"
+          stations={HANDSHAKE_STATIONS}
+          lane={0}
+          state={SIGN_IN_PHASES[phase].state}
+          aria-label={SIGN_IN_PHASES[phase].ariaLabel}
+        />
+      </div>
+      <div role="status" aria-live="polite" className={styles.statusLine}>
+        <Text variant="caption" color="tertiary">
+          {SIGN_IN_PHASES[phase].status}
+        </Text>
+      </div>
       {step === "credentials" ? (
         <motion.div
           key="credentials"
@@ -334,7 +367,6 @@ export function SignIn() {
             codeError={codeError}
             isVerifying={isVerifying}
             isVerified={isVerified}
-            motionPreset={motionPreset}
             onCodeChange={handleCodeChange}
             onVerify={handleVerify}
             onBack={handleBack}
