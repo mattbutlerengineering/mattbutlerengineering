@@ -8,9 +8,18 @@
  * where tests can exercise them exhaustively without rendering anything.
  */
 
+import type { HandshakeState } from "@mattbutlerengineering/rialto";
+
 /** The three stations on the panel, in display order (start → end). */
 export const STATIONS = ["browser", "idp", "api"] as const;
 export type StationId = (typeof STATIONS)[number];
+
+/**
+ * Station names for the `Handshake` instrument, in hub display order.
+ * Identity and API never talk directly, so the browser sits in the middle:
+ * lane 0 is Identity ⇄ Browser, lane 1 is Browser ⇄ API.
+ */
+export const HANDSHAKE_STATIONS = ["Identity", "Browser", "API"] as const;
 
 export type LedVariant = "neutral" | "accent" | "success" | "danger" | "warning" | "off";
 
@@ -152,6 +161,20 @@ export type AuthFlowAction =
 export function currentStep(state: AuthFlowState): FlowStep {
   if (state.errorBranch && state.stepIndex === ERROR_FORK_INDEX) return ERROR_STEP;
   return HAPPY_PATH[state.stepIndex] ?? ERROR_STEP;
+}
+
+/**
+ * Pure projection of a `FlowStep` onto the `Handshake` instrument's props.
+ * No channel in flight (the `authorize` step) reads as `idle` on lane 0; a
+ * tampered callback reads as `failed`; every other in-flight step reads as
+ * `negotiating`. The channel selects the lane: `browser-idp` is lane 0
+ * (Identity ⇄ Browser), `browser-api` is lane 1 (Browser ⇄ API).
+ */
+export function handshakeFor(step: FlowStep): { state: HandshakeState; lane: 0 | 1 } {
+  if (step.channel === null) return { state: "idle", lane: 0 };
+  const lane = step.channel === "browser-idp" ? 0 : 1;
+  const state = step.carries === "tampered-callback" ? "failed" : "negotiating";
+  return { state, lane };
 }
 
 /** Pure reducer: always returns a new (or the same, unchanged) state object. */
