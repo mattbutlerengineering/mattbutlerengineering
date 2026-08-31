@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Card, Text, Stack, useToast } from "@mattbutlerengineering/rialto";
@@ -10,7 +10,9 @@ import { WelcomeStep } from "../components/venue-onboarding/WelcomeStep";
 import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep";
 import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep";
 import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
+import { FloorPlanStep } from "../components/venue-onboarding/FloorPlanStep";
 import { LaunchStep } from "../components/venue-onboarding/LaunchStep";
+import { runLaunchSequence } from "../components/venue-onboarding/launch-sequence.js";
 import {
   buildOnboardingPayload,
   TOTAL_STEPS,
@@ -22,11 +24,24 @@ export function VenueOnboardingPage() {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const api = useApiClient();
-  const { refetchVenues } = useVenue();
+  const { venues, selectedVenueId, setVenueId, refetchVenues } = useVenue();
   const { toast } = useToast();
+  // Set once LaunchStep's celebration animation finishes — a useState setter
+  // is stable across renders, unlike setVenueId from context, so the
+  // celebration timer's captured onCelebrationDone callback is never stale.
+  const [celebrationDone, setCelebrationDone] = useState(false);
 
-  const { step, data, errors, highestStepReached, slugStatus, isSubmitting, submitError, actions } =
-    useOnboardingWizardContext();
+  const {
+    step,
+    data,
+    errors,
+    highestStepReached,
+    slugStatus,
+    isSubmitting,
+    submitError,
+    launch,
+    actions,
+  } = useOnboardingWizardContext();
 
   // Debounced slug-uniqueness check — the actual check-and-dispatch lifecycle
   // (checking -> taken/available) lives entirely inside actions.checkSlugAvailability.
@@ -43,33 +58,78 @@ export function VenueOnboardingPage() {
     return () => clearTimeout(timer);
   }, [data.basicInfo.slug, accessToken, api, actions]);
 
-  // Called by LaunchStep's Launch button. Errors propagate so LaunchStep
-  // knows not to celebrate — submitError is already populated on the wizard
-  // by actions.submit() for display.
+  // Called by LaunchStep's Launch button, and by its Retry banner once a
+  // stage fails. One resumable pass of the launch sequence from the
+  // wizard's current progress — retry is the same call with the same
+  // (partially-completed) progress, so a done stage never repeats. Errors
+  // propagate so LaunchStep knows not to celebrate — the failure is already
+  // visible via launch.failedStage, updated live through onProgress.
   const handleLaunch = async () => {
-    const createPromise = accessToken
-      ? api.venues.create(buildOnboardingPayload(data))
-      : Promise.reject(new Error("You must be signed in to create a venue"));
+    const result = await runLaunchSequence(
+      api,
+      data.floorPlan,
+      buildOnboardingPayload(data),
+      launch,
+      actions.setLaunchProgress
+    );
 
-    await actions.submit(createPromise);
+    if (result.failedStage !== null) {
+      throw new Error(result.errorMessage ?? "Something went wrong");
+    }
+
     await refetchVenues();
+
+    const venueName = data.basicInfo.name.trim();
+    const planName = data.floorPlan.planName;
+    const tableCount = data.floorPlan.tables.length;
+    const description =
+      tableCount > 0
+        ? `"${venueName}" is ready with ${tableCount} tables on ${planName}.`
+        : `"${venueName}" is ready. Add tables to ${planName} to start taking reservations.`;
+
     toast({
-      title: "Venue created",
-      description: `"${data.basicInfo.name.trim()}" is ready — finish setup to start taking reservations`,
+      title: "Venue is live",
+      description,
       variant: "success",
       duration: 5000,
     });
   };
 
-  // Called by LaunchStep once its brief success celebration finishes —
-  // client-side navigation only, so the SPA transitions straight into
-  // DashboardLayout with no hard reload.
+  // Called by LaunchStep once its brief success celebration finishes.
+  // Navigation itself waits on the handoff effect below, which needs the
+  // refetched venue list to have landed first.
   const handleCelebrationDone = () => {
-    navigate("/dashboard", { replace: true });
+    setCelebrationDone(true);
   };
 
+  // Handoff, part 1: once the refetched venue list contains the launched
+  // venue and it isn't the active selection yet, select it. setVenueId
+  // refuses an id absent from venues, which is exactly why this waits for
+  // refetchVenues (inside handleLaunch) to land first.
+  useEffect(() => {
+    if (launch.venueId === null || selectedVenueId === launch.venueId) return;
+    if (!venues.some((venue) => venue.id === launch.venueId)) return;
+    setVenueId(launch.venueId);
+  }, [venues, launch.venueId, selectedVenueId, setVenueId]);
+
+  // Handoff, part 2: once the new venue is selected and the celebration has
+  // finished, hand off into the floor plan editor. If the refetch above
+  // never surfaces the new venue, selectedVenueId never matches and the
+  // manager stays on the celebration rather than bouncing through
+  // DashboardLayout's no-venue gate back to /onboarding.
+  useEffect(() => {
+    if (!celebrationDone || launch.floorPlanId === null) return;
+    if (selectedVenueId !== launch.venueId) return;
+    navigate(`/floor-plans/${launch.floorPlanId}`, { replace: true });
+  }, [celebrationDone, launch.floorPlanId, launch.venueId, selectedVenueId, navigate]);
+
+  // The floor plan canvas wants more room than the 40rem review card — widen
+  // the container on step 5 only.
+  const containerClassName =
+    step === 5 ? `${styles.wizardContainer} ${styles.wizardContainerWide}` : styles.wizardContainer;
+
   return (
-    <div className={styles.wizardContainer}>
+    <div className={containerClassName}>
       {/* Condensed progress indicator — mobile only; desktop uses the vertical
           rail in the OnboardingLayout brand panel (hidden here at >= 768px). */}
       <div className={styles.mobileProgress}>
@@ -139,6 +199,17 @@ export function VenueOnboardingPage() {
           )}
 
           {step === 5 && (
+            <FloorPlanStep
+              draft={data.floorPlan}
+              error={errors.floorPlan}
+              onSelectTemplate={actions.setTemplate}
+              onAddTable={actions.addDraftTable}
+              onMoveTable={actions.moveDraftTable}
+              onRemoveTable={actions.removeDraftTable}
+            />
+          )}
+
+          {step === 6 && (
             <LaunchStep
               basicInfo={data.basicInfo}
               locationTime={data.locationTime}
@@ -148,6 +219,9 @@ export function VenueOnboardingPage() {
               submitError={submitError}
               onLaunch={handleLaunch}
               onCelebrationDone={handleCelebrationDone}
+              floorPlan={data.floorPlan}
+              launch={launch}
+              onRetry={handleLaunch}
             />
           )}
 

@@ -17,5 +17,6 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   { label: "Location", description: "Timezone & currency" },
   { label: "Hours", description: "When you're open" },
   { label: "Settings", description: "Reservation defaults" },
+  { label: "Floor plan", description: "Lay out your tables" },
   { label: "Launch", description: "Review & go live" },
 ];

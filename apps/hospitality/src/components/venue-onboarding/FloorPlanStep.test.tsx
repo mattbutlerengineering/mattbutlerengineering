@@ -453,4 +453,25 @@ describe("FloorPlanStep", () => {
       expect(onSelectTemplate).toHaveBeenCalledWith("cafe");
     });
   });
+
+  // Regression: PR #4797 review gate — the window-level nudge listener only
+  // excluded INPUT/TEXTAREA/contentEditable, so ArrowRight on a focused
+  // template-picker card (a BUTTON) both advanced the radiogroup selection
+  // AND nudged the already-selected canvas table +20px.
+  describe("nudge listener vs. picker arrow keys (#4761 addendum)", () => {
+    it("does not call onMoveTable when arrow keys are pressed on a picker card while a table is selected", () => {
+      const onMoveTable = vi.fn();
+      const draft = draftFromTemplate("restaurant");
+      render(<FloorPlanStep {...makeProps({ draft, onMoveTable })} />);
+
+      const firstTable = draft.tables[0] as DraftTable;
+      fireEvent.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
+
+      const pickerCard = screen.getByRole("radio", { name: /^Restaurant/ });
+      pickerCard.focus();
+      fireEvent.keyDown(pickerCard, { key: "ArrowRight" });
+
+      expect(onMoveTable).not.toHaveBeenCalled();
+    });
+  });
 });

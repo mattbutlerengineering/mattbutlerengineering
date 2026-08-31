@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { useState, useCallback } from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import type { Venue, FloorPlan, Table } from "@mbe/types";
 import { VenueOnboardingPage } from "./VenueOnboardingPage";
 import { OnboardingWizardProvider } from "../components/venue-onboarding/OnboardingWizardContext";
 import { generateSlug } from "../components/venue-onboarding/generate-slug";
@@ -23,23 +25,156 @@ vi.mock("@mbe/auth/react", () => ({
   }),
 }));
 
-const mockCreate = vi.fn();
+const mockVenuesCreate = vi.fn();
 const mockGetBySlug = vi.fn();
+const mockFloorPlansCreate = vi.fn();
+const mockFloorPlansSetActive = vi.fn();
+const mockTablesCreate = vi.fn();
 // Stable reference across renders — mirrors the real useApiClient()'s useMemo,
 // which only recomputes when the access token changes.
-const mockApiClient = { venues: { create: mockCreate, getBySlug: mockGetBySlug } };
+const mockApiClient = {
+  venues: { create: mockVenuesCreate, getBySlug: mockGetBySlug },
+  floorPlans: { create: mockFloorPlansCreate, setActive: mockFloorPlansSetActive },
+  tables: { create: mockTablesCreate },
+};
 vi.mock("../hooks/useApiClient.js", () => ({
   useApiClient: () => mockApiClient,
 }));
 
-const mockRefetchVenues = vi.fn().mockResolvedValue(undefined);
+// The "server" venue list a real refetchVenues() call would return. A `let`
+// (not `const`) so each test can seed it before Launch; `mock`-prefixed so
+// vitest's hoisting allows the vi.mock factory below to close over it.
+let mockVenuesFixture: Array<{ id: string }> = [];
+const mockRefetchVenues = vi.fn(async () => {});
+const mockSetVenueId = vi.fn();
+
+// A real (not hand-rolled) reactive stand-in for VenueContext: setVenueId and
+// refetchVenues drive real useState, so the page's handoff effects observe
+// genuine re-renders exactly like the real context would produce, without
+// reimplementing VenueContext's own selection-fallback logic here.
 vi.mock("../contexts/VenueContext.js", () => ({
-  useVenue: () => ({
-    refetchVenues: mockRefetchVenues,
-  }),
+  useVenue: () => {
+    const [venues, setVenues] = useState<Array<{ id: string }>>(() => mockVenuesFixture);
+    const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
+
+    const setVenueId = useCallback((id: string) => {
+      mockSetVenueId(id);
+      setVenues((current) => {
+        if (current.some((venue) => venue.id === id)) {
+          setSelectedVenueId(id);
+        }
+        return current;
+      });
+    }, []);
+
+    const refetchVenues = useCallback(async () => {
+      await mockRefetchVenues();
+      setVenues(mockVenuesFixture);
+    }, []);
+
+    return { venues, selectedVenueId, setVenueId, refetchVenues };
+  },
 }));
 
 const mockToast = vi.fn();
+
+// FloorPlanStep and LaunchStep are each fully covered by their own test
+// files (FloorPlanStep.test.tsx, LaunchStep.test.tsx) — here they're mocked
+// down to the minimum surface this page wires: template selection, table
+// mutation, launch/retry, and celebration-done. runLaunchSequence itself is
+// NOT mocked, so tests below exercise the real call order against the
+// mocked api client.
+vi.mock("../components/venue-onboarding/FloorPlanStep", () => ({
+  FloorPlanStep: ({
+    error,
+    onSelectTemplate,
+    onAddTable,
+  }: {
+    error: string | null;
+    onSelectTemplate: (templateId: string) => void;
+    onAddTable: (request: unknown) => void;
+  }) => (
+    <div data-testid="floor-plan-step">
+      <span>Floor Plan</span>
+      {error && <span role="alert">{error}</span>}
+      <button onClick={() => onSelectTemplate("blank")}>Choose Blank</button>
+      <button onClick={() => onSelectTemplate("restaurant")}>Choose Restaurant</button>
+      <button
+        onClick={() =>
+          onAddTable({
+            name: "Table A",
+            capacity: 2,
+            minCovers: 1,
+            venueId: "__draft__",
+            floorPlanId: "__draft__",
+            shapeMetadata: { shape: "square", x: 100, y: 100, width: 60, height: 60 },
+          })
+        }
+      >
+        Add Table A
+      </button>
+      <button
+        onClick={() =>
+          onAddTable({
+            name: "Table B",
+            capacity: 2,
+            minCovers: 1,
+            venueId: "__draft__",
+            floorPlanId: "__draft__",
+            shapeMetadata: { shape: "square", x: 160, y: 100, width: 60, height: 60 },
+          })
+        }
+      >
+        Add Table B
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock("../components/venue-onboarding/LaunchStep", () => ({
+  LaunchStep: ({
+    basicInfo,
+    floorPlan,
+    launch,
+    onLaunch,
+    onCelebrationDone,
+    onRetry,
+  }: {
+    basicInfo: { name: string };
+    floorPlan?: { planName: string };
+    launch?: { failedStage: string | null; errorMessage: string | null };
+    onLaunch: () => Promise<void>;
+    onCelebrationDone: () => void;
+    onRetry?: () => Promise<void>;
+  }) => (
+    <div data-testid="launch-step">
+      <span>{basicInfo.name}</span>
+      {floorPlan && <span data-testid="launch-plan-name">{floorPlan.planName}</span>}
+      <button
+        onClick={() => {
+          onLaunch().catch(() => {
+            /* the page already surfaces the failure via launch.errorMessage */
+          });
+        }}
+      >
+        Launch Venue
+      </button>
+      {launch?.failedStage && <span role="alert">{launch.errorMessage}</span>}
+      {launch?.failedStage && onRetry && (
+        <button
+          onClick={() => {
+            onRetry().catch(() => {
+              /* same swallow as onLaunch above */
+            });
+          }}
+        >
+          Retry
+        </button>
+      )}
+      <button onClick={onCelebrationDone}>Finish celebration</button>
+    </div>
+  ),
+}));
 
 // Mock Rialto components to simplify testing
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -263,6 +398,95 @@ function renderPage() {
   );
 }
 
+/** Fills steps 1-4 with minimal valid data, landing on step 5 (floor plan). */
+function advanceToFloorPlanStep(name = "My Venue") {
+  const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
+  fireEvent.change(nameInput, { target: { value: name } });
+  fireEvent.click(screen.getByText("Next"));
+
+  const timezoneSelect = screen.getByLabelText("Timezone") as HTMLSelectElement;
+  fireEvent.change(timezoneSelect, { target: { value: "America/New_York" } });
+  fireEvent.click(screen.getByText("Next"));
+
+  fireEvent.click(screen.getByLabelText("monday open"));
+  fireEvent.click(screen.getByText("Next"));
+
+  fireEvent.click(screen.getByText("Next")); // skip settings
+}
+
+/**
+ * Fills steps 1-4, picks a floor plan template, and lands on step 6 (Launch
+ * review). `onFloorPlanStep` runs after the template is chosen but before
+ * advancing past step 5 — the only point FloorPlanStep's mock (and its
+ * "Add Table" buttons) is mounted.
+ */
+function advanceToLaunchStep(
+  templateButtonLabel = "Choose Blank",
+  name = "My Venue",
+  onFloorPlanStep?: () => void
+) {
+  advanceToFloorPlanStep(name);
+  fireEvent.click(screen.getByText(templateButtonLabel));
+  onFloorPlanStep?.();
+  fireEvent.click(screen.getByText("Next"));
+}
+
+function makeVenue(id: string): Venue {
+  return {
+    id,
+    venueGroupId: null,
+    name: "My Venue",
+    slug: "my-venue",
+    ianaTimezone: "America/New_York",
+    currencyCode: "USD",
+    operatingHours: null,
+    settings: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function makeFloorPlan(id: string, venueId: string, isActive = false): FloorPlan {
+  return {
+    id,
+    venueId,
+    name: "Main Floor",
+    isActive,
+    layoutJson: { width: 800, height: 600, gridSize: 20, showGrid: true },
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function makeTable(name: string): Table {
+  return {
+    id: `table-${name}`,
+    name,
+    tableNumber: null,
+    capacity: 2,
+    minCovers: 1,
+    maxCovers: null,
+    location: null,
+    isActive: true,
+    priority: 0,
+    status: "AVAILABLE",
+    venueId: "venue-1",
+    floorPlanId: "plan-1",
+    shapeMetadata: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+/** Flush pending microtasks (promise resolutions in the launch -> handoff chain). */
+async function flushMicrotasks(times = 8) {
+  await act(async () => {
+    for (let i = 0; i < times; i += 1) {
+      await Promise.resolve();
+    }
+  });
+}
+
 describe("generateSlug", () => {
   it("should convert name to lowercase with hyphens", () => {
     expect(generateSlug("The Grand Ballroom")).toBe("the-grand-ballroom");
@@ -285,25 +509,10 @@ describe("generateSlug", () => {
   });
 });
 
-/** Flush pending microtasks (promise resolutions in the submit -> celebrate chain). */
-async function flushMicrotasks(times = 6) {
-  await act(async () => {
-    for (let i = 0; i < times; i += 1) {
-      await Promise.resolve();
-    }
-  });
-}
-
 describe("VenueOnboardingPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreate.mockReset();
-    mockRefetchVenues.mockReset().mockResolvedValue(undefined);
-    mockToast.mockReset();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
+    mockVenuesFixture = [];
   });
 
   it("should render step 1 (Welcome + Basic Info) by default", () => {
@@ -379,7 +588,7 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByText("Timezone is required")).toBeTruthy();
   });
 
-  it("should navigate through all 5 steps", () => {
+  it("should navigate through all 6 steps, reaching the floor plan step then the Launch review", () => {
     renderPage();
 
     // Step 1 — fill name
@@ -402,7 +611,13 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByText("Venue Settings")).toBeTruthy();
     fireEvent.click(screen.getByText("Next"));
 
-    // Step 5 — review summary + launch CTA
+    // Step 5 — floor plan
+    expect(screen.getByTestId("floor-plan-step")).toBeTruthy();
+    fireEvent.click(screen.getByText("Choose Blank"));
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 6 — Launch review
+    expect(screen.getByTestId("launch-step")).toBeTruthy();
     expect(screen.getByText("My Venue")).toBeTruthy();
     expect(screen.getByText("Launch Venue")).toBeTruthy();
   });
@@ -451,110 +666,253 @@ describe("VenueOnboardingPage", () => {
     expect(screen.getByText("Duration must be a positive number")).toBeTruthy();
   });
 
-  it("should submit venue on confirmation step", async () => {
-    mockCreate.mockResolvedValueOnce({ id: "venue-123", name: "My Venue" });
-
+  it("refuses to advance from step 5 without a template and surfaces the required-layout sentence", () => {
     renderPage();
+    advanceToFloorPlanStep();
 
-    // Navigate through all steps
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Choose a layout to continue — pick Blank to start with an empty floor."
+    );
+    // Still on step 5 — the floor plan step, not the Launch review.
+    expect(screen.getByTestId("floor-plan-step")).toBeTruthy();
+  });
+
+  it("applies the wide container class on step 5 only", () => {
+    const { container } = renderPage();
+    const wrapper = container.firstChild as HTMLElement;
+
+    expect(wrapper.className).not.toContain("wizardContainerWide"); // step 1
+
     const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: "My Venue" } });
     fireEvent.click(screen.getByText("Next"));
-
     const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
     fireEvent.change(tz, { target: { value: "America/New_York" } });
     fireEvent.click(screen.getByText("Next"));
-
-    // Toggle monday on for operating hours validation
     fireEvent.click(screen.getByLabelText("monday open"));
     fireEvent.click(screen.getByText("Next"));
-    fireEvent.click(screen.getByText("Next")); // skip settings
 
-    // Submit
+    expect(wrapper.className).not.toContain("wizardContainerWide"); // step 4
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(wrapper.className).toContain("wizardContainerWide"); // step 5
+
+    fireEvent.click(screen.getByText("Choose Blank"));
+    fireEvent.click(screen.getByText("Next"));
+
+    expect(wrapper.className).not.toContain("wizardContainerWide"); // step 6
+  });
+
+  it("runs the launch sequence in order — venue, floor plan, tables in order, then activate", async () => {
+    const order: string[] = [];
+    mockVenuesCreate.mockImplementation(async () => {
+      order.push("venue");
+      return makeVenue("venue-1");
+    });
+    mockFloorPlansCreate.mockImplementation(async () => {
+      order.push("floorPlan");
+      return makeFloorPlan("plan-1", "venue-1");
+    });
+    mockTablesCreate.mockImplementation(async (data: { name: string }) => {
+      order.push(`table:${data.name}`);
+      return makeTable(data.name);
+    });
+    mockFloorPlansSetActive.mockImplementation(async () => {
+      order.push("activate");
+      return makeFloorPlan("plan-1", "venue-1", true);
+    });
+    mockVenuesFixture = [{ id: "venue-1" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank", "My Venue", () => {
+      fireEvent.click(screen.getByText("Add Table A"));
+      fireEvent.click(screen.getByText("Add Table B"));
+    });
+
     fireEvent.click(screen.getByText("Launch Venue"));
 
     await waitFor(() => {
-      expect(mockCreate).toHaveBeenCalledOnce();
+      expect(mockFloorPlansSetActive).toHaveBeenCalledOnce();
     });
 
-    const payload = mockCreate.mock.calls[0][0];
-    expect(payload.name).toBe("My Venue");
-    expect(payload.slug).toBe("my-venue");
-    expect(payload.ianaTimezone).toBe("America/New_York");
-    expect(payload.currencyCode).toBe("USD");
+    expect(order).toEqual(["venue", "floorPlan", "table:Table A", "table:Table B", "activate"]);
+    expect(mockVenuesCreate).toHaveBeenCalledOnce();
+    expect(mockFloorPlansCreate).toHaveBeenCalledOnce();
   });
 
-  it("should show toast, celebrate, and then redirect to the dashboard after venue creation", async () => {
-    vi.useFakeTimers();
-    mockCreate.mockResolvedValueOnce({ id: "venue-456", name: "My Venue" });
+  it("shows an alert with the launch's error message when a stage fails, without refetching or toasting", async () => {
+    mockVenuesCreate.mockRejectedValueOnce(new Error("Slug already taken"));
 
     renderPage();
+    advanceToLaunchStep("Choose Blank");
+    fireEvent.click(screen.getByText("Launch Venue"));
 
-    // Navigate through all steps
-    const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
-    fireEvent.change(nameInput, { target: { value: "My Venue" } });
-    fireEvent.click(screen.getByText("Next"));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Slug already taken");
+    });
 
-    const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
-    fireEvent.change(tz, { target: { value: "America/New_York" } });
-    fireEvent.click(screen.getByText("Next"));
+    expect(mockRefetchVenues).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
 
-    fireEvent.click(screen.getByLabelText("monday open"));
-    fireEvent.click(screen.getByText("Next"));
-    fireEvent.click(screen.getByText("Next"));
+  it("M8: retry after a mid-table failure issues no second venue/floor-plan POST and resumes at the first uncreated table", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockTablesCreate
+      .mockResolvedValueOnce(makeTable("Table A"))
+      .mockRejectedValueOnce(new Error("Stopped at table 2 of 2"))
+      .mockResolvedValueOnce(makeTable("Table B"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1", true));
+    mockVenuesFixture = [{ id: "venue-1" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank", "My Venue", () => {
+      fireEvent.click(screen.getByText("Add Table A"));
+      fireEvent.click(screen.getByText("Add Table B"));
+    });
 
     fireEvent.click(screen.getByText("Launch Venue"));
 
-    // Resolve the submit -> refetch -> toast -> celebrate chain (all mocked
-    // promises resolve immediately, but each `await` is its own microtask tick).
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Stopped at table 2 of 2");
+    });
+
+    expect(mockVenuesCreate).toHaveBeenCalledOnce();
+    expect(mockFloorPlansCreate).toHaveBeenCalledOnce();
+    expect(mockTablesCreate).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByText("Retry"));
+
+    await waitFor(() => {
+      expect(mockFloorPlansSetActive).toHaveBeenCalledOnce();
+    });
+
+    expect(mockVenuesCreate).toHaveBeenCalledOnce();
+    expect(mockFloorPlansCreate).toHaveBeenCalledOnce();
+    expect(mockTablesCreate).toHaveBeenCalledTimes(3);
+    expect(mockTablesCreate.mock.calls[2]?.[0]).toMatchObject({ name: "Table B" });
+  });
+
+  it("shows 'Venue is live' with the N-tables body when the launched plan has tables", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockTablesCreate.mockImplementation(async (data: { name: string }) => makeTable(data.name));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1", true));
+    mockVenuesFixture = [{ id: "venue-1" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank", "My Venue", () => {
+      fireEvent.click(screen.getByText("Add Table A"));
+      fireEvent.click(screen.getByText("Add Table B"));
+    });
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Venue is live",
+          description: '"My Venue" is ready with 2 tables on Main Floor.',
+          variant: "success",
+        })
+      );
+    });
+  });
+
+  it("shows the zero-tables body copy when the launched plan has no tables", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1", true));
+    mockVenuesFixture = [{ id: "venue-1" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank");
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Venue is live",
+          description:
+            '"My Venue" is ready. Add tables to Main Floor to start taking reservations.',
+          variant: "success",
+        })
+      );
+    });
+  });
+
+  it("navigates to /floor-plans/{planId} once the celebration finishes and the new venue is selected", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1", true));
+    mockVenuesFixture = [{ id: "venue-1" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank");
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => expect(mockRefetchVenues).toHaveBeenCalledOnce());
+
+    // Celebration is shown before navigating — no immediate redirect.
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Finish celebration"));
+
+    await waitFor(() => {
+      // The plan id from the sequence, not the venue id.
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-1", { replace: true });
+    });
+  });
+
+  it("Story 6: selects the newly-launched venue (not venues[0]) before navigating, in a multi-venue fixture", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-new"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-new", "venue-new"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-new", "venue-new", true));
+    mockVenuesFixture = [{ id: "venue-a" }, { id: "venue-b" }, { id: "venue-new" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank");
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => expect(mockRefetchVenues).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByText("Finish celebration"));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-new", { replace: true });
+    });
+
+    expect(mockSetVenueId).toHaveBeenCalledWith("venue-new");
+    const setVenueIdOrder = mockSetVenueId.mock.invocationCallOrder[0];
+    const navigateOrder = mockNavigate.mock.invocationCallOrder[0];
+    expect(setVenueIdOrder).toBeLessThan(navigateOrder);
+  });
+
+  it("stays on the celebration and never navigates if refetchVenues never returns the new venue", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1", true));
+    mockVenuesFixture = []; // refetch never surfaces the new venue
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank");
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => expect(mockRefetchVenues).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByText("Finish celebration"));
     await flushMicrotasks();
 
-    expect(mockRefetchVenues).toHaveBeenCalledOnce();
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Venue created",
-        variant: "success",
-      })
-    );
-
-    // Celebration is shown BEFORE navigating — no hard/immediate redirect.
     expect(mockNavigate).not.toHaveBeenCalled();
-    expect(screen.getByText("Your venue is live — add tables next")).toBeTruthy();
-
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith("/dashboard", { replace: true });
+    expect(screen.getByTestId("launch-step")).toBeTruthy();
   });
 
-  it("should show error when API call fails", async () => {
-    mockCreate.mockRejectedValueOnce(new Error("Slug already taken"));
-
-    renderPage();
-
-    // Navigate through all steps
-    const nameInput = screen.getByLabelText("Venue Name") as HTMLInputElement;
-    fireEvent.change(nameInput, { target: { value: "My Venue" } });
-    fireEvent.click(screen.getByText("Next"));
-
-    const tz = screen.getByLabelText("Timezone") as HTMLSelectElement;
-    fireEvent.change(tz, { target: { value: "America/New_York" } });
-    fireEvent.click(screen.getByText("Next"));
-
-    fireEvent.click(screen.getByLabelText("monday open"));
-    fireEvent.click(screen.getByText("Next"));
-    fireEvent.click(screen.getByText("Next"));
-
-    fireEvent.click(screen.getByText("Launch Venue"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Slug already taken")).toBeTruthy();
-    });
-  });
-
-  it("should include operating hours and settings in payload when provided", async () => {
-    mockCreate.mockResolvedValueOnce({ id: "venue-789", name: "Full Venue" });
+  it("includes operating hours and settings in the venue payload", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-789"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-789", "venue-789"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-789", "venue-789", true));
+    mockVenuesFixture = [{ id: "venue-789" }];
 
     renderPage();
 
@@ -584,14 +942,18 @@ describe("VenueOnboardingPage", () => {
     fireEvent.change(partyInput, { target: { value: "8" } });
     fireEvent.click(screen.getByText("Next"));
 
-    // Step 5 — submit
+    // Step 5 — floor plan
+    fireEvent.click(screen.getByText("Choose Blank"));
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 6 — launch
     fireEvent.click(screen.getByText("Launch Venue"));
 
     await waitFor(() => {
-      expect(mockCreate).toHaveBeenCalledOnce();
+      expect(mockVenuesCreate).toHaveBeenCalledOnce();
     });
 
-    const payload = mockCreate.mock.calls[0][0];
+    const payload = mockVenuesCreate.mock.calls[0]?.[0];
     expect(payload.ianaTimezone).toBe("Europe/London");
     expect(payload.currencyCode).toBe("GBP");
     expect(payload.operatingHours).toBeDefined();

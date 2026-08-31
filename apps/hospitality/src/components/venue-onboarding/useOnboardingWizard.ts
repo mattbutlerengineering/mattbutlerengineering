@@ -21,7 +21,7 @@ import {
 import { templateById, tablesForTemplate, type TemplateId } from "./floor-plan-templates.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 
-export const TOTAL_STEPS = 5;
+export const TOTAL_STEPS = 6;
 
 export interface OnboardingWizardData {
   basicInfo: BasicInfoData;
