@@ -1,16 +1,12 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
-import { Button, NeonSign, Skeleton } from "@mattbutlerengineering/rialto";
+import { Button, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { ReservationList, ActivityFeed, StatRow } from "../components/dashboard";
-import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
-import { useNow } from "../hooks/useNow.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
-import { deriveVenueOpenState } from "../utils/venueOpenState.js";
-import { formatVenueOpenLabel } from "../utils/venueOpenLabel.js";
 import styles from "./HomePage.module.css";
 
 function StatsLoading() {
@@ -29,16 +25,6 @@ export function HomePage() {
   const { reservations, stats, isLoading, error, refetch } = useDashboardStatsQuery();
   const { isConnected } = useSSEStatus();
   const feedEvents = useSSEEventFeed({ maxItems: 5 });
-  const { selectedVenue } = useVenue();
-  const now = useNow();
-  // Render-time derivation on the venue's own clock; `null` means "no sign".
-  const openState = selectedVenue
-    ? deriveVenueOpenState({
-        operatingHours: selectedVenue.operatingHours,
-        ianaTimezone: selectedVenue.ianaTimezone,
-        now,
-      })
-    : null;
 
   const handleRetry = useCallback(() => {
     refetch();
@@ -49,11 +35,6 @@ export function HomePage() {
       <PageHeader
         title="Dashboard"
         description={`Welcome back${user?.name ? `, ${user.name}` : ""}`}
-        aside={
-          openState && (
-            <NeonSign state={openState.state} aria-label={formatVenueOpenLabel(openState)} />
-          )
-        }
       />
 
       {error && <ErrorRetryBanner error={error.message} onRetry={handleRetry} />}

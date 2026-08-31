@@ -72,7 +72,6 @@ import { MasterOverride } from "../../components/MasterOverride/MasterOverride";
 import { Meter } from "../../components/Meter/Meter";
 import { Navbar } from "../../components/Navbar/Navbar";
 import { NavigationMenu } from "../../components/NavigationMenu/NavigationMenu";
-import { NeonSign } from "../../components/NeonSign/NeonSign";
 import { NumberInput } from "../../components/NumberInput/NumberInput";
 import { Odometer } from "../../components/Odometer/Odometer";
 import { PageHeader } from "../../components/PageHeader/PageHeader";
@@ -172,7 +171,6 @@ export type BarrelExportName =
   | "Meter"
   | "Navbar"
   | "NavigationMenu"
-  | "NeonSign"
   | "NumberInput"
   | "Odometer"
   | "PageHeader"
@@ -576,10 +574,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
-  },
-
-  NeonSign: {
-    element: <NeonSign state="open" aria-label="Open until 10:00 PM" />,
   },
 
   NumberInput: {

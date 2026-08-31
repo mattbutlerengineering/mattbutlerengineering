@@ -1,18 +1,14 @@
-import type { ReactNode } from "react";
 import { Text, Stack } from "@mattbutlerengineering/rialto";
 import styles from "./PageHeader.module.css";
 
 interface PageHeaderProps {
   title: string;
   description?: string;
-  /** Inline-end content on the title row; wraps beneath the title below 768px. */
-  aside?: ReactNode;
 }
 
-export function PageHeader({ title, description, aside }: PageHeaderProps) {
-  const className = aside ? `${styles.header} ${styles.withAside}` : styles.header;
+export function PageHeader({ title, description }: PageHeaderProps) {
   return (
-    <div className={className}>
+    <div className={styles.header}>
       <Stack gap="xs">
         <Text as="h1" variant="display" color="primary">
           {title}
@@ -23,7 +19,6 @@ export function PageHeader({ title, description, aside }: PageHeaderProps) {
           </Text>
         )}
       </Stack>
-      {aside && <div className={styles.aside}>{aside}</div>}
     </div>
   );
 }

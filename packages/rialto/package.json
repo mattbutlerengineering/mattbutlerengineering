@@ -230,10 +230,6 @@
       "types": "./dist/lib/components/NavigationMenu/index.d.ts",
       "import": "./dist/lib/components/NavigationMenu/index.js"
     },
-    "./NeonSign": {
-      "types": "./dist/lib/components/NeonSign/index.d.ts",
-      "import": "./dist/lib/components/NeonSign/index.js"
-    },
     "./NumberInput": {
       "types": "./dist/lib/components/NumberInput/index.d.ts",
       "import": "./dist/lib/components/NumberInput/index.js"

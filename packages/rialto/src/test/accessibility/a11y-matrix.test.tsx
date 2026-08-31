@@ -78,7 +78,6 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Meter",
   "Navbar",
   "NavigationMenu",
-  "NeonSign",
   "NumberInput",
   "Odometer",
   "PageHeader",

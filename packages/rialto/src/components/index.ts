@@ -95,7 +95,6 @@ export * from "./Ferrofluid";
 export * from "./SilkFlow";
 export * from "./WatchLoader";
 export * from "./Handshake";
-export * from "./NeonSign";
 
 // ── Hospitality specialty ──────────────────────
 export * from "./TapeChart";

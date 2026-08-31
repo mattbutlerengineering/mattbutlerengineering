@@ -41,7 +41,4 @@ useDefault = true
     # Prisma WebAssembly binary — base64-encoded WASM, not a secret
     # WASM magic bytes (\x00asm) always produce AGFzbQ at the start of base64
     '''AGFzbQ[A-Za-z0-9+/]{100,}={0,2}''',
-    # CSS-module scoped class tokens quoted in run docs/tests (e.g. _reduced_4xynw_166)
-    # — vite-hashed classnames, not credentials (generic-api-key FP on PR #4784)
-    '''_[a-zA-Z][a-zA-Z0-9-]*_[a-z0-9]{4,8}_\d{1,4}''',
   ]

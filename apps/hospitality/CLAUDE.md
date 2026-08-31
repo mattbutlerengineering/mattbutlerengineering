@@ -20,7 +20,7 @@ Build-time env vars (set in CI and `.env`):
 
 | Page                  | Route              | Description                                     |
 | --------------------- | ------------------ | ----------------------------------------------- |
-| HomePage              | `/`                | Dashboard landing; `NeonSign` header instrument |
+| HomePage              | `/`                | Dashboard landing                               |
 | TimelinePage          | `/timeline`        | Reservation timeline view (largest page, ~18KB) |
 | ReservationsPage      | `/reservations`    | Reservation list/management                     |
 | GuestsPage            | `/guests`          | Guest directory                                 |

@@ -49,23 +49,6 @@ export function formatTime(isoString: string): string {
 }
 
 /**
- * Format a venue-local "HH:MM" wall-clock string as 12-hour time with minutes
- * (e.g. "17:00" → "5:00 PM"). The value is a wall-clock, not an instant, so it
- * is pinned to UTC and formats identically on every machine.
- *
- * Used by: formatVenueOpenLabel
- */
-export function formatLocalTime(hhmm: string): string {
-  const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
-  return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(LOCALE, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
-  });
-}
-
-/**
  * Format an amount in cents as a localized currency string (e.g. "$10.00").
  * Currency code is case-insensitive; it will be uppercased internally.
  *

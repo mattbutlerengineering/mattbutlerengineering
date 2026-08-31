@@ -2735,47 +2735,6 @@
       ]
     },
     {
-      "name": "NeonSign",
-      "description": "Instrument that shows whether a venue is trading right now — a neon tube\nspelling OPEN mounted on a recessed housing, with the fact stated in words\nbeneath it. The tube is lit green while open, warms gold while opening\nsoon (the one place the accent appears), sits dark when closed, and is\nabsent altogether when no hours are set.\n\nIt owns no clock and no timezone: the consumer derives `state` and the\nlabel; the instrument prints `OPEN` and whatever `aria-label` it is given.\nMotion is CSS keyframes bound to `data-state`, so the strike-on needs no\nReact state or effect.\n\nRenders as a single `role=\"img\"` — housing, tube and caption are decorative\nand assistive tech hears only the required `aria-label`.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "aria-label",
-          "type": "string",
-          "required": true,
-          "description": "Accessible name — required because the component renders as role=\"img\". Also the visible caption."
-        },
-        {
-          "name": "state",
-          "type": "NeonSignState",
-          "required": true,
-          "description": "Trading state the tube shows. Required: a sign with no state would be a lie."
-        },
-        {
-          "name": "showCaption",
-          "type": "boolean | undefined",
-          "required": false,
-          "description": "Print the accessible name as a caption beneath the housing."
-        },
-        {
-          "name": "size",
-          "type": "\"sm\" | \"md\" | \"lg\" | undefined",
-          "required": false,
-          "description": "Tube, housing padding and caption scale together."
-        }
-      ],
-      "slots": [
-        "children"
-      ]
-    },
-    {
-      "name": "NeonSignState",
-      "description": "Trading state the sign shows.\n- `open` — the tube is lit with the success token and strikes on when entered.\n- `opening-soon` — the tube warms gold and breathes; doors open within the lead window.\n- `closed` — dark glass on the plate.\n- `unset` — no tube, dashed outline: hours were never configured.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
-    },
-    {
       "name": "NumberInput",
       "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Values are clamped to `min`/`max` when provided.",
       "importPath": "@mattbutlerengineering/rialto",
