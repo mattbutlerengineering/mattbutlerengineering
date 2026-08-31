@@ -99,8 +99,7 @@ gh pr create --base main …                              # merge on CI Gate gre
 4. Post-release probe of the deployed `/rialto/demos/signup` bundle → #4772
    fix confirmed live (evidence below).
 5. Docs-landing PR (this directory, including this file) opened from scratch
-   clone branch `docs/auth-handshake-flows` → **PR #TBD** — number recorded
-   in a follow-up commit on the PR branch once assigned; merged on
+   clone branch `docs/auth-handshake-flows` → **PR #4787**; merged on
    `CI Gate` green via auto-merge (squash). Low-risk classification
    (docs-only) checked via `qualifiesForLowRiskFastPath` against a fresh
    `agent-core` dist before enqueueing.
