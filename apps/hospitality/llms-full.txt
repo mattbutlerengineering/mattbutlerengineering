@@ -785,6 +785,10 @@
       NO_SHOW: "No Show",
     };
   </file>
+  <file path="src/utils/venueOpenState.ts">
+    export type Weekday = keyof OperatingHours;
+    export type LocalTime = string;
+  </file>
   </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/generate-slug.ts">

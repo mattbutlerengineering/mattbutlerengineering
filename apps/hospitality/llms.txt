@@ -637,6 +637,14 @@
       export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
   </file>
+  <file path="src/utils/venueOpenState.ts">
+    <item priority="low">
+      type Weekday = keyof OperatingHours;
+    </item>
+    <item priority="low">
+      type LocalTime = string;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/generate-slug.ts">
