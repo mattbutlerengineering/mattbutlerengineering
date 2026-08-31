@@ -3,7 +3,6 @@ import type {
   OperatingHours,
   CreateVenueRequest,
   VenueSettings,
-  Venue,
   CreateTableRequest,
 } from "@mbe/types";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
@@ -48,8 +47,6 @@ interface OnboardingWizardState {
   errors: OnboardingWizardErrors;
   highestStepReached: number;
   slugStatus: SlugStatus;
-  isSubmitting: boolean;
-  submitError: string | null;
   launch: LaunchProgress;
 }
 
@@ -64,9 +61,6 @@ type OnboardingWizardAction =
   | { type: "VALIDATE" }
   | { type: "SLUG_CHECK_START" }
   | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
-  | { type: "SUBMIT_START" }
-  | { type: "SUBMIT_SUCCESS" }
-  | { type: "SUBMIT_ERROR"; error: string }
   | { type: "SET_TEMPLATE"; templateId: TemplateId }
   | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
   | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
@@ -105,8 +99,6 @@ const INITIAL_STATE: OnboardingWizardState = {
   },
   highestStepReached: 1,
   slugStatus: "idle",
-  isSubmitting: false,
-  submitError: null,
   launch: INITIAL_LAUNCH_PROGRESS,
 };
 
@@ -238,15 +230,6 @@ function reducer(
       return { ...state, slugStatus: "available", errors: { ...state.errors, basicInfo: rest } };
     }
 
-    case "SUBMIT_START":
-      return { ...state, isSubmitting: true, submitError: null };
-
-    case "SUBMIT_SUCCESS":
-      return { ...state, isSubmitting: false, submitError: null };
-
-    case "SUBMIT_ERROR":
-      return { ...state, isSubmitting: false, submitError: action.error };
-
     case "SET_TEMPLATE": {
       const template = templateById(action.templateId);
       return {
@@ -325,7 +308,6 @@ export interface OnboardingWizardActions {
   goToStep: (step: number) => void;
   validateStep: () => void;
   checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
-  submit: (venuePromise: Promise<Venue>) => Promise<Venue>;
   setTemplate: (templateId: TemplateId) => void;
   addDraftTable: (request: CreateTableRequest) => void;
   moveDraftTable: (localId: string, x: number, y: number) => void;
@@ -339,8 +321,6 @@ export interface OnboardingWizardResult {
   errors: OnboardingWizardErrors;
   highestStepReached: number;
   slugStatus: SlugStatus;
-  isSubmitting: boolean;
-  submitError: string | null;
   launch: LaunchProgress;
   actions: OnboardingWizardActions;
 }
@@ -394,20 +374,6 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     []
   );
 
-  const submit = useCallback(async (venuePromise: Promise<Venue>): Promise<Venue> => {
-    dispatch({ type: "SUBMIT_START" });
-    try {
-      const venue = await venuePromise;
-      dispatch({ type: "SUBMIT_SUCCESS" });
-      return venue;
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create venue. Please try again.";
-      dispatch({ type: "SUBMIT_ERROR", error: message });
-      throw err;
-    }
-  }, []);
-
   const setTemplate = useCallback(
     (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
     []
@@ -441,7 +407,6 @@ export function useOnboardingWizard(): OnboardingWizardResult {
       goToStep,
       validateStep,
       checkSlugAvailability,
-      submit,
       setTemplate,
       addDraftTable,
       moveDraftTable,
@@ -455,7 +420,6 @@ export function useOnboardingWizard(): OnboardingWizardResult {
       goToStep,
       validateStep,
       checkSlugAvailability,
-      submit,
       setTemplate,
       addDraftTable,
       moveDraftTable,
@@ -470,8 +434,6 @@ export function useOnboardingWizard(): OnboardingWizardResult {
     errors: state.errors,
     highestStepReached: state.highestStepReached,
     slugStatus: state.slugStatus,
-    isSubmitting: state.isSubmitting,
-    submitError: state.submitError,
     launch: state.launch,
     actions,
   };

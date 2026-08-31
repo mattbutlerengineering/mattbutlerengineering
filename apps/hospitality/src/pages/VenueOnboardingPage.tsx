@@ -31,17 +31,14 @@ export function VenueOnboardingPage() {
   // celebration timer's captured onCelebrationDone callback is never stale.
   const [celebrationDone, setCelebrationDone] = useState(false);
 
-  const {
-    step,
-    data,
-    errors,
-    highestStepReached,
-    slugStatus,
-    isSubmitting,
-    submitError,
-    launch,
-    actions,
-  } = useOnboardingWizardContext();
+  const { step, data, errors, highestStepReached, slugStatus, launch, actions } =
+    useOnboardingWizardContext();
+
+  // The only real "a launch is in progress, don't let the user navigate away"
+  // signal — isSubmitting/submitError were retired (#4824): nothing has
+  // dispatched SUBMIT_START since actions.submit was retired in #4804, so
+  // that flag was permanently false and never actually guarded anything.
+  const launchInFlight = launch.inFlightStage !== null;
 
   // Debounced slug-uniqueness check — the actual check-and-dispatch lifecycle
   // (checking -> taken/available) lives entirely inside actions.checkSlugAvailability.
@@ -110,8 +107,15 @@ export function VenueOnboardingPage() {
   // the venue is live. Marking celebrationDone directly on retry success
   // closes that gap without touching LaunchStep.
   const handleRetry = async () => {
-    await handleLaunch();
-    setCelebrationDone(true);
+    try {
+      await handleLaunch();
+      setCelebrationDone(true);
+    } catch {
+      // A failed retry already surfaces via launch.failedStage/errorMessage
+      // (dispatched inside runLaunchSequence's onProgress) — nothing further
+      // to do here besides preventing an unhandled rejection on a repeat
+      // failure (#4824 Finding 2).
+    }
   };
 
   // Handoff, part 1: once the refetched venue list contains the launched
@@ -149,7 +153,7 @@ export function VenueOnboardingPage() {
           currentStep={step}
           totalSteps={TOTAL_STEPS}
           highestStepReached={highestStepReached}
-          onStepClick={isSubmitting ? undefined : actions.goToStep}
+          onStepClick={launchInFlight ? undefined : actions.goToStep}
         />
       </div>
 
@@ -227,8 +231,6 @@ export function VenueOnboardingPage() {
               locationTime={data.locationTime}
               operatingHours={data.operatingHours}
               settings={data.settings}
-              isSubmitting={isSubmitting}
-              submitError={submitError}
               onLaunch={handleLaunch}
               onCelebrationDone={handleCelebrationDone}
               floorPlan={data.floorPlan}
@@ -241,7 +243,7 @@ export function VenueOnboardingPage() {
             <Button
               variant="secondary"
               onClick={actions.back}
-              disabled={step === 1 || isSubmitting}
+              disabled={step === 1 || launchInFlight}
             >
               Back
             </Button>

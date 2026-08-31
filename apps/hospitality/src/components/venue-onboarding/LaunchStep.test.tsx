@@ -98,8 +98,6 @@ function renderLaunchStep(overrides: Partial<ComponentProps<typeof LaunchStep>> 
     locationTime,
     operatingHours,
     settings,
-    isSubmitting: false,
-    submitError: null,
     onLaunch,
     onCelebrationDone,
     ...overrides,
@@ -187,19 +185,6 @@ describe("LaunchStep", () => {
 
     expect(screen.queryByText("Your venue is live — add tables next")).toBeNull();
     expect(onCelebrationDone).not.toHaveBeenCalled();
-  });
-
-  it("shows the submit error banner when present", () => {
-    renderLaunchStep({ submitError: "Slug already taken" });
-
-    expect(screen.getByText("Slug already taken")).toBeTruthy();
-  });
-
-  it("disables the Launch button while submitting", () => {
-    renderLaunchStep({ isSubmitting: true });
-
-    expect(screen.getByText("Creating...")).toBeTruthy();
-    expect((screen.getByText("Creating...") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("celebration copy reads 'live with N tables' when the launched draft has tables", async () => {
