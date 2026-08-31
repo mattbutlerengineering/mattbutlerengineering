@@ -1,20 +1,17 @@
-import {
-  forwardRef,
-  useEffect,
-  useMemo,
-  useRef,
-  type CSSProperties,
-  type HTMLAttributes,
-} from "react";
-import { motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
+import { forwardRef, useMemo, type CSSProperties, type HTMLAttributes } from "react";
+import { useReducedMotion } from "framer-motion";
 import { cn } from "../../utils/class-composer";
 import styles from "./WatchLoader.module.css";
+import { ESCAPE_TEETH, MOVEMENT, PLATE_RADIUS, ROTOR_RADIUS, toothLength } from "./movement";
 
 /**
  * Loader styled after the exhibition caseback of a mechanical automatic watch:
  * a sweeping rotor, a meshing gear train, an oscillating balance wheel, a ticking
  * escape wheel, and ruby jewels at the pivots. The metaphor is *precision in
  * motion* — an indeterminate "working" indicator with no progress semantics.
+ *
+ * Every moving part is driven by a CSS keyframe on a transform, so the whole
+ * movement runs on the compositor thread with no JS timers.
  *
  * @example
  * <WatchLoader aria-label="Loading results" />
@@ -31,13 +28,7 @@ export interface WatchLoaderProps extends Omit<HTMLAttributes<HTMLDivElement>, "
   variant?: "default" | "gold" | "steel" | "rose";
 }
 
-/* ── Movement geometry (viewBox is 100×100, center at 50,50) ── */
-const BALANCE_AMPLITUDE = 26; // degrees the balance wheel swings each way
-const ESCAPE_TEETH = 15;
-const ESCAPE_TOOTH_ANGLE = 360 / ESCAPE_TEETH; // one tick per balance beat
-
 const CYCLE_BY_SPEED = { slow: "4s", normal: "2s", fast: "1s" } as const;
-const BEAT_MS_BY_SPEED = { slow: 700, normal: 420, fast: 240 } as const;
 
 const SIZE_CLASS = { sm: styles.sizeSm, md: styles.sizeMd, lg: styles.sizeLg } as const;
 const VARIANT_CLASS = {
@@ -46,6 +37,8 @@ const VARIANT_CLASS = {
   steel: styles.variantSteel,
   rose: styles.variantRose,
 } as const;
+
+const { balance, centerWheel, thirdWheel, fourthWheel, escapeWheel } = MOVEMENT;
 
 export const WatchLoader = forwardRef<HTMLDivElement, WatchLoaderProps>(
   (
@@ -61,28 +54,6 @@ export const WatchLoader = forwardRef<HTMLDivElement, WatchLoaderProps>(
     ref
   ) => {
     const shouldReduceMotion = useReducedMotion() ?? false;
-
-    // Balance wheel: spring-physics oscillation. Escape wheel: discrete ticks.
-    // Both are framer-motion MotionValues, so the driving interval mutates them
-    // via `.set()` — never React state — keeping us clear of the rialto
-    // setState-in-effect ban and avoiding re-render churn.
-    const balanceRotation = useSpring(0, { stiffness: 80, damping: 8 });
-    const escapeRotation = useMotionValue(0);
-    const escapeAccumRef = useRef(0);
-
-    const beatMs = BEAT_MS_BY_SPEED[speed];
-
-    useEffect(() => {
-      if (shouldReduceMotion) return;
-      let direction = 1;
-      const id = setInterval(() => {
-        direction = -direction;
-        balanceRotation.set(direction * BALANCE_AMPLITUDE);
-        escapeAccumRef.current += ESCAPE_TOOTH_ANGLE;
-        escapeRotation.set(escapeAccumRef.current);
-      }, beatMs);
-      return () => clearInterval(id);
-    }, [shouldReduceMotion, beatMs, balanceRotation, escapeRotation]);
 
     const isPreset = typeof size === "string";
     const sizeClass = isPreset ? SIZE_CLASS[size] : "";
@@ -124,62 +95,83 @@ export const WatchLoader = forwardRef<HTMLDivElement, WatchLoaderProps>(
             </radialGradient>
           </defs>
 
-          {/* 1 · Background plate */}
-          <circle
-            cx="50"
-            cy="50"
-            r="48"
-            fill="url(#watch-plate)"
-            stroke="var(--watch-bridge)"
-            strokeWidth="1"
+          {/* 1 · Main plate with a metal bezel */}
+          <circle cx="50" cy="50" r={PLATE_RADIUS} className={styles.plate} />
+
+          {/* 2 · Bridges — balance cock (left) and train bridge (right) */}
+          <path
+            className={styles.bridge}
+            d="M 12 24 Q 16 16 24 18 L 40 34 Q 42 40 36 40 L 18 32 Z"
+          />
+          <path
+            className={styles.bridge}
+            d="M 70 26 Q 86 34 84 54 Q 82 72 70 78 L 62 70 Q 70 62 70 50 Q 68 38 60 32 Z"
           />
 
-          {/* 2 · Bridges (structural plates) */}
-          <path className={styles.bridge} d="M 18 30 Q 50 14 82 34 L 78 44 Q 50 26 24 40 Z" />
-          <path className={styles.bridge} d="M 60 58 Q 80 60 84 80 L 74 82 Q 70 66 56 66 Z" />
-
           {/* 3 · Gear train — tooth counts set the angular-velocity ratios */}
-          <Gear cx={32} cy={56} teeth={12} radius={15} className={styles.gearLarge} />
-          <Gear cx={56} cy={62} teeth={8} radius={10} className={styles.gearMedium} />
-          <Gear cx={72} cy={50} teeth={6} radius={7.5} className={styles.gearSmall} />
+          <Gear part={centerWheel} className={styles.gearLarge} />
+          <Gear part={thirdWheel} className={styles.gearMedium} />
+          <Gear part={fourthWheel} className={styles.gearSmall} />
 
           {/* 4 · Escape wheel — advances one tooth per balance beat */}
-          <g transform="translate(70,72)">
-            <motion.g className={styles.escape} style={{ rotate: escapeRotation }}>
-              <EscapeWheel teeth={ESCAPE_TEETH} radius={9} />
-            </motion.g>
-          </g>
-
-          {/* 5 · Balance wheel — spring-driven oscillation */}
-          <g transform="translate(50,50)">
-            <motion.g className={styles.balance} style={{ rotate: balanceRotation }}>
-              <circle r="16" className={styles.balanceRim} />
-              <circle r="11" className={styles.balanceRim} />
-              <line x1="-16" y1="0" x2="16" y2="0" className={styles.spoke} />
-              <line x1="0" y1="-16" x2="0" y2="16" className={styles.spoke} />
-            </motion.g>
-          </g>
-
-          {/* 6 · Jewels — ruby pivots */}
-          <Jewel cx={32} cy={56} />
-          <Jewel cx={56} cy={62} />
-          <Jewel cx={72} cy={50} />
-          <Jewel cx={70} cy={72} />
-          <Jewel cx={50} cy={50} />
-
-          {/* 7 · Rotor — sweeps over everything */}
-          <g transform="translate(50,50)">
-            <g className={styles.rotor}>
-              <path
-                className={styles.rotorBody}
-                d="M -44 0 A 44 44 0 0 1 44 0 L 30 0 A 30 30 0 0 0 -30 0 Z"
-              />
-              <rect className={styles.rotorWeight} x="-44" y="-6" width="14" height="12" rx="3" />
+          <g transform={`translate(${escapeWheel.cx},${escapeWheel.cy})`}>
+            <g className={styles.escape}>
+              <EscapeWheel teeth={ESCAPE_TEETH} radius={escapeWheel.radius} />
             </g>
           </g>
 
-          {/* 8 · Rotor pivot jewel */}
-          <Jewel cx={50} cy={50} r={2.4} />
+          {/* 5 · Balance wheel — oscillates under the balance cock */}
+          <g transform={`translate(${balance.cx},${balance.cy})`}>
+            <g className={styles.balance}>
+              <circle r={balance.radius} className={styles.balanceRim} />
+              <circle r={balance.radius * 0.7} className={styles.balanceRim} />
+              <line
+                x1={-balance.radius}
+                y1="0"
+                x2={balance.radius}
+                y2="0"
+                className={styles.spoke}
+              />
+              <line
+                x1="0"
+                y1={-balance.radius}
+                x2="0"
+                y2={balance.radius}
+                className={styles.spoke}
+              />
+              <circle r={balance.radius * 0.18} className={styles.gearHub} />
+            </g>
+          </g>
+
+          {/* 6 · Jewels — ruby pivots */}
+          {Object.values(MOVEMENT).map((part) => (
+            <Jewel key={part.id} cx={part.cx} cy={part.cy} />
+          ))}
+
+          {/* 7 · Rotor — sweeps over everything. The bearing race keeps the
+              group's bounding box symmetric, so `transform-box: fill-box`
+              rotates it about the pivot rather than the half-annulus' centroid. */}
+          <g transform="translate(50,50)">
+            <g className={styles.rotor} data-part="rotor">
+              <circle r={ROTOR_RADIUS} className={styles.rotorRace} data-part="rotor-race" />
+              <path
+                className={styles.rotorBody}
+                d={`M ${-ROTOR_RADIUS} 0 A ${ROTOR_RADIUS} ${ROTOR_RADIUS} 0 0 1 ${ROTOR_RADIUS} 0 L 34 0 A 34 34 0 0 0 -34 0 Z`}
+              />
+              <rect
+                className={styles.rotorWeight}
+                x={-ROTOR_RADIUS}
+                y="-6"
+                width="14"
+                height="12"
+                rx="3"
+              />
+            </g>
+          </g>
+
+          {/* 8 · Rotor hub and pivot jewel */}
+          <circle cx="50" cy="50" r="4.5" className={styles.rotorHub} />
+          <Jewel cx={50} cy={50} r={2.2} />
         </svg>
       </div>
     );
@@ -191,26 +183,24 @@ WatchLoader.displayName = "WatchLoader";
 /* ── Gear ──────────────────────────────────────── */
 
 interface GearProps {
-  cx: number;
-  cy: number;
-  teeth: number;
-  radius: number;
+  part: (typeof MOVEMENT)["centerWheel" | "thirdWheel" | "fourthWheel"];
   className: string | undefined;
 }
 
 /**
- * A gear positioned at (cx, cy). The outer group sets the position via the SVG
- * transform attribute; the inner, animated group spins around its own centre
- * (`transform-box: fill-box`) so the CSS rotate animation never clobbers the
- * positioning translate.
+ * A toothed wheel at the part's position. The outer group sets the position
+ * via the SVG transform attribute; the inner, animated group spins around its
+ * own centre (`transform-box: fill-box`) so the CSS rotate animation never
+ * clobbers the positioning translate.
  */
-function Gear({ cx, cy, teeth, radius, className }: GearProps) {
+function Gear({ part, className }: GearProps) {
+  const { cx, cy, teeth, radius } = part;
   const toothPositions = useMemo(
     () => Array.from({ length: teeth }, (_, i) => (i * 360) / teeth),
     [teeth]
   );
-  const toothLength = radius * 0.28;
-  const toothWidth = radius * 0.22;
+  const length = toothLength(radius);
+  const width = radius * 0.22;
 
   return (
     <g transform={`translate(${cx},${cy})`}>
@@ -219,11 +209,11 @@ function Gear({ cx, cy, teeth, radius, className }: GearProps) {
           <rect
             key={angle}
             className={styles.gearTooth}
-            x={-toothWidth / 2}
-            y={-radius - toothLength}
-            width={toothWidth}
-            height={toothLength + 2}
-            rx={toothWidth * 0.3}
+            x={-width / 2}
+            y={-radius - length}
+            width={width}
+            height={length + 2}
+            rx={width * 0.3}
             transform={`rotate(${angle})`}
           />
         ))}
@@ -250,6 +240,8 @@ function EscapeWheel({ teeth, radius }: { teeth: number; radius: number }) {
 
   return (
     <>
+      {/* Symmetric bounds so the odd-toothed polygon ticks about its own axle. */}
+      <circle r={radius} className={styles.axleRace} />
       <polygon points={points} className={styles.escapeBody} />
       <circle r={radius * 0.3} className={styles.gearHub} />
     </>

@@ -1,34 +1,31 @@
 /**
  * Auth Flow — `/demos/auth-flow`
  *
- * An animated instrument-panel walkthrough of the OIDC authorization-code +
- * PKCE flow (and its silent-refresh encore) that the real hospitality app
- * runs. Three stations, two signal channels, one gold pulse: the pulse is the
- * credential in flight, which is why it may wear the accent color.
+ * A walkthrough of the OIDC authorization-code + PKCE flow (and its
+ * silent-refresh encore) that the real hospitality app runs, projected onto
+ * rialto's `Handshake` instrument — the credential negotiation between
+ * Identity, Browser, and API.
  *
  * All flow knowledge lives in `authFlowMachine.ts` — this component only
  * renders the current step and drives the player chrome.
  */
 
 import { useEffect, useReducer } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   Button,
   Card,
+  Handshake,
   Heading,
   SplitFlap,
-  StatusLED,
   Text,
   Toggle,
-  useMotionPreset,
 } from "@mattbutlerengineering/rialto";
 import {
+  HANDSHAKE_STATIONS,
   INITIAL_STATE,
-  STATIONS,
   advance,
   currentStep,
-  type ChannelId,
-  type FlowStep,
+  handshakeFor,
   type StationId,
 } from "./authFlowMachine.js";
 import styles from "./AuthFlowPage.module.css";
@@ -36,69 +33,22 @@ import styles from "./AuthFlowPage.module.css";
 /** Autoplay cadence — slow enough to read each caption. */
 const STEP_INTERVAL_MS = 2800;
 
+/** Legend order matches the hub layout: Identity, Browser, API. */
+const LEGEND_STATIONS: readonly StationId[] = ["idp", "browser", "api"];
+
 const STATION_META: Record<StationId, { name: string; role: string }> = {
   browser: { name: "Browser", role: "Single-page app" },
-  idp: { name: "Identity Provider", role: "Authorization server" },
+  idp: { name: "Identity", role: "Authorization server" },
   api: { name: "API", role: "Resource server" },
 };
-
-/** Travel endpoints as a percentage of the lane, keyed by direction. */
-const TRAVEL = {
-  outbound: { from: "2%", to: "92%" },
-  inbound: { from: "92%", to: "2%" },
-} as const;
-
-interface ChannelLaneProps {
-  id: ChannelId;
-  label: string;
-  step: FlowStep;
-  playing: boolean;
-}
-
-function ChannelLane({ id, label, step, playing }: ChannelLaneProps) {
-  const motionPreset = useMotionPreset();
-  const reducedMotion = useReducedMotion() ?? false;
-  const active = step.channel === id;
-
-  // While playing on the refresh step, the pulse gently replays — the silent
-  // refresh is a loop in real life too. Reduced motion never loops.
-  const loop = active && playing && step.id === "refresh" && !reducedMotion;
-  const travel = step.direction ? TRAVEL[step.direction] : TRAVEL.outbound;
-
-  return (
-    <div className={`${styles.lane} ${id === "browser-idp" ? styles.laneIdp : styles.laneApi}`}>
-      <Text className={styles.laneLabel} aria-hidden="true">
-        {label}
-      </Text>
-      <div className={styles.groove} data-active={active || undefined}>
-        {active && (
-          <motion.div
-            // Keyed by step so every step replays its own travel from rest.
-            key={step.id}
-            className={styles.pulse}
-            initial={{ left: travel.from, opacity: 0 }}
-            animate={{ left: travel.to, opacity: 1 }}
-            transition={{
-              // Under reduced motion the preset collapses to { duration: 0 }:
-              // the pulse appears at its destination as an instant opacity
-              // change, with no travel animation.
-              ...motionPreset.springGentle,
-              opacity: { duration: reducedMotion ? 0 : 0.2 },
-              ...(loop ? { repeat: Infinity, repeatDelay: 1.6 } : {}),
-            }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function AuthFlowPage() {
   const [state, dispatch] = useReducer(advance, INITIAL_STATE);
   const step = currentStep(state);
+  const handshake = handshakeFor(step);
 
   // Autoplay: advance on a fixed cadence while playing. `next` clamps at the
-  // final step, so the interval idles there while the refresh pulse loops.
+  // final step, so the interval idles there while the refresh negotiation loops.
   useEffect(() => {
     if (!state.playing) return;
     const id = window.setInterval(() => dispatch({ type: "next" }), STEP_INTERVAL_MS);
@@ -127,16 +77,13 @@ export function AuthFlowPage() {
       </header>
 
       {/*
-        The diagram is a protocol schematic: the browser is always the origin
-        station and signals travel in protocol order, so it opts out of RTL
-        mirroring the way a chart does. Pulse travel animates physical `left`
-        against this fixed direction.
+        The diagram is a protocol schematic: signals travel in protocol order,
+        so it opts out of RTL mirroring the way a chart does.
       */}
       <section className={styles.panel} aria-label="OIDC flow diagram" dir="ltr">
         <div className={styles.stations}>
-          {STATIONS.map((stationId) => {
+          {LEGEND_STATIONS.map((stationId) => {
             const meta = STATION_META[stationId];
-            const variant = step.leds[stationId];
             return (
               <Card
                 key={stationId}
@@ -145,12 +92,6 @@ export function AuthFlowPage() {
                 role="group"
                 aria-label={`${meta.name} station`}
               >
-                <StatusLED
-                  variant={variant}
-                  size="md"
-                  pulse={variant === "accent"}
-                  label={`${meta.name} status: ${variant}`}
-                />
                 <Text className={styles.stationName}>{meta.name}</Text>
                 <Text variant="detail" color="tertiary">
                   {meta.role}
@@ -160,13 +101,14 @@ export function AuthFlowPage() {
           })}
         </div>
 
-        <ChannelLane
-          id="browser-idp"
-          label="SPA ⇄ Identity Provider"
-          step={step}
-          playing={state.playing}
+        <Handshake
+          size="lg"
+          stations={HANDSHAKE_STATIONS}
+          state={handshake.state}
+          lane={handshake.lane}
+          aria-label="Authorization-code exchange between Identity, Browser, and API"
+          className={styles.handshake}
         />
-        <ChannelLane id="browser-api" label="SPA ⇄ API" step={step} playing={state.playing} />
       </section>
 
       <div className={styles.readoutRow} data-step-id={step.id}>

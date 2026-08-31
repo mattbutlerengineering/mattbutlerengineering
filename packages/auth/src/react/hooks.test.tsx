@@ -163,6 +163,25 @@ describe("useAuth", () => {
     window.history.replaceState(null, "", "/");
   });
 
+  it("derives returnTo as / when signIn is invoked from the callback path", () => {
+    window.history.replaceState(null, "", "/hospitality/callback?code=abc&state=xyz");
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({
+        settings: { redirect_uri: "http://localhost:3000/hospitality/callback" },
+      })
+    );
+
+    const { result } = renderHook(() => useAuth());
+    act(() => {
+      result.current.signIn();
+    });
+
+    expect(mockSigninRedirect).toHaveBeenCalledWith({
+      state: { returnTo: "/" },
+    });
+    window.history.replaceState(null, "", "/");
+  });
+
   it("maps user profile fields correctly when optional fields are missing", () => {
     const oidcUser = makeOIDCUser({
       profile: {

@@ -33,6 +33,11 @@ function stepId(container: HTMLElement): string | null {
   return container.querySelector("[data-step-id]")?.getAttribute("data-step-id") ?? null;
 }
 
+/** The `Handshake` instrument's root — the one `role="img"` inside the panel. */
+function handshakeEl(container: HTMLElement): Element | null {
+  return container.querySelector('section[aria-label="OIDC flow diagram"] [role="img"]');
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -42,8 +47,20 @@ describe("AuthFlowPage", () => {
     renderPage();
 
     expect(screen.getByRole("group", { name: /browser/i })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: /identity provider/i })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /identity/i })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: /^api station$/i })).toBeInTheDocument();
+  });
+
+  it("shows an idle handshake on the first step, negotiating lane 0 after one Next", async () => {
+    const user = userEvent.setup();
+    const { container } = renderPage();
+
+    expect(handshakeEl(container)).toHaveAttribute("data-state", "idle");
+
+    await user.click(screen.getByRole("button", { name: /next/i }));
+
+    expect(handshakeEl(container)).toHaveAttribute("data-state", "negotiating");
+    expect(handshakeEl(container)).toHaveAttribute("data-lane", "0");
   });
 
   it("starts at the first step and advances on Next", async () => {
@@ -78,7 +95,13 @@ describe("AuthFlowPage", () => {
 
     expect(stepId(container)).toBe(ERROR_STEP.id);
     expect(screen.getByText(ERROR_STEP.caption)).toBeInTheDocument();
-    expect(screen.getByLabelText("Browser status: danger")).toBeInTheDocument();
+
+    const handshake = handshakeEl(container);
+    expect(handshake).toHaveAttribute("data-state", "failed");
+    expect(handshake?.querySelector('[data-station="Browser"]')).toHaveAttribute(
+      "data-variant",
+      "danger"
+    );
 
     // The flow is halted — Next cannot move past the rejected callback.
     await user.click(screen.getByRole("button", { name: /next/i }));

@@ -19,6 +19,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     hint,
     type,
     endIcon,
+    disabled,
   }: {
     label?: string;
     value?: string;
@@ -28,6 +29,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     hint?: string;
     type?: string;
     endIcon?: ReactNode;
+    disabled?: boolean;
   }) => (
     <label>
       {label}
@@ -38,6 +40,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
         onChange={onChange}
         onBlur={onBlur}
         aria-invalid={error || undefined}
+        disabled={disabled}
       />
       {hint ? <span role="note">{hint}</span> : null}
       {endIcon}
@@ -91,8 +94,15 @@ vi.mock("@mattbutlerengineering/rialto", () => {
   const Text = ({ children, className }: { children?: ReactNode; className?: string }) => (
     <p className={className}>{children}</p>
   );
+  const Handshake = ({
+    "aria-label": ariaLabel,
+    state,
+  }: {
+    "aria-label": string;
+    state?: string;
+  }) => <div role="img" aria-label={ariaLabel} data-state={state} />;
   const useToast = () => ({ toast: toastSpy });
-  return { Input, Meter, Button, Checkbox, Divider, Text, useToast };
+  return { Input, Meter, Button, Checkbox, Divider, Text, Handshake, useToast };
 });
 
 function renderSignUp() {
@@ -225,5 +235,91 @@ describe("SignUp — submit", () => {
 
     expect(toastSpy).not.toHaveBeenCalled();
     expect(screen.getByText(/match/i)).toBeInTheDocument();
+  });
+});
+
+describe("SignUp — Handshake phase", () => {
+  it("rests idle with an empty status line on load", () => {
+    renderSignUp();
+
+    const handshake = screen.getByRole("img", { name: "Sign-up exchange at rest" });
+    expect(handshake).toHaveAttribute("data-state", "idle");
+    expect(screen.getByRole("status")).toHaveTextContent("");
+  });
+
+  it("negotiates with disabled inputs while the account is being created", async () => {
+    renderSignUp();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "Abcdefghijk1");
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(
+      screen.getByRole("img", { name: "Creating your account with Identity" })
+    ).toHaveAttribute("data-state", "negotiating");
+    expect(screen.getByRole("status")).toHaveTextContent("Creating your account");
+    expect(screen.getByLabelText("Email address")).toBeDisabled();
+  });
+
+  it("settles with 'Account created' once the exchange completes", async () => {
+    renderSignUp();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "Abcdefghijk1");
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(screen.getByRole("img", { name: "Account created" })).toHaveAttribute(
+      "data-state",
+      "settled"
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Account created");
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Account created successfully", variant: "success" })
+    );
+  });
+
+  it("leaves the Handshake idle when a mismatched confirmation blocks submission", async () => {
+    renderSignUp();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "different");
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(screen.getByRole("img", { name: "Sign-up exchange at rest" })).toHaveAttribute(
+      "data-state",
+      "idle"
+    );
+    expect(toastSpy).not.toHaveBeenCalled();
+  });
+
+  it("leaves the Handshake idle when a malformed email blocks submission", async () => {
+    renderSignUp();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "nope");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "Abcdefghijk1");
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(screen.getByRole("img", { name: "Sign-up exchange at rest" })).toHaveAttribute(
+      "data-state",
+      "idle"
+    );
+    expect(toastSpy).not.toHaveBeenCalled();
   });
 });

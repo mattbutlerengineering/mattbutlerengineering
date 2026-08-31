@@ -408,11 +408,11 @@ export async function mockApi(page: Page): Promise<void> {
 
   // Floor Plans
   await page.route("**/api/v1/floor-plans?*", (route) => jsonResponse(route, "floor-plans-list"));
-  await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/bulk-update-positions$/, (route) => {
+  await page.route(/\/api\/v1\/floor-plans\/tables\/positions$/, (route) => {
     const tables = JSON.parse(loadFixture("tables-list"));
     return jsonOk(route, tables.data);
   });
-  await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/active$/, (route) => {
+  await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/activate$/, (route) => {
     const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
     return jsonOk(route, floorPlans.data[0]);
   });

@@ -54,6 +54,26 @@ describe("WatchLoader", () => {
     });
   });
 
+  describe("motion", () => {
+    it("schedules no JS timers — every animation is a compositor-thread CSS keyframe", () => {
+      vi.useFakeTimers();
+      try {
+        render(<WatchLoader aria-label="Loading" />);
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("spins the rotor on the pivot — its group bounds are symmetric about the centre", () => {
+      const { container } = render(<WatchLoader aria-label="Loading" />);
+      const race = container.querySelector('[data-part="rotor-race"]');
+      expect(race).not.toBeNull();
+      expect(race).toHaveAttribute("r", "44");
+      expect(race?.parentElement).toHaveAttribute("data-part", "rotor");
+    });
+  });
+
   describe("size prop", () => {
     it("applies the preset size class", () => {
       render(<WatchLoader aria-label="Loading" size="lg" />);

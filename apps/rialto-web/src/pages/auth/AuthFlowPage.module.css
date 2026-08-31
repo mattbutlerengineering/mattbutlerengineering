@@ -52,57 +52,12 @@
   text-transform: uppercase;
 }
 
-/* ── Signal channels ──────────────────────────── */
+/* ── Handshake instrument ──────────────────────── */
 
-.lane {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-2xs);
-}
-
-/* Lane spans are tuned so each groove runs station-center to station-center. */
-.laneIdp {
-  grid-column: 1 / 3;
-  margin-inline: 22%;
-}
-
-.laneApi {
+.handshake {
   grid-column: 1 / 4;
-  margin-inline: 15%;
-}
-
-.laneLabel {
-  font-family: var(--rialto-font-sans);
-  font-size: var(--rialto-text-xs);
-  color: var(--rialto-text-tertiary);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.groove {
-  position: relative;
-  block-size: 12px;
-  border-radius: var(--rialto-radius-round);
-  background: var(--rialto-surface-recessed);
-  box-shadow: var(--rialto-shadow-pressed);
-  transition: border-color var(--rialto-duration-standard) var(--rialto-ease-precision);
-  border: 1px solid var(--rialto-border);
-}
-
-.groove[data-active] {
-  border-color: var(--rialto-border-strong);
-}
-
-/* The credential in flight — the one legitimately gold moving element. */
-.pulse {
-  position: absolute;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
-  inline-size: 18px;
-  block-size: 6px;
-  border-radius: var(--rialto-radius-sharp);
-  background: var(--rialto-accent);
-  box-shadow: 0 0 6px 1px var(--rialto-accent);
+  inline-size: min(100%, 560px);
+  margin-inline: auto;
 }
 
 /* ── Readout, caption, controls ───────────────── */

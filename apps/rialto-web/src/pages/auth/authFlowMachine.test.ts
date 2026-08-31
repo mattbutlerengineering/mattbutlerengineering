@@ -3,10 +3,12 @@ import {
   HAPPY_PATH,
   ERROR_STEP,
   ERROR_FORK_INDEX,
+  HANDSHAKE_STATIONS,
   INITIAL_STATE,
   STATIONS,
   advance,
   currentStep,
+  handshakeFor,
   type AuthFlowState,
   type FlowStep,
 } from "./authFlowMachine.js";
@@ -169,6 +171,27 @@ describe("advance reducer", () => {
     expect(input).toEqual(snapshot);
     expect(a).toEqual(b);
     expect(a).not.toBe(input);
+  });
+});
+
+describe("handshakeFor", () => {
+  const EXPECTED: Record<string, ReturnType<typeof handshakeFor>> = {
+    authorize: { state: "idle", lane: 0 },
+    redirect: { state: "negotiating", lane: 0 },
+    code: { state: "negotiating", lane: 0 },
+    exchange: { state: "negotiating", lane: 0 },
+    tokens: { state: "negotiating", lane: 0 },
+    "api-call": { state: "negotiating", lane: 1 },
+    refresh: { state: "negotiating", lane: 0 },
+    "state-mismatch": { state: "failed", lane: 0 },
+  };
+
+  it.each(ALL_STEPS)("projects step $id per the contract", (step) => {
+    expect(handshakeFor(step)).toEqual(EXPECTED[step.id]);
+  });
+
+  it("HANDSHAKE_STATIONS is Identity, Browser, API in hub order", () => {
+    expect(HANDSHAKE_STATIONS).toEqual(["Identity", "Browser", "API"]);
   });
 });
 

@@ -5,11 +5,13 @@ import {
   Button,
   Checkbox,
   Divider,
+  Handshake,
   Input,
   Meter,
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import type { HandshakeState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";
 import { isValidEmail } from "./auth-validation";
@@ -26,6 +28,28 @@ import styles from "./AuthLayout.module.css";
 const SIMULATED_NETWORK_MS = 1500;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Stations the sign-up credential travels between — Browser and Identity. */
+const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
+
+type SignUpPhase = "idle" | "submitting" | "created";
+
+const SIGN_UP_PHASES: Record<
+  SignUpPhase,
+  { state: HandshakeState; status: string; ariaLabel: string }
+> = {
+  idle: { state: "idle", status: "", ariaLabel: "Sign-up exchange at rest" },
+  submitting: {
+    state: "negotiating",
+    status: "Creating your account",
+    ariaLabel: "Creating your account with Identity",
+  },
+  created: {
+    state: "settled",
+    status: "Account created",
+    ariaLabel: "Account created",
+  },
+};
 
 const REQUIREMENT_LINES: { key: keyof PasswordRequirements; text: string }[] = [
   { key: "minLength", text: `At least ${MIN_PASSWORD_LENGTH} characters` },
@@ -75,13 +99,14 @@ function PasswordStrength({ password }: { password: string }) {
 export function SignUp() {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [phase, setPhase] = useState<SignUpPhase>("idle");
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [confirmTouched, setConfirmTouched] = useState(false);
 
+  const isLoading = phase === "submitting";
   const confirmMismatch = confirmTouched && confirm !== password;
 
   async function handleSubmit(e: FormEvent) {
@@ -95,9 +120,9 @@ export function SignUp() {
       return;
     }
 
-    setIsLoading(true);
+    setPhase("submitting");
     await delay(SIMULATED_NETWORK_MS);
-    setIsLoading(false);
+    setPhase("created");
     toast({ title: "Account created successfully", variant: "success" });
   }
 
@@ -110,6 +135,20 @@ export function SignUp() {
         </Link>
       }
     >
+      <div className={styles.instrumentSlot}>
+        <Handshake
+          size="md"
+          stations={HANDSHAKE_STATIONS}
+          lane={0}
+          state={SIGN_UP_PHASES[phase].state}
+          aria-label={SIGN_UP_PHASES[phase].ariaLabel}
+        />
+      </div>
+      <div role="status" aria-live="polite" className={styles.statusLine}>
+        <Text variant="caption" color="tertiary">
+          {SIGN_UP_PHASES[phase].status}
+        </Text>
+      </div>
       {/* noValidate: the page owns validation so its error affordances render,
           instead of the browser's native bubble pre-empting them. */}
       <form onSubmit={handleSubmit} className={styles.form} noValidate>

@@ -95,6 +95,30 @@ describe("deriveReturnTo", () => {
     const location = { pathname: "/reservations", search: "", hash: "" };
     expect(deriveReturnTo(location, "")).toBe("/reservations");
   });
+
+  it("returns / when the location is the callback path, ignoring search and hash", () => {
+    const location = {
+      pathname: "/hospitality/callback",
+      search: "?code=abc&state=xyz",
+      hash: "",
+    };
+    expect(deriveReturnTo(location, redirectUri)).toBe("/");
+  });
+
+  it("returns / when the location is the callback path with empty search", () => {
+    const location = { pathname: "/hospitality/callback", search: "", hash: "" };
+    expect(deriveReturnTo(location, redirectUri)).toBe("/");
+  });
+
+  it("returns / when a root-mounted app is at the callback path", () => {
+    const location = { pathname: "/callback", search: "?code=abc&state=xyz", hash: "" };
+    expect(deriveReturnTo(location, "https://x/callback")).toBe("/");
+  });
+
+  it("does not treat a longer segment sharing the callback path as a prefix match", () => {
+    const location = { pathname: "/hospitality/callbacks", search: "", hash: "" };
+    expect(deriveReturnTo(location, redirectUri)).toBe("/callbacks");
+  });
 });
 
 describe("extractReturnTo", () => {

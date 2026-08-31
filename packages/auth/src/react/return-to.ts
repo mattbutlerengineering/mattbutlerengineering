@@ -45,14 +45,35 @@ export function appBasePath(redirectUri: string): string {
 }
 
 /**
+ * True when `pathname` is exactly the callback path (the pathname of
+ * `redirectUri`) — the page Auth0 returns to after both a signed-out logout
+ * and a failed exchange. An unparseable `redirectUri` never matches.
+ */
+function isCallbackPath(pathname: string, redirectUri: string): boolean {
+  try {
+    return pathname === new URL(redirectUri).pathname;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Derives an app-relative returnTo path from a window-style location, stripping
  * the router basename (derived from the redirect URI) so the restore does not
  * double-prefix. Falls back to "/" when the result is not a safe path.
+ *
+ * A bare `signIn()` from the OIDC callback path itself (e.g. the signed-out
+ * `/hospitality/callback` Auth0 returns to after logout, or a failed-exchange
+ * "Try again") must never carry that callback path as returnTo — it would
+ * bounce `CallbackRedirect` straight back onto `/callback`. Detected by exact
+ * pathname match against `redirectUri`'s own pathname, ignoring search/hash.
  */
 export function deriveReturnTo(
   location: Pick<Location, "pathname" | "search" | "hash">,
   redirectUri: string
 ): string {
+  if (isCallbackPath(location.pathname, redirectUri)) return "/";
+
   const base = appBasePath(redirectUri);
   const full = location.pathname + location.search + location.hash;
 

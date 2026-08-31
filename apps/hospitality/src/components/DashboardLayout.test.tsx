@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth, useAccessToken } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
+import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { DashboardLayout } from "./DashboardLayout.js";
 import React from "react";
 
@@ -395,7 +396,9 @@ describe("DashboardLayout", () => {
 
       renderLayout("/timeline");
 
-      expect(screen.getByTestId("refresh-banner")).toHaveTextContent(/session couldn't refresh/i);
+      expect(screen.getByTestId("refresh-banner")).toHaveTextContent(
+        `${SESSION_LAPSE_COPY.refreshFailedLead} ${SESSION_LAPSE_COPY.body}`
+      );
     });
 
     it("does not render the banner when there is no refresh error", () => {
@@ -431,7 +434,9 @@ describe("DashboardLayout", () => {
 
       renderLayout("/reservations?date=2026-09-01");
       const user = userEvent.setup();
-      await user.click(screen.getByRole("button", { name: /sign in again/i }));
+      const actionButton = screen.getByRole("button", { name: SESSION_LAPSE_COPY.action });
+      expect(actionButton).toHaveAccessibleName(SESSION_LAPSE_COPY.action);
+      await user.click(actionButton);
 
       expect(signIn).toHaveBeenCalledWith({ returnTo: "/reservations?date=2026-09-01" });
     });

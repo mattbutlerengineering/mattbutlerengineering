@@ -7,7 +7,8 @@ import { DEMO_ROUTES } from "../../data/demo-routes";
 
 // Behavioral mock of @mattbutlerengineering/rialto (house pattern) — StatusLED
 // exposes its variant/pulse through data attributes so the warning anchor is
-// assertable.
+// assertable; Handshake mirrors the SignIn.test.tsx stub (role="img" carrying
+// data-state); Heading renders a real heading element so getByRole works.
 vi.mock("@mattbutlerengineering/rialto", () => {
   const StatusLED = ({
     variant,
@@ -41,7 +42,18 @@ vi.mock("@mattbutlerengineering/rialto", () => {
   const Text = ({ children, className }: { children?: ReactNode; className?: string }) => (
     <p className={className}>{children}</p>
   );
-  return { StatusLED, Button, Text };
+  const Handshake = ({
+    "aria-label": ariaLabel,
+    state,
+  }: {
+    "aria-label"?: string;
+    state?: string;
+  }) => <div role="img" aria-label={ariaLabel} data-state={state} />;
+  const Heading = ({ children, level = 2 }: { children?: ReactNode; level?: number }) => {
+    const Tag = `h${level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+    return <Tag>{children}</Tag>;
+  };
+  return { StatusLED, Button, Text, Handshake, Heading };
 });
 
 function renderPage() {
@@ -56,13 +68,20 @@ function renderPage() {
 }
 
 describe("SessionExpired", () => {
-  it("renders the session-ended copy", () => {
+  it("renders the session-ended heading and exact demo body copy", () => {
     renderPage();
-    expect(screen.getByText(/sign back in to pick up where you left off/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your session ended" })).toBeInTheDocument();
+    expect(screen.getByText("Sign back in to pick up where you left off.")).toBeInTheDocument();
+    expect(screen.queryByText(/this page is preserved/i)).not.toBeInTheDocument();
   });
 
-  it("anchors the page with a pulsing warning StatusLED", () => {
+  it("shows the Handshake idle beside the warning StatusLED", () => {
     renderPage();
+    const handshake = screen.getByRole("img", {
+      name: "Session with Identity has lapsed",
+    });
+    expect(handshake).toHaveAttribute("data-state", "idle");
+
     const led = screen.getByTestId("status-led");
     expect(led).toHaveAttribute("data-variant", "warning");
     expect(led).toHaveAttribute("data-pulse", "true");
@@ -70,7 +89,7 @@ describe("SessionExpired", () => {
 
   it("routes back to the sign-in demo from the primary action", () => {
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sign back in/i }));
     expect(screen.getByText("LOGIN PAGE")).toBeInTheDocument();
   });
 });

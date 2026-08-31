@@ -86,6 +86,29 @@
   color: var(--rialto-accent-hover);
 }
 
+/* ── Auth exchange instrument ────────────── */
+.instrumentSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--rialto-space-2xl);
+  margin-block-end: var(--rialto-space-sm);
+}
+
+.statusLine {
+  min-block-size: 1lh;
+  text-align: center;
+  margin-block-end: var(--rialto-space-md);
+}
+
+.lapse {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-md);
+  text-align: center;
+}
+
 /* ── Form styles ────────────────────────── */
 .form {
   display: flex;

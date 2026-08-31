@@ -131,4 +131,29 @@ describe("LoginGate", () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe("when signedOut is true", () => {
+    it("renders the signed-out tagline instead of the default tagline", () => {
+      render(<LoginGate signedOut />);
+      expect(
+        screen.getByText("You're signed out. Sign in again whenever you're ready.")
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Restaurant management, simplified.")).not.toBeInTheDocument();
+    });
+
+    it("keeps the login-prompt testid and the Sign In button contract", () => {
+      render(<LoginGate signedOut />);
+      expect(screen.getByTestId("login-prompt")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
+    });
+
+    it("still renders the departure board at rest", () => {
+      render(<LoginGate signedOut />);
+      expect(
+        screen.getByRole("img", {
+          name: "Reservations, guests, floor plans, waitlist, and timeline",
+        })
+      ).toBeInTheDocument();
+    });
+  });
 });
