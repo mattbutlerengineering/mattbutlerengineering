@@ -19,7 +19,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "bullmq": "^6.2.0",
+    "bullmq": "^6.3.1",
     "ioredis": "^6.0.0"
   },
   "devDependencies": {
