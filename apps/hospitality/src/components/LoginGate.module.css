@@ -64,6 +64,10 @@
   overflow: hidden;
 }
 
+.handshake {
+  width: min(100%, 320px);
+}
+
 /* ── Responsive (<640px) ────────────────── */
 @media (max-width: 639px) {
   .gate {

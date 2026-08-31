@@ -5,6 +5,7 @@ import type { User } from "oidc-client-ts";
 import type { ReactNode } from "react";
 import type { OIDCConfig } from "../types/index.js";
 import { extractReturnTo } from "./return-to.js";
+import { SessionLifecycleProvider } from "./session-lifecycle.js";
 
 export interface AuthProviderProps {
   config: OIDCConfig;
@@ -40,5 +41,9 @@ export function AuthProvider({ config, children, onSigninCallback }: AuthProvide
     },
   };
 
-  return <OIDCProvider {...oidcConfig}>{children}</OIDCProvider>;
+  return (
+    <OIDCProvider {...oidcConfig}>
+      <SessionLifecycleProvider>{children}</SessionLifecycleProvider>
+    </OIDCProvider>
+  );
 }

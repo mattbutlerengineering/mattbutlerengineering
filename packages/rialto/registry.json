@@ -2076,6 +2076,59 @@
       "slots": []
     },
     {
+      "name": "Handshake",
+      "description": "Instrument that visualises a handshake between two or more stations —\nan OIDC sign-in, a webhook confirmation, a device pairing. Each station is\na recessed LED; the legs between them are machined grooves, and during\nnegotiation a single gold credential pulse shuttles along the active leg.\nGold is the one jewel accent, so it appears only while something is in\nflight; success and error use their semantic tokens.\n\nRenders as a single `role=\"img\"` — the track is decorative and assistive\ntech hears only the required `aria-label`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "aria-label",
+          "type": "string",
+          "required": true,
+          "description": "Accessible name — required because the component renders as role=\"img\"."
+        },
+        {
+          "name": "stations",
+          "type": "readonly [string, string, ...string[]]",
+          "required": true,
+          "description": "Station names in track order (unique — they double as React keys). A handshake needs at least two parties."
+        },
+        {
+          "name": "state",
+          "type": "HandshakeState | undefined",
+          "required": false,
+          "description": "Phase of the exchange."
+        },
+        {
+          "name": "lane",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Index of the leg carrying the credential (`0` = first → second station).\nOut-of-range values clamp to the nearest leg."
+        },
+        {
+          "name": "size",
+          "type": "\"sm\" | \"md\" | \"lg\" | undefined",
+          "required": false,
+          "description": "Track preset — scales the LEDs, groove, and labels together."
+        },
+        {
+          "name": "showLabels",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Print each station's name beneath its LED."
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "HandshakeState",
+      "description": "Where a multi-party exchange currently stands.\n- `idle` — nothing in flight; every LED dark.\n- `negotiating` — a credential is shuttling along the active lane.\n- `settled` — every party agrees; every LED green.\n- `failed` — the active lane's endpoints refused each other.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Heading",
       "description": "Semantic heading primitive. `level` controls the rendered HTML element\n(`h1`–`h6`) and is the primary input — it represents document outline\nposition. `size` decouples visual weight from semantic level when those\nneed to diverge (e.g., a big section opener that's still the page's\nsecond heading).\n\nUses the display font (Bricolage Grotesque) with tight leading and\ntight tracking, matching Rialto's `Text variant=\"display\"` DNA.",
       "importPath": "@mattbutlerengineering/rialto",

@@ -12,6 +12,8 @@ const mockOIDCProvider = vi.fn(({ children }: { children: React.ReactNode }) => 
 vi.mock("react-oidc-context", () => ({
   AuthProvider: (props: Record<string, unknown> & { children: React.ReactNode }) =>
     mockOIDCProvider(props),
+  // SessionLifecycleProvider (nested inside AuthProvider) reads `events` here.
+  useAuth: () => ({ events: undefined }),
 }));
 
 import { AuthProvider } from "./provider.js";

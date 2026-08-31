@@ -178,6 +178,10 @@
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"
     },
+    "./Handshake": {
+      "types": "./dist/lib/components/Handshake/index.d.ts",
+      "import": "./dist/lib/components/Handshake/index.js"
+    },
     "./Heading": {
       "types": "./dist/lib/components/Heading/index.d.ts",
       "import": "./dist/lib/components/Heading/index.js"

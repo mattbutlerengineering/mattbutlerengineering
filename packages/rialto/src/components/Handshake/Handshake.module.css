@@ -1,0 +1,165 @@
+/* ── Handshake ───────────────────────────────────────────────────────────
+   Two or more recessed LEDs joined by machined grooves. A single gold
+   credential pulse shuttles along the active groove while the parties
+   negotiate; success and failure re-light the LEDs with semantic tokens.
+   ─────────────────────────────────────────────────────────────────────── */
+
+.handshake {
+  /* Groove height matches the LED cap so the wire reads as a channel cut
+     between the stations, not a bar beside them. */
+  --handshake-groove: 10px;
+  --handshake-pulse-w: 16px;
+  --handshake-pulse-h: 5px;
+  --handshake-gap: var(--rialto-space-sm);
+  --handshake-label: var(--rialto-text-xs);
+  --handshake-shuttle: 2.4s;
+
+  display: inline-flex;
+  inline-size: 100%;
+  font-family: var(--rialto-font-sans);
+}
+
+/* ── Sizes ───────────────────────────────────── */
+.sizeSm {
+  --handshake-groove: 8px;
+  --handshake-pulse-w: 12px;
+  --handshake-pulse-h: 4px;
+  --handshake-gap: var(--rialto-space-xs);
+}
+
+.sizeMd {
+  /* Defaults live on .handshake; the class exists so consumers can target it. */
+  --handshake-groove: 10px;
+}
+
+.sizeLg {
+  --handshake-groove: 12px;
+  --handshake-pulse-w: 22px;
+  --handshake-pulse-h: 6px;
+  --handshake-gap: var(--rialto-space-md);
+  --handshake-label: var(--rialto-text-sm);
+}
+
+/* ── Track ───────────────────────────────────── */
+.track {
+  display: flex;
+  align-items: flex-start;
+  inline-size: 100%;
+}
+
+.station {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--handshake-gap);
+}
+
+.label {
+  font-size: var(--handshake-label);
+  font-weight: 500;
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--rialto-text-tertiary);
+  transition: color var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.station[data-variant="accent"] .label {
+  color: var(--rialto-text-primary);
+}
+
+.station[data-variant="success"] .label {
+  color: var(--rialto-text-secondary);
+}
+
+.station[data-variant="danger"] .label {
+  color: var(--rialto-error);
+}
+
+/* ── Groove ──────────────────────────────────── */
+.leg {
+  position: relative;
+  flex: 1 1 0;
+  min-inline-size: calc(var(--handshake-pulse-w) * 2);
+  block-size: var(--handshake-groove);
+  margin-inline: var(--rialto-space-xs);
+  overflow: hidden;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-recessed);
+  box-shadow: var(--rialto-shadow-pressed);
+}
+
+/* Conductor hairline — the wire the pulse rides on. */
+.leg::before {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(50% - 1px);
+  inset-inline: var(--handshake-pulse-h);
+  block-size: 2px;
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-border);
+  opacity: 0.6;
+  transition:
+    background var(--rialto-duration-standard) var(--rialto-ease-smooth),
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-smooth),
+    opacity var(--rialto-duration-standard) var(--rialto-ease-smooth);
+}
+
+.handshake[data-state="idle"] .leg::before {
+  opacity: 0.3;
+}
+
+.handshake[data-state="settled"] .leg::before {
+  background: var(--rialto-success);
+  box-shadow: 0 0 6px var(--rialto-success);
+  opacity: 0.9;
+}
+
+.handshake[data-state="failed"] .leg[data-active="true"]::before {
+  background: var(--rialto-error);
+  box-shadow: 0 0 6px var(--rialto-error);
+  opacity: 0.9;
+}
+
+/* ── Credential pulse ────────────────────────── */
+.pulse {
+  position: absolute;
+  inset-block-start: calc(50% - var(--handshake-pulse-h) / 2);
+  inset-inline-start: 0;
+  inline-size: var(--handshake-pulse-w);
+  block-size: var(--handshake-pulse-h);
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-accent);
+  box-shadow:
+    0 0 2px var(--rialto-accent),
+    0 0 8px var(--rialto-accent);
+
+  /* The pulse is an absolutely-positioned decoration inside an overflow-hidden
+     groove, so animating its logical inset stays cheap and RTL-correct without
+     a mirrored translateX keyframe. */
+  animation: rialto-handshake-shuttle var(--handshake-shuttle) var(--rialto-ease-smooth) infinite;
+}
+
+@keyframes rialto-handshake-shuttle {
+  0%,
+  100% {
+    inset-inline-start: 0;
+  }
+  50% {
+    inset-inline-start: calc(100% - var(--handshake-pulse-w));
+  }
+}
+
+/* ── Reduced motion: park the pulse mid-groove ── */
+.reduced .pulse {
+  animation: none;
+  inset-inline-start: calc(50% - var(--handshake-pulse-w) / 2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+    inset-inline-start: calc(50% - var(--handshake-pulse-w) / 2);
+  }
+}

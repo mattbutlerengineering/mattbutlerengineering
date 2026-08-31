@@ -25,6 +25,10 @@ function mockAuthState(accessToken: string | null): ReturnType<typeof useAuth> {
     signOut: vi.fn(),
     signInSilent: vi.fn(),
     error: undefined,
+    activeNavigator: undefined,
+    isRefreshing: false,
+    sessionExpired: false,
+    refreshError: null,
   };
 }
 

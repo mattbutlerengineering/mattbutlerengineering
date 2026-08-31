@@ -1,0 +1,14 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Flex-fill the parent container height rather than forcing viewport height,
+     which would break the content-only scroll arch (body/html are overflow:hidden) */
+  flex: 1;
+  min-height: 200px;
+  padding: var(--rialto-space-lg);
+}
+
+.handshake {
+  width: min(100%, 360px);
+}

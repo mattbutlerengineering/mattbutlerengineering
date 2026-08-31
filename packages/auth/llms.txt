@@ -37,15 +37,20 @@
   </file>
   </section>
   <section priority="medium" role="react">
+  <file path="src/react/auth-error.ts">
+    <item priority="high">
+      export const SILENT_AUTH_ERROR_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export function isSilentAuthError(error: unknown): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/react/hooks.ts">
+    <item priority="low">
+      type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigat...;
+    </item>
     <item priority="high">
       export function useAuth() { /* ... */ }
-    </item>
-    <item priority="low">
-      interface AccessTokenState {
-        accessToken: string | null;
-        refreshError: Error | null;
-      }
     </item>
   </file>
   <file path="src/react/return-to.ts">
@@ -56,6 +61,16 @@
     </item>
     <item priority="high">
       export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/react/session-lifecycle-context.ts">
+    <item priority="low">
+      interface SessionLifecycleState {
+        expired: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const SessionLifecycleContext: unknown;
     </item>
   </file>
   </section>

@@ -59,6 +59,7 @@ import { Footer } from "../../components/Footer/Footer";
 import { Form } from "../../components/Form/Form";
 import { FormField } from "../../components/FormField/FormField";
 import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
+import { Handshake } from "../../components/Handshake/Handshake";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
@@ -157,6 +158,7 @@ export type BarrelExportName =
   | "Form"
   | "FormField"
   | "GlobalNav"
+  | "Handshake"
   | "Heading"
   | "Hero"
   | "HoverCard"
@@ -490,6 +492,9 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <GlobalNav currentApp="marketing" />,
   },
 
+  Handshake: {
+    element: <Handshake aria-label="Verifying sign-in" stations={["Browser", "Identity"]} />,
+  },
   Heading: {
     element: <Heading>Title</Heading>,
   },
