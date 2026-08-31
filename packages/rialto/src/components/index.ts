@@ -94,6 +94,7 @@ export * from "./SplitScreenExit";
 export * from "./Ferrofluid";
 export * from "./SilkFlow";
 export * from "./WatchLoader";
+export * from "./Handshake";
 
 // ── Hospitality specialty ──────────────────────
 export * from "./TapeChart";

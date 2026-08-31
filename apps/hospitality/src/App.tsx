@@ -7,6 +7,8 @@ import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/r
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
+import { CallbackPage } from "./components/CallbackPage";
+import { SessionExpiredGate } from "./components/SessionExpiredGate";
 import { describeAuthError } from "./lib/describe-auth-error";
 import { readReturnTo } from "./return-to-store";
 import styles from "./App.module.css";
@@ -44,7 +46,7 @@ function UnauthenticatedShell({
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
-  const { isLoading, isAuthenticated, error } = useAuth();
+  const { isLoading, isAuthenticated, error, sessionExpired } = useAuth();
 
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -63,16 +65,19 @@ export function App() {
     <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />
   );
 
+  // On the callback path the wait is a credential exchange, not a generic
+  // load — show the handshake for it. `isLoading` is only true here for the
+  // initial user restore or a redirect callback; a silent refresh never trips
+  // it (see useAuth), so the dashboard stays mounted through a token renewal.
+  const isCallback = window.location.pathname.endsWith("/callback");
+
   if (isLoading) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoadingPage />
+        {isCallback ? <CallbackPage /> : <LoadingPage />}
       </UnauthenticatedShell>
     );
   }
-
-  // If on the callback path, show loading while OIDC finishes processing
-  const isCallback = window.location.pathname.endsWith("/callback");
 
   if (error) {
     const described = describeAuthError(error);
@@ -107,7 +112,18 @@ export function App() {
   if (isCallback && !isAuthenticated) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoadingPage />
+        <CallbackPage />
+      </UnauthenticatedShell>
+    );
+  }
+
+  // Checked before `isAuthenticated`: react-oidc-context does not re-evaluate
+  // it when a token expires in place, and a lapsed session deserves a
+  // "your session ended" moment rather than a cold login gate.
+  if (sessionExpired) {
+    return (
+      <UnauthenticatedShell nav={nav}>
+        <SessionExpiredGate />
       </UnauthenticatedShell>
     );
   }

@@ -1,5 +1,5 @@
 import { useAuth } from "@mbe/auth/react";
-import { Button, DepartureBoard, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, DepartureBoard, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import styles from "./LoginGate.module.css";
 
 /** Ordered domains the split-flap board cycles through — the product, in the system's mechanical voice. */
@@ -12,6 +12,9 @@ const BOARD_PHRASES = ["RESERVATIONS", "GUESTS", "FLOOR PLANS", "WAITLIST", "TIM
  */
 const BOARD_LABEL = "Reservations, guests, floor plans, waitlist, and timeline";
 
+/** The two parties to the redirect leg of sign-in. */
+const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
+
 /**
  * Branded sign-in gate for the unauthenticated shell. Atmosphere + grain
  * backdrop and a machined card per the rialto house style, with a split-flap
@@ -21,9 +24,15 @@ const BOARD_LABEL = "Reservations, guests, floor plans, waitlist, and timeline";
  * visible element, and a button whose accessible name is exactly "Sign In".
  * DepartureBoard handles prefers-reduced-motion internally (static phrase,
  * no cycling) — no extra handling needed here.
+ *
+ * Once `signIn()` starts the redirect (`activeNavigator === "signinRedirect"`)
+ * the board gives way to a Handshake in flight and the button goes busy, so
+ * the second or two before the browser leaves reads as progress, not a dead
+ * click. The button's resting name stays exactly "Sign In".
  */
 export function LoginGate() {
-  const { signIn } = useAuth();
+  const { signIn, activeNavigator } = useAuth();
+  const inFlight = activeNavigator === "signinRedirect";
 
   return (
     <div className={styles.gate} data-testid="login-prompt">
@@ -41,16 +50,32 @@ export function LoginGate() {
             </Text>
           </Stack>
 
-          <DepartureBoard
-            className={styles.board}
-            phrases={BOARD_PHRASES}
-            holdMs={2800}
-            size="sm"
-            role="img"
-            aria-label={BOARD_LABEL}
-          />
+          {inFlight ? (
+            <Handshake
+              className={styles.handshake}
+              aria-label="Connecting your browser to Identity"
+              stations={HANDSHAKE_STATIONS}
+              state="negotiating"
+              size="lg"
+            />
+          ) : (
+            <DepartureBoard
+              className={styles.board}
+              phrases={BOARD_PHRASES}
+              holdMs={2800}
+              size="sm"
+              role="img"
+              aria-label={BOARD_LABEL}
+            />
+          )}
 
-          <Button variant="primary" size="lg" onClick={() => signIn()}>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => signIn()}
+            isLoading={inFlight}
+            loadingText="Heading to sign-in"
+          >
             Sign In
           </Button>
 

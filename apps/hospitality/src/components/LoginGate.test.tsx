@@ -11,8 +11,33 @@ vi.mock("@mbe/auth/react", () => ({
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
+  Button: ({
+    children,
+    onClick,
+    isLoading,
+    loadingText,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    isLoading?: boolean;
+    loadingText?: string;
+  }) => (
+    <button onClick={onClick} aria-busy={isLoading || undefined} disabled={isLoading}>
+      {isLoading && loadingText ? loadingText : children}
+    </button>
+  ),
+  Handshake: ({
+    "aria-label": ariaLabel,
+    stations,
+    state,
+  }: {
+    "aria-label": string;
+    stations: readonly string[];
+    state?: string;
+  }) => (
+    <div role="img" aria-label={ariaLabel} data-state={state}>
+      {stations.join(" ")}
+    </div>
   ),
   // Faithful to the real usage: LoginGate passes role="img" + aria-label through
   // DepartureBoard's ...rest to its root div, naming the board for AT.
@@ -39,6 +64,7 @@ describe("LoginGate", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
       isAuthenticated: false,
+      activeNavigator: undefined,
       signIn,
     } as unknown as ReturnType<typeof useAuth>);
   });
@@ -73,5 +99,36 @@ describe("LoginGate", () => {
     render(<LoginGate />);
     expect(screen.getByText("Hospitality")).toBeInTheDocument();
     expect(screen.getByText("Restaurant management, simplified.")).toBeInTheDocument();
+  });
+
+  describe("while the sign-in redirect is in flight", () => {
+    beforeEach(() => {
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: false,
+        activeNavigator: "signinRedirect",
+        signIn,
+      } as unknown as ReturnType<typeof useAuth>);
+    });
+
+    it("keeps the login-prompt testid but marks the button busy with a departure label", () => {
+      render(<LoginGate />);
+      expect(screen.getByTestId("login-prompt")).toBeInTheDocument();
+      const button = screen.getByRole("button", { name: "Heading to sign-in" });
+      expect(button).toHaveAttribute("aria-busy", "true");
+      expect(screen.queryByRole("button", { name: "Sign In" })).not.toBeInTheDocument();
+    });
+
+    it("swaps the departure board for the handshake so the redirect reads as a live exchange", () => {
+      render(<LoginGate />);
+      expect(
+        screen.getByRole("img", { name: "Connecting your browser to Identity" })
+      ).toHaveAttribute("data-state", "negotiating");
+      expect(
+        screen.queryByRole("img", {
+          name: "Reservations, guests, floor plans, waitlist, and timeline",
+        })
+      ).not.toBeInTheDocument();
+    });
   });
 });

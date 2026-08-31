@@ -6275,9 +6275,27 @@
   </file>
   </section>
   <section priority="medium" role="react">
+  <file path="packages/auth/src/react/auth-error.ts">
+    export const SILENT_AUTH_ERROR_SOURCES = ["signinSilent", "renewSilent", "signoutSilent"] as const;
+    export function isSilentAuthError(error: unknown): boolean {
+      if (typeof error !== "object" || error === null) return false;
+      const source = (error as { source?: unknown }).source;
+      return typeof source === "string" && SILENT_SOURCES.has(source);
+    }
+  </file>
   <file path="packages/auth/src/react/hooks.ts">
+    export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
     export function useAuth() {
       const auth = useOIDCAuth();
+      const lifecycle = useSessionLifecycle();
+    
+      // react-oidc-context flips `isLoading` on for the whole life of ANY
+      // navigator call (signinSilent, signinRedirect, …). A background refresh or
+      // an opening redirect is not "loading" to a consumer — rendering a loading
+      // screen there unmounts the authenticated app mid-session. Loading means the
+      // initial bootstrap / callback processing only.
+      const activeNavigator = auth.activeNavigator;
+      const silentFailure = isSilentAuthError(auth.error);
     
       const user: AuthUser | null = auth.user
         ? {
@@ -6291,8 +6309,17 @@
         : null;
     
       return {
-        /** Whether auth state is loading */
-        isLoading: auth.isLoading,
+        /** Whether the initial auth bootstrap (or the sign-in callback) is still resolving */
+        isLoading: auth.isLoading && activeNavigator === undefined,
+        /** The navigator currently in flight (`"signinRedirect"`, `"signinSilent"`, …), if any */
+        activeNavigator,
+        /** Whether a silent token refresh is in flight — the session stays live meanwhile */
+        isRefreshing: activeNavigator === "signinSilent",
+        /**
+         * Whether the access token has expired (or was already expired when the
+         * stored session was restored). Distinct from "never signed in".
+         */
+        sessionExpired: lifecycle.expired || auth.user?.expired === true,
         /** Whether user is authenticated */
         isAuthenticated: auth.isAuthenticated,
         /** Current authenticated user */
@@ -6315,18 +6342,11 @@
         signOut: () => auth.signoutRedirect(),
         /** Sign in silently (refresh token) */
         signInSilent: () => auth.signinSilent(),
-        /** Auth error if any */
-        error: auth.error,
+        /** Interactive sign-in / sign-out error, if any — never a background refresh failure */
+        error: silentFailure ? undefined : auth.error,
+        /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
+        refreshError: silentFailure ? (auth.error ?? null) : null,
       };
-    }
-    export interface AccessTokenState {
-      /** Current access token for API calls, or null when unauthenticated. */
-      accessToken: string | null;
-      /**
-       * Error from the most recent proactive silent refresh, or null when the last
-       * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
-       */
-      refreshError: Error | null;
     }
   </file>
   <file path="packages/auth/src/react/return-to.ts">
@@ -6343,6 +6363,13 @@
       if (value.startsWith("//") || value.startsWith("/\\")) return false;
       return true;
     }
+  </file>
+  <file path="packages/auth/src/react/session-lifecycle-context.ts">
+    export interface SessionLifecycleState {
+      /** True from the moment the access token expires until a new user session loads. */
+      readonly expired: boolean;
+    }
+    export const SessionLifecycleContext = createContext<SessionLifecycleState>(DEFAULT_STATE);
   </file>
   </section>
   <section priority="medium" role="rialto-web">

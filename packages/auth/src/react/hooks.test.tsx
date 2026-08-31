@@ -412,3 +412,125 @@ describe("useRequireAuth", () => {
     expect(mockSigninRedirect).toHaveBeenCalledOnce();
   });
 });
+
+describe("useAuth — navigator and error semantics", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not report loading while a navigator (silent refresh) is in flight", () => {
+    // react-oidc-context sets isLoading=true for the whole life of any
+    // navigator call; a background refresh must never read as "loading".
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({
+        isLoading: true,
+        isAuthenticated: true,
+        user: makeOIDCUser(),
+        activeNavigator: "signinSilent",
+      })
+    );
+
+    const { result } = renderHook(() => useAuth());
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isRefreshing).toBe(true);
+    expect(result.current.activeNavigator).toBe("signinSilent");
+  });
+
+  it("does not report loading while the sign-in redirect is opening", () => {
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isLoading: true, isAuthenticated: false, activeNavigator: "signinRedirect" })
+    );
+
+    const { result } = renderHook(() => useAuth());
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isRefreshing).toBe(false);
+    expect(result.current.activeNavigator).toBe("signinRedirect");
+  });
+
+  it("still reports loading during bootstrap when no navigator is active", () => {
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ isLoading: true }));
+
+    const { result } = renderHook(() => useAuth());
+
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.activeNavigator).toBeUndefined();
+  });
+
+  it.each(["signinSilent", "renewSilent"])(
+    "routes a %s failure to refreshError instead of error",
+    (source) => {
+      const silent = Object.assign(new Error("renew failed"), { source });
+      mockUseAuth.mockReturnValue(
+        makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser(), error: silent })
+      );
+
+      const { result } = renderHook(() => useAuth());
+
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.refreshError).toBe(silent);
+    }
+  );
+
+  it("keeps an interactive sign-in failure on error with refreshError null", () => {
+    const interactive = Object.assign(new Error("state mismatch"), { source: "signinCallback" });
+    mockUseAuth.mockReturnValue(makeOIDCAuth({ error: interactive }));
+
+    const { result } = renderHook(() => useAuth());
+
+    expect(result.current.error).toBe(interactive);
+    expect(result.current.refreshError).toBeNull();
+  });
+
+  it("reports sessionExpired when the stored user's token has already expired", () => {
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isAuthenticated: false, user: makeOIDCUser({ expired: true }) })
+    );
+
+    const { result } = renderHook(() => useAuth());
+
+    expect(result.current.sessionExpired).toBe(true);
+  });
+
+  it("reports sessionExpired=false for a live token and for no user", () => {
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser({ expired: false }) })
+    );
+    expect(renderHook(() => useAuth()).result.current.sessionExpired).toBe(false);
+
+    mockUseAuth.mockReturnValue(makeOIDCAuth());
+    expect(renderHook(() => useAuth()).result.current.sessionExpired).toBe(false);
+  });
+});
+
+describe("useAccessToken — context-sourced refresh errors", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("surfaces a silent-renew error dispatched by react-oidc-context", () => {
+    // The context-wrapped signinSilent never rejects — it dispatches ERROR
+    // with source "signinSilent"/"renewSilent" — so refreshError must be
+    // derived from the context error, not only from a local catch.
+    const silent = Object.assign(new Error("iframe timed out"), { source: "renewSilent" });
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser(), error: silent })
+    );
+
+    const { result } = renderHook(() => useAccessToken());
+
+    expect(result.current.refreshError).toBe(silent);
+  });
+
+  it("ignores interactive errors — those belong to useAuth().error", () => {
+    const interactive = Object.assign(new Error("denied"), { source: "signinCallback" });
+    mockUseAuth.mockReturnValue(
+      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser(), error: interactive })
+    );
+
+    const { result } = renderHook(() => useAccessToken());
+
+    expect(result.current.refreshError).toBeNull();
+  });
+});

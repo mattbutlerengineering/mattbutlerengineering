@@ -3,12 +3,26 @@ import { useAuth as useOIDCAuth } from "react-oidc-context";
 import type { AuthUser, JWTPayload } from "../types/index.js";
 import { deriveReturnTo } from "./return-to.js";
 import type { SignInOptions } from "./return-to.js";
+import { isSilentAuthError } from "./auth-error.js";
+import { useSessionLifecycle } from "./session-lifecycle-context.js";
+
+/** The navigator react-oidc-context currently has in flight, if any. */
+export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
 
 /**
  * Hook to access authentication state and methods
  */
 export function useAuth() {
   const auth = useOIDCAuth();
+  const lifecycle = useSessionLifecycle();
+
+  // react-oidc-context flips `isLoading` on for the whole life of ANY
+  // navigator call (signinSilent, signinRedirect, …). A background refresh or
+  // an opening redirect is not "loading" to a consumer — rendering a loading
+  // screen there unmounts the authenticated app mid-session. Loading means the
+  // initial bootstrap / callback processing only.
+  const activeNavigator = auth.activeNavigator;
+  const silentFailure = isSilentAuthError(auth.error);
 
   const user: AuthUser | null = auth.user
     ? {
@@ -22,8 +36,17 @@ export function useAuth() {
     : null;
 
   return {
-    /** Whether auth state is loading */
-    isLoading: auth.isLoading,
+    /** Whether the initial auth bootstrap (or the sign-in callback) is still resolving */
+    isLoading: auth.isLoading && activeNavigator === undefined,
+    /** The navigator currently in flight (`"signinRedirect"`, `"signinSilent"`, …), if any */
+    activeNavigator,
+    /** Whether a silent token refresh is in flight — the session stays live meanwhile */
+    isRefreshing: activeNavigator === "signinSilent",
+    /**
+     * Whether the access token has expired (or was already expired when the
+     * stored session was restored). Distinct from "never signed in".
+     */
+    sessionExpired: lifecycle.expired || auth.user?.expired === true,
     /** Whether user is authenticated */
     isAuthenticated: auth.isAuthenticated,
     /** Current authenticated user */
@@ -46,8 +69,10 @@ export function useAuth() {
     signOut: () => auth.signoutRedirect(),
     /** Sign in silently (refresh token) */
     signInSilent: () => auth.signinSilent(),
-    /** Auth error if any */
-    error: auth.error,
+    /** Interactive sign-in / sign-out error, if any — never a background refresh failure */
+    error: silentFailure ? undefined : auth.error,
+    /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
+    refreshError: silentFailure ? (auth.error ?? null) : null,
   };
 }
 
@@ -77,7 +102,13 @@ export function useAccessToken(): AccessTokenState {
   const auth = useOIDCAuth();
   const expiresAt = auth.user?.expires_at;
   const signinSilent = auth.signinSilent;
-  const [refreshError, setRefreshError] = useState<Error | null>(null);
+  const [localRefreshError, setLocalRefreshError] = useState<Error | null>(null);
+
+  // The context-wrapped signinSilent never rejects: react-oidc-context catches,
+  // dispatches ERROR with a silent `source`, and resolves null. So the real
+  // failure signal is the context error; the local catch only matters for a
+  // custom UserManager that throws.
+  const contextRefreshError = isSilentAuthError(auth.error) ? (auth.error ?? null) : null;
 
   useEffect(() => {
     if (!expiresAt) return;
@@ -88,9 +119,9 @@ export function useAccessToken(): AccessTokenState {
 
     const timer = setTimeout(() => {
       signinSilent()
-        .then(() => setRefreshError(null))
+        .then(() => setLocalRefreshError(null))
         .catch((error: unknown) => {
-          setRefreshError(error instanceof Error ? error : new Error(String(error)));
+          setLocalRefreshError(error instanceof Error ? error : new Error(String(error)));
         });
     }, delay);
 
@@ -99,7 +130,7 @@ export function useAccessToken(): AccessTokenState {
 
   return {
     accessToken: auth.user?.access_token ?? null,
-    refreshError,
+    refreshError: contextRefreshError ?? localRefreshError,
   };
 }
 

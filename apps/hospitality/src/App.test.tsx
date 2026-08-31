@@ -42,6 +42,14 @@ vi.mock("./pages/LoadingPage", () => ({
   LoadingPage: () => <div data-testid="loading-page" />,
 }));
 
+vi.mock("./components/CallbackPage", () => ({
+  CallbackPage: () => <div data-testid="callback-page" />,
+}));
+
+vi.mock("./components/SessionExpiredGate", () => ({
+  SessionExpiredGate: () => <div data-testid="session-expired" />,
+}));
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -117,5 +125,54 @@ describe("App", () => {
     const wrapper = screen.getByTestId("auth-layout");
     expect(wrapper).toBeDefined();
     expect(wrapper.className).toContain("authLayout");
+  });
+
+  describe("session lifecycle", () => {
+    it("renders the callback handshake instead of the generic loader while OIDC finishes on /callback", () => {
+      window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: true,
+        isAuthenticated: false,
+      } as ReturnType<typeof useAuth>);
+      renderApp("/callback");
+      expect(screen.getByTestId("callback-page")).toBeDefined();
+      expect(screen.queryByTestId("loading-page")).toBeNull();
+    });
+
+    it("keeps the callback handshake up after loading settles but before the user lands", () => {
+      window.history.replaceState({}, "", "/hospitality/callback?code=abc&state=xyz");
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: false,
+      } as ReturnType<typeof useAuth>);
+      renderApp("/callback");
+      expect(screen.getByTestId("callback-page")).toBeDefined();
+      expect(screen.queryByTestId("login-prompt")).toBeNull();
+    });
+
+    it("renders the session-expired gate ahead of the dashboard once the token lapses", () => {
+      window.history.replaceState({}, "", "/hospitality/reservations");
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: true,
+        sessionExpired: true,
+      } as ReturnType<typeof useAuth>);
+      renderApp("/reservations");
+      expect(screen.getByTestId("session-expired")).toBeDefined();
+      expect(screen.queryByTestId("auth-layout")).toBeNull();
+    });
+
+    it("keeps the dashboard mounted through a silent refresh (isLoading stays false)", () => {
+      window.history.replaceState({}, "", "/hospitality/reservations");
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: true,
+        isRefreshing: true,
+        activeNavigator: "signinSilent",
+      } as ReturnType<typeof useAuth>);
+      renderApp("/reservations");
+      expect(screen.getByTestId("auth-layout")).toBeDefined();
+      expect(screen.queryByTestId("loading-page")).toBeNull();
+    });
   });
 });

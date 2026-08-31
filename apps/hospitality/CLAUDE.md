@@ -6,6 +6,8 @@ React + Vite SPA for restaurant management. Port **3002**, path prefix `/hospita
 
 Uses `@mbe/auth` (Auth0 OIDC). The root `<App>` component gates all routes behind authentication — unauthenticated users are redirected to Auth0 login. The OIDC callback route is `/hospitality/callback`.
 
+Gate order in `App.tsx`: `isLoading` (→ `CallbackPage` on `/callback`, else `LoadingPage`) → `error` page → callback-in-progress → `sessionExpired` (→ `SessionExpiredGate`) → `LoginGate` → dashboard. A silent token refresh never unmounts the dashboard (`useAuth().isLoading` masks navigator calls); a failed refresh surfaces as the `DashboardLayout` banner via `refreshError`. `LoginGate`, `CallbackPage`, and `SessionExpiredGate` all use rialto's `Handshake` instrument for the in-flight state.
+
 Build-time env vars (set in CI and `.env`):
 
 - `VITE_AUTH_AUTHORITY` — Auth0 domain
