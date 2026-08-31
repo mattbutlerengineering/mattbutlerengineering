@@ -108,6 +108,54 @@ describe("Checkbox", () => {
       expect(container.querySelector("svg")).toBeInTheDocument();
     });
   });
+
+  describe("uncontrolled mode", () => {
+    it("toggles its own state when checked/onCheckedChange are not provided", async () => {
+      const user = userEvent.setup();
+      render(<Checkbox label="Uncontrolled" />);
+      const input = screen.getByRole("checkbox");
+      expect(input).not.toBeChecked();
+      await user.click(input);
+      expect(input).toBeChecked();
+    });
+
+    it("starts checked when defaultChecked is true", () => {
+      render(<Checkbox label="Pre-checked" defaultChecked />);
+      expect(screen.getByRole("checkbox")).toBeChecked();
+    });
+
+    it("still calls onCheckedChange while uncontrolled", async () => {
+      const user = userEvent.setup();
+      const onCheckedChange = vi.fn();
+      render(<Checkbox label="Notify" onCheckedChange={onCheckedChange} />);
+      await user.click(screen.getByRole("checkbox"));
+      expect(onCheckedChange).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe("controlled mode", () => {
+    it("stays at the checked prop value when nothing updates it", async () => {
+      const user = userEvent.setup();
+      render(<Checkbox label="Locked value" checked={false} />);
+      const input = screen.getByRole("checkbox");
+      await user.click(input);
+      expect(input).not.toBeChecked();
+    });
+  });
+
+  describe("required", () => {
+    it("applies required and aria-required to the input when required=true", () => {
+      render(<Checkbox label="Required" required />);
+      const input = screen.getByRole("checkbox");
+      expect(input).toBeRequired();
+      expect(input).toHaveAttribute("aria-required", "true");
+    });
+
+    it("does not set aria-required when required is false", () => {
+      render(<Checkbox label="Optional" />);
+      expect(screen.getByRole("checkbox")).not.toHaveAttribute("aria-required");
+    });
+  });
 });
 
 describe("Radio", () => {
