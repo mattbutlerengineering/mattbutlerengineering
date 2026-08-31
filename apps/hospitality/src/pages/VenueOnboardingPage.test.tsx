@@ -519,7 +519,7 @@ describe("VenueOnboardingPage", () => {
 
     // Celebration is shown BEFORE navigating — no hard/immediate redirect.
     expect(mockNavigate).not.toHaveBeenCalled();
-    expect(screen.getByText("You're ready to take reservations")).toBeTruthy();
+    expect(screen.getByText("Your venue is live — add tables next")).toBeTruthy();
 
     await act(async () => {
       vi.advanceTimersByTime(1500);
