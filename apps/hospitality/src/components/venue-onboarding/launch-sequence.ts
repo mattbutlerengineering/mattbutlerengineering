@@ -336,6 +336,10 @@ export async function runLaunchSequence(
     }
 
     current = { ...current, inFlightStage: stage, failedStage: null, errorMessage: null };
+    // Emit before awaiting the stage — otherwise venue/floorPlan/activate
+    // (which call onProgress only once, on completion) never surface an
+    // in-flight value, and stageStateOf can never read "in-flight" for them.
+    onProgress(current);
 
     try {
       current = await runStage(api, stage, draft, venuePayload, current, onProgress);

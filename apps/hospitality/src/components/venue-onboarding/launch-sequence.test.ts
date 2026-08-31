@@ -306,6 +306,36 @@ describe("launch-sequence", () => {
       expect(result.createdTableNames).toEqual(["T1", "T2", "T3"]);
     });
 
+    it("emits an in-flight progress value for the venue stage before the stage resolves", async () => {
+      const api = makeFakeApi();
+      let resolveVenue: (venue: Venue) => void = () => {};
+      const pending = new Promise<Venue>((resolve) => {
+        resolveVenue = resolve;
+      });
+      api.venues.create = vi.fn(() => pending);
+      const draft = makeDraft();
+      const onProgress = vi.fn();
+
+      const resultPromise = runLaunchSequence(
+        api,
+        draft,
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        onProgress
+      );
+
+      // Flush the microtask queue without resolving api.venues.create — the
+      // synchronous "set inFlightStage" work must already have run.
+      await Promise.resolve();
+
+      expect(onProgress).toHaveBeenCalledWith(
+        expect.objectContaining({ inFlightStage: "venue", venueId: null })
+      );
+
+      resolveVenue(makeVenue());
+      await resultPromise;
+    });
+
     it("posts the floorPlan create with the venueId, planName and DEFAULT_LAYOUT", async () => {
       const api = makeFakeApi();
       const draft = makeDraft({ planName: "Patio" });
