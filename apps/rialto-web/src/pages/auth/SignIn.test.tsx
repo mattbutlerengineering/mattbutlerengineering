@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import { forwardRef } from "react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { SignIn } from "./SignIn";
-import { MFA_REJECT_CODE } from "./auth-validation";
+import { MFA_CODE_LENGTH, MFA_REJECT_CODE } from "./auth-validation";
 
 const toastSpy = vi.hoisted(() => vi.fn());
 const deviceContextRef = vi.hoisted(() => ({ reducedMotion: false }));
@@ -53,41 +54,56 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       {endIcon}
     </label>
   );
-  const PinInput = ({
-    label,
-    value,
-    onChange,
-    onComplete,
-    error,
-    hint,
-    length = 4,
-    disabled,
-  }: {
-    label?: string;
-    value?: string;
-    onChange?: (value: string) => void;
-    onComplete?: (value: string) => void;
-    error?: boolean;
-    hint?: string;
-    length?: number;
-    disabled?: boolean;
-  }) => (
-    <label>
-      {label}
-      <input
-        aria-label={label}
-        value={value}
-        aria-invalid={error || undefined}
-        disabled={disabled}
-        onChange={(event) => {
-          const next = event.target.value;
-          onChange?.(next);
-          if (next.length === length) onComplete?.(next);
-        }}
-      />
-      {hint ? <span role="note">{hint}</span> : null}
-    </label>
-  );
+  // Real PinInput renders one cell per character (aria-label "Digit N of
+  // length") and forwards its ref to the wrapping element — both matter for
+  // the clear-and-refocus behavior under test, so the stub mirrors them
+  // alongside the combined field the rest of the suite drives edits through.
+  const PinInput = forwardRef<
+    HTMLDivElement,
+    {
+      label?: string;
+      value?: string;
+      onChange?: (value: string) => void;
+      onComplete?: (value: string) => void;
+      error?: boolean;
+      hint?: string;
+      length?: number;
+      disabled?: boolean;
+    }
+  >(function PinInput(
+    { label, value = "", onChange, onComplete, error, hint, length = 4, disabled },
+    ref
+  ) {
+    const chars = Array.from({ length }, (_, i) => value[i] ?? "");
+    return (
+      <div ref={ref}>
+        <label>
+          {label}
+          <input
+            aria-label={label}
+            value={value}
+            aria-invalid={error || undefined}
+            disabled={disabled}
+            onChange={(event) => {
+              const next = event.target.value;
+              onChange?.(next);
+              if (next.length === length) onComplete?.(next);
+            }}
+          />
+        </label>
+        {chars.map((ch, i) => (
+          <input
+            key={i}
+            aria-label={`Digit ${i + 1} of ${length}`}
+            value={ch}
+            readOnly
+            disabled={disabled}
+          />
+        ))}
+        {hint ? <span role="note">{hint}</span> : null}
+      </div>
+    );
+  });
   const Steps = ({ steps, currentStep }: { steps: { label: string }[]; currentStep: number }) => (
     <ol data-testid="steps">
       {steps.map((step, index) => (
@@ -362,6 +378,42 @@ describe("SignIn — verification step", () => {
 
     fireEvent.change(codeInput(), { target: { value: "1" } });
     expect(screen.getByRole("img")).toHaveAttribute("data-state", "idle");
+  });
+
+  it("clears every cell and refocuses the first cell after a rejected code, keeping the alert", async () => {
+    renderSignIn();
+    fillCredentials();
+    await submitCredentials();
+
+    fireEvent.change(codeInput(), { target: { value: MFA_REJECT_CODE } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(screen.getByText(/didn.t match — try again/i)).toBeInTheDocument();
+    for (let i = 1; i <= MFA_CODE_LENGTH; i++) {
+      expect(screen.getByLabelText(`Digit ${i} of ${MFA_CODE_LENGTH}`)).toHaveValue("");
+    }
+    expect(screen.getByLabelText(`Digit 1 of ${MFA_CODE_LENGTH}`)).toHaveFocus();
+  });
+
+  it("still verifies and hands off on a correct code entered right after a rejection", async () => {
+    renderSignInWithRoutes();
+    fillCredentials();
+    await submitCredentials();
+
+    fireEvent.change(codeInput(), { target: { value: MFA_REJECT_CODE } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByText(/didn.t match — try again/i)).toBeInTheDocument();
+
+    fireEvent.change(codeInput(), { target: { value: "123456" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2400);
+    });
+
+    expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
   });
 
   it("accepts any other complete code and fires the success toast after settling", async () => {
