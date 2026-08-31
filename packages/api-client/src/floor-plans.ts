@@ -4,6 +4,7 @@ import type {
   CreateFloorPlanRequest,
   UpdateFloorPlanRequest,
   UpdateTablePositionRequest,
+  BulkUpdateTablePositionsRequest,
   Table,
   PaginatedResponse,
 } from "@mbe/types";
@@ -51,9 +52,10 @@ export class FloorPlansClient {
     return this.client.delete(`/api/v1/floor-plans/${id}`);
   }
 
+  /** Activates this plan and deactivates the venue's others (`POST /:id/activate`). */
   async setActive(id: string): Promise<FloorPlan> {
     return this.client.postOne<FloorPlan>(
-      `/api/v1/floor-plans/${id}/active`,
+      `/api/v1/floor-plans/${id}/activate`,
       undefined,
       FloorPlanSchema
     );
@@ -64,13 +66,19 @@ export class FloorPlansClient {
     return this.setActive(id);
   }
 
+  /**
+   * Bulk-updates table positions. The service registers this under the
+   * collection (`POST /floor-plans/tables/positions`) and scopes it by the
+   * `floorPlanId` in the body, not by a path segment.
+   */
   async bulkUpdatePositions(
     floorPlanId: string,
     positions: UpdateTablePositionRequest[]
   ): Promise<Table[]> {
+    const body: BulkUpdateTablePositionsRequest = { floorPlanId, positions };
     return this.client.postOne<Table[]>(
-      `/api/v1/floor-plans/${floorPlanId}/bulk-update-positions`,
-      positions,
+      "/api/v1/floor-plans/tables/positions",
+      body,
       z.array(TableSchema)
     );
   }
