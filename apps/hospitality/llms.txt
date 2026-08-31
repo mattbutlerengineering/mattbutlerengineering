@@ -321,6 +321,11 @@
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useNow.ts">
+    <item priority="high">
+      export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
@@ -642,6 +647,22 @@
       export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
   </file>
+  <file path="src/utils/venueOpenLabel.ts">
+    <item priority="high">
+      export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
+    </item>
+    <item priority="high">
+      export function formatVenueOpenLabel(s: VenueOpenState): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/venueOpenState.ts">
+    <item priority="low">
+      type Weekday = keyof OperatingHours;
+    </item>
+    <item priority="low">
+      type LocalTime = string;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/floor-plan-draft.ts">
@@ -677,6 +698,14 @@
       export function generateSlug(name: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/venue-onboarding/launch-sequence.ts">
+    <item priority="low">
+      type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+    </item>
+    <item priority="low">
+      type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
+    </item>
+  </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
     <item priority="low">
       interface OnboardingStep {
@@ -698,6 +727,7 @@
         locationTime: LocationTimeData;
         operatingHours: OperatingHours;
         settings: SettingsData;
+        floorPlan: FloorPlanDraft;
       }
     </item>
   </file>
