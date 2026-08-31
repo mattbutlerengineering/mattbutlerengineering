@@ -836,6 +836,10 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="src/components/venue-onboarding/launch-sequence.ts">
+    export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+    export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
+  </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
     export interface OnboardingStep {
       /** Short step name shown as the rail heading. */
