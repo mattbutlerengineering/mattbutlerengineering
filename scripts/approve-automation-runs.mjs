@@ -42,8 +42,20 @@
  * `secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN`) remains the fallback
  * fix — see docs/SECRETS.md's `AUTOMATION_PAT` section.
  *
- * Design: `isAutomationPrApprovable` and `selectActionRequiredRuns` are
- * pure, unit-tested without the network
+ * #4712: a single-shot `listRuns()` call race-loses against GitHub actually
+ * creating the nine `pull_request`-triggered runs — the approve step ran
+ * within seconds of the PR opening, found nothing yet, logged "approved 0
+ * run(s)" (success), and moved on. The runs then parked at `action_required`
+ * unapproved and died as bare `failure` (zero jobs) once the branch was
+ * deleted on auto-merge ~11 minutes later. `approvePendingRuns` now polls
+ * `listRuns()` on a bounded loop (default: every 5s, up to a 60s ceiling)
+ * instead of checking once, approving any newly-seen run each round, and
+ * stopping as soon as two consecutive polls see no new run IDs ("settled").
+ * A timeout with runs still unapproved logs a warning naming them but never
+ * fails the step — a metrics PR should not be blocked by this.
+ *
+ * Design: `isAutomationPrApprovable`, `selectActionRequiredRuns`, and
+ * `decidePollStep` are pure, unit-tested without the network
  * (`scripts/__tests__/approve-automation-runs.test.mjs`). The GitHub calls
  * live behind injected callbacks in `approvePendingRuns`; the CLI below
  * wires them to raw `gh` calls.
@@ -57,6 +69,11 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { isTrustedAutomationAuthor } from "./merge-queue-eligibility.mjs";
 import { AUTOMATION_BRANCH_PREFIX, AUTOMATION_LABEL, hasLabel } from "./lib/automation-pr.mjs";
+
+/** Default bounded-poll tuning (#4712) — tuned from the observed queuing
+ * delay (runs typically all appear within a few seconds), not guessed. */
+export const DEFAULT_POLL_INTERVAL_MS = 5000;
+export const DEFAULT_TIMEOUT_MS = 60000;
 
 /**
  * Pure gate on which PRs this script may approve pending runs for.
@@ -99,7 +116,40 @@ export function selectActionRequiredRuns(runs) {
 }
 
 /**
- * Approves every `action_required` run on an approvable PR's branch.
+ * Pure poll-loop decision core (#4712). Given the sequence of
+ * action_required run-ID snapshots observed so far (oldest first, the
+ * current poll last) and how much time has elapsed since the first poll,
+ * decides whether to poll again, stop because the set of pending runs has
+ * settled (no new run ID appeared since the previous poll), or stop because
+ * the timeout elapsed.
+ *
+ * Settling is judged against the union of every prior snapshot, not just the
+ * immediately preceding one — a run that gets approved mid-poll can drop out
+ * of the next `action_required` snapshot as it transitions to `queued`, and
+ * that shrinkage must not read as "still arriving".
+ *
+ * @param {{ snapshots: number[][], elapsedMs: number, timeoutMs: number }} input
+ * @returns {"poll-again" | "settled" | "timed-out"}
+ */
+export function decidePollStep({ snapshots, elapsedMs, timeoutMs }) {
+  const current = snapshots[snapshots.length - 1] ?? [];
+  const seenBefore = new Set(snapshots.slice(0, -1).flat());
+  const hasNewRuns = current.some((id) => !seenBefore.has(id));
+  const seenAny = snapshots.some((snapshot) => snapshot.length > 0);
+
+  if (snapshots.length > 1 && seenAny && !hasNewRuns) {
+    return "settled";
+  }
+  if (elapsedMs >= timeoutMs) {
+    return "timed-out";
+  }
+  return "poll-again";
+}
+
+/**
+ * Approves every `action_required` run on an approvable PR's branch,
+ * polling on a bounded loop (#4712) so a run that hasn't been created yet
+ * by the time the first `listRuns()` call fires still gets approved.
  *
  * @param {{
  *   getPr: () => Promise<{headRefName?:string, labels?:Array, author?:{login?:string}}>,
@@ -107,6 +157,10 @@ export function selectActionRequiredRuns(runs) {
  *   approveRun: (runId:number) => Promise<void>,
  *   dryRun?: boolean,
  *   log?: (msg:string) => void,
+ *   pollIntervalMs?: number,
+ *   timeoutMs?: number,
+ *   now?: () => number,
+ *   sleep?: (ms:number) => Promise<void>,
  * }} deps
  * @returns {Promise<number[]>} the run ids that were (or would be) approved
  */
@@ -116,6 +170,10 @@ export async function approvePendingRuns({
   approveRun,
   dryRun = false,
   log = () => {},
+  pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  now = () => Date.now(),
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }) {
   // getPr()/listRuns() are wrapped the same way as approveRun() below: a
   // transient gh-CLI error (5xx, rate limit, auth hiccup) here must not
@@ -135,35 +193,69 @@ export async function approvePendingRuns({
     return [];
   }
 
-  let runs;
-  try {
-    runs = await listRuns(pr.headRefName);
-  } catch (err) {
-    log(`failed to list runs: ${err.message}`);
-    return [];
-  }
+  const startedAt = now();
+  const snapshots = [];
+  const attemptedIds = new Set();
+  const approvedIds = new Set();
 
-  const pending = selectActionRequiredRuns(runs);
-  const approved = [];
-
-  for (const run of pending) {
-    if (dryRun) {
-      log(`[dry-run] would approve run ${run.databaseId}`);
-      approved.push(run.databaseId);
-      continue;
-    }
-    // Each run's approval is isolated: a transient failure on one run must
-    // not skip the rest — mirrors rescue-automation-prs.mjs's per-PR try/catch.
+  for (;;) {
+    let runs;
     try {
-      await approveRun(run.databaseId);
-      log(`approved run ${run.databaseId}`);
-      approved.push(run.databaseId);
+      runs = await listRuns(pr.headRefName);
     } catch (err) {
-      log(`failed to approve run ${run.databaseId}: ${err.message}`);
+      log(`failed to list runs: ${err.message}`);
+      return [...approvedIds];
     }
-  }
 
-  return approved;
+    const pending = selectActionRequiredRuns(runs);
+    const currentIds = pending.map((run) => run.databaseId);
+    snapshots.push(currentIds);
+
+    // Each run's approval is isolated: a transient failure on one run must
+    // not skip the rest — mirrors rescue-automation-prs.mjs's per-PR
+    // try/catch. A run is only ever attempted once, even across polls.
+    for (const run of pending) {
+      if (attemptedIds.has(run.databaseId)) continue;
+      attemptedIds.add(run.databaseId);
+
+      if (dryRun) {
+        log(`[dry-run] would approve run ${run.databaseId}`);
+        approvedIds.add(run.databaseId);
+        continue;
+      }
+      try {
+        await approveRun(run.databaseId);
+        log(`approved run ${run.databaseId}`);
+        approvedIds.add(run.databaseId);
+      } catch (err) {
+        log(`failed to approve run ${run.databaseId}: ${err.message}`);
+      }
+    }
+
+    const elapsedMs = now() - startedAt;
+    const step = decidePollStep({ snapshots, elapsedMs, timeoutMs });
+
+    if (step === "settled") {
+      return [...approvedIds];
+    }
+    if (step === "timed-out") {
+      const stillParked = [...attemptedIds].filter((id) => !approvedIds.has(id));
+      if (attemptedIds.size === 0) {
+        log(
+          `timed out after ${elapsedMs}ms waiting for action_required runs to appear on ${pr.headRefName}; none appeared`
+        );
+      } else if (stillParked.length > 0) {
+        log(
+          `timed out after ${elapsedMs}ms with runs still parked: ${stillParked
+            .map((id) => `#${id}`)
+            .join(", ")}`
+        );
+      }
+      return [...approvedIds];
+    }
+
+    await sleep(pollIntervalMs);
+  }
 }
 
 function readFlag(args, name) {
