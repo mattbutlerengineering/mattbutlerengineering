@@ -987,3 +987,47 @@ None (`agent-skip` is empty this run).
 **Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4685/#4641 had no completed CI runs to resolve against, #4669/#4625 needed a Lighthouse inventory unreachable in this sandbox, #4628 had no matching verifier for its labels).
 **Skill proposals:** 0 (Sunday, not the Friday extraction day).
 **Threshold notes:** ci-fix auto-tuned 1.09 → 1.12 (headroom) by verify-fixes.mjs. 30d verification log is still almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable in this cloud sandbox), so false-positive and fix-effectiveness rates aren't a meaningful signal yet — consistent with the 08-11/08-28 notes, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GITHUB_TOKEN REST-fallback 403 as the `issues`/`issueFeedback` sensors (unresolved since 2026-08-11).
+
+## 2026-08-31 (mbe-evening / implement-queue + progress-tracker)
+
+### Metrics (7d, 2026-08-24 → 2026-08-31)
+
+| Metric                                                   | Value                                                | Target            | Status                                                                                                           |
+| -------------------------------------------------------- | ---------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Created (audit+ci-fix)                                   | 29 (15 audit, 14 ci-fix)                             | -                 | -                                                                                                                |
+| Closed (audit+ci-fix)                                    | 23 (13 audit, 10 ci-fix)                             | -                 | -                                                                                                                |
+| Closure Rate                                             | 79.3%                                                | >80%              | yellow (just under)                                                                                              |
+| Time-to-Close (mean, closedAt≈updatedAt proxy)           | ~12.9h                                               | <24h              | green                                                                                                            |
+| Agent Success (has-pr/(has-pr+failed), snapshot)         | 1/2 = 50%                                            | >70%              | small sample (n=2), not load-bearing                                                                             |
+| CI Pass (main, last 30 pushes)                           | 22 success / 0 failure / 6 cancelled / 2 in-progress | >95%              | green (0 real failures; cancelled are concurrency-superseded, not failures — see note)                           |
+| Queue (ready)                                            | 6                                                    | <5                | yellow                                                                                                           |
+| Stale (ready>7d)                                         | 0                                                    | 0                 | green                                                                                                            |
+| Blocked (agent-failed)                                   | 1 (#4606)                                            | 0                 | yellow                                                                                                           |
+| Skipped (agent-skip)                                     | 0                                                    | 0                 | green                                                                                                            |
+| Reverts (7d)                                             | 3                                                    | >3/week flag      | at threshold, not over                                                                                           |
+| Spend (attributed, `.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty)                                  | <$10/day, <$50/7d | unmeasured — sink still empty, unchanged since 08-24 (6th consecutive log entry noting this; #4618 remains open) |
+
+### This iteration (`/implement-queue`, 1 batch)
+
+- Phase 0: main green (30/30 recent pushes, 0 real failures). 5 open PRs surveyed: **#4707** (pre-existing agent PR, stripe-flow-reviewer dispatched fresh — PASS, found and the worker had already fixed a real DoS gap in raw-body buffering — merged directly; `Hospitality E2E` red but advisory and CI Gate green), **#4710/#4692/#4566/#4565** all out of scope (human report awaiting read, explicitly human-merge-only automation PR, chaos-agent test fixture, explicit draft) — none actionable, none CI-failing.
+- Phase 1: 7 `ready` issues surveyed. Zone-spread selector (`selectZoneSpreadBatch`) returned only **2** of a possible 3 slots — 5 of 6 remaining candidates all classified to the `null` (global) zone and only one global slot is ever co-scheduled, per ADR-023. Claimed **#4698** (security, `services/reservations` zone) and **#4711** (ci-fix, global zone). #4639 correctly skipped (`Parallel-safe: no`, depends on still-open #4638).
+- Phase 2: 2 `implement-queue-worker` agents (isolation: worktree, default sonnet tier — `mbe check-model` unusable, no `gh`/`mbe` CLI in this session type per the standing gotcha). Both opened PRs via direct GitHub REST (no `gh`, MCP tools not in the worker's own tool set). **PR #4715** (#4698): dedicated 10/min rate limit on the public deposit PaymentIntent route, verified via test to keep the global 100/min limiter active at the same `onRequest` stage (correctly avoided the #4492/#4499 preHandler footgun). **PR #4714** (#4711): new `scripts/check-visual-tolerance-change.mjs` pure decision + CI Gate wiring, regression-tested against #4496's real verified changed-file list.
+- Worker→train boundary: neither PR qualified for the low-risk fast path (`qualifiesForLowRiskFastPath` false for both). #4715 matched `adr-compliance-reviewer` via `reviewersForDiff` — both it and the general Reviewer passed (9/10, LGTM respectively); merged. #4714 (touches `.github/workflows/ci.yml` directly, no specialist match) — general Reviewer passed 7/10, but found a real, live-verified false-positive: the new check's `threshold:` keyword match is scoped to all of `packages/rialto/` rather than just visual-test surfaces, and would wrongly trip on the unrelated `usePointerActivation.ts`. Not blocking (pass verdict), but filed **#4716** (ci-fix, ready) as a tracked follow-up rather than silently accepting the gap; merged #4714.
+- Metrics: appended 2 telemetry rows (`metrics/queue-telemetry.jsonl`) for #4698/#4711, committed on `chore/queue-telemetry-2026-08-31`, opened PR #4717.
+- Worktree cleanup: `scripts/reap-worktrees.mjs` reported 0 eligible again — same standing `gh`-unavailable fail-closed gap as every prior cloud-scheduled run (see 08-29's Recommendations; still unaddressed, not re-filing separately since #4664-adjacent tracking already covers it if it exists, otherwise this is the 2nd+ occurrence worth a fitness-check issue if it keeps recurring).
+- Circuit breaker: not triggered (2/2 succeeded).
+
+### Patterns
+
+- The zone-spread batch selector (ADR-023) is correctly conservative but means a "batch of up to 3" routinely lands at 2 whenever most of the ready queue clusters in the global zone (root/scripts/CI/docs) — this is by design (N² update-branch tax avoidance), not a bug, but worth knowing when reading "only 2 claimed" in future logs.
+- Second consecutive run (see 08-30 note pattern) where a Reviewer-passed PR still surfaced a real, actionable defect the reviewer itself flagged rather than silently waved through — the retry/flag policy correctly reserves `flag` for score ≤6, and a filed follow-up issue is the right outcome for a 7/10 pass with one verified nit, not a blocked merge.
+- `Hospitality E2E` red on two unrelated, back-to-back PRs (#4707, #4715) with zero diff overlap reconfirms the existing gotchas.md characterization (environmental/auth-bypass flake, advisory) rather than surfacing anything new.
+
+### Recommendations
+
+- If `scripts/reap-worktrees.mjs`'s `gh`-dependency keeps showing up as "0 eligible" in every cloud-scheduled run's log (this is at least the 2nd occurrence), it's worth promoting from a recurring note to an actual `ci-fix` issue porting its merged-PR evidence check to the GitHub MCP tool surface, per the 08-29 log's same recommendation.
+- `.claude/agent-spend/sessions.jsonl` being empty for 6+ consecutive daily entries with #4618 still open suggests the issue may need re-triage rather than continued silent noting — deferred to `/optimize-implement-queue`'s Step 0 reconciliation rather than acted on here (2/2 meta-issue budget for this run reserved for real findings, not repeats of an already-tracked one).
+
+### Skipped Issues
+
+None (`agent-skip` empty this run).
