@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useAuth } from "@mbe/auth/react";
+import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { SessionExpiredGate } from "./SessionExpiredGate.js";
 import React from "react";
 
@@ -55,7 +56,7 @@ describe("SessionExpiredGate", () => {
   it("explains that the session ended and shows the handshake as idle", () => {
     render(<SessionExpiredGate />);
     expect(screen.getByTestId("session-expired")).toBeInTheDocument();
-    expect(screen.getByText("Your session ended")).toBeInTheDocument();
+    expect(screen.getByText(SESSION_LAPSE_COPY.heading)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Session with Identity has lapsed" })).toHaveAttribute(
       "data-state",
       "idle"
@@ -64,7 +65,9 @@ describe("SessionExpiredGate", () => {
 
   it("re-authenticates with the default returnTo so @mbe/auth restores the current page", () => {
     render(<SessionExpiredGate />);
-    fireEvent.click(screen.getByRole("button", { name: "Sign back in" }));
+    const actionButton = screen.getByRole("button", { name: SESSION_LAPSE_COPY.action });
+    expect(actionButton).toHaveAccessibleName(SESSION_LAPSE_COPY.action);
+    fireEvent.click(actionButton);
     // No explicit returnTo: useAuth().signIn derives it from window.location,
     // which is the contract that preserves the page through the round-trip.
     expect(signIn).toHaveBeenCalledTimes(1);
@@ -77,7 +80,7 @@ describe("SessionExpiredGate", () => {
       activeNavigator: "signinRedirect",
     } as unknown as ReturnType<typeof useAuth>);
     render(<SessionExpiredGate />);
-    const button = screen.getByRole("button", { name: "Heading to sign-in" });
+    const button = screen.getByRole("button", { name: SESSION_LAPSE_COPY.actionBusy });
     expect(button).toHaveAttribute("aria-busy", "true");
     expect(screen.getByRole("img", { name: "Session with Identity has lapsed" })).toHaveAttribute(
       "data-state",

@@ -1,5 +1,6 @@
 import { useAuth } from "@mbe/auth/react";
 import { Button, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
+import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import styles from "./SessionExpiredGate.module.css";
 
 const STATIONS = ["Browser", "Identity"] as const;
@@ -35,10 +36,10 @@ export function SessionExpiredGate() {
 
           <Stack gap="sm" align="center">
             <Text as="h1" variant="display" color="primary">
-              Your session ended
+              {SESSION_LAPSE_COPY.heading}
             </Text>
             <Text variant="body" color="secondary">
-              Sign back in to pick up where you left off — this page is preserved.
+              {SESSION_LAPSE_COPY.body}
             </Text>
           </Stack>
 
@@ -47,9 +48,9 @@ export function SessionExpiredGate() {
             size="lg"
             onClick={() => signIn()}
             isLoading={inFlight}
-            loadingText="Heading to sign-in"
+            loadingText={SESSION_LAPSE_COPY.actionBusy}
           >
-            Sign back in
+            {SESSION_LAPSE_COPY.action}
           </Button>
         </Stack>
       </div>
