@@ -886,13 +886,9 @@
   </file>
   <file path="src/components/Toast/ToastContext.ts">
     export type ToastVariant = "default" | "success" | "error" | "accent";
-    export interface ToastData {
-      id: string;
-      title: string;
-      description?: string;
-      variant?: ToastVariant;
-      /** Auto-dismiss in ms. 0 = manual dismiss only. */
-      duration?: number;
+    export interface ToastAction {
+      label: string;
+      onClick: () => void;
     }
   </file>
   </section>

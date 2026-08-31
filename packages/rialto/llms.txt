@@ -467,12 +467,9 @@
       type ToastVariant = "default" | "success" | "error" | "accent";
     </item>
     <item priority="low">
-      interface ToastData {
-        id: string;
-        title: string;
-        description?: string;
-        variant?: ToastVariant;
-        duration?: number;
+      interface ToastAction {
+        label: string;
+        onClick: () => void;
       }
     </item>
   </file>

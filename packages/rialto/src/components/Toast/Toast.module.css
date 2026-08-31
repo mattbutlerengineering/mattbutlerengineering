@@ -102,6 +102,27 @@
   color: var(--rialto-accent);
 }
 
+/* ── Action button (e.g. Undo) ───────────────── */
+.action {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
+  display: block;
+  margin-top: var(--rialto-space-xs);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.action:hover {
+  color: var(--rialto-text-primary);
+}
+
 /* ── Close button ────────────────────────────── */
 .close {
   composes: focusRing from "../../styles/surfaces.module.css";
