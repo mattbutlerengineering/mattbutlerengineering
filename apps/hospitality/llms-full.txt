@@ -787,6 +787,20 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="src/components/venue-onboarding/floor-plan-draft.ts">
+    export type DraftTableShape = TableShapeMetadata["shape"];
+    export interface DraftTable {
+      /** Draft-only stable identifier. NEVER sent to the server. */
+      localId: string;
+      name: string;
+      capacity: number;
+      minCovers: number;
+      shape: DraftTableShape;
+      /** Centre coordinates, always multiples of GRID_SIZE. */
+      x: number;
+      y: number;
+    }
+  </file>
   <file path="src/components/venue-onboarding/generate-slug.ts">
     export function generateSlug(name: string): string {
       return name
