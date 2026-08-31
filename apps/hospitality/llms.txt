@@ -321,6 +321,11 @@
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useNow.ts">
+    <item priority="high">
+      export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
@@ -640,6 +645,22 @@
     </item>
     <item priority="high">
       export const STATUS_LABEL: Record<ReservationStatus, string>;
+    </item>
+  </file>
+  <file path="src/utils/venueOpenLabel.ts">
+    <item priority="high">
+      export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>>;
+    </item>
+    <item priority="high">
+      export function formatVenueOpenLabel(s: VenueOpenState): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/venueOpenState.ts">
+    <item priority="low">
+      type Weekday = keyof OperatingHours;
+    </item>
+    <item priority="low">
+      type LocalTime = string;
     </item>
   </file>
   </section>
