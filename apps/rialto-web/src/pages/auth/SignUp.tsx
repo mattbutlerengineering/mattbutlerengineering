@@ -105,6 +105,8 @@ export function SignUp() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [confirmTouched, setConfirmTouched] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [agreedError, setAgreedError] = useState(false);
 
   const isLoading = phase === "submitting";
   const confirmMismatch = confirmTouched && confirm !== password;
@@ -117,6 +119,10 @@ export function SignUp() {
     }
     if (confirm !== password) {
       setConfirmTouched(true);
+      return;
+    }
+    if (!agreed) {
+      setAgreedError(true);
       return;
     }
 
@@ -211,8 +217,19 @@ export function SignUp() {
                 <Link to="#">Privacy Policy</Link>
               </Text>
             }
+            checked={agreed}
+            onCheckedChange={(next) => {
+              setAgreed(next);
+              if (agreedError) setAgreedError(false);
+            }}
+            required
             disabled={isLoading}
           />
+          {agreedError && (
+            <Text variant="caption" color="error">
+              You&apos;ll need to agree first
+            </Text>
+          )}
         </div>
 
         <Button

@@ -84,10 +84,25 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       {isLoading && loadingText ? loadingText : children}
     </button>
   );
-  const Checkbox = ({ label }: { label?: ReactNode }) => (
+  const Checkbox = ({
+    label,
+    checked,
+    onCheckedChange,
+    required,
+  }: {
+    label?: ReactNode;
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+    required?: boolean;
+  }) => (
     <label>
       {label}
-      <input type="checkbox" />
+      <input
+        type="checkbox"
+        checked={checked ?? false}
+        required={required}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+      />
     </label>
   );
   const Divider = () => <hr />;
@@ -115,6 +130,10 @@ function renderSignUp() {
 
 function setField(label: string | RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
+}
+
+function agreeToTerms() {
+  fireEvent.click(screen.getByRole("checkbox"));
 }
 
 function requirementRow(text: RegExp) {
@@ -212,6 +231,7 @@ describe("SignUp — submit", () => {
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     setField("Confirm password", "Abcdefghijk1");
+    agreeToTerms();
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     await act(async () => {
@@ -219,6 +239,22 @@ describe("SignUp — submit", () => {
     });
 
     expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
+  });
+
+  it("blocks submission when the terms checkbox is not agreed to", async () => {
+    renderSignUp();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "Abcdefghijk1");
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(toastSpy).not.toHaveBeenCalled();
+    expect(screen.getByText(/agree first/i)).toBeInTheDocument();
   });
 
   it("blocks submission while the confirmation does not match", async () => {
@@ -253,6 +289,7 @@ describe("SignUp — Handshake phase", () => {
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     setField("Confirm password", "Abcdefghijk1");
+    agreeToTerms();
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
@@ -269,6 +306,7 @@ describe("SignUp — Handshake phase", () => {
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     setField("Confirm password", "Abcdefghijk1");
+    agreeToTerms();
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     await act(async () => {

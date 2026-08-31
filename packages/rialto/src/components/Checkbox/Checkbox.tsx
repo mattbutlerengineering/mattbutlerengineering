@@ -1,4 +1,4 @@
-import { forwardRef, useId, type ReactNode } from "react";
+import { forwardRef, useId, useState, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { spring, boop } from "../../tokens/motion";
@@ -16,10 +16,13 @@ import styles from "./Checkbox.module.css";
  * <Checkbox label="Accept terms" checked={ok} onCheckedChange={setOk} />
  * <Checkbox label="Select all" indeterminate description="3 of 5 selected" />
  * <Checkbox label="Archived" disabled />
+ * <Checkbox label="Uncontrolled" defaultChecked />
  */
 export interface CheckboxProps {
   label: ReactNode;
   checked?: boolean;
+  /** Initial checked state for uncontrolled use (ignored when `checked` is provided) */
+  defaultChecked?: boolean;
   required?: boolean;
   /** Displays a dash instead of a checkmark — useful for "select all" with partial selection */
   indeterminate?: boolean;
@@ -36,7 +39,9 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
   (
     {
       label,
-      checked = false,
+      checked: checkedProp,
+      defaultChecked = false,
+      required = false,
       indeterminate = false,
       onCheckedChange,
       disabled = false,
@@ -49,6 +54,9 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
     const id = useId();
     const descId = useId();
     const shouldReduceMotion = useReducedMotion();
+    const [uncontrolledChecked, setUncontrolledChecked] = useState(defaultChecked);
+    const isControlled = checkedProp !== undefined;
+    const checked = isControlled ? checkedProp : uncontrolledChecked;
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -63,13 +71,19 @@ export const Checkbox = forwardRef<HTMLDivElement, CheckboxProps>(
               type="checkbox"
               className={styles.input}
               checked={checked}
+              required={required}
+              aria-required={required || undefined}
               disabled={disabled}
               data-indeterminate={indeterminate || undefined}
               aria-describedby={description ? descId : undefined}
               ref={(el) => {
                 if (el) el.indeterminate = indeterminate;
               }}
-              onChange={(e) => onCheckedChange?.(e.target.checked)}
+              onChange={(e) => {
+                const next = e.target.checked;
+                if (!isControlled) setUncontrolledChecked(next);
+                onCheckedChange?.(next);
+              }}
             />
             <motion.span
               className={styles.box}

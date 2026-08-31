@@ -765,6 +765,12 @@
           "required": false
         },
         {
+          "name": "defaultChecked",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Initial checked state for uncontrolled use (ignored when `checked` is provided)"
+        },
+        {
           "name": "required",
           "type": "boolean | undefined",
           "required": false
