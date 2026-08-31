@@ -1,3 +1,4 @@
+// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.
 import { Link } from "react-router";
 import { HeroSection } from "../components/HeroSection";
 import { ProofStrip } from "../components/ProofStrip";
