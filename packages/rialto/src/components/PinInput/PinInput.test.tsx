@@ -206,3 +206,26 @@ describe("PinInput — required marker + aria-live announcements", () => {
     expect(status).toHaveTextContent("Code complete");
   });
 });
+
+describe("PinInput — onComplete", () => {
+  it("calls onComplete exactly once with the full value when the final digit is typed", () => {
+    const onComplete = vi.fn();
+    const { container } = render(
+      <PinInput value="123" length={4} onChange={() => {}} onComplete={onComplete} />
+    );
+    const inputs = getInputs(container);
+    fireEvent.change(inputs[3]!, { target: { value: "4" } });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith("1234");
+  });
+
+  it("does not call onComplete while the value is shorter than length", () => {
+    const onComplete = vi.fn();
+    const { container } = render(
+      <PinInput value="1" length={4} onChange={() => {}} onComplete={onComplete} />
+    );
+    const inputs = getInputs(container);
+    fireEvent.change(inputs[1]!, { target: { value: "2" } });
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+});

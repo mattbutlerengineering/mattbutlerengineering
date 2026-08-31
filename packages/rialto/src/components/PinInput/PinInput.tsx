@@ -87,7 +87,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
     (newChars: string[]) => {
       const next = newChars.join("").slice(0, length);
       onChange?.(next);
-      if (next.length === length && !next.includes("")) {
+      if (next.length === length) {
         onComplete?.(next);
       }
     },
