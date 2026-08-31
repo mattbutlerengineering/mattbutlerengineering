@@ -36,7 +36,7 @@ Tracking issue: **#4746**. Tree: `worktree-hospitality-animations` at `1d6189203
 - [x] **formatLocalTime + formatVenueOpenLabel — caption/accessible-name copy** — `formatLocalTime` in `utils/format.ts` (UTC-pinned 12-hour, reuses `LOCALE`), new `utils/venueOpenLabel.ts` with `WEEKDAY_LABEL`, tests in `format.test.ts` and `venueOpenLabel.test.ts` (tracker: #4739)
   - Accept: `17:00 → 5:00 PM`, `22:00 → 10:00 PM`, `02:00 → 2:00 AM`, `00:00 → 12:00 AM`, `12:30 → 12:30 PM`, identical under `TZ=Asia/Tokyo`; `Open until 10:00 PM`, `Open until 2:00 AM`, `Opens at 5:00 PM`, `Closed, opens at 5:00 PM`, `Closed, opens Tuesday at 5:00 PM`, `No operating hours set`; `venueOpenLabel.ts` contains no `Intl` / `new Date`; existing `formatTime` cases unchanged.
   - Blocked by: #4738
-- [ ] **useNow — 60 s clock hook** — new `apps/hospitality/src/hooks/useNow.ts` + test: `useNow(intervalMs = 60_000): Date`, `setInterval` in an effect keyed on `intervalMs`, cleanup on unmount, no visibility handling (tracker: #4740)
+- [x] **useNow — 60 s clock hook** — new `apps/hospitality/src/hooks/useNow.ts` + test: `useNow(intervalMs = 60_000): Date`, `setInterval` in an effect keyed on `intervalMs`, cleanup on unmount, no visibility handling (tracker: #4740)
   - Accept: initial value equals mocked system time; same object at 59 999 ms; new `Date` at 60 000 ms; `useNow(1_000)` ticks at 1 s; interval change restarts (timer count stays 1); `vi.getTimerCount() === 0` after unmount; no `addEventListener`.
   - Blocked by: —
 - [ ] **PageHeader aside slot** — `aside?: ReactNode` on `components/PageHeader.tsx`; `.withAside` flex row + `.aside` + `@media (max-width: 767px) { .aside { flex-basis: 100% } }` in `PageHeader.module.css`; two new tests (tracker: #4741)

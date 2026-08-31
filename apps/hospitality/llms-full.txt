@@ -464,6 +464,18 @@
       return Array.isArray(permissions) && permissions.includes("admin");
     }
   </file>
+  <file path="src/hooks/useNow.ts">
+    export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date {
+      const [now, setNow] = useState(() => new Date());
+    
+      useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), intervalMs);
+        return () => clearInterval(interval);
+      }, [intervalMs]);
+    
+      return now;
+    }
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     export interface UsePublicApiClientOptions {
       baseUrl?: string;

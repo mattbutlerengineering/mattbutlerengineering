@@ -316,6 +316,11 @@
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useNow.ts">
+    <item priority="high">
+      export function useNow(intervalMs = DEFAULT_INTERVAL_MS): Date { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/usePublicApiClient.ts">
     <item priority="low">
       interface UsePublicApiClientOptions {
