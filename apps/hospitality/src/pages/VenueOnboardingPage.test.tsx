@@ -865,6 +865,34 @@ describe("VenueOnboardingPage", () => {
     });
   });
 
+  it("navigates to /floor-plans/{planId} after a successful Retry, without needing the celebration button (PR #4804 addendum)", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockTablesCreate
+      .mockRejectedValueOnce(new Error("Stopped at table 1 of 1"))
+      .mockResolvedValueOnce(makeTable("Table A"));
+    mockFloorPlansSetActive.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1", true));
+    mockVenuesFixture = [{ id: "venue-1" }];
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank", "My Venue", () => {
+      fireEvent.click(screen.getByText("Add Table A"));
+    });
+    fireEvent.click(screen.getByText("Launch Venue"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Stopped at table 1 of 1");
+    });
+
+    // The retry banner's onRetry — LaunchStep's own celebration wrapper
+    // (which the primary Launch button uses) is never invoked on this path.
+    fireEvent.click(screen.getByText("Retry"));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/plan-1", { replace: true });
+    });
+  });
+
   it("Story 6: selects the newly-launched venue (not venues[0]) before navigating, in a multi-venue fixture", async () => {
     mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-new"));
     mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-new", "venue-new"));

@@ -141,7 +141,54 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Venues
-  await page.route("**/api/v1/venues?*", (route) => jsonResponse(route, "venues-list"));
+  // Stateful create sequence (#4762): POST /api/v1/venues carries neither a
+  // query string nor an id segment, so it is matched by neither the list
+  // route below nor the id-segment route further down — it needs its own
+  // handler. A single `let`, not an array: this wizard launches one venue
+  // per E2E run. Layered onto the list route so a post-launch refetch (the
+  // handoff in VenueOnboardingPage) sees the venue it just created.
+  let createdVenue: Record<string, unknown> | null = null;
+  await page.route("**/api/v1/venues", (route) => {
+    const venues = JSON.parse(loadFixture("venues-list"));
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = route.request().postDataJSON();
+      if (parsed !== null && typeof parsed === "object") {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no body — leave empty
+    }
+    const now = new Date().toISOString();
+    createdVenue = {
+      ...venues.data[0],
+      ...body,
+      id: "ven_e2e_created",
+      createdAt: now,
+      updatedAt: now,
+    };
+    return route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ data: createdVenue }),
+    });
+  });
+  await page.route("**/api/v1/venues?*", (route) => {
+    const venues = JSON.parse(loadFixture("venues-list")) as {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    };
+    const allData = createdVenue ? [...venues.data, createdVenue] : venues.data;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...venues,
+        data: allData,
+        pagination: { ...venues.pagination, total: allData.length },
+      }),
+    });
+  });
   await page.route("**/api/v1/venues/by-slug/*", (route) =>
     jsonOk(route, buildPublicVenueFixture())
   );
@@ -158,12 +205,63 @@ export async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
 
   // Tables
-  await page.route("**/api/v1/tables?*", (route) => jsonResponse(route, "tables-list"));
+  // Stateful create sequence (#4762): POST /api/v1/tables (bare, no query,
+  // no id segment) appends the new table to a per-context list — mirrors
+  // the reservations/waitlist stateful stores below. Read by the Floor
+  // Plans section's GET-by-id handler so the editor the wizard lands on
+  // renders the tables Launch just created, not the static fixture.
+  const createdTables: Array<Record<string, unknown>> = [];
+  await page.route("**/api/v1/tables", (route) => {
+    const tables = JSON.parse(loadFixture("tables-list"));
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = route.request().postDataJSON();
+      if (parsed !== null && typeof parsed === "object") {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no body — leave empty
+    }
+    const now = new Date().toISOString();
+    const newTable = {
+      ...tables.data[0],
+      ...body,
+      id: `tbl_e2e_created_${createdTables.length + 1}`,
+      status: "AVAILABLE",
+      createdAt: now,
+      updatedAt: now,
+    };
+    createdTables.push(newTable);
+    return route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ data: newTable }),
+    });
+  });
+  await page.route("**/api/v1/tables?*", (route) => {
+    const tables = JSON.parse(loadFixture("tables-list")) as {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    };
+    const allData = [...tables.data, ...createdTables];
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...tables,
+        data: allData,
+        pagination: { ...tables.pagination, total: allData.length },
+      }),
+    });
+  });
   await page.route(/\/api\/v1\/tables\/[^/?]+\/status$/, (route) => {
     const tables = JSON.parse(loadFixture("tables-list"));
     return jsonOk(route, { ...tables.data[0], status: "OCCUPIED" });
   });
   await page.route(/\/api\/v1\/tables\/[^/?]+$/, (route) => {
+    const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
+    const created = createdTables.find((table) => table.id === id);
+    if (created) return jsonOk(route, created);
     const tables = JSON.parse(loadFixture("tables-list"));
     return jsonOk(route, tables.data[0]);
   });
@@ -407,12 +505,72 @@ export async function mockApi(page: Page): Promise<void> {
   });
 
   // Floor Plans
-  await page.route("**/api/v1/floor-plans?*", (route) => jsonResponse(route, "floor-plans-list"));
+  // Stateful create sequence (#4762): POST /api/v1/floor-plans (bare, no
+  // query, no id segment) creates the plan the wizard lands on. A single
+  // `let` — one launch, one plan. Its GET-by-id handler below layers in
+  // `tables` from the Tables section's createdTables list, so the editor
+  // the wizard navigates to renders what Launch just created rather than
+  // the static fixture's tables.
+  let createdFloorPlan: Record<string, unknown> | null = null;
+  await page.route("**/api/v1/floor-plans", (route) => {
+    const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = route.request().postDataJSON();
+      if (parsed !== null && typeof parsed === "object") {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no body — leave empty
+    }
+    const now = new Date().toISOString();
+    createdFloorPlan = {
+      ...floorPlans.data[0],
+      ...body,
+      id: "fp_e2e_created",
+      isActive: false,
+      tables: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    return route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ data: createdFloorPlan }),
+    });
+  });
+  await page.route("**/api/v1/floor-plans?*", (route) => {
+    const floorPlans = JSON.parse(loadFixture("floor-plans-list")) as {
+      data: Array<Record<string, unknown>>;
+      pagination: Record<string, unknown>;
+    };
+    const allData = createdFloorPlan ? [...floorPlans.data, createdFloorPlan] : floorPlans.data;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...floorPlans,
+        data: allData,
+        pagination: { ...floorPlans.pagination, total: allData.length },
+      }),
+    });
+  });
   await page.route(/\/api\/v1\/floor-plans\/tables\/positions$/, (route) => {
     const tables = JSON.parse(loadFixture("tables-list"));
     return jsonOk(route, tables.data);
   });
   await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/activate$/, (route) => {
+    const id = route
+      .request()
+      .url()
+      .replace(/\?.*$/, "")
+      .replace(/\/activate$/, "")
+      .split("/")
+      .pop();
+    if (createdFloorPlan && createdFloorPlan.id === id) {
+      createdFloorPlan = { ...createdFloorPlan, isActive: true };
+      return jsonOk(route, createdFloorPlan);
+    }
     const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
     return jsonOk(route, floorPlans.data[0]);
   });
@@ -421,6 +579,11 @@ export async function mockApi(page: Page): Promise<void> {
     return jsonOk(route, { ...floorPlans.data[0], id: "fp_e2e_clone", name: "Main Floor (Copy)" });
   });
   await page.route(/\/api\/v1\/floor-plans\/[^/?]+$/, (route) => {
+    const id = route.request().url().replace(/\?.*$/, "").split("/").pop();
+    if (createdFloorPlan && createdFloorPlan.id === id) {
+      const planTables = createdTables.filter((table) => table.floorPlanId === id);
+      return jsonOk(route, { ...createdFloorPlan, tables: planTables });
+    }
     const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
     return jsonOk(route, floorPlans.data[0]);
   });
