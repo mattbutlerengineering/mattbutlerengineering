@@ -6537,6 +6537,20 @@
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
+  <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-draft.ts">
+    <item priority="low">
+      type DraftTableShape = TableShapeMetadata["shape"];
+    </item>
+    <item priority="low">
+      interface DraftTable {
+        localId: string;
+        name: string;
+        capacity: number;
+        minCovers: number;
+        shape: DraftTableShape;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/generate-slug.ts">
     <item priority="high">
       export function generateSlug(name: string): string { /* ... */ }
