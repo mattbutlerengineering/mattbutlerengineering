@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Alert,
   AvatarGroup,
@@ -156,6 +156,8 @@ const LAPS_PER_PAGE = 5;
 /* ── Component ──────────────────────────────── */
 
 export function Dashboard() {
+  const navigate = useNavigate();
+
   /* Interactive state */
   const [drsEnabled, setDrsEnabled] = useState(false);
   const [engineMode, setEngineMode] = useState("mode2");
@@ -192,8 +194,8 @@ export function Dashboard() {
       {/* ── Dark header ─────────────────────── */}
       <PageHeader
         breadcrumbs={[
-          { label: "Home", href: "/" },
-          { label: "Telemetry", href: DEMO_ROUTES.telemetry },
+          { label: "Home", onClick: () => navigate("/") },
+          { label: "Telemetry", onClick: () => navigate(DEMO_ROUTES.telemetry) },
           { label: "Dashboard" },
         ]}
         title="Pit Wall"
