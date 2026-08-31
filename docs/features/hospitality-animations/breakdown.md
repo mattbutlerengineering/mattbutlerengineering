@@ -60,7 +60,7 @@ Tracking issue: **#4746**. Tree: `worktree-hospitality-animations` at `1d6189203
 
 ## M4 — Dashboard wiring
 
-- [ ] **HomePage — NeonSign in the header aside, tests, CLAUDE.md, llms regen** — `useVenue` → `useNow` → `deriveVenueOpenState` → `formatVenueOpenLabel` → `<NeonSign>` in `PageHeader aside`; `HomePage.test.tsx` gains a `VenueContext` mock, `NeonSign` mock, `{aside}` in the `PageHeader` mock and seven cases; `apps/hospitality/CLAUDE.md` `HomePage` row; hospitality (+ root) `llms*.txt` (tracker: #4745)
+- [x] **HomePage — NeonSign in the header aside, tests, CLAUDE.md, llms regen** — `useVenue` → `useNow` → `deriveVenueOpenState` → `formatVenueOpenLabel` → `<NeonSign>` in `PageHeader aside`; `HomePage.test.tsx` gains a `VenueContext` mock, `NeonSign` mock, `{aside}` in the `PageHeader` mock and seven cases; `apps/hospitality/CLAUDE.md` `HomePage` row; hospitality (+ root) `llms*.txt` (tracker: #4745)
   - Accept: 11 existing cases unchanged; `open` / `opening-soon` / `closed` / `unset` each render `img` with the right `data-state` and name; no venue → no `img`; `"Mars/Olympus"` → no `img`; the 60 s tick flips `opening-soon` → `open` with `Open until 10:00 PM`; `heading "Dashboard"` still unique, no new `status` / `meter`; `regen --check` clean; advisory E2E run id or "environment unavailable" recorded.
   - Blocked by: #4738, #4739, #4740, #4741, #4742
 
