@@ -1,0 +1,108 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+/* Standard visually-hidden technique (matches GuestsPage.module.css /
+   AdminPage.module.css .srOnly) — venue-onboarding/ has no shared srOnly
+   class to reuse yet, so this mirrors that existing repo convention rather
+   than inventing a new one. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  position: relative;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding-block-start: var(--rialto-space-2xs);
+}
+
+/* Pure query hook for the LED's variant — display: contents keeps it out
+   of layout entirely, so it can't affect StatusLED's own box. */
+.ledWrap {
+  display: contents;
+}
+
+/* The machined groove connecting this row's LED to the next one. Filled
+   (success token, solid) once the row above is done; solid but unfilled
+   while the row above is in flight; dotted for a not-yet-reached row. */
+.groove {
+  inline-size: 2px;
+  block-size: var(--rialto-space-lg);
+  margin-block-start: var(--rialto-space-2xs);
+  background: var(--rialto-border);
+  transition: background var(--rialto-duration-standard) var(--rialto-ease-precision);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groove {
+    transition: none;
+  }
+}
+
+.grooveFilled {
+  background: var(--rialto-success);
+}
+
+.grooveLive {
+  background: var(--rialto-border-strong);
+}
+
+.grooveDotted {
+  background-image: linear-gradient(var(--rialto-border) 40%, transparent 0%);
+  background-position: center;
+  background-size: 2px var(--rialto-space-xs);
+  background-repeat: repeat-y;
+  background-color: transparent;
+}
+
+.rowBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  padding-block-end: var(--rialto-space-md);
+  min-width: 0;
+}
+
+.label {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+}
+
+.detail {
+  color: var(--rialto-text-secondary);
+}
+
+.row[data-state="failed"] .detail {
+  color: var(--rialto-error);
+}
+
+.progress {
+  margin-block-start: var(--rialto-space-2xs);
+  max-width: 16rem;
+}

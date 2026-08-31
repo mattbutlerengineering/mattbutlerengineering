@@ -56,4 +56,18 @@ describe("PageHeader", () => {
     expect(description).toBeDefined();
     expect(description?.getAttribute("data-color")).toBe("secondary");
   });
+
+  it("renders the aside at the inline-end when provided", () => {
+    const { container } = render(<PageHeader title="Dashboard" aside={<span>Sign</span>} />);
+    const aside = container.querySelector(".aside");
+    expect(aside).not.toBeNull();
+    expect(aside?.contains(screen.getByText("Sign"))).toBe(true);
+    expect(container.firstElementChild?.classList.contains("withAside")).toBe(true);
+  });
+
+  it("adds no aside wrapper when omitted", () => {
+    const { container } = render(<PageHeader title="Dashboard" />);
+    expect(container.querySelector(".aside")).toBeNull();
+    expect(container.querySelector(".withAside")).toBeNull();
+  });
 });
