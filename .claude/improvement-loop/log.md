@@ -988,6 +988,12 @@ None (`agent-skip` is empty this run).
 **Skill proposals:** 0 (Sunday, not the Friday extraction day).
 **Threshold notes:** ci-fix auto-tuned 1.09 → 1.12 (headroom) by verify-fixes.mjs. 30d verification log is still almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable in this cloud sandbox), so false-positive and fix-effectiveness rates aren't a meaningful signal yet — consistent with the 08-11/08-28 notes, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GITHUB_TOKEN REST-fallback 403 as the `issues`/`issueFeedback` sensors (unresolved since 2026-08-11).
 
+## 2026-08-31
+
+**queueEfficiency:** composite 0.913 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:7, size:m:4, size:s:11, size:l:1
+**Issues filed:** 0
+
 ## 2026-08-31 (mbe-evening / implement-queue + progress-tracker)
 
 ### Metrics (7d, 2026-08-24 → 2026-08-31)
