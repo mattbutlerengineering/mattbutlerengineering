@@ -502,6 +502,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="WatchLoader">
+  <file path="packages/rialto/src/components/WatchLoader/movement.ts">
+    <item priority="low">
+      interface MovementPart {
+        id: string;
+        cx: number;
+        cy: number;
+        radius: number;
+        teeth?: number;
+      }
+    </item>
+    <item priority="high">
+      export const PLATE_RADIUS: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="__tests__">
   <file path="packages/agent-core/src/__tests__/fake-phase-deps.ts">
     <item priority="high">

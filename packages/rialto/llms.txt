@@ -484,6 +484,22 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="WatchLoader">
+  <file path="src/components/WatchLoader/movement.ts">
+    <item priority="low">
+      interface MovementPart {
+        id: string;
+        cx: number;
+        cy: number;
+        radius: number;
+        teeth?: number;
+      }
+    </item>
+    <item priority="high">
+      export const PLATE_RADIUS: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="components">
   <file path="src/components/catalog-meta.ts">
     <item priority="low">

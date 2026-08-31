@@ -908,6 +908,20 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="WatchLoader">
+  <file path="src/components/WatchLoader/movement.ts">
+    export interface MovementPart {
+      readonly id: string;
+      readonly cx: number;
+      readonly cy: number;
+      /** Body radius (the solid disc, excluding teeth). */
+      readonly radius: number;
+      /** Tooth count for the gear train; absent on the balance and escape wheels. */
+      readonly teeth?: number;
+    }
+    export const PLATE_RADIUS = 48;
+  </file>
+  </section>
   <section priority="medium" role="components">
   <file path="src/components/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
