@@ -226,7 +226,7 @@ export function SignUp() {
             disabled={isLoading}
           />
           {agreedError && (
-            <Text variant="caption" color="error">
+            <Text id="terms-agreement-error" variant="caption" color="error" role="alert">
               You&apos;ll need to agree first
             </Text>
           )}

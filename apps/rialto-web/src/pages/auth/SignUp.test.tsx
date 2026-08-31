@@ -106,8 +106,20 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     </label>
   );
   const Divider = () => <hr />;
-  const Text = ({ children, className }: { children?: ReactNode; className?: string }) => (
-    <p className={className}>{children}</p>
+  const Text = ({
+    children,
+    className,
+    id,
+    role,
+  }: {
+    children?: ReactNode;
+    className?: string;
+    id?: string;
+    role?: string;
+  }) => (
+    <p className={className} id={id} role={role}>
+      {children}
+    </p>
   );
   const Handshake = ({
     "aria-label": ariaLabel,
@@ -209,7 +221,7 @@ describe("SignUp — confirm password", () => {
     setField("Confirm password", "Abc");
     fireEvent.blur(screen.getByLabelText("Confirm password"));
 
-    setField("Confirm password", "Abcdefghijk1");
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     expect(screen.queryByText(/match/i)).not.toBeInTheDocument();
   });
 });
@@ -230,7 +242,7 @@ describe("SignUp — submit", () => {
     setField("Full name", "Ada Lovelace");
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
-    setField("Confirm password", "Abcdefghijk1");
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     agreeToTerms();
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -246,7 +258,7 @@ describe("SignUp — submit", () => {
     setField("Full name", "Ada Lovelace");
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
-    setField("Confirm password", "Abcdefghijk1");
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     await act(async () => {
@@ -254,7 +266,8 @@ describe("SignUp — submit", () => {
     });
 
     expect(toastSpy).not.toHaveBeenCalled();
-    expect(screen.getByText(/agree first/i)).toBeInTheDocument();
+    const error = screen.getByRole("alert");
+    expect(error).toHaveTextContent(/agree first/i);
   });
 
   it("blocks submission while the confirmation does not match", async () => {
@@ -288,7 +301,7 @@ describe("SignUp — Handshake phase", () => {
     setField("Full name", "Ada Lovelace");
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
-    setField("Confirm password", "Abcdefghijk1");
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     agreeToTerms();
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -305,7 +318,7 @@ describe("SignUp — Handshake phase", () => {
     setField("Full name", "Ada Lovelace");
     setField("Email address", "ada@example.com");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
-    setField("Confirm password", "Abcdefghijk1");
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     agreeToTerms();
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
@@ -348,7 +361,7 @@ describe("SignUp — Handshake phase", () => {
     setField("Full name", "Ada Lovelace");
     setField("Email address", "nope");
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
-    setField("Confirm password", "Abcdefghijk1");
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
 
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     await act(async () => {
