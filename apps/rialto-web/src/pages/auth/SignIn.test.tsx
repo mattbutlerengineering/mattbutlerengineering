@@ -24,6 +24,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     error,
     hint,
     type,
+    disabled,
     endIcon,
   }: {
     label?: string;
@@ -33,6 +34,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     error?: boolean;
     hint?: string;
     type?: string;
+    disabled?: boolean;
     endIcon?: ReactNode;
   }) => (
     <label>
@@ -43,6 +45,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
         value={value}
         onChange={onChange}
         onBlur={onBlur}
+        disabled={disabled}
         aria-invalid={error || undefined}
       />
       {hint ? <span role="note">{hint}</span> : null}
@@ -117,6 +120,13 @@ vi.mock("@mattbutlerengineering/rialto", () => {
   );
   const Divider = () => <hr />;
   const Text = ({ children }: { children?: ReactNode }) => <p>{children}</p>;
+  const Handshake = ({
+    "aria-label": ariaLabel,
+    state,
+  }: {
+    "aria-label"?: string;
+    state?: string;
+  }) => <div role="img" aria-label={ariaLabel} data-state={state} />;
   const useToast = () => ({ toast: toastSpy });
   const useMotionPreset = () => ({
     precision: { duration: 0 },
@@ -124,7 +134,18 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     springGentle: { duration: 0 },
     tilt: { stiffness: 500, damping: 22, mass: 0.35 },
   });
-  return { Input, PinInput, Steps, Button, Checkbox, Divider, Text, useToast, useMotionPreset };
+  return {
+    Input,
+    PinInput,
+    Steps,
+    Button,
+    Checkbox,
+    Divider,
+    Text,
+    Handshake,
+    useToast,
+    useMotionPreset,
+  };
 });
 
 function renderSignIn() {
@@ -168,6 +189,13 @@ describe("SignIn — credentials step", () => {
 
     const current = screen.getByTestId("steps").querySelector("[aria-current='step']");
     expect(current).toHaveTextContent("Credentials");
+  });
+
+  it("shows the sign-in exchange at rest on load, with an empty status line", () => {
+    renderSignIn();
+    const handshake = screen.getByRole("img", { name: "Sign-in exchange at rest" });
+    expect(handshake).toHaveAttribute("data-state", "idle");
+    expect(screen.getByRole("status")).toHaveTextContent("");
   });
 
   it("flags a malformed email on blur and clears the flag once corrected", () => {
@@ -222,6 +250,42 @@ describe("SignIn — verification step", () => {
     expect(codeInput()).toBeInTheDocument();
     const current = screen.getByTestId("steps").querySelector("[aria-current='step']");
     expect(current).toHaveTextContent("Verification");
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "idle");
+  });
+
+  it("negotiates while credentials are submitting, before the network delay elapses", async () => {
+    renderSignIn();
+    fillCredentials();
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "negotiating");
+    expect(screen.getByRole("status")).toHaveTextContent("Sending your credentials");
+    expect(screen.getByLabelText("Email address")).toBeDisabled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+  });
+
+  it("negotiates while a code is verifying, before the network delay elapses", async () => {
+    renderSignIn();
+    fillCredentials();
+    await submitCredentials();
+
+    fireEvent.change(codeInput(), { target: { value: "123456" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "negotiating");
+    expect(screen.getByRole("status")).toHaveTextContent("Checking your code");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
   });
 
   it("rejects the demo reject code with a mismatch message and no toast", async () => {
@@ -234,8 +298,13 @@ describe("SignIn — verification step", () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
 
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "failed");
+    expect(screen.getByRole("status")).toHaveTextContent("The exchange didn't go through");
     expect(screen.getByText(/didn.t match/i)).toBeInTheDocument();
     expect(toastSpy).not.toHaveBeenCalled();
+
+    fireEvent.change(codeInput(), { target: { value: "1" } });
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "idle");
   });
 
   it("accepts any other complete code and fires the success toast after settling", async () => {
@@ -245,7 +314,15 @@ describe("SignIn — verification step", () => {
 
     fireEvent.change(codeInput(), { target: { value: "123456" } });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(900);
+    });
+
+    expect(screen.getByRole("img")).toHaveAttribute("data-state", "settled");
+    expect(screen.getByRole("status")).toHaveTextContent("Verified");
+    expect(toastSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
     });
 
     expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
