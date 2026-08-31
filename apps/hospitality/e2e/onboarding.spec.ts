@@ -120,7 +120,9 @@ test.describe("Venue onboarding wizard", () => {
     await expect(mockedPage.getByRole("button", { name: "Back" })).toBeDisabled();
   });
 
-  test("advances through all 5 steps to confirmation", async ({ mockedPage }) => {
+  test("advances through all 6 steps, picks a template, and reaches the Launch review", async ({
+    mockedPage,
+  }) => {
     await mockedPage.goto("onboarding");
 
     await mockedPage.getByLabel("Venue Name").fill("E2E Test Venue");
@@ -152,6 +154,23 @@ test.describe("Venue onboarding wizard", () => {
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
     // Step 4 (Settings) — all fields optional, defaults apply.
+    await mockedPage.getByRole("button", { name: "Next" }).click();
+
+    // Step 5 (Floor plan) — Next is refused until a template is picked. All
+    // five layout options render as role="radio" cards; assert each is
+    // visible by role (not by their seat/table-count text, which is derived
+    // from template zone data, not this test's concern), pick one by role
+    // and accessible name (never canvas pixels), and assert the pick
+    // registered before advancing.
+    const templateOptions = mockedPage.getByRole("radio");
+    await expect(templateOptions).toHaveCount(5);
+    for (let i = 0; i < 5; i += 1) {
+      await expect(templateOptions.nth(i)).toBeVisible();
+    }
+    const blankOption = mockedPage.getByRole("radio", { name: "Blank — no tables" });
+    await blankOption.click();
+    await expect(blankOption).toBeChecked();
+
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
     await expect(mockedPage.getByRole("button", { name: /launch venue/i })).toBeVisible();

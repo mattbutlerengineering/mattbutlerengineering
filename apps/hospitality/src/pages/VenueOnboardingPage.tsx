@@ -102,6 +102,18 @@ export function VenueOnboardingPage() {
     setCelebrationDone(true);
   };
 
+  // Called by LaunchStep's Retry banner. Retry bypasses LaunchStep's own
+  // celebration wrapper (that wrapper only wraps the primary Launch button),
+  // so a successful retry never fires onCelebrationDone on its own — the
+  // handoff effect below would then never navigate, leaving the manager
+  // parked on the launch screen with a disabled Launch button even though
+  // the venue is live. Marking celebrationDone directly on retry success
+  // closes that gap without touching LaunchStep.
+  const handleRetry = async () => {
+    await handleLaunch();
+    setCelebrationDone(true);
+  };
+
   // Handoff, part 1: once the refetched venue list contains the launched
   // venue and it isn't the active selection yet, select it. setVenueId
   // refuses an id absent from venues, which is exactly why this waits for
@@ -221,7 +233,7 @@ export function VenueOnboardingPage() {
               onCelebrationDone={handleCelebrationDone}
               floorPlan={data.floorPlan}
               launch={launch}
-              onRetry={handleLaunch}
+              onRetry={handleRetry}
             />
           )}
 
