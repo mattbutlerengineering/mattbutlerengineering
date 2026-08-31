@@ -39,7 +39,7 @@ Tracking issue: **#4746**. Tree: `worktree-hospitality-animations` at `1d6189203
 - [x] **useNow — 60 s clock hook** — new `apps/hospitality/src/hooks/useNow.ts` + test: `useNow(intervalMs = 60_000): Date`, `setInterval` in an effect keyed on `intervalMs`, cleanup on unmount, no visibility handling (tracker: #4740)
   - Accept: initial value equals mocked system time; same object at 59 999 ms; new `Date` at 60 000 ms; `useNow(1_000)` ticks at 1 s; interval change restarts (timer count stays 1); `vi.getTimerCount() === 0` after unmount; no `addEventListener`.
   - Blocked by: —
-- [ ] **PageHeader aside slot** — `aside?: ReactNode` on `components/PageHeader.tsx`; `.withAside` flex row + `.aside` + `@media (max-width: 767px) { .aside { flex-basis: 100% } }` in `PageHeader.module.css`; two new tests (tracker: #4741)
+- [x] **PageHeader aside slot** — `aside?: ReactNode` on `components/PageHeader.tsx`; `.withAside` flex row + `.aside` + `@media (max-width: 767px) { .aside { flex-basis: 100% } }` in `PageHeader.module.css`; two new tests (tracker: #4741)
   - Accept: aside rendered inside `.aside` with root `withAside` when provided; neither present when omitted; five existing cases + rialto mock untouched; no colour literal, no `--rialto-accent*` / `--rialto-warning*`.
   - Blocked by: —
 
