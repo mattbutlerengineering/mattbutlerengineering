@@ -13,9 +13,27 @@ import {
   Select,
   Steps,
   Text,
+  useDeviceContext,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import { DEMO_ROUTES } from "../../data/demo-routes";
 import styles from "./TeamCreate.module.css";
+
+/** Simulated network round-trip for team registration — demo-only. */
+const REGISTER_NETWORK_MS = 400;
+/** How long the success state is visible before the confirmation toast. */
+const SUCCESS_SETTLE_MS = 700;
+/** Shortened settle beat when the user prefers reduced motion. */
+const REDUCED_SUCCESS_SETTLE_MS = 150;
+/** Beat after the toast, giving the confirmation a moment to read before
+ *  handing off to the dashboard. */
+const HANDOFF_DELAY_MS = 700;
+/** Shortened handoff beat when the user prefers reduced motion. */
+const REDUCED_HANDOFF_DELAY_MS = 150;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type RegisterPhase = "idle" | "registering" | "success";
 
 const ENGINES = [
   { value: "", label: "Select engine..." },
@@ -84,11 +102,13 @@ function validateStep(step: number, data: TeamFormData): string[] {
 export function TeamCreate() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const device = useDeviceContext();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<TeamFormData>(INITIAL_DATA);
   const [errors, setErrors] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [phase, setPhase] = useState<RegisterPhase>("idle");
+  const isSubmitting = phase !== "idle";
 
   function update<K extends keyof TeamFormData>(key: K, value: TeamFormData[K]) {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -117,13 +137,15 @@ export function TeamCreate() {
     }
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
-    setTimeout(() => {
-      toast({ title: `${data.name} registered`, variant: "success" });
-      navigate("/");
-    }, 400);
+    setPhase("registering");
+    await delay(REGISTER_NETWORK_MS);
+    setPhase("success");
+    await delay(device.reducedMotion ? REDUCED_SUCCESS_SETTLE_MS : SUCCESS_SETTLE_MS);
+    toast({ title: `${data.name} is on the grid`, variant: "success" });
+    await delay(device.reducedMotion ? REDUCED_HANDOFF_DELAY_MS : HANDOFF_DELAY_MS);
+    navigate(DEMO_ROUTES.dashboard);
   }
 
   return (
@@ -134,7 +156,7 @@ export function TeamCreate() {
       <Steps
         steps={STEP_ITEMS}
         currentStep={currentStep}
-        onStepClick={handleStepClick}
+        onStepClick={isSubmitting ? undefined : handleStepClick}
         className={styles.steps}
       />
 
@@ -233,7 +255,12 @@ export function TeamCreate() {
             <div className={styles.reviewGroup}>
               <div className={styles.reviewHeader}>
                 <Text variant="label">Team Info</Text>
-                <Button variant="ghost" size="sm" onClick={() => setCurrentStep(0)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isSubmitting}
+                  onClick={() => setCurrentStep(0)}
+                >
                   Edit
                 </Button>
               </div>
@@ -253,7 +280,12 @@ export function TeamCreate() {
             <div className={styles.reviewGroup}>
               <div className={styles.reviewHeader}>
                 <Text variant="label">Car Setup</Text>
-                <Button variant="ghost" size="sm" onClick={() => setCurrentStep(1)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isSubmitting}
+                  onClick={() => setCurrentStep(1)}
+                >
                   Edit
                 </Button>
               </div>
@@ -275,11 +307,22 @@ export function TeamCreate() {
             </div>
 
             <div className={styles.formActions}>
-              <Button variant="secondary" type="button" onClick={handleBack}>
+              <Button
+                variant="secondary"
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleBack}
+              >
                 Back
               </Button>
-              <Button variant="primary" type="submit" disabled={submitting}>
-                {submitting ? "Registering..." : "Register Team"}
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isSubmitting}
+                isLoading={phase === "registering"}
+                loadingText="Registering..."
+              >
+                {phase === "success" ? "Registered" : "Register Team"}
               </Button>
             </div>
           </form>
