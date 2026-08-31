@@ -6551,6 +6551,20 @@
       }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-templates.ts">
+    <item priority="low">
+      type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
+    </item>
+    <item priority="low">
+      interface Zone {
+        prefix: string;
+        shape: DraftTableShape;
+        capacity: number;
+        minCovers: number;
+        origin: { x: number; y: number };
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/generate-slug.ts">
     <item priority="high">
       export function generateSlug(name: string): string { /* ... */ }

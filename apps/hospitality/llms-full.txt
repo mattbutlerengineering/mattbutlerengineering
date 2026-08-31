@@ -810,6 +810,22 @@
       y: number;
     }
   </file>
+  <file path="src/components/venue-onboarding/floor-plan-templates.ts">
+    export type TemplateId = "restaurant" | "cafe" | "bar" | "patio" | "blank";
+    export interface Zone {
+      prefix: string;
+      shape: DraftTableShape;
+      capacity: number;
+      minCovers: number;
+      origin: { x: number; y: number };
+      cols: number;
+      rows: number;
+      /** Omitted when cols === 1. */
+      pitchX?: number;
+      /** Omitted when rows === 1. */
+      pitchY?: number;
+    }
+  </file>
   <file path="src/components/venue-onboarding/generate-slug.ts">
     export function generateSlug(name: string): string {
       return name
