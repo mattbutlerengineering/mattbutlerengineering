@@ -198,7 +198,7 @@ confirmatory when the environment allows.
       accessible name is exactly "Sign In", and `data-testid="auth-layout"`
       are untouched; `apps/hospitality/e2e/auth.spec.ts` and `auth.setup.ts`
       have no diff. Check: `LoginGate.test.tsx` contract tests green; `git
-  diff --stat` on both E2E files is empty; the spec passes when the
+diff --stat` on both E2E files is empty; the spec passes when the
       environment allows.
 - [ ] **10. Visual job green.** The rialto-web visual job passes. Measured
       2026-08-30: `visual.spec.ts` snapshots only `/visual-test` harness
