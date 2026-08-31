@@ -197,12 +197,16 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
               </svg>
             </button>
           </div>
-          {hint && (
-            <span {...field.descriptionProps} className={styles.hint}>
-              {hint}
-            </span>
-          )}
-          <span {...field.liveRegionProps}>{error && hint ? hint : ""}</span>
+          {hint &&
+            (error ? (
+              <span key="error" {...field.errorProps} className={styles.hint}>
+                {hint}
+              </span>
+            ) : (
+              <span key="hint" {...field.descriptionProps} className={styles.hint}>
+                {hint}
+              </span>
+            ))}
         </div>
       </DisabledTooltip>
     );

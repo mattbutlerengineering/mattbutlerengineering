@@ -38,9 +38,18 @@ export interface FieldDescriptionProps {
 /**
  * Props spread onto the error message element (e.g. `<span role="alert">`).
  * `id` is undefined when error=false — the element should not be rendered.
+ *
+ * `role="alert"` is spec-reliable on insertion-with-content (unlike
+ * `role="status"`/`aria-live="polite"` on a conditionally mounted region,
+ * which can be born with content before AT registers it as live).
+ * Consumers must render this element ONLY while error=true, and give it a
+ * distinct `key` from the non-error hint element, so each error transition
+ * is a fresh DOM insertion rather than an attribute mutation.
  */
 export interface FieldErrorProps {
-  id: string | undefined;
+  readonly id: string | undefined;
+  readonly role: "alert";
+  readonly "aria-atomic": true;
 }
 
 /**
@@ -54,8 +63,10 @@ export interface FieldControlProps {
 }
 
 /**
- * Props spread onto a visually-hidden live region that politely announces
- * async field state (error appearance, counter changes, completion).
+ * Props spread onto an always-mounted, visually-hidden live region that
+ * politely announces non-error async field state (counter changes,
+ * completion). Error messages use `errorProps` (role="alert") instead —
+ * routing them here too would duplicate the visible error text. See #4833.
  */
 export interface FieldLiveRegionProps {
   readonly role: "status";
@@ -102,10 +113,12 @@ export interface UseFieldResult {
  * Headless primitive that owns id generation, label association,
  * hint + error ARIA wiring, and required/optional label markup.
  *
- * The hint element and error element share the same stable id (`${id}-hint`).
- * When `error=true`:
+ * The hint element and error element share the same stable id (`${id}-hint`)
+ * so `aria-describedby` stays valid whichever one is rendered. When
+ * `error=true`:
  * - `controlProps["aria-invalid"]` is set to `true`
- * - `errorProps.id` is `${id}-hint` (same element, now acting as error region)
+ * - `errorProps.id` is `${id}-hint` (consumers render this element, with
+ *   `role="alert"`, instead of the plain `descriptionProps` hint element)
  * - `controlProps["aria-describedby"]` includes that id
  *
  * This fixes the previously missing error-message association:
@@ -143,7 +156,7 @@ export function useField({
     descriptionProps: { id: hintId },
     // errorProps.id is only exposed when error=true so callers know the
     // element should receive role="alert" / be identified as the error region.
-    errorProps: { id: error ? hintId : undefined },
+    errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
     controlProps: {
       id,
       required: required || undefined,

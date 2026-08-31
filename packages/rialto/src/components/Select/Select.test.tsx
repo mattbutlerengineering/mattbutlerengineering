@@ -249,10 +249,16 @@ describe("Select — required marker + aria-live announcements", () => {
     expect(screen.getByText("*", { exact: false })).toBeInTheDocument();
   });
 
-  it("announces the error hint via a polite status region", () => {
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike the old always-mounted echo region. See #4833.
+  it("announces the error hint via an alert region", () => {
     render(<Select options={options} error hint="Selection required" />);
-    const status = screen.getByRole("status");
-    expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveTextContent("Selection required");
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Selection required");
+  });
+
+  it("does not duplicate the error message into a separate hidden echo node", () => {
+    render(<Select options={options} error hint="Selection required" />);
+    expect(screen.getAllByText("Selection required")).toHaveLength(1);
   });
 });

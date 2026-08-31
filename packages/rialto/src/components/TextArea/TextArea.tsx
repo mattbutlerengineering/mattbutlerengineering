@@ -85,12 +85,14 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
 
     const currentLength = typeof value === "string" ? value.length : internalLength;
     const isOver = maxLength != null && currentLength > maxLength;
-    const announcement =
-      error && hint
-        ? hint
-        : maxLength != null
-          ? `${currentLength} of ${maxLength} characters${isOver ? ", over limit" : ""}`
-          : "";
+    // The character counter is announced via the always-mounted polite status
+    // region. The error message is handled separately by the errorProps
+    // (role="alert") element below so the two are never rendered as
+    // duplicate DOM text.
+    const counterAnnouncement =
+      !error && maxLength != null
+        ? `${currentLength} of ${maxLength} characters${isOver ? ", over limit" : ""}`
+        : "";
 
     return (
       <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -120,11 +122,16 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
           </div>
           {(hint || maxLength != null) && (
             <div className={styles.footer}>
-              {hint && (
-                <span {...field.descriptionProps} className={styles.hint}>
-                  {hint}
-                </span>
-              )}
+              {hint &&
+                (error ? (
+                  <span key="error" {...field.errorProps} className={styles.hint}>
+                    {hint}
+                  </span>
+                ) : (
+                  <span key="hint" {...field.descriptionProps} className={styles.hint}>
+                    {hint}
+                  </span>
+                ))}
               {maxLength != null && (
                 <span className={cn(styles.counter, isOver && styles.counterOver)}>
                   {currentLength}/{maxLength}
@@ -132,7 +139,7 @@ export const TextArea = forwardRef<HTMLDivElement, TextAreaProps>(
               )}
             </div>
           )}
-          <span {...field.liveRegionProps}>{announcement}</span>
+          <span {...field.liveRegionProps}>{counterAnnouncement}</span>
         </div>
       </DisabledTooltip>
     );

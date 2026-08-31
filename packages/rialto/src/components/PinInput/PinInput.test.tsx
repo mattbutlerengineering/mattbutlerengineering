@@ -205,6 +205,23 @@ describe("PinInput — required marker + aria-live announcements", () => {
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveTextContent("Code complete");
   });
+
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike the old always-mounted echo region. See #4833.
+  it("announces the error hint via an alert region", () => {
+    render(
+      <PinInput label="Code" length={4} error hint="Code expired" value="12" onChange={() => {}} />
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Code expired");
+  });
+
+  it("does not duplicate the error message into a separate hidden echo node", () => {
+    render(
+      <PinInput label="Code" length={4} error hint="Code expired" value="12" onChange={() => {}} />
+    );
+    expect(screen.getAllByText("Code expired")).toHaveLength(1);
+  });
 });
 
 describe("PinInput — onComplete", () => {

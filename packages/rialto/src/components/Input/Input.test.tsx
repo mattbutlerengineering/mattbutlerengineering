@@ -218,11 +218,20 @@ describe("Input", () => {
 });
 
 describe("Input — aria-live announcements", () => {
-  it("announces the error hint via a polite status region", () => {
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike role="status"/aria-live="polite" on a conditionally
+  // mounted region (which can be born with content before AT registers it
+  // as live). See #4833.
+  it("announces the error hint via an alert region", () => {
     render(<Input error hint="Invalid email" />);
-    const status = screen.getByRole("status");
-    expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveTextContent("Invalid email");
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Invalid email");
+  });
+
+  it("does not render a status region for the plain (non-error) hint", () => {
+    render(<Input hint="As it appears on your ID" />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("does not duplicate the error message into a separate hidden node", () => {
