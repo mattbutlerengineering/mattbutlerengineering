@@ -170,6 +170,16 @@ describe("FloorPlansClient", () => {
       const [url] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/activate");
     });
+
+    it("sends a parseable JSON body — an empty body with Content-Type: application/json is rejected by Fastify with 400", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeFloorPlan }));
+
+      await makeClient().setActive("fp1");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(() => JSON.parse(options?.body as string)).not.toThrow();
+      expect(options?.body).toBe("{}");
+    });
   });
 
   describe("bulkUpdatePositions", () => {

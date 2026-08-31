@@ -56,7 +56,7 @@ export class FloorPlansClient {
   async setActive(id: string): Promise<FloorPlan> {
     return this.client.postOne<FloorPlan>(
       `/api/v1/floor-plans/${id}/activate`,
-      undefined,
+      {},
       FloorPlanSchema
     );
   }
