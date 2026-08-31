@@ -98,6 +98,7 @@ export const Handshake = forwardRef<HTMLDivElement, HandshakeProps>(
         role="img"
         aria-label={ariaLabel}
         data-state={state}
+        data-lane={activeLane}
         data-reduced-motion={shouldReduceMotion}
         className={rootClass}
         {...rest}

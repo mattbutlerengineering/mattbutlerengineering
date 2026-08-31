@@ -12,16 +12,27 @@ export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["active
 /**
  * Hook to access authentication state and methods
  */
+const SIGN_OUT_NAVIGATORS: ReadonlySet<ActiveNavigator> = new Set<ActiveNavigator>([
+  "signoutRedirect",
+  "signoutPopup",
+  "signoutSilent",
+]);
+
 export function useAuth() {
   const auth = useOIDCAuth();
   const lifecycle = useSessionLifecycle();
 
   // react-oidc-context flips `isLoading` on for the whole life of ANY
   // navigator call (signinSilent, signinRedirect, …). A background refresh or
-  // an opening redirect is not "loading" to a consumer — rendering a loading
-  // screen there unmounts the authenticated app mid-session. Loading means the
-  // initial bootstrap / callback processing only.
+  // an opening sign-in redirect is not "loading" to a consumer — rendering a
+  // loading screen there unmounts the authenticated app mid-session (or hides
+  // the login gate's own in-flight state). Sign-OUT navigators are the
+  // exception: oidc-client-ts removes the user before the end-session
+  // navigation, so without the loading mask the login gate would flash with
+  // a live Sign In button that races the redirect. Loading therefore means
+  // bootstrap, callback processing, or a sign-out in flight.
   const activeNavigator = auth.activeNavigator;
+  const signOutInFlight = activeNavigator !== undefined && SIGN_OUT_NAVIGATORS.has(activeNavigator);
   const silentFailure = isSilentAuthError(auth.error);
 
   const user: AuthUser | null = auth.user
@@ -37,7 +48,7 @@ export function useAuth() {
 
   return {
     /** Whether the initial auth bootstrap (or the sign-in callback) is still resolving */
-    isLoading: auth.isLoading && activeNavigator === undefined,
+    isLoading: auth.isLoading && (activeNavigator === undefined || signOutInFlight),
     /** The navigator currently in flight (`"signinRedirect"`, `"signinSilent"`, …), if any */
     activeNavigator,
     /** Whether a silent token refresh is in flight — the session stays live meanwhile */

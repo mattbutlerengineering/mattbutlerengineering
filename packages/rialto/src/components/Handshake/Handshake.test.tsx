@@ -51,10 +51,11 @@ describe("Handshake", () => {
       expect(legs[1]).toHaveAttribute("data-active", "true");
     });
 
-    it("clamps an out-of-range lane to the last leg", () => {
+    it("clamps an out-of-range lane to the last leg and exposes the clamped lane on the root", () => {
       const { container } = render(<Handshake aria-label="x" stations={stations} lane={9} />);
       const legs = Array.from(container.querySelectorAll("[data-leg]"));
       expect(legs[1]!.querySelector("[data-pulse]")).not.toBeNull();
+      expect(container.firstElementChild).toHaveAttribute("data-lane", "1");
     });
 
     it("idle: every LED is off and no pulse is in flight", () => {

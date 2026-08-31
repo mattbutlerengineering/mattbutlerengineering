@@ -449,6 +449,23 @@ describe("useAuth — navigator and error semantics", () => {
     expect(result.current.activeNavigator).toBe("signinRedirect");
   });
 
+  it.each(["signoutRedirect", "signoutPopup"] as const)(
+    "keeps reporting loading during %s so the shell shows a loader, not a clickable login gate",
+    (navigator) => {
+      // oidc-client-ts removes the user (isAuthenticated=false) BEFORE the
+      // end-session navigation. Without this the login gate flashes with an
+      // enabled Sign In button that races the sign-out redirect.
+      mockUseAuth.mockReturnValue(
+        makeOIDCAuth({ isLoading: true, isAuthenticated: false, activeNavigator: navigator })
+      );
+
+      const { result } = renderHook(() => useAuth());
+
+      expect(result.current.isLoading).toBe(true);
+      expect(result.current.activeNavigator).toBe(navigator);
+    }
+  );
+
   it("still reports loading during bootstrap when no navigator is active", () => {
     mockUseAuth.mockReturnValue(makeOIDCAuth({ isLoading: true }));
 
