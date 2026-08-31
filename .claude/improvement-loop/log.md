@@ -993,6 +993,7 @@ None (`agent-skip` is empty this run).
 **queueEfficiency:** composite 0.913 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:7, size:m:4, size:s:11, size:l:1
 **Issues filed:** 0
+
 ## 2026-08-31 (mbe-evening / implement-queue + progress-tracker)
 
 ### Metrics (7d, 2026-08-24 → 2026-08-31)
