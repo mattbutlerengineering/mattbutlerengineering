@@ -265,16 +265,18 @@ describe("routing derived from config — byte-identical to hardcoded", () => {
     expect(new URL(forwarded.url).pathname).toBe("/editor");
   });
 
-  it("redirects /hospitality (no slash) to /hospitality/ (from config)", async () => {
+  it("serves /hospitality (no slash) directly, no redirect hop (from config)", async () => {
     const response = await edgeRouter.fetch(makeRequest("/hospitality"), env);
-    expect(response.status).toBe(301);
-    expect(response.headers.get("Location")).toContain("/hospitality/");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Location")).toBeNull();
+    expect(env.HOSPITALITY.fetch).toHaveBeenCalled();
   });
 
-  it("redirects /gen (no slash) to /gen/ (from config)", async () => {
+  it("serves /gen (no slash) directly, no redirect hop (from config)", async () => {
     const response = await edgeRouter.fetch(makeRequest("/gen"), env);
-    expect(response.status).toBe(301);
-    expect(response.headers.get("Location")).toContain("/gen/");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Location")).toBeNull();
+    expect(env.GEN.fetch).toHaveBeenCalled();
   });
 });
 
