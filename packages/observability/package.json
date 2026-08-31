@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@fastify/otel": "^0.20.1",
-    "@langfuse/otel": "^5.10.1",
+    "@langfuse/otel": "^5.11.0",
     "@mbe/types": "workspace:^",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
