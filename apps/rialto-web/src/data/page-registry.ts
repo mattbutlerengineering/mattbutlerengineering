@@ -175,6 +175,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "ferrofluid", label: "Ferrofluid", category: "Data Display" },
   { id: "silk-flow", label: "Silk Flow", category: "Data Display" },
   { id: "handshake", label: "Handshake", category: "Data Display" },
+  { id: "neon-sign", label: "Neon Sign", category: "Data Display" },
   { id: "tape-chart", label: "Tape Chart", category: "Data Display" },
   // ── Navigation ──────────────────────────────────────────────────────────
   { id: "tabs", label: "Tabs", category: "Navigation" },

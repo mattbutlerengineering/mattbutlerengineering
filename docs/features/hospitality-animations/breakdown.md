@@ -54,7 +54,7 @@ Tracking issue: **#4746**. Tree: `worktree-hospitality-animations` at `1d6189203
 
 ## M3 — rialto-web showcase
 
-- [ ] **rialto-web NeonSignPage showcase + page-registry row + drift lists** — new `pages/data/NeonSignPage.tsx` (Service Day Replay / States / Playground with `key={replayNonce}` / Sizes / Props / Accessibility, `HandshakePage` shape); `{ id: "neon-sign", label: "Neon Sign", category: "Data Display" }` after `handshake` in `page-registry.ts`; mock line in `page-registry.test.ts`; `"NeonSign"` in `manifest-drift.test.ts` `DATA_COMPONENTS`; rialto-web `llms*.txt` (tracker: #4744)
+- [x] **rialto-web NeonSignPage showcase + page-registry row + drift lists** — new `pages/data/NeonSignPage.tsx` (Service Day Replay / States / Playground with `key={replayNonce}` / Sizes / Props / Accessibility, `HandshakePage` shape); `{ id: "neon-sign", label: "Neon Sign", category: "Data Display" }` after `handshake` in `page-registry.ts`; mock line in `page-registry.test.ts`; `"NeonSign"` in `manifest-drift.test.ts` `DATA_COMPONENTS`; rialto-web `llms*.txt` (tracker: #4744)
   - Accept: `page-registry.test.ts › every load() resolves without throwing` and `manifest drift guard — data category › NeonSign` green after a rialto build; six sections with the exact titles; replay phase table `closed ×2, opening-soon ×2, open ×3` at 1 200 ms with cleanup; the `open` picker bumps `replayNonce`; six Accessibility `DataList` rows verbatim from ux.md; `PropsTable component="NeonSign"`; visual suites untouched; intro sentence flagged for UX override in the PR.
   - Blocked by: #4742
 
