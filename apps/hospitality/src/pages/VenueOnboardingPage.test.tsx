@@ -89,12 +89,14 @@ vi.mock("../components/venue-onboarding/FloorPlanStep", () => ({
     error,
     onSelectTemplate,
     onAddTable,
+    readOnly,
   }: {
     error: string | null;
     onSelectTemplate: (templateId: string) => void;
     onAddTable: (request: unknown) => void;
+    readOnly?: boolean;
   }) => (
-    <div data-testid="floor-plan-step">
+    <div data-testid="floor-plan-step" data-read-only={readOnly === true}>
       <span>Floor Plan</span>
       {error && <span role="alert">{error}</span>}
       <button onClick={() => onSelectTemplate("blank")}>Choose Blank</button>
@@ -786,6 +788,38 @@ describe("VenueOnboardingPage", () => {
     expect(mockFloorPlansCreate).toHaveBeenCalledOnce();
     expect(mockTablesCreate).toHaveBeenCalledTimes(3);
     expect(mockTablesCreate.mock.calls[2]?.[0]).toMatchObject({ name: "Table B" });
+  });
+
+  // #4825: Back is deliberately reachable after a partial failure (the step-5
+  // navigation floor), but `runTablesStage` resumes by table NAME — so an edit
+  // made there would be skipped on Retry and the live plan would silently
+  // diverge from the draft. The floor plan step must freeze once server state
+  // exists.
+  it("#4825: freezes the floor plan step once the launch has created a venue", async () => {
+    mockVenuesCreate.mockResolvedValueOnce(makeVenue("venue-1"));
+    mockFloorPlansCreate.mockResolvedValueOnce(makeFloorPlan("plan-1", "venue-1"));
+    mockTablesCreate
+      .mockResolvedValueOnce(makeTable("Table A"))
+      .mockRejectedValueOnce(new Error("Stopped at table 2 of 2"));
+
+    renderPage();
+    advanceToLaunchStep("Choose Blank", "My Venue", () => {
+      fireEvent.click(screen.getByText("Add Table A"));
+      fireEvent.click(screen.getByText("Add Table B"));
+    });
+
+    // Before the launch runs, step 5 is fully editable.
+    fireEvent.click(screen.getByText("Back"));
+    expect(screen.getByTestId("floor-plan-step")).toHaveAttribute("data-read-only", "false");
+    fireEvent.click(screen.getByText("Next"));
+
+    fireEvent.click(screen.getByText("Launch Venue"));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Stopped at table 2 of 2");
+    });
+
+    fireEvent.click(screen.getByText("Back"));
+    expect(screen.getByTestId("floor-plan-step")).toHaveAttribute("data-read-only", "true");
   });
 
   it("shows 'Venue is live' with the N-tables body when the launched plan has tables", async () => {
