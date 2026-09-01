@@ -1,6 +1,13 @@
+import { useEffect } from "react";
 import { useAuth } from "@mbe/auth/react";
 import { Button, DepartureBoard, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import styles from "./LoginGate.module.css";
+
+/** Default title, matching the static default in index.html — restored on unmount so the authenticated dashboard keeps its own title. */
+const DASHBOARD_TITLE = "Dashboard - Matt Butler Engineering";
+
+/** Title for the unauthenticated landing, in the app's existing " - " convention. */
+const LANDING_TITLE = "Hospitality - Matt Butler Engineering";
 
 /** Ordered domains the split-flap board cycles through — the product, in the system's mechanical voice. */
 const BOARD_PHRASES = ["RESERVATIONS", "GUESTS", "FLOOR PLANS", "WAITLIST", "TIMELINE"];
@@ -44,6 +51,13 @@ export interface LoginGateProps {
 export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
   const { signIn, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
+
+  useEffect(() => {
+    document.title = LANDING_TITLE;
+    return () => {
+      document.title = DASHBOARD_TITLE;
+    };
+  }, []);
 
   return (
     <div className={styles.gate} data-testid="login-prompt">

@@ -101,6 +101,21 @@ describe("LoginGate", () => {
     expect(screen.getByText("Restaurant management, simplified.")).toBeInTheDocument();
   });
 
+  describe("document title", () => {
+    it("sets the document title to the Hospitality landing title on mount", () => {
+      render(<LoginGate />);
+      expect(document.title).toBe("Hospitality - Matt Butler Engineering");
+    });
+
+    it("restores the Dashboard title on unmount so the authenticated dashboard keeps its own title", () => {
+      document.title = "Dashboard - Matt Butler Engineering";
+      const { unmount } = render(<LoginGate />);
+      expect(document.title).toBe("Hospitality - Matt Butler Engineering");
+      unmount();
+      expect(document.title).toBe("Dashboard - Matt Butler Engineering");
+    });
+  });
+
   describe("while the sign-in redirect is in flight", () => {
     beforeEach(() => {
       vi.mocked(useAuth).mockReturnValue({
