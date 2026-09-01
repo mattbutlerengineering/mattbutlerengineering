@@ -3076,6 +3076,14 @@
       function listComponentEntries(): LibEntry[] { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/scripts/lib-external.ts">
+    <item priority="high">
+      export const libExternal: (string | RegExp)[];
+    </item>
+    <item priority="high">
+      export function isExternalSpecifier(id: string): boolean { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">

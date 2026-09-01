@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import dts from "vite-plugin-dts";
 import { viteEntryMap } from "./scripts/lib-entrypoints";
+import { libExternal } from "./scripts/lib-external";
 
 export default defineConfig({
   plugins: [react(), dts({ tsconfigPath: "./tsconfig.lib.json" })],
@@ -22,17 +23,7 @@ export default defineConfig({
       cssFileName: "styles",
     },
     rollupOptions: {
-      external: [
-        "react",
-        "react-dom",
-        "react/jsx-runtime",
-        "framer-motion",
-        "lucide-react",
-        // The workspace data client is a runtime peer dependency, not bundled
-        // into the design-system lib. Match the bare package and every subpath
-        // export (e.g. "@mbe/api-client/streaming") so consumers provide it.
-        /^@mbe\/api-client(\/.*)?$/,
-      ],
+      external: libExternal,
       output: {
         // Stable filenames so the package.json exports map can point at
         // them without a content hash. Shared code lands in chunks/ so
