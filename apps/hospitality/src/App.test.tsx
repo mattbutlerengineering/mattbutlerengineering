@@ -100,6 +100,32 @@ describe("App", () => {
     expect(screen.getByText("Hospitality")).toBeDefined();
   });
 
+  describe("document title", () => {
+    beforeEach(() => {
+      // Mirrors index.html's static default, present before any effect runs.
+      document.title = "Dashboard - Matt Butler Engineering";
+    });
+
+    it("titles the unauthenticated landing 'Hospitality', not 'Dashboard'", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: false,
+        signIn: vi.fn(),
+      } as ReturnType<typeof useAuth>);
+      renderApp();
+      expect(document.title).toBe("Hospitality - Matt Butler Engineering");
+    });
+
+    it("keeps the authenticated dashboard's 'Dashboard' title", () => {
+      vi.mocked(useAuth).mockReturnValue({
+        isLoading: false,
+        isAuthenticated: true,
+      } as ReturnType<typeof useAuth>);
+      renderApp();
+      expect(document.title).toBe("Dashboard - Matt Butler Engineering");
+    });
+  });
+
   it("renders Outlet when authenticated", () => {
     vi.mocked(useAuth).mockReturnValue({
       isLoading: false,
