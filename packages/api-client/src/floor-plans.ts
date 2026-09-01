@@ -84,10 +84,6 @@ export class FloorPlansClient {
   }
 
   async clone(id: string): Promise<FloorPlan> {
-    return this.client.postOne<FloorPlan>(
-      `/api/v1/floor-plans/${id}/clone`,
-      undefined,
-      FloorPlanSchema
-    );
+    return this.client.postOne<FloorPlan>(`/api/v1/floor-plans/${id}/clone`, {}, FloorPlanSchema);
   }
 }
