@@ -40,7 +40,7 @@ describe("NotFoundPage", () => {
 
   it("renders the explanatory message", () => {
     renderNotFoundPage();
-    expect(screen.getByText(/This page doesn.*t exist/i)).toBeInTheDocument();
+    expect(screen.getByText(/Wrong door\. That page never made the list\./i)).toBeInTheDocument();
   });
 
   it("renders a Back to home link pointing to /", () => {
