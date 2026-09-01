@@ -149,6 +149,7 @@ export async function mockApi(page: Page): Promise<void> {
   // handoff in VenueOnboardingPage) sees the venue it just created.
   let createdVenue: Record<string, unknown> | null = null;
   await page.route("**/api/v1/venues", (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
     const venues = JSON.parse(loadFixture("venues-list"));
     let body: Record<string, unknown> = {};
     try {
@@ -212,6 +213,7 @@ export async function mockApi(page: Page): Promise<void> {
   // renders the tables Launch just created, not the static fixture.
   const createdTables: Array<Record<string, unknown>> = [];
   await page.route("**/api/v1/tables", (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
     const tables = JSON.parse(loadFixture("tables-list"));
     let body: Record<string, unknown> = {};
     try {
@@ -513,6 +515,7 @@ export async function mockApi(page: Page): Promise<void> {
   // the static fixture's tables.
   let createdFloorPlan: Record<string, unknown> | null = null;
   await page.route("**/api/v1/floor-plans", (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
     const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
     let body: Record<string, unknown> = {};
     try {

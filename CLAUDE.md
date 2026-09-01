@@ -147,6 +147,10 @@ mbe up                                           # Start dev servers
 
 ### GitHub Labels (coordination state machine)
 
+Two families, and they do different jobs. The **issue-state** labels below drive which issues an agent picks up; the **PR merge-gate** labels in the next table decide whether a PR is allowed to merge. A session driving the merge train needs both.
+
+#### Issue state
+
 | Label              | Meaning                                                               |
 | ------------------ | --------------------------------------------------------------------- |
 | `ready`            | Available for agent pickup                                            |
@@ -161,6 +165,21 @@ mbe up                                           # Start dev servers
 | `meta-improvement` | Process improvement suggestion                                        |
 | `acmm`             | AI Codebase Maturity Model finding (created by `/acmm-audit --apply`) |
 | `sentry`           | Production error triaged from Sentry                                  |
+
+#### PR merge gates
+
+These are the labels that actually decide whether a PR merges. `tier:*` is applied by `.github/workflows/tier-classifier.yml` (by changed **file path**, not by title/body text); the tier policy itself lives in [docs/change-tiers.md](./docs/change-tiers.md), and the eligibility decision is the pure, unit-tested `scripts/merge-queue-eligibility.mjs`.
+
+| Label            | Meaning                                                                                                                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto-merge`     | Opts a PR into `auto-merge.yml` / the automation merge train. Applied by the automation PR producers (drift-fix, pr-metrics, production-feedback, acmm-regression); `auto-qa-tune` deliberately does not |
+| `needs-review`   | Blocks auto-merge — a human must look at this PR                                                                                                                                                         |
+| `tier:trivial`   | T1. Auto-mergeable when CI is green                                                                                                                                                                      |
+| `tier:standard`  | T2. **Blocks auto-merge** — reviewer agent + 1 human review                                                                                                                                              |
+| `tier:sensitive` | T3. **Blocks auto-merge** — reviewer + a specialist subagent + 1 human review                                                                                                                            |
+| `tier:critical`  | T4. **Blocks auto-merge** — all of T3, plus Matt personally, plus an ADR or `meta-improvement` issue documenting why                                                                                     |
+
+> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked — and `tier-classifier.yml` only triggers on `pull_request`, so it does not reliably run on `GITHUB_TOKEN`-authored automation PRs. See [gotchas.md § CI](./.claude/rules/gotchas.md#ci) for the consequences.
 
 ### RemoteTriggers (scheduled background agents)
 
