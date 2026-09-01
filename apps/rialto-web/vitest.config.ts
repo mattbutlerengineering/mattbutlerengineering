@@ -14,6 +14,7 @@ export default defineVitestConfig({
     "e2e/workflow-coverage.test.ts",
     "e2e/noise-floor-coverage.test.ts",
     "e2e/eager-route-manifest.test.ts",
+    "e2e/build-script.test.ts",
   ],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],
