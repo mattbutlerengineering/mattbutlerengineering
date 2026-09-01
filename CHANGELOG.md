@@ -1,6 +1,5 @@
 # Changelog
 
-
 ## 00c81e1734cfe3d98160b7852f8431f03ed95618...main
 
 [compare changes](https://github.com/mattbutlerengineering/mattbutlerengineering/compare/00c81e1734cfe3d98160b7852f8431f03ed95618...main)
@@ -23,7 +22,7 @@
 - **scripts:** Add human_touch_reason taxonomy to queue-telemetry schema ([#3866](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3866))
 - **marketing:** Add DomainActivityPanel to AiHealthPage ([#3867](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3867))
 - SSE per-table status delta events [2/5] ([#3872](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3872))
-- **rialto:** ⚠️  Migrate DateRange to ISO string date vocabulary ([#3881](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3881))
+- **rialto:** ⚠️ Migrate DateRange to ISO string date vocabulary ([#3881](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3881))
 - **hospitality:** Wire floor-plan table shapes to live status colors ([#3891](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3891))
 - **scripts:** Add human-touch reason classifier for merged agent PRs ([#3935](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3935))
 - **scripts:** Best-effort backfill of human_touch_reason over merged agent PRs ([#3942](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3942))
@@ -795,10 +794,9 @@
 
 #### ⚠️ Breaking Changes
 
-- **rialto:** ⚠️  Migrate DateRange to ISO string date vocabulary ([#3881](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3881))
+- **rialto:** ⚠️ Migrate DateRange to ISO string date vocabulary ([#3881](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/3881))
 
 ### ❤️ Contributors
 
 - Mattbutlerengineering <mattbutlerengineering@gmail.com>
 - Matt Butler <mattbutlerengineering@gmail.com>
-
