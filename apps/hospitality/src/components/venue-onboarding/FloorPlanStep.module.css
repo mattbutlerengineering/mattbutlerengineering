@@ -34,6 +34,13 @@
   border-radius: var(--rialto-radius-default);
 }
 
+.lockedBanner {
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+}
+
 .errorBanner {
   padding: var(--rialto-space-sm) var(--rialto-space-md);
   background: var(--rialto-error-muted);

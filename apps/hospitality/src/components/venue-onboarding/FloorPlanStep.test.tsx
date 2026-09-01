@@ -474,4 +474,94 @@ describe("FloorPlanStep", () => {
       expect(onMoveTable).not.toHaveBeenCalled();
     });
   });
+
+  // Regression: #4825. Once Launch has created server state (launch.venueId
+  // is set) the draft must freeze, because `runTablesStage` resumes by NAME —
+  // a table moved, removed, or replaced by a template swap after a partial
+  // failure is skipped on Retry and the live plan silently diverges from what
+  // the manager arranged. The navigation floor already pins Back/rail at step
+  // 5; this is the matching edit freeze.
+  describe("read-only once launch has created server state (#4825)", () => {
+    it("explains why the layout is frozen", () => {
+      render(
+        <FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant"), readOnly: true })} />
+      );
+
+      expect(
+        screen.getByText(
+          "Your venue is already being created, so this layout is locked. Finish setting up, then rearrange tables in the floor plan editor."
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("disables every template card and ignores clicks on them", async () => {
+      const onSelectTemplate = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <FloorPlanStep
+          {...makeProps({
+            draft: draftFromTemplate("restaurant"),
+            readOnly: true,
+            onSelectTemplate,
+          })}
+        />
+      );
+
+      const cards = within(screen.getByRole("radiogroup")).getAllByRole("radio");
+      cards.forEach((card) => expect(card).toBeDisabled());
+
+      await user.click(screen.getByRole("radio", { name: /^Cafe/ }));
+      expect(onSelectTemplate).not.toHaveBeenCalled();
+      expect(screen.queryByText("Replace your layout?")).not.toBeInTheDocument();
+    });
+
+    it("ignores arrow keys on the template picker", () => {
+      const onSelectTemplate = vi.fn();
+      render(
+        <FloorPlanStep
+          {...makeProps({
+            draft: draftFromTemplate("restaurant"),
+            readOnly: true,
+            onSelectTemplate,
+          })}
+        />
+      );
+
+      fireEvent.keyDown(screen.getByRole("radiogroup"), { key: "ArrowRight" });
+      expect(onSelectTemplate).not.toHaveBeenCalled();
+    });
+
+    it("offers no Add table button", () => {
+      render(
+        <FloorPlanStep {...makeProps({ draft: draftFromTemplate("restaurant"), readOnly: true })} />
+      );
+      expect(screen.queryByRole("button", { name: "Add table" })).not.toBeInTheDocument();
+    });
+
+    it("offers no Remove table button for a selected table", async () => {
+      const onRemoveTable = vi.fn();
+      const user = userEvent.setup();
+      const draft = draftFromTemplate("restaurant");
+      render(<FloorPlanStep {...makeProps({ draft, readOnly: true, onRemoveTable })} />);
+
+      const firstTable = draft.tables[0] as DraftTable;
+      await user.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
+
+      expect(screen.queryByRole("button", { name: "Remove table" })).not.toBeInTheDocument();
+      expect(onRemoveTable).not.toHaveBeenCalled();
+    });
+
+    it("does not call onMoveTable on drag end or on an arrow-key nudge", () => {
+      const onMoveTable = vi.fn();
+      const draft = draftFromTemplate("restaurant");
+      render(<FloorPlanStep {...makeProps({ draft, readOnly: true, onMoveTable })} />);
+
+      const firstTable = draft.tables[0] as DraftTable;
+      fireEvent.mouseUp(screen.getByTestId(`table-shape-${firstTable.localId}`));
+      fireEvent.click(screen.getByTestId(`table-shape-${firstTable.localId}`));
+      fireEvent.keyDown(window, { key: "ArrowRight" });
+
+      expect(onMoveTable).not.toHaveBeenCalled();
+    });
+  });
 });
