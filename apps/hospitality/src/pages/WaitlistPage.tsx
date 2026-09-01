@@ -349,7 +349,15 @@ export function WaitlistPage() {
     isLoading,
     error: queryError,
   } = useWaitlist({ venueId: selectedVenueId ?? "" });
-  const { data: tables } = useTables({ venueId: selectedVenueId ?? "" });
+  // `enabled` is load-bearing here, not belt-and-braces: GET /api/v1/tables is
+  // venue-scoped (#4873), so `requireVenueAccess` resolves the venue to check
+  // membership against from `?venueId`. Firing with the empty placeholder
+  // before the venue list resolves is a guaranteed 403 for any non-admin
+  // operator, not an empty result.
+  const { data: tables } = useTables({
+    venueId: selectedVenueId ?? undefined,
+    enabled: !!selectedVenueId,
+  });
 
   const error = queryError?.message ?? null;
   const displayEntries = [...(entries ?? [])].sort((a, b) => a.position - b.position);
