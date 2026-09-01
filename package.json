@@ -82,7 +82,7 @@
     "overrides": {
       "@anthropic-ai/sdk@<0.94": "^0.93.0",
       "tar@<8": "^7.5.22",
-      "undici": ">=7.28.0 <8",
+      "undici@<8": "^7.28.0",
       "flatted@<4": "^3.4.3",
       "effect@<4": "^3.22.0",
       "rollup@<5": "^4.62.4",
@@ -124,7 +124,7 @@
       "@pulumi/pulumi>@opentelemetry/instrumentation-grpc": "^0.219.0",
       "qs@<=6.15.1": "^6.15.2",
       "@babel/core@<=7.29.5": ">=7.29.6 <8",
-      "ioredis": "^6.0.0",
+      "ioredis@<7": "^6.0.0",
       "form-data@<4.0.6": "^4.0.6",
       "axios@<1.18.0": ">=1.18.0 <2",
       "js-yaml@<4.3.1": "^4.3.1",
