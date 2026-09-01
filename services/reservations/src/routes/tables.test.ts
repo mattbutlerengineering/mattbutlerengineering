@@ -5,6 +5,7 @@ import type { DomainServices } from "../services/domain-services.js";
 import { ReservationEventEmitter } from "../services/events.js";
 import { TableTransitionError } from "../services/table.js";
 import { jwtVerify } from "jose";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
 // Domain services are injected via buildApp({ services }) (issue #3357), so the
 // tables route no longer needs a vi.mock ring of sibling service modules to
@@ -134,7 +135,29 @@ describe("Table Routes", () => {
         headers: { "x-auth-bypass": "true" },
       });
 
-      expect(tableService.list).toHaveBeenCalledWith(2, 5, true);
+      expect(tableService.list).toHaveBeenCalledWith(2, 5, true, undefined);
+    });
+
+    it("passes venueId through to tableService.list (#4865)", async () => {
+      vi.mocked(tableService.list).mockResolvedValueOnce({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
+
+      await app.inject({
+        method: "GET",
+        url: "/api/v1/tables?venueId=venue-1",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(tableService.list).toHaveBeenCalledWith(1, 10, false, "venue-1");
     });
   });
 
@@ -449,5 +472,99 @@ describe("Table Routes", () => {
 
       expect(response.statusCode).toBe(200);
     });
+  });
+});
+
+// #4865 (Sentry HOSPITALITY-4/5): GET /v1/tables was gated on requireAdmin, so
+// any venue-manager (non-admin, real venue membership) staff caller got a
+// 403 — every prior test in this file authenticates through x-auth-bypass,
+// which mints a hardcoded ADMIN identity, so the suite stayed green while the
+// route was broken for every real operator. These tests authenticate through
+// a real (mocked jose) JWT with an injected membership lookup instead — the
+// same pattern used by guests.test.ts's "staff authorization" suite, as a
+// separate top-level describe (its own env/app lifecycle, no interaction with
+// the x-auth-bypass-based "Table Routes" suite above).
+describe("Table Routes — venue-scoped staff authorization (#4865)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
+    // never consumes (jwtVerify is skipped under the bypass), so clear the
+    // queue here to guarantee our real-JWT payloads are the ones returned.
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  async function buildAppWithMembership(lookup: VenueMembershipLookup): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    const built = await buildApp({
+      logger: false,
+      services: { tableService },
+      venueMembershipLookup: lookup,
+    });
+    await built.ready();
+    return built;
+  }
+
+  it("returns 403 for a non-admin operator who is not a member of the requested venue", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator-A", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/tables?venueId=venue-in-group-B",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-B");
+    expect(tableService.list).not.toHaveBeenCalled();
+  });
+
+  it("allows a non-admin venue manager who is a member of the requested venue", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|operator-A", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+    vi.mocked(tableService.list).mockResolvedValueOnce({
+      data: [mockTable],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
+    });
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/tables?venueId=venue-in-group-A",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(tableService.list).toHaveBeenCalledWith(1, 10, false, "venue-in-group-A");
   });
 });

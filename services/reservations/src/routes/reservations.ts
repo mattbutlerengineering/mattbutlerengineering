@@ -22,6 +22,7 @@ import {
   optionalAuth,
   requireOwnershipOrAdmin,
   requireVenueAccess,
+  type VenueIdResolver,
 } from "@mbe/auth/fastify";
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
@@ -30,9 +31,33 @@ import { cancelReservationWithDeposit } from "../services/reservation-cancellati
 import { recordNoShow } from "../services/reservation-no-show.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { venueService } from "../services/venue.js";
+import { guestService } from "../services/guest.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
-import { venueIdFromQuery, venueIdFromBody } from "./venue-access.js";
+import { venueIdFromBody } from "./venue-access.js";
+
+/**
+ * Venue-id resolver for the staff reservations list (#4865, Sentry
+ * HOSPITALITY-6). The route accepts either `venueId` or `guestId` as a
+ * filter — the CRM guest card sends only `guestId` — so the resolver must
+ * fall back to the filtered guest's venue when no `venueId` is present.
+ * Without this, a caller who supplied only `guestId` was undeterminable and
+ * always 403'd; had the guest's own `venueId` been silently substituted for
+ * the *whole-venue* filter instead, that would leak every other guest's
+ * reservations at that venue, so falling through to a 403 (never guessing) is
+ * deliberate.
+ */
+const resolveReservationsListVenueId: VenueIdResolver = async (request) => {
+  const query = request.query as { venueId?: unknown; guestId?: unknown } | null | undefined;
+  if (typeof query?.venueId === "string") {
+    return query.venueId;
+  }
+  if (typeof query?.guestId === "string") {
+    const guest = await guestService.getById(query.guestId);
+    return guest?.venueId ?? null;
+  }
+  return null;
+};
 
 const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
   resolveReservationGuestEmail((id) => reservationService.getById(id)),
@@ -83,6 +108,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       status?: ReservationStatus;
       tableId?: string;
       venueId?: string;
+      guestId?: string;
     };
     Reply: PaginatedResponse<Reservation>;
   }>(
@@ -90,7 +116,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [
         requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+        requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
       ],
       schema: {
         summary: "List reservations",
@@ -120,6 +146,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         status: request.query.status,
         tableId: request.query.tableId,
         venueId: request.query.venueId,
+        guestId: request.query.guestId,
       });
     }
   );

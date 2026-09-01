@@ -14,15 +14,10 @@ import {
   updateTableBodyJsonSchema,
   updateTableStatusBodyJsonSchema,
 } from "@mbe/types";
-import {
-  requireAuth,
-  requireAdmin,
-  requireVenueAccess,
-  type VenueIdResolver,
-} from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
-import { venueIdFromBody } from "./venue-access.js";
+import { venueIdFromBody, venueIdFromQuery } from "./venue-access.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve domain services from the buildApp seam (issue #3357) rather than
@@ -44,12 +39,15 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
 
   // List tables
   fastify.get<{
-    Querystring: { page?: string; limit?: string; activeOnly?: string };
+    Querystring: { page?: string; limit?: string; activeOnly?: string; venueId?: string };
     Reply: PaginatedResponse<Table>;
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireAdmin],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+      ],
       schema: {
         summary: "List all tables",
         operationId: "listTables",
@@ -72,7 +70,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const { page, limit } = parsePaginationQuery(request.query);
       const activeOnly = request.query.activeOnly === "true";
-      return tableService.list(page, limit, activeOnly);
+      return tableService.list(page, limit, activeOnly, request.query.venueId);
     }
   );
 

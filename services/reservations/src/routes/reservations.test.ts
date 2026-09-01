@@ -115,7 +115,9 @@ import { reservationService } from "../services/reservation.js";
 import { depositService } from "../services/deposit.js";
 import { venueService } from "../services/venue.js";
 import type { VenuePolicy } from "../services/venue.js";
+import { guestService } from "../services/guest.js";
 import { jwtVerify } from "jose";
+import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
 function makeVenuePolicy(overrides: Partial<VenuePolicy> = {}): VenuePolicy {
   return {
@@ -1751,5 +1753,116 @@ describe("Reservation Routes", () => {
         expect(venueService.getPolicyById).not.toHaveBeenCalled();
       });
     });
+  });
+});
+
+// #4865 (Sentry HOSPITALITY-6): GET /v1/reservations?guestId=... 403'd for every
+// caller because the route only resolved the venue from ?venueId — the CRM
+// guest card sends only guestId. Every prior test in this file authenticates
+// as an admin (createMockJWTPayload() defaults to permissions: ["admin"]),
+// which bypasses venue resolution entirely, so the suite stayed green while
+// the route was broken for every non-admin operator. These tests authenticate
+// through a real (mocked jose) JWT with an injected membership lookup instead
+// — the same pattern used by guests.test.ts's "staff authorization" suite.
+describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
+    // never consumes (jwtVerify is skipped under the bypass), so clear the
+    // queue here to guarantee our real-JWT payloads are the ones returned.
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  async function buildAppWithMembership(lookup: VenueMembershipLookup): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await built.ready();
+    return built;
+  }
+
+  it("resolves the venue from guestId when venueId is absent and admits a member operator", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator-A", permissions: ["staff"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    vi.mocked(guestService.getById).mockResolvedValueOnce({
+      id: "guest-1",
+      venueId: "venue-in-group-A",
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+    vi.mocked(reservationService.list).mockResolvedValueOnce({
+      data: [createMockReservation()],
+      pagination: createMockPagination({ total: 1 }),
+    });
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/reservations?guestId=guest-1",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(guestService.getById).toHaveBeenCalledWith("guest-1");
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-A");
+    expect(reservationService.list).toHaveBeenCalledWith(
+      expect.objectContaining({ guestId: "guest-1" })
+    );
+  });
+
+  it("denies an operator who is not a member of the guest's venue", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator-A", permissions: ["staff"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    vi.mocked(guestService.getById).mockResolvedValueOnce({
+      id: "guest-1",
+      venueId: "venue-in-group-B",
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/reservations?guestId=guest-1",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(reservationService.list).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when neither venueId nor guestId is provided and the caller is not admin", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|operator-A", permissions: ["staff"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(guestService.getById).not.toHaveBeenCalled();
   });
 });

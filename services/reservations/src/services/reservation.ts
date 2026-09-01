@@ -31,6 +31,7 @@ export interface ListReservationsOptions {
   status?: ReservationStatus;
   tableId?: string;
   venueId?: string;
+  guestId?: string;
 }
 
 export interface CreateReservationResult {
@@ -57,7 +58,7 @@ export interface UpdateReservationResult {
 
 export const reservationService = {
   async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
-    const { page, limit, date, status, tableId, venueId } = options;
+    const { page, limit, date, status, tableId, venueId, guestId } = options;
 
     const where: Record<string, unknown> = {};
     if (date) {
@@ -71,6 +72,9 @@ export const reservationService = {
     }
     if (venueId) {
       where.venueId = venueId;
+    }
+    if (guestId) {
+      where.guestId = guestId;
     }
 
     const [reservations, total] = await Promise.all([
