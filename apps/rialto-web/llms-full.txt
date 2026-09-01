@@ -27,6 +27,17 @@
     export const BONUS_LENGTH = 16;
   </file>
   </section>
+  <section priority="medium" role="component-count.config.ts">
+  <file path="component-count.config.ts">
+    export function resolveRialtoComponentCount(): number {
+      const manifestPath = require.resolve("@mattbutlerengineering/rialto/manifest");
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+        components: readonly unknown[];
+      };
+      return countRialtoComponents(manifest);
+    }
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="src/data/demo-routes.ts">
     export const DEMOS_BASE = "/demos";
@@ -68,6 +79,14 @@
       comingSoon?: boolean;
       /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
       load?: () => Promise<unknown>;
+    }
+  </file>
+  <file path="src/data/rialto-components.ts">
+    interface RialtoManifest {
+      components: readonly unknown[];
+    }
+    export function countRialtoComponents(manifest: RialtoManifest): number {
+      return manifest.components.length;
     }
   </file>
   <file path="src/data/rialto-tokens.ts">

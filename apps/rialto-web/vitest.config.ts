@@ -2,6 +2,7 @@ import { defaultExclude } from "vitest/config";
 import { resolve } from "path";
 import { defineVitestConfig } from "@mbe/config/vitest/react";
 import { resolveRialtoTokenCount } from "./token-count.config";
+import { resolveRialtoComponentCount } from "./component-count.config";
 
 export default defineVitestConfig({
   // e2e/workflow-coverage.test.ts is a plain vitest test (not a Playwright
@@ -12,6 +13,7 @@ export default defineVitestConfig({
     "src/**/*.test.{ts,tsx}",
     "e2e/workflow-coverage.test.ts",
     "e2e/noise-floor-coverage.test.ts",
+    "e2e/eager-route-manifest.test.ts",
   ],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],
@@ -32,6 +34,7 @@ export default defineVitestConfig({
   extend: {
     define: {
       __RIALTO_TOKEN_COUNT__: JSON.stringify(resolveRialtoTokenCount()),
+      __RIALTO_COMPONENT_COUNT__: JSON.stringify(resolveRialtoComponentCount()),
     },
     resolve: {
       alias: {
