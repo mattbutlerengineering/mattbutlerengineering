@@ -43,6 +43,14 @@ const fadeUp = {
   visible: { opacity: 1, y: 0 },
 };
 
+// The title is Hero's largest-contentful-paint candidate. Fading it in from
+// opacity:0 keeps it unpainted until the entrance settles, which directly
+// delays LCP (#4847). It stays fully opaque and only settles into place.
+const settleUp = {
+  hidden: { opacity: 1, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
+
 /* ── Component ───────────────────────────────── */
 
 export const Hero = forwardRef<HTMLElement, HeroProps>(
@@ -87,7 +95,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
             </motion.p>
           )}
 
-          <motion.h1 className={styles.title} variants={fadeUp} transition={transition}>
+          <motion.h1 className={styles.title} variants={settleUp} transition={transition}>
             {title}
           </motion.h1>
 
