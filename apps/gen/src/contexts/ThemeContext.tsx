@@ -21,6 +21,11 @@ function getInitialTheme(): Theme {
   } catch {
     // localStorage may be unavailable in some environments
   }
+  // No explicit choice stored — mirror how marketing/rialto-web resolve
+  // rialto's "system" preference (see packages/rialto/src/hooks/useThemeState.ts).
+  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
   return "light";
 }
 
