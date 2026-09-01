@@ -2194,7 +2194,7 @@
     },
     {
       "name": "Hero",
-      "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a fade-up entrance animation.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
+      "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a staggered entrance. The title (Hero's LCP\ncandidate) settles into place without fading — it stays opaque and\nonly its position animates; eyebrow, subtitle, divider, and actions\nstill fade up.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

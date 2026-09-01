@@ -53,6 +53,30 @@ describe("Hero", () => {
     });
   });
 
+  describe("LCP entrance (#4847)", () => {
+    // The title is Hero's largest-contentful-paint candidate on marketing
+    // pages. Fading it in from opacity:0 means it doesn't paint until the
+    // entrance animation settles, which directly delays LCP. The title must
+    // be visible at first paint; only its position (transform) may animate.
+    it("renders the title at full opacity on mount, not faded from 0", () => {
+      const { container } = render(<Hero title="Ships itself" />);
+      const heading = container.querySelector("h1") as HTMLElement;
+      expect(heading).not.toHaveStyle({ opacity: "0" });
+    });
+
+    it("still animates the title's entrance via transform", () => {
+      const { container } = render(<Hero title="Ships itself" />);
+      const heading = container.querySelector("h1") as HTMLElement;
+      expect(heading.style.transform).toContain("translateY");
+    });
+
+    it("keeps the fade-up entrance on non-LCP siblings (eyebrow)", () => {
+      const { container } = render(<Hero title="Ships itself" eyebrow="Design System" />);
+      const eyebrow = container.querySelector("p") as HTMLElement;
+      expect(eyebrow).toHaveStyle({ opacity: "0" });
+    });
+  });
+
   describe("layout and props", () => {
     it("renders as a section element", () => {
       const { container } = render(<Hero title="Hello" />);
