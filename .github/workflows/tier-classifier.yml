@@ -156,7 +156,23 @@ jobs:
             .filter((line) => !/^\s*-\s\[[ xX]\]/.test(line))
             .join('\n');
 
-          if (/secret|credential|rotate|leak|incident/i.test(title + ' ' + bodyProse)) {
+          // #4879 is a 19-line docs-only PR that escalated to tier:critical
+          // because its body said "returned one incidental hit" — the
+          // unbounded alternation above substring-matched "incident" inside
+          // "incidental" (and would equally match "leak" inside "leaky" or
+          // "rotate" inside a word like "gyrated"... sorry, "rotated"). This
+          // is a different mechanism than #3606 (checklist-line stripping,
+          // still intact below): the false positive here comes from prose
+          // the stripper legitimately keeps. Fixed with \b word boundaries,
+          // same pattern as the BYPASS_PHRASE rule a few lines down.
+          // `rotate` and `incident`/`secret`/`credential` stay bare (no
+          // inflections) rather than mechanically enumerating every form —
+          // "rotated" deliberately does NOT match, because this repo's own
+          // PR prose regularly says "the rotated baseline was regenerated"
+          // (visual-snapshot rotation, see #3919-era gotchas), which is not
+          // a secrets-rotation signal. `leak` keeps its real inflections
+          // (leaked/leaking/leaks) since those stay unambiguous.
+          if (/\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b/i.test(title + ' ' + bodyProse)) {
             highest = T4;
             reasons.add('escalate to T4: title/body mentions secrets or incident');
           }

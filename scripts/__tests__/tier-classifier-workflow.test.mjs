@@ -120,6 +120,31 @@ describe("tier-classifier keyword escalation vs. the PR template", () => {
     expect(tier).toBe(4);
     expect(label).toBe("tier:critical");
   });
+
+  // #4879 is a 19-line docs-only PR that got escalated to T4 because its body
+  // said "returned one incidental hit" — /secret|credential|rotate|leak|incident/i
+  // has no word boundaries, so "incidental" substring-matches "incident". This
+  // is a different mechanism than #3606 (checklist-line stripping): the false
+  // positive here comes from prose the stripper legitimately keeps.
+  const SUBSTRING_FALSE_POSITIVES = [
+    ["incidental", "returned one incidental hit, inside an unrelated table cell"],
+    ["coincidentally", "coincidentally the same value appears twice in the fixture"],
+    ["leaky", "this refactor removes a leaky abstraction from the client"],
+    ["rotated baseline", "the rotated baseline was regenerated after the CSS change"],
+  ];
+
+  for (const [name, prose] of SUBSTRING_FALSE_POSITIVES) {
+    it(`does not escalate to T4 on the "${name}" substring false positive (#4879)`, () => {
+      const { tier, reasons } = runClassifier({
+        title: "docs: fix typo in onboarding guide",
+        body: `${PR_TEMPLATE}\n\n## Summary\n\n${prose}`,
+        files: ["docs/onboarding.md"],
+      });
+
+      expect(reasons).not.toMatch(/secrets or incident/);
+      expect(tier).not.toBe(4);
+    });
+  }
 });
 
 describe("tier-classifier bypass rule: a request escalates, a description does not", () => {
