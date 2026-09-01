@@ -43,6 +43,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="component-count.config.ts">
+  <file path="component-count.config.ts">
+    <item priority="high">
+      export function resolveRialtoComponentCount(): number { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="src/data/demo-routes.ts">
     <item priority="high">
@@ -78,6 +85,16 @@
         comingSoon?: boolean;
         load?: () => Promise<unknown>;
       }
+    </item>
+  </file>
+  <file path="src/data/rialto-components.ts">
+    <item priority="high">
+      interface RialtoManifest {
+        components: readonly unknown[];
+      }
+    </item>
+    <item priority="high">
+      export function countRialtoComponents(manifest: RialtoManifest): number { /* ... */ }
     </item>
   </file>
   <file path="src/data/rialto-tokens.ts">

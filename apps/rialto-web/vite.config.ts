@@ -2,11 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { resolveRialtoTokenCount } from "./token-count.config";
+import { resolveRialtoComponentCount } from "./component-count.config";
 
 export default defineConfig({
   base: "/rialto/",
   define: {
     __RIALTO_TOKEN_COUNT__: JSON.stringify(resolveRialtoTokenCount()),
+    __RIALTO_COMPONENT_COUNT__: JSON.stringify(resolveRialtoComponentCount()),
   },
   plugins: [
     react(),

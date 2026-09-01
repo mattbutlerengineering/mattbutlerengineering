@@ -72,14 +72,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   resolveTheme: vi.fn((t) => t),
 }));
 
-vi.mock("@mattbutlerengineering/rialto/manifest", () => ({
-  default: {
-    version: "0.0.0",
-    generatedAt: "2026-01-01T00:00:00.000Z",
-    components: [{ name: "Alpha" }, { name: "Beta" }, { name: "Gamma" }],
-  },
-}));
-
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
@@ -123,13 +115,12 @@ describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
     );
   }
 
-  it("sources the Components stat from the generated manifest, not the nav registry", () => {
+  it("sources the Components stat from the build-time component count, not the nav registry", () => {
     renderOverview();
     const componentStat = screen
       .getAllByTestId("stat")
       .find((stat) => stat.textContent?.includes("Components"));
-    // Mock manifest ships exactly 3 components.
-    expect(componentStat?.textContent).toContain("3");
+    expect(componentStat?.textContent).toContain(String(__RIALTO_COMPONENT_COUNT__));
   });
 
   it("sources the Design Tokens stat from the build-time token count", () => {

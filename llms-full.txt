@@ -3339,6 +3339,14 @@
       load?: () => Promise<unknown>;
     }
   </file>
+  <file path="apps/rialto-web/src/data/rialto-components.ts">
+    interface RialtoManifest {
+      components: readonly unknown[];
+    }
+    export function countRialtoComponents(manifest: RialtoManifest): number {
+      return manifest.components.length;
+    }
+  </file>
   <file path="apps/rialto-web/src/data/rialto-tokens.ts">
     export function countRialtoTokens(css: string): number {
       return new Set(css.match(RIALTO_TOKEN_DECLARATION) ?? []).size;
@@ -6409,6 +6417,15 @@
   </file>
   </section>
   <section priority="medium" role="rialto-web">
+  <file path="apps/rialto-web/component-count.config.ts">
+    export function resolveRialtoComponentCount(): number {
+      const manifestPath = require.resolve("@mattbutlerengineering/rialto/manifest");
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+        components: readonly unknown[];
+      };
+      return countRialtoComponents(manifest);
+    }
+  </file>
   <file path="apps/rialto-web/token-count.config.ts">
     export function resolveRialtoTokenCount(): number {
       try {

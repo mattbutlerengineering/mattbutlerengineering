@@ -1132,6 +1132,16 @@
       }
     </item>
   </file>
+  <file path="apps/rialto-web/src/data/rialto-components.ts">
+    <item priority="high">
+      interface RialtoManifest {
+        components: readonly unknown[];
+      }
+    </item>
+    <item priority="high">
+      export function countRialtoComponents(manifest: RialtoManifest): number { /* ... */ }
+    </item>
+  </file>
   <file path="apps/rialto-web/src/data/rialto-tokens.ts">
     <item priority="high">
       export function countRialtoTokens(css: string): number { /* ... */ }
@@ -2428,6 +2438,11 @@
   </file>
   </section>
   <section priority="medium" role="rialto-web">
+  <file path="apps/rialto-web/component-count.config.ts">
+    <item priority="high">
+      export function resolveRialtoComponentCount(): number { /* ... */ }
+    </item>
+  </file>
   <file path="apps/rialto-web/token-count.config.ts">
     <item priority="high">
       export function resolveRialtoTokenCount(): number { /* ... */ }
