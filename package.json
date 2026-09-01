@@ -124,7 +124,7 @@
       "@pulumi/pulumi>@opentelemetry/instrumentation-grpc": "^0.219.0",
       "qs@<=6.15.1": "^6.15.2",
       "@babel/core@<=7.29.5": ">=7.29.6 <8",
-      "ioredis": "^6.0.0",
+      "ioredis@<7": "^6.0.0",
       "form-data@<4.0.6": "^4.0.6",
       "axios@<1.18.0": ">=1.18.0 <2",
       "js-yaml@<4.3.1": "^4.3.1",
