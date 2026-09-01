@@ -82,14 +82,27 @@ describe("per-app og:image / twitter:image (#4857)", () => {
 
 describe("marketing share copy reads in the site's real voice (#4857)", () => {
   const BOILERPLATE = "software engineering solutions for hospitality and beyond";
+  const MARKETING_HTML_PATH = resolve(ROOT, "apps/marketing/index.html");
 
   it("description, og:description, and twitter:description drop the LinkedIn boilerplate", () => {
-    const html = readFileSync(resolve(ROOT, "apps/marketing/index.html"), "utf8");
+    const html = readFileSync(MARKETING_HTML_PATH, "utf8");
     expect(html.toLowerCase()).not.toContain(BOILERPLATE);
   });
 
   it("og:description matches the site's actual hero voice", () => {
-    const html = readFileSync(resolve(ROOT, "apps/marketing/index.html"), "utf8");
-    expect(html).toContain("This site ships itself");
+    const html = readFileSync(MARKETING_HTML_PATH, "utf8");
+    expect(html).toContain("this site ships itself");
+  });
+
+  it("meta description keeps the brand name (apps/marketing/e2e/seo.spec.ts asserts /Matt Butler Engineering/)", () => {
+    const html = readFileSync(MARKETING_HTML_PATH, "utf8");
+    const description = metaContent(html, 'name="description"');
+    expect(description).toContain("Matt Butler Engineering");
+  });
+
+  it("Organization JSON-LD logo no longer points at the retired shared og-image.png", () => {
+    const html = readFileSync(MARKETING_HTML_PATH, "utf8");
+    expect(html).not.toContain('"logo": "https://mattbutlerengineering.com/og-image.png"');
+    expect(html).toContain('"logo": "https://mattbutlerengineering.com/apple-touch-icon.png"');
   });
 });
