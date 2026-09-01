@@ -8,7 +8,10 @@ import styles from "./Hero.module.css";
 
 /**
  * Marketing splash section with centered content, atmospheric
- * decorative touches, and a fade-up entrance animation.
+ * decorative touches, and a staggered entrance. The title (Hero's LCP
+ * candidate) settles into place without fading — it stays opaque and
+ * only its position animates; eyebrow, subtitle, divider, and actions
+ * still fade up.
  *
  * Wrap text in `<span className="accent">` inside `title`
  * to apply the gold accent color.
