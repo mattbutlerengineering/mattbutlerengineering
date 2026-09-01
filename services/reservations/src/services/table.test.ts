@@ -100,6 +100,29 @@ describe("tableService", () => {
 
       expect(prisma.table.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
     });
+
+    it("filters by venueId when provided (#4865)", async () => {
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.table.count).mockResolvedValueOnce(0 as never);
+
+      await tableService.list(1, 10, false, "venue-1");
+
+      expect(prisma.table.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { venueId: "venue-1" } })
+      );
+      expect(prisma.table.count).toHaveBeenCalledWith({ where: { venueId: "venue-1" } });
+    });
+
+    it("combines activeOnly and venueId filters", async () => {
+      vi.mocked(prisma.table.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.table.count).mockResolvedValueOnce(0 as never);
+
+      await tableService.list(1, 10, true, "venue-1");
+
+      expect(prisma.table.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: true, venueId: "venue-1" } })
+      );
+    });
   });
 
   describe("getById", () => {

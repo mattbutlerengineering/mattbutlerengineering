@@ -32,6 +32,7 @@ export const ListReservationsQuerySchema = z.object({
   status: ReservationStatusSchema.describe("Filter by reservation status").optional(),
   tableId: z.string().describe("Filter by table ID").optional(),
   venueId: z.string().describe("Filter by venue ID").optional(),
+  guestId: z.string().describe("Filter by guest ID").optional(),
 });
 
 export const ListMyReservationsQuerySchema = z.object({
@@ -265,6 +266,7 @@ export const ListTablesQuerySchema = z.object({
   page: z.string().default("1").describe("Page number (1-indexed)"),
   limit: z.string().default("10").describe("Number of tables per page (max 100)"),
   activeOnly: z.enum(["true", "false"]).default("false").describe("Filter to only active tables"),
+  venueId: z.string().describe("Filter by venue ID").optional(),
 });
 
 export const CreateTableBodySchema = z

@@ -164,6 +164,7 @@
       status: ReservationStatusSchema.describe("Filter by reservation status").optional(),
       tableId: z.string().describe("Filter by table ID").optional(),
       venueId: z.string().describe("Filter by venue ID").optional(),
+      guestId: z.string().describe("Filter by guest ID").optional(),
     });
     export const ListMyReservationsQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),

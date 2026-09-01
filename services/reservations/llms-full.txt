@@ -2562,6 +2562,7 @@
           status?: ReservationStatus;
           tableId?: string;
           venueId?: string;
+          guestId?: string;
         };
         Reply: PaginatedResponse<Reservation>;
       }>(
@@ -2569,7 +2570,7 @@
         {
           preHandler: [
             requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+            requireVenueAccess(fastify.venueMembershipLookup, resolveReservationsListVenueId),
           ],
           schema: {
             summary: "List reservations",
@@ -2599,6 +2600,7 @@
             status: request.query.status,
             tableId: request.query.tableId,
             venueId: request.query.venueId,
+            guestId: request.query.guestId,
           });
         }
       );
@@ -3182,12 +3184,15 @@
     
       // List tables
       fastify.get<{
-        Querystring: { page?: string; limit?: string; activeOnly?: string };
+        Querystring: { page?: string; limit?: string; activeOnly?: string; venueId?: string };
         Reply: PaginatedResponse<Table>;
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireAdmin],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+          ],
           schema: {
             summary: "List all tables",
             operationId: "listTables",
@@ -3210,7 +3215,7 @@
         async (request) => {
           const { page, limit } = parsePaginationQuery(request.query);
           const activeOnly = request.query.activeOnly === "true";
-          return tableService.list(page, limit, activeOnly);
+          return tableService.list(page, limit, activeOnly, request.query.venueId);
         }
       );
     
@@ -4780,6 +4785,7 @@
       status?: ReservationStatus;
       tableId?: string;
       venueId?: string;
+      guestId?: string;
     }
     export interface CreateReservationResult {
       success: boolean;
@@ -5065,9 +5071,13 @@
       async list(
         page: number,
         limit: number,
-        activeOnly: boolean = false
+        activeOnly: boolean = false,
+        venueId?: string
       ): Promise<PaginatedResponse<Table>> {
-        const where = activeOnly ? { isActive: true } : {};
+        const where: Record<string, unknown> = activeOnly ? { isActive: true } : {};
+        if (venueId) {
+          where.venueId = venueId;
+        }
     
         const [tables, total] = await Promise.all([
           prisma.table.findMany({

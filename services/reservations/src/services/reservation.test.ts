@@ -213,6 +213,23 @@ describe("reservationService", () => {
       );
     });
 
+    it("filters by guestId (#4865)", async () => {
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.reservation.count).mockResolvedValueOnce(0 as never);
+
+      await reservationService.list({
+        page: 1,
+        limit: 10,
+        guestId: "guest-1",
+      });
+
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ guestId: "guest-1" }),
+        })
+      );
+    });
+
     it("calculates pagination correctly", async () => {
       vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
       vi.mocked(prisma.reservation.count).mockResolvedValueOnce(25 as never);
