@@ -226,6 +226,43 @@ describe("WaitlistPage", () => {
     mockMutationHooks();
   });
 
+  describe("venue scoping of the tables query", () => {
+    // GET /api/v1/tables is venue-scoped (#4873): requireVenueAccess resolves
+    // the venue to check membership against from ?venueId, so firing the query
+    // with the empty placeholder before the venue list resolves is a
+    // guaranteed 403 for any non-admin operator, not an empty result.
+    it("does not request tables until a venue is selected", () => {
+      vi.mocked(useVenue).mockReturnValue({ ...mockVenue, selectedVenueId: null });
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+
+      expect(useTables).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: undefined, enabled: false })
+      );
+    });
+
+    it("requests tables for the selected venue once one is available", () => {
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+
+      expect(useTables).toHaveBeenCalledWith(
+        expect.objectContaining({ venueId: "venue-abc", enabled: true })
+      );
+    });
+  });
+
   it("shows loading state", () => {
     vi.mocked(useWaitlist).mockReturnValue({
       data: undefined,
