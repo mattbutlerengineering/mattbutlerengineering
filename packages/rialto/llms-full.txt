@@ -1716,6 +1716,24 @@
       return entries;
     }
   </file>
+  <file path="scripts/lib-external.ts">
+    export const libExternal: (string | RegExp)[] = [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "framer-motion",
+      "lucide-react",
+      // The workspace data client is a runtime peer dependency, not bundled
+      // into the design-system lib. Match the bare package and every subpath
+      // export (e.g. "@mbe/api-client/streaming") so consumers provide it.
+      /^@mbe\/api-client(\/.*)?$/,
+    ];
+    export function isExternalSpecifier(id: string): boolean {
+      return libExternal.some((pattern) =>
+        typeof pattern === "string" ? pattern === id : pattern.test(id)
+      );
+    }
+  </file>
   </section>
   <section priority="medium" role="tokens">
   <file path="src/tokens/icons.ts">
