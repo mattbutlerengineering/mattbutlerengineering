@@ -1089,3 +1089,14 @@ None (`agent-skip` empty this run).
 **Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4771/#4712/#4711 had no completed CI runs to resolve against, #4699/#4698 needed a Lighthouse inventory unreachable in this sandbox).
 **Skill proposals:** 0 (Monday, not the Friday extraction day).
 **Threshold notes:** ci-fix auto-tuned 1.09 → 1.105 (headroom) by verify-fixes.mjs. 30d verification log remains almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable), so false-positive and fix-effectiveness rates still aren't a meaningful signal — consistent with 08-28/08-30 notes, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback` (unresolved since 2026-08-11); `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+## 2026-09-01 (optimize-implement-queue)
+
+**Step 0 (reconcile-queue-telemetry):** skipped — `@mbe/gh-client` required a fresh build in this checkout (`pnpm install --frozen-lockfile` + `pnpm --dir packages/gh-client build`, both completed), but `collectQueueEfficiency`'s `defaultReadPrs()` call (and a direct re-check of `reconcile-queue-telemetry.mjs`'s `gh.pr.view` path) hung past a 20s timeout rather than throwing — the REST-fallback `sync-http.ts` subprocess bridge appears to stall rather than error in this session's networking setup. Same underlying standing gap as every prior cloud-scheduled run's `gh-client`/REST-fallback failure (unresolved since 2026-08-11), just a hang instead of the usual 403/502 this time.
+**queueEfficiency:** unavailable — same cause as Step 0 above (`defaultReadPrs()` hangs rather than returning `{available:false}`); no composite score or regression check could run this session.
+**Difficulty distribution:** not available (sensor did not return)
+**Issues filed:** 0 — no regression signal to act on; not filing on the unavailability itself per this skill's own read-only/no-noise guardrails (already tracked as a standing gap in prior entries, most recently today's implement-queue section above).
+
+### Recommendation carried forward
+
+Same as the last several entries: the `gh-client` REST fallback (403/502/hang, varying by day) has been the single biggest recurring gap in every cloud-scheduled sensor run since 2026-08-11. Given it now manifests as a silent hang (worse than an error — no timeout guard in `collectQueueEfficiency`/`reconcile-queue-telemetry.mjs`'s default readers), worth escalating: either wire these scripts' default readers to the GitHub MCP tool surface (per `.claude/rules/gotchas.md`'s "Claude Code Remote / cloud sessions" guidance, already the working pattern for this session's own implement-queue and progress-tracker steps today) or add an explicit timeout/AbortController to `sync-http.ts` so a stalled REST call fails fast instead of hanging the whole skill.
