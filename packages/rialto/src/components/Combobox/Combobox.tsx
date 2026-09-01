@@ -450,15 +450,16 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           {liveMessage}
         </div>
 
-        {hint && (
-          <span
-            {...field.descriptionProps}
-            className={styles.hint}
-            role={error ? "alert" : undefined}
-          >
-            {hint}
-          </span>
-        )}
+        {hint &&
+          (error ? (
+            <span key="error" {...field.errorProps} className={styles.hint}>
+              {hint}
+            </span>
+          ) : (
+            <span key="hint" {...field.descriptionProps} className={styles.hint}>
+              {hint}
+            </span>
+          ))}
       </div>
     );
   }
