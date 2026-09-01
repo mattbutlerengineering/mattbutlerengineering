@@ -222,6 +222,7 @@ export function VenueOnboardingPage() {
               onAddTable={actions.addDraftTable}
               onMoveTable={actions.moveDraftTable}
               onRemoveTable={actions.removeDraftTable}
+              readOnly={launch.venueId !== null}
             />
           )}
 

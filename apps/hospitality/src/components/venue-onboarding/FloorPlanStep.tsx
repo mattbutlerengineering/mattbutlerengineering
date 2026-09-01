@@ -30,9 +30,21 @@ export interface FloorPlanStepProps {
   onAddTable: (request: CreateTableRequest) => void;
   onMoveTable: (localId: string, x: number, y: number) => void;
   onRemoveTable: (localId: string) => void;
+  /**
+   * True once Launch has created server state (`launch.venueId !== null`).
+   * The draft then freezes: `runTablesStage` resumes by table NAME, so a
+   * table moved, removed, or replaced via a template swap after a partial
+   * failure would be skipped on Retry and the live plan would silently
+   * diverge from the draft (#4825). Mirrors the step-5 navigation floor the
+   * wizard reducer already applies to Back / the step rail.
+   */
+  readOnly?: boolean;
 }
 
 const WIDE_VIEWPORT_QUERY = "(min-width: 1024px)";
+
+const LOCKED_MESSAGE =
+  "Your venue is already being created, so this layout is locked. Finish setting up, then rearrange tables in the floor plan editor.";
 
 /** True at >= 1024px, where the desktop canvas is editable. Below it, M13's read-only preview band renders instead. */
 function useIsWideViewport(): boolean {
@@ -67,6 +79,7 @@ export function FloorPlanStep({
   onAddTable,
   onMoveTable,
   onRemoveTable,
+  readOnly = false,
 }: FloorPlanStepProps): JSX.Element {
   const isWideViewport = useIsWideViewport();
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -88,13 +101,14 @@ export function FloorPlanStep({
 
   const handleSelectTemplate = useCallback(
     (templateId: TemplateId) => {
+      if (readOnly) return;
       if (draft.pristine) {
         applyTemplate(templateId);
       } else {
         setPendingTemplateId(templateId);
       }
     },
-    [draft.pristine, applyTemplate]
+    [readOnly, draft.pristine, applyTemplate]
   );
 
   const handleConfirmReplace = useCallback(() => {
@@ -105,6 +119,7 @@ export function FloorPlanStep({
 
   const handlePickerKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (readOnly) return;
       const currentId = draft.templateId ?? FLOOR_PLAN_TEMPLATES[0]!.id;
       const currentIndex = FLOOR_PLAN_TEMPLATES.findIndex((t) => t.id === currentId);
       let nextIndex: number | null = null;
@@ -125,7 +140,7 @@ export function FloorPlanStep({
       cardsRef.current.get(next.id)?.focus();
       handleSelectTemplate(next.id);
     },
-    [draft.templateId, handleSelectTemplate]
+    [readOnly, draft.templateId, handleSelectTemplate]
   );
 
   const handleCanvasTableMove = useCallback(
@@ -142,7 +157,7 @@ export function FloorPlanStep({
   // see its docstring), so this mirrors FloorPlanEditorPage's arrow-key
   // handler and is the one path that fires the "moved to" announcement.
   useEffect(() => {
-    if (!isWideViewport || !selectedTableId || addDialogOpen) return;
+    if (readOnly || !isWideViewport || !selectedTableId || addDialogOpen) return;
 
     const handler = (e: globalThis.KeyboardEvent) => {
       // The template picker's own onKeyDown (handlePickerKeyDown) already
@@ -170,7 +185,7 @@ export function FloorPlanStep({
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isWideViewport, selectedTableId, addDialogOpen, draft.tables, onMoveTable]);
+  }, [readOnly, isWideViewport, selectedTableId, addDialogOpen, draft.tables, onMoveTable]);
 
   const handleAddTableSubmit = useCallback(
     async (request: CreateTableRequest) => {
@@ -201,6 +216,14 @@ export function FloorPlanStep({
         Start from a layout like yours, then arrange it.
       </Text>
 
+      {readOnly && (
+        <div className={styles.lockedBanner}>
+          <Text variant="body" color="secondary">
+            {LOCKED_MESSAGE}
+          </Text>
+        </div>
+      )}
+
       <div
         role="radiogroup"
         aria-label="Floor plan layout"
@@ -223,6 +246,7 @@ export function FloorPlanStep({
               role="radio"
               aria-checked={isSelected}
               tabIndex={isRovingFocus ? 0 : -1}
+              disabled={readOnly}
               aria-label={pickerCardAriaLabel(template, tables)}
               className={`${styles.pickerCard} ${isSelected ? styles.pickerCardSelected : ""}`}
               onClick={() => handleSelectTemplate(template.id)}
@@ -250,9 +274,11 @@ export function FloorPlanStep({
 
       {isWideViewport ? (
         <div className={styles.canvasArea}>
-          <Button variant="primary" onClick={() => setAddDialogOpen(true)}>
-            Add table
-          </Button>
+          {!readOnly && (
+            <Button variant="primary" onClick={() => setAddDialogOpen(true)}>
+              Add table
+            </Button>
+          )}
 
           {draft.templateId === null ? (
             <div className={styles.emptyState}>
@@ -275,6 +301,7 @@ export function FloorPlanStep({
               onTableMove={handleCanvasTableMove}
               onTableSelect={setSelectedTableId}
               selectedTableId={selectedTableId}
+              readOnly={readOnly}
             />
           )}
 
@@ -285,13 +312,17 @@ export function FloorPlanStep({
                   {selectedTable.name} · {selectedTable.capacity} seats ·{" "}
                   {capitalizeShape(selectedTable.shape)}
                 </Text>
-                <Button variant="secondary" onClick={handleRemoveSelected}>
-                  Remove table
-                </Button>
+                {!readOnly && (
+                  <Button variant="secondary" onClick={handleRemoveSelected}>
+                    Remove table
+                  </Button>
+                )}
               </>
             ) : (
               <Text variant="caption" color="tertiary">
-                Select a table to move or remove it.
+                {readOnly
+                  ? "Select a table to see its details."
+                  : "Select a table to move or remove it."}
               </Text>
             )}
           </div>
