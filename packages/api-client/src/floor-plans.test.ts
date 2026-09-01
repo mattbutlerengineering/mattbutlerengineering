@@ -214,6 +214,17 @@ describe("FloorPlansClient", () => {
       expect(options?.method).toBe("POST");
       expect(result).toEqual(cloned);
     });
+
+    it("sends a parseable JSON body — an empty body with Content-Type: application/json is rejected by Fastify with 400", async () => {
+      const cloned = { ...fakeFloorPlan, id: "fp2" };
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: cloned }));
+
+      await makeClient().clone("fp1");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(() => JSON.parse(options?.body as string)).not.toThrow();
+      expect(options?.body).toBe("{}");
+    });
   });
 
   describe("error handling", () => {
