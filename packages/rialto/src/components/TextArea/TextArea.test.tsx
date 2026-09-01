@@ -50,8 +50,15 @@ describe("TextArea — required marker + aria-live announcements", () => {
     expect(status).toHaveTextContent("5 of 200 characters");
   });
 
-  it("announces the error hint when in error state", () => {
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike the old always-mounted echo region. See #4833.
+  it("announces the error hint via an alert region", () => {
     render(<TextArea label="Bio" error hint="Too long" />);
-    expect(screen.getByRole("status")).toHaveTextContent("Too long");
+    expect(screen.getByRole("alert")).toHaveTextContent("Too long");
+  });
+
+  it("does not duplicate the error message into a separate hidden echo node", () => {
+    render(<TextArea label="Bio" error hint="Too long" />);
+    expect(screen.getAllByText("Too long")).toHaveLength(1);
   });
 });

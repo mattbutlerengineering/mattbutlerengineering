@@ -181,7 +181,10 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
       };
 
   const complete = chars.length === length && chars.every((ch) => ch !== "");
-  const announcement = error && hint ? hint : complete ? "Code complete" : "";
+  // Completion is announced via the always-mounted polite status region.
+  // The error message is handled separately by the errorProps (role="alert")
+  // element below so the two are never rendered as duplicate DOM text.
+  const completionAnnouncement = !error && complete ? "Code complete" : "";
 
   return (
     <DisabledTooltip disabled={disabled} disabledReason={disabledReason}>
@@ -230,12 +233,17 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
           })}
         </div>
 
-        {hint && (
-          <span id={field.descriptionProps.id} className={styles.hint}>
-            {hint}
-          </span>
-        )}
-        <span {...field.liveRegionProps}>{announcement}</span>
+        {hint &&
+          (error ? (
+            <span key="error" {...field.errorProps} className={styles.hint}>
+              {hint}
+            </span>
+          ) : (
+            <span key="hint" id={field.descriptionProps.id} className={styles.hint}>
+              {hint}
+            </span>
+          ))}
+        <span {...field.liveRegionProps}>{completionAnnouncement}</span>
       </div>
     </DisabledTooltip>
   );

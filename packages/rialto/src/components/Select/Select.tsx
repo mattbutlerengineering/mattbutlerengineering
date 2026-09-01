@@ -218,12 +218,16 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           )}
         </AnimatePresence>
 
-        {hint && (
-          <span {...field.descriptionProps} className={styles.hint}>
-            {hint}
-          </span>
-        )}
-        <span {...field.liveRegionProps}>{error && hint ? hint : ""}</span>
+        {hint &&
+          (error ? (
+            <span key="error" {...field.errorProps} className={styles.hint}>
+              {hint}
+            </span>
+          ) : (
+            <span key="hint" {...field.descriptionProps} className={styles.hint}>
+              {hint}
+            </span>
+          ))}
       </div>
     );
   }

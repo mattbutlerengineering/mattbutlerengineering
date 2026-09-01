@@ -89,6 +89,20 @@ describe("useField", () => {
       const { result } = renderHook(() => useField({ error: false }));
       expect(result.current.errorProps.id).toBeUndefined();
     });
+
+    // role="alert" is spec-reliable on insertion-with-content, unlike
+    // role="status"/aria-live="polite" on a conditionally mounted region.
+    // Consumers render errorProps only while error=true, so mounting is
+    // always a fresh insertion. See #4833.
+    it("errorProps.role is always alert", () => {
+      const { result } = renderHook(() => useField({ error: true }));
+      expect(result.current.errorProps.role).toBe("alert");
+    });
+
+    it("errorProps['aria-atomic'] is true", () => {
+      const { result } = renderHook(() => useField({ error: true }));
+      expect(result.current.errorProps["aria-atomic"]).toBe(true);
+    });
   });
 
   describe("required / optional", () => {
