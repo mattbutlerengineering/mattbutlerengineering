@@ -116,34 +116,33 @@ Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claud
 
 ## mbe CLI Commands
 
-```bash
-# Agent — local (runs directly via @mbe/agent-core)
-mbe agent run "Fix the login bug"                 # Run agent → get PR
-  --adapter <type>                                # auto, claude, gemini, opencode (default: claude)
-  --model <model>                                 # default: claude-sonnet-5
-  --max-budget <usd>                              # default: 1.00
-  --max-turns <n>                                 # default: 50
-  --no-pr                                         # skip PR, keep worktree
-  -v, --verbose                                   # stream agent events
+All top-level commands registered in `tools/cli/src/index.ts`:
 
-# Agent — API-backed (requires agent service running on :3003)
-mbe agent start "Fix the login bug"               # Create session via API
-mbe agent list                                    # List all sessions
-mbe agent status <id>                             # Get session details
-mbe agent logs <id>                               # Stream SSE events
-mbe agent cancel <id>                             # Cancel running session
-mbe agent delete <id>                             # Delete session + cleanup
-mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
-mbe agent frontmatter                             # stdin issue body → mbe agent run flags (yaml agent block)
-mbe agent cost [id]                               # Show per-turn cost breakdown or summary
-
-# Model governance
-mbe check-model "<directive>"                     # Verify recommended model tier for task complexity
-
-# Development
-mbe stats                                         # Agent performance metrics
-mbe up                                           # Start dev servers
-```
+| Command             | Subcommands                                                                                                | Purpose                                                                                                                                                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`             | `run`, `start`, `list`, `status`, `logs`, `cancel`, `delete`, `cost`, `orchestrate`, `eval`, `frontmatter` | Run autonomous coding agents (local via `@mbe/agent-core` or API-backed via agent service)                                                                                                                                                         |
+| `check-model`       | —                                                                                                          | Resolve model selection for a directive (dry-run) or a GitHub issue (`--issue <number>`)                                                                                                                                                           |
+| `check-adr`         | —                                                                                                          | Validate codebase against active Architecture Decision Records (ADRs)                                                                                                                                                                              |
+| `check-deps`        | —                                                                                                          | Audit dependency version consistency across the monorepo                                                                                                                                                                                           |
+| `cleanup-worktrees` | —                                                                                                          | Clean up orphaned git worktrees from `.claude/worktrees/` — **note:** `/implement-queue` Phase 4 uses `scripts/reap-worktrees.mjs` instead; see [gotchas.md § Build/pnpm/turbo](./.claude/rules/gotchas.md#build--pnpm--turbo) for the safety gate |
+| `generate`          | `component`, `route`                                                                                       | Generate monorepo entities (components, routes)                                                                                                                                                                                                    |
+| `health`            | —                                                                                                          | Show system health status                                                                                                                                                                                                                          |
+| `issue`             | `transition`                                                                                               | GitHub issue coordination commands — **note:** `issue transition` cannot run in Claude Code Remote sessions (no `gh` binary); see [gotchas.md § Claude Code Remote](./.claude/rules/gotchas.md#claude-code-remote--cloud-sessions)                 |
+| `login`             | —                                                                                                          | Authenticate with the API                                                                                                                                                                                                                          |
+| `logout`            | —                                                                                                          | Clear stored credentials                                                                                                                                                                                                                           |
+| `loop`              | —                                                                                                          | Run an agent directive in an autonomous loop (Ralph Wiggum pattern)                                                                                                                                                                                |
+| `mcp`               | —                                                                                                          | Start the infrastructure MCP server                                                                                                                                                                                                                |
+| `new`               | —                                                                                                          | Scaffold a new app with Rialto provider and example page                                                                                                                                                                                           |
+| `pack`              | —                                                                                                          | Generate AI context (llms.txt) for a service or package                                                                                                                                                                                            |
+| `pack-changed`      | —                                                                                                          | Automatically run `mbe pack` on changed directories (git hook)                                                                                                                                                                                     |
+| `prime`             | —                                                                                                          | Just-In-Time context priming: Pack relevant directories for a task                                                                                                                                                                                 |
+| `stats`             | `log-session`, `audit-perf`                                                                                | Show agent performance statistics                                                                                                                                                                                                                  |
+| `sync-rules`        | —                                                                                                          | Synchronize agent rules from AGENTS.md to tool-specific files                                                                                                                                                                                      |
+| `up`                | —                                                                                                          | Launch the entire development environment (Docker, DB, Turbo)                                                                                                                                                                                      |
+| `users`             | `list`, `get`                                                                                              | User management commands                                                                                                                                                                                                                           |
+| `visual`            | —                                                                                                          | Run visual regression tests via Playwright                                                                                                                                                                                                         |
+| `wave`              | —                                                                                                          | Execute multiple tasks in parallel using git worktrees                                                                                                                                                                                             |
+| `whoami`            | —                                                                                                          | Show current user info                                                                                                                                                                                                                             |
 
 ### GitHub Labels (coordination state machine)
 
