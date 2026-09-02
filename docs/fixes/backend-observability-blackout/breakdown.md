@@ -266,3 +266,29 @@ produced it, and pivots to its own trace.
   an ambient DSN in a developer's shell can never make one of these pass.
   Verified after: service-bootstrap 167/167, reservations 1331/1331, users
   138/138, agent 362/362, all four typechecks clean.
+- **2026-09-02 — item 6 is built but deliberately left unchecked.**
+  `scripts/sentry-round-trip.mjs` and its 16 unit tests exist and are lint- and
+  test-clean, and the design gap it depended on (how to provoke a captured error
+  on a deployed service) is now resolved in `architecture.md`. Its acceptance
+  criterion is a live one, and neither half can be honestly claimed yet. The
+  exits-0 half needs a deployed service that actually has a DSN, which is the
+  outstanding blocker. The exits-non-zero half is technically checkable right
+  now — production has no DSN, so the check should time out — but running it
+  means firing ~150 requests at the production API specifically to trip the rate
+  limiter. That is outward-facing and deliberately degrading, so it is held for
+  a human rather than done unattended by a loop, and it also needs
+  `SENTRY_AUTH_TOKEN`, which is a repo secret with no local equivalent. What was
+  verified locally: the pure core (marker uniqueness, both tag matchers, exit
+  mapping, backoff), the usage path exiting 2, and a transport failure exiting 2
+  rather than crashing.
+- **2026-09-02 — `--project` is a parameter, so the open one-vs-three DSN
+  question does not block item 6's shape.** One shared project means passing the
+  same `--project` three times; three per-service projects mean passing a
+  different one each time. The decision still has to be made before Verify can
+  say what "the round trip passes" means, but it no longer gates the code.
+- **2026-09-02 — hit the `cmd | tail` exit-code trap while checking this
+  script.** `node scripts/sentry-round-trip.mjs 2>&1 | tail -2; echo $?`
+  reported 0 for a path that exits 2, because `$?` is `tail`'s status. It is
+  already recorded in the repo's gotchas for `git push`, and it reads as
+  convincing there too — the usage text printed exactly as expected. Check exit
+  codes with the pipe removed.

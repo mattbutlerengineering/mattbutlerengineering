@@ -216,6 +216,34 @@ bootstrap, not by callers.
   can now prevent a deploy from serving. That is the intended trade, because a
   service running blind has repeatedly proven more expensive than a service that
   refuses to start.
+- **How the round-trip check triggers a captured error: a deliberate 429 on a
+  uniquely-marked URL, not a debug endpoint.** Decompose surfaced that this was
+  never specified, and it is the load-bearing half of item 6 — the criterion
+  "exits non-zero when pointed at a service with no DSN" only holds if the error
+  originates _inside_ the service. That immediately rules out the tempting
+  option of posting an event straight to the DSN from the checking script: that
+  proves a DSN is valid, never that the service was given one, which is the
+  exact confusion that let this blackout run. A debug endpoint that throws on
+  demand was rejected too — it is a permanently reachable surface whose entire
+  purpose is to produce a 500, and the run is about reducing the number of
+  things that can go wrong silently, not adding one. What is left is an existing
+  error path, and the capture rules in `sentryFastifyPlugin` decide which:
+  5xx and `NOTABLE_4XX` (409, 422, 429) only. 401/403/404 are explicitly not
+  captured, and every authenticated route answers 401 before its handler, so the
+  only path reachable without credentials is 429 — the global 100/min limiter.
+  A burst against a health path crosses it deterministically and the window
+  self-heals in a minute.
+
+  The marker rides on the request, not on the payload:
+  `createRequestIdMiddleware` sets `request.id` from the `x-request-id` header
+  when the caller supplies one, and `setSentryContext` tags every captured event
+  with `requestId`. So the check sends a unique `x-request-id`, provokes the
+  429, then polls Sentry for an event carrying that tag. The URL is tagged too,
+  giving a second independent marker if the first ever stops being honoured.
+  Costs, accepted: the burst spends that IP's rate-limit budget for one window
+  and records hits in `rateLimitMonitor`, which is visible in the health
+  endpoint's stats. Both are transient, and the check is meant to be run rarely
+  and deliberately.
 
 ## ADRs
 
