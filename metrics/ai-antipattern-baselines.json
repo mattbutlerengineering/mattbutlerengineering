@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T18:41:43.477Z",
+  "generatedAt": "2026-09-02T18:55:02.528Z",
   "patterns": {
     "magicTimeouts": {
       "count": 29,
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 706,
+      "count": 709,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {

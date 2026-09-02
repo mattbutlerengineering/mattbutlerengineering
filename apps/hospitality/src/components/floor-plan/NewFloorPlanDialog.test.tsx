@@ -44,6 +44,11 @@ describe("NewFloorPlanDialog", () => {
     expect(screen.getByLabelText(/Name/)).toBeInTheDocument();
   });
 
+  it("has an accessible name matching the dialog heading", () => {
+    render(<NewFloorPlanDialog {...defaultProps} />);
+    expect(screen.getByRole("dialog", { name: "New Floor Plan" })).toBeInTheDocument();
+  });
+
   it("shows error when submitting whitespace-only name via form", async () => {
     const { container } = render(<NewFloorPlanDialog {...defaultProps} />);
     const input = screen.getByLabelText(/Name/);
