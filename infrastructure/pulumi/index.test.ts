@@ -788,8 +788,7 @@ describe("Configuration Validation", () => {
       // See packages/rialto/src/tokens/colors.css.
       const branding = findResource("auth0:index/branding:Branding");
       expect(branding).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const colors = branding!.inputs.colors as any;
+      const colors = branding!.inputs.colors as { primary: string; pageBackground: string };
       expect(colors.pageBackground).toBe("#1e1c1a");
       expect(colors.primary).toBe("#d4a23a");
     });
