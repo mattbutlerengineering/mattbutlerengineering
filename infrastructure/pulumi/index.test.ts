@@ -765,6 +765,40 @@ describe("Configuration Validation", () => {
       expect(scopes).toContain("profile");
       expect(scopes).toContain("email");
     });
+
+    it("tenant declares a friendlyName instead of the raw tenant ID", () => {
+      // Login page copy reads the tenant's friendlyName. Undeclared, it
+      // falls back to the raw tenant ID (e.g. "dev-ytbgmz5ls3wh4xdx"),
+      // which is what the universal login screen showed pre-fix.
+      const tenant = findResource("auth0:index/tenant:Tenant");
+      expect(tenant).toBeDefined();
+      expect(tenant!.inputs.friendlyName).toBe("Matt Butler Engineering");
+    });
+
+    it("tenant declares a pictureUrl so a real logo renders on login", () => {
+      const tenant = findResource("auth0:index/tenant:Tenant");
+      expect(tenant).toBeDefined();
+      expect(tenant!.inputs.pictureUrl).toMatch(/^https:\/\/.+\.(png|svg|jpg|jpeg)$/);
+    });
+
+    it("branding uses the dark speakeasy page background and gold accent primary", () => {
+      // Literal hex values mirroring rialto's dark-theme tokens (Auth0 can't
+      // read CSS custom properties): --rialto-surface (dark) for the page
+      // background, --rialto-accent (dark) for the primary/button color.
+      // See packages/rialto/src/tokens/colors.css.
+      const branding = findResource("auth0:index/branding:Branding");
+      expect(branding).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const colors = branding!.inputs.colors as any;
+      expect(colors.pageBackground).toBe("#1e1c1a");
+      expect(colors.primary).toBe("#d4a23a");
+    });
+
+    it("branding declares a logoUrl", () => {
+      const branding = findResource("auth0:index/branding:Branding");
+      expect(branding).toBeDefined();
+      expect(branding!.inputs.logoUrl).toMatch(/^https:\/\/.+\.(png|svg|jpg|jpeg)$/);
+    });
   });
 });
 
