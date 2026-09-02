@@ -180,6 +180,25 @@ produced it, and pivots to its own trace.
   taken. Items 2-5 hold either way (they concern the presence of a DSN, not how
   many exist); item 6 is the first that has to know the answer. Route to
   Architect before working it.
+  - **2026-09-02 update — all three projects already have a DSN.** `find_dsns`
+    against the org returns a `Default` key for `users-api`, `reservations-api`
+    and `agent-api`, on the same ingest host with three distinct project ids.
+    (Values are not recorded here; they are credentials and this file is
+    committed.) So the three-project option costs no provisioning at all — the
+    keys exist and are ready to paste into three GitHub secrets. That removes
+    the main argument for the single-DSN design, and the recommendation is now
+    three per-service DSNs: per-service issue streams, alert rules and quotas,
+    matching how a triage actually starts ("reservations is erroring"), and no
+    shared quota where one noisy service can crowd out another's events. The
+    cost is three secrets to rotate instead of one, and a round-trip check that
+    iterates — `require-deploy-secrets.mjs` already accepts multiple names, so
+    that part is free.
+    - **Rework if three is chosen:** item 3 moves `secretEnv("SENTRY_DSN", ...)`
+      out of `sharedEnvs` into each service's `extraEnvs` with its own config
+      key; item 4's guard step names three secrets instead of one, and the
+      unconditional `for SVC` upsert becomes three per-service upserts. Both are
+      small and localised — roughly the size of the original items — but they
+      are real, so the decision is worth making before any of this merges.
 
 ## Notes
 
