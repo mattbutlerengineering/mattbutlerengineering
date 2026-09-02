@@ -59,7 +59,8 @@ export function initSentry(options: InitOptions): void {
     release: config.release,
     serverName: options.serviceName,
     skipOpenTelemetrySetup: true,
-    // Belt-and-braces against the collision described above. With tracing left
+    // Belt-and-braces against the decorator collision explained on
+    // `tracesSampleRate` below. With tracing left
     // unconfigured this filter matches nothing today (Fastify is an
     // auto-performance integration, not a default one), but the M2/M3 follow-up
     // run adds real tracing, and the moment `tracesSampleRate` comes back so does

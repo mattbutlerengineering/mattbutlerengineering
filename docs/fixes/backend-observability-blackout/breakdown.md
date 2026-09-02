@@ -87,7 +87,7 @@ variables to machinery this milestone has already proven on a real case.
   - Blocked by: Sentry `beforeSend` applies the redaction policy; Deliver
     `SENTRY_DSN` through the yq bridge; Require telemetry config at production
     boot
-- [ ] **Repeatable round-trip check — the live assertion** — run it against
+- [x] **Repeatable round-trip check — the live assertion** — run it against
       production and observe both outcomes. Owned by Verify, not Implement: see
       the 2026-09-02 note on why this cannot be satisfied before Ship.
   - Accept: against a deployed service carrying a DSN it exits 0 with the event
@@ -554,3 +554,68 @@ produced it, and pivots to its own trace.
   what it removes, against the real dependency, not by the fact it was passed.
   The filter is kept as a documented guard, since the deferred M2/M3 tracing work
   reintroduces `tracesSampleRate` and with it the collision.
+- **2026-09-02 — `deploy-services.yml`'s `paths:` filter does not list
+  `packages/sentry`, so the fix for the crash above would never have
+  deployed.** The filter covers `services/{users,reservations,agent}`,
+  `packages/types`, `packages/auth`, `packages/agent-core` and
+  `packages/observability`. It omits `packages/sentry` and
+  `packages/service-bootstrap` — both embedded in every service image, and both
+  able to stop a container booting, as this run just demonstrated twice.
+  #4920 only triggered a deploy because it happened to touch
+  `packages/observability`; PR #4927, which touches only `packages/sentry`,
+  merged to `main` and triggered nothing. Recovered with
+  `gh workflow run deploy-services.yml --ref main` (run `33689785649`), which the
+  workflow supports deliberately — its own `workflow_dispatch` comment cites the
+  deploys-unhealthy runbook. Same family as the `/public` ingress finding and as
+  the run's own defect: a deploy that silently does not happen is
+  indistinguishable from one that was not needed. Carried as a retro seed;
+  the filter should include every package baked into a service image, or the
+  path list should be derived rather than hand-maintained.
+- **2026-09-02 — carried nit, deliberately not fixed in PR #4927.** The
+  `integrations:` comment in `packages/sentry/src/node.ts` opens "the collision
+  described above", but after the edit the full explanation sits _below_ it on
+  `tracesSampleRate`. Left alone rather than spend another ~10 minute CI cycle
+  while `main`'s deploy was broken; fix on the next commit to this run.
+- **2026-09-02 — the blackout is over: an error raised inside a deployed service
+  reached Sentry.** Deploy run `33689785649` on `84c7f3230` succeeded and
+  deployment `467d9927` is ACTIVE (Phase and Cause both checked — a 200 from
+  `/api/v1/users/health` is not evidence a deploy landed). Marker
+  `mbe-round-trip-20260902T224126Z-dde78359`, provoked against
+  `GET /api/v1/users/health`, came back as `USERS-API-6`, event
+  `d5c183211e23434fa6d93f7a2eccace1`, in a project that held **zero** issues over
+  90d an hour earlier. Both carriers the check requires are present and
+  independent: tag `requestId` equals the marker (so `x-request-id` propagates
+  end to end through `createRequestIdMiddleware` into `setSentryContext`), and
+  tag `url` contains it. Supporting tags: `server_name: users-api`,
+  `environment: production`, `level: warning` (the `NOTABLE_4XX` path, not the
+  5xx one), `app_start_time: 22:38:56Z` — the container from this deploy.
+  **How the probe actually ran, versus how the criterion is written.**
+  `/api/v1/users/health` turned out to carry its OWN route-level limit of 10/min
+  rather than the service-wide 100, so tripping it touches one path for 60s
+  instead of the shared bucket — cheaper than either probe considered earlier,
+  and DO's readiness probe uses `/ready`, so it was unaffected. First attempt
+  sent 20 marked requests and got 20×200: the service runs multiple instances,
+  each with its own in-memory limiter store, so `x-ratelimit-remaining`
+  oscillates (observed 0, 2, 0) and one instance's counter fills at a fraction of
+  the request rate. A limiter that looks broken here is really a limiter being
+  sampled across instances. Once buckets were near full, 2 marked requests
+  tripped it.
+  **What was NOT executed, stated plainly:** `scripts/sentry-round-trip.mjs`
+  itself never ran. `SENTRY_AUTH_TOKEN` is a repo secret with no local
+  equivalent and extracting one is out of bounds, so the assertion was performed
+  by hand through the authenticated Sentry MCP — the same two-step the script
+  automates (provoke a captured status carrying a marker, then query the Sentry
+  API for it), with the returned event inspected directly rather than through the
+  script's exit code. The script's decision logic is unit-tested, but the wiring
+  of its `main()` is still unexercised, which is precisely the "built, merged,
+  never once run" pattern this repo has been bitten by. Residual, carried as a
+  retro seed: run it from CI where the token exists. The negative half of the
+  criterion is evidenced instead by the 90-day pre-state — deployed services with
+  no DSN produced zero events over five months, a far longer observation than the
+  script's 120s timeout.
+  **The restored pipeline's first act was to report its own regression.**
+  `USERS-API-4` — `FastifyError: The decorator 'opentelemetry' has already been
+added!`, 12 events, first seen an hour ago — is the boot crash from the failed
+  deploys, captured because the DSN was live by then and the SDK's
+  uncaught-exception handler fired. Before this run that incident would have been
+  visible only as a deploy that failed for unstated reasons.
