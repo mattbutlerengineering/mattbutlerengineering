@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-02T00:44:18.357Z",
+  "generated_at": "2026-09-02T18:08:43.226Z",
   "period": {
     "start": "2026-08-26",
     "end": "2026-09-02"
@@ -53,22 +53,22 @@
       "total_closed_without_merge": 1,
       "by_category": {
         "tier:trivial": {
-          "merged": 25,
+          "merged": 28,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 44,
+          "merged": 39,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 11,
+          "merged": 14,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 9,
+          "merged": 8,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -97,35 +97,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 20908954,
-      "output_tokens": 61426,
-      "cache_creation_tokens": 682258,
-      "cache_hit_rate": 0.9684,
+      "cache_read_tokens": 1349715,
+      "output_tokens": 3119,
+      "cache_creation_tokens": 58345,
+      "cache_hit_rate": 0.9585,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 272,
-          "output_tokens": 61426,
-          "cache_read_tokens": 20908954,
-          "cache_creation_tokens": 682258
+          "input_tokens": 26,
+          "output_tokens": 3119,
+          "cache_read_tokens": 1349715,
+          "cache_creation_tokens": 58345
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 17,
+      "completed": 30,
+      "passed": 22,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 33576550785,
+        "databaseId": 33663368352,
         "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-09-02T00:44:16Z",
-        "name": "Auto-Merge Policy",
+        "conclusion": "success",
+        "createdAt": "2026-09-02T17:48:41Z",
+        "name": "Venue Journey",
         "headBranch": "main",
-        "headSha": "07c03b931e8f91570f3ed2e87e98801848679f39"
+        "headSha": "0523b03956403d9c6386e375e764caf8b2bfede2"
       }
     },
     "lighthouse": {
@@ -143,17 +143,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 2,
-      "logs_7d": 2,
-      "total_commits_7d": 34,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 556576,
-      "lines_churned_7d": 520,
+      "total_lines_added_7d": 557101,
+      "lines_churned_7d": 328,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -167,41 +167,41 @@
     "e2eStability": {
       "available": true,
       "consecutive_failures": 0,
-      "total_runs": 13,
-      "total_non_frontend_runs": 13,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (13 runs checked)"
+      "total_runs": 12,
+      "total_non_frontend_runs": 6,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (6 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.976,
+      "composite": 0.961,
       "sub_metrics": {
-        "issues_merged": 33,
-        "first_pass_success_rate": 0.939,
-        "median_time_to_merge_hours": 0.3,
+        "issues_merged": 31,
+        "first_pass_success_rate": 0.903,
+        "median_time_to_merge_hours": 0.4,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
         "review_coverage": 0.75
       },
       "distribution": {
-        "size:xs": {
-          "count": 14,
-          "avg_commits": 1.2,
-          "avg_ttm_hours": 0.5
-        },
         "size:s": {
+          "count": 13,
+          "avg_commits": 1.6,
+          "avg_ttm_hours": 2.2
+        },
+        "size:xs": {
           "count": 15,
           "avg_commits": 1.3,
-          "avg_ttm_hours": 1.9
+          "avg_ttm_hours": 0.5
         },
         "size:l": {
-          "count": 1,
-          "avg_commits": 3,
-          "avg_ttm_hours": 10.3
+          "count": 2,
+          "avg_commits": 2.5,
+          "avg_ttm_hours": 5.3
         },
         "size:m": {
-          "count": 3,
-          "avg_commits": 1.3,
-          "avg_ttm_hours": 0.3
+          "count": 1,
+          "avg_commits": 2,
+          "avg_ttm_hours": 0.4
         }
       },
       "baseline": null,
