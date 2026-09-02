@@ -146,6 +146,20 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_TOKEN }}
 
+      - name: Check out the repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Require deploy secrets
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          set -euo pipefail
+          # Fail closed BEFORE the spec is patched. The yq bridges below skip
+          # silently on an empty value (`if [ -n ... ]`), which is the same
+          # shape of failure this run exists to remove: a deploy that quietly
+          # omits a secret is indistinguishable from one that never needed it.
+          node scripts/require-deploy-secrets.mjs SENTRY_DSN
+
       - name: Inject deploy metadata into app spec
         env:
           DEPLOY_SHA: ${{ github.sha }}
@@ -153,6 +167,7 @@ jobs:
           DEPLOY_AUTHOR: ${{ github.actor }}
           MANAGE_TOKEN_SECRET: ${{ secrets.MANAGE_TOKEN_SECRET }}
           UNSUBSCRIBE_TOKEN_SECRET: ${{ secrets.UNSUBSCRIBE_TOKEN_SECRET }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep mattbutlerengineering-api | awk '{print $1}')
           if [ -z "$APP_ID" ]; then
@@ -187,6 +202,16 @@ jobs:
               (map(select(.key != \"UNSUBSCRIBE_TOKEN_SECRET\")) +
               [{\"key\":\"UNSUBSCRIBE_TOKEN_SECRET\",\"value\":\"${UNSUBSCRIBE_TOKEN_SECRET}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
           fi
+
+          # Upsert SENTRY_DSN into every service — unconditional by design.
+          # The "Require deploy secrets" step already refused the deploy if the
+          # value were missing, so there is nothing left here to skip on, and a
+          # conditional would only rebuild the blackout one layer down.
+          for SVC in users-api reservations-api agent-api; do
+            yq -i "(.services[] | select(.name == \"$SVC\").envs) |=
+              (map(select(.key != \"SENTRY_DSN\")) +
+              [{\"key\":\"SENTRY_DSN\",\"value\":\"${SENTRY_DSN}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
+          done
 
           echo "Updating app spec with deploy metadata"
           doctl apps update "$APP_ID" --spec /tmp/spec.yaml
