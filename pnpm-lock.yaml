@@ -1177,6 +1177,9 @@ importers:
 
   packages/sentry:
     dependencies:
+      '@mbe/observability':
+        specifier: workspace:^
+        version: link:../observability
       '@mbe/types':
         specifier: workspace:^
         version: link:../types

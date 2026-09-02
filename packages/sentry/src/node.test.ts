@@ -115,6 +115,28 @@ describe("initSentry (node)", () => {
     expect(callArg.skipOpenTelemetrySetup).toBe(true);
     expect(callArg.tracesSampleRate).toBe(0);
   });
+
+  it("redacts credentials from events before they leave the process", () => {
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const beforeSend = mockSentryInit.mock.calls[0]?.[0]?.beforeSend;
+    expect(beforeSend).toBeTypeOf("function");
+
+    const event = {
+      request: {
+        url: "https://api.example.com/api/v1/tables?venueId=v_123",
+        headers: { authorization: "Bearer abc.def.ghi", "x-request-id": "req_1" },
+      },
+    };
+
+    const sent = beforeSend(event) as typeof event;
+
+    expect(sent.request.headers.authorization).toBe("[redacted]");
+    expect(sent.request.headers["x-request-id"]).toBe("req_1");
+    expect(sent.request.url).toBe("https://api.example.com/api/v1/tables?venueId=v_123");
+  });
 });
 
 describe("sentryFastifyPlugin", () => {
