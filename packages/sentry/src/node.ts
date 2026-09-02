@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from "fastify";
 import { createProblemDetails } from "@mbe/types";
+import { redactSignal } from "@mbe/observability";
 import { resolveConfig } from "./config.js";
 
 /**
@@ -58,6 +59,11 @@ export function initSentry(options: InitOptions): void {
     release: config.release,
     serverName: options.serviceName,
     skipOpenTelemetrySetup: true,
+    // Every event is walked by the shared redaction policy before it leaves the
+    // process, so a credential can never reach Sentry.io. The policy is owned by
+    // @mbe/observability so one rule governs every outbound signal — no exporter
+    // re-implements it locally.
+    beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
     tracesSampleRate: 0,
   });
 }

@@ -565,7 +565,10 @@ export const SENSORS = [
       };
     },
     format: (data, name) =>
-      `${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.completed})`,
+      // #4713: report the same denominator pass_rate_pct is computed over
+      // (passed + failed) — `completed` also includes skipped/cancelled
+      // runs, so it used to disagree with the rate (e.g. "100% (11/30)").
+      `${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.passed + data.failed})`,
     thresholds: { ci_pass_rate_drop: 5 },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available || !previous?.available) return [];

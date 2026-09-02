@@ -86,3 +86,52 @@ describe("validateStartupConfig", () => {
     expect((caught as Error).message).not.toContain("SECRET-HOST-abc123");
   });
 });
+
+describe("validateStartupConfig — SENTRY_DSN", () => {
+  // The blackout this guard exists to end: initSentry returns early and
+  // silently when the DSN is absent, so a service with no error reporting and
+  // a service that simply has not errored yet produce identical evidence.
+  // Boot is the last place the difference is still observable.
+  it("refuses to boot in production when SENTRY_DSN is unset", () => {
+    expect(() => validateStartupConfig({ NODE_ENV: "production" })).toThrow(/SENTRY_DSN/);
+  });
+
+  it("refuses to boot in production when SENTRY_DSN is empty", () => {
+    expect(() => validateStartupConfig({ NODE_ENV: "production", SENTRY_DSN: "" })).toThrow(
+      /SENTRY_DSN/
+    );
+  });
+
+  it("refuses to boot in production when SENTRY_DSN is whitespace only", () => {
+    expect(() => validateStartupConfig({ NODE_ENV: "production", SENTRY_DSN: "   " })).toThrow(
+      /SENTRY_DSN/
+    );
+  });
+
+  it("boots in production once SENTRY_DSN is present", () => {
+    expect(() =>
+      validateStartupConfig({
+        NODE_ENV: "production",
+        SENTRY_DSN: "https://key@o1.ingest.sentry.io/2",
+      })
+    ).not.toThrow();
+  });
+
+  it("never names the DSN value in the error, only that it is missing", () => {
+    // Same stance as the AUTH_AUTHORITY errors above: shape, never content.
+    let message = "";
+    try {
+      validateStartupConfig({ NODE_ENV: "production", SENTRY_DSN: "  " });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain("SENTRY_DSN");
+    expect(message).not.toContain("  ");
+  });
+
+  it("leaves development and test alone so local runs need no DSN", () => {
+    expect(() => validateStartupConfig({ NODE_ENV: "development" })).not.toThrow();
+    expect(() => validateStartupConfig({ NODE_ENV: "test" })).not.toThrow();
+    expect(() => validateStartupConfig({})).not.toThrow();
+  });
+});

@@ -181,8 +181,11 @@ describe("formatSensorDisplay", () => {
 
   it("renders the ciHealth line under its reportKey (not the underlying id 'ci')", () => {
     const lines = formatSensorDisplay({
-      ciHealth: { available: true, pass_rate_pct: 77, passed: 20, completed: 26 },
+      ciHealth: { available: true, pass_rate_pct: 77, passed: 20, failed: 6, completed: 30 },
     });
+    // #4713: format reports passed/(passed+failed), the same denominator
+    // pass_rate_pct is computed over — not `completed` (which also folds in
+    // skipped/cancelled runs).
     expect(lines).toContain("ciHealth: 77% pass rate (20/26)");
   });
 

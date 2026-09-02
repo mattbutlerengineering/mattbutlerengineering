@@ -75,6 +75,9 @@ const configEntries: Record<string, string> = {
   e2eNonAdminUserPassword: "test-nonadmin-password-123",
   manageTokenSecret: "manage-secret-test-value",
   unsubscribeTokenSecret: "unsubscribe-secret-test-value",
+  sentryDsnUsersApi: "https://users@o1.ingest.us.sentry.io/1001",
+  sentryDsnReservationsApi: "https://reservations@o1.ingest.us.sentry.io/1002",
+  // sentryDsnAgentApi is deliberately NOT set -- see the SENTRY_DSN test below.
 };
 
 for (const [key, value] of Object.entries(configEntries)) {
@@ -310,6 +313,43 @@ describe("Configuration Validation", () => {
         expect(dbUrl).toBeDefined();
         expect(dbUrl.type).toBe("SECRET");
       }
+    });
+
+    // Declared unconditionally, unlike the OTEL vars below: an env var that
+    // disappears from the spec when its config is unset is precisely the shape
+    // that hid the Sentry blackout for five months. `sentryDsnAgentApi` is
+    // deliberately absent from this file's configEntries, so agent-api proves
+    // the declaration survives an unset config.
+    it("all services declare SENTRY_DSN as SECRET even when unconfigured", () => {
+      const spec = getAppSpec();
+
+      // Guard the loop below against passing vacuously on an empty service list.
+      expect(spec.services.map((s: { name: string }) => s.name).sort()).toEqual([
+        "agent-api",
+        "reservations-api",
+        "users-api",
+      ]);
+
+      for (const service of spec.services) {
+        const dsn = service.envs.find((e: { key: string }) => e.key === "SENTRY_DSN");
+        expect(dsn, `${service.name} is missing SENTRY_DSN`).toBeDefined();
+        expect(dsn.type).toBe("SECRET");
+      }
+    });
+
+    it("gives each service its own DSN rather than one shared value", () => {
+      // Three per-service Sentry projects already exist, so a shared DSN would
+      // merge three issue streams and three quotas into one. Sourcing is
+      // per-service; the services must not collide.
+      const spec = getAppSpec();
+      const dsnFor = (name: string) =>
+        spec.services
+          .find((s: { name: string }) => s.name === name)
+          .envs.find((e: { key: string }) => e.key === "SENTRY_DSN").value;
+
+      expect(dsnFor("users-api")).toBe("https://users@o1.ingest.us.sentry.io/1001");
+      expect(dsnFor("reservations-api")).toBe("https://reservations@o1.ingest.us.sentry.io/1002");
+      expect(dsnFor("users-api")).not.toBe(dsnFor("reservations-api"));
     });
 
     it("services use correct ports matching their Dockerfiles", () => {

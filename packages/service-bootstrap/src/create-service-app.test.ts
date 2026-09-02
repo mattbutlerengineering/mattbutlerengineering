@@ -96,6 +96,7 @@ describe("createServiceApp", () => {
     delete process.env.CORS_ORIGINS;
     delete process.env.NODE_ENV;
     delete process.env.API_BASE_URL;
+    delete process.env.SENTRY_DSN;
   });
 
   afterEach(async () => {
@@ -182,6 +183,7 @@ describe("createServiceApp", () => {
 
   it("uses the origin of API_BASE_URL as the swagger server URL in production", async () => {
     process.env.NODE_ENV = "production";
+    process.env.SENTRY_DSN = "https://key@o1.ingest.sentry.io/2";
     process.env.AUTH_AUTHORITY = "https://auth.example.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
     process.env.API_BASE_URL = "https://api.example.com/api";
@@ -222,6 +224,7 @@ describe("createServiceApp", () => {
 
   it("falls back to the configured serverUrl when API_BASE_URL is malformed", async () => {
     process.env.NODE_ENV = "production";
+    process.env.SENTRY_DSN = "https://key@o1.ingest.sentry.io/2";
     process.env.AUTH_AUTHORITY = "https://auth.example.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
     process.env.API_BASE_URL = "not-a-valid-url";
@@ -273,6 +276,7 @@ describe("createServiceApp", () => {
 
   it("throws in production when AUTH_AUTHORITY is not set", async () => {
     process.env.NODE_ENV = "production";
+    process.env.SENTRY_DSN = "https://key@o1.ingest.sentry.io/2";
     await expect(createServiceApp(createTestConfig())).rejects.toThrow(
       "Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production"
     );
@@ -388,6 +392,7 @@ describe("createServiceApp", () => {
 
   it("does not include dev origins in production mode", async () => {
     process.env.NODE_ENV = "production";
+    process.env.SENTRY_DSN = "https://key@o1.ingest.sentry.io/2";
     process.env.AUTH_AUTHORITY = "https://auth.example.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
     const cors = await import("@fastify/cors");
@@ -475,6 +480,7 @@ describe("validateCorsOrigins", () => {
 
   it("rejects localhost origins outside development mode", () => {
     process.env.NODE_ENV = "production";
+    process.env.SENTRY_DSN = "https://key@o1.ingest.sentry.io/2";
     const result = validateCorsOrigins(["http://localhost:3000"]);
     expect(result).toEqual([]);
   });
