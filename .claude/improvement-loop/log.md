@@ -1113,3 +1113,9 @@ Same as the last several entries: the `gh-client` REST fallback (403/502/hang, v
 ### Recommendation carried forward
 
 Unchanged from 08-31/09-01 (optimize-implement-queue) above: the `gh-client` REST fallback has been red in some form (403/502/hang) on every cloud-scheduled sensor run since 2026-08-11 — worth a `meta-improvement` issue proposing these scripts' default readers route through the GitHub MCP tool surface instead, the pattern already proven out in this session's own manual steps. Not filed this run to avoid duplicating the existing tracked recommendation.
+
+## 2026-09-02
+
+**queueEfficiency:** composite 0.976 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:14, size:s:15, size:l:1, size:m:3
+**Issues filed:** 0
