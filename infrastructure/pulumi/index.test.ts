@@ -312,6 +312,28 @@ describe("Configuration Validation", () => {
       }
     });
 
+    // Declared unconditionally, unlike the OTEL vars below: an env var that
+    // disappears from the spec when its config is unset is precisely the shape
+    // that hid the Sentry blackout for five months. `sentryDsn` is deliberately
+    // absent from this file's configEntries, so this test fails if the key ever
+    // becomes conditional again.
+    it("all services declare SENTRY_DSN as SECRET even when unconfigured", () => {
+      const spec = getAppSpec();
+
+      // Guard the loop below against passing vacuously on an empty service list.
+      expect(spec.services.map((s: { name: string }) => s.name).sort()).toEqual([
+        "agent-api",
+        "reservations-api",
+        "users-api",
+      ]);
+
+      for (const service of spec.services) {
+        const dsn = service.envs.find((e: { key: string }) => e.key === "SENTRY_DSN");
+        expect(dsn, `${service.name} is missing SENTRY_DSN`).toBeDefined();
+        expect(dsn.type).toBe("SECRET");
+      }
+    });
+
     it("services use correct ports matching their Dockerfiles", () => {
       const spec = getAppSpec();
 

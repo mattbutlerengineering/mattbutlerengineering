@@ -38,7 +38,7 @@ variables to machinery this milestone has already proven on a real case.
     absent after `beforeSend`; grep confirms no exporter re-implements the rule
     locally.
   - Blocked by: Redaction policy
-- [ ] **Declare `SENTRY_DSN` in Pulumi** — add it to the service env builders in
+- [x] **Declare `SENTRY_DSN` in Pulumi** — add it to the service env builders in
       `infrastructure/pulumi/index.ts` via `secretEnv`, sourced from
       `config.getSecret`, so all three services receive it.
   - Accept: `infrastructure/pulumi/index.test.ts` asserts the key is present on

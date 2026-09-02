@@ -34,6 +34,15 @@ const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 const manageTokenSecret = config.getSecret("manageTokenSecret");
 const unsubscribeTokenSecret = config.getSecret("unsubscribeTokenSecret");
 
+// ── Error reporting (Sentry) ───────────────────────────────────────
+// Falls back to "" rather than dropping out of the spec when unset. An env var
+// that disappears when its config is missing is the shape that hid the Sentry
+// blackout for five months; an empty value is at least visible in `doctl apps
+// spec get`. The real value is delivered by deploy-services.yml's yq bridge
+// (ignoreChanges: ["spec"] below blocks env pushes from Pulumi), and its
+// absence is refused at boot by validateStartupConfig().
+const sentryDsn = config.getSecret("sentryDsn") ?? "";
+
 // ── Observability (Grafana Cloud OTLP) ─────────────────────────────
 const otelEndpoint = config.get("otelEndpoint") ?? "";
 const otelHeaders = config.getSecret("otelHeaders");
@@ -91,6 +100,7 @@ function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] 
     extraEnv("AUTH_AUTHORITY", AUTH_AUTHORITY),
     extraEnv("AUTH_AUDIENCE", `https://api.${domain}`),
     secretEnv("DATABASE_URL", databaseUrl),
+    secretEnv("SENTRY_DSN", sentryDsn),
   ];
 }
 
