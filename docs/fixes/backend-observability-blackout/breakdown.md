@@ -74,16 +74,44 @@ variables to machinery this milestone has already proven on a real case.
     variable unset, and that `NODE_ENV=test` and development are unaffected so
     local runs and the existing suite keep working.
   - Blocked by: —
-- [ ] **Repeatable round-trip check** — a script that throws deliberately
-      against a deployed service and asserts the event is retrievable, reusable
-      for all three legs rather than three bespoke manual checks.
-  - Accept: run against production it exits 0 only when the event comes back
-    from the Sentry API, and exits non-zero when pointed at a service with no
-    DSN. This is the mechanism Verify will use; the prior run's backlog seed
-    ("prove the Sentry round trip end to end once per app") is satisfied by it.
+- [x] **Repeatable round-trip check — the mechanism** — a script that throws
+      deliberately against a deployed service and asserts the event is
+      retrievable, reusable for all three legs rather than three bespoke manual
+      checks. `scripts/sentry-round-trip.mjs`.
+  - Accept: the decision logic is pure and unit-tested — `roundTripExitCode`
+    maps confirmed→0, not-found→1 and anything else→2, so a transport failure
+    can never be read as "no event found"; `eventMatchesMarker` requires the
+    marker on both the `requestId` and `url` tags; `buildRoundTripMarker` is
+    unique per run. `--project` is a parameter, so the three-DSN decision
+    needed no change here.
   - Blocked by: Sentry `beforeSend` applies the redaction policy; Deliver
     `SENTRY_DSN` through the yq bridge; Require telemetry config at production
     boot
+- [ ] **Repeatable round-trip check — the live assertion** — run it against
+      production and observe both outcomes. Owned by Verify, not Implement: see
+      the 2026-09-02 note on why this cannot be satisfied before Ship.
+  - Accept: against a deployed service carrying a DSN it exits 0 with the event
+    returned from the Sentry API; against one with no DSN it exits non-zero. The
+    prior run's backlog seed ("prove the Sentry round trip end to end once per
+    app") is satisfied by the first of those.
+  - Blocked by: Repeatable round-trip check — the mechanism; Ship
+
+## Deferred to a follow-up run (descoped 2026-09-02)
+
+Milestones 2 and 3 are **not** part of this run. Matt's call, taken when
+Grafana Cloud turned out to be unprovisioned: Milestone 1 is the blackout fix —
+it is what makes errors reach a human again — and holding it behind an account
+that does not exist yet trades a shipped fix for a stalled one. The items below
+move to their own run, gated on a Grafana Cloud account existing; they are
+recorded here rather than deleted so the follow-up run starts from a written
+breakdown instead of a re-derivation. Their design already lives in
+`architecture.md`, which is unchanged and still covers all three milestones.
+
+This run's scope is therefore Milestone 1 alone, and its completion criterion is
+Milestone 1's checkboxes — not all twelve original items.
+
+<details>
+<summary>Milestone 2 and 3 items, verbatim as decomposed</summary>
 
 ## Milestone 2: traces and metrics reach Grafana
 
@@ -145,6 +173,8 @@ produced it, and pivots to its own trace.
     `trace_id` as its corresponding span from Milestone 2, and contains no
     `authorization` header.
   - Blocked by: Redaction policy; Add the OTLP logs exporter
+
+</details>
 
 ## Design gaps found
 
@@ -214,6 +244,43 @@ produced it, and pivots to its own trace.
       are real, so the decision is worth making before any of this merges.
 
 ## Notes
+
+- **2026-09-02 — the three `SENTRY_DSN_*` secrets are provisioned; this blocker
+  is cleared.** `SENTRY_DSN_USERS_API`, `SENTRY_DSN_RESERVATIONS_API` and
+  `SENTRY_DSN_AGENT_API` are set on the repo, each carrying its own project's
+  existing `Default` key (three distinct keys, three distinct project ids, one
+  org). Set with `gh secret set --body` — never bare stdin, which writes `""`
+  silently and would have rebuilt this exact blackout one layer down. The values
+  are deliberately not recorded here or anywhere in the tree. Note what is and
+  is not proven: GitHub does not read secrets back, so "set to a non-empty
+  value" is not directly observable. The first deploy is the observation, and
+  the `Require deploy secrets` step added in item 4 is the thing that makes it
+  one — if any of the three were stored empty, that step fails the deploy
+  loudly instead of patching an empty value into the spec.
+
+- **2026-09-02 — item 6 split; its live half cannot be satisfied before Ship,
+  by construction.** The item asked for both a mechanism and a production
+  observation, and those belong to different stages. The script exists and its
+  decision logic is unit-tested, so the mechanism half is genuinely met and is
+  checked. The live half is not: it requires a service that has been deployed
+  _with_ a DSN, and nothing is deployed until Ship — so satisfying it during
+  Implement is impossible in principle, not merely inconvenient. Checking the
+  whole item on the strength of the script existing is precisely the "shipped
+  but never exercised" failure this repo has recorded four times, and it would
+  be especially wrong here, in a run about an integration that was correct in
+  code and dead in production. The negative half (exits non-zero against a
+  service with no DSN) is checkable today in principle, since production
+  currently has no DSN — but it needs `SENTRY_AUTH_TOKEN`, which exists only as
+  a GitHub secret, and extracting a credential to a laptop to run a check that
+  Verify runs properly is a bad trade. Verify owns both halves.
+
+- **2026-09-02 — Milestones 2 and 3 descoped to a follow-up run.** Matt's call.
+  Grafana Cloud is unprovisioned (`Pulumi.prod.yaml` carries no `otelEndpoint`
+  or `otelHeaders`), which is the blocker `architecture.md` flagged as an
+  assumption that could stall them. Milestone 1 stands alone as the blackout
+  fix and ships without them. The items are preserved verbatim above rather
+  than deleted. `architecture.md` is deliberately left unedited: its design for
+  all three milestones is still correct and is the follow-up run's input.
 
 - **2026-09-02 — the repo's existing "required secret is provisioned" guard is
   structurally blind to item 5's `SENTRY_DSN` requirement, for two independent
