@@ -177,18 +177,6 @@ function TableInner<T extends Record<string, unknown>>(
                   alignClass(col.align)
                 )}
                 style={col.width ? { width: col.width } : undefined}
-                onClick={col.sortable ? () => handleSort(col.key) : undefined}
-                onKeyDown={
-                  col.sortable
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleSort(col.key);
-                        }
-                      }
-                    : undefined
-                }
-                tabIndex={col.sortable ? 0 : undefined}
                 aria-sort={
                   sortKey === col.key
                     ? sortDir === "asc"
@@ -200,11 +188,19 @@ function TableInner<T extends Record<string, unknown>>(
                 }
                 role="columnheader"
               >
-                {col.header}
-                {col.sortable && (
-                  <span className={styles.sortIcon} aria-hidden="true">
-                    <SortArrow direction={sortKey === col.key ? sortDir : null} />
-                  </span>
+                {col.sortable ? (
+                  <button
+                    type="button"
+                    className={styles.sortButton}
+                    onClick={() => handleSort(col.key)}
+                  >
+                    {col.header}
+                    <span className={styles.sortIcon} aria-hidden="true">
+                      <SortArrow direction={sortKey === col.key ? sortDir : null} />
+                    </span>
+                  </button>
+                ) : (
+                  col.header
                 )}
               </th>
             ))}
