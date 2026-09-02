@@ -245,6 +245,29 @@ produced it, and pivots to its own trace.
 
 ## Notes
 
+- **2026-09-02 — the deploy workflow's own `paths:` filter can never fire on the
+  guard added in item 4; allowlisted, with the reason that it is genuinely
+  watched elsewhere.** `check-workflow-paths-coverage.mjs` failed CI (both the
+  Build and Test jobs, one root cause) on: `deploy-services.yml` exercises
+  `scripts/require-deploy-secrets.mjs` but its filter cannot fire on a change to
+  it. Exactly the "guard that never fires" class, caught by the repo's own
+  guard against that class — a good catch, not noise. Two ways out, and adding
+  the path to the filter is the wrong one: it would make editing a script
+  trigger a production deploy, and a deploy is not how a script change gets
+  validated. Allowlisted instead, matching the `scripts/deploy-ci-precondition.mjs`
+  precedent directly above it in the same workflow's entry. Worth stating what
+  makes this entry different from its neighbours: the other allowlisted files
+  really are unwatched, whereas this one is asserted against the real workflow
+  by `scripts/__tests__/require-deploy-secrets.test.mjs` on every PR, so a break
+  is caught before merge — just not by the deploy workflow.
+  - **Process note on how this reached CI at all:** `pnpm repo-audit` was run
+    locally before the first push and it _did_ fail — but on prettier, which is
+    the first check in the chain, so it short-circuited before ever reaching
+    `check-workflow-paths-coverage`. The prettier failure was then fixed by the
+    commit hook, and the audit was never re-run. A chained `&&` audit reports
+    only its first failure, so "I ran it and fixed what it said" is not the same
+    as "it passes" — re-run to green rather than reasoning from the last output.
+
 - **2026-09-02 — the three `SENTRY_DSN_*` secrets are provisioned; this blocker
   is cleared.** `SENTRY_DSN_USERS_API`, `SENTRY_DSN_RESERVATIONS_API` and
   `SENTRY_DSN_AGENT_API` are set on the repo, each carrying its own project's
