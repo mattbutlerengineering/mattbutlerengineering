@@ -38,17 +38,27 @@ variables to machinery this milestone has already proven on a real case.
     absent after `beforeSend`; grep confirms no exporter re-implements the rule
     locally.
   - Blocked by: Redaction policy
-- [x] **Declare `SENTRY_DSN` in Pulumi** — add it to the service env builders in
+- [x] **Declare `SENTRY_DSN` in Pulumi** — declare it in
       `infrastructure/pulumi/index.ts` via `secretEnv`, sourced from
-      `config.getSecret`, so all three services receive it.
-  - Accept: `infrastructure/pulumi/index.test.ts` asserts the key is present on
-    `users-api`, `reservations-api` and `agent-api`.
+      `config.getSecret`, so all three services receive one. Per the resolved
+      design gap below, each service gets its OWN DSN: a `sentryDsnByService`
+      record keyed by service name, read in `apiService` rather than in
+      `sharedEnvs`, so the value differs per service while the key does not.
+  - Accept: `infrastructure/pulumi/index.test.ts` asserts the key is present and
+    typed `SECRET` on `users-api`, `reservations-api` and `agent-api` — including
+    when that service's config key is unset, since an env var that vanishes when
+    unconfigured is the shape that hid this blackout — and separately asserts the
+    three services receive three _distinct_ values, not one shared one.
   - Blocked by: —
 - [x] **Deliver `SENTRY_DSN` through the yq bridge, failing closed on empty** —
       extend the existing patch block at `.github/workflows/deploy-services.yml`
       (the one already bridging `MANAGE_TOKEN_SECRET` and
       `UNSUBSCRIBE_TOKEN_SECRET` past `ignoreChanges: ["spec"]`), and add a
-      guard that exits non-zero when any required value is empty.
+      guard that exits non-zero when any required value is empty. Three secrets,
+      not one — `SENTRY_DSN_USERS_API`, `SENTRY_DSN_RESERVATIONS_API`,
+      `SENTRY_DSN_AGENT_API` — each upserted into its own service's `SENTRY_DSN`
+      by its own `yq` call. Deliberately three calls rather than one loop: a
+      loop over a shared value is exactly the design that was rejected.
   - Accept: the guard is a unit-tested pure function that rejects `""` and a
     whitespace-only value and accepts a well-formed DSN; a dry run with the
     secret unset fails the step rather than patching an empty value. If the
@@ -165,6 +175,9 @@ produced it, and pivots to its own trace.
   the redaction component to the backend services and never claims the browser
   path, so this is a boundary the design did not draw rather than an item that
   was missed. Route to Architect before opening work on it.
+- **RESOLVED 2026-09-02 — three per-service DSNs.** Decided by Matt when the
+  question was put; items 3 and 4 were reworked to match and are green. The
+  original gap, kept for the reasoning:
 - **One shared `SENTRY_DSN`, but the Sentry org already has three per-service
   projects.** `architecture.md` and every item here assume a single `SENTRY_DSN`
   delivered to all three services, distinguished after the fact by the
@@ -201,6 +214,40 @@ produced it, and pivots to its own trace.
       are real, so the decision is worth making before any of this merges.
 
 ## Notes
+
+- **2026-09-02 — the repo's existing "required secret is provisioned" guard is
+  structurally blind to item 5's `SENTRY_DSN` requirement, for two independent
+  reasons.** `scripts/check-deploy-secret-provisioning.mjs` exists to catch
+  precisely this class (a secret a config module throws on in production but
+  which no deploy path delivers — #4064). It passes today, reporting "all 2
+  required-in-production secret(s) provisioned", and that 2 does not include
+  `SENTRY_DSN`. Measured, both causes verified separately: (1) its CLI hardcodes
+  `configDir` to `services/reservations/src/config`, so
+  `packages/service-bootstrap/src/validate-startup-config.ts` — where item 5's
+  throw lives, and the one file that governs _every_ service's boot — is never
+  read; (2) even when handed that file directly,
+  `findProductionThrowSecretNames()` returns empty for it, because the detector
+  keys on `process.env.X` inside a production guard and `validateStartupConfig`
+  reads a destructured `env.SENTRY_DSN` instead. Fixing (1) alone would not help.
+  This is the run's own thesis turned on the tooling: a green check whose scan
+  surface excludes the requirement is indistinguishable from a green check that
+  verified it. Not fixed here — out of item 4's scope and it is a change to a
+  shared repo-audit gate, so it goes to the retro as a seed rather than riding
+  along in this branch. The seed is now sharper than the one recorded on
+  2026-09-01 (which supposed only that `isSecretProvisioned`'s `if [ -n ]` shape
+  needed relaxing): the shape is the lesser half, the scan surface and the
+  detector are the real gap.
+
+- **2026-09-02 — item 4's yq upserts could not be executed locally; `yq` is not
+  installed on this machine.** What was verified instead: `actionlint` exits 0;
+  a real YAML parse of the workflow confirms the deploy job's step order, that
+  the guard step's `env` carries exactly the three DSN secrets, that the inject
+  step carries all three, and that no stale shared `SENTRY_DSN` key survives in
+  either. What was NOT verified is the runtime behaviour of the three `yq`
+  expressions themselves. The mitigation is that their expression shape is
+  byte-identical to the three bridges directly above them in the same step,
+  which deploy to production today — only the service name and the value operand
+  differ. Worth an actual execution at Verify, where a deploy runs for real.
 
 - **2026-09-01 — `@mbe/sentry` cannot import the redaction policy as written.**
   `architecture.md` makes the policy live in `packages/observability` and names

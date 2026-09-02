@@ -15,6 +15,14 @@ const DEPLOY_WORKFLOW = readFileSync(
 // dials it, it only decides whether a value is present enough to deploy with.
 const WELL_FORMED_DSN = "https://0123456789abcdef@o12345.ingest.sentry.io/6789";
 
+/** One Sentry project per service, so one secret per service. */
+const SERVICE_DSN_BY_NAME = {
+  "users-api": "SENTRY_DSN_USERS_API",
+  "reservations-api": "SENTRY_DSN_RESERVATIONS_API",
+  "agent-api": "SENTRY_DSN_AGENT_API",
+};
+const SERVICE_DSN_SECRETS = Object.values(SERVICE_DSN_BY_NAME);
+
 describe("classifyRequiredSecret", () => {
   it("accepts a well-formed DSN", () => {
     expect(classifyRequiredSecret("SENTRY_DSN", WELL_FORMED_DSN)).toEqual({
@@ -97,11 +105,23 @@ describe("deploy-services.yml wiring", () => {
     expect(guardAt).toBeLessThan(patchAt);
   });
 
-  it("passes SENTRY_DSN into the guard step's environment", () => {
+  it("passes all three per-service DSNs into the guard step's environment", () => {
     const guardAt = DEPLOY_WORKFLOW.indexOf("require-deploy-secrets.mjs");
     const stepStart = DEPLOY_WORKFLOW.lastIndexOf("- name:", guardAt);
     const step = DEPLOY_WORKFLOW.slice(stepStart, guardAt);
-    expect(step).toContain("SENTRY_DSN: ${{ secrets.SENTRY_DSN }}");
+    for (const name of SERVICE_DSN_SECRETS) {
+      expect(step).toContain(`${name}: \${{ secrets.${name} }}`);
+    }
+  });
+
+  it("requires all three DSNs, not just one", () => {
+    // A guard that checks one of three would let two services deploy blind --
+    // the same partial-coverage failure, just narrower.
+    const guardAt = DEPLOY_WORKFLOW.indexOf("require-deploy-secrets.mjs");
+    const invocation = DEPLOY_WORKFLOW.slice(guardAt, DEPLOY_WORKFLOW.indexOf("\n", guardAt));
+    for (const name of SERVICE_DSN_SECRETS) {
+      expect(invocation).toContain(name);
+    }
   });
 
   it("opens the guard's run block with pipefail", () => {
@@ -112,11 +132,27 @@ describe("deploy-services.yml wiring", () => {
     expect(DEPLOY_WORKFLOW.slice(stepStart, guardAt)).toContain("set -euo pipefail");
   });
 
-  it("upserts SENTRY_DSN into every service unconditionally", () => {
+  it("upserts each service's own DSN, unconditionally", () => {
     // No `if [ -n ... ]` skip like MANAGE_TOKEN_SECRET has: the guard above
-    // already proved the value is present, so a silent skip here would only
+    // already proved every value is present, so a silent skip here would only
     // re-create the blackout one layer down.
     expect(DEPLOY_WORKFLOW).toContain('{\\"key\\":\\"SENTRY_DSN\\"');
-    expect(DEPLOY_WORKFLOW).not.toMatch(/if \[ -n "\$\{SENTRY_DSN\}" \]/);
+    for (const name of SERVICE_DSN_SECRETS) {
+      expect(DEPLOY_WORKFLOW).toContain(`\${${name}}`);
+      expect(DEPLOY_WORKFLOW).not.toMatch(new RegExp(`if \\[ -n "\\$\\{${name}\\}" \\]`));
+    }
+  });
+
+  it("routes each secret to its own service, never one value to all three", () => {
+    // Getting this wrong would send every service's events to one project,
+    // which is exactly the option that was considered and rejected.
+    for (const [service, secret] of Object.entries(SERVICE_DSN_BY_NAME)) {
+      const selectAt = DEPLOY_WORKFLOW.indexOf(
+        `select(.name == \\"${service}\\").envs) |=\n              (map(select(.key != \\"SENTRY_DSN\\"))`
+      );
+      expect(selectAt, `no SENTRY_DSN upsert for ${service}`).toBeGreaterThan(-1);
+      const block = DEPLOY_WORKFLOW.slice(selectAt, selectAt + 400);
+      expect(block).toContain(`\${${secret}}`);
+    }
   });
 });
