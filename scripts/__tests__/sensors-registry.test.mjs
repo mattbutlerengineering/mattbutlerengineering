@@ -604,6 +604,27 @@ describe("sensors-registry", () => {
       expect(result.pass_rate_pct).toBe(100);
     });
 
+    // #4713: format used to print `${passed}/${completed}`, which still
+    // included skipped/cancelled runs in its denominator even after #4687
+    // scoped pass_rate_pct to passed/(passed+failed) — so the human-readable
+    // line and the metric disagreed (e.g. "100% pass rate (11/30)"). format
+    // must report the same denominator the rate is computed over.
+    it("ci sensor's format reports the same denominator as pass_rate_pct", () => {
+      const runs = [
+        ...Array.from({ length: 11 }, () => ({ status: "completed", conclusion: "success" })),
+        ...Array.from({ length: 19 }, () => ({ status: "completed", conclusion: "skipped" })),
+      ];
+      const ghClient = { workflow: { runs: vi.fn().mockReturnValue(runs) } };
+      const sensor = SENSORS.find((s) => s.id === "ci");
+
+      const data = sensor.collect({ ghClient });
+      const line = sensor.format(data, "ciHealth");
+
+      expect(data.pass_rate_pct).toBe(100);
+      expect(line).toContain("11/11");
+      expect(line).not.toContain("11/30");
+    });
+
     it("issues sensor reports the auth-capability gap distinctly when ghClient.issue.list throws GhAuthError", () => {
       const ghClient = {
         issue: {
