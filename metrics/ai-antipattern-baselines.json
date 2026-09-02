@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T00:35:16.663Z",
+  "generatedAt": "2026-09-02T18:55:02.528Z",
   "patterns": {
     "magicTimeouts": {
       "count": 29,
@@ -14,7 +14,7 @@
       "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
     },
     "hardcodedRoutes": {
-      "count": 645,
+      "count": 649,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 704,
+      "count": 709,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {

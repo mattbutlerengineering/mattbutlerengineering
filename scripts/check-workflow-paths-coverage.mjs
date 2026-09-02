@@ -80,6 +80,8 @@ export const ALLOWLIST = {
   "deploy-services.yml": {
     "scripts/deploy-ci-precondition.mjs":
       "deploy gate helper; a change to it does not redeploy services — accepted, seeded in docs/backlog.md (session:2026-08-28)",
+    "scripts/require-deploy-secrets.mjs":
+      "deploy gate helper, same shape as deploy-ci-precondition.mjs above; adding it to the filter would make editing a script trigger a production deploy, which is not how a script change should be validated. Unlike the other entries here the guarded surface is NOT unwatched: scripts/__tests__/require-deploy-secrets.test.mjs reads the real deploy-services.yml and asserts the guard's env, its invocation and its per-service routing, and runs on every PR — so a break is caught before merge, just not by this workflow. Recorded in docs/fixes/backend-observability-blackout/breakdown.md (session:2026-09-02)",
   },
   "deploy-static.yml": {
     "scripts/collect-repo-stats.mjs":
