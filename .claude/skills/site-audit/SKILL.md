@@ -16,6 +16,18 @@ Inventory-tracked 3-mode audit: smoke (regression), sweep (zone rotation), scout
 cat .audit-state/inventory.json 2>/dev/null || echo "No inventory"
 ```
 
+**Persist every real check result** — this is what feeds `findStalestZone()` and
+regression detection; skipping it is why the inventory used to sit at
+`checkCount: 0` forever (#4899). One-time per session: `pnpm --filter @mbe/agent-core build`
+(the script imports agent-core's compiled dist). Then, after each live check:
+
+```bash
+node scripts/record-audit-check.mjs --surface "$SURFACE_ID" \
+  --performance "$PERF" --accessibility "$A11Y" --best-practices "$BEST_PRACTICES" --seo "$SEO"
+# check failed outright (5xx, timeout, blocked) — no scores, record the failure instead:
+node scripts/record-audit-check.mjs --surface "$SURFACE_ID" --error "$ERROR_MESSAGE"
+```
+
 ## Environment Reachability (preflight — run FIRST, before any live check)
 
 The agent proxy gateway in remote (claude.ai/code) containers may reject CONNECT
@@ -57,7 +69,7 @@ HTTP_STATUS=$(curl -o /dev/null -w "%{http_code}" "${AUDIT_CURL_OPTS[@]}" "$URL"
 [ "$HTTP_STATUS" = "403" ] && echo "ACCESS-RESTRICTED: $URL"
 ```
 
-4. Detect regressions (>0.05 drop vs lastScore), create issues (labels: `ci-fix`+`audit`), update inventory.
+4. Detect regressions (>0.05 drop vs lastScore), create issues (labels: `ci-fix`+`audit`), then persist the result for every surface checked via `node scripts/record-audit-check.mjs --surface "$SURFACE_ID" --performance ... --accessibility ... --best-practices ... --seo ...` (see [Inventory](#inventory)).
 
 ## Mode 2: Sweep (weekly zone rotation)
 
@@ -74,7 +86,7 @@ HTTP_STATUS=$(curl -o /dev/null -w "%{http_code}" "${AUDIT_CURL_OPTS[@]}" "$URL"
 1. Load inventory, find stalest via `findStalestZone()`.
 2. For each surface: `git log --since='$LAST_CHECKED' --name-only -- $SOURCE_FILES | head -1` → skip if empty, include if non-empty or never checked.
 3. Parallel (5-wave max): availability (curl), Lighthouse, mobile (375x812), console errors, network (flag 4xx/5xx/>3s), dead links.
-4. Create issues <0.9 or console errors. >50% blocked → one `[Audit] Infrastructure: Site unreachable` + stop.
+4. Create issues <0.9 or console errors. >50% blocked → one `[Audit] Infrastructure: Site unreachable` + stop. For every surface checked, persist the result via `node scripts/record-audit-check.mjs --surface "$SURFACE_ID" --performance ... --accessibility ... --best-practices ... --seo ...` (or `--error "$MESSAGE"` for a blocked/failed check) — see [Inventory](#inventory).
 
 ## Mode 3: Scout (monthly)
 
