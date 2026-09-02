@@ -56,7 +56,7 @@ variables to machinery this milestone has already proven on a real case.
     GitHub's default shell is `bash -e` only, so a piped gate is otherwise
     decorative.
   - Blocked by: Declare `SENTRY_DSN` in Pulumi
-- [ ] **Require telemetry config at production boot** — extend
+- [x] **Require telemetry config at production boot** — extend
       `validateStartupConfig()` in `packages/service-bootstrap` so that with
       `NODE_ENV=production` a missing or empty `SENTRY_DSN` refuses the boot,
       per ADR-021's existing stance.
@@ -165,6 +165,21 @@ produced it, and pivots to its own trace.
   the redaction component to the backend services and never claims the browser
   path, so this is a boundary the design did not draw rather than an item that
   was missed. Route to Architect before opening work on it.
+- **One shared `SENTRY_DSN`, but the Sentry org already has three per-service
+  projects.** `architecture.md` and every item here assume a single `SENTRY_DSN`
+  delivered to all three services, distinguished after the fact by the
+  `serverName` tag `initSentry` already sets. The org disagrees: it contains
+  projects `users-api`, `reservations-api` and `agent-api` (alongside
+  `hospitality`, `mattbutlerengineering` and `eat-sheet`), created at some point
+  and never wired to anything — which is a strong signal that per-service
+  projects were the intent. The two options are not equivalent downstream: one
+  DSN gives a single issue stream that has to be filtered by tag, three DSNs
+  give per-service issue lists, alert rules and quotas, at the cost of three
+  secrets, three env vars and a round-trip check that has to iterate. This is a
+  design decision, not an implementation detail, so it is recorded rather than
+  taken. Items 2-5 hold either way (they concern the presence of a DSN, not how
+  many exist); item 6 is the first that has to know the answer. Route to
+  Architect before working it.
 
 ## Notes
 
@@ -236,3 +251,18 @@ produced it, and pivots to its own trace.
   directory or to explicit file paths. Note this is a different directory from
   the `.claude/worktrees/` reaping that `scripts/reap-worktrees.mjs` already
   handles. Carry it to the retro as a seed.
+- **2026-09-02 — requiring the DSN at boot reclassified six existing tests.**
+  `validateStartupConfig` runs at the top of `createServiceApp`, before the
+  fail-closed auth gate, so every test that simulates production started
+  throwing on the DSN first: four in
+  `packages/service-bootstrap/src/create-service-app.test.ts`, one in
+  `services/reservations/src/app-redis-production.test.ts`, and one in
+  `services/users/src/routes/users.test.ts` that asserts the auth gate's own
+  message and no longer reached it. Each now supplies a DSN, which is the
+  truthful simulation rather than a workaround — production does require one,
+  and `app-redis-production.test.ts` already supplied `MANAGE_TOKEN_SECRET` for
+  exactly this reason. `delete process.env.SENTRY_DSN` was added to
+  `create-service-app.test.ts`'s `beforeEach` alongside the existing deletes so
+  an ambient DSN in a developer's shell can never make one of these pass.
+  Verified after: service-bootstrap 167/167, reservations 1331/1331, users
+  138/138, agent 362/362, all four typechecks clean.
