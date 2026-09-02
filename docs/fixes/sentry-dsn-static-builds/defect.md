@@ -141,8 +141,17 @@ item 1 below writes the guard **before** the fix rather than after.
   construction there is no evidence either way — the absence of errors in
   Sentry for these two apps reads identically to a clean run. That ambiguity
   is itself the harm.
-- **Not affected:** hospitality (reports correctly), and all backend services
-  (`@mbe/sentry/node`, a separate `SENTRY_DSN` path).
+- **Not affected:** hospitality (reports correctly).
+- **CORRECTION (2026-09-02, by `maintenance:backend-observability-blackout`).**
+  This bullet used to also read _"and all backend services (`@mbe/sentry/node`,
+  a separate `SENTRY_DSN` path)"_. That was wrong, and wrong in the exact shape
+  this family of runs exists to kill: it named the right mechanism and never
+  checked whether that path was populated. It was not. No `SENTRY_DSN` existed
+  anywhere in the DigitalOcean app spec, so `initSentry` returned early on every
+  boot and all three backend services had reported zero events since roughly
+  2026-04-02 — a month longer than the frontend blackout this brief describes.
+  Do not cite the original line as evidence. See
+  `docs/fixes/backend-observability-blackout/`.
 
 ## Ruled out
 
