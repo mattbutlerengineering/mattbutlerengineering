@@ -76,6 +76,7 @@ const REASON_DETAIL = {
   blank: "defined but contains only whitespace",
 };
 
+/* c8 ignore start -- CLI entrypoint, exercised by the deploy workflow's own guard step; the decision logic it calls is unit-tested above */
 function main() {
   const names = process.argv.slice(2);
 
@@ -100,3 +101,4 @@ function main() {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main();
 }
+/* c8 ignore stop */

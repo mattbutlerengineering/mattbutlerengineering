@@ -150,6 +150,7 @@ async function findMarkedEvent(org, project, marker, token) {
   return (Array.isArray(events) ? events : []).find((event) => eventMatchesMarker(event, marker));
 }
 
+/* c8 ignore start -- CLI entrypoint: it provokes a real error inside a DEPLOYED service and polls Sentry, so it is exercised at Verify against production, never by unit tests. The decision logic it calls (buildRoundTripMarker, eventMatchesMarker, roundTripExitCode, shouldKeepPolling, nextPollDelayMs) is unit-tested above. */
 async function main() {
   const argv = process.argv.slice(2);
   const baseUrl = readFlag(argv, "--base-url");
@@ -217,3 +218,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(roundTripExitCode("error"));
   }
 }
+
+/* c8 ignore stop */
