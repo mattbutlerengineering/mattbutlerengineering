@@ -17082,6 +17082,12 @@
       readonly timestamp: string;
     }
   </file>
+  <file path="packages/observability/src/redact.ts">
+    export const REDACTED = "[redacted]";
+    function isSecretShaped(value: string): boolean {
+      return SECRET_VALUE_PATTERNS.some((pattern) => pattern.test(value));
+    }
+  </file>
   <file path="packages/observability/src/request-id.ts">
     export interface RequestIdOptions {
       headerName?: string;

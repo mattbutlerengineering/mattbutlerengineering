@@ -5663,6 +5663,14 @@
       }
     </item>
   </file>
+  <file path="packages/observability/src/redact.ts">
+    <item priority="high">
+      export const REDACTED: unknown;
+    </item>
+    <item priority="medium">
+      function isSecretShaped(value: string): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="packages/observability/src/request-id.ts">
     <item priority="low">
       interface RequestIdOptions {
