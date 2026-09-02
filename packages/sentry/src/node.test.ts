@@ -113,7 +113,53 @@ describe("initSentry (node)", () => {
     expect(callArg.serverName).toBe("my-service");
     expect(callArg.environment).toBe("production");
     expect(callArg.skipOpenTelemetrySetup).toBe(true);
-    expect(callArg.tracesSampleRate).toBe(0);
+  });
+
+  it("leaves tracing unconfigured so Sentry loads no auto-performance instrumentation", () => {
+    // This asserts an ABSENCE, and the absence is the fix. `tracesSampleRate: 0`
+    // reads to Sentry as "tracing is configured" and pulls in
+    // getAutoPerformanceIntegrations(): measured against the installed SDK,
+    // getDefaultIntegrations({}) returns 17 with no Fastify, while
+    // getDefaultIntegrations({ tracesSampleRate: 0 }) returns 44 including
+    // Fastify, Prisma, Postgres, Redis and Kafka. Sentry's Fastify
+    // instrumentation decorates the request with `opentelemetry`, which
+    // @mbe/observability's FastifyOtelInstrumentation has already decorated, so
+    // both active means FST_ERR_DEC_ALREADY_PRESENT at boot and a container that
+    // exits non-zero. Setting any number here -- including 0 -- reintroduces that.
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const callArg = mockSentryInit.mock.calls[0]?.[0];
+    expect(callArg.tracesSampleRate).toBeUndefined();
+    expect("tracesSampleRate" in callArg).toBe(false);
+  });
+
+  it("drops Sentry's own Fastify integration so it cannot double-decorate the request", () => {
+    // Regression test for a boot crash that only became reachable once a DSN
+    // actually existed. @mbe/observability registers @fastify/otel's
+    // FastifyOtelInstrumentation, which decorates the request with
+    // `opentelemetry`; Sentry's built-in Fastify integration decorates the same
+    // property, so with both active Fastify throws
+    // FST_ERR_DEC_ALREADY_PRESENT ("The decorator 'opentelemetry' has already
+    // been added!") during boot and the container exits non-zero. For the five
+    // months SENTRY_DSN was unset this was unreachable, because initSentry
+    // returned before Sentry.init ran -- the first deploy that supplied a DSN
+    // is what surfaced it (DO deployments 8472219d / c32bc32c / efae89ca,
+    // 2026-09-02).
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const integrations = mockSentryInit.mock.calls[0]?.[0]?.integrations;
+    expect(integrations).toBeTypeOf("function");
+
+    const defaults = [{ name: "Http" }, { name: "Fastify" }, { name: "Console" }];
+    const resolved = integrations(defaults) as { name: string }[];
+
+    // The others must survive: the fix is removing one colliding integration,
+    // not disabling Sentry's defaults wholesale.
+    expect(resolved.map((entry) => entry.name)).toEqual(["Http", "Console"]);
   });
 
   it("redacts credentials from events before they leave the process", () => {

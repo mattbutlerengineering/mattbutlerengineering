@@ -448,3 +448,109 @@ produced it, and pivots to its own trace.
   already recorded in the repo's gotchas for `git push`, and it reads as
   convincing there too — the usage text printed exactly as expected. Check exit
   codes with the pipe removed.
+- **2026-09-02 — pre-state measured, and the first two attempts to measure it
+  were wrong in the way this run is about.** Baseline for item 6: the three
+  backend projects hold **zero** issues over 90d (`users-api`,
+  `reservations-api`, `agent-api`), while the org holds 8 — every one of them
+  `HOSPITALITY-*` (browser) or `MATTBUTLERENGINEERING-*` (localhost dev).
+  Several of the browser issues are the frontend reporting failed API calls
+  (`GET /api/v1/tables … 403`, `POST /api/v1/venues … 403`): the requests
+  reached the services, the services answered, and the services recorded
+  nothing. That asymmetry is the blackout's signature. Two false starts worth
+  recording, both the same shape as the defect: the first query passed
+  `projectSlug`, which `search_issues` does not define — the parameter was
+  silently dropped and org-wide results came back looking scoped (the real name
+  is `projectSlugOrId`). The second returned a clean "no issues found" that
+  could equally have meant a filter that still wasn't applying, so the same
+  query was run against `hospitality` as a control; it returned issues and the
+  dashboard URL carried `?project=hospitality`, which is what makes the three
+  zeros a measurement rather than an absence of one.
+- **2026-09-02 — item 6's live assertion deviates from the probe
+  `architecture.md` specifies, because that probe degrades production.**
+  The architecture picked the service-wide 100/min limiter on
+  `/api/v1/users/health` as the only captured path reachable without
+  credentials. Two problems surfaced when it came time to actually fire it.
+  `createServiceApp` builds Fastify without `trustProxy`, so `request.ip` is
+  DigitalOcean's proxy address for _every_ caller — the 100/min bucket is
+  effectively global, and tripping it 429s real users of `users-api` for the
+  rest of the window. It also costs ~150 requests. Used instead:
+  `POST /public/v1/venues/<slug>/holds` on `reservations-api`, whose
+  `publicRateLimitHook` keys its bucket on `${ip}:${venueSlug}` at 30/min. A
+  **nonexistent** slug therefore gets a bucket no real traffic can share, so
+  tripping it degrades nothing, and it needs 31 requests rather than 150. The
+  429 is returned from a `preHandler`, ahead of the venue lookup, so no state is
+  written — the 30 requests that precede it answer 404 and touch nothing.
+  Verified before firing: `sentryFastifyPlugin`'s `onResponse` hook captures
+  manual `code(4xx).send()` for `NOTABLE_4XX`, so a `reply.send()` 429 is
+  captured and not just thrown errors; Fastify validates the body _before_
+  `preHandler`, so the probe must send a schema-valid body or it 400s and never
+  reaches the counter. This moves the assertion's target project from
+  `users-api` to `reservations-api` — which is exactly why `--project` was built
+  as a parameter rather than a constant.
+- **2026-09-02 — the preflight for that probe found an unrelated production
+  defect: the whole `/public/**` surface is 404 in production.** A single
+  request to `POST /public/v1/venues/<slug>/holds` came back with Fastify's
+  default `{"message":"Route POST:… not found"}` — the `setNotFoundHandler`
+  body, not the route's own `Venue Not Found`. The route has been registered at
+  that prefix since `75f68b8e4` (2026-05-16), so this is routing, not code.
+  `doctl apps spec get` on the live app is conclusive: its ingress has **no
+  `/public` rule**. `infrastructure/pulumi/index.ts` declares one, but the app
+  resource carries `ignoreChanges: ["spec"]`, so it never reached production —
+  the same push-blocking behaviour the `deploy-services.yml` yq bridge exists to
+  work around for env vars. Every `/public/**` request therefore falls through
+  the `/` catch-all to `users-api`, which has none of those routes. Dead surface:
+  public venue lookup, availability, holds, reservations, guest recognition,
+  guest risk, waitlist and deposit payment-intents — i.e. the entire
+  unauthenticated booking widget — plus the `manage` and `unsubscribe` links
+  `packages/notifications` emails to guests. `packages/api-client` calls all of
+  them. Not fixed here: it is a different defect from this run's, and Implement
+  keeps surgical scope. Carried as a retro seed, and it wants its own
+  maintenance run. Worth noting _why_ it survived: a 404 is not in
+  `NOTABLE_4XX`, so even a fully working Sentry would not have raised it —
+  ending the blackout is necessary but not sufficient for this class.
+- **2026-09-02 — so the live assertion reverts to `architecture.md`'s original
+  probe after all.** The isolated per-venue bucket needed `/public/**`, which
+  the finding above rules out, leaving the service-wide 100/min limiter as the
+  only captured path reachable without credentials — exactly what the
+  architecture chose. The degradation concern that prompted the detour was
+  measured rather than assumed: a single request returned
+  `x-ratelimit-limit: 100` with `x-ratelimit-remaining: 99`, so that request was
+  the only one in its window and current production traffic on the shared bucket
+  is effectively zero. The window is 60s and self-heals.
+- **2026-09-02 — turning the DSN on crashed every service at boot; the deploy
+  failed five times and rolled back.** This run's own merge (`b5ccb5122`) is the
+  cause, and the mechanism is the sharpest illustration of the run's thesis so
+  far: the bug was always in the code and was simply **unreachable while the DSN
+  was missing**, because `initSentry` returned before `Sentry.init` ran. Supplying
+  a DSN for the first time in five months executed that line for the first time
+  in five months. `deploy-services.yml`'s 5-attempt retry loop burned all five
+  (`b99be4c0`, `27353986` build-phase `InternalError`; `8472219d`, `c32bc32c`,
+  `efae89ca` deploy-phase `DeployContainerExitNonZero`), each followed by DO's
+  automated rollback, so production stayed on the 2026-09-01 containers
+  throughout and was never serving a broken build — but it is still serving them
+  without a DSN, so the blackout is not yet over. Container log:
+  `FastifyError: The decorator 'opentelemetry' has already been added!`
+  (`FST_ERR_DEC_ALREADY_PRESENT`), thrown from `@sentry/server-utils`'
+  `fastifyOtelPlugin`. `@mbe/observability` already registers `@fastify/otel`'s
+  `FastifyOtelInstrumentation`, which decorates that same property.
+  **Root cause is one line of our own config: `tracesSampleRate: 0`.** A DEFINED
+  rate means "tracing is configured" to Sentry, which pulls in
+  `getAutoPerformanceIntegrations()`. Measured against the installed SDK:
+  `getDefaultIntegrations({})` returns 17 with no Fastify;
+  `getDefaultIntegrations({ tracesSampleRate: 0 })` returns 44 including Fastify,
+  Prisma, Postgres, Redis and Kafka. `0` sampled none of the tracing while still
+  loading every instrumentation. Omitting the key is what actually disables it.
+  `skipOpenTelemetrySetup: true` was already set and is NOT sufficient — it stops
+  Sentry provisioning an OTel provider, not its integrations from registering.
+  **A near-miss worth recording, because it is this run's defect wearing a
+  different hat.** The first fix was a name filter,
+  `integrations: (d) => d.filter((i) => i.name !== "Fastify")`, and its unit test
+  passed. Probing the real SDK showed `"Fastify"` is not in
+  `getDefaultIntegrations({})` at all: the filter removed nothing, 17 in and 17
+  out. Mocked at the `Sentry.init` seam, a filter that matches nothing and a
+  filter that works are byte-identical — the test asserts the option was passed,
+  never that it does anything. It would have shipped as a no-op, failed the
+  deploy a sixth time, and looked green the whole way. Verify a filter by
+  what it removes, against the real dependency, not by the fact it was passed.
+  The filter is kept as a documented guard, since the deferred M2/M3 tracing work
+  reintroduces `tracesSampleRate` and with it the collision.
