@@ -11,6 +11,14 @@ on:
       - "packages/auth/**"
       - "packages/agent-core/**"
       - "packages/observability/**"
+      # Both are baked into the service images and run at boot, so a change to
+      # either must redeploy. #4927 fixed the Sentry blackout in packages/sentry
+      # and matched no entry here: it merged green and shipped nothing until a
+      # manual dispatch. check-workflow-paths-coverage.mjs cannot see this class
+      # -- it reads path tokens out of `run:` blocks and does not model
+      # transitive deps, and neither package is ever named by this workflow.
+      - "packages/sentry/**"
+      - "packages/service-bootstrap/**"
   # Lets a stuck deploy (e.g. exhausted retries from a transient DO
   # BuildRateLimit — see the "Trigger deployment" retry loop below) be
   # re-run without an unrelated code push. The deploys-unhealthy runbook
