@@ -67,6 +67,30 @@ describe("redactSignal", () => {
     expect(out.breadcrumbs[0]?.headers.cookie).toBe(REDACTED);
   });
 
+  it("strips the parsed cookies object Sentry writes alongside the raw header", () => {
+    // `@sentry/core`'s RequestData integration writes BOTH `request.headers.cookie`
+    // (the raw header, caught by the credential-header rule) and a parsed
+    // `request.cookies` map whose keys are cookie NAMES -- `session`, `sid`,
+    // `connect.sid`. None of those match a credential header name and a session
+    // id is not secret-SHAPED, so the parsed copy would sail through the policy
+    // while the raw header it was parsed from is redacted. Measured against
+    // @sentry/core 10.70.0: requestdata.js line 133-134 populates
+    // `requestData.cookies`, and `include.cookies` resolves to true whenever
+    // `dataCollection.cookies !== false`, which is the default without
+    // `sendDefaultPii`. Inert today only because nothing sets
+    // `sdkProcessingMetadata.normalizedRequest` with tracing off -- the M2/M3
+    // follow-up run turns OTel on, which is exactly when it would start leaking.
+    const out = redactSignal({
+      request: {
+        headers: { cookie: "session=abc123" },
+        cookies: { session: "abc123", "connect.sid": "s%3Aabc" },
+      },
+    }) as { request: { headers: Record<string, unknown>; cookies: unknown } };
+
+    expect(out.request.headers.cookie).toBe(REDACTED);
+    expect(out.request.cookies).toBe(REDACTED);
+  });
+
   it("passes non-object values through untouched", () => {
     expect(redactSignal(null)).toBeNull();
     expect(redactSignal(42)).toBe(42);

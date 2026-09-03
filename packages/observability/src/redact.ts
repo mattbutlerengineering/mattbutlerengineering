@@ -13,15 +13,22 @@
 export const REDACTED = "[redacted]";
 
 /**
- * Header names that carry credentials. Compared lowercased, because header
- * casing varies by transport and `Authorization` must be caught as surely as
- * `authorization`.
+ * Keys whose value is replaced wholesale, without inspecting it. Compared
+ * lowercased, because header casing varies by transport and `Authorization`
+ * must be caught as surely as `authorization`.
+ *
+ * `cookies` (plural) is not a header. `@sentry/core`'s RequestData integration
+ * writes a PARSED cookie map next to the raw header — keys are cookie names
+ * (`session`, `connect.sid`), values are the credentials. Those names match no
+ * header rule and a session id is not secret-shaped, so without this entry the
+ * parsed copy would ship while the header it came from was redacted.
  */
-const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set([
+const CREDENTIAL_KEYS: ReadonlySet<string> = new Set([
   "authorization",
   "proxy-authorization",
   "cookie",
   "set-cookie",
+  "cookies",
 ]);
 
 /**
@@ -73,7 +80,7 @@ export function redactSignal(value: unknown): unknown {
   if (isPlainObject(value)) {
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) =>
-        CREDENTIAL_HEADERS.has(key.toLowerCase()) ? [key, REDACTED] : [key, redactSignal(entry)]
+        CREDENTIAL_KEYS.has(key.toLowerCase()) ? [key, REDACTED] : [key, redactSignal(entry)]
       )
     );
   }
