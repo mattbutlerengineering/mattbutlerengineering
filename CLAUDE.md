@@ -230,6 +230,95 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 - **Playwright:** Shared browser tooling (`.mcp.json`) for `/site-audit` and E2E suite; no config needed beyond `.mcp.json` entry.
 - **Stripe (test-mode):** Set `STRIPE_SECRET_KEY` to test-mode key (`sk_test_…`) in `.mcp.json`; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
 
+## Session Learning & Feedback Loop
+
+Three `.claude/` directories work together to capture agent learning across sessions, distinguish between human-driven and loop-discovered insights, and feed them back into project guidance. See `.claude/memory/README.md` and `.claude/reflections/README.md` for local documentation.
+
+### `.claude/memory/` — Corrections and Reinforcements
+
+**Holds:**
+
+- `corrections/` — capture files when the agent makes mistakes
+- `reinforcements/` — capture files when the agent succeeds
+
+**What writes to it:**
+
+- `/reflect` skill (human-initiated at session end) writes human corrections to `corrections/`
+- `/gotcha-harvest` skill (also human-initiated, after autonomous loops) mines loop failures for **loop-discovered** gotchas and proposes them to `corrections/`
+- Manual session notes captured by the user
+
+**What reads it:**
+
+- Claude Code loads recent corrections at session start to bias against recurring mistakes
+- `/gotcha-harvest` scans it to avoid duplicate gotcha proposals
+
+**Structure:**
+Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
+
+- `date`, `session`, `trigger` (what went wrong), `correction` (fix), `root_cause` (why), `prevention` (how to avoid)
+- For reinforcements: `action`, `context`, `pattern`
+- Corrections include `feeds_back_into:` field linking to where they were promoted (e.g. `.claude/rules/gotchas.md#releases-changesets--rialto`)
+
+**Examples of promoted entries:** Four corrections became gotchas entries:
+
+- **2026-03-27** CDN-cache/Workers constraint → `gotchas.md § Deploy / static sites` ("Static sites must deploy as Cloudflare Workers...")
+- **2026-04-23** changesets push-ordering rule → `gotchas.md § Releases` ("Push before you version...")
+- **2026-04-25** zsh `$status` reserved-variable trap → `gotchas.md § Shell (zsh)` ("Never use `status` as a shell variable name...")
+- Rialto setState-in-useEffect ban → `gotchas.md § Pre-commit / lint` ("Rialto components must NOT call `setState`...")
+
+### `.claude/reflections/` — Session Summaries and Root-Cause Analysis
+
+**Holds:**
+
+- `README.md` — format documentation
+- `YYYY-MM-DD-<slug>.md` — individual reflections captured after sessions or multi-retry debugging
+
+**What writes to it:**
+
+- `/reflect` skill at session end (human-initiated) synthesizes corrections and reinforcements into actionable insights
+- `/revert-rca-loop` skill files RCA documents after AI-authored PRs are reverted (e.g. `RCA-PR-3588.md`)
+
+**What reads it:**
+
+- Claude Code loads active reflections (< 6 months old) at session start for context
+- Manual review to understand past debugging paths and architecture decisions
+
+**Distinction from memory:** Reflections are the analytical layer. A memory correction is raw ("user said X was wrong"). The reflection synthesizes it ("why that happened, what changed, what prevents recurrence").
+
+### `.claude/improvement-loop/` — Autonomous Loop Telemetry
+
+**Holds:**
+
+- `log.md` — append-only daily run log of autonomous loop sensors (ACMM score, CI health, issue feedback, etc.)
+- `revert-log.md` — append-only log of detected PR reversions
+
+**What writes to it:**
+
+- Scheduled loops (`/learning-loop`, `/ideate`, etc.) append a dated entry with sensor state, regressions detected, and verification results
+- `/revert-rca-loop` appends reversion detections to `revert-log.md`
+
+**What reads it:**
+
+- `/gotcha-harvest` mines `log.md` for "CI failed → fix applied → re-checked and passed" arcs and proposes them to `.claude/memory/corrections/`
+- `/claude-md-improver` scans `log.md` for recurring gotcha-discovery patterns (e.g. the ten separate entries on "missing `gh` in cloud sessions" before it earned a gotchas bullet)
+
+**Purpose:** Append-only record of autonomous-loop health and sensor trends. Used to detect regressions, discover repeat problems, and bootstrap new gotchas. The log does **not** contain detailed reasoning (that goes to reflections); it's a summary of facts and thresholds.
+
+### Promotion Path: Corrections → Gotchas
+
+The `.claude/rules/gotchas.md` file is the canonical source for project-specific traps. Entries come from two sources:
+
+| Source                                      | How it lands in gotchas                                                                               | Approval gate                                            | Example                                                                       |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Human error** (from `/reflect`)           | Manual PR to CLAUDE.md after user says "this should be documented"                                    | User review during PR                                    | Rialto setState-in-useEffect ban                                              |
+| **Loop discovery** (from `/gotcha-harvest`) | `/gotcha-harvest` mines session logs for failed-then-fixed arcs, proposes entries, user reviews in PR | `/gotcha-harvest` proposes (human approves in PR review) | Missing `gh` CLI in cloud sessions (discovered 10 times in logs before entry) |
+
+The top of `gotchas.md` states this:
+
+> "**Adding entries:** after an autonomous loop (`/implement-queue`, `/ship-loop`), run `/gotcha-harvest` to mine the session for `CI failed → fix → passed` arcs and recurring tool-errors — it proposes new bullets here (and cross-repo facts to memory) with human review. `/reflect` only captures _human corrections_, so loop-discovered gotchas land here via `/gotcha-harvest`, not `/reflect`."
+
+**Why the distinction?** `/reflect` is interactive (the user has your transcript) and captures intentional feedback. `/gotcha-harvest` is autonomous (runs after a session ends) and discovers patterns the user never said out loud. Both feed into corrections; only gotchas-via-gotcha-harvest entries become project traps.
+
 ## Cross-Session Memory & Knowledge Graph
 
 - **claude-mem** (`/mem-search`, `/smart-explore`, `/make-plan`, `/do`, `/timeline-report`, `/babysit`): Persistent cross-session memory of code patterns, architecture decisions, debugging outcomes. **Unavailable by default** — not installed in this repo or in fresh checkouts; run `npx claude-mem install` first to make these commands resolve.
