@@ -1183,6 +1183,7 @@ Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd 
 **queueEfficiency:** composite 0.957 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:14, size:s:12, size:l:2
 **Issues filed:** 0
+
 ## 2026-09-03 (mbe-evening / implement-queue + progress-tracker)
 
 ### Metrics (7d, 2026-08-27 → 2026-09-03)
