@@ -1177,3 +1177,9 @@ None (`agent-skip` empty this run).
 ### Recommendation carried forward
 
 Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
+
+## 2026-09-03
+
+**queueEfficiency:** composite 0.957 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:14, size:s:12, size:l:2
+**Issues filed:** 0
