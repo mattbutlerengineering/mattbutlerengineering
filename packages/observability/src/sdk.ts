@@ -36,10 +36,25 @@ export function shouldIgnoreRequest(req: IncomingMessage): boolean {
 }
 
 /**
+ * Module-level cache so repeated initTelemetry() calls in the same process
+ * (hot-reload, or a second bootstrap path) reuse the same NodeSDK instead of
+ * constructing a second FastifyOtelInstrumentation. Each instrumentation
+ * instance auto-subscribes to Fastify's global 'fastify.initialization'
+ * diagnostics channel on construction, so two instances both fire on the
+ * next Fastify() call and the second decorate throws
+ * FST_ERR_DEC_ALREADY_PRESENT ("The decorator 'opentelemetry' has already
+ * been added!").
+ */
+let telemetrySdk: NodeSDK | undefined;
+
+/**
  * Initialize OpenTelemetry with OTLP/HTTP exporters and selective instrumentation.
  *
  * Must be called BEFORE importing any Fastify or HTTP modules — the SDK
  * monkey-patches Node's HTTP stack during registration.
+ *
+ * Idempotent: a second call in the same process returns the SDK created by
+ * the first call rather than constructing a new one. See `telemetrySdk`.
  *
  * Uses OTLP/HTTP (not gRPC) to avoid the 8-12 MB overhead of @grpc/grpc-js.
  * Only instruments http, fastify, and pino — not the full auto-instrumentation
@@ -54,6 +69,10 @@ export function shouldIgnoreRequest(req: IncomingMessage): boolean {
  *   LANGFUSE_BASEURL             — Langfuse endpoint (defaults to cloud.langfuse.com)
  */
 export function initTelemetry(config: OtelConfig): NodeSDK {
+  if (telemetrySdk) {
+    return telemetrySdk;
+  }
+
   const isDisabled = process.env.OTEL_SDK_DISABLED === "true";
 
   const resource = resourceFromAttributes({
@@ -91,5 +110,6 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
         ],
   });
 
+  telemetrySdk = sdk;
   return sdk;
 }
