@@ -34,7 +34,7 @@ vi.mock("@opentelemetry/instrumentation-pino", () => ({
 }));
 
 vi.mock("@opentelemetry/resources", () => ({
-  resourceFromAttributes: vi.fn().mockReturnValue({}),
+  resourceFromAttributes: vi.fn().mockReturnValue({ mocked: true }),
 }));
 
 vi.mock("@opentelemetry/semantic-conventions", () => ({
