@@ -499,6 +499,34 @@ describe("sentryFastifyPlugin", () => {
       }
     });
 
+    it("does NOT capture 503 on /ready as an error (expected not-ready state)", async () => {
+      // GET /ready legitimately returns 503 while a dependency check (DB, JWKS)
+      // is transiently failing or the service is still starting -- that's the
+      // whole point of the endpoint (@mbe/service-bootstrap's readiness-routes.ts),
+      // not an application error. Sentry issue 7708625103: reservations-api
+      // logged "HTTP 503: GET /ready" as a Sentry error with 0 affected users,
+      // i.e. every legitimate readiness-not-ready response was being reported
+      // as if it were a bug.
+      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
+      const onResponseHooks = fakeFastify.getHook("onResponse");
+      const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
+
+      const fakeScope = {
+        setTag: vi.fn(),
+        setUser: vi.fn(),
+        setLevel: vi.fn(),
+      };
+      mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
+
+      const request = buildFakeRequest({ method: "GET", url: "/ready" });
+      const reply = buildFakeReply(503);
+
+      await hook(request, reply);
+
+      expect(mockCaptureMessage).not.toHaveBeenCalled();
+    });
+
     it("does NOT capture 2xx responses", async () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
       const onResponseHooks = fakeFastify.getHook("onResponse");
