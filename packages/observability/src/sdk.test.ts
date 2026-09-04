@@ -344,3 +344,80 @@ describe("initTelemetry — NodeSDK constructor shape per telemetry mode", () =>
     });
   });
 });
+
+/**
+ * The boot notice exists because the failure this package just fixed was
+ * invisible: an unconfigured process and a healthy one looked identical from
+ * outside. One line at boot makes the mode observable without needing an
+ * export to fail first.
+ *
+ * It must never print a configuration VALUE — only the key that decided the
+ * mode — following validateStartupConfig's describeShape discipline.
+ */
+describe("initTelemetry — boot notice", () => {
+  const originalEnv = process.env;
+  const SENTINEL = "https://secret-collector.example.invalid:4318";
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.OTEL_SDK_DISABLED;
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    delete process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
+    delete process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  async function initAndCaptureNotice(): Promise<string[]> {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const { initTelemetry } = await import("./sdk.js");
+    initTelemetry({ serviceName: "test-service" });
+    return spy.mock.calls.map((call) => call.join(" "));
+  }
+
+  it("emits exactly one notice, naming the mode", async () => {
+    const lines = await initAndCaptureNotice();
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("unconfigured");
+  });
+
+  it("names the keys that decided the mode", async () => {
+    const lines = await initAndCaptureNotice();
+
+    expect(lines[0]).toContain("OTEL_EXPORTER_OTLP_ENDPOINT");
+  });
+
+  it("prints the key but never the value", async () => {
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = SENTINEL;
+
+    const lines = await initAndCaptureNotice();
+
+    expect(lines[0]).toContain("exporting");
+    expect(lines[0]).toContain("OTEL_EXPORTER_OTLP_ENDPOINT");
+    expect(lines[0]).not.toContain(SENTINEL);
+  });
+
+  it("emits for the disabled mode too, so silence always means 'not booted'", async () => {
+    process.env.OTEL_SDK_DISABLED = "true";
+
+    const lines = await initAndCaptureNotice();
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("disabled");
+  });
+
+  it("does not re-emit when initTelemetry is called a second time", async () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const { initTelemetry } = await import("./sdk.js");
+    initTelemetry({ serviceName: "test-service" });
+    initTelemetry({ serviceName: "test-service" });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});

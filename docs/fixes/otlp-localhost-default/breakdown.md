@@ -38,7 +38,7 @@ fall-through.
   - Accept: the code carries a comment, in the house style of `packages/sentry/src/node.ts:62-85`, naming `@opentelemetry/sdk-node@0.221.0` and the lines the behaviour depends on (`sdk.js:202`, `:208`, `:217` for spans; `:132`, `:182-184` for metrics) and stating that `undefined` here would not fix the defect.
   - Blocked by: item 2
 
-- [ ] **Boot notice** — one `console` line at init naming `plan.mode` and `plan.reason`.
+- [x] **Boot notice** — one `console` line at init naming `plan.mode` and `plan.reason`.
   - Accept: a test asserts the line is emitted exactly once per init, contains the mode and an env key name, and contains no env value. `console` rather than `diag`, because `diag` is silent unless `OTEL_LOG_LEVEL` is set and would therefore say nothing in exactly the deployment that needs it.
   - Accept: deleting this item leaves items 2 and 3 passing unchanged — verify that before checking it off, since droppability is the reason it is a separate item.
   - Blocked by: item 2

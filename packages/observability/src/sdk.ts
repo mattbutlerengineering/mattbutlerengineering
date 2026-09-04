@@ -81,6 +81,21 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
   const plan = resolveTelemetryPlan(process.env);
   const isDisabled = plan.mode === "disabled";
 
+  // One line, every boot, every mode. The defect this package just fixed was
+  // invisible precisely because an unconfigured process and a healthy one
+  // rendered identically — nothing said which state the service was in until
+  // an export failed. Emitted for `disabled` too, so an absent line always
+  // means "initTelemetry did not run", never "it ran and had nothing to say".
+  //
+  // `console.info` rather than `diag` from @opentelemetry/api: diag is silent unless
+  // OTEL_LOG_LEVEL is set, so it would say nothing in exactly the deployment
+  // that needs it. This runs before Fastify, so pino does not exist yet;
+  // start-service-server.ts already writes to console at the same stage. `info`
+  // specifically because the repo eslint config allows only warn/error/info.
+  // `plan.reason` names the KEY that decided the mode and never its value,
+  // following validateStartupConfig's describeShape discipline.
+  console.info(`[telemetry] mode=${plan.mode} — ${plan.reason}`);
+
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.serviceName,
     [ATTR_SERVICE_VERSION]: config.serviceVersion ?? "0.0.0",
