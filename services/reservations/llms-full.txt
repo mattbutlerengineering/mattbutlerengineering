@@ -940,7 +940,12 @@
         {
           preHandler: [
             requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+            // Pinned to the *table* being mutated (:tableId), not the floor plan
+            // named in the body — see issue #5008. The body's floorPlanId can
+            // legitimately belong to the caller's own venue while :tableId
+            // belongs to someone else's; authorizing on the body let a caller
+            // re-point another venue's table onto their own floor plan.
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
           ],
           schema: {
             summary: "Assign table to floor plan",
@@ -3175,12 +3180,10 @@
        * to that venue. Null when the table does not exist or is unassigned (→ 403 for
        * non-admins; platform admins bypass the check).
        */
-      const resolveTableVenueId: VenueIdResolver = async (request) => {
-        const params = request.params as { id?: unknown };
-        if (typeof params.id !== "string") return null;
-        const table = await tableService.getById(params.id);
-        return table?.venueId ?? null;
-      };
+      const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
+        (request) => (request.params as { id?: unknown }).id,
+        tableService.getById
+      );
     
       // List tables
       fastify.get<{

@@ -91,6 +91,7 @@ vi.mock("jose", () => ({
 }));
 
 import { floorPlanService } from "../services/floor-plan.js";
+import { tableService } from "../services/table.js";
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 
@@ -732,6 +733,38 @@ describe("Floor Plan Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 403 when :tableId belongs to a venue the caller cannot access, even when the body's floorPlanId belongs to a venue they can (#5008)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      // The caller IS a member of "venue-own" (where the body's floor plan
+      // lives) but NOT of "venue-other" (where :tableId actually lives).
+      // Authorizing on the body would incorrectly let this request through.
+      vi.mocked(tableService.getById).mockResolvedValueOnce({
+        ...mockTable,
+        id: "table-other-venue",
+        venueId: "venue-other",
+      });
+      const lookup = vi
+        .fn<VenueMembershipLookup>()
+        .mockImplementation((_sub, venueId) => Promise.resolve(venueId === "venue-own"));
+      const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+      await scopedApp.ready();
+
+      const response = await scopedApp.inject({
+        method: "POST",
+        url: "/api/v1/floor-plans/tables/table-other-venue/assign",
+        headers: { authorization: "Bearer outsider-token" },
+        payload: { floorPlanId: "floor-plan-own-venue" },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(floorPlanService.assignTableToFloorPlan).not.toHaveBeenCalled();
+
+      await scopedApp.close();
     });
   });
 
