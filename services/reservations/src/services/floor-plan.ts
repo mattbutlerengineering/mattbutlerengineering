@@ -303,6 +303,19 @@ export const floorPlanService = {
   ): Promise<Table[]> {
     if (positions.length === 0) return [];
 
+    // The route authorizes the caller against the floor plan's venue, but every
+    // tableId in `positions` is caller-supplied and unverified. Without a tenant
+    // predicate on the statement itself, a member of one venue can name another
+    // venue's tables and re-point them at their own floor plan. Resolve the
+    // owning venue here so the UPDATE below can be scoped to it.
+    const floorPlan = await prisma.floorPlan.findUnique({
+      where: { id: floorPlanId },
+      select: { venueId: true },
+    });
+    if (!floorPlan) {
+      throw Object.assign(new Error("Floor plan not found"), { code: "P2025" });
+    }
+
     // Postgres does not guarantee UPDATE ... RETURNING row order matches the
     // input VALUES order. Callers (the /tables/positions route and its
     // hospitality client) key results by table id, not by array position, so
@@ -317,7 +330,7 @@ export const floorPlanService = {
       UPDATE tables AS t
       SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
       FROM (VALUES ${values}) AS v(id, shape_metadata)
-      WHERE t.id = v.id
+      WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
       RETURNING
         t.id,
         t.name,
@@ -336,11 +349,12 @@ export const floorPlanService = {
         t.updated_at AS "updatedAt"
     `;
 
-    // An unknown/deleted tableId in the batch simply doesn't match any row —
-    // the UPDATE doesn't error, it just returns fewer rows. Fail loudly on a
-    // partial match so this restores the pre-#3892 contract: throw the same
-    // P2025 shape isPrismaNotFound/classifyError already map to a 404,
-    // triggering the client's rollback path instead of a silent 200.
+    // An unknown/deleted tableId — or, since the venue predicate above, one
+    // belonging to another venue — simply doesn't match any row: the UPDATE
+    // doesn't error, it just returns fewer rows. Fail loudly on a partial
+    // match so this restores the pre-#3892 contract: throw the same P2025
+    // shape isPrismaNotFound/classifyError already map to a 404, triggering
+    // the client's rollback path instead of a silent 200.
     if (tables.length !== positions.length) {
       throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
     }
@@ -353,6 +367,20 @@ export const floorPlanService = {
     floorPlanId: string,
     shapeMetadata?: TableShapeMetadata
   ): Promise<Table | null> {
+    // The route authorizes on the body's floorPlanId, which leaves :tableId
+    // caller-controlled and unchecked. Assert both sides resolve to the same
+    // venue before writing, so a member of one venue cannot pull another
+    // venue's table onto their own floor plan (and vice versa). A table with
+    // no venue is refused too: it can never match a floor plan's venue, and
+    // adopting an orphan row is the same leak by another route.
+    const [existing, floorPlan] = await Promise.all([
+      prisma.table.findUnique({ where: { id: tableId }, select: { venueId: true } }),
+      prisma.floorPlan.findUnique({ where: { id: floorPlanId }, select: { venueId: true } }),
+    ]);
+    if (!existing?.venueId || !floorPlan || existing.venueId !== floorPlan.venueId) {
+      return null;
+    }
+
     try {
       const table = await prisma.table.update({
         where: { id: tableId },
