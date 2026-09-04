@@ -632,6 +632,14 @@
       function escapeIcsText(value: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/utils/local-clock.ts">
+    <item priority="medium">
+      function isValidDate(now: Date): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localDateString(now: Date): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/ordinal.ts">
     <item priority="high">
       export function ordinalVisit(n: number): string { /* ... */ }
@@ -645,6 +653,22 @@
     </item>
     <item priority="high">
       export const STATUS_LABEL: Record<ReservationStatus, string>;
+    </item>
+  </file>
+  <file path="src/utils/seated.ts">
+    <item priority="high">
+      export const SEATED_EARLY_WINDOW_MS: unknown;
+    </item>
+    <item priority="high">
+      type SeatedReservation = Pick<Reservation, "status" | "startTime" | "endTime">;
+    </item>
+  </file>
+  <file path="src/utils/timeline-intent.ts">
+    <item priority="high">
+      export const WALK_IN_PARAM: unknown;
+    </item>
+    <item priority="high">
+      export const SELECTED_PARAM: unknown;
     </item>
   </file>
   <file path="src/utils/venueOpenLabel.ts">

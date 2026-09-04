@@ -2,7 +2,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import type * as ReactRouter from "react-router";
 import { HomePage } from "./HomePage.js";
+
+const mockNavigate = vi.fn();
+
+vi.mock("react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReactRouter>()),
+  useNavigate: () => mockNavigate,
+}));
 import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
@@ -238,7 +246,7 @@ describe("HomePage", () => {
 
   it("renders action buttons", () => {
     renderPage();
-    expect(screen.getByText("New Walk-In")).toBeDefined();
+    expect(screen.getByText("Walk-in")).toBeDefined();
     expect(screen.getByText("View Floor Plan")).toBeDefined();
     expect(screen.getByText("Guest Lookup")).toBeDefined();
     expect(screen.getByText("Booking Widget")).toBeDefined();
@@ -272,14 +280,18 @@ describe("HomePage", () => {
   it("navigation buttons call navigate with correct paths", () => {
     renderPage();
 
-    fireEvent.click(screen.getByText("New Walk-In"));
+    fireEvent.click(screen.getByText("Walk-in"));
     fireEvent.click(screen.getByText("View Floor Plan"));
     fireEvent.click(screen.getByText("Guest Lookup"));
     fireEvent.click(screen.getByText("Booking Widget"));
 
-    // Buttons rendered inside MemoryRouter — clicks trigger navigation
-    // Verify buttons are clickable (no errors thrown)
-    expect(screen.getByText("New Walk-In")).toBeDefined();
+    // Walk-in carries the URL intent the Timeline consumes (ux.md Flow 5): today's grid, dialog open.
+    expect(mockNavigate.mock.calls.map((call) => call[0])).toEqual([
+      "/timeline?walkin=true",
+      "/floor-plans",
+      "/guests",
+      "/booking-widget",
+    ]);
   });
 
   describe("neon sign in the header aside", () => {

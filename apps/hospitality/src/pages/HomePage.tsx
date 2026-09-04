@@ -61,8 +61,8 @@ export function HomePage() {
       {isLoading ? <StatsLoading /> : <StatRow stats={stats} />}
 
       <div className={styles.actionsRow}>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline")}>
-          New Walk-In
+        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
+          Walk-in
         </Button>
         <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
           View Floor Plan

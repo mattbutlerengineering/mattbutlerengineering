@@ -780,6 +780,14 @@
         .replace(/\r\n|\r|\n/g, "\\n");
     }
   </file>
+  <file path="src/utils/local-clock.ts">
+    function isValidDate(now: Date): boolean {
+      return !Number.isNaN(now.getTime());
+    }
+    export function localDateString(now: Date): string {
+      return isValidDate(now) ? now.toLocaleDateString(LOCAL_DAY_LOCALE) : "";
+    }
+  </file>
   <file path="src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
@@ -805,6 +813,14 @@
       COMPLETED: "Completed",
       NO_SHOW: "No Show",
     };
+  </file>
+  <file path="src/utils/seated.ts">
+    export const SEATED_EARLY_WINDOW_MS = 15 * 60_000;
+    type SeatedReservation = Pick<Reservation, "status" | "startTime" | "endTime">;
+  </file>
+  <file path="src/utils/timeline-intent.ts">
+    export const WALK_IN_PARAM = "walkin";
+    export const SELECTED_PARAM = "selected";
   </file>
   <file path="src/utils/venueOpenLabel.ts">
     export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
