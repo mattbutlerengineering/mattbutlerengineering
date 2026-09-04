@@ -7,18 +7,16 @@ import {
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { waitlistService } from "../services/waitlist.js";
 import { validatePhone } from "../services/waitlist-notifier.js";
-import { venueIdFromQuery, venueIdFromBody } from "./venue-access.js";
+import { venueIdFromQuery, venueIdFromBody, venueIdFromEntity } from "./venue-access.js";
 
 /**
  * Resolves the venue owning a waitlist entry addressed by `:id`, scoping by-id
  * actions to that venue. Null when the entry does not exist (→ 403).
  */
-const resolveWaitlistVenueId: VenueIdResolver = async (request) => {
-  const params = request.params as { id?: unknown };
-  if (typeof params.id !== "string") return null;
-  const entry = await waitlistService.getById(params.id);
-  return entry?.venueId ?? null;
-};
+const resolveWaitlistVenueId: VenueIdResolver = venueIdFromEntity(
+  (request) => (request.params as { id?: unknown }).id,
+  waitlistService.getById
+);
 
 /** Shared schema for a WaitlistEntry response object */
 const WaitlistEntrySchema = {

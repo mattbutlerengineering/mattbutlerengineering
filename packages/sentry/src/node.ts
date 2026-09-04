@@ -136,6 +136,15 @@ export const sentryFastifyPlugin = fp(
     // 2. Response Hook for status-based logging (catches manual code(4xx).send())
     fastify.addHook("onResponse", async (request, reply) => {
       const status = reply.statusCode;
+      const path = request.url.split("?")[0];
+
+      // GET /ready legitimately answers 503 while a dependency check (DB,
+      // JWKS) is transiently failing or the service is still starting up
+      // (@mbe/service-bootstrap's readiness-routes.ts) — that's the endpoint
+      // doing its job, not an application error. Without this guard every
+      // routine not-ready response was reported to Sentry as an error with
+      // no actionable diagnostic (Sentry issue 7708625103).
+      if (path === "/ready") return;
 
       if (status >= 500 && !(reply as unknown as SentryReplyMeta).__sentryErrorCaptured) {
         // Only capture 5xx if not already captured by the error handler

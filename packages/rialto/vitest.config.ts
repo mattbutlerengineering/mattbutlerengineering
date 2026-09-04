@@ -1,3 +1,4 @@
+import { resolve } from "path";
 import { defineVitestConfig } from "@mbe/config/vitest/react";
 
 export default defineVitestConfig({
@@ -19,6 +20,19 @@ export default defineVitestConfig({
     },
   },
   extend: {
+    resolve: {
+      alias: {
+        // useChatStream.test.ts mocks this module (vi.mock) but Vite still
+        // has to resolve the bare specifier before the mock intercepts it.
+        // The package's exports map only points at dist/streaming.js, so
+        // this test failed with "Failed to resolve import" whenever
+        // @mbe/api-client hadn't been built first — a fragile, non-hermetic
+        // dependency on a sibling package's build artifact for a unit test
+        // that already fully mocks that collaborator. Aliasing straight to
+        // source removes the cross-package build-order requirement.
+        "@mbe/api-client/streaming": resolve(__dirname, "../api-client/src/streaming.ts"),
+      },
+    },
     css: {
       modules: {
         localsConvention: "camelCase",
