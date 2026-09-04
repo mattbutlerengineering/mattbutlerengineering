@@ -212,7 +212,7 @@ will receive down to the SQL text; the rialto-web preferences dialog renders
 three toggles and a visitor whose browser still holds `analytics: true` is read
 without crash and without write-back.
 
-- [ ] **4. `scripts/edge-usage.mjs` — requests per route and pathname over a
+- [x] **4. `scripts/edge-usage.mjs` — requests per route and pathname over a
       trailing window** — pure `buildUsageQuery({ days = 7, route })` builds the
       SQL from `EDGE_REQUESTS_COLUMNS` and `EDGE_REQUESTS_DATASET`;
       `parseArgs(argv)` hand-rolled like `record-audit-check.mjs:45`
@@ -479,6 +479,33 @@ pulumi/index.ts and analytics-schema.js agree on the Analytics Engine binding
   fixed:_ `scripts/README.md`'s check-script table lists 8 of the 26
   `scripts/check-*` files (18 were already absent before this run), so it is
   not a maintained list and the new guard was not added to it.
+- **Implement log — item 4 (2026-09-03).** RED:
+  `Error: Cannot find module '../edge-usage.mjs'`. GREEN:
+  `✓ scripts/__tests__/edge-usage.test.mjs (23 tests)`; `pnpm --dir scripts
+test` → `Test Files 158 passed (158)` / `Tests 3064 passed (3064)`;
+  `env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID node scripts/edge-usage.mjs`
+  → `Missing required environment variable: CLOUDFLARE_API_TOKEN`, `exit=1`;
+  `node scripts/edge-usage.mjs --days 0` → `Invalid --days "0": expected an
+integer from 1 to 90` + usage, `exit=1`; `pnpm --dir scripts lint` → exit 0;
+  `grep -nE "blob[0-9]|double[0-9]" scripts/edge-usage.mjs` → no match (the
+  dataset name appears once, in the file's doc comment, never in code — it is
+  read from `EDGE_REQUESTS_DATASET`). ⛔ **No real query was run**: no token
+  with _Account · Account Analytics · Read_ exists to this run
+  (`docs/SECRETS.md:18` scopes `MBE_CLOUDFLARE_API_TOKEN` to Pages deploys,
+  KV, DNS, Pulumi); the request shape is pinned against a `vi.fn()` fetch only.
+  _Assumptions:_ (1) `requireEnv` reads the injected `env` argument rather
+  than `process.env` — the six lines and message text are otherwise
+  `resource-audit.mjs:34-39` verbatim; that is the seam that makes the
+  missing-env path testable without spawning. (2) `main` also accepts injected
+  `stdout`/`stderr` writers (defaulting to `process.*`) for the same reason.
+  (3) The 401/403 message reads "the token needs the Account Analytics Read
+  scope (Cloudflare dashboard: Account · Account Analytics · Read)" so it
+  contains both the architecture's dotted form and the breakdown's plain
+  `Account Analytics Read` substring. (4) `buildUsageQuery` re-validates
+  `days`/`route` and throws — a second check at the interpolation point, so
+  the allowlist holds even for a caller that bypasses `parseArgs`. (5) With
+  rows, output is a header + one line per row + a one-line summary naming
+  `SUM(_sample_interval)`; with zero rows, only the runbook pointer.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still
