@@ -1025,6 +1025,13 @@
       "slots": []
     },
     {
+      "name": "CommandMatchRank",
+      "description": "How well a label matches a query — lower is stronger.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "CommandPalette",
       "description": "An uncontrolled, searchable command palette driven by a declarative `CommandItem[]` array.\nThe component owns its own search state, filtering, keyboard navigation, and grouping --\nthe consumer only provides the data and responds to selection via each item's `onSelect`.\nGlobally toggleable with Cmd+K / Ctrl+K.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -1053,7 +1060,7 @@
           "name": "groups",
           "type": "string[] | undefined",
           "required": false,
-          "description": "Ordered list of group names — ungrouped items appear first"
+          "description": "Ordered list of group names — ungrouped items appear first. With a query,\ngroups reorder by the strongest match they contain (see `rankCommandMatch`);\nthis order only breaks ties."
         }
       ],
       "slots": []
