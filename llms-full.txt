@@ -17059,6 +17059,16 @@
       readonly rate: number;
     }
   </file>
+  <file path="packages/observability/src/otel-config.ts">
+    export type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    export interface TelemetryPlan {
+      readonly mode: TelemetryMode;
+      readonly exportTraces: boolean;
+      readonly exportMetrics: boolean;
+      /** One log-safe line naming which KEY decided the mode. Never a value. */
+      readonly reason: string;
+    }
+  </file>
   <file path="packages/observability/src/rate-limit-monitor.ts">
     export interface RateLimitHit {
       readonly ip: string;
