@@ -87,7 +87,6 @@ export const PENDING_ADOPTION: readonly string[] = [
   "components/timeline/StaffDepositSection.tsx",
   "components/timeline/WalkInDialog.tsx",
   "pages/TimelinePage.tsx",
-  "pages/WaitlistPage.tsx",
 ];
 
 function isSourceFile(file: string): boolean {

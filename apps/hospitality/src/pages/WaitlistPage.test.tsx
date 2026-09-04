@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import { WaitlistPage } from "./WaitlistPage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
+import { localDateString } from "../utils/local-clock.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import {
@@ -16,6 +19,10 @@ import { useApiClient } from "../hooks/useApiClient.js";
 import type { Table, WaitlistEntry } from "@mbe/types";
 import React from "react";
 
+vi.mock("react-router", async () => ({
+  ...(await vi.importActual("react-router")),
+  useNavigate: vi.fn(),
+}));
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../hooks/useWaitlist.js", () => ({
   useWaitlist: vi.fn(),
@@ -28,8 +35,50 @@ vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
+  // tabIndex={-1} like the real one: useFocusAfter's pageHeading target lands here.
+  PageHeader: ({ title }: { title: string }) => (
+    <h1 tabIndex={-1} data-testid="page-header">
+      {title}
+    </h1>
+  ),
 }));
+
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({
+    title,
+    error,
+    details,
+    onRetry,
+  }: {
+    title?: string;
+    error: string;
+    details?: string;
+    onRetry?: () => void;
+  }) => (
+    <div role="alert" data-testid="error-banner" data-details={details}>
+      {title && <strong>{title}</strong>}
+      <span>{error}</span>
+      {onRetry && <button onClick={onRetry}>Retry</button>}
+    </div>
+  ),
+}));
+
+const mockToast = vi.fn();
+const mockNavigate = vi.fn();
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 vi.mock("@mattbutlerengineering/rialto", async () => {
   const { forwardRef } = await vi.importActual<typeof React>("react");
@@ -53,7 +102,15 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
     } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button {...props}>{isLoading ? (loadingText ?? children) : children}</button>
     ),
-    Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
+    // Forwards tabIndex / data-testid: entry cards are useFocusAfter targets.
+    Card: ({
+      children,
+      ...props
+    }: { children: React.ReactNode } & React.HTMLAttributes<HTMLDivElement>) => (
+      <div data-card="" {...props}>
+        {children}
+      </div>
+    ),
     EmptyState: ({
       heading,
       description,
@@ -107,6 +164,7 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
     Text: ({ children, className }: { children: React.ReactNode; className?: string }) => (
       <span className={className}>{children}</span>
     ),
+    useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
   };
 });
 
@@ -145,7 +203,7 @@ function renderPage() {
 function getRowCards(container: HTMLElement) {
   const cardsList = container.querySelector(".cards");
   if (!cardsList) return [];
-  return within(cardsList as HTMLElement).getAllByTestId("card");
+  return Array.from(cardsList.querySelectorAll<HTMLElement>("[data-card]"));
 }
 
 const makeTable = (overrides: Partial<Table> = {}): Table => ({
@@ -213,6 +271,9 @@ function mockMutationHooks(
 
 describe("WaitlistPage", () => {
   beforeEach(() => {
+    mockToast.mockClear();
+    mockNavigate.mockClear();
+    vi.mocked(useNavigate).mockReturnValue(mockNavigate);
     vi.mocked(useVenue).mockReturnValue(mockVenue);
     vi.mocked(useTables).mockReturnValue({
       data: [makeTable()],
@@ -299,16 +360,35 @@ describe("WaitlistPage", () => {
     expect(screen.getByTestId("empty-state")).toHaveTextContent("No one waiting");
   });
 
-  it("shows error alert when fetch fails, without throwing", () => {
+  it('a load failure shows "Couldn\'t load the waitlist." with the house sentence and a Retry — never the request line', () => {
+    const refetch = vi.fn();
     vi.mocked(useWaitlist).mockReturnValue({
       data: undefined,
       isLoading: false,
-      error: new Error("Network error"),
+      error: serverError("GET", "/api/v1/waitlist?venueId=venue-abc"),
+      refetch,
+    });
+
+    renderPage();
+    const banner = screen.getByRole("alert");
+    expect(banner).toHaveTextContent("Couldn't load the waitlist.");
+    expect(banner).toHaveTextContent(ERROR_COPY.serverError.detail);
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("mounts one empty polite status region from the first render (S12)", () => {
+    vi.mocked(useWaitlist).mockReturnValue({
+      data: [makeEntry()],
+      isLoading: false,
+      error: null,
       refetch: vi.fn(),
     });
 
     renderPage();
-    expect(screen.getByTestId("alert")).toBeInTheDocument();
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent("");
   });
 
   it("renders entries ordered by position with guest name, party size and wait", () => {
@@ -402,8 +482,25 @@ describe("WaitlistPage", () => {
       expect(mutateAsync).not.toHaveBeenCalled();
     });
 
-    it("surfaces an API error inline instead of failing silently", async () => {
-      const mutateAsync = vi.fn().mockRejectedValue(new Error("Duplicate phone number"));
+    it('a 500 on add shows "Not added." with the house sentence, never the request line (B1.1)', async () => {
+      const mutateAsync = vi.fn().mockRejectedValue(serverError("POST", "/api/v1/waitlist"));
+      mockMutationHooks({ create: { mutateAsync } });
+      renderPage();
+
+      fillForm();
+      fireEvent.click(screen.getByRole("button", { name: "Add to Waitlist" }));
+
+      const banner = await screen.findByRole("alert");
+      expect(banner).toHaveTextContent("Not added.");
+      expect(banner).toHaveTextContent(ERROR_COPY.serverError.detail);
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
+      expect(screen.getByRole("status")).toHaveTextContent("");
+    });
+
+    it("announces the add once and returns focus to the Guest Name field (B3.1, B3.2 — the deliberate exception)", async () => {
+      const mutateAsync = vi
+        .fn()
+        .mockResolvedValue(makeEntry({ id: "wl-9", guestName: "Jordan Lee", partySize: 3 }));
       mockMutationHooks({ create: { mutateAsync } });
       renderPage();
 
@@ -411,8 +508,12 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add to Waitlist" }));
 
       await waitFor(() => {
-        expect(screen.getByText("Duplicate phone number")).toBeInTheDocument();
+        expect(screen.getByRole("status")).toHaveTextContent(
+          /^Added Jordan Lee, party of 3, to the waitlist\.$/
+        );
       });
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(document.activeElement).toBe(screen.getByLabelText("Guest Name"));
     });
   });
 
@@ -468,8 +569,10 @@ describe("WaitlistPage", () => {
       });
     });
 
-    it("surfaces a row action error inline instead of failing silently", async () => {
-      const notifyMutateAsync = vi.fn().mockRejectedValue(new Error("SMS provider unavailable"));
+    it('a 500 on notify shows "Not notified." in the row with the house sentence, never the request line', async () => {
+      const notifyMutateAsync = vi
+        .fn()
+        .mockRejectedValue(serverError("PUT", "/api/v1/waitlist/wl-1/notify"));
       mockMutationHooks({ notify: { mutateAsync: notifyMutateAsync } });
       vi.mocked(useWaitlist).mockReturnValue({
         data: [makeEntry({ id: "wl-1" })],
@@ -478,12 +581,166 @@ describe("WaitlistPage", () => {
         refetch: vi.fn(),
       });
 
-      renderPage();
+      const { container } = renderPage();
       fireEvent.click(screen.getByRole("button", { name: "Notify" }));
 
-      await waitFor(() => {
-        expect(screen.getByText("SMS provider unavailable")).toBeInTheDocument();
+      const banner = await screen.findByRole("alert");
+      expect(getRowCards(container)[0]).toContainElement(banner);
+      expect(banner).toHaveTextContent("Not notified.");
+      expect(banner).toHaveTextContent(ERROR_COPY.serverError.detail);
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
+    });
+
+    it('a 500 on cancel shows "Not removed." with the house sentence', async () => {
+      const cancelMutateAsync = vi
+        .fn()
+        .mockRejectedValue(serverError("PUT", "/api/v1/waitlist/wl-1/cancel"));
+      mockMutationHooks({ cancel: { mutateAsync: cancelMutateAsync } });
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
       });
+
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      const banner = await screen.findByRole("alert");
+      expect(banner).toHaveTextContent("Not removed.");
+      expect(banner).toHaveTextContent(ERROR_COPY.serverError.detail);
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
+    });
+
+    it('notify success speaks "Notified <name>." once; the entry leaves the waiting list (the API lists status "waiting" only), so focus goes to the next entry\'s card', async () => {
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [
+          makeEntry({ id: "wl-1", position: 1, guestName: "Jordan Lee" }),
+          makeEntry({ id: "wl-2", position: 2, guestName: "Sam Okafor" }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getAllByRole("button", { name: "Notify" })[0]!);
+
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Notified Jordan Lee\.$/);
+      });
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+    });
+
+    it('notifying the only entry focuses the "No one waiting" block once the refetch empties the list', async () => {
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", guestName: "Jordan Lee" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      const view = renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Notify" }));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Notified Jordan Lee\.$/);
+      });
+
+      // The refetch lands: the notified party is no longer "waiting", so the list is empty.
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      view.rerender(
+        <MemoryRouter>
+          <WaitlistPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("waitlist-empty"));
+      });
+      expect(screen.getByTestId("waitlist-empty")).toHaveTextContent("No one waiting");
+    });
+
+    it('cancel success speaks "Removed <name> from the waitlist." and focuses the next entry\'s card', async () => {
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [
+          makeEntry({ id: "wl-1", position: 1, guestName: "Alice" }),
+          makeEntry({ id: "wl-2", position: 2, guestName: "Bob" }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]!);
+
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Removed Alice from the waitlist\.$/);
+      });
+      expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+    });
+
+    it('cancelling the last entry focuses the "No one waiting" block once it renders', async () => {
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", guestName: "Alice" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      const view = renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Removed Alice/);
+      });
+
+      // The refetch lands: the list is empty now.
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      view.rerender(
+        <MemoryRouter>
+          <WaitlistPage />
+        </MemoryRouter>
+      );
+
+      const empty = screen.getByTestId("waitlist-empty");
+      expect(empty).toHaveTextContent("No one waiting");
+      expect(document.activeElement).toBe(empty);
+    });
+
+    it("cancelling the final entry of several (no next card) focuses the page heading — rule (d)'s last fallback", async () => {
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [
+          makeEntry({ id: "wl-1", position: 1, guestName: "Alice" }),
+          makeEntry({ id: "wl-2", position: 2, guestName: "Bob" }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[1]!);
+
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Removed Bob/);
+      });
+      expect(document.activeElement).toBe(screen.getByTestId("page-header"));
     });
   });
 
@@ -520,8 +777,88 @@ describe("WaitlistPage", () => {
       });
     });
 
-    it("on a 409 table-unavailable failure, leaves the entry waiting and shows an error without marking it seated", async () => {
-      const walkIn = vi.fn().mockRejectedValue(new Error("Table is not available"));
+    it('seat success speaks the sentence once, toasts a "View on Timeline" handoff to today\'s Timeline with the party selected, and focuses the next card', async () => {
+      const walkIn = vi.fn().mockResolvedValue({ id: "res-77" });
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [
+          makeEntry({ id: "wl-1", position: 1, guestName: "Jordan Lee", partySize: 3 }),
+          makeEntry({ id: "wl-2", position: 2, guestName: "Bob", partySize: 2 }),
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getAllByRole("button", { name: "Seat" })[0]!);
+
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Seated Jordan Lee at Table 1\.$/);
+      });
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+
+      expect(mockToast).toHaveBeenCalledTimes(1);
+      const toastInput = mockToast.mock.calls[0]![0] as {
+        variant: string;
+        title: string;
+        action: { label: string; onClick: () => void };
+      };
+      expect(toastInput.variant).toBe("success");
+      expect(toastInput.title).toBe("Seated Jordan Lee at Table 1.");
+      expect(toastInput.action.label).toBe("View on Timeline");
+      toastInput.action.onClick();
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/timeline?date=${localDateString(new Date())}&selected=res-77`
+      );
+    });
+
+    it('seating the only entry focuses the "No one waiting" block once it renders', async () => {
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1", guestName: "Jordan Lee" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      const view = renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(/^Seated Jordan Lee/);
+      });
+
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      view.rerender(
+        <MemoryRouter>
+          <WaitlistPage />
+        </MemoryRouter>
+      );
+      expect(document.activeElement).toBe(screen.getByTestId("waitlist-empty"));
+    });
+
+    it('on a 409 table-unavailable failure, shows "Not seated." with the server\'s own detail, leaves the entry waiting, and never marks it seated', async () => {
+      const walkIn = vi.fn().mockRejectedValue(
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "Table is not available",
+          },
+          "POST",
+          "/api/v1/reservations/walk-in"
+        )
+      );
       vi.mocked(useApiClient).mockReturnValue({
         reservations: { walkIn },
       } as unknown as ReturnType<typeof useApiClient>);
@@ -537,11 +874,36 @@ describe("WaitlistPage", () => {
       renderPage();
       fireEvent.click(screen.getByRole("button", { name: "Seat" }));
 
-      await waitFor(() => {
-        expect(screen.getByText("Table is not available")).toBeInTheDocument();
-      });
+      const banner = await screen.findByRole("alert");
+      expect(banner).toHaveTextContent("Not seated.");
+      expect(banner).toHaveTextContent("Table is not available");
+      expect(screen.queryByText(/failed: 409/)).toBeNull();
       expect(seatMutateAsync).not.toHaveBeenCalled();
+      expect(mockToast).not.toHaveBeenCalled();
+      expect(screen.getByRole("status")).toHaveTextContent("");
       expect(screen.getByRole("button", { name: "Seat" })).toBeInTheDocument();
+    });
+
+    it('a 500 on the walk-in shows "Not seated." with the house sentence, never the request line', async () => {
+      const walkIn = vi.fn().mockRejectedValue(serverError("POST", "/api/v1/reservations/walk-in"));
+      vi.mocked(useApiClient).mockReturnValue({
+        reservations: { walkIn },
+      } as unknown as ReturnType<typeof useApiClient>);
+      mockMutationHooks();
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [makeEntry({ id: "wl-1" })],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Seat" }));
+
+      const banner = await screen.findByRole("alert");
+      expect(banner).toHaveTextContent("Not seated.");
+      expect(banner).toHaveTextContent(ERROR_COPY.serverError.detail);
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
     });
 
     it("surfaces a distinct partial-state error when walk-in succeeds but marking seated fails", async () => {
@@ -567,11 +929,12 @@ describe("WaitlistPage", () => {
       await waitFor(() => {
         expect(seatMutateAsync).toHaveBeenCalledWith("wl-1");
       });
-      await waitFor(() => {
-        expect(
-          screen.getByText(/reservation created but the waitlist entry could not be marked seated/i)
-        ).toBeInTheDocument();
-      });
+      const banner = await screen.findByRole("alert");
+      expect(banner).toHaveTextContent(
+        "Seated at Table 1, but the waitlist didn't update. Refresh to tidy up."
+      );
+      expect(screen.queryByText("Network error")).toBeNull();
+      expect(mockToast).not.toHaveBeenCalled();
     });
 
     it("disables seating when no table is available for the party size", () => {

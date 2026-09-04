@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import {
   Alert,
@@ -12,8 +13,9 @@ import {
   SkeletonGroup,
   Stack,
   Text,
+  useToast,
 } from "@mattbutlerengineering/rialto";
-import type { Table, WaitlistEntry } from "@mbe/types";
+import type { Reservation, Table, WaitlistEntry } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import {
   useCancelWaitlistEntry,
@@ -25,9 +27,27 @@ import {
 import { useTables } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { LiveStatus } from "../components/LiveStatus.js";
+import { useStatusMessage } from "../hooks/useStatusMessage.js";
+import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { describeApiError } from "../lib/describe-api-error.js";
+import { localDateString } from "../utils/local-clock.js";
 import styles from "./WaitlistPage.module.css";
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+/** What a failed action shows: the surface title (what did not happen), the sentence, the raw line behind "Show details". */
+interface ActionFailure {
+  title?: string;
+  detail: string;
+  raw?: string;
+}
+
+function actionFailure(title: string, err: unknown): ActionFailure {
+  const description = describeApiError(err);
+  return { title, detail: description.detail, raw: description.raw };
+}
 
 /* ── Loading skeleton ────────────────────────────── */
 
@@ -67,10 +87,16 @@ interface WaitlistFormData {
   guestPhone: string;
 }
 
-function AddToWaitlistForm({ venueId }: { venueId: string }) {
+function AddToWaitlistForm({
+  venueId,
+  onAdded,
+}: {
+  venueId: string;
+  onAdded: (entry: WaitlistEntry) => void;
+}) {
   const { mutateAsync: createEntry, isPending } = useCreateWaitlistEntry();
   const [partySize, setPartySize] = useState(2);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitFailure, setSubmitFailure] = useState<ActionFailure | null>(null);
 
   const {
     register,
@@ -82,9 +108,9 @@ function AddToWaitlistForm({ venueId }: { venueId: string }) {
   });
 
   const onSubmit = async (data: WaitlistFormData) => {
-    setSubmitError(null);
+    setSubmitFailure(null);
     try {
-      await createEntry({
+      const entry = await createEntry({
         venueId,
         partySize,
         guestName: data.guestName.trim(),
@@ -92,12 +118,13 @@ function AddToWaitlistForm({ venueId }: { venueId: string }) {
       });
       reset();
       setPartySize(2);
+      onAdded(entry);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to add guest to waitlist.");
+      setSubmitFailure(actionFailure("Not added.", err));
     }
   };
 
-  const validationError = errors.guestName?.message ?? errors.guestPhone?.message ?? submitError;
+  const validationMessage = errors.guestName?.message ?? errors.guestPhone?.message;
 
   return (
     <Card>
@@ -107,7 +134,14 @@ function AddToWaitlistForm({ venueId }: { venueId: string }) {
             Add to waitlist
           </Text>
 
-          {validationError && <Alert variant="error">{validationError}</Alert>}
+          {validationMessage && <Alert variant="error">{validationMessage}</Alert>}
+          {submitFailure && (
+            <ErrorRetryBanner
+              title={submitFailure.title}
+              error={submitFailure.detail}
+              details={submitFailure.raw}
+            />
+          )}
 
           <div className={styles.fieldRow}>
             <Input
@@ -115,6 +149,7 @@ function AddToWaitlistForm({ venueId }: { venueId: string }) {
               type="text"
               placeholder="e.g. Smith"
               disabled={isPending}
+              data-testid="waitlist-guest-name"
               {...register("guestName", { required: "Guest name is required." })}
             />
             <Input
@@ -184,16 +219,22 @@ function WaitlistRow({
   entry,
   tables,
   venueId,
+  onNotified,
+  onCancelled,
+  onSeated,
 }: {
   entry: WaitlistEntry;
   tables: Table[];
   venueId: string;
+  onNotified: (entry: WaitlistEntry) => void;
+  onCancelled: (entry: WaitlistEntry) => void;
+  onSeated: (entry: WaitlistEntry, reservation: Reservation, tableName: string) => void;
 }) {
   const { mutateAsync: notify, isPending: isNotifying } = useNotifyWaitlistEntry();
   const { mutateAsync: cancelEntry, isPending: isCancelling } = useCancelWaitlistEntry();
   const { mutateAsync: markSeated } = useSeatWaitlistEntry();
   const api = useApiClient();
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ActionFailure | null>(null);
   const [isSeating, setIsSeating] = useState(false);
 
   const availableTables = eligibleTables(tables, entry.partySize);
@@ -215,53 +256,60 @@ function WaitlistRow({
   }
 
   const handleNotify = async () => {
-    setActionError(null);
+    setFailure(null);
     try {
       await notify(entry.id);
+      onNotified(entry);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to notify guest.");
+      setFailure(actionFailure("Not notified.", err));
     }
   };
 
   const handleCancel = async () => {
-    setActionError(null);
+    setFailure(null);
     try {
       await cancelEntry(entry.id);
+      onCancelled(entry);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to cancel entry.");
+      setFailure(actionFailure("Not removed.", err));
     }
   };
 
   const handleSeat = async () => {
     if (!tableId) {
-      setActionError("Please select a table.");
+      setFailure({ detail: "Please select a table." });
       return;
     }
-    setActionError(null);
+    setFailure(null);
     setIsSeating(true);
-    let reservationCreated = false;
+    const tableName = availableTables.find((t) => t.id === tableId)?.name ?? "the table";
+    let reservation: Reservation | null = null;
     try {
-      await api.reservations.walkIn({
+      reservation = await api.reservations.walkIn({
         partySize: entry.partySize,
         tableId,
         venueId,
         guestName: entry.guestName,
       });
-      reservationCreated = true;
       await markSeated(entry.id);
+      onSeated(entry, reservation, tableName);
     } catch (err) {
-      const message = err instanceof Error ? err.message : undefined;
-      setActionError(
-        reservationCreated
-          ? "Reservation created but the waitlist entry could not be marked seated — refresh and update it manually."
-          : (message ?? "Failed to seat guest.")
+      // The split failure: the guest IS seated (reservation created); only the waitlist row is stale.
+      setFailure(
+        reservation
+          ? {
+              detail: `Seated at ${tableName}, but the waitlist didn't update. Refresh to tidy up.`,
+              raw: describeApiError(err).raw,
+            }
+          : actionFailure("Not seated.", err)
       );
       setIsSeating(false);
     }
   };
 
   return (
-    <Card>
+    // tabIndex={-1}: the card is a useFocusAfter target (rule (d) — the row that changed, or the next one).
+    <Card tabIndex={-1} data-testid={`waitlist-entry-${entry.id}`}>
       <div className={styles.row}>
         <Badge variant="neutral" size="sm">
           #{entry.position}
@@ -273,10 +321,8 @@ function WaitlistRow({
           <Text variant="caption" color="secondary">
             Party of {entry.partySize}
           </Text>
-          {actionError && (
-            <Text variant="caption" color="error">
-              {actionError}
-            </Text>
+          {failure && (
+            <ErrorRetryBanner title={failure.title} error={failure.detail} details={failure.raw} />
           )}
         </div>
         <Text variant="caption" color="secondary">
@@ -344,10 +390,15 @@ function WaitlistRow({
 
 export function WaitlistPage() {
   const { selectedVenueId } = useVenue();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { status, announce } = useStatusMessage();
+  const { focusAfter } = useFocusAfter();
   const {
     data: entries,
     isLoading,
     error: queryError,
+    refetch,
   } = useWaitlist({ venueId: selectedVenueId ?? "" });
   // `enabled` is load-bearing here, not belt-and-braces: GET /api/v1/tables is
   // venue-scoped (#4873), so `requireVenueAccess` resolves the venue to check
@@ -359,8 +410,57 @@ export function WaitlistPage() {
     enabled: !!selectedVenueId,
   });
 
-  const error = queryError?.message ?? null;
+  const loadFailure = queryError ? describeApiError(queryError) : null;
   const displayEntries = [...(entries ?? [])].sort((a, b) => a.position - b.position);
+
+  /**
+   * ux.md rule (d) once a row has left the list: the next entry's card; when it was the last one
+   * waiting, the "No one waiting" block (focused once it renders); otherwise the page heading.
+   */
+  const focusAfterRemoval = (removed: WaitlistEntry) => {
+    const index = displayEntries.findIndex((e) => e.id === removed.id);
+    const next = displayEntries[index + 1];
+    if (next) {
+      focusAfter({ kind: "testId", testId: `waitlist-entry-${next.id}` });
+    } else if (displayEntries.length <= 1) {
+      focusAfter({ kind: "testId", testId: "waitlist-empty" });
+    } else {
+      focusAfter({ kind: "pageHeading" });
+    }
+  };
+
+  const handleAdded = (entry: WaitlistEntry) => {
+    announce(`Added ${entry.guestName}, party of ${entry.partySize}, to the waitlist.`);
+    // The one deliberate exception to the opener rule: the Host adding one walk-up is adding the next.
+    focusAfter({ kind: "testId", testId: "waitlist-guest-name" });
+  };
+
+  const handleNotified = (entry: WaitlistEntry) => {
+    announce(`Notified ${entry.guestName}.`);
+    // The list is status "waiting" only (the service's listWaiting), so a notified party leaves it
+    // on the refetch — opener and row both go, and rule (d) falls through to the next entry.
+    focusAfterRemoval(entry);
+  };
+
+  const handleCancelled = (entry: WaitlistEntry) => {
+    announce(`Removed ${entry.guestName} from the waitlist.`);
+    focusAfterRemoval(entry);
+  };
+
+  const handleSeated = (entry: WaitlistEntry, reservation: Reservation, tableName: string) => {
+    const sentence = `Seated ${entry.guestName} at ${tableName}.`;
+    announce(sentence);
+    toast({
+      variant: "success",
+      title: sentence,
+      action: {
+        label: "View on Timeline",
+        onClick: () =>
+          navigate(`/timeline?date=${localDateString(new Date())}&selected=${reservation.id}`),
+      },
+    });
+    focusAfterRemoval(entry);
+  };
 
   if (isLoading && displayEntries.length === 0) {
     return <WaitlistLoadingSkeleton />;
@@ -369,33 +469,43 @@ export function WaitlistPage() {
   return (
     <div className={styles.container}>
       <PageHeader title="Waitlist" description="Guests waiting for a table" />
+      <LiveStatus status={status} />
 
-      {error && (
+      {loadFailure && (
         <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <Alert variant="error">{error}</Alert>
+          <ErrorRetryBanner
+            title="Couldn't load the waitlist."
+            error={loadFailure.detail}
+            details={loadFailure.raw}
+            onRetry={refetch}
+          />
         </div>
       )}
 
       {selectedVenueId && (
         <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <AddToWaitlistForm venueId={selectedVenueId} />
+          <AddToWaitlistForm venueId={selectedVenueId} onAdded={handleAdded} />
         </div>
       )}
 
-      {!isLoading && !error && displayEntries.length === 0 && (
-        <div aria-live="polite" role="status">
+      {!isLoading && !loadFailure && displayEntries.length === 0 && (
+        // tabIndex={-1}: the focus target after the last entry is seated or removed (rule (d)).
+        <div tabIndex={-1} data-testid="waitlist-empty">
           <EmptyState heading="No one waiting" description="The waitlist is currently empty." />
         </div>
       )}
 
-      {!isLoading && !error && displayEntries.length > 0 && (
-        <div className={styles.cards} aria-live="polite">
+      {!isLoading && !loadFailure && displayEntries.length > 0 && (
+        <div className={styles.cards}>
           {displayEntries.map((entry) => (
             <WaitlistRow
               key={entry.id}
               entry={entry}
               tables={tables ?? []}
               venueId={selectedVenueId ?? ""}
+              onNotified={handleNotified}
+              onCancelled={handleCancelled}
+              onSeated={handleSeated}
             />
           ))}
         </div>
