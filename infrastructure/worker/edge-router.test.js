@@ -73,6 +73,7 @@ globalThis.HTMLRewriter = MockHTMLRewriter;
 
 // Import the default export (the Worker module)
 import edgeRouter from "./edge-router.js";
+import { EDGE_REQUESTS_COLUMNS } from "./analytics-schema.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -811,6 +812,24 @@ describe("Edge Router", () => {
 
       const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
       expect(call.blobs).toContain("hospitality");
+    });
+
+    // A pin, not a red: this passed against the inline literal the writer used
+    // to carry and passes against the analytics-schema.js import that replaced
+    // it. Positions are read from EDGE_REQUESTS_COLUMNS so a layout change in
+    // the schema module fails here as well as in analytics-schema.test.js.
+    it("lays the data point out per EDGE_REQUESTS_COLUMNS", async () => {
+      await edgeRouter.fetch(makeRequest("/"), env);
+
+      const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
+      const position = (field) => Number(EDGE_REQUESTS_COLUMNS[field].replace(/\D/g, "")) - 1;
+
+      expect(call.blobs).toEqual(["marketing", "GET", "unknown", "/"]);
+      expect(call.indexes).toEqual(["marketing"]);
+      expect(call.blobs[position("route")]).toBe("marketing");
+      expect(call.blobs[position("pathname")]).toBe("/");
+      expect(call.doubles[position("status")]).toBe(200);
+      expect(typeof call.doubles[position("elapsedMs")]).toBe("number");
     });
 
     it("does not fail when ANALYTICS binding is absent", async () => {

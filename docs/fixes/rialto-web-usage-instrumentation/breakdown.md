@@ -101,7 +101,7 @@ infrastructure/pulumi/index.ts` prints `1` and the hit is inside the
 preview` is NOT run here — Verify may dispatch `pulumi-preview.yml` on the
     branch; `pulumi up` never runs in this run.
   - Blocked by: 0
-- [ ] **2. `analytics-schema.js` — one statement of the `edge_requests` layout,
+- [x] **2. `analytics-schema.js` — one statement of the `edge_requests` layout,
       imported by the writer** — new `infrastructure/worker/analytics-schema.js`
       (plain ESM, zero imports) exporting `ANALYTICS_BINDING = "ANALYTICS"`,
       `EDGE_REQUESTS_DATASET = "edge_requests"`, `EDGE_REQUESTS_COLUMNS =
@@ -445,6 +445,20 @@ typecheck` → exit 0; `lint` → exit 0;
   `.claude/rules/gotchas.md § Build / pnpm / turbo`); the first item-0 commit
   attempt failed on it, nothing was committed, and the retry after the build
   succeeded.
+- **Implement log — item 2 (2026-09-03).** RED:
+  `Error: Cannot find module './analytics-schema.js'` / `Test Files 1 failed (1)`.
+  GREEN: `✓ analytics-schema.test.js (4 tests)`. After the writer refactor and
+  the pin: `pnpm --dir infrastructure/worker test` → `Tests 254 passed (254)`
+  (was 249; +4 schema, +1 pin), "Analytics Engine" describe 3 → 4 with
+  `does not fail when ANALYTICS binding is absent` still green;
+  `test:coverage` → exit 0 (`All files 90.35 | 80.99 | 95.23 | 91.04` against
+  floors 88/78/92/88); `lint` → exit 0; `grep -n "blobs: \["
+infrastructure/worker/edge-router.js` → no match. _Design note:_
+  `toDataPoint` keeps a positional literal rather than deriving positions from
+  `EDGE_REQUESTS_COLUMNS` at runtime — the architecture frames the test as the
+  thing that "asserts `toDataPoint` positions equal `EDGE_REQUESTS_COLUMNS`",
+  which only pins something if the two are stated independently; the test
+  derives positions from the map, the module states them once as an array.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still

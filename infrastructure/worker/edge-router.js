@@ -32,6 +32,7 @@ import { handleHealthUptime } from "./health/uptime.js";
 import { handleHealthPerformance } from "./health/performance.js";
 import { handleHealthLighthouse } from "./health/lighthouse.js";
 import { handleHealthDeps } from "./health/deps.js";
+import { ANALYTICS_BINDING, toDataPoint } from "./analytics-schema.js";
 
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
@@ -57,15 +58,23 @@ function isAuditRequest(request, env) {
 // import it from edge-router.js.
 export { AUTH0_ORIGIN };
 
+// Column layout lives in analytics-schema.js, shared with the reader
+// (scripts/edge-usage.mjs). The early return on a missing binding is kept
+// deliberately — the Pulumi test and scripts/check-analytics-bindings.mjs are
+// what make absence loud, not a runtime error on every request.
 function writeAnalytics(env, request, route, statusCode, startTime) {
-  if (!env.ANALYTICS) return;
-  const country = request.headers.get("CF-IPCountry") || "unknown";
-  const elapsed = Date.now() - startTime;
-  env.ANALYTICS.writeDataPoint({
-    blobs: [route, request.method, country, new URL(request.url).pathname],
-    doubles: [statusCode, elapsed],
-    indexes: [route],
-  });
+  const analytics = env[ANALYTICS_BINDING];
+  if (!analytics) return;
+  analytics.writeDataPoint(
+    toDataPoint({
+      route,
+      method: request.method,
+      country: request.headers.get("CF-IPCountry") || "unknown",
+      pathname: new URL(request.url).pathname,
+      status: statusCode,
+      elapsedMs: Date.now() - startTime,
+    })
+  );
 }
 
 export default {
