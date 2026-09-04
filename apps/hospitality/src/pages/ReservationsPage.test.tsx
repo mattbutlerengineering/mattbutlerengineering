@@ -14,6 +14,9 @@ import type { UseReservationDisplayResult } from "../hooks/useReservationDisplay
 import { useTables } from "../hooks/useTables.js";
 import { useCreateReservation } from "../hooks/useReservations.js";
 import type { Reservation, CreateReservationRequest } from "@mbe/types";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
+import { formatServiceDate } from "../utils/format.js";
 import React from "react";
 
 const today = new Date().toLocaleDateString("en-CA");
@@ -24,7 +27,33 @@ vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
 vi.mock("../hooks/useReservations.js", () => ({ useCreateReservation: vi.fn() }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
+  // The real PageHeader's h1 carries tabIndex={-1} so `focusAfter({ kind: "pageHeading" })` lands.
+  PageHeader: ({ title }: { title: string }) => (
+    <div data-testid="page-header">
+      <h1 tabIndex={-1}>{title}</h1>
+    </div>
+  ),
+}));
+
+vi.mock("../components/ErrorRetryBanner", () => ({
+  ErrorRetryBanner: ({
+    title,
+    error,
+    details,
+    onRetry,
+  }: {
+    title?: string;
+    error: string;
+    details?: string;
+    onRetry?: () => void;
+  }) => (
+    <div role="alert" data-testid="error-banner">
+      {title && <p data-testid="banner-title">{title}</p>}
+      <p data-testid="banner-detail">{error}</p>
+      {details && <div data-testid="banner-details">{details}</div>}
+      {onRetry && <button onClick={onRetry}>Retry</button>}
+    </div>
+  ),
 }));
 
 const NEW_RESERVATION_PAYLOAD: CreateReservationRequest = {
@@ -64,7 +93,6 @@ vi.mock("../components/reservations/NewReservationDialog.js", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span data-testid="badge">{children}</span>
   ),
@@ -85,13 +113,16 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   EmptyState: ({
     heading,
     description,
+    action,
   }: {
     heading: React.ReactNode;
     description?: React.ReactNode;
+    action?: React.ReactNode;
   }) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
+      {action}
     </div>
   ),
   Input: (props: {
@@ -128,11 +159,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
-  SkeletonGroup: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="skeleton-group">{children}</div>
-  ),
-  Stat: ({ label, value }: { label: React.ReactNode; value: React.ReactNode }) => (
-    <div data-testid="stat">
+  // Mirrors the real Stat: role="group" named by `label`, but an explicit aria-label prop wins.
+  Stat: ({
+    label,
+    value,
+    ...props
+  }: {
+    label: string;
+    value: React.ReactNode;
+    "aria-label"?: string;
+  }) => (
+    <div data-testid="stat" role="group" aria-label={props["aria-label"] ?? label}>
       <span>{label}</span>
       <span>{value}</span>
     </div>
@@ -190,9 +227,28 @@ function makeDisplayResult(
     filteredData: [],
     isLoading: false,
     error: null,
+    refetch: vi.fn().mockResolvedValue({ error: null }),
     ...overrides,
   };
 }
+
+const ZERO_STATS = { total: 0, confirmed: 0, pending: 0, cancelled: 0 };
+
+/** A 500 the way `@mbe/api-client` raises it. */
+function serverError(): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    "GET",
+    "/api/v1/reservations"
+  );
+}
+
+const KPI_LABELS = ["Total", "Confirmed", "Pending", "Cancelled"] as const;
 
 const defaultReservations: Reservation[] = [
   makeReservation({
@@ -537,37 +593,167 @@ describe("ReservationsPage", () => {
   });
 
   describe("empty state", () => {
-    it("shows empty state when no reservations for selected date", () => {
-      mockDisplayHook({
-        data: [],
-        stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
-        filteredData: [],
-      });
+    it("says the day is empty in service words, with New reservation as the action (ux.md Screen 8)", () => {
+      mockDisplayHook({ data: [], stats: ZERO_STATS, filteredData: [] });
 
       renderPage();
 
       expect(screen.getByTestId("empty-state")).toBeDefined();
+      expect(
+        screen.getByText(`Nothing on the book for ${formatServiceDate(today)}.`)
+      ).toBeDefined();
+      expect(screen.getByText("New bookings show here as they land.")).toBeDefined();
+      expect(screen.queryByText("No reservations")).toBeNull();
+
+      // The action is a second "New reservation" button; it opens the same dialog.
+      const actions = screen.getAllByRole("button", { name: "New reservation" });
+      expect(actions).toHaveLength(2);
+      fireEvent.click(actions[1]);
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
+    });
+
+    it("reads real zeros in the KPIs when the day is loaded and empty (never dashes)", () => {
+      mockDisplayHook({ data: [], stats: ZERO_STATS, filteredData: [] });
+
+      renderPage();
+
+      for (const label of KPI_LABELS) {
+        expect(screen.getByRole("group", { name: label })).toHaveTextContent("0");
+      }
+      expect(screen.queryByRole("group", { name: /unavailable/ })).toBeNull();
+    });
+
+    it("keeps the filter empty state when the day has bookings but none match", () => {
+      mockDisplayHook({ filteredData: [] });
+
+      renderPage();
+
       expect(screen.getByText("No reservations")).toBeDefined();
+      expect(screen.queryByText(/^Nothing on the book for /)).toBeNull();
     });
   });
 
   describe("loading state", () => {
-    it("shows skeleton when loading and no data", () => {
-      mockDisplayHook({ data: undefined, filteredData: [], isLoading: true });
+    it("shows five skeleton rows inside one busy status region that says what is loading", () => {
+      mockDisplayHook({ data: undefined, stats: ZERO_STATS, filteredData: [], isLoading: true });
 
       renderPage();
 
-      expect(screen.getByTestId("skeleton-group")).toBeDefined();
+      const region = screen.getByText("Loading reservations…").closest("[role='status']");
+      expect(region).not.toBeNull();
+      expect(region).toHaveAttribute("aria-busy", "true");
+      expect(screen.getAllByTestId("skeleton")).toHaveLength(5);
+      // The page shell (heading, toolbar) stays up while rows load.
+      expect(screen.getByRole("heading", { level: 1, name: "Reservations" })).toBeDefined();
+      expect(screen.getByLabelText("Filter by date")).toBeDefined();
+    });
+
+    it("renders the KPIs as dashes spoken as unavailable while loading — never 0", () => {
+      mockDisplayHook({ data: undefined, stats: ZERO_STATS, filteredData: [], isLoading: true });
+
+      renderPage();
+
+      for (const label of KPI_LABELS) {
+        const group = screen.getByRole("group", { name: `${label}, unavailable` });
+        expect(group).toHaveTextContent("—");
+        expect(group).not.toHaveTextContent("0");
+      }
     });
   });
 
-  describe("error handling", () => {
-    it("shows error alert when query fails", () => {
-      mockDisplayHook({ error: new Error("API failure") });
+  describe("error handling (500 → banner + Retry, S13/S14)", () => {
+    const failed = () =>
+      mockDisplayHook({
+        data: undefined,
+        stats: ZERO_STATS,
+        filteredData: [],
+        error: serverError(),
+      });
+
+    it("shows one titled banner with the house sentence and the raw line demoted to details", () => {
+      failed();
 
       renderPage();
 
-      expect(screen.getByText("API failure")).toBeDefined();
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+      expect(screen.getByTestId("banner-title")).toHaveTextContent("Couldn't load reservations.");
+      expect(screen.getByTestId("banner-detail")).toHaveTextContent(ERROR_COPY.serverError.detail);
+      expect(screen.getByTestId("banner-details")).toHaveTextContent(
+        "GET /api/v1/reservations failed: 500 Internal Server Error"
+      );
+      expect(screen.getByTestId("banner-detail")).not.toHaveTextContent("failed: 500");
+    });
+
+    it("keeps the KPIs as dashes spoken as unavailable, renders no rows and no empty state", () => {
+      failed();
+
+      renderPage();
+
+      for (const label of KPI_LABELS) {
+        expect(screen.getByRole("group", { name: `${label}, unavailable` })).toHaveTextContent("—");
+      }
+      expect(screen.queryAllByRole("row")).toHaveLength(0);
+      expect(screen.queryByTestId("empty-state")).toBeNull();
+      expect(screen.queryByTestId("skeleton")).toBeNull();
+    });
+
+    it("leaves New reservation enabled beside the banner", () => {
+      failed();
+
+      renderPage();
+
+      expect(screen.getByRole("button", { name: "New reservation" })).toBeEnabled();
+    });
+
+    it("Retry refetches; on success the rows and KPIs fill, the page speaks, and focus moves to the heading", async () => {
+      const refetch = vi.fn().mockResolvedValue({ error: null });
+      mockDisplayHook({
+        data: undefined,
+        stats: ZERO_STATS,
+        filteredData: [],
+        error: serverError(),
+        refetch,
+      });
+
+      renderPage();
+      expect(screen.getByRole("alert")).toBeDefined();
+
+      // The next render (after Retry resolves) sees the recovered query.
+      mockDisplayHook({ refetch });
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await waitFor(() => {
+        expect(refetch).toHaveBeenCalledOnce();
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+      expect(screen.getAllByRole("row")).toHaveLength(4);
+      expect(screen.getByRole("group", { name: "Total" })).toHaveTextContent("3");
+      expect(screen.queryByRole("group", { name: /unavailable/ })).toBeNull();
+      expect(screen.getByRole("status")).toHaveTextContent(
+        `Reservations for ${formatServiceDate(today)} loaded.`
+      );
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { level: 1, name: "Reservations" })).toHaveFocus();
+      });
+    });
+
+    it("a Retry that fails again stays silent and leaves focus alone", async () => {
+      const refetch = vi.fn().mockResolvedValue({ error: new Error("still down") });
+      mockDisplayHook({
+        data: undefined,
+        stats: ZERO_STATS,
+        filteredData: [],
+        error: serverError(),
+        refetch,
+      });
+
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await waitFor(() => expect(refetch).toHaveBeenCalledOnce());
+      expect(screen.getByRole("alert")).toBeDefined();
+      expect(screen.getByRole("status")).toHaveTextContent("");
+      expect(screen.getByRole("heading", { level: 1, name: "Reservations" })).not.toHaveFocus();
     });
   });
 

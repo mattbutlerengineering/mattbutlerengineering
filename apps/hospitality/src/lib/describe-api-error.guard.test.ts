@@ -96,7 +96,6 @@ export const PENDING_ADOPTION: readonly string[] = [
   "pages/GuestsPage.tsx",
   "pages/HomePage.tsx",
   "pages/ProfilePage.tsx",
-  "pages/ReservationsPage.tsx",
   "pages/SettingsPage.tsx",
   "pages/SetupHoursPage.tsx",
   "pages/TimelinePage.tsx",

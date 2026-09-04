@@ -1,10 +1,9 @@
-import { useState, useReducer, useEffect } from "react";
+import { useCallback, useState, useReducer, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { z } from "zod";
 import type { CreateReservationRequest } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -12,21 +11,26 @@ import {
   Input,
   SegmentedControl,
   Skeleton,
-  SkeletonGroup,
-  Stat,
   Text,
 } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
 import { useTables } from "../hooks/useTables.js";
 import { useCreateReservation } from "../hooks/useReservations.js";
+import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { useStatusMessage } from "../hooks/useStatusMessage.js";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { NewReservationDialog } from "../components/reservations/NewReservationDialog.js";
 import {
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
   formatReservationTime,
 } from "../utils/reservation-display.js";
+import { formatServiceDate } from "../utils/format.js";
 import { ordinalVisit } from "../utils/ordinal.js";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
+import { KpiStat } from "../components/KpiStat.js";
+import { LiveStatus } from "../components/LiveStatus.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
 
@@ -51,15 +55,20 @@ const STATUS_SEGMENTS = [
   { id: "CANCELLED", label: "Cancelled" },
 ] as const;
 
-/* ── Loading skeleton ───────────────────────── */
+/* ── Loading rows ───────────────────────────── */
 
-function ReservationsLoadingSkeleton() {
+const SKELETON_ROW_COUNT = 5;
+
+/** ux.md Screen 8 loading: five text rows in the table region, one `role=status` sentence. */
+function ReservationsLoadingRows() {
   return (
-    <div className={styles.container}>
-      <PageHeader title="Reservations" description="View and manage reservations" />
-      <SkeletonGroup>
-        <Skeleton variant="card" width="100%" height={300} />
-      </SkeletonGroup>
+    <div className={styles.loading} role="status" aria-busy="true">
+      <Text as="span" className={styles.srOnly}>
+        Loading reservations…
+      </Text>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+        <Skeleton key={index} variant="text" width="100%" />
+      ))}
     </div>
   );
 }
@@ -87,6 +96,8 @@ export function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
+  const { status, announce } = useStatusMessage();
+  const { focusAfter } = useFocusAfter();
 
   const {
     data,
@@ -94,6 +105,7 @@ export function ReservationsPage() {
     filteredData: filteredReservations,
     isLoading,
     error: queryError,
+    refetch,
   } = useReservationDisplay({
     date: selectedDate,
     venueId: selectedVenueId ?? undefined,
@@ -108,7 +120,15 @@ export function ReservationsPage() {
   });
   const { mutateAsync: createReservation } = useCreateReservation();
 
-  const error = queryError?.message ?? null;
+  const errorDescription = queryError ? describeApiError(queryError) : null;
+  const dateLabel = formatServiceDate(selectedDate);
+
+  const handleRetry = useCallback(async () => {
+    const result = await refetch();
+    if (result.error) return;
+    announce(`Reservations for ${dateLabel} loaded.`);
+    focusAfter({ kind: "pageHeading" });
+  }, [refetch, announce, focusAfter, dateLabel]);
 
   const handleCreateReservation = async (reservationData: CreateReservationRequest) => {
     await createReservation(reservationData);
@@ -131,13 +151,17 @@ export function ReservationsPage() {
 
   const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
 
-  if (isLoading && (data === undefined || data.length === 0)) {
-    return <ReservationsLoadingSkeleton />;
-  }
+  const showLoading = isLoading && (data === undefined || data.length === 0);
+  const loaded = !isLoading && !errorDescription;
+  // KPIs are honest about not knowing: "—" (spoken "unavailable") until data lands, never 0.
+  const kpisUnknown = showLoading || errorDescription !== null;
+  const kpi = (value: number) => (kpisUnknown ? null : value);
+  const dayIsEmpty = loaded && (data ?? []).length === 0;
 
   return (
     <div className={styles.container}>
       <PageHeader title="Reservations" description="View and manage reservations" />
+      <LiveStatus status={status} />
 
       {lastUpdatedDisplay && (
         <div className={styles.statusBar}>
@@ -147,11 +171,11 @@ export function ReservationsPage() {
         </div>
       )}
 
-      <div className={styles.statsRow} aria-live="polite" role="status">
-        <Stat label="Total" value={stats.total} size="sm" />
-        <Stat label="Confirmed" value={stats.confirmed} size="sm" />
-        <Stat label="Pending" value={stats.pending} size="sm" />
-        <Stat label="Cancelled" value={stats.cancelled} size="sm" />
+      <div className={styles.statsRow}>
+        <KpiStat label="Total" value={kpi(stats.total)} />
+        <KpiStat label="Confirmed" value={kpi(stats.confirmed)} />
+        <KpiStat label="Pending" value={kpi(stats.pending)} />
+        <KpiStat label="Cancelled" value={kpi(stats.cancelled)} />
       </div>
 
       <div className={styles.toolbar}>
@@ -187,34 +211,56 @@ export function ReservationsPage() {
         </Button>
       </div>
 
-      {error && (
-        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <Alert variant="error">{error}</Alert>
-        </div>
-      )}
-
-      <Text className={styles.srOnly} aria-live="polite" role="status">
-        {`${filteredReservations.length} reservation${
-          filteredReservations.length !== 1 ? "s" : ""
-        } shown`}
-      </Text>
-
-      {!isLoading && !error && filteredReservations.length === 0 && (
-        <div aria-live="polite" role="status">
-          <EmptyState
-            heading="No reservations"
-            description={
-              searchQuery.trim()
-                ? `No reservations matching '${searchQuery.trim()}'.`
-                : statusFilter === "all"
-                  ? `No reservations found for ${selectedDate}.`
-                  : `No ${statusFilter.toLowerCase()} reservations found for ${selectedDate}.`
-            }
+      {errorDescription && (
+        <div className={styles.banner}>
+          <ErrorRetryBanner
+            title="Couldn't load reservations."
+            error={errorDescription.detail}
+            details={errorDescription.raw}
+            onRetry={handleRetry}
           />
         </div>
       )}
 
-      {!isLoading && !error && filteredReservations.length > 0 && (
+      {showLoading && <ReservationsLoadingRows />}
+
+      {loaded && (
+        <Text className={styles.srOnly} aria-live="polite" role="status">
+          {`${filteredReservations.length} reservation${
+            filteredReservations.length !== 1 ? "s" : ""
+          } shown`}
+        </Text>
+      )}
+
+      {dayIsEmpty && (
+        <EmptyState
+          variant="flat"
+          heading={`Nothing on the book for ${dateLabel}.`}
+          description="New bookings show here as they land."
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => setShowNewReservationDialog(true)}
+              disabled={!selectedVenueId}
+            >
+              New reservation
+            </Button>
+          }
+        />
+      )}
+
+      {loaded && !dayIsEmpty && filteredReservations.length === 0 && (
+        <EmptyState
+          heading="No reservations"
+          description={
+            searchQuery.trim()
+              ? `No reservations matching '${searchQuery.trim()}'.`
+              : `No ${statusFilter.toLowerCase()} reservations found for ${selectedDate}.`
+          }
+        />
+      )}
+
+      {loaded && filteredReservations.length > 0 && (
         <Card>
           <div className={styles.tableWrapper}>
             {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
