@@ -629,6 +629,10 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-api-error.ts">
+    export type ApiErrorCategory = ErrorCategory | "network" | "timeout";
+    export type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
+  </file>
   <file path="src/lib/describe-auth-error.ts">
     export interface AuthErrorDescription {
       /** Short, human headline for the error screen. */

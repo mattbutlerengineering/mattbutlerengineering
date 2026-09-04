@@ -487,6 +487,14 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-api-error.ts">
+    <item priority="low">
+      type ApiErrorCategory = ErrorCategory | "network" | "timeout";
+    </item>
+    <item priority="low">
+      type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
+    </item>
+  </file>
   <file path="src/lib/describe-auth-error.ts">
     <item priority="low">
       interface AuthErrorDescription {

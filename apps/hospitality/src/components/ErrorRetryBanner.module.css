@@ -1,0 +1,15 @@
+.banner {
+  margin-block: var(--rialto-space-md);
+}
+
+.details {
+  margin-block-start: var(--rialto-space-xs);
+}
+
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer. */
+@media (pointer: coarse), (max-width: 1024px) {
+  .retry {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+}
