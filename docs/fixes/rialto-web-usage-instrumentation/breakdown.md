@@ -70,7 +70,7 @@ docs/fixes/rialto-web-usage-instrumentation/ docs/backlog.md`, stage exactly
   - Accept: all four Prove commands hold, and the baseline suites are green so
     every later red is this run's.
   - Blocked by: —
-- [ ] **1. Declare the `analytics_engine` binding on the Pulumi
+- [x] **1. Declare the `analytics_engine` binding on the Pulumi
       `WorkersScript`** — the fix. Add
       `{ name: "ANALYTICS", dataset: "edge_requests", type: "analytics_engine" },`
       to the edge router's `bindings` array at
@@ -432,6 +432,19 @@ None routed back to Architect. Four things recorded so nobody chases them:
   cannot work — `./package.json` is not in rialto's `exports` map — so an
   unbuilt rialto fails config load with `ERR_PACKAGE_PATH_NOT_EXPORTED`
   instead of falling back to the token CSS sources as the comment promises.
+- **Implement log — item 1 (2026-09-03).** RED:
+  `× edge router has an Analytics Engine binding for the edge_requests dataset` /
+  `AssertionError: expected undefined to be defined` /
+  `Tests 1 failed | 83 passed (84)`. GREEN after adding the literal at
+  `index.ts:322`: `Tests 84 passed (84)`; `pnpm --dir infrastructure/pulumi
+typecheck` → exit 0; `lint` → exit 0;
+  `grep -c "analytics_engine" infrastructure/pulumi/index.ts` → `1`. Environment
+  note for later stages: the pre-commit `check-adr` hook runs `tsx src/index.ts`
+  in `tools/cli`, which imports `@mbe/agent-core/dist` — absent in this
+  worktree until `pnpm build --filter @mbe/cli...` was run once (the gotcha in
+  `.claude/rules/gotchas.md § Build / pnpm / turbo`); the first item-0 commit
+  attempt failed on it, nothing was committed, and the retry after the build
+  succeeded.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still

@@ -316,6 +316,10 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     { name: "RIALTO", service: "mattbutlerengineering-rialto-web", type: "service" },
     { name: "GEN", service: "mattbutlerengineering-gen", type: "service" },
     { name: "HEALTH_STATE", namespaceId: healthKv.id, type: "kv_namespace" },
+    // Analytics Engine sink for edge-router.js writeAnalytics(). The dataset
+    // is also declared in ../worker/wrangler.toml, but this resource is what
+    // deploys — scripts/check-analytics-bindings.mjs keeps the two in sync.
+    { name: "ANALYTICS", dataset: "edge_requests", type: "analytics_engine" },
   ],
 });
 
