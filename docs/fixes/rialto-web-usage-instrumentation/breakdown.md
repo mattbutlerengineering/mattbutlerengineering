@@ -143,7 +143,7 @@ infrastructure/worker/edge-router.js` prints nothing — the inline literal is
     gone and the layout has exactly one home; `infrastructure/worker` carries no
     `llms.txt`, so nothing regenerates.
   - Blocked by: 0
-- [ ] **3. Drift guard `scripts/check-analytics-bindings.mjs`, wired into
+- [x] **3. Drift guard `scripts/check-analytics-bindings.mjs`, wired into
       `repo-audit`** — a sibling of `check-service-bindings.js`, not an
       extension (architecture § Decisions). Three sources: **S1** wrangler.toml
       `[[analytics_engine_datasets]]` tables → `{ binding, dataset }`
@@ -459,6 +459,26 @@ infrastructure/worker/edge-router.js` → no match. _Design note:_
   thing that "asserts `toDataPoint` positions equal `EDGE_REQUESTS_COLUMNS`",
   which only pins something if the two are stated independently; the test
   derives positions from the map, the module states them once as an array.
+- **Implement log — item 3 (2026-09-03).** RED:
+  `Error: Cannot find module '../check-analytics-bindings.mjs'`. GREEN:
+  `✓ scripts/__tests__/check-analytics-bindings.test.mjs (14 tests)`;
+  `node scripts/check-analytics-bindings.mjs` → exit 0, `PASS: wrangler.toml,
+pulumi/index.ts and analytics-schema.js agree on the Analytics Engine binding
+(ANALYTICS → edge_requests).`; `pnpm --dir scripts test` →
+  `Test Files 157 passed (157)` / `Tests 3041 passed (3041)` with
+  `check-fitness-check-wiring.test.mjs` green off the `package.json` chain edit
+  (no allowlist entry); `pnpm --dir scripts lint` → exit 0;
+  `grep -c "check-analytics-bindings.mjs" package.json` → `2`;
+  `infrastructure/worker/dep-graph.json` and
+  `docs/architecture/dependency-graph.md` unchanged after the `package.json`
+  edit. _Assumption:_ the S2 regex is the spec's plus an optional trailing
+  comma before `}` — prettier's `trailingComma: "es5"`
+  (`packages/config/prettier/index.js`) puts one on any multi-line reflow of
+  the literal, and the spec's own case (b) requires a reflow to still parse;
+  the reflow fixture in the test carries that comma. _Adjacent smell, not
+  fixed:_ `scripts/README.md`'s check-script table lists 8 of the 26
+  `scripts/check-*` files (18 were already absent before this run), so it is
+  not a maintained list and the new guard was not added to it.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still
