@@ -14,6 +14,7 @@ import {
   SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
 } from "@opentelemetry/semantic-conventions";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { resolveTelemetryPlan } from "./otel-config.js";
 
 export interface OtelConfig {
   readonly serviceName: string;
@@ -67,13 +68,18 @@ let telemetrySdk: NodeSDK | undefined;
  *   LANGFUSE_PUBLIC_KEY          — enables Langfuse trace export (optional)
  *   LANGFUSE_SECRET_KEY          — Langfuse API secret (required with public key)
  *   LANGFUSE_BASEURL             — Langfuse endpoint (defaults to cloud.langfuse.com)
+ *
+ * An enabled SDK with no OTLP endpoint set is its own mode ("unconfigured"),
+ * not a variant of enabled — see resolveTelemetryPlan and the comment on the
+ * NodeSDK options below.
  */
 export function initTelemetry(config: OtelConfig): NodeSDK {
   if (telemetrySdk) {
     return telemetrySdk;
   }
 
-  const isDisabled = process.env.OTEL_SDK_DISABLED === "true";
+  const plan = resolveTelemetryPlan(process.env);
+  const isDisabled = plan.mode === "disabled";
 
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.serviceName,
@@ -89,16 +95,42 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
     spanProcessors.push(new LangfuseSpanProcessor());
   }
 
+  // The empty collections below are load-bearing, and `undefined` is NOT an
+  // equivalent way to write them. Measured against @opentelemetry/sdk-node
+  // @0.221.0: when `spanProcessors` is absent and `traceExporter` is undefined,
+  // NodeSDK.start() falls through to getSpanProcessorsFromEnv() (sdk.js:213),
+  // which reads an unset OTEL_TRACES_EXPORTER as "otlp" (utils.js:133) and
+  // rebuilds an exporter pointed at http://localhost:4318 — the very defect
+  // this code exists to remove. The metric path falls through identically in
+  // the constructor (sdk.js:147, defaulting OTEL_METRICS_EXPORTER at :29-32).
+  // An empty array is truthy, so it takes the caller-supplied branch instead
+  // (sdk.js:202 for spans, :132 for metrics) and yields a collection start()
+  // then declines to register (:217, :182-184). Nothing is exported and
+  // nothing is constructed. Re-read those lines on any sdk-node bump.
+  //
+  // `spanProcessors` is omitted — not emptied — only when there is a real
+  // trace destination and no Langfuse processor, so NodeSDK builds its own
+  // batch processor via createBatchSpanProcessorFromEnv (sdk.js:208-212) and
+  // the OTEL_BSP_* tuning variables keep working. That is today's behaviour.
+  //
+  // The exporters are constructed with NO arguments on purpose: endpoint,
+  // headers, timeout, compression and the /v1/traces vs /v1/metrics suffix all
+  // stay owned by the OTel SDK's own env resolution. This module decides
+  // *whether* to export, never *where* to.
+  const omitSpanProcessors = spanProcessors.length === 0 && plan.exportTraces;
+
   const sdk = new NodeSDK({
     resource,
-    ...(spanProcessors.length > 0 ? { spanProcessors } : {}),
-    traceExporter: isDisabled ? undefined : new OTLPTraceExporter(),
-    metricReader: isDisabled
-      ? undefined
-      : new PeriodicExportingMetricReader({
-          exporter: new OTLPMetricExporter(),
-          exportIntervalMillis: 30_000,
-        }),
+    ...(omitSpanProcessors ? {} : { spanProcessors }),
+    ...(plan.exportTraces ? { traceExporter: new OTLPTraceExporter() } : {}),
+    metricReaders: plan.exportMetrics
+      ? [
+          new PeriodicExportingMetricReader({
+            exporter: new OTLPMetricExporter(),
+            exportIntervalMillis: 30_000,
+          }),
+        ]
+      : [],
     instrumentations: isDisabled
       ? []
       : [

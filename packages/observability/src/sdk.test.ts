@@ -57,6 +57,9 @@ vi.mock("@opentelemetry/semantic-conventions", () => ({
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { FastifyOtelInstrumentation } from "@fastify/otel";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 
 function fakeRequest(url: string): IncomingMessage {
   return { url } as IncomingMessage;
@@ -156,6 +159,188 @@ describe("initTelemetry", () => {
 
     expect(FastifyOtelInstrumentation).toHaveBeenCalledWith({
       registerOnInitialization: true,
+    });
+  });
+});
+
+/**
+ * The NodeSDK constructor argument, per row of the telemetry mode table.
+ *
+ * Why the assertions below are on `spanProcessors: []` / `metricReaders: []`
+ * specifically, and not on "no exporter was constructed": NodeSDK is mocked in
+ * this file, so no test at this seam can observe the SDK's own env
+ * fall-through. Measured against @opentelemetry/sdk-node@0.221.0,
+ * `traceExporter: undefined` leaves `NodeSDK.start()` in the final `else`
+ * branch (build/src/sdk.js:213) calling `getSpanProcessorsFromEnv()`, which
+ * reads an unset OTEL_TRACES_EXPORTER as `otlp` (build/src/utils.js:133) and
+ * rebuilds the very same http://localhost:4318 exporter. Metrics fall through
+ * identically in the constructor (sdk.js:147). So a weaker assertion would
+ * pass against an implementation that still exports to localhost. `[]` is
+ * truthy, takes the caller-supplied branch (sdk.js:202, sdk.js:132), and
+ * yields a collection start() then declines to register (sdk.js:217,
+ * sdk.js:182-184).
+ */
+describe("initTelemetry — NodeSDK constructor shape per telemetry mode", () => {
+  const originalEnv = process.env;
+
+  const TELEMETRY_KEYS = [
+    "OTEL_SDK_DISABLED",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_SECRET_KEY",
+  ];
+
+  const ENDPOINT = "https://collector.example.invalid:4318";
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    process.env = { ...originalEnv };
+    for (const key of TELEMETRY_KEYS) {
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  async function initAndCaptureConfig(): Promise<Record<string, unknown>> {
+    const { initTelemetry } = await import("./sdk.js");
+    initTelemetry({ serviceName: "test-service" });
+    return (vi.mocked(NodeSDK).mock.calls[0]?.[0] ?? {}) as unknown as Record<string, unknown>;
+  }
+
+  describe("unconfigured — enabled, but no OTLP destination (the defect's mode)", () => {
+    it("passes spanProcessors: [] and metricReaders: [], and no traceExporter key", async () => {
+      const config = await initAndCaptureConfig();
+
+      expect(config.spanProcessors).toEqual([]);
+      expect(config.metricReaders).toEqual([]);
+      expect(config).not.toHaveProperty("traceExporter");
+      // The deprecated singular key must not survive either — a populated
+      // `metricReader` would be read whenever `metricReaders` is absent.
+      expect(config).not.toHaveProperty("metricReader");
+    });
+
+    it("constructs no OTLP exporter object at all", async () => {
+      // Secondary evidence only. This assertion is NOT what proves the fix —
+      // it passes against an implementation that writes `undefined` and lets
+      // the SDK rebuild the localhost exporter itself. See the block comment.
+      await initAndCaptureConfig();
+
+      expect(OTLPTraceExporter).not.toHaveBeenCalled();
+      expect(PeriodicExportingMetricReader).not.toHaveBeenCalled();
+    });
+
+    it("keeps the full instrumentation set", async () => {
+      // FastifyOtelInstrumentation must stay constructed: @mbe/sentry sets
+      // skipOpenTelemetrySetup on the premise that this package owns it.
+      const config = await initAndCaptureConfig();
+
+      expect(config.instrumentations).toHaveLength(3);
+    });
+
+    it("still carries the Langfuse processors when Langfuse is configured", async () => {
+      process.env.LANGFUSE_PUBLIC_KEY = "pk-lf-test";
+      process.env.LANGFUSE_SECRET_KEY = "sk-lf-test";
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.spanProcessors).toHaveLength(1);
+      expect(config.metricReaders).toEqual([]);
+      expect(config).not.toHaveProperty("traceExporter");
+    });
+  });
+
+  describe("disabled", () => {
+    it("passes empty collections, no traceExporter key, and no instrumentations", async () => {
+      process.env.OTEL_SDK_DISABLED = "true";
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.spanProcessors).toEqual([]);
+      expect(config.metricReaders).toEqual([]);
+      expect(config).not.toHaveProperty("traceExporter");
+      expect(config).not.toHaveProperty("metricReader");
+      expect(config.instrumentations).toEqual([]);
+    });
+
+    it("honours a trimmed, upper-cased 'true' the way the SDK's own reader does", async () => {
+      process.env.OTEL_SDK_DISABLED = " TRUE ";
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.instrumentations).toEqual([]);
+      expect(config.spanProcessors).toEqual([]);
+      expect(config.metricReaders).toEqual([]);
+    });
+  });
+
+  describe("exporting", () => {
+    it("omits spanProcessors when there are no Langfuse processors", async () => {
+      // Deliberate: with the key absent NodeSDK builds the batch processor
+      // itself via createBatchSpanProcessorFromEnv (sdk.js:208-212), so the
+      // OTEL_BSP_* tuning variables keep working. Today's behaviour, preserved.
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+
+      const config = await initAndCaptureConfig();
+
+      expect(config).not.toHaveProperty("spanProcessors");
+      expect(config.traceExporter).toBeDefined();
+    });
+
+    it("passes a single PeriodicExportingMetricReader under the plural key", async () => {
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.metricReaders).toHaveLength(1);
+      expect(config).not.toHaveProperty("metricReader");
+      expect(PeriodicExportingMetricReader).toHaveBeenCalledWith({
+        exporter: expect.anything(),
+        exportIntervalMillis: 30_000,
+      });
+    });
+
+    it("constructs the exporters with no arguments, so OTel owns endpoint resolution", async () => {
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+
+      await initAndCaptureConfig();
+
+      expect(OTLPTraceExporter).toHaveBeenCalledWith();
+      expect(OTLPMetricExporter).toHaveBeenCalledWith();
+    });
+
+    it("passes the Langfuse processors under spanProcessors when Langfuse is configured", async () => {
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+      process.env.LANGFUSE_PUBLIC_KEY = "pk-lf-test";
+      process.env.LANGFUSE_SECRET_KEY = "sk-lf-test";
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.spanProcessors).toHaveLength(1);
+      expect(config.traceExporter).toBeDefined();
+    });
+
+    it("exports traces only when only the traces endpoint is set", async () => {
+      process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = ENDPOINT;
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.traceExporter).toBeDefined();
+      expect(config.metricReaders).toEqual([]);
+    });
+
+    it("exports metrics only when only the metrics endpoint is set", async () => {
+      process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = ENDPOINT;
+
+      const config = await initAndCaptureConfig();
+
+      expect(config).not.toHaveProperty("traceExporter");
+      expect(config.metricReaders).toHaveLength(1);
     });
   });
 });
