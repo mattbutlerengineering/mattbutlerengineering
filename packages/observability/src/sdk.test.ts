@@ -343,6 +343,57 @@ describe("initTelemetry — NodeSDK constructor shape per telemetry mode", () =>
       expect(config.metricReaders).toHaveLength(1);
     });
   });
+
+  /**
+   * The third signal. Traces and metrics were the two the defect brief
+   * enumerated, but NodeSDK exports LOGS by the same env fall-through, and
+   * missing it leaves a third http://localhost:4318 exporter live in exactly
+   * the mode this run exists to fix.
+   *
+   * Measured against @opentelemetry/sdk-node@0.221.0: when
+   * `logRecordProcessors` is absent, the constructor never sets
+   * `_loggerProviderConfig` (sdk.js:121-125), so start() calls
+   * configureLoggerProviderFromEnv (sdk.js:231), which reads an unset
+   * OTEL_LOGS_EXPORTER as "otlp" (sdk.js:262-264) and builds an exporter at
+   * http://localhost:4318/v1/logs. Verified by running the real, unmocked SDK:
+   * as shipped it registered that endpoint; with `logRecordProcessors: []` it
+   * registered none. `[]` is truthy, so it takes the caller branch at
+   * sdk.js:121 and start() skips the env path entirely.
+   *
+   * This one bites harder than the other two: PinoInstrumentation defaults
+   * disableLogSending to false, so every Fastify log line feeds the exporter,
+   * and BatchLogRecordProcessor's default scheduledDelayMillis is 1000 — a
+   * once-per-second connection attempt under traffic, not once per 30s tick.
+   */
+  describe("the logs signal", () => {
+    it("passes logRecordProcessors: [] when unconfigured", async () => {
+      const config = await initAndCaptureConfig();
+
+      expect(config.logRecordProcessors).toEqual([]);
+      // The deprecated singular key must not survive either — sdk.js:126
+      // reads `logRecordProcessor` whenever the plural key is absent.
+      expect(config).not.toHaveProperty("logRecordProcessor");
+    });
+
+    it("passes logRecordProcessors: [] when disabled", async () => {
+      process.env.OTEL_SDK_DISABLED = "true";
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.logRecordProcessors).toEqual([]);
+    });
+
+    it("still passes logRecordProcessors: [] when an OTLP endpoint IS set", async () => {
+      // Deliberate scope limit: this run fixes the unconfigured-default
+      // defect. Turning log export ON is a separate decision nobody has
+      // made, and shipping it silently here would be an unasked-for change.
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = ENDPOINT;
+
+      const config = await initAndCaptureConfig();
+
+      expect(config.logRecordProcessors).toEqual([]);
+    });
+  });
 });
 
 /**

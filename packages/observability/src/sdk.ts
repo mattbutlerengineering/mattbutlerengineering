@@ -117,7 +117,15 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
   // which reads an unset OTEL_TRACES_EXPORTER as "otlp" (utils.js:133) and
   // rebuilds an exporter pointed at http://localhost:4318 — the very defect
   // this code exists to remove. The metric path falls through identically in
-  // the constructor (sdk.js:147, defaulting OTEL_METRICS_EXPORTER at :29-32).
+  // the constructor (sdk.js:147, defaulting OTEL_METRICS_EXPORTER at :29-32),
+  // and so does the LOGS path: with `logRecordProcessors` absent the
+  // constructor never sets _loggerProviderConfig (sdk.js:121-125), so start()
+  // calls configureLoggerProviderFromEnv (sdk.js:231), which reads an unset
+  // OTEL_LOGS_EXPORTER as "otlp" (sdk.js:262-264) and builds a third exporter
+  // at http://localhost:4318/v1/logs. Logs are the worst of the three here:
+  // PinoInstrumentation leaves disableLogSending false, so every Fastify log
+  // line feeds it, and BatchLogRecordProcessor's default scheduledDelayMillis
+  // is 1000 — roughly one connection attempt per second under traffic.
   // An empty array is truthy, so it takes the caller-supplied branch instead
   // (sdk.js:202 for spans, :132 for metrics) and yields a collection start()
   // then declines to register (:217, :182-184). Nothing is exported and
@@ -146,6 +154,9 @@ export function initTelemetry(config: OtelConfig): NodeSDK {
           }),
         ]
       : [],
+    // Always empty: this run fixes the unconfigured-default defect, and
+    // turning log export ON is a separate decision nobody has made.
+    logRecordProcessors: [],
     instrumentations: isDisabled
       ? []
       : [
