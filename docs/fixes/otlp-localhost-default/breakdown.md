@@ -55,7 +55,7 @@ output quoted rather than asserted.
   - Blocked by: item 2
   - **This is a red CI gate, not a tidy.** `pnpm repo-audit` runs this check in CI's Build job.
 
-- [ ] **Zero-Touch Audit green, including generated artifacts** — run the gates the repo actually runs.
+- [x] **Zero-Touch Audit green, including generated artifacts** — run the gates the repo actually runs.
   - Accept: `pnpm lint`, `pnpm typecheck`, and `pnpm --dir packages/observability test` each exit 0, output quoted. `pnpm typecheck` is run explicitly because the pre-push hook does not typecheck and vitest does not typecheck.
   - Accept: `packages/observability/llms.txt` and `llms-full.txt` are regenerated and staged. Adding `otel-config.ts` changes the pack output, and stale llms artifacts fail CI's Integrity job. Build the CLI first (`pnpm build --filter @mbe/cli...`) — `mbe pack` imports `@mbe/agent-core` and fails silently without it.
   - Accept: no conflict markers; files staged by explicit path. The working tree carries another session's in-flight run, so `git add -A` would sweep it in.
@@ -201,6 +201,20 @@ now false: `USERS-API-7` exists. See the baseline section above. `defect.md` is
 left unedited — it was accurate when written, and rewriting a predecessor
 artifact to match later evidence would erase the fact that the population was
 still growing while the run was being designed. That fact is the lesson.
+
+**2026-09-04 — item 6: one gate could not be run, and it is not this diff's.**
+`pnpm repo-audit`'s final step, `pnpm audit --audit-level=high`, failed three
+consecutive times with `ERR_SOCKET_TIMEOUT` posting to
+`registry.npmjs.org/-/npm/v1/security/audits`. Diagnosed rather than assumed:
+the host resolves that name identically through the local resolver and through
+`dig @1.1.1.1`, and `curl https://registry.npmjs.org/` returns 200 — so this is
+neither the LAN DNS sinkhole nor a general outage, just that one heavy POST
+endpoint timing out. This branch changes no `package.json` and no
+`pnpm-lock.yaml`, so its audit result cannot differ from `main`'s. CI runs the
+same check independently and is the gate of record for it.
+
+Everything else in `repo-audit` passed, including dependency-cruiser
+(2361 modules, 5491 dependencies, no violations) and the CLAUDE.md table check.
 
 **2026-09-04 — item 5's premise was false: the `repo-audit` gate never goes red.**
 `architecture.md` (_Stack & dependencies_) and this breakdown both stated that the
