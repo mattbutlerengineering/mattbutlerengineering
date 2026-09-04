@@ -212,6 +212,20 @@ export async function mockApi(page: Page): Promise<void> {
   // Plans section's GET-by-id handler so the editor the wizard lands on
   // renders the tables Launch just created, not the static fixture.
   const createdTables: Array<Record<string, unknown>> = [];
+  // Per-context table-status store (#5023). PATCH /tables/:id/status writes here; the tables
+  // list, the table-by-id route and every reservation's embedded `table` read through it, so a
+  // party seated in one request reads OCCUPIED on the next refetch instead of the static fixture.
+  const tableUpdates = new Map<string, Record<string, unknown>>();
+
+  function allTables(): Array<Record<string, unknown>> {
+    const tables = JSON.parse(loadFixture("tables-list")) as {
+      data: Array<Record<string, unknown>>;
+    };
+    return [...tables.data, ...createdTables].map((table) => ({
+      ...table,
+      ...(tableUpdates.get(table.id as string) ?? {}),
+    }));
+  }
   await page.route("**/api/v1/tables", (route) => {
     if (route.request().method() !== "POST") return route.fallback();
     const tables = JSON.parse(loadFixture("tables-list"));
@@ -245,7 +259,7 @@ export async function mockApi(page: Page): Promise<void> {
       data: Array<Record<string, unknown>>;
       pagination: Record<string, unknown>;
     };
-    const allData = [...tables.data, ...createdTables];
+    const allData = allTables();
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -256,16 +270,35 @@ export async function mockApi(page: Page): Promise<void> {
       }),
     });
   });
+  // PATCH /api/v1/tables/:id/status — stores the new status so later reads reflect it.
   await page.route(/\/api\/v1\/tables\/[^/?]+\/status$/, (route) => {
-    const tables = JSON.parse(loadFixture("tables-list"));
-    return jsonOk(route, { ...tables.data[0], status: "OCCUPIED" });
+    const id =
+      route
+        .request()
+        .url()
+        .replace(/\?.*$/, "")
+        .replace(/\/status$/, "")
+        .split("/")
+        .pop() ?? "";
+    let body: Record<string, unknown> = {};
+    try {
+      const parsed = route.request().postDataJSON();
+      if (parsed !== null && typeof parsed === "object") {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // no body — leave empty
+    }
+    if (typeof body.status === "string") {
+      tableUpdates.set(id, { status: body.status, updatedAt: new Date().toISOString() });
+    }
+    const tables = allTables();
+    return jsonOk(route, tables.find((table) => table.id === id) ?? { ...tables[0], id });
   });
   await page.route(/\/api\/v1\/tables\/[^/?]+$/, (route) => {
     const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
-    const created = createdTables.find((table) => table.id === id);
-    if (created) return jsonOk(route, created);
-    const tables = JSON.parse(loadFixture("tables-list"));
-    return jsonOk(route, tables.data[0]);
+    const tables = allTables();
+    return jsonOk(route, tables.find((table) => table.id === id) ?? tables[0]);
   });
 
   // Reservations
@@ -276,8 +309,11 @@ export async function mockApi(page: Page): Promise<void> {
 
   // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
   // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
+  // "Today" is the browser-local calendar day (en-CA formats as YYYY-MM-DD) — the twin of
+  // `src/utils/local-clock.ts` `localDateString`, the clock the app filters on. A UTC slice rolls
+  // to tomorrow at 17:00 Pacific and emptied the grid for the whole evening service (A1 / P01).
   function todayReservations(): string {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local day
     const fixture = JSON.parse(loadFixture("reservations-list")) as {
       data: Array<Record<string, unknown>>;
       pagination: unknown;
@@ -293,16 +329,24 @@ export async function mockApi(page: Page): Promise<void> {
     });
   }
 
+  // Embed the store's view of a reservation's table once a PATCH has touched it (#5023).
+  // Untouched reservations keep the fixture shape, embedded table or not; an unknown tableId
+  // is left alone rather than given a partial `table` the client's schema would reject.
+  function withTableStatus(r: Record<string, unknown>): Record<string, unknown> {
+    if (!tableUpdates.has(r.tableId as string)) return r;
+    const table = allTables().find((t) => t.id === r.tableId);
+    return table ? { ...r, table } : r;
+  }
+
   // Stateful list: base fixture + walk-ins created this session + applied edits.
   function buildReservationsList(): string {
     const base = JSON.parse(todayReservations()) as {
       data: Array<Record<string, unknown>>;
       pagination: Record<string, unknown>;
     };
-    const allData = [...base.data, ...extraReservations].map((r) => ({
-      ...r,
-      ...(reservationUpdates.get(r.id as string) ?? {}),
-    }));
+    const allData = [...base.data, ...extraReservations].map((r) =>
+      withTableStatus({ ...r, ...(reservationUpdates.get(r.id as string) ?? {}) })
+    );
     return JSON.stringify({
       ...base,
       data: allData,
@@ -344,7 +388,8 @@ export async function mockApi(page: Page): Promise<void> {
     return jsonOk(route, { ...baseItem, ...(reservationUpdates.get(id) ?? {}) });
   });
 
-  // Walk-in — registered LAST so LIFO gives it highest priority over the generic regex above.
+  // Walk-in — registered after the generic regex above so LIFO gives it priority there; the
+  // `me*` / `?*` globs below cannot match this path (`?` is a literal in Playwright globs).
   // POST /api/v1/reservations/walk-in adds the new reservation to the stateful store so the
   // subsequent GET /api/v1/reservations?* returns count+1.
   await page.route("**/api/v1/reservations/walk-in", (route) => {
@@ -358,12 +403,16 @@ export async function mockApi(page: Page): Promise<void> {
     } catch {
       // no body — leave empty
     }
+    const first = fixture.data[0] ?? {};
+    const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
     const newRes: Record<string, unknown> = {
-      ...fixture.data[0],
+      ...first,
       ...body,
       id: `res_e2e_walkin_${Date.now()}`,
       status: "CONFIRMED",
       notes: "Walk-in",
+      tableId,
+      table: allTables().find((t) => t.id === tableId) ?? first.table,
     };
     extraReservations.push(newRes);
     return jsonOk(route, newRes);
