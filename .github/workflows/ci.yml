@@ -319,6 +319,41 @@ jobs:
       - name: Run Full Repository Audit
         run: pnpm repo-audit
 
+      - name: Run pnpm audit (network-resilient)
+        # #4993: `pnpm audit --audit-level=high` lives in its own step, not
+        # inside `repo-audit`'s chain, specifically so this outer retry loop
+        # wraps ONLY the network-dependent registry call — never masking a
+        # real repo-audit failure (lint/circular-deps/schema-compat/etc.)
+        # behind a retry.
+        #
+        # pnpm's own built-in retry (2 attempts: 10s, then 1min backoff)
+        # wasn't enough headroom for `ERR_SOCKET_TIMEOUT` against
+        # registry.npmjs.org/-/npm/v1/security/audits — four separate Build
+        # job runs hit the identical signature in one night, and it recurred
+        # on PR #4967, while every other CI job passed on the same commits.
+        # This adds a second, outer retry layer on top of pnpm's own.
+        #
+        # Only retry a TRANSIENT failure (classified by the pure, unit-tested
+        # isTransientAuditError() in scripts/audit-transient-error.mjs, the
+        # same pattern as the CI Gate commit-status publish step below) — a
+        # real high-severity advisory must still fail the job on the first
+        # attempt, never get masked by a retry. See the § Dependencies
+        # gotcha in .claude/rules/gotchas.md for that failure mode.
+        run: |
+          for i in 1 2 3; do
+            OUTPUT=$(pnpm run audit:security 2>&1) && { echo "$OUTPUT"; exit 0; }
+            echo "$OUTPUT"
+            if printf '%s' "$OUTPUT" | node scripts/audit-transient-error.mjs; then
+              echo "pnpm audit attempt $i failed with a transient network error, retrying in 30s..."
+              sleep 30
+            else
+              echo "::error::pnpm audit failed with a non-transient result (likely a real high-severity advisory)"
+              exit 1
+            fi
+          done
+          echo "::error::pnpm audit failed after 3 attempts, all classified transient — registry may be down"
+          exit 1
+
       - name: Verify generated artifacts are in sync
         # Single manifest-driven staleness check (scripts/regen-manifest.mjs is
         # the source of truth), replacing five separate regenerate+git-diff
