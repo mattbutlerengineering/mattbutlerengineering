@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseTimelineIntent, stripTimelineIntent } from "./timeline-intent.js";
+import {
+  parseReservationsIntent,
+  parseTimelineIntent,
+  stripReservationsIntent,
+  stripTimelineIntent,
+} from "./timeline-intent.js";
 
 describe("parseTimelineIntent", () => {
   it("reads walkin=true exactly", () => {
@@ -39,5 +44,42 @@ describe("stripTimelineIntent", () => {
     expect(stripTimelineIntent(new URLSearchParams("date=2026-09-04")).toString()).toBe(
       "date=2026-09-04"
     );
+  });
+});
+
+describe("parseReservationsIntent (architecture § Amendment 2026-09-04)", () => {
+  it("reads new=true exactly", () => {
+    expect(parseReservationsIntent(new URLSearchParams("new=true"))).toEqual({
+      newReservation: true,
+    });
+  });
+
+  it("is value-exact and case-sensitive: new=TRUE, new=1 and absent are no intent", () => {
+    expect(parseReservationsIntent(new URLSearchParams("new=TRUE")).newReservation).toBe(false);
+    expect(parseReservationsIntent(new URLSearchParams("new=1")).newReservation).toBe(false);
+    expect(parseReservationsIntent(new URLSearchParams("")).newReservation).toBe(false);
+    expect(
+      parseReservationsIntent(new URLSearchParams("date=2026-09-04&status=all")).newReservation
+    ).toBe(false);
+  });
+});
+
+describe("stripReservationsIntent", () => {
+  it("returns a different instance without `new`, with date and status intact", () => {
+    const params = new URLSearchParams("new=true&date=2026-09-04&status=CONFIRMED");
+    const next = stripReservationsIntent(params);
+    expect(next).not.toBe(params);
+    expect(next.has("new")).toBe(false);
+    expect(next.get("date")).toBe("2026-09-04");
+    expect(next.get("status")).toBe("CONFIRMED");
+    // The input is never mutated.
+    expect(params.get("new")).toBe("true");
+  });
+
+  it("leaves the Timeline's own intent keys alone — it is the Reservations page's strip, not the Timeline's", () => {
+    const next = stripReservationsIntent(
+      new URLSearchParams("new=true&walkin=true&selected=res-1")
+    );
+    expect(next.toString()).toBe("walkin=true&selected=res-1");
   });
 });

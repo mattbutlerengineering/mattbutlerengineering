@@ -49,7 +49,9 @@ function buildActionItems(
       id: "action-new-reservation",
       label: "New Reservation",
       group: "Actions",
-      onSelect: () => navigate("/timeline"),
+      // Carries the intent the Reservations page reads on arrival (architecture § Amendment
+      // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
+      onSelect: () => navigate("/reservations?new=true"),
     },
     {
       id: "action-walkin",

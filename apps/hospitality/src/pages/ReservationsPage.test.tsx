@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { MemoryRouter, useNavigate } from "react-router";
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { ReservationsPage } from "./ReservationsPage.js";
 
 vi.mock("react-router", async () => ({
@@ -96,16 +96,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children }: { children: React.ReactNode }) => (
     <span data-testid="badge">{children}</span>
   ),
+  // Takes `ref` like rialto's (forwardRef) Button does — React 19 passes it as a plain prop — so
+  // the page can hand the toolbar button to useFocusAfter.
   Button: ({
     children,
     onClick,
     disabled,
+    ref,
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     disabled?: boolean;
+    ref?: React.Ref<HTMLButtonElement>;
   }) => (
-    <button onClick={onClick} disabled={disabled}>
+    <button ref={ref} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   ),
@@ -322,6 +326,20 @@ describe("ReservationsPage", () => {
     render(
       <MemoryRouter>
         <ReservationsPage />
+      </MemoryRouter>
+    );
+
+  /** Prints the live `location.search` so tests can see what the page left in the URL. */
+  function LocationProbe() {
+    const location = useLocation();
+    return <span data-testid="location-search">{location.search}</span>;
+  }
+
+  const renderAt = (initialEntry: string) =>
+    render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <ReservationsPage />
+        <LocationProbe />
       </MemoryRouter>
     );
 
@@ -821,6 +839,63 @@ describe("ReservationsPage", () => {
       renderPage();
 
       expect(screen.getByText("New reservation").closest("button")).toBeDisabled();
+    });
+  });
+
+  describe("⌘K intent — /reservations?new=true opens the dialog (architecture § Amendment 2026-09-04)", () => {
+    it("renders the New Reservation dialog from the URL once tables have loaded", () => {
+      renderAt("/reservations?new=true");
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
+    });
+
+    it("waits for the tables query — no dialog while useTables is loading (the dialog seeds its table once, at mount)", () => {
+      vi.mocked(useTables).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderAt("/reservations?new=true");
+      expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+    });
+
+    it("closing without creating strips `new` from the URL (other params intact) and lands focus on the New reservation button", async () => {
+      renderAt("/reservations?new=true&status=CONFIRMED");
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
+
+      fireEvent.click(screen.getByText("Close New Reservation"));
+
+      expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+      expect(screen.getByTestId("location-search").textContent).toBe("?status=CONFIRMED");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(
+          screen.getByRole("button", { name: "New reservation" })
+        );
+      });
+      expect(createReservationMutateAsync).not.toHaveBeenCalled();
+    });
+
+    it("a confirmed create strips `new` and lands focus on the page heading", async () => {
+      renderAt("/reservations?new=true");
+      fireEvent.click(screen.getByText("Confirm New Reservation"));
+
+      await waitFor(() => {
+        expect(createReservationMutateAsync).toHaveBeenCalledWith(NEW_RESERVATION_PAYLOAD);
+      });
+      await waitFor(() => {
+        expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+      });
+      expect(screen.getByTestId("location-search").textContent).toBe("");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
+      });
+    });
+
+    it("no venue: no dialog, and the intent stays in the URL for when a venue is selected", () => {
+      vi.mocked(useVenue).mockReturnValue(makeVenueContext({ selectedVenueId: null }));
+      renderAt("/reservations?new=true");
+      expect(screen.queryByTestId("new-reservation-dialog")).toBeNull();
+      expect(screen.getByTestId("location-search").textContent).toBe("?new=true");
     });
   });
 

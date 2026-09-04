@@ -135,3 +135,46 @@ test.describe("CF-6: Reservations page with filtering", () => {
     ).toBeFocused();
   });
 });
+
+// A6.2's second clause (architecture § Amendment 2026-09-04): the palette's "New Reservation"
+// carries an intent in the URL — `/reservations?new=true` — and the page opens its dialog from
+// the URL, then strips the key so Back or a reload does not replay it (A6.1's rule by mirror).
+test.describe("⌘K → New Reservation opens the dialog via /reservations?new=true", () => {
+  test("⌘K, 'new res', ⏎ lands on /reservations with the New Reservation dialog open and focus inside; Escape leaves no `new` in the URL", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.goto("reservations");
+    await expect(
+      mockedPage.getByRole("heading", { name: "Reservations", exact: true })
+    ).toBeVisible();
+
+    // rialto CommandPalette: role="dialog" "Command palette", role="combobox" "Search commands";
+    // the shortcut accepts meta or ctrl, so the platform-resolving modifier is exact on either OS.
+    // Open via the shortcut, NOT the sidebar's "Open command palette" hint button: the palette's
+    // useReturnFocus restores whatever was focused at open in a rAF *after* the New Reservation
+    // dialog's trap has taken focus — with nothing focused (body) that restore is a no-op; a
+    // focused hint button would yank focus back out of the dialog and the `:focus` check below
+    // would count 0.
+    await mockedPage.keyboard.press("ControlOrMeta+k");
+    const palette = mockedPage.getByRole("dialog", { name: "Command palette", exact: true });
+    await expect(palette).toBeVisible();
+    await palette.getByRole("combobox", { name: "Search commands", exact: true }).fill("new res");
+    await expect(
+      palette.getByRole("option", { name: "New Reservation", exact: true })
+    ).toBeVisible();
+    await mockedPage.keyboard.press("Enter");
+
+    await expect(mockedPage).toHaveURL(/\/hospitality\/reservations\?(?:[^#]*&)?new=true(?:&|$)/);
+    const dialog = mockedPage.getByRole("dialog", { name: "New Reservation", exact: true });
+    await expect(dialog).toBeVisible();
+    // Focus is inside the dialog (its trap took it), not left on the palette's unmounted input.
+    await expect(dialog.locator(":focus")).toHaveCount(1);
+
+    await mockedPage.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    // The lookahead guards a leading `new=` too (`\?` has already consumed the `?`, so an
+    // `[?&]new=` form would let `?new=true` through); the second assertion is the plain restatement.
+    await expect(mockedPage).toHaveURL(/\/hospitality\/reservations(?:\?(?!(?:.*&)?new=).*)?$/);
+    await expect(mockedPage).not.toHaveURL(/[?&]new=/);
+  });
+});

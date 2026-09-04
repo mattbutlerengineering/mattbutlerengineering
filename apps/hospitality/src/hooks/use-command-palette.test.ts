@@ -144,4 +144,14 @@ describe("useCommandPalette", () => {
 
     expect(mockNavigate).toHaveBeenCalledWith("/timeline?walkin=true");
   });
+
+  it("new reservation action navigates to the Reservations page carrying the new=true intent (architecture § Amendment 2026-09-04)", () => {
+    const { result } = renderHook(() => useCommandPalette(defaultOptions));
+
+    const item = result.current.items.find((i) => i.id === "action-new-reservation");
+    expect(item?.label).toBe("New Reservation");
+    item?.onSelect();
+
+    expect(mockNavigate).toHaveBeenCalledWith("/reservations?new=true");
+  });
 });

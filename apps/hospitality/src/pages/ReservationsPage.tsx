@@ -1,5 +1,5 @@
-import { useCallback, useState, useReducer, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useRef, useState, useReducer, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 import type { CreateReservationRequest } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";
@@ -27,6 +27,7 @@ import {
   formatReservationTime,
 } from "../utils/reservation-display.js";
 import { formatServiceDate } from "../utils/format.js";
+import { parseReservationsIntent, stripReservationsIntent } from "../utils/timeline-intent.js";
 import { ordinalVisit } from "../utils/ordinal.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
@@ -96,6 +97,11 @@ export function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
+  // ⌘K "New Reservation" lands here as `?new=true` (architecture § Amendment 2026-09-04): the
+  // intent is derived on render — no state, no effect — and stripped when the dialog closes.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const intent = parseReservationsIntent(searchParams);
+  const newReservationButtonRef = useRef<HTMLButtonElement>(null);
   const { status, announce } = useStatusMessage();
   const { focusAfter } = useFocusAfter();
 
@@ -113,7 +119,7 @@ export function ReservationsPage() {
     searchQuery,
   });
 
-  const { data: tables } = useTables({
+  const { data: tables, isLoading: tablesLoading } = useTables({
     venueId: selectedVenueId ?? undefined,
     limit: 100,
     enabled: !!selectedVenueId,
@@ -130,9 +136,26 @@ export function ReservationsPage() {
     focusAfter({ kind: "pageHeading" });
   }, [refetch, announce, focusAfter, dateLabel]);
 
+  const closeNewReservationDialog = useCallback(() => {
+    setShowNewReservationDialog(false);
+    setSearchParams((prev) => stripReservationsIntent(prev), { replace: true });
+  }, [setSearchParams]);
+
   const handleCreateReservation = async (reservationData: CreateReservationRequest) => {
     await createReservation(reservationData);
-    setShowNewReservationDialog(false);
+    closeNewReservationDialog();
+    focusAfter({ kind: "pageHeading" });
+  };
+
+  const handleCloseNewReservation = () => {
+    const openedFromUrl = intent.newReservation;
+    closeNewReservationDialog();
+    // A URL-opened dialog captured `body` as the element to restore, so its own restore would
+    // drop focus; land it where a click-open would have — the New reservation button (ux.md
+    // Decision (d)). A click-opened dialog keeps its own restore.
+    if (openedFromUrl && newReservationButtonRef.current) {
+      focusAfter({ kind: "element", element: newReservationButtonRef.current });
+    }
   };
 
   /* Keep the "Updated Xs ago" display current by forcing re-render every 5s */
@@ -202,6 +225,7 @@ export function ReservationsPage() {
           }}
         />
         <Button
+          ref={newReservationButtonRef}
           variant="primary"
           size="sm"
           onClick={() => setShowNewReservationDialog(true)}
@@ -326,13 +350,14 @@ export function ReservationsPage() {
         </Card>
       )}
 
-      {showNewReservationDialog && selectedVenueId && (
+      {/* The dialog seeds its table from `tables` once, at mount — a URL-open must not race the query. */}
+      {(intent.newReservation || showNewReservationDialog) && selectedVenueId && !tablesLoading && (
         <NewReservationDialog
           tables={tables ?? []}
           venueId={selectedVenueId}
           defaultDate={selectedDate}
           onConfirm={handleCreateReservation}
-          onClose={() => setShowNewReservationDialog(false)}
+          onClose={handleCloseNewReservation}
         />
       )}
     </div>
