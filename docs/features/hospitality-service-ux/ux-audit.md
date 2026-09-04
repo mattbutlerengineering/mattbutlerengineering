@@ -129,10 +129,10 @@ routing; `Source` names the report IDs that were merged.
 
 ### Misc
 
-| ID  | Lens        | Finding                                                                                                                                                                                               | Source              | Effort | Repro |
-| --- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------ | ----- |
-| M1  | CORRECTNESS | Floor-plan canvas paints a hardcoded `#f8f6f3` grid in dark theme; three dialog CSS modules use Tailwind-blue focus rings; 14 colour literals total while `IMPROVEMENT-BACKLOG.md` says all are gone. | xcut CORRECTNESS-01 | S      | yes   |
-| M2  | INERT       | `LapsingGuestsWidget` is exported but never mounted; `IMPROVEMENT-BACKLOG.md:14` claims a `useApiCall` hook that does not exist (`apps/hospitality/CLAUDE.md` repeats it).                            | xcut INERT-03       | S      | grep  |
+| ID  | Lens        | Finding                                                                                                                                                                                                                                                                              | Source              | Effort | Repro |
+| --- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- | ------ | ----- |
+| M1  | CORRECTNESS | Floor-plan canvas paints a hardcoded `#f8f6f3` grid in dark theme; three dialog CSS modules use Tailwind-blue focus rings; 14 colour literals total while `IMPROVEMENT-BACKLOG.md:20` says all are gone.                                                                             | xcut CORRECTNESS-01 | S      | yes   |
+| M2  | INERT       | `LapsingGuestsWidget` is exported but never mounted; `IMPROVEMENT-BACKLOG.md:14` and `:39` claim a `useApiCall` hook that does not exist; `apps/hospitality/CLAUDE.md:122` is stale in the opposite direction ("Error recovery missing on most pages" — `ErrorRetryBanner` is on 9). | xcut INERT-03       | S      | grep  |
 
 ### Suspicions (not reproduced — do not file as findings)
 
@@ -177,7 +177,7 @@ overturn only with evidence it records under `assumptions:`.
 | M1, M2                                                                                                | `ready`+`audit`+`ux` issues (2)                                                                               |
 | harness promotion; UTC-date class; IMPROVEMENT-BACKLOG truth; StrictMode focus suspicion; "Live" pill | `docs/backlog.md` seeds                                                                                       |
 
-Issue numbers are recorded in `routing.md` once filed.
+Issue numbers are recorded in `routing.md` (#4970–#4992, PR #4565 comment, 4 backlog seeds).
 
 ## Already good (keep; do not "improve")
 
