@@ -9,6 +9,7 @@ import {
   type UpdateFloorPlanRequest,
   type UpdateTablePositionRequest,
   createProblemDetails,
+  titleForStatus,
   listFloorPlansQueryJsonSchema,
   createFloorPlanBodyJsonSchema,
   updateFloorPlanBodyJsonSchema,
@@ -254,12 +255,38 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         body: updateTablePositionsBodyJsonSchema,
       },
     },
-    async (request) => {
-      const tables = await floorPlanService.bulkUpdateTablePositions(
-        request.body.floorPlanId,
-        request.body.positions
+    async (request, reply) => {
+      const { floorPlanId, positions } = request.body;
+
+      const floorPlan = await floorPlanService.getById(floorPlanId);
+      if (!floorPlan) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+      }
+
+      // Auth above is scoped to the body's floorPlanId, but the write below
+      // mutates each positions[].tableId directly with no venue awareness of
+      // its own — a caller who owns floorPlanId could otherwise re-point a
+      // table belonging to a DIFFERENT venue onto it. Same bug class as
+      // #5008's /assign fix; checked here (not in the DB layer) so a
+      // cross-venue table is rejected before any write is attempted.
+      const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
+      const crossVenueTable = tables.find(
+        (table) => table !== null && table.venueId !== floorPlan.venueId
       );
-      return { data: tables };
+      if (crossVenueTable) {
+        return reply
+          .code(403)
+          .send(
+            createProblemDetails(
+              403,
+              titleForStatus(403),
+              "One or more tables do not belong to the floor plan's venue"
+            )
+          );
+      }
+
+      const updatedTables = await floorPlanService.bulkUpdateTablePositions(floorPlanId, positions);
+      return { data: updatedTables };
     }
   );
 

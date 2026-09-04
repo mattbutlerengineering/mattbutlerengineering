@@ -604,6 +604,8 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      vi.mocked(tableService.getById).mockResolvedValueOnce(mockTable);
       vi.mocked(floorPlanService.bulkUpdateTablePositions).mockResolvedValueOnce([mockTable]);
 
       const response = await app.inject({
@@ -639,6 +641,8 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce(mockFloorPlan);
+      vi.mocked(tableService.getById).mockResolvedValueOnce(null);
       vi.mocked(floorPlanService.bulkUpdateTablePositions).mockRejectedValueOnce(
         Object.assign(new Error("One or more tables not found"), { code: "P2025" })
       );
@@ -680,6 +684,58 @@ describe("Floor Plan Routes", () => {
       });
 
       expect(response.statusCode).toBe(401);
+    });
+
+    it("returns 403 when a positions[].tableId belongs to a venue the caller cannot access, even when the body's floorPlanId belongs to a venue they can (#5042)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...mockJWTPayload, sub: "auth0|outsider", permissions: [] },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      // The caller IS a member of "venue-own" (where the body's floor plan
+      // lives) but NOT of "venue-other" (where positions[].tableId actually
+      // lives). Auth is scoped to floorPlanId, so it passes — the bulk-update
+      // write itself must still refuse to re-point venue-other's table.
+      vi.mocked(floorPlanService.getById).mockResolvedValue({
+        ...mockFloorPlan,
+        id: "floor-plan-own-venue",
+        venueId: "venue-own",
+      });
+      vi.mocked(tableService.getById).mockResolvedValueOnce({
+        ...mockTable,
+        id: "table-other-venue",
+        venueId: "venue-other",
+      });
+      const lookup = vi
+        .fn<VenueMembershipLookup>()
+        .mockImplementation((_sub, venueId) => Promise.resolve(venueId === "venue-own"));
+      const scopedApp = await buildApp({ logger: false, venueMembershipLookup: lookup });
+      await scopedApp.ready();
+
+      const response = await scopedApp.inject({
+        method: "POST",
+        url: "/api/v1/floor-plans/tables/positions",
+        headers: { authorization: "Bearer outsider-token" },
+        payload: {
+          floorPlanId: "floor-plan-own-venue",
+          positions: [
+            {
+              tableId: "table-other-venue",
+              shapeMetadata: {
+                x: 150,
+                y: 250,
+                width: 80,
+                height: 80,
+                shape: "rectangle",
+              },
+            },
+          ],
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(floorPlanService.bulkUpdateTablePositions).not.toHaveBeenCalled();
+
+      await scopedApp.close();
     });
   });
 
@@ -742,7 +798,15 @@ describe("Floor Plan Routes", () => {
       } as never);
       // The caller IS a member of "venue-own" (where the body's floor plan
       // lives) but NOT of "venue-other" (where :tableId actually lives).
-      // Authorizing on the body would incorrectly let this request through.
+      // Authorizing on the body would incorrectly let this request through —
+      // mock getById to actually return a floor plan owned by "venue-own" so
+      // the OLD (vulnerable) body-based resolver would genuinely pass auth
+      // here too, and only the FIXED :tableId-based resolver rejects it.
+      vi.mocked(floorPlanService.getById).mockResolvedValueOnce({
+        ...mockFloorPlan,
+        id: "floor-plan-own-venue",
+        venueId: "venue-own",
+      });
       vi.mocked(tableService.getById).mockResolvedValueOnce({
         ...mockTable,
         id: "table-other-venue",
