@@ -49,7 +49,7 @@ fall-through.
 Demonstrable at the boundary: the same checks CI runs, run locally, green, with
 output quoted rather than asserted.
 
-- [ ] **`PLATFORM_VARS` entries for the two signal-specific endpoint keys** — add `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` to the set in `scripts/check-env-sync.js`, alongside `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` already at lines 18-19.
+- [x] **`PLATFORM_VARS` entries for the two signal-specific endpoint keys** — add `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` to the set in `scripts/check-env-sync.js`, alongside `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` already at lines 18-19.
   - Accept: `node scripts/check-env-sync.js` exits 0 with the new `process.env` reads present in `packages/observability`, output quoted. Confirmed pre-condition: the check walks each service's transitive workspace closure, so a read inside `packages/observability` counts as a read by all three services.
   - Accept: the entries sit under the existing platform-injected rationale — these are platform-injected, never hand-configured, so they belong in `PLATFORM_VARS` and not in any `.env.example`.
   - Blocked by: item 2
@@ -201,6 +201,35 @@ now false: `USERS-API-7` exists. See the baseline section above. `defect.md` is
 left unedited — it was accurate when written, and rewriting a predecessor
 artifact to match later evidence would erase the fact that the population was
 still growing while the run was being designed. That fact is the lesson.
+
+**2026-09-04 — item 5's premise was false: the `repo-audit` gate never goes red.**
+`architecture.md` (_Stack & dependencies_) and this breakdown both stated that the
+two new signal-specific keys would fail `scripts/check-env-sync.js` in CI's Build
+job without `PLATFORM_VARS` entries. Measured on this branch **before** adding them:
+`node scripts/check-env-sync.js` exits 0, `PASS: All env vars are documented`. The
+claim was wrong, and the reason is worth keeping:
+
+- The scanner only matches a literal `process.env.NAME` / `import.meta.env.NAME`
+  (`check-env-sync.js:57,64`), and it skips test files (`:44,50`).
+- `resolveTelemetryPlan` takes `env` as a parameter and indexes it with named
+  constants — the exact shape `architecture.md` chose so the rules could be tested
+  without `vi.resetModules()`. That choice made the reads invisible to the regex.
+- Net effect on this branch: **zero** non-test source files read any `OTEL_*` var
+  literally. On `origin/main` there was exactly one (`sdk.ts:76`,
+  `process.env.OTEL_SDK_DISABLED`). This change removed it, so the
+  `OTEL_SDK_DISABLED` entry in the three `services/*/.env.example` files is now
+  unguarded — nothing would notice if it were deleted.
+
+The entries were added anyway, with a comment in `PLATFORM_VARS` saying they are
+pre-registered rather than currently exercised, so the next reader does not mistake
+their presence for evidence the scanner tracks these keys. They become load-bearing
+the moment any module reads them directly.
+
+**Seed for Operate:** `check-env-sync.js` cannot see env reads made through a
+helper. Any package that centralises its env access — which is the pattern this run
+just introduced, and the pattern `@mbe/sentry`'s `resolveConfig` already used — is
+invisible to a gate the repo treats as authoritative. The gate is not wrong about
+what it checks; it is quietly narrower than its name suggests.
 
 **2026-09-04 — the Decompose stage ran inline, not as a subagent.** The
 dispatched agent terminated mid-run when the host slept (~29 h), having read all
