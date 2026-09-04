@@ -92,7 +92,6 @@ export const PENDING_ADOPTION: readonly string[] = [
   "hooks/use-form-state.ts",
   "pages/AdminPage.tsx",
   "pages/BookingWidgetDemoPage.tsx",
-  "pages/BriefingPage.tsx",
   "pages/FloorPlansPage.tsx",
   "pages/GuestsPage.tsx",
   "pages/HomePage.tsx",

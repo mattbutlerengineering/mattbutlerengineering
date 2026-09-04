@@ -15,11 +15,10 @@ import {
 import type { GuestRiskScore, Reservation } from "@mbe/types";
 import { useGuest, useAddStaffNote } from "../../hooks/useGuests.js";
 import { useReservations } from "../../hooks/useReservations.js";
+import { isAllergyTag, getSegmentLabel, getSegmentVariant } from "./guest-signals.js";
 import styles from "./GuestCard.module.css";
 
 /* ── Constants ───────────────────────────────────────── */
-
-const ALLERGY_KEYWORDS = ["nut", "shellfish", "dairy"];
 
 const OCCASION_LABELS: Record<string, string> = {
   birthday: "Birthday",
@@ -33,19 +32,6 @@ const OCCASION_LABELS: Record<string, string> = {
 
 function formatShortDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function getSegmentLabel(visitCount: number, tags: string[] | null): string {
-  const tagList = tags ?? [];
-  if (tagList.includes("vip") || visitCount >= 10) return "VIP";
-  if (visitCount >= 2) return "Repeat";
-  return "New";
-}
-
-function getSegmentVariant(label: string): "accent" | "success" | "neutral" {
-  if (label === "VIP") return "accent";
-  if (label === "Repeat") return "success";
-  return "neutral";
 }
 
 function getRiskVariant(score: GuestRiskScore): "error" | "warning" | "neutral" {
@@ -132,9 +118,7 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
   const segmentLabel = getSegmentLabel(guest.visitCount, guest.tags);
   const segmentVariant = getSegmentVariant(segmentLabel);
 
-  const allergyRestrictions = (guest.dietaryRestrictions ?? []).filter((r) =>
-    ALLERGY_KEYWORDS.some((kw) => r.toLowerCase().includes(kw))
-  );
+  const allergyRestrictions = (guest.dietaryRestrictions ?? []).filter(isAllergyTag);
 
   const sortedNotes = [...(guest.staffNotes ?? [])].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

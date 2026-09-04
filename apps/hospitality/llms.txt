@@ -71,6 +71,16 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="crm">
+  <file path="src/components/crm/guest-signals.ts">
+    <item priority="high">
+      export const ALLERGY_KEYWORDS: readonly string[];
+    </item>
+    <item priority="low">
+      type GuestSegmentLabel = "VIP" | "Repeat" | "New";
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="e2e">
   <file path="e2e/api-mocks.ts">
     <item priority="medium">
@@ -149,7 +159,7 @@
         data: TData | undefined;
         isLoading: boolean;
         error: Error | null;
-        refetch: () => void;
+        refetch: () => Promise<{ error: Error | null }>;
       }
     </item>
     <item priority="low">

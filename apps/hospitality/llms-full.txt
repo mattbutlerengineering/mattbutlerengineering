@@ -106,6 +106,12 @@
     });
   </file>
   </section>
+  <section priority="medium" role="crm">
+  <file path="src/components/crm/guest-signals.ts">
+    export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
+    export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
+  </file>
+  </section>
   <section priority="medium" role="e2e">
   <file path="e2e/api-mocks.ts">
     function loadFixture(name: string): string {
@@ -243,7 +249,8 @@
       data: TData | undefined;
       isLoading: boolean;
       error: Error | null;
-      refetch: () => void;
+      /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
+      refetch: () => Promise<{ error: Error | null }>;
     }
     export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TData> {
       /** Base query key string */
