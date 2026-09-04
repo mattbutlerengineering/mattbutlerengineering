@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BookingWidget } from "./BookingWidget.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import React from "react";
 
@@ -174,7 +175,7 @@ describe("BookingWidget", () => {
     expect(screen.getByText("RES-123")).toBeDefined();
   });
 
-  it("handles availability errors", async () => {
+  it("handles availability errors with the house sentence, never the debug message", async () => {
     renderWidget();
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
@@ -183,7 +184,8 @@ describe("BookingWidget", () => {
 
     fireEvent.click(screen.getByText("Find Available Times"));
 
-    await waitFor(() => expect(screen.getByText("API Down")).toBeDefined());
+    await waitFor(() => expect(screen.getByText(ERROR_COPY.unknown.detail)).toBeDefined());
+    expect(screen.queryByText("API Down")).toBeNull();
   });
 
   it("shows payment step for risky guest even when venue has no deposit policy", async () => {

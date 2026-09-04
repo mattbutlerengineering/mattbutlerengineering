@@ -324,11 +324,8 @@
         try {
           await onSubmit(parsed.data);
         } catch (err) {
-          if (err instanceof ApiClientError) {
-            setError(err.problemDetails.detail);
-          } else {
-            setError(err instanceof Error ? err.message : "An error occurred");
-          }
+          // 422/409 keep the server's own detail (written for the person); everything else is a house sentence.
+          setError(describeApiError(err).detail);
         } finally {
           setIsPending(false);
         }

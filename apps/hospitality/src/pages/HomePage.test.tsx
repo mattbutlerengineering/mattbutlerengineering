@@ -4,6 +4,22 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type * as ReactRouter from "react-router";
 import { HomePage } from "./HomePage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 const mockNavigate = vi.fn();
 
@@ -55,10 +71,22 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
-    <button data-testid="error-banner" onClick={onRetry}>
-      {error}
-    </button>
+  ErrorRetryBanner: ({
+    title,
+    error,
+    details,
+    onRetry,
+  }: {
+    title?: string;
+    error: string;
+    details?: string;
+    onRetry: () => void;
+  }) => (
+    <div data-testid="error-banner" data-details={details}>
+      <strong>{title}</strong>
+      <span>{error}</span>
+      <button onClick={onRetry}>Retry</button>
+    </div>
   ),
 }));
 
@@ -230,13 +258,19 @@ describe("HomePage", () => {
         cancellationTrend: "neutral",
       },
       isLoading: false,
-      error: new Error("Failed to load"),
+      error: serverError("GET", "/api/v1/reservations"),
       refetch: vi.fn(),
     });
 
     renderPage();
-    expect(screen.getByTestId("error-banner")).toBeDefined();
-    expect(screen.getByText("Failed to load")).toBeDefined();
+    const banner = screen.getByTestId("error-banner");
+    expect(screen.getByText("Couldn't load the dashboard.")).toBeDefined();
+    expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+    // The raw request line is offered only behind "Show details", never as the body.
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
+    expect(banner.getAttribute("data-details")).toBe(
+      "GET /api/v1/reservations failed: 500 Internal Server Error"
+    );
   });
 
   it("does not render error banner when there is no error", () => {

@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { FloorPlansPage } from "./FloorPlansPage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
 import { useNavigate } from "react-router";
 import { useVenue } from "../contexts/VenueContext.js";
 
@@ -31,9 +33,24 @@ vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title }: any) => <div data-testid="page-header">{title}</div>,
 }));
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
+
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry, onDismiss }: any) => (
+  ErrorRetryBanner: ({ title, error, onRetry, onDismiss }: any) => (
     <div data-testid="error-banner">
+      <strong>{title}</strong>
       {error}
       <button onClick={onRetry}>Retry</button>
       <button onClick={onDismiss}>Dismiss</button>
@@ -269,7 +286,7 @@ describe("FloorPlansPage", () => {
   });
 
   it("clone error shows live region error", async () => {
-    mockFloorPlansClone.mockRejectedValue(new Error("Clone failed"));
+    mockFloorPlansClone.mockRejectedValue(serverError("POST", "/api/v1/floor-plans/fp-1/clone"));
 
     renderPage();
 
@@ -284,7 +301,9 @@ describe("FloorPlansPage", () => {
 
     await waitFor(() => {
       const liveRegion = screen.getByRole("status");
-      expect(liveRegion.textContent).toContain("Error: Clone failed");
+      expect(liveRegion.textContent).toContain("Floor plan not cloned.");
+      expect(liveRegion.textContent).toContain(ERROR_COPY.serverError.detail);
+      expect(liveRegion.textContent).not.toContain("failed: 500");
     });
   });
 
@@ -301,14 +320,15 @@ describe("FloorPlansPage", () => {
   });
 
   it("shows ErrorRetryBanner on fetch error", async () => {
-    mockFloorPlansList.mockRejectedValue(new Error("Server error"));
+    mockFloorPlansList.mockRejectedValue(serverError("GET", "/api/v1/floor-plans"));
 
     renderPage();
 
     await waitFor(() => {
       const banner = screen.getByTestId("error-banner");
-      expect(banner).toBeDefined();
-      expect(banner.textContent).toContain("Server error");
+      expect(banner.textContent).toContain("Couldn't load floor plans.");
+      expect(banner.textContent).toContain(ERROR_COPY.serverError.detail);
+      expect(banner.textContent).not.toContain("failed: 500");
     });
   });
 

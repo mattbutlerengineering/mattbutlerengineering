@@ -13,6 +13,7 @@ import {
   effectiveDepositPolicy,
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
+import { describeApiError } from "../../lib/describe-api-error.js";
 
 export type BookingStep =
   | "date-party"
@@ -447,8 +448,7 @@ export function useBookingFlow({
     fetchSlots()
       .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : "Failed to load availability";
-        dispatch({ type: "SET_SLOTS_ERROR", error: msg });
+        dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
       });
   }, [flowState.data.hold, releaseHold, fetchSlots]);
 
@@ -482,8 +482,7 @@ export function useBookingFlow({
         });
         dispatch({ type: "HOLD_SUCCESS", hold, slot });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to hold time slot";
-        dispatch({ type: "HOLD_ERROR", error: msg });
+        dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
       }
     },
     [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
@@ -531,8 +530,7 @@ export function useBookingFlow({
           dispatch({ type: "CONFIRM_SUCCESS_NO_DEPOSIT", reservation });
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to confirm reservation";
-        dispatch({ type: "CONFIRM_ERROR", error: msg });
+        dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
       }
     },
     [

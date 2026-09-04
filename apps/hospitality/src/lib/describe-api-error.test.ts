@@ -125,6 +125,18 @@ describe("describeApiError", () => {
     });
   });
 
+  it("raw keeps api-client's `<METHOD> <path> failed: <status>` line and detail never does — the E2E `/failed: 500/` negative oracles depend on this shape", () => {
+    const failed = new ApiClientError(
+      { type: "about:blank", title: "Internal Server Error", status: 500, detail: "" },
+      "PATCH",
+      "/api/v1/users/usr_e2e_001"
+    );
+    const description = describeApiError(failed);
+    expect(failed.message).toMatch(/^PATCH \/api\/v1\/users\/usr_e2e_001 failed: 500\b/);
+    expect(description.raw).toBe(failed.message);
+    expect(description.detail).not.toMatch(/failed: 500/);
+  });
+
   it("never puts undefined or a bare status code in detail (B1.1, B1.2)", () => {
     const thrown: unknown[] = [
       ...[400, 401, 403, 404, 409, 418, 422, 429, 500, 503].map((status) => apiError(status)),
