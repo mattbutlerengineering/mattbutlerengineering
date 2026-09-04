@@ -446,7 +446,8 @@
     "vite": "catalog:",
     "vite-plugin-dts": "^5.0.3",
     "vitest": "^4.1.11",
-    "vitest-axe": "^0.1.0"
+    "vitest-axe": "^0.1.0",
+    "zod": "catalog:"
   },
   "size-limit": [
     {

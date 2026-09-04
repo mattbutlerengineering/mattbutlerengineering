@@ -38,7 +38,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-router": "catalog:",
-    "@mbe/sentry": "workspace:*"
+    "@mbe/sentry": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.251",
-    "@mbe/types": "workspace:*"
+    "@mbe/types": "workspace:*",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "@mbe/agent-core": "workspace:*"
