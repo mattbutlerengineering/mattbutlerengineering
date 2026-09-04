@@ -107,7 +107,7 @@ describe("CookiePreferencesDialog", () => {
       <CookiePreferencesDialog
         open={true}
         onClose={vi.fn()}
-        preferences={{ essential: true, functional: false, analytics: false, marketing: false }}
+        preferences={{ essential: true, functional: false, marketing: false }}
         onSave={onSave}
         onRejectAll={vi.fn()}
       />
@@ -126,14 +126,14 @@ describe("CookiePreferencesDialog", () => {
       <CookiePreferencesDialog
         open={true}
         onClose={onClose}
-        preferences={{ essential: true, functional: false, analytics: false, marketing: false }}
+        preferences={{ essential: true, functional: false, marketing: false }}
         onSave={onSave}
         onRejectAll={vi.fn()}
       />
     );
 
     fireEvent.click(screen.getByText("Save Preferences"));
-    expect(onSave).toHaveBeenCalledWith({ analytics: false, functional: false, marketing: false });
+    expect(onSave).toHaveBeenCalledWith({ functional: false, marketing: false });
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -144,7 +144,7 @@ describe("CookiePreferencesDialog", () => {
       <CookiePreferencesDialog
         open={true}
         onClose={onClose}
-        preferences={{ essential: true, functional: false, analytics: false, marketing: false }}
+        preferences={{ essential: true, functional: false, marketing: false }}
         onSave={vi.fn()}
         onRejectAll={onRejectAll}
       />
@@ -160,18 +160,20 @@ describe("CookiePreferencesDialog", () => {
       <CookiePreferencesDialog
         open={true}
         onClose={vi.fn()}
-        preferences={{ essential: true, functional: false, analytics: false, marketing: false }}
+        preferences={{ essential: true, functional: false, marketing: false }}
         onSave={vi.fn()}
         onRejectAll={vi.fn()}
       />
     );
 
-    // The toggles are rendered: essential (disabled), analytics, functional, marketing
+    // The toggles are rendered: essential (disabled), functional, marketing.
+    // There is deliberately no analytics toggle — usage is counted at the edge
+    // with no cookie and no client identifier, so there is nothing to consent to.
     const toggles = screen.getAllByTestId("toggle");
-    expect(toggles).toHaveLength(4);
+    expect(toggles).toHaveLength(3);
     // Essential is always checked
     expect((toggles[0] as HTMLInputElement).checked).toBe(true);
-    // analytics, functional, marketing start as false
+    // functional, marketing start as false
     expect((toggles[1] as HTMLInputElement).checked).toBe(false);
   });
 
@@ -181,15 +183,15 @@ describe("CookiePreferencesDialog", () => {
       <CookiePreferencesDialog
         open={true}
         onClose={vi.fn()}
-        preferences={{ essential: true, functional: false, analytics: false, marketing: false }}
+        preferences={{ essential: true, functional: false, marketing: false }}
         onSave={onSave}
         onRejectAll={vi.fn()}
       />
     );
 
-    // Click analytics toggle (index 1) via the checkbox onChange
+    // Click the Functional toggle (index 1) via the checkbox onChange
     const toggles = screen.getAllByTestId("toggle");
-    // Simulate the onChange on the analytics toggle
+    // Simulate the onChange on the Functional toggle
     fireEvent.click(toggles[1]!);
 
     // Save — the draft should have been updated by the onCheckedChange handler
@@ -203,7 +205,7 @@ describe("CookiePreferencesDialog", () => {
       <CookiePreferencesDialog
         open={false}
         onClose={vi.fn()}
-        preferences={{ essential: true, functional: false, analytics: false, marketing: false }}
+        preferences={{ essential: true, functional: false, marketing: false }}
         onSave={vi.fn()}
         onRejectAll={vi.fn()}
       />

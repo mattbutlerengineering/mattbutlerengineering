@@ -3,7 +3,6 @@
   <file path="src/components/CookieConsent/useCookieConsent.ts">
     export interface CookiePreferences {
       readonly essential: true;
-      readonly analytics: boolean;
       readonly functional: boolean;
       readonly marketing: boolean;
     }

@@ -268,7 +268,7 @@ argv })` wires `requireEnv` (six lines copied from `resource-audit.mjs:34-39`,
     KV, DNS, Pulumi). The item is complete without it and `verification.md`
     must say so in those words.
   - Blocked by: 2
-- [ ] **5. Remove the cookie banner's `analytics` toggle** — `analytics` leaves
+- [x] **5. Remove the cookie banner's `analytics` toggle** — `analytics` leaves
       `CookiePreferences`, `DEFAULT_PREFERENCES`, `ALL_ACCEPTED`
       (`useCookieConsent.ts:5-33`), the `CATEGORIES` entry and the
       `analytics: draft.analytics` line in `handleSave` (`CookieConsent.tsx:85,124`),
@@ -506,6 +506,41 @@ integer from 1 to 90` + usage, `exit=1`; `pnpm --dir scripts lint` → exit 0;
   the allowlist holds even for a caller that bypasses `parseArgs`. (5) With
   rows, output is a header + one line per row + a one-line summary naming
   `SUM(_sample_interval)`; with zero rows, only the runbook pointer.
+- **Implement log — item 5 (2026-09-03).** RED (`useCookieConsent.test.ts`):
+  `Tests 2 failed | 9 passed (11)` — `× ignores a previously stored
+`analytics` key without writing back` and `× has no analytics preference —
+edge request logging is server-side and cookie-free`, both
+  `AssertionError: expected { essential: true, …(3) } to deeply equal
+{ essential: true, …(2) }` with `+ "analytics": true` / `+ "analytics": false`
+  in the diff — the spread kept the legacy key and `DEFAULT_PREFERENCES` still
+  carried it. GREEN: `pnpm --dir apps/rialto-web test` → `Test Files 62 passed
+(62)` / `Tests 732 passed (732)`; `typecheck` → exit 0; `lint` → exit 0
+  (154 warnings, 0 errors, all pre-existing
+  `react-refresh/only-export-components`). Diffstat: 5 files, 53+/37−; the
+  dialog test pins `toHaveLength(3)`. _Deviation from Accept:_ the clause
+  "`grep -rn "analytics" apps/rialto-web/src …` returns only
+  `pages/PrivacyPage.tsx`" was already false at baseline — it also matches
+  `pages/navigation/NavbarPage.tsx:54-55` (a demo nav item `id: "analytics"`)
+  and `pages/examples/PricingTableExamplePage.tsx:50,67,84` (`"Revenue
+analytics"` pricing copy). Both are showcase demo content with no relation to
+  consent and pre-date this run, so they are left untouched. After item 5 the
+  grep's hits are exactly: those two files, `PrivacyPage.tsx:48,72,95` (as
+  expected), and the word inside the new tests and code comment that describe
+  the legacy-key read path (`useCookieConsent.test.ts:139-158`,
+  `CookieConsent.test.tsx:170`, `useCookieConsent.ts:46-47`). No `analytics`
+  key remains in any type, constant, fixture or expectation. _Assumptions:_
+  (1) `readStoredConsent` types the parsed blob as
+  `{ consented?: unknown; preferences?: Record<string, unknown> }` and reads
+  `consented: Boolean(parsed.consented)` — previously `parsed.consented` passed
+  through raw under an `as ConsentState` cast, so a blob missing the key
+  yielded `undefined` typed as `boolean`; `Boolean()` is the same falsy
+  outcome, now type-honest. (2) Two former `analytics` assertions were
+  re-pointed rather than deleted so the tests keep their bite: "acceptAll
+  persists to localStorage" now asserts `stored.preferences.functional` (was
+  `.analytics`), and "restores consent from localStorage on mount" seeds and
+  asserts `marketing: true` (was `analytics: true`). _Adjacent smell (not
+  fixed):_ `PrivacyPage.tsx:48,72,95` still tells visitors analytics cookies
+  may be set — already carried as a seed below.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still

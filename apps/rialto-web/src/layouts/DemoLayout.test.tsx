@@ -20,7 +20,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 vi.mock("../components/CookieConsent/useCookieConsent.js", () => ({
   useCookieConsent: () => ({
     consented: null,
-    preferences: { analytics: false, marketing: false },
+    preferences: { functional: false, marketing: false },
     acceptAll: vi.fn(),
     rejectAll: vi.fn(),
     savePreferences: vi.fn(),
