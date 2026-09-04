@@ -30,8 +30,12 @@ export interface DrawerProps {
   footer?: ReactNode;
   /** Which edge the drawer slides from */
   side?: "right" | "left" | "bottom";
-  /** Panel width/height */
-  size?: "default" | "wide" | "full";
+  /**
+   * Panel width/height. `compact` is a sheet that sits beside a working
+   * surface rather than replacing it: bottom `min(40vh, 240px)`,
+   * right/left `min(320px, calc(100vw - 48px))`.
+   */
+  size?: "default" | "wide" | "full" | "compact";
 }
 
 /* ── Slide direction helpers ──────────────────── */

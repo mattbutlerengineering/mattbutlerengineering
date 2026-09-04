@@ -1702,9 +1702,9 @@
         },
         {
           "name": "size",
-          "type": "\"default\" | \"wide\" | \"full\" | undefined",
+          "type": "\"compact\" | \"default\" | \"wide\" | \"full\" | undefined",
           "required": false,
-          "description": "Panel width/height"
+          "description": "Panel width/height. `compact` is a sheet that sits beside a working\nsurface rather than replacing it: bottom `min(40vh, 240px)`,\nright/left `min(320px, calc(100vw - 48px))`."
         }
       ],
       "slots": [
