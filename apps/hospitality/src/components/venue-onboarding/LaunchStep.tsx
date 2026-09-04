@@ -85,10 +85,20 @@ export function LaunchStep({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
 
-  // Cleanup only — cancels a pending navigate if this step unmounts (e.g. the
-  // user clicks Back) before the celebration timer fires, and marks the
-  // component gone so an in-flight launch never schedules a stray navigate.
+  // Resets the flag on (re)mount and cancels a pending navigate if this step
+  // unmounts (e.g. the user clicks Back) before the celebration timer fires,
+  // marking the component gone so an in-flight launch never schedules a
+  // stray navigate. The reset matters because React 18 StrictMode's
+  // dev-only mount->unmount->remount simulation runs this cleanup once
+  // immediately after the first mount without recreating the ref — without
+  // resetting to false here, unmountedRef.current stayed permanently true
+  // from that point on, so handleLaunch's guard below always bailed and the
+  // celebration/navigate handoff never fired for the rest of the component's
+  // life (#5017 — this is exactly what the dev-server-backed Hospitality E2E
+  // suite exercises, unlike a production build where effects are not
+  // double-invoked).
   useEffect(() => {
+    unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
