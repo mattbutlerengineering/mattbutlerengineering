@@ -421,6 +421,16 @@
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
   </file>
+  <file path="src/hooks/useFocusAfter.ts">
+    export type FocusTarget =
+      | { readonly kind: "element"; readonly element: HTMLElement }
+      | { readonly kind: "testId"; readonly testId: string }
+      /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
+      | { readonly kind: "pageHeading" };
+    export interface FocusAfterApi {
+      readonly focusAfter: (target: FocusTarget) => void;
+    }
+  </file>
   <file path="src/hooks/useGuestDirectory.ts">
     export interface UseGuestDirectoryParams {
       venueId?: string | null;
@@ -520,6 +530,16 @@
     export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
     export type SessionPhase = "fresh" | "refresh-window" | "expired";
   </file>
+  <file path="src/hooks/useStatusMessage.ts">
+    export interface StatusMessage {
+      readonly seq: number;
+      readonly text: string;
+    }
+    export interface StatusMessageApi {
+      readonly status: StatusMessage | null;
+      readonly announce: (text: string) => void;
+    }
+  </file>
   <file path="src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
@@ -600,6 +620,15 @@
   <file path="src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
+  </file>
+  <file path="src/hooks/useViewport.ts">
+    export type Viewport = "phone" | "tablet" | "desktop";
+    function readViewport(): Viewport {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "desktop";
+      if (window.matchMedia(PHONE_QUERY).matches) return "phone";
+      if (window.matchMedia(TABLET_QUERY).matches) return "tablet";
+      return "desktop";
+    }
   </file>
   <file path="src/hooks/useWaitlist.ts">
     export const WAITLIST_QUERY_KEY = "waitlist" as const;

@@ -277,6 +277,16 @@
       export const FLOOR_PLAN_QUERY_KEY: unknown;
     </item>
   </file>
+  <file path="src/hooks/useFocusAfter.ts">
+    <item priority="low">
+      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "pageHeading";
+    </item>
+    <item priority="low">
+      interface FocusAfterApi {
+        focusAfter: (target: FocusTarget) => void;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useGuestDirectory.ts">
     <item priority="low">
       interface UseGuestDirectoryParams {
@@ -369,6 +379,20 @@
       type SessionPhase = "fresh" | "refresh-window" | "expired";
     </item>
   </file>
+  <file path="src/hooks/useStatusMessage.ts">
+    <item priority="low">
+      interface StatusMessage {
+        seq: number;
+        text: string;
+      }
+    </item>
+    <item priority="low">
+      interface StatusMessageApi {
+        status: StatusMessage | null;
+        announce: (text: string) => void;
+      }
+    </item>
+  </file>
   <file path="src/hooks/useTables.ts">
     <item priority="high">
       export const TABLES_QUERY_KEY: unknown;
@@ -446,6 +470,14 @@
     </item>
     <item priority="high">
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useViewport.ts">
+    <item priority="low">
+      type Viewport = "phone" | "tablet" | "desktop";
+    </item>
+    <item priority="medium">
+      function readViewport(): Viewport { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useWaitlist.ts">
