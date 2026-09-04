@@ -1288,3 +1288,16 @@ None this run (`agent-skip` empty). 3 issues carry `agent-failed`: #4944, #4914,
 **queueEfficiency:** composite 0.960 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:11, size:s:8, size:l:1
 **Issues filed:** 0
+
+## 2026-09-04 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114, prMetrics 7 entries, prCategoryMetrics 92/93 merged across tier:trivial/sensitive/critical/standard/docs, ccusageCost $0/30d cache_hit 95%, ciHealth 100% pass rate (25/25), sessionLogs 0 sessions/7d 0 commits, codeChurn 0% (388/561894 lines, 7d), e2eStability 0 consecutive failures (16/16 non-frontend runs; 14 CI-run head SHAs not in local git object store, skipped harmlessly), queueEfficiency composite 0.916 [fps 0.789, ttm 0.3h, $0/issue, no baseline yet]). domainActivity/agentCost/lighthouse/mutationScore/flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped — Sentry MCP tool connects but every call 403s with "Host not in allowlist: sentry.io" (confirmed directly via `find_organizations`), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #4959/#4928 need a completed CI run to verify against; #4952/#4951 need Sentry MCP verification (blocked by the egress allowlist above); #4945 needs a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint.
+**Skill proposals:** 0 — today is the Friday extraction day, but `.claude/session-logs/` holds only `.gitkeep` (0 sessions in the last 7 days), so there is nothing to analyze.
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.136 → 1.166 (headroom). 30d verification log (51 entries, 45 in-window) is still mostly environmental `skip`s; of the 4 non-skip verifications, fix-effectiveness rate is 75% (3 verified / 1 failed) — healthy, no note triggered (>50% threshold). False-positive rate not computable this run — `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback`; `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
