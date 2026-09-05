@@ -273,7 +273,7 @@ const reportPath = writeReport(cwd, {
 
 /* ── Optionally: --badge ─────────────────────────────────── */
 let badgeOutcome = "skipped";
-if (BADGE) badgeOutcome = updateBadge(cwd, computation.level);
+if (BADGE) badgeOutcome = updateBadge(cwd, computation.level, nextState);
 
 /* ── Optionally: --apply (issues for regressions + gaps in next level) ── */
 let applyResult = null;
