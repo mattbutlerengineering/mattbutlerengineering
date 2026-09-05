@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, GuestRiskResult } from "@mbe/types";
-import { guestRiskResultJsonSchema, publicGuestRiskQueryJsonSchema } from "@mbe/types";
+import {
+  createProblemDetails,
+  guestRiskResultJsonSchema,
+  publicGuestRiskQueryJsonSchema,
+} from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
 import { assessGuestReliability } from "../services/guest-reliability.js";
@@ -11,7 +15,7 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { slug: string };
     Querystring: { email?: string; phone?: string };
-    Reply: ApiResponse<GuestRiskResult>;
+    Reply: ApiResponse<GuestRiskResult> | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug/guest-risk",
     {
@@ -42,18 +46,18 @@ export const publicGuestRiskRoutes: FastifyPluginAsync = async (fastify) => {
       const { email, phone } = request.query;
 
       if (!email && !phone) {
-        return reply.status(400).send({
-          success: false,
-          error: "email or phone query parameter is required",
-        } as never);
+        return reply
+          .status(400)
+          .send(
+            createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
+          );
       }
 
       const venue = await venueService.getBySlug(slug);
       if (!venue) {
-        return reply.status(404).send({
-          success: false,
-          error: "Venue not found",
-        } as never);
+        return reply
+          .status(404)
+          .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
       const guest = email

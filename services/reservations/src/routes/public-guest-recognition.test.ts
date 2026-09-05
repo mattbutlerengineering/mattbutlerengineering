@@ -172,6 +172,24 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/no-such-venue/guests/recognize?email=test@example.com",
+    });
+
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: expect.any(String),
+      title: expect.any(String),
+      status: 404,
+    });
+    expect(body.detail).toContain("no-such-venue");
+    expect(body).not.toHaveProperty("success");
+  });
+
   it("returns 400 when email query param is missing", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
 
@@ -181,6 +199,29 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     });
 
     expect(response.statusCode).toBe(400);
+  });
+
+  it("returns an RFC 7807 problem-details body for a 400 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guests/recognize",
+    });
+
+    // The querystring schema marks `email` required, so ajv rejects the
+    // request before the handler's own `if (!email)` check ever runs — the
+    // body below comes from the service's shared error handler, not the
+    // route's createProblemDetails call. Assert shape + a meaningful detail
+    // rather than the route's exact literal string.
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: expect.any(String),
+      title: expect.any(String),
+      status: 400,
+    });
+    expect(body.detail).toContain("email");
+    expect(body).not.toHaveProperty("success");
   });
 
   it("does not require authentication", async () => {
