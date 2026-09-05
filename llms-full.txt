@@ -9243,7 +9243,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string };
-        Reply: ApiResponse<GuestRecognition>;
+        Reply: ApiResponse<GuestRecognition> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/guests/recognize",
         {
@@ -9276,19 +9276,17 @@
           const { email } = request.query;
     
           if (!email) {
-            return reply.status(400).send({
-              success: false,
-              error: "email query parameter is required",
-            } as never);
+            return reply
+              .status(400)
+              .send(createProblemDetails(400, "Bad Request", "email query parameter is required"));
           }
     
           const venue = await venueService.getBySlug(slug);
     
           if (!venue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           const recognition = await recognizeGuest(venue.id, email);
@@ -9305,7 +9303,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string; phone?: string };
-        Reply: ApiResponse<GuestRiskResult>;
+        Reply: ApiResponse<GuestRiskResult> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/guest-risk",
         {
@@ -9336,18 +9334,18 @@
           const { email, phone } = request.query;
     
           if (!email && !phone) {
-            return reply.status(400).send({
-              success: false,
-              error: "email or phone query parameter is required",
-            } as never);
+            return reply
+              .status(400)
+              .send(
+                createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
+              );
           }
     
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           const guest = email
@@ -9584,7 +9582,7 @@
     
       fastify.get<{
         Params: { slug: string };
-        Reply: ApiResponse<PublicVenueConfig>;
+        Reply: ApiResponse<PublicVenueConfig> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug",
         {
@@ -9611,10 +9609,9 @@
           const publicVenue = await venueService.getPublicConfigBySlug(slug);
     
           if (!publicVenue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           return reply.send({ data: publicVenue });

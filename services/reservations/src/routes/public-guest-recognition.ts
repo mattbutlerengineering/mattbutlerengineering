@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, GuestRecognition } from "@mbe/types";
-import { guestRecognitionJsonSchema, publicGuestRecognitionQueryJsonSchema } from "@mbe/types";
+import {
+  createProblemDetails,
+  guestRecognitionJsonSchema,
+  publicGuestRecognitionQueryJsonSchema,
+} from "@mbe/types";
 import { venueService } from "../services/venue.js";
 import { recognizeGuest } from "../services/guest-recognition.js";
 
@@ -10,7 +14,7 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
   fastify.get<{
     Params: { slug: string };
     Querystring: { email?: string };
-    Reply: ApiResponse<GuestRecognition>;
+    Reply: ApiResponse<GuestRecognition> | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug/guests/recognize",
     {
@@ -43,19 +47,17 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
       const { email } = request.query;
 
       if (!email) {
-        return reply.status(400).send({
-          success: false,
-          error: "email query parameter is required",
-        } as never);
+        return reply
+          .status(400)
+          .send(createProblemDetails(400, "Bad Request", "email query parameter is required"));
       }
 
       const venue = await venueService.getBySlug(slug);
 
       if (!venue) {
-        return reply.status(404).send({
-          success: false,
-          error: "Venue not found",
-        } as never);
+        return reply
+          .status(404)
+          .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
       const recognition = await recognizeGuest(venue.id, email);

@@ -170,6 +170,24 @@ describe("GET /public/v1/venues/:slug", () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
+    vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/no-such-venue",
+    });
+
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: expect.any(String),
+      title: expect.any(String),
+      status: 404,
+    });
+    expect(body.detail).toContain("no-such-venue");
+    expect(body).not.toHaveProperty("success");
+  });
+
   it("does not expose venueGroupId or internal fields", async () => {
     vi.mocked(venueService.getPublicConfigBySlug).mockResolvedValueOnce(mockPublicConfig);
 

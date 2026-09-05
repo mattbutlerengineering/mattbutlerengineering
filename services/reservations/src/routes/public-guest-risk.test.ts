@@ -248,6 +248,22 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("returns an RFC 7807 problem-details body for a 400 (ADR-008)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/guest-risk",
+    });
+
+    const body = JSON.parse(res.payload) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: expect.any(String),
+      title: expect.any(String),
+      status: 400,
+      detail: "email or phone query parameter is required",
+    });
+    expect(body).not.toHaveProperty("success");
+  });
+
   it("returns 404 when venue is not found", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValue(null);
 
@@ -257,6 +273,24 @@ describe("GET /public/v1/venues/:slug/guest-risk", () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+
+  it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/unknown-venue/guest-risk?email=alice%40example.com",
+    });
+
+    const body = JSON.parse(res.payload) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: expect.any(String),
+      title: expect.any(String),
+      status: 404,
+    });
+    expect(body.detail).toContain("unknown-venue");
+    expect(body).not.toHaveProperty("success");
   });
 
   it("looks up by phone when email is not provided", async () => {

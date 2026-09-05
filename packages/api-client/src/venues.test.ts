@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient, ApiValidationError } from "./client.js";
+import { ApiClient, ApiClientError, ApiValidationError } from "./client.js";
 import { VenuesClient, VenueGroupsClient } from "./venues.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -264,6 +264,29 @@ describe("VenuesClient.getPublicConfig", () => {
     );
 
     await expect(makeVenuesClient().getPublicConfig("missing")).rejects.toThrow();
+  });
+
+  it("surfaces the real RFC 7807 detail message on a 404, not a synthesized generic one", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          type: "about:blank",
+          title: "Not Found",
+          status: 404,
+          detail: "No venue found with slug 'missing'.",
+        },
+        404
+      )
+    );
+
+    const error = await makeVenuesClient()
+      .getPublicConfig("missing")
+      .catch((err: unknown) => err as ApiClientError);
+
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect((error as ApiClientError).problemDetails.detail).toBe(
+      "No venue found with slug 'missing'."
+    );
   });
 });
 
