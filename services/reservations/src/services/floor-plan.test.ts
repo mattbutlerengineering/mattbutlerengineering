@@ -17,6 +17,7 @@ vi.mock("./database.js", async () => {
       },
       table: {
         createMany: vi.fn(),
+        findUnique: vi.fn(),
         update: vi.fn(),
         deleteMany: vi.fn(),
       },
@@ -353,6 +354,9 @@ describe("floorPlanService", () => {
   describe("bulkUpdateTablePositions", () => {
     it("issues exactly one database call for multiple positions", async () => {
       const tables = [makePrismaTable({ id: "t1" }), makePrismaTable({ id: "t2" })];
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({
+        venueId: "venue-1",
+      } as never);
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(tables as never);
 
       const positions = [
@@ -383,6 +387,9 @@ describe("floorPlanService", () => {
     it("throws a P2025 not-found error when a tableId does not match any row", async () => {
       // Only one of the two requested tableIds actually exists — simulates a
       // deleted/unknown tableId in the batch.
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({
+        venueId: "venue-1",
+      } as never);
       vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never);
 
       const positions = [
@@ -400,11 +407,55 @@ describe("floorPlanService", () => {
         floorPlanService.bulkUpdateTablePositions("fp-1", positions)
       ).rejects.toMatchObject({ code: "P2025" });
     });
+
+    it("scopes the UPDATE to the floor plan's own venue", async () => {
+      // The route authorizes on the floor plan's venue but the tableIds are
+      // caller-supplied, so the statement itself must carry the tenant
+      // predicate — otherwise a member of one venue can re-point another
+      // venue's tables into their own floor plan.
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({
+        venueId: "venue-1",
+      } as never);
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never);
+
+      await floorPlanService.bulkUpdateTablePositions("fp-1", [
+        {
+          tableId: "t1",
+          shapeMetadata: { x: 10, y: 20, width: 80, height: 80, shape: "rectangle" as const },
+        },
+      ]);
+
+      const call = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], ...unknown[]];
+      const [fragments, ...values] = call;
+      expect(fragments.join("?")).toContain("t.venue_id =");
+      expect(values).toContain("venue-1");
+    });
+
+    it("throws a P2025 not-found error when the floor plan does not exist", async () => {
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(null as never);
+
+      await expect(
+        floorPlanService.bulkUpdateTablePositions("missing-fp", [
+          {
+            tableId: "t1",
+            shapeMetadata: { x: 10, y: 20, width: 80, height: 80, shape: "rectangle" as const },
+          },
+        ])
+      ).rejects.toMatchObject({ code: "P2025" });
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
   });
 
   describe("assignTableToFloorPlan", () => {
+    /** Both entities resolve to the same venue — the ordinary, permitted case. */
+    function mockSameVenue(venueId = "venue-1") {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ venueId } as never);
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({ venueId } as never);
+    }
+
     it("assigns table to floor plan with shape metadata", async () => {
       const meta = { x: 100, y: 100, width: 60, height: 60, shape: "square" as const };
+      mockSameVenue();
       vi.mocked(prisma.table.update).mockResolvedValueOnce(
         makePrismaTable({ floorPlanId: "fp-2", shapeMetadata: meta }) as never
       );
@@ -415,6 +466,7 @@ describe("floorPlanService", () => {
     });
 
     it("assigns without shape metadata", async () => {
+      mockSameVenue();
       vi.mocked(prisma.table.update).mockResolvedValueOnce(
         makePrismaTable({ floorPlanId: "fp-2" }) as never
       );
@@ -431,9 +483,47 @@ describe("floorPlanService", () => {
     });
 
     it("returns null for P2025", async () => {
+      mockSameVenue();
       vi.mocked(prisma.table.update).mockRejectedValueOnce({ code: "P2025" } as never);
 
       expect(await floorPlanService.assignTableToFloorPlan("missing", "fp-1")).toBeNull();
+    });
+
+    it("refuses to assign a table owned by a different venue", async () => {
+      // The route authorizes on the body's floorPlanId, so :tableId is
+      // caller-controlled and unchecked — without this guard a member of
+      // venue-1 can pull venue-2's table onto their own floor plan.
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ venueId: "venue-2" } as never);
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({ venueId: "venue-1" } as never);
+
+      const result = await floorPlanService.assignTableToFloorPlan("foreign-table", "fp-1");
+
+      expect(result).toBeNull();
+      expect(prisma.table.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses to assign a table that belongs to no venue", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ venueId: null } as never);
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({ venueId: "venue-1" } as never);
+
+      expect(await floorPlanService.assignTableToFloorPlan("orphan-table", "fp-1")).toBeNull();
+      expect(prisma.table.update).not.toHaveBeenCalled();
+    });
+
+    it("returns null when the target floor plan does not exist", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce({ venueId: "venue-1" } as never);
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(null as never);
+
+      expect(await floorPlanService.assignTableToFloorPlan("table-1", "missing-fp")).toBeNull();
+      expect(prisma.table.update).not.toHaveBeenCalled();
+    });
+
+    it("returns null when the table does not exist", async () => {
+      vi.mocked(prisma.table.findUnique).mockResolvedValueOnce(null as never);
+      vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({ venueId: "venue-1" } as never);
+
+      expect(await floorPlanService.assignTableToFloorPlan("missing-table", "fp-1")).toBeNull();
+      expect(prisma.table.update).not.toHaveBeenCalled();
     });
   });
 
