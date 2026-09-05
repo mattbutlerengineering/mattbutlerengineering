@@ -829,6 +829,7 @@ jobs:
         integrity,
         ai-antipattern-ratchet,
         visual-tolerance-check,
+        a11y-attribution,
       ]
     runs-on: ubuntu-latest
     permissions:
@@ -867,16 +868,19 @@ jobs:
           INTEGRITY: ${{ needs.integrity.result }}
           ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
           VISUAL_TOLERANCE: ${{ needs.visual-tolerance-check.result }}
+          A11Y_ATTRIBUTION: ${{ needs.a11y-attribution.result }}
         run: |
-          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE"
+          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION"
           # NOTE: "skipped" is intentionally allowed (path-filtered jobs, e.g. docs-only
-          # PRs where detect-changes sets has_code=false and prepare legitimately skips).
-          # Only "failure"/"cancelled" trip the gate. detect-changes and prepare are
-          # included here because they are the root of the dependency chain: if prepare
-          # actually FAILS (not skips), every job that needs it cascades to "skipped" by
-          # GitHub Actions' default behavior, which would otherwise look identical to a
-          # legitimate path-filtered skip and let the gate pass on a broken setup.
-          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE"; do
+          # PRs where detect-changes sets has_code=false and prepare legitimately skips,
+          # and a11y-attribution which only runs on agent-* / worktree-agent-* branches
+          # per its own `if:` condition). Only "failure"/"cancelled" trip the gate.
+          # detect-changes and prepare are included here because they are the root of
+          # the dependency chain: if prepare actually FAILS (not skips), every job that
+          # needs it cascades to "skipped" by GitHub Actions' default behavior, which
+          # would otherwise look identical to a legitimate path-filtered skip and let
+          # the gate pass on a broken setup.
+          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1
