@@ -281,4 +281,55 @@ describe("Tooltip", () => {
     act(() => vi.advanceTimersByTime(300));
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
+
+  it("does not re-open after hover and focus both leave (orphaned second timer)", () => {
+    vi.useFakeTimers();
+    render(
+      <Tooltip content="No ghost" delay={400}>
+        <button>Hover me</button>
+      </Tooltip>
+    );
+    const wrapper = screen.getByRole("button").parentElement!;
+    // hover then click: fires mouseEnter then focus, arming two show() calls
+    // before any hide()
+    fireEvent.mouseEnter(wrapper);
+    fireEvent.focus(wrapper);
+    fireEvent.mouseLeave(wrapper);
+    fireEvent.blur(wrapper);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("cancels the pending show timer on unmount", () => {
+    vi.useFakeTimers();
+    const { unmount } = render(
+      <Tooltip content="Unmounting" delay={300}>
+        <button>Hover me</button>
+      </Tooltip>
+    );
+    const wrapper = screen.getByRole("button").parentElement!;
+    fireEvent.mouseEnter(wrapper);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("anchors the show delay to the first trigger, not the most recent one", () => {
+    // Passes on main for the wrong reason: guards against a clearTimeout+
+    // re-arm regression that would restart the delay from the second
+    // trigger (focus) instead of keeping it anchored to the first (hover).
+    vi.useFakeTimers();
+    render(
+      <Tooltip content="Anchored" delay={300}>
+        <button>Hover me</button>
+      </Tooltip>
+    );
+    const wrapper = screen.getByRole("button").parentElement!;
+    fireEvent.mouseEnter(wrapper);
+    act(() => vi.advanceTimersByTime(100));
+    fireEvent.focus(wrapper);
+    act(() => vi.advanceTimersByTime(199));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+  });
 });
