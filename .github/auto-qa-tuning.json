@@ -63,9 +63,7 @@
     {
       "date": "2026-08-11",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1 → 1.03 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1 → 1.03 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
@@ -89,57 +87,43 @@
     {
       "date": "2026-08-27",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.03 → 1.06 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.03 → 1.06 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
       "date": "2026-08-28",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.06 → 1.09 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.06 → 1.09 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
       "date": "2026-08-31",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.09 → 1.105 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.09 → 1.105 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
       "date": "2026-09-01",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.105 → 1.106 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.105 → 1.106 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
       "date": "2026-09-03",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.106 → 1.136 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.106 → 1.136 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
       "date": "2026-09-04",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.136 → 1.166 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.136 → 1.166 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
       "date": "2026-09-05",
       "trigger": "threshold-auto-tuner",
-      "adjustments": [
-        "ci-fix: 1.166 → 1.17 (headroom)"
-      ],
+      "adjustments": ["ci-fix: 1.166 → 1.17 (headroom)"],
       "note": "Auto-tuned 1 sensor threshold(s) from verification results: ci-fix."
     },
     {
