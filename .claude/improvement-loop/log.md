@@ -1317,6 +1317,9 @@ Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Se
 
 ## 2026-09-06
 
+**queueEfficiency:** composite 0.948 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:15, size:s:9, size:l:1, size:m:6
+**Issues filed:** 0
 No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code Remote) — all queries below via `mcp__github__*` MCP tools instead of the skill's literal `gh` command list; `Closed`/time-to-close use `updated_at` as a proxy for `closedAt` since `list_issues` doesn't expose `closed_at`.
 
 ### Metrics
