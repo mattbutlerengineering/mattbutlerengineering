@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   extractJobNames,
   extractJobNeeds,
+  extractEvaluatedJobs,
   findUnreachableJobs,
   ADVISORY_JOBS,
 } from "../check-ci-gate-coverage.mjs";
@@ -23,6 +24,37 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 function makeCiYml(jobsYaml) {
   return `name: CI\n\non:\n  pull_request:\n\njobs:\n${jobsYaml}`;
+}
+
+/** Shell env-var name the real "Check required job results" step would use for `job`. */
+function envVarName(job) {
+  return job.toUpperCase().replace(/-/g, "_");
+}
+
+/**
+ * Builds a `ci-gate` job whose `needs:` list is `needsJobs` and whose
+ * "Check required job results" step only wires up `wiredJobs` (a subset of
+ * `needsJobs`) via an env entry AND a `for job_result in ...` loop entry —
+ * mirroring the real ci.yml step this check parses (#5050).
+ */
+function makeGateJob(needsJobs, wiredJobs = needsJobs) {
+  const needsBlock = `    needs:\n      [\n${needsJobs.map((j) => `        ${j},\n`).join("")}      ]\n`;
+  const envLines = wiredJobs
+    .map((j) => `          ${envVarName(j)}: \${{ needs.${j}.result }}\n`)
+    .join("");
+  const forLoopVars = wiredJobs.map((j) => `"$${envVarName(j)}"`).join(" ");
+  const step =
+    wiredJobs.length === 0
+      ? ""
+      : "    steps:\n" +
+        "      - name: Check required job results\n" +
+        "        env:\n" +
+        envLines +
+        "        run: |\n" +
+        `          for job_result in ${forLoopVars}; do\n` +
+        '            if [ "$job_result" = "failure" ]; then exit 1; fi\n' +
+        "          done\n";
+  return `  ci-gate:\n${needsBlock}${step}`;
 }
 
 describe("extractJobNames", () => {
@@ -69,19 +101,16 @@ describe("findUnreachableJobs", () => {
       [
         "  foo:\n    runs-on: ubuntu-latest\n",
         "  bar:\n    runs-on: ubuntu-latest\n",
-        "  ci-gate:\n    needs:\n      [\n        foo,\n      ]\n",
+        makeGateJob(["foo"]),
       ].join("")
     );
 
     expect(findUnreachableJobs(content, {})).toEqual(["bar"]);
   });
 
-  it("does not flag a job that is in ci-gate's needs", () => {
+  it("does not flag a job that is in ci-gate's needs and is evaluated by its result loop", () => {
     const content = makeCiYml(
-      [
-        "  foo:\n    runs-on: ubuntu-latest\n",
-        "  ci-gate:\n    needs:\n      [\n        foo,\n      ]\n",
-      ].join("")
+      ["  foo:\n    runs-on: ubuntu-latest\n", makeGateJob(["foo"])].join("")
     );
 
     expect(findUnreachableJobs(content, {})).toEqual([]);
@@ -92,7 +121,7 @@ describe("findUnreachableJobs", () => {
       [
         "  foo:\n    runs-on: ubuntu-latest\n",
         "  advisory-job:\n    runs-on: ubuntu-latest\n",
-        "  ci-gate:\n    needs:\n      [\n        foo,\n      ]\n",
+        makeGateJob(["foo"]),
       ].join("")
     );
 
@@ -105,6 +134,37 @@ describe("findUnreachableJobs", () => {
     const content = makeCiYml("  ci-gate:\n    needs:\n      [\n      ]\n");
 
     expect(findUnreachableJobs(content, {})).toEqual([]);
+  });
+
+  it(
+    "RED case (#5050): flags a job in ci-gate's needs whose result is never read by the " +
+      "'Check required job results' env block / for-loop — being in `needs:` alone is not enough " +
+      "because ci-gate runs with `if: always()`",
+    () => {
+      const content = makeCiYml(
+        [
+          "  detect-changes:\n    runs-on: ubuntu-latest\n",
+          "  foo-job:\n    runs-on: ubuntu-latest\n",
+          makeGateJob(["detect-changes", "foo-job"], ["detect-changes"]),
+        ].join("")
+      );
+
+      expect(findUnreachableJobs(content, {})).toEqual(["foo-job"]);
+    }
+  );
+});
+
+describe("extractEvaluatedJobs", () => {
+  it("returns only jobs with both an env entry and a for-loop read", () => {
+    const content = makeCiYml(
+      [
+        "  detect-changes:\n    runs-on: ubuntu-latest\n",
+        "  foo-job:\n    runs-on: ubuntu-latest\n",
+        makeGateJob(["detect-changes", "foo-job"], ["detect-changes"]),
+      ].join("")
+    );
+
+    expect(extractEvaluatedJobs(content)).toEqual(["detect-changes"]);
   });
 });
 

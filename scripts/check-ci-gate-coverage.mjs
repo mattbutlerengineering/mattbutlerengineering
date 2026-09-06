@@ -18,8 +18,18 @@
  * defined in ci.yml that `ci-gate` does not depend on fails this check, so
  * the next omission breaks a check instead of being invisible.
  *
+ * Being in `needs:` is not sufficient on its own (#5050): `ci-gate` runs
+ * with `if: always()`, so a job that's in `needs:` but whose `.result` is
+ * never read by the "Check required job results" step's env block / for-loop
+ * still lets the gate exit 0 on its failure — invisible in a different way
+ * than a job missing from `needs:` entirely, but just as unguarded. This
+ * check therefore also requires every non-advisory job in `needs:` to have
+ * a `VAR: ${{ needs.<job>.result }}` env entry on that step AND for `$VAR`
+ * to be read inside its `for job_result in ...` loop.
+ *
  * Usage: node scripts/check-ci-gate-coverage.mjs
- * Exit code: 0 if every non-advisory job is reachable from ci-gate's needs, 1 otherwise
+ * Exit code: 0 if every non-advisory job is reachable from ci-gate's needs
+ * AND evaluated by its result-check loop, 1 otherwise
  */
 
 import { readFileSync } from "node:fs";
@@ -92,17 +102,53 @@ export function extractJobNeeds(content, jobName) {
   return inlineMatch ? [inlineMatch[1]] : [];
 }
 
+/** Maps shell env-var names to job names via `VAR: ${{ needs.<job>.result }}` lines. */
+function extractEnvVarJobMap(jobBody) {
+  const map = new Map();
+  const pattern = /^\s*([A-Z_][A-Z0-9_]*):\s*\$\{\{\s*needs\.([\w-]+)\.result\s*\}\}\s*$/gm;
+  for (const m of jobBody.matchAll(pattern)) {
+    map.set(m[1], m[2]);
+  }
+  return map;
+}
+
+/** Shell env-var names referenced inside a `for job_result in "$A" "$B" ...; do` loop. */
+function extractForLoopVarNames(jobBody) {
+  const match = jobBody.match(/for\s+\w+\s+in\s+((?:"\$[A-Z_][A-Z0-9_]*"\s*)+);\s*do/);
+  if (!match) return [];
+  return [...match[1].matchAll(/\$([A-Z_][A-Z0-9_]*)/g)].map((m) => m[1]);
+}
+
+/**
+ * Job names in `ci-gate`'s `needs:` whose `.result` is both exposed via an
+ * env var on the "Check required job results" step AND read inside that
+ * step's `for job_result in ...` loop — i.e. actually capable of failing
+ * the gate, not merely listed in `needs:` (#5050).
+ */
+export function extractEvaluatedJobs(content) {
+  const gateBody = extractJobBody(content, GATE_JOB_NAME);
+  const envVarToJob = extractEnvVarJobMap(gateBody);
+  const loopVarNames = extractForLoopVarNames(gateBody);
+
+  return loopVarNames.map((varName) => envVarToJob.get(varName)).filter(Boolean);
+}
+
 /**
  * Pure check: returns job names defined in ci.yml that are neither `ci-gate`
- * itself, in its `needs:` list, nor in the advisory allowlist.
+ * itself nor in the advisory allowlist, and that either are missing from its
+ * `needs:` list or are present there but never evaluated by its result-check
+ * loop (#5050).
  */
 export function findUnreachableJobs(content, advisoryJobs = ADVISORY_JOBS) {
   const jobNames = extractJobNames(content);
   const gateNeeds = new Set(extractJobNeeds(content, GATE_JOB_NAME));
+  const evaluatedJobs = new Set(extractEvaluatedJobs(content));
 
-  return jobNames.filter(
-    (job) => job !== GATE_JOB_NAME && !gateNeeds.has(job) && !(job in advisoryJobs)
-  );
+  return jobNames.filter((job) => {
+    if (job === GATE_JOB_NAME || job in advisoryJobs) return false;
+    if (!gateNeeds.has(job)) return true;
+    return !evaluatedJobs.has(job);
+  });
 }
 
 const isMain = process.argv[1] && process.argv[1].endsWith("check-ci-gate-coverage.mjs");
@@ -110,18 +156,25 @@ const isMain = process.argv[1] && process.argv[1].endsWith("check-ci-gate-covera
 if (isMain) {
   const content = readFileSync(CI_WORKFLOW_PATH, "utf-8");
   const findings = findUnreachableJobs(content);
+  const gateNeeds = new Set(extractJobNeeds(content, GATE_JOB_NAME));
 
   const exitCode = runCheck({
     name: "CI Gate coverage",
     findings,
     formatFinding: (job) =>
-      `${job}: defined in ci.yml but not in ci-gate's \`needs:\` list, and not in ` +
-      "ADVISORY_JOBS (scripts/check-ci-gate-coverage.mjs)",
-    passMessage: "PASS: Every non-advisory job in ci.yml is reachable from ci-gate's needs.",
+      gateNeeds.has(job)
+        ? `${job}: in ci-gate's \`needs:\` list but its result is never read by the "Check ` +
+          'required job results" env block / for-loop (scripts/check-ci-gate-coverage.mjs)'
+        : `${job}: defined in ci.yml but not in ci-gate's \`needs:\` list, and not in ` +
+          "ADVISORY_JOBS (scripts/check-ci-gate-coverage.mjs)",
+    passMessage:
+      "PASS: Every non-advisory job in ci.yml is reachable from ci-gate's needs and " +
+      "evaluated by its result-check loop.",
     failMessage:
       "FAIL: Some ci.yml jobs can go red without blocking a PR merge. `CI Gate` is the only\n" +
       "required status check on main (.claude/rules/gotchas.md § CI) — add the job to\n" +
-      "ci-gate's `needs:` list, or to ADVISORY_JOBS with a one-line reason if it is\n" +
+      'ci-gate\'s `needs:` list AND wire its result into the "Check required job results"\n' +
+      "env block / for-loop, or add it to ADVISORY_JOBS with a one-line reason if it is\n" +
       "deliberately not a merge gate.",
   });
   process.exit(exitCode);
