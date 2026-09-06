@@ -5,11 +5,11 @@
  * parsing. Manifest output components must be byte-identical to what the old
  * generator produced.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { introspectComponents } from "./component-metadata.js";
+import { introspectComponents, type ComponentMetadata } from "./component-metadata.js";
 import { buildManifest } from "./generate-manifest.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,8 +17,20 @@ const __dirname = path.dirname(__filename);
 const RIALTO_ROOT = path.resolve(__dirname, "..");
 
 describe("buildManifest", () => {
+  // introspectComponents() runs a full TS Compiler API program+typecheck —
+  // expensive enough that calling it fresh per-test (as this file used to,
+  // 9 times) multiplies that cost by 9x and, under CI's real turbo-parallel
+  // contention, pushed individual tests past vitest's 15s timeout
+  // (nightly-compliance #4701/#4780/#4877/#4947/#4997/#5052). One parse
+  // shared by all tests below, same pattern already used correctly in
+  // all-artifacts.drift.test.ts.
+  let components: ComponentMetadata[];
+
+  beforeAll(() => {
+    components = introspectComponents(RIALTO_ROOT);
+  });
+
   it("accepts ComponentMetadata[] and returns a Manifest with matching component count", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const pkg = JSON.parse(fs.readFileSync(path.join(RIALTO_ROOT, "package.json"), "utf-8")) as {
       version: string;
     };
@@ -31,7 +43,6 @@ describe("buildManifest", () => {
   });
 
   it("omits characterLimits when empty (byte-identity rule)", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     // AccordionItem has no character limits — must not appear in output
@@ -41,7 +52,6 @@ describe("buildManifest", () => {
   });
 
   it("includes characterLimits when non-empty", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     const button = manifest.components.find((c) => c.name === "Button");
@@ -50,7 +60,6 @@ describe("buildManifest", () => {
   });
 
   it("props contain only manifest fields (no resolvedType or declaredInRialto)", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     const button = manifest.components.find((c) => c.name === "Button");
@@ -63,7 +72,6 @@ describe("buildManifest", () => {
   });
 
   it("components are in byte-order (not localeCompare)", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     const names = manifest.components.map((c) => c.name);
@@ -72,7 +80,6 @@ describe("buildManifest", () => {
   });
 
   it("manifest has no importPath per component (manifest-specific format)", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     for (const comp of manifest.components) {
@@ -81,7 +88,6 @@ describe("buildManifest", () => {
   });
 
   it("filters out HTML-inherited props, keeping only props declared in rialto source", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     // Chalkboard extends HTMLAttributes<HTMLElement>; the inherited HTML
@@ -97,7 +103,6 @@ describe("buildManifest", () => {
   });
 
   it("keeps legitimately declared aria-* props (IconButton aria-label)", () => {
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     const iconButton = manifest.components.find((c) => c.name === "IconButton");
@@ -111,7 +116,6 @@ describe("buildManifest", () => {
     // src/components, these three genuine public props were misclassified as
     // HTMLAttributes bleed-through and dropped, leaving props: []. The boundary
     // is the whole src root, so provider-authored props must survive.
-    const components = introspectComponents(RIALTO_ROOT);
     const manifest = buildManifest(components, "0.0.0", "2026-01-01T00:00:00.000Z");
 
     const provider = manifest.components.find((c) => c.name === "RialtoProvider");
