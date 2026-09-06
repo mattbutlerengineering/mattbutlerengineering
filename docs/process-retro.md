@@ -266,17 +266,17 @@ trend claim is made from any of them here.
    is provably recurring (four instances), and it currently taxes every artifact
    this factory produces _about_ its own operations — retros, doc-rot sweeps,
    audit summaries — with the heaviest human gate in the repo. Fixing it converts
-   a guaranteed multi-day human wait into an auto-merge. Filed.
+   a guaranteed multi-day human wait into an auto-merge. Filed as **#5082**.
 
 2. **Make `lastHumanTouchAt()` an allowlist instead of a denylist.** The stale
    detector is the only machinery whose whole purpose is surfacing human
    blockers, and it under-reports by construction in a repo that merges ~27
    automation PRs a day. It missed a 59-day-old issue by a factor of ten. The fix
-   is one line in a pure, already-unit-tested function. Filed.
+   is one line in a pure, already-unit-tested function. Filed as **#5083**.
 
 3. **Give `nightly-compliance` a dedupe key.** Seven issues, seven nights, one
    root cause behind five of them. Low effort, removes a recurring daily triage
-   tax, and the pattern is already proven elsewhere in the repo. Filed.
+   tax, and the pattern is already proven elsewhere in the repo. Filed as **#5084**.
 
 Deliberately not in this list: the phantom-run noise (cause 1 above — real, but
 the fix is a design question, not a task) and the sensor-denominator class
