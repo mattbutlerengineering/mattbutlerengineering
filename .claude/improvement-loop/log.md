@@ -1314,3 +1314,9 @@ Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd 
 ### Recommendation carried forward
 
 Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Search-API-backed queries (`issues`, `issueFeedback`, `collect-ai-issue-feedback.mjs`) on every cloud-scheduled sensor run since 2026-08-11, while plain list/comment/reopen calls succeed. Not re-filing — already the standing tracked recommendation; `mcp__github__*` MCP tools remain the working alternative for anything needing Search-API-shaped queries.
+
+## 2026-09-06
+
+**queueEfficiency:** composite 0.948 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:15, size:s:9, size:l:1, size:m:6
+**Issues filed:** 0
