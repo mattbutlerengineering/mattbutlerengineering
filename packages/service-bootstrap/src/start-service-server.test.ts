@@ -36,19 +36,24 @@ describe("startServiceServer", () => {
   let originalProcessOn: typeof process.on;
   let originalProcessExit: typeof process.exit;
   const sigTermHandlers: Array<() => void> = [];
+  const sigIntHandlers: Array<() => void> = [];
 
   beforeEach(() => {
     vi.clearAllMocks();
     sigTermHandlers.length = 0;
+    sigIntHandlers.length = 0;
 
     originalProcessOn = process.on.bind(process);
     originalProcessExit = process.exit.bind(process);
 
-    // Capture SIGTERM handlers instead of registering them
+    // Capture SIGTERM/SIGINT handlers instead of registering them
     vi.spyOn(process, "on").mockImplementation(
       (event: string | symbol, handler: (...args: unknown[]) => void) => {
         if (event === "SIGTERM") {
           sigTermHandlers.push(handler as () => void);
+        }
+        if (event === "SIGINT") {
+          sigIntHandlers.push(handler as () => void);
         }
         return process;
       }
@@ -170,11 +175,21 @@ describe("startServiceServer", () => {
     expect(sigTermHandlers.length).toBeGreaterThan(0);
   });
 
-  it("SIGTERM handler calls sdk.shutdown() and fastify.close()", async () => {
-    const mockSdk = { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) };
+  it("SIGTERM handler calls fastify.close() before sdk.shutdown()", async () => {
+    const callOrder: string[] = [];
+    const mockSdk = {
+      start: vi.fn(),
+      shutdown: vi.fn().mockImplementation(async () => {
+        callOrder.push("sdk.shutdown");
+      }),
+    };
     vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
 
     const mockFastify = makeMockFastify();
+    vi.mocked(mockFastify.close).mockImplementation(async () => {
+      callOrder.push("fastify.close");
+    });
+
     await startServiceServer({
       serviceName: "test-api",
       port: 9000,
@@ -186,9 +201,10 @@ describe("startServiceServer", () => {
 
     expect(mockSdk.shutdown).toHaveBeenCalledTimes(1);
     expect(mockFastify.close).toHaveBeenCalledTimes(1);
+    expect(callOrder).toEqual(["fastify.close", "sdk.shutdown"]);
   });
 
-  it("SIGTERM handler calls optional beforeShutdown before sdk.shutdown()", async () => {
+  it("SIGTERM handler calls optional beforeShutdown before fastify.close() and sdk.shutdown()", async () => {
     const callOrder: string[] = [];
     const mockSdk = {
       start: vi.fn(),
@@ -203,6 +219,10 @@ describe("startServiceServer", () => {
     });
 
     const mockFastify = makeMockFastify();
+    vi.mocked(mockFastify.close).mockImplementation(async () => {
+      callOrder.push("fastify.close");
+    });
+
     await startServiceServer({
       serviceName: "test-api",
       port: 9000,
@@ -213,7 +233,131 @@ describe("startServiceServer", () => {
     await Promise.all(sigTermHandlers.map((h) => h()));
 
     expect(beforeShutdown).toHaveBeenCalledTimes(1);
-    expect(callOrder).toEqual(["beforeShutdown", "sdk.shutdown"]);
+    expect(callOrder).toEqual(["beforeShutdown", "fastify.close", "sdk.shutdown"]);
+  });
+
+  it("exits 0 after a clean shutdown", async () => {
+    const mockFastify = makeMockFastify();
+    await startServiceServer({
+      serviceName: "test-api",
+      port: 9000,
+      buildApp: vi.fn().mockResolvedValue(mockFastify),
+    });
+
+    await Promise.all(sigTermHandlers.map((h) => h()));
+    // Allow the shutdown promise chain's .then() to run.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(process.exit).toHaveBeenCalledWith(0);
+  });
+
+  it("registers a SIGINT handler and it behaves the same as SIGTERM", async () => {
+    const callOrder: string[] = [];
+    const mockSdk = {
+      start: vi.fn(),
+      shutdown: vi.fn().mockImplementation(async () => {
+        callOrder.push("sdk.shutdown");
+      }),
+    };
+    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+
+    const mockFastify = makeMockFastify();
+    vi.mocked(mockFastify.close).mockImplementation(async () => {
+      callOrder.push("fastify.close");
+    });
+
+    await startServiceServer({
+      serviceName: "test-api",
+      port: 9000,
+      buildApp: vi.fn().mockResolvedValue(mockFastify),
+    });
+
+    expect(sigIntHandlers.length).toBeGreaterThan(0);
+
+    await Promise.all(sigIntHandlers.map((h) => h()));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(callOrder).toEqual(["fastify.close", "sdk.shutdown"]);
+    expect(process.exit).toHaveBeenCalledWith(0);
+  });
+
+  it("a rejecting sdk.shutdown() still exits with a non-zero code instead of hanging", async () => {
+    const mockSdk = {
+      start: vi.fn(),
+      shutdown: vi.fn().mockRejectedValue(new Error("otlp exporter unreachable")),
+    };
+    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+
+    const mockFastify = makeMockFastify();
+    await startServiceServer({
+      serviceName: "test-api",
+      port: 9000,
+      buildApp: vi.fn().mockResolvedValue(mockFastify),
+    });
+
+    await Promise.all(sigTermHandlers.map((h) => h()));
+    // Allow the rejection to propagate through the shutdown promise chain.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(process.exit).toHaveBeenCalledWith(1);
+    expect(process.exit).not.toHaveBeenCalledWith(0);
+    expect(mockFastify.log.error).toHaveBeenCalled();
+  });
+
+  it("a second signal while shutdown is in flight is a no-op", async () => {
+    const mockSdk = { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) };
+    vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+
+    const mockFastify = makeMockFastify();
+    await startServiceServer({
+      serviceName: "test-api",
+      port: 9000,
+      buildApp: vi.fn().mockResolvedValue(mockFastify),
+    });
+
+    // First SIGTERM, then SIGINT, both before the first shutdown resolves.
+    sigTermHandlers.forEach((h) => h());
+    sigIntHandlers.forEach((h) => h());
+    // And a second SIGTERM for good measure.
+    sigTermHandlers.forEach((h) => h());
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockFastify.close).toHaveBeenCalledTimes(1);
+    expect(mockSdk.shutdown).toHaveBeenCalledTimes(1);
+  });
+
+  it("force-exits with a non-zero code if shutdown overruns the hard timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const mockSdk = {
+        start: vi.fn(),
+        // Never resolves — simulates a hung sdk.shutdown().
+        shutdown: vi.fn().mockImplementation(() => new Promise(() => {})),
+      };
+      vi.mocked(initTelemetry).mockReturnValueOnce(mockSdk);
+
+      const mockFastify = makeMockFastify();
+      await startServiceServer({
+        serviceName: "test-api",
+        port: 9000,
+        buildApp: vi.fn().mockResolvedValue(mockFastify),
+      });
+
+      sigTermHandlers.forEach((h) => h());
+
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      expect(process.exit).toHaveBeenCalledWith(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("skips beforeShutdown when not provided", async () => {

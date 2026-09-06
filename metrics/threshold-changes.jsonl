@@ -6,3 +6,6 @@
 {"timestamp":"2026-08-30T00:00:00.000Z","criterion":"ci-fix","old_value":1.09,"new_value":1.12,"trigger":"headroom"}
 {"timestamp":"2026-08-31T00:00:00.000Z","criterion":"ci-fix","old_value":1.09,"new_value":1.105,"trigger":"headroom"}
 {"timestamp":"2026-09-01T00:00:00.000Z","criterion":"ci-fix","old_value":1.105,"new_value":1.106,"trigger":"headroom"}
+{"timestamp":"2026-09-03T00:00:00.000Z","criterion":"ci-fix","old_value":1.106,"new_value":1.136,"trigger":"headroom"}
+{"timestamp":"2026-09-04T00:00:00.000Z","criterion":"ci-fix","old_value":1.136,"new_value":1.166,"trigger":"headroom"}
+{"timestamp":"2026-09-05T00:00:00.000Z","criterion":"ci-fix","old_value":1.166,"new_value":1.17,"trigger":"headroom"}

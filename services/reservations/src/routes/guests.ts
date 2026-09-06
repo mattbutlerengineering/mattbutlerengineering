@@ -25,19 +25,17 @@ import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth
 import { guestService } from "../services/guest.js";
 import { venueService } from "../services/venue.js";
 import { sendWinBack } from "../services/win-back.js";
-import { venueIdFromQuery, venueIdFromBody } from "./venue-access.js";
+import { venueIdFromQuery, venueIdFromBody, venueIdFromEntity } from "./venue-access.js";
 
 /**
  * Resolves the owning venue of a guest addressed by `:id`, so requireVenueAccess
  * can scope by-id operations to the guest's venue. Returns null when the guest
  * does not exist (→ 403, never leaking existence to non-members).
  */
-const resolveGuestVenueId: VenueIdResolver = async (request) => {
-  const params = request.params as { id?: unknown };
-  if (typeof params.id !== "string") return null;
-  const guest = await guestService.getById(params.id);
-  return guest?.venueId ?? null;
-};
+const resolveGuestVenueId: VenueIdResolver = venueIdFromEntity(
+  (request) => (request.params as { id?: unknown }).id,
+  guestService.getById
+);
 
 export const guestRoutes: FastifyPluginAsync = async (fastify) => {
   // List guests for a venue

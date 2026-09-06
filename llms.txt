@@ -5632,6 +5632,19 @@
       }
     </item>
   </file>
+  <file path="packages/observability/src/otel-config.ts">
+    <item priority="low">
+      type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    </item>
+    <item priority="low">
+      interface TelemetryPlan {
+        mode: TelemetryMode;
+        exportTraces: boolean;
+        exportMetrics: boolean;
+        reason: string;
+      }
+    </item>
+  </file>
   <file path="packages/observability/src/rate-limit-monitor.ts">
     <item priority="low">
       interface RateLimitHit {
@@ -5873,8 +5886,8 @@
         beforeShutdown?: () => void | Promise<void>;
       }
     </item>
-    <item priority="high">
-      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    <item priority="medium">
+      function delayReject(ms: number, message: string): Promise<never> { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">

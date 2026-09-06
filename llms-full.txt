@@ -8102,12 +8102,38 @@
             body: updateTablePositionsBodyJsonSchema,
           },
         },
-        async (request) => {
-          const tables = await floorPlanService.bulkUpdateTablePositions(
-            request.body.floorPlanId,
-            request.body.positions
+        async (request, reply) => {
+          const { floorPlanId, positions } = request.body;
+    
+          const floorPlan = await floorPlanService.getById(floorPlanId);
+          if (!floorPlan) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+          }
+    
+          // Auth above is scoped to the body's floorPlanId, but the write below
+          // mutates each positions[].tableId directly with no venue awareness of
+          // its own — a caller who owns floorPlanId could otherwise re-point a
+          // table belonging to a DIFFERENT venue onto it. Same bug class as
+          // #5008's /assign fix; checked here (not in the DB layer) so a
+          // cross-venue table is rejected before any write is attempted.
+          const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
+          const crossVenueTable = tables.find(
+            (table) => table !== null && table.venueId !== floorPlan.venueId
           );
-          return { data: tables };
+          if (crossVenueTable) {
+            return reply
+              .code(403)
+              .send(
+                createProblemDetails(
+                  403,
+                  titleForStatus(403),
+                  "One or more tables do not belong to the floor plan's venue"
+                )
+              );
+          }
+    
+          const updatedTables = await floorPlanService.bulkUpdateTablePositions(floorPlanId, positions);
+          return { data: updatedTables };
         }
       );
     
@@ -8121,7 +8147,12 @@
         {
           preHandler: [
             requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+            // Pinned to the *table* being mutated (:tableId), not the floor plan
+            // named in the body — see issue #5008. The body's floorPlanId can
+            // legitimately belong to the caller's own venue while :tableId
+            // belongs to someone else's; authorizing on the body let a caller
+            // re-point another venue's table onto their own floor plan.
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
           ],
           schema: {
             summary: "Assign table to floor plan",
@@ -9212,7 +9243,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string };
-        Reply: ApiResponse<GuestRecognition>;
+        Reply: ApiResponse<GuestRecognition> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/guests/recognize",
         {
@@ -9245,19 +9276,17 @@
           const { email } = request.query;
     
           if (!email) {
-            return reply.status(400).send({
-              success: false,
-              error: "email query parameter is required",
-            } as never);
+            return reply
+              .status(400)
+              .send(createProblemDetails(400, "Bad Request", "email query parameter is required"));
           }
     
           const venue = await venueService.getBySlug(slug);
     
           if (!venue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           const recognition = await recognizeGuest(venue.id, email);
@@ -9274,7 +9303,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string; phone?: string };
-        Reply: ApiResponse<GuestRiskResult>;
+        Reply: ApiResponse<GuestRiskResult> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/guest-risk",
         {
@@ -9305,18 +9334,18 @@
           const { email, phone } = request.query;
     
           if (!email && !phone) {
-            return reply.status(400).send({
-              success: false,
-              error: "email or phone query parameter is required",
-            } as never);
+            return reply
+              .status(400)
+              .send(
+                createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
+              );
           }
     
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           const guest = email
@@ -9553,7 +9582,7 @@
     
       fastify.get<{
         Params: { slug: string };
-        Reply: ApiResponse<PublicVenueConfig>;
+        Reply: ApiResponse<PublicVenueConfig> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug",
         {
@@ -9580,10 +9609,9 @@
           const publicVenue = await venueService.getPublicConfigBySlug(slug);
     
           if (!publicVenue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           return reply.send({ data: publicVenue });
@@ -10356,12 +10384,10 @@
        * to that venue. Null when the table does not exist or is unassigned (→ 403 for
        * non-admins; platform admins bypass the check).
        */
-      const resolveTableVenueId: VenueIdResolver = async (request) => {
-        const params = request.params as { id?: unknown };
-        if (typeof params.id !== "string") return null;
-        const table = await tableService.getById(params.id);
-        return table?.venueId ?? null;
-      };
+      const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
+        (request) => (request.params as { id?: unknown }).id,
+        tableService.getById
+      );
     
       // List tables
       fastify.get<{
@@ -17059,6 +17085,16 @@
       readonly rate: number;
     }
   </file>
+  <file path="packages/observability/src/otel-config.ts">
+    export type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    export interface TelemetryPlan {
+      readonly mode: TelemetryMode;
+      readonly exportTraces: boolean;
+      readonly exportMetrics: boolean;
+      /** One log-safe line naming which KEY decided the mode. Never a value. */
+      readonly reason: string;
+    }
+  </file>
   <file path="packages/observability/src/rate-limit-monitor.ts">
     export interface RateLimitHit {
       readonly ip: string;
@@ -17784,35 +17820,11 @@
       buildApp: () => Promise<FastifyInstance>;
       beforeShutdown?: () => void | Promise<void>;
     }
-    export async function startServiceServer(options: StartServiceServerOptions): Promise<void> {
-      const { initTelemetry } = await import("@mbe/observability");
-      const { initSentry } = await import("@mbe/sentry/node");
-    
-      const sdk = initTelemetry({ serviceName: options.serviceName });
-      sdk.start();
-      initSentry({ serviceName: options.serviceName });
-    
-      const host = process.env.HOST ?? "0.0.0.0";
-    
-      try {
-        const fastify = await options.buildApp();
-        await fastify.listen({ port: options.port, host });
-        fastify.log.info(`Server running at http://${host}:${options.port}`);
-        fastify.log.info(`API docs at http://${host}:${options.port}/docs`);
-    
-        const shutdown = async () => {
-          await options.beforeShutdown?.();
-          await sdk.shutdown();
-          await fastify.close();
-        };
-    
-        process.on("SIGTERM", () => {
-          shutdown().then(() => process.exit(0));
-        });
-      } catch (err) {
-        console.error(err);
-        process.exit(1);
-      }
+    function delayReject(ms: number, message: string): Promise<never> {
+      return new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error(message)), ms);
+        timer.unref?.();
+      });
     }
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiClient, ApiValidationError } from "./client.js";
+import { ApiClient, ApiClientError, ApiValidationError } from "./client.js";
 import { PublicVenueClient } from "./public-venue.js";
 
 const mockFetch = vi.fn<typeof fetch>();
@@ -63,6 +63,29 @@ describe("PublicVenueClient.guestRisk", () => {
       makeClient().guestRisk("missing", { email: "guest@example.com" })
     ).rejects.toThrow();
   });
+
+  it("surfaces the real RFC 7807 detail message on a 404, not a synthesized generic one", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          type: "about:blank",
+          title: "Not Found",
+          status: 404,
+          detail: "No venue found with slug 'missing'.",
+        },
+        404
+      )
+    );
+
+    const error = await makeClient()
+      .guestRisk("missing", { email: "guest@example.com" })
+      .catch((err: unknown) => err as ApiClientError);
+
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect((error as ApiClientError).problemDetails.detail).toBe(
+      "No venue found with slug 'missing'."
+    );
+  });
 });
 
 describe("PublicVenueClient.recognizeGuest", () => {
@@ -109,6 +132,29 @@ describe("PublicVenueClient.recognizeGuest", () => {
     );
 
     await expect(makeClient().recognizeGuest("missing", "jane@example.com")).rejects.toThrow();
+  });
+
+  it("surfaces the real RFC 7807 detail message on a 404, not a synthesized generic one", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          type: "about:blank",
+          title: "Not Found",
+          status: 404,
+          detail: "No venue found with slug 'missing'.",
+        },
+        404
+      )
+    );
+
+    const error = await makeClient()
+      .recognizeGuest("missing", "jane@example.com")
+      .catch((err: unknown) => err as ApiClientError);
+
+    expect(error).toBeInstanceOf(ApiClientError);
+    expect((error as ApiClientError).problemDetails.detail).toBe(
+      "No venue found with slug 'missing'."
+    );
   });
 });
 

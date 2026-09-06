@@ -319,6 +319,41 @@ jobs:
       - name: Run Full Repository Audit
         run: pnpm repo-audit
 
+      - name: Run pnpm audit (network-resilient)
+        # #4993: `pnpm audit --audit-level=high` lives in its own step, not
+        # inside `repo-audit`'s chain, specifically so this outer retry loop
+        # wraps ONLY the network-dependent registry call — never masking a
+        # real repo-audit failure (lint/circular-deps/schema-compat/etc.)
+        # behind a retry.
+        #
+        # pnpm's own built-in retry (2 attempts: 10s, then 1min backoff)
+        # wasn't enough headroom for `ERR_SOCKET_TIMEOUT` against
+        # registry.npmjs.org/-/npm/v1/security/audits — four separate Build
+        # job runs hit the identical signature in one night, and it recurred
+        # on PR #4967, while every other CI job passed on the same commits.
+        # This adds a second, outer retry layer on top of pnpm's own.
+        #
+        # Only retry a TRANSIENT failure (classified by the pure, unit-tested
+        # isTransientAuditError() in scripts/audit-transient-error.mjs, the
+        # same pattern as the CI Gate commit-status publish step below) — a
+        # real high-severity advisory must still fail the job on the first
+        # attempt, never get masked by a retry. See the § Dependencies
+        # gotcha in .claude/rules/gotchas.md for that failure mode.
+        run: |
+          for i in 1 2 3; do
+            OUTPUT=$(pnpm run audit:security 2>&1) && { echo "$OUTPUT"; exit 0; }
+            echo "$OUTPUT"
+            if printf '%s' "$OUTPUT" | node scripts/audit-transient-error.mjs; then
+              echo "pnpm audit attempt $i failed with a transient network error, retrying in 30s..."
+              sleep 30
+            else
+              echo "::error::pnpm audit failed with a non-transient result (likely a real high-severity advisory)"
+              exit 1
+            fi
+          done
+          echo "::error::pnpm audit failed after 3 attempts, all classified transient — registry may be down"
+          exit 1
+
       - name: Verify generated artifacts are in sync
         # Single manifest-driven staleness check (scripts/regen-manifest.mjs is
         # the source of truth), replacing five separate regenerate+git-diff
@@ -794,6 +829,7 @@ jobs:
         integrity,
         ai-antipattern-ratchet,
         visual-tolerance-check,
+        a11y-attribution,
       ]
     runs-on: ubuntu-latest
     permissions:
@@ -832,16 +868,19 @@ jobs:
           INTEGRITY: ${{ needs.integrity.result }}
           ANTIPATTERNS: ${{ needs.ai-antipattern-ratchet.result }}
           VISUAL_TOLERANCE: ${{ needs.visual-tolerance-check.result }}
+          A11Y_ATTRIBUTION: ${{ needs.a11y-attribution.result }}
         run: |
-          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE"
+          echo "detect-changes=$DETECT_CHANGES prepare=$PREPARE lint=$LINT typecheck=$TYPECHECK arch=$ARCH build=$BUILD test=$TEST hadolint=$HADOLINT trivy=$TRIVY migrations=$MIGRATIONS dry-run=$DRY_RUN deps=$DEPS integrity=$INTEGRITY antipatterns=$ANTIPATTERNS visual-tolerance-check=$VISUAL_TOLERANCE a11y-attribution=$A11Y_ATTRIBUTION"
           # NOTE: "skipped" is intentionally allowed (path-filtered jobs, e.g. docs-only
-          # PRs where detect-changes sets has_code=false and prepare legitimately skips).
-          # Only "failure"/"cancelled" trip the gate. detect-changes and prepare are
-          # included here because they are the root of the dependency chain: if prepare
-          # actually FAILS (not skips), every job that needs it cascades to "skipped" by
-          # GitHub Actions' default behavior, which would otherwise look identical to a
-          # legitimate path-filtered skip and let the gate pass on a broken setup.
-          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE"; do
+          # PRs where detect-changes sets has_code=false and prepare legitimately skips,
+          # and a11y-attribution which only runs on agent-* / worktree-agent-* branches
+          # per its own `if:` condition). Only "failure"/"cancelled" trip the gate.
+          # detect-changes and prepare are included here because they are the root of
+          # the dependency chain: if prepare actually FAILS (not skips), every job that
+          # needs it cascades to "skipped" by GitHub Actions' default behavior, which
+          # would otherwise look identical to a legitimate path-filtered skip and let
+          # the gate pass on a broken setup.
+          for job_result in "$DETECT_CHANGES" "$PREPARE" "$LINT" "$TYPECHECK" "$ARCH" "$BUILD" "$TEST" "$HADOLINT" "$TRIVY" "$MIGRATIONS" "$DRY_RUN" "$DEPS" "$INTEGRITY" "$ANTIPATTERNS" "$VISUAL_TOLERANCE" "$A11Y_ATTRIBUTION"; do
             if [ "$job_result" = "failure" ] || [ "$job_result" = "cancelled" ]; then
               echo "::error::Required job failed or was cancelled"
               exit 1

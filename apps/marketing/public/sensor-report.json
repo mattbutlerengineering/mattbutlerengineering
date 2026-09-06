@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-03T01:01:36.877Z",
+  "generated_at": "2026-09-05T18:10:59.946Z",
   "period": {
-    "start": "2026-08-27",
-    "end": "2026-09-03"
+    "start": "2026-08-29",
+    "end": "2026-09-05"
   },
   "sensors": {
     "acmm": {
@@ -53,27 +53,22 @@
       "total_closed_without_merge": 1,
       "by_category": {
         "tier:trivial": {
-          "merged": 33,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:critical": {
-          "merged": 12,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:standard": {
-          "merged": 31,
+          "merged": 52,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 15,
+          "merged": 13,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "docs": {
-          "merged": 1,
+        "tier:critical": {
+          "merged": 13,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:standard": {
+          "merged": 14,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -82,7 +77,7 @@
           "closed_without_merge": 1,
           "acceptance_rate": 0
         },
-        "dependencies": {
+        "docs": {
           "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
@@ -97,42 +92,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 29836041,
-      "output_tokens": 77225,
-      "cache_creation_tokens": 933654,
-      "cache_hit_rate": 0.9696,
+      "cache_read_tokens": 1821657,
+      "output_tokens": 3571,
+      "cache_creation_tokens": 73353,
+      "cache_hit_rate": 0.9613,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 280,
-          "output_tokens": 75530,
-          "cache_read_tokens": 26636575,
-          "cache_creation_tokens": 756834
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 330,
-          "output_tokens": 1695,
-          "cache_read_tokens": 3199466,
-          "cache_creation_tokens": 176820
+          "input_tokens": 32,
+          "output_tokens": 3571,
+          "cache_read_tokens": 1821657,
+          "cache_creation_tokens": 73353
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 23,
+      "completed": 30,
+      "passed": 27,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 33701950561,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-09-03T01:01:30Z",
-        "name": "Push on main",
+        "databaseId": 32892134154,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-08-25T19:53:21Z",
+        "name": "Automation PR Rescue",
         "headBranch": "main",
-        "headSha": "85f128d2ddce085ea48cf807531e5259b7ebc57d"
+        "headSha": "c0cc6b3f99af1b5fbee000d07a72a200e47d3b45"
       }
     },
     "lighthouse": {
@@ -145,22 +133,22 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-02T18:10:39.850Z",
+      "collected_at": "2026-09-04T18:10:12.968Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 4,
-      "logs_7d": 4,
-      "total_commits_7d": 57,
-      "unique_branches_7d": 2,
-      "branches_7d": ["main", "metrics/progress-tracker-2026-09-03"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 560092,
-      "lines_churned_7d": 307,
+      "total_lines_added_7d": 565481,
+      "lines_churned_7d": 404,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -174,36 +162,41 @@
     "e2eStability": {
       "available": true,
       "consecutive_failures": 0,
-      "total_runs": 28,
-      "total_non_frontend_runs": 28,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (28 runs checked)"
+      "total_runs": 13,
+      "total_non_frontend_runs": 13,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (13 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.957,
+      "composite": 0.927,
       "sub_metrics": {
-        "issues_merged": 28,
-        "first_pass_success_rate": 0.893,
-        "median_time_to_merge_hours": 0.3,
+        "issues_merged": 22,
+        "first_pass_success_rate": 0.818,
+        "median_time_to_merge_hours": 0.4,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.714
+        "review_coverage": 0.857
       },
       "distribution": {
-        "size:xs": {
-          "count": 14,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 1
+        "size:m": {
+          "count": 5,
+          "avg_commits": 2,
+          "avg_ttm_hours": 4.4
         },
         "size:s": {
-          "count": 12,
+          "count": 6,
           "avg_commits": 1.8,
-          "avg_ttm_hours": 1.1
+          "avg_ttm_hours": 0.5
+        },
+        "size:xs": {
+          "count": 10,
+          "avg_commits": 1.3,
+          "avg_ttm_hours": 3.9
         },
         "size:l": {
-          "count": 2,
-          "avg_commits": 2.5,
-          "avg_ttm_hours": 5.3
+          "count": 1,
+          "avg_commits": 1,
+          "avg_ttm_hours": 0.3
         }
       },
       "baseline": null,

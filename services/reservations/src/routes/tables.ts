@@ -17,7 +17,7 @@ import {
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
-import { venueIdFromBody, venueIdFromQuery } from "./venue-access.js";
+import { venueIdFromBody, venueIdFromQuery, venueIdFromEntity } from "./venue-access.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve domain services from the buildApp seam (issue #3357) rather than
@@ -30,12 +30,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
    * to that venue. Null when the table does not exist or is unassigned (→ 403 for
    * non-admins; platform admins bypass the check).
    */
-  const resolveTableVenueId: VenueIdResolver = async (request) => {
-    const params = request.params as { id?: unknown };
-    if (typeof params.id !== "string") return null;
-    const table = await tableService.getById(params.id);
-    return table?.venueId ?? null;
-  };
+  const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
+    (request) => (request.params as { id?: unknown }).id,
+    tableService.getById
+  );
 
   // List tables
   fastify.get<{

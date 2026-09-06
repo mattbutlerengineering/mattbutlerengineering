@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T01:24:56.400Z",
+  "generatedAt": "2026-09-06T01:30:11.435Z",
   "patterns": {
     "magicTimeouts": {
       "count": 29,
@@ -14,7 +14,7 @@
       "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
     },
     "hardcodedRoutes": {
-      "count": 649,
+      "count": 651,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {

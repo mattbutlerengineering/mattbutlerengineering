@@ -1229,3 +1229,88 @@ Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd 
 ### Skipped Issues
 
 None (`agent-skip` empty this run). 2 issues labeled `agent-failed` this run: #4914 (see Patterns above) and #4606 (standing from a prior run, not re-triaged tonight).
+
+## 2026-09-03 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114 [1 failing gate: human-touch-ratio 73% vs <50% threshold, unchanged from prior runs], prMetrics 7 entries [latest 30d window: 92 AI PRs, 91 merged, 1 rejected, 99% acceptance], prCategoryMetrics 97/97 merged across tier:trivial/sensitive/critical/standard/docs [0 closed-without-merge — still an uninformative signal per its own note], ccusageCost $0/30d cache_hit 94%, ciHealth 100% pass rate (24/24 completed, 30 total runs), sessionLogs 0 sessions/7d, codeChurn 0.1% (315/561603 lines, 7d), e2eStability 0 consecutive failures (14/14 non-frontend runs; 16 CI-run head SHAs not in local git object store, skipped harmlessly), queueEfficiency composite 0.948 [fps 0.87, ttm 0.3h, $0/issue, no baseline yet]). domainActivity/agentCost/lighthouse/mutationScore/flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped — Sentry MCP tool connects but every call 403s with "Host not in allowlist: sentry.io" (confirmed directly via `find_organizations`), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4928/#4905 need a completed CI run to verify against; #4908/#4907/#4906 need a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint).
+**Skill proposals:** 0 (Thursday, not the Friday extraction day).
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.106 → 1.136 (headroom). 30d verification log (46 entries, 40 in-window) is still mostly environmental `skip`s; of the 4 non-skip verifications, fix-effectiveness rate is 75% (3 verified / 1 failed) — healthy, no note triggered (>50% threshold). False-positive rate not computable this run — `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback`; `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
+
+## 2026-09-04 (mbe-evening / implement-queue + progress-tracker)
+
+### Phase 0 pre-flight: main is red — no new-issue work this iteration
+
+`main`'s CI (`ci.yml` run [33811801602](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/33811801602), head `c22d38f` / PR #4956) failed in `Build` → `Run Full Repository Audit` → `pnpm audit --audit-level=high`, which threw `ERR_SOCKET_TIMEOUT` reaching `https://registry.npmjs.org/-/npm/v1/security/audits` after 3 retries. Confirmed this is not a real regression from #4956 (a test-config-only rialto change) two ways: (1) every other job on that run — Lint, Typecheck, Architecture Audit, Test (Node 22), all Container Security Scans — passed; (2) the auto-generated revert PR #4960 (`revert-broken-main-c22d38f...`) hit the byte-identical `ERR_SOCKET_TIMEOUT` failure on its own CI run, proving the failure is environmental (npmjs.org reachability from the runner), not code. A prior session had already reached and posted this same diagnosis as a comment on issue #4959 at 22:30:33Z, recommending against reverting #4956 and recommending a CI re-run once npmjs.org recovers instead.
+
+This session independently attempted `rerun_failed_jobs` and `run_workflow` (workflow_dispatch) on `ci.yml` — both 403'd (`Resource not accessible by integration`); this session's GitHub App token has no `actions:write`. No new commits have landed on `main` since c22d38f and no new CI runs since 22:41:34Z, so the state is unchanged from the prior session's diagnosis: main red, revert PR #4960 blocked (ironically also red for the same reason), issue #4959 (`ci-fix`, `ready`, `priority:critical`) still open. This blocks Phase 1 (claiming new `ready` issues) per green-main policy — no worktree agents were dispatched this iteration. **Needs a human with `actions:write` to manually re-run the failed `Build` job on run 33811801602** (Actions tab → Re-run failed jobs); expected to go green with zero code change once `registry.npmjs.org` is reachable again.
+
+### Metrics (7d, 2026-08-28 → 2026-09-04, via GitHub MCP tools — no `gh` CLI in this session type)
+
+| Metric                                       | Value                                                                      | Target            | Status                                                                                                                      |
+| -------------------------------------------- | -------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Created (audit+ci-fix)                       | 54 (38 audit, 16 ci-fix)                                                   | -                 | -                                                                                                                           |
+| Closed (audit+ci-fix)                        | 45 (33 audit, 12 ci-fix)                                                   | -                 | -                                                                                                                           |
+| Closure Rate                                 | 83.3%                                                                      | >80%              | green                                                                                                                       |
+| Agent Success (open snapshot)                | 50% (3 has-pr: #4952, #4848, #4287; 3 agent-failed: #4944, #4914, #4606)   | >70%              | yellow — thin sample, snapshot not a flow rate                                                                              |
+| CI Pass (main, last 20 push runs)            | 18 success / 1 failure / 1 cancelled                                       | >95%              | yellow (90%, or 94.7% excl. cancelled) — the 1 failure is tonight's live npm-registry flake, still unresolved at write time |
+| Queue (ready)                                | 0                                                                          | <5                | green                                                                                                                       |
+| Stale (ready>7d)                             | 0                                                                          | 0                 | green                                                                                                                       |
+| Blocked (agent-failed)                       | 3 (#4944 perf/memoization, #4914 nightly-compliance flake, #4606 standing) | 0                 | yellow                                                                                                                      |
+| Skipped (agent-skip)                         | 0                                                                          | 0                 | green                                                                                                                       |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty, 0 bytes)                                               | <$10/day, <$50/7d | unmeasured — sink still empty, same as every prior entry; deferred to `/optimize-implement-queue`                           |
+
+### Patterns
+
+- **PR #4791's typecheck-OOM has now re-triggered CI and a fresh triage issue three times** (#4821 08-31, #4905 09-02, #4961 09-03/04) without the root cause (the stale Dependabot PR itself, or `apps/marketing`'s missing heap headroom — #4923 only raised it for `apps/gen`) ever being fixed. Filed **#4962** (`meta-improvement`) recommending either fix so a fourth occurrence doesn't need a fourth from-scratch diagnosis.
+- **Main-red-from-infra-flake is a new shape for this routine to have hit directly** (prior entries' CI-pass dips were same-day-resolved code issues). The auto-revert-on-CI-failure automation (issue #4959 → PR #4960) worked exactly as designed to propose a fix, but has no way to distinguish "the diff broke it" from "the network broke it" — it opened a revert that, if merged, would silently regress #4956's real fix (packages/rialto's nightly-compliance test flake, #4701) for no benefit, since the revert's own CI is red for the identical unrelated reason. Worth a `meta-improvement` if this recurs: teach the auto-revert workflow to check whether the _same_ job/step fails on the revert's own CI run before treating the revert as ready to merge.
+- **This session's GitHub App token lacks `actions:write`** (`rerun_failed_jobs` and `run_workflow` both 403'd) — distinct from the already-documented `gh`-CLI-absence gap in gotchas.md. Worth confirming whether this is expected for cloud-scheduled sessions generally or an under-scoped grant, since it blocks the one action (a CI re-run) that would have resolved tonight's block without any code change.
+
+### Recommendations
+
+- Human: re-run the failed `Build` job on `ci.yml` run 33811801602 (or push any legitimate change to `main`, which will carry a fresh CI run) to clear the red state; then close #4959 and #4960 once green, per the prior session's comment on #4959.
+- Human/next session: decide #4791 per #4962 (rebase-and-merge or close), and/or raise `apps/marketing` typecheck heap headroom to match #4923's `apps/gen` fix.
+- `.claude/agent-spend/sessions.jsonl` empty for 10+ consecutive daily entries — same standing recommendation as every prior day, deferred to `/optimize-implement-queue` Step 0.
+- If a future session also finds `actions:write` unavailable, consider that a standing gap worth a gotchas.md entry (parallel to the existing `gh`-CLI-absence entry) rather than re-diagnosing per-run.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty). 3 issues carry `agent-failed`: #4944, #4914, #4606 (none re-triaged tonight — Phase 1 did not run because main was red).
+
+## 2026-09-04
+
+**queueEfficiency:** composite 0.960 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:11, size:s:8, size:l:1
+**Issues filed:** 0
+
+## 2026-09-04 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114, prMetrics 7 entries, prCategoryMetrics 92/93 merged across tier:trivial/sensitive/critical/standard/docs, ccusageCost $0/30d cache_hit 95%, ciHealth 100% pass rate (25/25), sessionLogs 0 sessions/7d 0 commits, codeChurn 0% (388/561894 lines, 7d), e2eStability 0 consecutive failures (16/16 non-frontend runs; 14 CI-run head SHAs not in local git object store, skipped harmlessly), queueEfficiency composite 0.916 [fps 0.789, ttm 0.3h, $0/issue, no baseline yet]). domainActivity/agentCost/lighthouse/mutationScore/flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped — Sentry MCP tool connects but every call 403s with "Host not in allowlist: sentry.io" (confirmed directly via `find_organizations`), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #4959/#4928 need a completed CI run to verify against; #4952/#4951 need Sentry MCP verification (blocked by the egress allowlist above); #4945 needs a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint.
+**Skill proposals:** 0 — today is the Friday extraction day, but `.claude/session-logs/` holds only `.gitkeep` (0 sessions in the last 7 days), so there is nothing to analyze.
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.136 → 1.166 (headroom). 30d verification log (51 entries, 45 in-window) is still mostly environmental `skip`s; of the 4 non-skip verifications, fix-effectiveness rate is 75% (3 verified / 1 failed) — healthy, no note triggered (>50% threshold). False-positive rate not computable this run — `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback`; `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
+
+## 2026-09-05 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114 — failing gate `human-touch-ratio` 0.73 vs 0.5 threshold, unchanged from prior runs; prMetrics 7 entries, 99% acceptance (30d); prCategoryMetrics 93/94 merged across tier:trivial/sensitive/critical/standard/priority:critical/docs; ccusageCost $0 (30d/7d/today), cache_hit 96%; ciHealth 100% pass rate (26/26); sessionLogs 0 sessions/7d 0 commits; codeChurn 0% churn (404 deleted / 565481 added, 7d); e2eStability 0 consecutive failures (13/13 non-frontend runs; 17 CI-run head SHAs not in local git object store, skipped harmlessly); queueEfficiency composite 0.927 [fps 0.818, ttm 0.4h, $0/issue, no baseline yet]). domainActivity (no `DOMAIN_METRICS_VENUE_ID`), agentCost, lighthouse, mutationScore, flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 as every prior cloud-scheduled run since 2026-08-11 (fresh checkout this run: confirmed `GITHUB_TOKEN`/`GH_TOKEN` present but Search-API-backed queries still 403; plain `issue.list` calls, e.g. inside `verify-fixes.mjs`, succeed fine — the gap is Search-API-specific, not blanket).
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped this run — out of the explicit scope given for today's invocation (metrics/regressions/verification/thresholds only); Sentry MCP was also mid-reconnect for most of the run.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #5017/#5003 need a completed CI run to verify against; #5011/#5008/#5001 need a Lighthouse inventory this sandbox can't produce without a live site audit (barred per issue #2920's no-egress-to-production constraint).
+**Skill proposals:** 0 — today is Saturday, not the Friday extraction day.
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.166 → 1.17 (headroom). 30d verification log (56 entries, 50 in-window): literal `verified/total` = 3/50 = 6% (below the 50% fix-effectiveness threshold on its face), but 46/50 are environmental `skip` abstentions (no completed CI run or no Lighthouse inventory), not real fix failures — among the 4 actionable (non-skip) verifications, effectiveness is 75% (3 verified / 1 failed), healthy, no note triggered. False-positive rate: `collect-ai-issue-feedback.mjs` hit the same Search-API 403 as `issues`/`issueFeedback` (`metrics/ai-issue-feedback.json` recorded the error, budget defaulted to 3/category, unused — no regressions this run); cross-checked instead via `mcp__github__search_issues` directly (properly authenticated) — of the 100 most-recently-closed sensor-labeled issues in the last 30 days (214 total), state_reason was 97 `completed`, 2 `duplicate`, 1 `not_planned` — false-positive rate ~1-3%, well under the 30% threshold, no loosening needed.
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Search-API-backed queries (`issues`, `issueFeedback`, `collect-ai-issue-feedback.mjs`) on every cloud-scheduled sensor run since 2026-08-11, while plain list/comment/reopen calls succeed. Not re-filing — already the standing tracked recommendation; `mcp__github__*` MCP tools remain the working alternative for anything needing Search-API-shaped queries.
