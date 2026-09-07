@@ -142,14 +142,6 @@ const router = createBrowserRouter(
       children: [
         { path: "callback", element: <CallbackRedirect /> },
         {
-          path: "chat",
-          element: (
-            <Suspense fallback={<LoadingPage />}>
-              <ChatPage />
-            </Suspense>
-          ),
-        },
-        {
           path: "onboarding",
           element: (
             <Suspense fallback={<LoadingPage />}>
@@ -253,6 +245,14 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <BookingWidgetDemoPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "chat",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <ChatPage />
                 </Suspense>
               ),
             },
