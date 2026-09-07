@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { FloorPlansPage } from "./FloorPlansPage.js";
 import { useNavigate } from "react-router";
@@ -83,10 +83,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  EmptyState: ({ heading, description }: any) => (
+  EmptyState: ({ heading, description, action }: any) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
+      {action}
     </div>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
@@ -298,6 +299,22 @@ describe("FloorPlansPage", () => {
       expect(empty).toBeDefined();
       expect(empty.textContent).toContain("No floor plans yet");
     });
+  });
+
+  it("empty state offers an action that opens the New Floor Plan dialog", async () => {
+    mockFloorPlansList.mockResolvedValue({ data: [] });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("empty-state")).toBeDefined();
+    });
+
+    const empty = screen.getByTestId("empty-state");
+    const actionButton = within(empty).getByRole("button");
+    fireEvent.click(actionButton);
+
+    expect(screen.getByTestId("new-dialog")).toBeDefined();
   });
 
   it("shows ErrorRetryBanner on fetch error", async () => {
