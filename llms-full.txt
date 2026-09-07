@@ -4866,6 +4866,13 @@
       onSelect?: (value: string) => void;
       /** Wrapper element used to detect outside mousedown. */
       containerRef?: RefObject<HTMLElement | null>;
+      /**
+       * Additional element(s) also treated as "inside" for outside-press
+       * detection — e.g. a listbox portaled outside `containerRef`'s DOM
+       * subtree (see rialto `Select`, which portals its dropdown to
+       * `document.body` to escape an ancestor's stacking context).
+       */
+      extraContainerRefs?: RefObject<HTMLElement | null>[];
       /** Called after close/select so the consumer can return focus to its trigger. */
       onRequestTriggerFocus?: () => void;
     }

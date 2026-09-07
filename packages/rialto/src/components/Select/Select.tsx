@@ -1,4 +1,5 @@
-import { forwardRef, useRef, useEffect } from "react";
+import { forwardRef, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Lock } from "lucide-react";
 import { springGentle } from "../../tokens/motion";
@@ -95,6 +96,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       value,
       onSelect: onChange,
       containerRef: wrapperRef,
+      extraContainerRefs: [listRef],
       onRequestTriggerFocus: () => triggerRef.current?.focus(),
     });
 
@@ -108,6 +110,32 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       const el = list.children[focusedIndex] as HTMLElement | undefined;
       el?.scrollIntoView({ block: "nearest" });
     }, [open, focusedIndex]);
+
+    // Position the portaled dropdown against the trigger's viewport rect.
+    // Imperative DOM mutation (not React state) — mirrors the scrollIntoView
+    // effect above rather than syncing derived state through setState.
+    useLayoutEffect(() => {
+      if (!open) return;
+      const trigger = triggerRef.current;
+      const list = listRef.current;
+      if (!trigger || !list) return;
+
+      const updatePosition = () => {
+        const rect = trigger.getBoundingClientRect();
+        list.style.position = "fixed";
+        list.style.top = `${rect.bottom + 4}px`;
+        list.style.left = `${rect.left}px`;
+        list.style.width = `${rect.width}px`;
+      };
+
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("scroll", updatePosition, true);
+      return () => {
+        window.removeEventListener("resize", updatePosition);
+        window.removeEventListener("scroll", updatePosition, true);
+      };
+    }, [open]);
 
     const mergeRef = (node: HTMLDivElement | null) => {
       wrapperRef.current = node;
@@ -168,55 +196,58 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
           </button>
         </DisabledTooltip>
 
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              ref={listRef}
-              id={listboxId}
-              className={styles.dropdown}
-              role="listbox"
-              aria-label={label}
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
-              animate={{ opacity: 1, scaleY: 1, y: 0 }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
-              transition={shouldReduceMotion ? { duration: 0 } : springGentle}
-            >
-              {options.map((option, index) => (
-                <div
-                  key={option.value}
-                  id={optionId(index)}
-                  className={styles.option}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={option.value === value}
-                  aria-disabled={option.disabled || undefined}
-                  data-selected={option.value === value}
-                  data-focused={index === focusedIndex}
-                  data-disabled={option.disabled || undefined}
-                  onClick={option.disabled ? undefined : () => select(option.value)}
-                  onKeyDown={handleKeyDown}
-                  onMouseEnter={() => setFocusedIndex(index)}
-                >
-                  <svg
-                    className={styles.check}
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+        {createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                ref={listRef}
+                id={listboxId}
+                className={styles.dropdown}
+                role="listbox"
+                aria-label={label}
+                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
+                animate={{ opacity: 1, scaleY: 1, y: 0 }}
+                exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scaleY: 0.95, y: -4 }}
+                transition={shouldReduceMotion ? { duration: 0 } : springGentle}
+              >
+                {options.map((option, index) => (
+                  <div
+                    key={option.value}
+                    id={optionId(index)}
+                    className={styles.option}
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={option.value === value}
+                    aria-disabled={option.disabled || undefined}
+                    data-selected={option.value === value}
+                    data-focused={index === focusedIndex}
+                    data-disabled={option.disabled || undefined}
+                    onClick={option.disabled ? undefined : () => select(option.value)}
+                    onKeyDown={handleKeyDown}
+                    onMouseEnter={() => setFocusedIndex(index)}
                   >
-                    <path d="M2.5 7.5l3 3 6-7" />
-                  </svg>
-                  {option.label}
-                </div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <svg
+                      className={styles.check}
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M2.5 7.5l3 3 6-7" />
+                    </svg>
+                    {option.label}
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
 
         {hint &&
           (error ? (

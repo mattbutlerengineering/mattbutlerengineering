@@ -26,6 +26,13 @@ export interface UseComboboxOptions {
   onSelect?: (value: string) => void;
   /** Wrapper element used to detect outside mousedown. */
   containerRef?: RefObject<HTMLElement | null>;
+  /**
+   * Additional element(s) also treated as "inside" for outside-press
+   * detection — e.g. a listbox portaled outside `containerRef`'s DOM
+   * subtree (see rialto `Select`, which portals its dropdown to
+   * `document.body` to escape an ancestor's stacking context).
+   */
+  extraContainerRefs?: RefObject<HTMLElement | null>[];
   /** Called after close/select so the consumer can return focus to its trigger. */
   onRequestTriggerFocus?: () => void;
 }
@@ -62,6 +69,7 @@ export function useCombobox({
   value,
   onSelect,
   containerRef,
+  extraContainerRefs,
   onRequestTriggerFocus,
 }: UseComboboxOptions): UseComboboxResult {
   const [open, setOpen] = useState(false);
@@ -203,14 +211,17 @@ export function useCombobox({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
       const wrapper = containerRef?.current;
-      if (wrapper && !wrapper.contains(e.target as Node)) {
+      if (!wrapper || wrapper.contains(target)) return;
+      const insideExtra = extraContainerRefs?.some((r) => r.current?.contains(target));
+      if (!insideExtra) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open, containerRef]);
+  }, [open, containerRef, extraContainerRefs]);
 
   // Clean up the type-ahead timer on unmount.
   useEffect(() => {
