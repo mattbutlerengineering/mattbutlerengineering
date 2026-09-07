@@ -123,6 +123,40 @@ export const e2eNonAdminUser = nonAdminPassword
     })
   : undefined;
 
+// ── Tenant / login-page branding (#4848) ──────────────────────────────
+// The universal login screen was showing the raw tenant ID
+// ("dev-ytbgmz5ls3wh4xdx") and stock Auth0 branding to every hospitality/gen
+// sign-in. `auth0.Tenant` is a SINGLETON that manages an *existing* live
+// tenant, not a resource Pulumi creates from scratch -- exactly like the
+// `sso: true` situation on `hospitalityApp` above: a field left undeclared
+// here isn't "untouched", it's read as drift against the live tenant and
+// planned back to the provider default on the next `pulumi up`. Keep this
+// field list to ONLY the two fields this issue asks for (friendlyName,
+// pictureUrl) -- do not add unrelated Tenant settings without first running
+// `pulumi preview` and confirming no other live field would be reset.
+export const tenant = new auth0.Tenant("mattbutlerengineering-tenant", {
+  friendlyName: "Matt Butler Engineering",
+  pictureUrl: `https://${domain}/apple-touch-icon.png`,
+});
+
+// `auth0.Branding` carries less of the Tenant drift risk above: per the
+// issue this fixes, the live tenant has never had a Branding record
+// configured (stock Auth0 palette + badge, no custom logo) -- so there is
+// no pre-existing manually-set value for `colors`/`logoUrl` that declaring
+// them here could reset. Hex values are literal because Auth0 can't read
+// CSS custom properties; they mirror rialto's DARK theme tokens (the login
+// page should read as the app's dark speakeasy surface, not light mode) --
+// see packages/rialto/src/tokens/colors.css `[data-theme="dark"]`:
+//   pageBackground -> --rialto-surface (dark)  #1e1c1a
+//   primary        -> --rialto-accent  (dark)  #d4a23a
+export const branding = new auth0.Branding("mattbutlerengineering-branding", {
+  logoUrl: `https://${domain}/apple-touch-icon.png`,
+  colors: {
+    primary: "#d4a23a",
+    pageBackground: "#1e1c1a",
+  },
+});
+
 // Exports for use in other files and .env generation
 export const auth0Outputs = {
   apiIdentifier: api.identifier,
