@@ -184,7 +184,14 @@ export async function getAvailableDates(
         date: { gte: start, lte: actualEnd },
         status: { notIn: [...NOT_BOOKED_STATUSES] },
       },
-      select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+      select: {
+        id: true,
+        tableId: true,
+        date: true,
+        startTime: true,
+        endTime: true,
+        partySize: true,
+      },
     }),
     prisma.reservationHold.findMany({
       where: {
@@ -195,6 +202,7 @@ export async function getAvailableDates(
       select: {
         id: true,
         tableId: true,
+        date: true,
         startTime: true,
         endTime: true,
         partySize: true,
@@ -208,9 +216,15 @@ export async function getAvailableDates(
   const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
   const duration = estimateDuration(partySize, settings);
 
+  // Buckets by the venue-local booking date (the `date` column), not by
+  // `startTime` — for any venue west of UTC an evening reservation's
+  // `startTime` instant falls on the next UTC calendar day, which would
+  // silently bleed the conflict into the wrong bucket. `date` is stored as
+  // `new Date(dateStr)` (UTC midnight of the local date string), so
+  // `toDateString` round-trips it back to the same local date string.
   const reservationsByDate = new Map<string, typeof allReservations>();
   for (const r of allReservations) {
-    const key = toDateString(r.startTime);
+    const key = toDateString(r.date);
     const bucket = reservationsByDate.get(key);
     if (bucket) {
       bucket.push(r);
@@ -221,7 +235,7 @@ export async function getAvailableDates(
 
   const holdsByDate = new Map<string, typeof allHolds>();
   for (const h of allHolds) {
-    const key = toDateString(h.startTime);
+    const key = toDateString(h.date);
     const bucket = holdsByDate.get(key);
     if (bucket) {
       bucket.push(h);

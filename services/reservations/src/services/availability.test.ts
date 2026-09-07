@@ -383,6 +383,7 @@ describe("availabilityService.getAvailableDates", () => {
       {
         id: "res-may5-t1",
         tableId: "table-1",
+        date: new Date("2026-05-05"),
         startTime: new Date("2026-05-05T22:00:00Z"), // 18:00 ET
         endTime: new Date("2026-05-05T23:15:00Z"), // 19:15 ET
         partySize: 2,
@@ -391,6 +392,7 @@ describe("availabilityService.getAvailableDates", () => {
       {
         id: "res-may5-t2",
         tableId: "table-2",
+        date: new Date("2026-05-05"),
         startTime: new Date("2026-05-05T22:00:00Z"),
         endTime: new Date("2026-05-05T23:15:00Z"),
         partySize: 2,
@@ -399,6 +401,7 @@ describe("availabilityService.getAvailableDates", () => {
       {
         id: "res-may6-t1",
         tableId: "table-1",
+        date: new Date("2026-05-06"),
         startTime: new Date("2026-05-06T22:00:00Z"),
         endTime: new Date("2026-05-06T23:15:00Z"),
         partySize: 2,
@@ -410,6 +413,7 @@ describe("availabilityService.getAvailableDates", () => {
       {
         id: "hold-may7-t1",
         tableId: "table-1",
+        date: new Date("2026-05-07"),
         startTime: new Date("2026-05-07T22:00:00Z"),
         endTime: new Date("2026-05-07T23:15:00Z"),
         partySize: 2,
@@ -419,6 +423,7 @@ describe("availabilityService.getAvailableDates", () => {
       {
         id: "hold-may7-t2-expired",
         tableId: "table-2",
+        date: new Date("2026-05-07"),
         startTime: new Date("2026-05-07T22:00:00Z"),
         endTime: new Date("2026-05-07T23:15:00Z"),
         partySize: 2,
@@ -463,6 +468,90 @@ describe("availabilityService.getAvailableDates", () => {
     // We verify this indirectly: if bucketing were wrong, May 6/7 would show fewer
     // available slots than expected (May 5's reservations would pollute them).
     // The equality assertion above catches cross-day leakage.
+  });
+
+  it("buckets a reservation crossing the UTC day boundary by its venue-local date, not the next UTC day", async () => {
+    // Venue is America/New_York (UTC-4 in May). A 22:00 ET Friday reservation
+    // is a 2026-05-09T02:00Z instant — a UTC calendar day later than the
+    // reservation's own `date` column (2026-05-08). Bucketing by `startTime`
+    // (the bug) files it under "2026-05-09" instead of "2026-05-08", so it
+    // never shows up as a conflict on the day it actually belongs to.
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
+      {
+        id: "res-crossing",
+        tableId: "table-1",
+        date: new Date("2026-05-08"),
+        startTime: new Date("2026-05-09T02:00:00Z"), // 22:00 ET Friday May 8
+        endTime: new Date("2026-05-09T03:15:00Z"), // 23:15 ET Friday May 8
+        partySize: 2,
+      },
+    ] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-08",
+      "2026-05-08",
+      2
+    );
+
+    // Friday 11:00-23:00, 90-min last-seating buffer, 75-min duration for a
+    // party of 2 => 43 total slots, 3 of which (21:00/21:15/21:30 ET) overlap
+    // the 22:00-23:15 ET reservation. Bucketing by `startTime` (the bug)
+    // leaves May 8 at the full 43 (no conflict counted) — this assertion
+    // fails against main.
+    expect(dates[0]!.date).toBe("2026-05-08");
+    expect(dates[0]!.slotCount).toBe(40);
+  });
+
+  it("agrees with generateTimeSlots on a crossing-midnight date instead of contradicting it", async () => {
+    // A venue open only in the late evening, so a single crossing-midnight
+    // reservation covers every generated slot for the day. If getAvailableDates
+    // mis-buckets that reservation into the next UTC day (the bug), it reports
+    // the day as available while generateTimeSlots — which filters correctly by
+    // the `date` column — reports every slot booked. That contradiction is
+    // exactly what a real date picker vs. slot list disagreement looks like.
+    const eveningOnlyHours = {
+      sunday: { open: "10:00", close: "21:00" },
+      monday: { open: "11:00", close: "22:00" },
+      tuesday: { open: "11:00", close: "22:00" },
+      wednesday: { open: "11:00", close: "22:00" },
+      thursday: { open: "11:00", close: "22:00" },
+      friday: { open: "20:15", close: "23:45" },
+      saturday: { open: "10:00", close: "23:00" },
+    };
+    const venue = makePrismaVenue({ operatingHours: eveningOnlyHours });
+    const table = makePrismaTable();
+    const crossingReservation = {
+      id: "res-crossing-full-day",
+      tableId: "table-1",
+      date: new Date("2026-05-08"),
+      startTime: new Date("2026-05-09T00:15:00Z"), // 20:15 ET Friday May 8 (venue open)
+      endTime: new Date("2026-05-09T03:30:00Z"), // 23:30 ET Friday May 8 (venue close)
+      partySize: 2,
+    };
+
+    vi.mocked(prisma.venue.findUnique).mockResolvedValue(venue as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValue([table] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([crossingReservation] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([] as never);
+
+    const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-08", 2);
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-08",
+      "2026-05-08",
+      2
+    );
+
+    const anySlotAvailable = slots.some((s) => s.available);
+    expect(slots.length).toBeGreaterThan(0);
+    expect(anySlotAvailable).toBe(false); // generateTimeSlots: the whole day is booked
+    // getAvailableDates must not contradict generateTimeSlots for the same
+    // venue/date/party-size — this fails against main, which reports true.
+    expect(dates[0]!.hasAvailability).toBe(anySlotAvailable);
   });
 });
 
