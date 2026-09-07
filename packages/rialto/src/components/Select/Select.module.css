@@ -83,11 +83,17 @@
 /* ── Dropdown panel ──────────────────────────── */
 /* Portaled to document.body (see Select.tsx) so it escapes any ancestor
    Card's stacking context — position/top/left/width are set imperatively
-   from the trigger's viewport rect, not from this module. */
+   from the trigger's viewport rect, not from this module.
+   z-index must beat every other overlay a Select can legitimately be
+   nested inside (Dialog/Popover/DropdownMenu/NavigationMenu/Combobox at
+   100, Drawer/CommandPalette at 9998-9999) — none of those are portaled
+   either, so they share the same root stacking context. 10000 clears the
+   current ceiling (Drawer/CommandPalette at 9999); re-check this value if
+   a future overlay tier is raised above it. */
 .dropdown {
   composes: glass from "../../styles/surfaces.module.css";
 
-  z-index: 50;
+  z-index: 10000;
   border-radius: var(--rialto-radius-default);
   padding: var(--rialto-space-2xs);
   max-height: 240px;

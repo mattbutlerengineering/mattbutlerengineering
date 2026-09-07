@@ -1,7 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Select, type SelectOption } from "./Select";
 import { Card } from "../Card/Card";
+import { Dialog } from "../Dialog/Dialog";
 
 // jsdom does not implement scrollIntoView
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -282,6 +285,57 @@ describe("Select — dropdown escapes ancestor Card stacking context", () => {
     await user.click(screen.getByRole("combobox"));
     await user.click(screen.getByRole("option", { name: "Canada" }));
     expect(onChange).toHaveBeenCalledWith("ca");
+  });
+
+  it("renders the listbox above a Dialog ancestor's overlay, not just above a Card", async () => {
+    // This package's vitest config sets `css.modules.classNameStrategy:
+    // "non-scoped"` but leaves `test.css` at its Vitest default (false), so
+    // `import "*.module.css"` never injects real rules into jsdom and
+    // getComputedStyle always reports "auto". Inject just the two `z-index`
+    // declarations, extracted from the real stylesheets, so the asserted
+    // values are sourced from source-of-truth CSS rather than hardcoded in
+    // the test — the full stylesheets can't be injected as-is because they
+    // use `var(--rialto-*)` tokens jsdom's CSS engine can't resolve outside
+    // a real app (crashes computing unrelated properties like font-size).
+    const extractZIndex = (cssPath: string, selector: string): string => {
+      const css = fs.readFileSync(cssPath, "utf-8");
+      const match = new RegExp(`\\.${selector}\\s*\\{[^}]*z-index:\\s*(\\d+)`, "s").exec(css);
+      const captured = match?.[1];
+      if (!captured) throw new Error(`no z-index found for .${selector} in ${cssPath}`);
+      return captured;
+    };
+    const sourceDropdownZIndex = extractZIndex(
+      path.join(__dirname, "Select.module.css"),
+      "dropdown"
+    );
+    const sourceOverlayZIndex = extractZIndex(
+      path.join(__dirname, "../Dialog/Dialog.module.css"),
+      "overlay"
+    );
+    const style = document.createElement("style");
+    style.textContent = `.dropdown { z-index: ${sourceDropdownZIndex}; } .overlay { z-index: ${sourceOverlayZIndex}; }`;
+    document.head.appendChild(style);
+
+    const user = userEvent.setup();
+    render(
+      <Dialog open onClose={() => {}} title="Book a table">
+        <Select options={options} aria-label="Country" />
+      </Dialog>
+    );
+
+    await user.click(screen.getByRole("combobox"));
+    const listbox = screen.getByRole("listbox");
+    const overlay = screen.getByRole("dialog").parentElement as HTMLElement;
+
+    const listboxZIndex = Number(getComputedStyle(listbox).zIndex);
+    const overlayZIndex = Number(getComputedStyle(overlay).zIndex);
+
+    // Dialog's overlay (z-index: 100) is NOT portaled, so it occupies the
+    // same root stacking context as Select's portaled dropdown. The
+    // dropdown must win, or a click on an option lands on the dialog
+    // instead — the exact occlusion bug this component was fixed for,
+    // relocated from Card to Dialog.
+    expect(listboxZIndex).toBeGreaterThan(overlayZIndex);
   });
 });
 
