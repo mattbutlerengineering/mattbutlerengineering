@@ -1353,3 +1353,42 @@ No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code R
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open). 2 issues carry `agent-failed`: #4914 (nightly-compliance drift), #4606 (feature backfill re-run) — neither re-triaged tonight, out of scope for this pass.
+
+## 2026-09-07 (mbe-evening: implement-queue + progress-tracker)
+
+No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code Remote) — all queries via `mcp__github__*` MCP tools; `Closed`/time-to-close use `updated_at` as a proxy for `closedAt`.
+
+### implement-queue iteration summary
+
+Claimed a zone-spread batch of 3 (#4970 rialto/global, #4971 global, #4983 packages/rialto) — all `[Audit] UX:` findings from the 2026-09-04 site-audit batch. All three merged: #5087 (focus-trap restore, reviewer score 9), #5086 (chat page + DashboardLayout, reviewer score 8), #5085 (Select portal fix — flagged score 4/10 on first review for a substantiated Select-in-Dialog z-index regression, retried once with a fix + new regression test, re-reviewed score 9, merged). Along the way: merging #5087 broke main's push CI (`Visual Regression (Storybook)`, a stale test assertion for the intentional focus-target change) — root-caused, fixed in #5090, merged directly. Also discovered (not caused by any of tonight's PRs) that `Visual Regression (rialto-web)` has been red on main since the #5087 merge from a cascading baseline-drift class already documented in gotchas.md (same signature as #3301/#3517/#4560) — filed #5091 with the standard regeneration procedure rather than attempting a 46-screenshot baseline regen mid-session. Also filed #5089 for a real `pack.ts` truncation bug (`statementsPerFile = 2`) a specialist reviewer surfaced: a 3rd top-level export in a source file silently drops everything after it from `llms.txt`. Both non-blocking, both `ready`+`ci-fix`. Queue telemetry: 3 rows written prematurely (before the review gate ran) with `reviewer_verdict: "skipped"` and `merged: null` — the writer's `(issue_number, pr_number)` idempotency prevented a same-day correction; `merged`/`merged_at`/`ci_first_pass`/`rework_cycles` will backfill via `/optimize-implement-queue`'s `reconcile-queue-telemetry.mjs` (Step 0), `reviewer_verdict` stays wrong (cosmetic) for these 3 rows.
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                                        | Target            | Status                        |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------- |
+| Created/Closed (7d)                          | audit: 42 closed / 39 open; ci-fix: 16 closed / 10 open (raw label sums, no dedup)                                                                                           | -                 | -                             |
+| Closure Rate                                 | 58/(58+49) ≈ 54%                                                                                                                                                             | >80%              | yellow                        |
+| Time-to-Close                                | audit sample (n=23) mean 23.7h (`updated_at` proxy)                                                                                                                          | <24h              | yellow (right at the edge)    |
+| Agent Success (open snapshot)                | 4 has-pr / (4 has-pr + 2 agent-failed) = 66.7% — same stale-`has-pr` labeling bug as yesterday (#5071 open, unmerged) inflates this; today's own batch was 3/3 has-pr→merged | >70%              | yellow (see caveat)           |
+| CI Pass (main, last 20 runs)                 | 16 success / 16 non-cancelled/non-pending = 100% (2 cancelled excluded, 2 in-flight excluded)                                                                                | >95%              | green                         |
+| Queue (ready)                                | 48                                                                                                                                                                           | <5                | red                           |
+| Stale (ready>7d)                             | 0 (newest large batch is the 2026-09-04 UX audit findings, 3 days old)                                                                                                       | 0                 | green                         |
+| Blocked (agent-failed)                       | 2 (#4914 nightly-compliance drift, #4606 feature backfill re-run) — unchanged from yesterday                                                                                 | 0                 | yellow                        |
+| Skipped (agent-skip)                         | 0                                                                                                                                                                            | 0                 | green                         |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — matches tracked #4618, not re-filing                                                                                                                   | <$10/day, <$50/7d | unmeasured, same standing gap |
+
+### Patterns
+
+- **The Select-in-Dialog z-index regression on #5085 is a good signal the review gate is working as designed**, not a process failure: a worker's own TDD/gates can't catch a defect that only manifests when the component is composed with another rialto component it doesn't import or test against. First-round review caught it with a concrete repro (real production usage in 3 hospitality dialog components); the retry-with-new-regression-test loop resolved it in one cycle.
+- **Green-main policy in practice**: merging a reviewed, CI-green PR (#5087) still broke main's advisory (non-required) visual-regression job, because the PR's own tests didn't cover cross-workflow Playwright fixtures (`visual.spec.ts`) whose assumptions depended on the exact behavior being changed. Neither the universal reviewer nor the specialist reviewers are scoped to catch that class — worth a `meta-improvement` if it recurs on a future rialto behavior-change PR.
+- **Queue (48 ready) crossed further into red** since yesterday's 44, despite draining 3 tonight — net add of ~7 from other sources (today's own #5089/#5091 contribute 2; the rest is other automation). Consistent with yesterday's note that a large fraction of the raw count is the 2026-09-04 UX audit batch, not urgent backlog.
+
+### Recommendations
+
+- Next `/implement-queue` iteration: `Visual Regression (rialto-web)` baseline regen (#5091) and the `pack.ts` truncation fix (#5089) are both small, well-scoped, and already `ready`+`ci-fix` — good candidates for the next batch.
+- Review #5071 (has-pr label hygiene, filed 2026-09-06, still open/unmerged) — its absence is why the Agent Success metric keeps reading artificially low two nights running.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing recommendation, deferred to `/optimize-implement-queue` Step 0.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open). Same 2 `agent-failed` issues as yesterday, not re-triaged (out of scope for this pass).
