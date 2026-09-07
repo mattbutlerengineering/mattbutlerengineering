@@ -8,7 +8,12 @@ import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
 import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { DashboardLayout } from "./DashboardLayout.js";
+import { ChatPage } from "../pages/ChatPage.js";
 import React from "react";
+
+vi.mock("../pages/ChatPage.js", () => ({
+  ChatPage: () => <h1>Chat</h1>,
+}));
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
@@ -137,6 +142,7 @@ describe("DashboardLayout", () => {
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
+              <Route path="chat" element={<ChatPage />} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -284,6 +290,21 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // Breadcrumb shows "Home" on the timeline route; sidebar shows "Timeline" nav item
     expect(screen.getByTestId("breadcrumb")).toHaveTextContent("Home");
+  });
+
+  it("renders the chat route with a heading inside the main landmark (#4971)", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+      progress: 100,
+    });
+    renderLayout("/chat");
+    const heading = screen.getByRole("heading", { level: 1, name: "Chat" });
+    expect(screen.getByRole("main")).toContainElement(heading);
+    // The sidebar (and its nav items) must still be visible — this is what
+    // gives the user a way back, unlike the pre-fix standalone /chat route.
+    expect(screen.getByTestId("breadcrumb")).toBeInTheDocument();
   });
 
   it("has no Copilot nav item in sidebar", () => {

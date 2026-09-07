@@ -15,6 +15,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
 }));
 
+vi.mock("../components/PageHeader.js", () => ({
+  PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
+}));
+
 import { ChatPage } from "./ChatPage";
 
 describe("ChatPage", () => {
@@ -28,5 +32,15 @@ describe("ChatPage", () => {
     const panel = screen.getByTestId("chat-panel");
     expect(panel).toBeInTheDocument();
     expect(panel).toHaveAttribute("data-standalone", "true");
+  });
+
+  it("renders a page heading", () => {
+    render(
+      <MemoryRouter>
+        <ChatPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: "Chat" })).toBeInTheDocument();
   });
 });
