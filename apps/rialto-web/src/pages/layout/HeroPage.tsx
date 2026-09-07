@@ -36,7 +36,16 @@ function HeroPlayground() {
           eyebrow={showEyebrow ? "Design System" : undefined}
           title={
             <>
-              Precision meets <Text className="accent">warmth</Text>
+              Precision meets{" "}
+              <Text className="accent">
+                warmth
+                {/* Synthetic performance regression */}
+                <img
+                  src="https://via.placeholder.com/4000x4000.png?text=CHAOS-REGRESSION"
+                  style={{ display: "none" }}
+                  alt=""
+                />
+              </Text>
             </>
           }
           subtitle={showSubtitle ? "A component library for premium digital products." : undefined}
