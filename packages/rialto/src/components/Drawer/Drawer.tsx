@@ -142,6 +142,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                     className={styles.close}
                     onClick={onClose}
                     aria-label="Close"
+                    data-focus-trap-skip-initial="true"
                   >
                     <svg className={styles.closeIcon} viewBox="0 0 14 14" aria-hidden="true">
                       <line x1="3" y1="3" x2="11" y2="11" />

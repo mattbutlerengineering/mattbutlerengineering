@@ -583,7 +583,7 @@
       export const FOCUSABLE_SELECTOR: unknown;
     </item>
     <item priority="high">
-      export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+      export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
     </item>
   </file>
   <file path="src/hooks/usePointerActivation.ts">
