@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Select, type SelectOption } from "./Select";
+import { Card } from "../Card/Card";
 
 // jsdom does not implement scrollIntoView
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -240,6 +241,47 @@ describe("Select", () => {
   it("does not emit 'undefined' in wrapper className", () => {
     const { container } = render(<Select options={options} />);
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
+  });
+});
+
+describe("Select — dropdown escapes ancestor Card stacking context", () => {
+  it("portals the open listbox to document.body so a sibling Card can't occlude it", async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <Card data-testid="card-1">
+          <Select options={options} aria-label="Theme" />
+        </Card>
+        <Card data-testid="card-2">
+          <p>Notifications</p>
+        </Card>
+      </div>
+    );
+
+    await user.click(screen.getByRole("combobox"));
+    const listbox = screen.getByRole("listbox");
+
+    // Portaled directly under document.body — outside both Cards' DOM
+    // subtrees, so it can never be painted under a sibling Card's stacking
+    // context (jsdom has no layout engine, so this DOM-ancestry check is the
+    // safe stand-in for an elementFromPoint occlusion check).
+    expect(listbox.parentElement).toBe(document.body);
+    expect(screen.getByTestId("card-1")).not.toContainElement(listbox);
+    expect(screen.getByTestId("card-2")).not.toContainElement(listbox);
+  });
+
+  it("still selects an option by click when portaled", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <Card data-testid="card-1">
+        <Select options={options} onChange={onChange} aria-label="Theme" />
+      </Card>
+    );
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: "Canada" }));
+    expect(onChange).toHaveBeenCalledWith("ca");
   });
 });
 

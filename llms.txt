@@ -1954,7 +1954,7 @@
         value?: string;
         onSelect?: (value: string) => void;
         containerRef?: RefObject<HTMLElement | null>;
-        onRequestTriggerFocus?: () => void;
+        extraContainerRefs?: RefObject<HTMLElement | null>[];
       }
     </item>
   </file>
