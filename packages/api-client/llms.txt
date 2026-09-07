@@ -19,6 +19,30 @@
       ...;
       }
     </item>
+    <item priority="low">
+      interface CreateSessionRequest {
+        taskDescription: string;
+        model?: string;
+        maxBudgetUsd?: number;
+        maxTurns?: number;
+        baseBranch?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ListSessionsParams {
+        status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+        page?: number;
+        limit?: number;
+      }
+    </item>
+    <item priority="high">
+      class AgentSessionClient {
+        async createSession(): Promise<unknown>;
+        async getSession(): Promise<unknown>;
+        async listSessions(): Promise<unknown>;
+        async cancelSession(): Promise<unknown>;
+      }
+    </item>
   </file>
   <file path="src/availability.ts">
     <item priority="low">
@@ -35,6 +59,20 @@
         startDate: string;
         endDate: string;
         partySize: number;
+      }
+    </item>
+    <item priority="high">
+      class AvailabilityClient {
+        async getTimeSlots(): Promise<unknown>;
+        async getDates(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      class HoldsClient {
+        sessionId: string | null;
+        async setSessionId(): Promise<unknown>;
+        async getSessionId(): Promise<unknown>;
+        async create(): Promise<unknown>;
       }
     </item>
   </file>
@@ -54,6 +92,20 @@
         dietaryRestrictions: string[] | null;
       }
     </item>
+    <item priority="low">
+      interface BriefingEntry {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      class BriefingClient {
+        async list(): Promise<unknown>;
+      }
+    </item>
   </file>
   <file path="src/client.ts">
     <item priority="low">
@@ -61,6 +113,65 @@
     </item>
     <item priority="high">
       export function buildQueryString(params: QueryParams): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClientConfig {
+        baseUrl: string;
+        getAccessToken?: () => string | null | Promise<string | null>;
+        timeout?: number;
+        maxRetries?: number;
+        onError?: (error: ApiClientError) => void;
+      }
+    </item>
+    <item priority="low">
+      interface RequestOptions {
+        signal?: AbortSignal;
+      }
+    </item>
+    <item priority="low">
+      interface PerRequestOptions {
+        maxRetries?: number;
+        timeout?: number;
+      }
+    </item>
+    <item priority="high">
+      class ApiClient {
+        timeout: number;
+        maxRetries: number;
+        async request(): Promise<unknown>;
+        async get(): Promise<unknown>;
+      }
+    </item>
+    <item priority="low">
+      type ErrorCategory = "badRequest" | "unauthorized" | "forbidden" | "notFound" | "conflict" | "validationError" | "rateLimited" | "serverError" | "unknown";
+    </item>
+    <item priority="medium">
+      function categorizeStatus(code: number): ErrorCategory { /* ... */ }
+    </item>
+    <item priority="high">
+      class ApiClientError {
+        problemDetails: ProblemDetails;
+      }
+    </item>
+    <item priority="high">
+      class ApiValidationError {
+        
+      }
+    </item>
+    <item priority="medium">
+      function createCombinedSignal(timeoutMs: number, callerSignal?: AbortSignal | null): AbortSignal { /* ... */ }
+    </item>
+    <item priority="low">
+      async function fetchWithRetry(
+        url: string,
+        options: RequestInit,
+        maxRetries: number
+      ): Promise<Response> { /* ... */ }
+    </item>
+    <item priority="medium">
+      class RetryableStatusError {
+        
+      }
     </item>
   </file>
   <file path="src/deposits.ts">
@@ -73,6 +184,14 @@
     </item>
     <item priority="low">
       type DepositTransition = "capture" | "refund" | "forfeit";
+    </item>
+    <item priority="high">
+      class DepositsClient {
+        async create(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async capture(): Promise<unknown>;
+        async refund(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="src/floor-plans.ts">
@@ -100,6 +219,21 @@
         page?: number;
         limit?: number;
         venueId: string;
+      }
+    </item>
+    <item priority="low">
+      interface SearchGuestsParams {
+        venueId: string;
+        query?: string;
+        hasNotVisitedInDays?: number;
+      }
+    </item>
+    <item priority="high">
+      class GuestsClient {
+        async list(): Promise<unknown>;
+        async search(): Promise<unknown>;
+        async getSegments(): Promise<unknown>;
+        async get(): Promise<unknown>;
       }
     </item>
   </file>
@@ -167,6 +301,28 @@
         partySize: number;
       }
     </item>
+    <item priority="low">
+      interface ManagedReservationVenue {
+        id: string;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+      }
+    </item>
+    <item priority="low">
+      interface ManageReservationData {
+        reservation: ManagedReservation;
+        venue: ManagedReservationVenue | null;
+      }
+    </item>
+    <item priority="high">
+      class ReservationsClient {
+        async list(): Promise<unknown>;
+        async me(): Promise<unknown>;
+        async get(): Promise<unknown>;
+        async create(): Promise<unknown>;
+      }
+    </item>
   </file>
   <file path="src/retry.ts">
     <item priority="low">
@@ -179,6 +335,12 @@
     </item>
     <item priority="medium">
       function sleep(ms: number): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function backoffMs(attempt: number, baseDelayMs: number, jitter: boolean): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="src/streaming.ts">

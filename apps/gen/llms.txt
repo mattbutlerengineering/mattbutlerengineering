@@ -13,6 +13,29 @@
     <item priority="medium">
       function getAuth0Config(): Auth0Config { /* ... */ }
     </item>
+    <item priority="high">
+      interface TokenResponse {
+        access_token: string;
+        id_token: string;
+        token_type: string;
+        expires_in: number;
+      }
+    </item>
+    <item priority="low">
+      async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function decodeJwtPayload(token: string): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildOidcUserEntry(
+        config: Auth0Config,
+        tokens: TokenResponse
+      ): { key: string; value: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
@@ -42,6 +65,25 @@
         onError?: (error: Error) => void;
       }
     </item>
+    <item priority="low">
+      interface UseGenStreamReturn {
+        spec: Spec | null;
+        isStreaming: boolean;
+        error: Error | null;
+        rawLines: string[];
+        send: (prompt: string, context?: Record<string, unknown>) => Pr...;
+      }
+    </item>
+    <item priority="medium">
+      function sanitizeProps(parsed: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useGenStream({
+        api,
+        onComplete,
+        onError,
+      }: UseGenStreamOptions): UseGenStreamReturn { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/usePanelLayout.ts">
     <item priority="high">
@@ -52,6 +94,29 @@
         historyVisible: boolean;
         inspectorVisible: boolean;
       }
+    </item>
+    <item priority="high">
+      interface PanelLayout {
+        breakpoint: Breakpoint;
+        toggleHistory: () => void;
+        toggleInspector: () => void;
+        closeOverlays: () => void;
+      }
+    </item>
+    <item priority="medium">
+      function getBreakpoint(): Breakpoint { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getDefaults(bp: Breakpoint): PanelState { /* ... */ }
+    </item>
+    <item priority="medium">
+      function loadPrefs(bp: Breakpoint): PanelState { /* ... */ }
+    </item>
+    <item priority="medium">
+      function savePrefs(bp: Breakpoint, state: PanelState): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function usePanelLayout(): PanelLayout { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/usePlayground.ts">
@@ -66,6 +131,32 @@
     </item>
     <item priority="high">
       export function usePlayground(): UsePlaygroundResult { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PlaygroundCommandDeps {
+        isStreaming: boolean;
+        displaySpec: Spec | null;
+        reset: () => void;
+        toggleFullscreen: () => void;
+        stop: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function buildPlaygroundCommandItems({
+        isStreaming,
+        displaySpec,
+        reset,
+        toggleFullscreen,
+        stop,
+        openGallery,
+        openShortcuts,
+        copy,
+        toggleTheme,
+        onSignOut,
+        closePalette,
+        toggleHistory,
+        toggleInspector,
+      }: PlaygroundCommandDeps): CommandItem[] { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useSpecsApi.ts">
@@ -84,6 +175,9 @@
         saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
         toggleFavorite: (id: string) => Promise<void>;
       }
+    </item>
+    <item priority="high">
+      export function useSpecsApi(): UseSpecsApiReturn { /* ... */ }
     </item>
   </file>
   </section>
@@ -108,6 +202,9 @@
         onGenerationComplete?: () => void;
       }
     </item>
+    <item priority="high">
+      export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): PlaygroundSession { /* ... */ }
+    </item>
   </file>
   <file path="src/pages/usePlaygroundState.ts">
     <item priority="low">
@@ -121,6 +218,9 @@
         shortcutsOpen: boolean;
         enterRefinement: () => void;
       }
+    </item>
+    <item priority="high">
+      export function usePlaygroundState(): PlaygroundState { /* ... */ }
     </item>
   </file>
   </section>

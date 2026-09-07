@@ -17,6 +17,120 @@
         cost_per_issue_median: number | null;
       }
     </item>
+    <item priority="low">
+      interface QueueEfficiencySensor {
+        available: boolean;
+        composite?: number;
+        sub_metrics?: {
+          readonly issues_merged: number;
+          readonly first_...;
+        distribution?: Record<string, QueueEfficiencyTierStats>;
+        baseline?: QueueEfficiencyBaseline | null;
+      }
+    </item>
+    <item priority="low">
+      interface DomainActivitySensor {
+        available: boolean;
+        date?: string | null;
+        venueId?: string | null;
+        reservations_created?: number;
+        reservations_cancelled?: number;
+      }
+    </item>
+    <item priority="low">
+      interface AcmmFailingGate {
+        name: string;
+        description: string;
+        value: number | null;
+        threshold: number | null;
+        direction: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface AcmmSensor {
+        available: boolean;
+        level?: number | null;
+        level_name?: string | null;
+        criteria_met?: number;
+        criteria_total?: number;
+      }
+    </item>
+    <item priority="low">
+      interface SensorReport {
+        generated_at: string;
+        period?: {
+          readonly start: string;
+          readonly end: string;
+        };
+        sensors: Record<string, unknown> & {
+          readonly queueEfficiency?...;
+        thresholds?: Record<string, number>;
+        regressions: readonly unknown[];
+      }
+    </item>
+    <item priority="low">
+      interface QueueEfficiencyMetrics {
+        available: boolean;
+        composite: number | null;
+        firstPassSuccessRate: number | null;
+        costPerIssue: number | null;
+        medianTimeToMergeHours: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface DomainActivityMetrics {
+        available: boolean;
+        date: string | null;
+        venueId: string | null;
+        reservationsCreated: number | null;
+        reservationsCancelled: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface AcmmMetrics {
+        available: boolean;
+        level: number | null;
+        levelName: string | null;
+        criteriaMet: number | null;
+        criteriaTotal: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface HealthMetrics {
+        timestamp: string | null;
+        ciPassRate: number | null;
+        ciRecentRuns: number | null;
+        prsMerged: number | null;
+        issuesReady: number | null;
+      }
+    </item>
+    <item priority="medium">
+      function asRecord(value: unknown): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readNumber(value: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readString(value: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatRegressionLabel(regression: unknown): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeQueueEfficiency(sensors: Record<string, unknown>): QueueEfficiencyMetrics { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivityMetrics { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeFailingGate(gate: unknown): AcmmFailingGate { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeSensorReport(report: unknown): HealthMetrics { /* ... */ }
+    </item>
   </file>
   <file path="src/data/projects.ts">
     <item priority="low">
@@ -43,6 +157,15 @@
     </item>
     <item priority="high">
       export function isRepoStats(value: unknown): value is RepoStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export const FALLBACK_REPO_STATS: RepoStats;
+    </item>
+    <item priority="high">
+      export function selectRepoStats(generated: unknown, fallback: RepoStats): RepoStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export const REPO_STATS: RepoStats;
     </item>
   </file>
   <file path="src/data/weekly-intake.ts">
@@ -74,6 +197,12 @@
         fail: Rgb;
       }
     </item>
+    <item priority="high">
+      export function parseCssColor(value: string, fallback: Rgb): Rgb { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readFactoryPalette(element: Element): FactoryPalette { /* ... */ }
+    </item>
   </file>
   <file path="src/components/factory/factory-scene.ts">
     <item priority="high">
@@ -89,6 +218,9 @@
         inputs: FactorySceneInputs
       ): () => void { /* ... */ }
     </item>
+    <item priority="medium">
+      function buildParticleGeometry(count: number): BufferGeometry { /* ... */ }
+    </item>
   </file>
   <file path="src/components/factory/factory-shaders.ts">
     <item priority="high">
@@ -96,6 +228,12 @@
     </item>
     <item priority="high">
       export const BACKDROP_FRAGMENT_SHADER: unknown;
+    </item>
+    <item priority="high">
+      export const PARTICLE_VERTEX_SHADER: unknown;
+    </item>
+    <item priority="high">
+      export const PARTICLE_FRAGMENT_SHADER: unknown;
     </item>
   </file>
   <file path="src/components/factory/pipeline-stages.ts">
@@ -114,6 +252,21 @@
         metric?: StageMetric;
       }
     </item>
+    <item priority="high">
+      export function buildPipelineStages(stats: RepoStats): readonly PipelineStage[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PIPELINE_STAGES: unknown;
+    </item>
+    <item priority="low">
+      interface FactorySceneInputs {
+        agentShare: number;
+        particleCount: number;
+      }
+    </item>
+    <item priority="high">
+      export function factorySceneInputs(stats: RepoStats): FactorySceneInputs { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="utils">
@@ -129,6 +282,51 @@
     </item>
     <item priority="high">
       export function statusColor(status: string): "green" | "yellow" | "red" | "neutral" { /* ... */ }
+    </item>
+    <item priority="high">
+      export function statusLabel(status: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overallStatus(statuses: ServiceStatus[]): "ok" | "degraded" | "error" | "loading" { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatSensorStatus(available: boolean): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getSensorColor(available: boolean): "green" | "red" { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatPercent(value: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatRatio(value: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatDate(iso: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatMeasuredAt(iso: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimestamp(value: string | null | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isStale(generatedAt: string, now: Date = new Date()): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isReportStale(
+        generatedAt: string,
+        thresholdHours: number = DEFAULT_REPORT_STALE_THRESHOLD_HOURS,
+        now: Date = new Date()
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SOURCE_COLORS: Record<
+        WeeklyResource["source"],
+        "yellow" | "blue" |...;
+    </item>
+    <item priority="high">
+      export const SOURCE_LABELS: Record<WeeklyResource["source"], string>;
     </item>
   </file>
   </section>
