@@ -217,6 +217,21 @@
   font-size: var(--rialto-text-sm);
 }
 
+.emptyStateLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.emptyStateLink:hover {
+  color: var(--rialto-text-primary);
+}
+
+.emptyStateLink:focus-visible {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: 2px;
+}
+
 /* Detail sidebar */
 .sidebar {
   width: 20rem;
