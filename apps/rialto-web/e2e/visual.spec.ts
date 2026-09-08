@@ -5,6 +5,15 @@
  * Baselines live in e2e/screenshots/ and are committed to git.
  *
  * Update baselines: npx playwright test --update-snapshots
+ *
+ * Baselines regenerated 2026-09 (#5091) from this PR's own CI-run actuals,
+ * harvested via the `visual-diffs/pr-<N>/run-<id>-attempt-<n>` git ref
+ * `publish-visual-diffs` pushes on a failing run (see rialto-web-e2e.yml) —
+ * the `visual-actuals-replica-a` artifact and the `rialto-web-visual-diffs`
+ * artifact were both unreachable from the fixing session (organization
+ * egress policy blocks the Azure Blob Storage domain GitHub Actions artifact
+ * downloads redirect to). The git-ref publish path is not blob-storage
+ * backed, so it stayed reachable.
  */
 
 import { test, expect } from "@playwright/test";
