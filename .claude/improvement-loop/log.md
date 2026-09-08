@@ -1411,3 +1411,9 @@ None this run (`agent-skip` empty, 0 open). Same 2 `agent-failed` issues as yest
 ### Recommendation carried forward
 
 Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Search-API-backed queries (`issues`, `issueFeedback`, `collect-ai-issue-feedback.mjs`) on every cloud-scheduled sensor run since 2026-08-11, while plain list/comment/create/reopen calls succeed. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions); `mcp__github__*` MCP tools remain the working alternative for anything needing Search-API-shaped queries.
+
+## 2026-09-08
+
+**queueEfficiency:** composite 0.972 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:11, size:s:11, size:l:2, size:m:5
+**Issues filed:** 0
