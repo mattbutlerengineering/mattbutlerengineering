@@ -629,6 +629,22 @@ describe("useBookingFlow", () => {
       // the indicator on that screen) — -1 here is expected, not a bug.
       expect(result.current.currentStepIndex).toBe(-1);
     });
+
+    it("SET_DEPOSIT_CONFIG with an enabled policy but no stripePublishableKey keeps the provisional verdict deposit-free, agreeing with the confirm-time verdict", async () => {
+      // Stripe isn't configured for this venue (no stripePublishableKey), so
+      // effectiveDepositPolicy would return null at confirm time regardless of
+      // the venue's general policy. The provisional guess set by
+      // SET_DEPOSIT_CONFIG must agree — promising a 4th "payment" step here,
+      // only to retract it at confirm, is the bug this test guards against.
+      const fakeApi = makeFakeApi();
+      const { result } = renderBookingFlow(fakeApi, { venueSlug: "the-oak-table" });
+      await waitFor(() => expect(fakeApi.venues.getPublicConfig).toHaveBeenCalled());
+      act(() => result.current.actions.setDepositConfig(mockDepositConfig));
+
+      expect(result.current.data.depositRequired).toBe(false);
+      expect(result.current.stepKeys).not.toContain("payment");
+      expect(result.current.stepKeys).toHaveLength(3);
+    });
   });
 
   describe("backward navigation and Hold release (owned by the hook)", () => {

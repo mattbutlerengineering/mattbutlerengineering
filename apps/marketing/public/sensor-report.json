@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-07T18:09:12.079Z",
+  "generated_at": "2026-09-08T02:16:18.759Z",
   "period": {
-    "start": "2026-08-31",
-    "end": "2026-09-07"
+    "start": "2026-09-01",
+    "end": "2026-09-08"
   },
   "sensors": {
     "acmm": {
@@ -52,18 +52,13 @@
       "total_merged": 91,
       "total_closed_without_merge": 3,
       "by_category": {
-        "dependencies": {
-          "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
         "tier:trivial": {
-          "merged": 57,
+          "merged": 56,
           "closed_without_merge": 1,
           "acceptance_rate": 0.98
         },
         "tier:standard": {
-          "merged": 11,
+          "merged": 12,
           "closed_without_merge": 1,
           "acceptance_rate": 0.92
         },
@@ -74,6 +69,11 @@
         },
         "tier:critical": {
           "merged": 10,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "dependencies": {
+          "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -92,35 +92,42 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1994167,
-      "output_tokens": 3409,
-      "cache_creation_tokens": 65475,
-      "cache_hit_rate": 0.9682,
+      "cache_read_tokens": 119913125,
+      "output_tokens": 184676,
+      "cache_creation_tokens": 2072947,
+      "cache_hit_rate": 0.983,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 36,
-          "output_tokens": 3409,
-          "cache_read_tokens": 1994167,
-          "cache_creation_tokens": 65475
+          "input_tokens": 1019,
+          "output_tokens": 178194,
+          "cache_read_tokens": 112965886,
+          "cache_creation_tokens": 1643364
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 844,
+          "output_tokens": 6482,
+          "cache_read_tokens": 6947239,
+          "cache_creation_tokens": 429583
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 14,
+      "completed": 28,
+      "passed": 20,
       "failed": 2,
-      "pass_rate_pct": 88,
+      "pass_rate_pct": 91,
       "most_recent": {
-        "databaseId": 34150483228,
-        "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-09-07T18:09:20Z",
-        "name": "claude",
+        "databaseId": 34179487196,
+        "status": "queued",
+        "conclusion": null,
+        "createdAt": "2026-09-08T02:16:28Z",
+        "name": "Push on main",
         "headBranch": "main",
-        "headSha": "33fe70a205f18950cdcdea824a2009e3c14fe1f5"
+        "headSha": "30f78607f84cc66b33b54714c0ad880d4cd4f25b"
       }
     },
     "lighthouse": {
@@ -133,22 +140,22 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-05T18:13:05.256Z",
+      "collected_at": "2026-09-07T18:10:58.563Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
-      "unique_branches_7d": 0,
-      "branches_7d": []
+      "total_logs": 11,
+      "logs_7d": 11,
+      "total_commits_7d": 79,
+      "unique_branches_7d": 2,
+      "branches_7d": ["main", "chore/queue-telemetry-2026-09-08"]
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.001,
-      "total_lines_added_7d": 568177,
-      "lines_churned_7d": 512,
+      "churn_rate": 0.082,
+      "total_lines_added_7d": 14993,
+      "lines_churned_7d": 1231,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -160,39 +167,43 @@
       "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
     },
     "e2eStability": {
-      "available": false
+      "available": true,
+      "consecutive_failures": 0,
+      "total_runs": 29,
+      "total_non_frontend_runs": 29,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (29 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.969,
+      "composite": 0.972,
       "sub_metrics": {
-        "issues_merged": 26,
-        "first_pass_success_rate": 0.923,
+        "issues_merged": 29,
+        "first_pass_success_rate": 0.931,
         "median_time_to_merge_hours": 0.3,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.556
+        "review_coverage": 0.6
       },
       "distribution": {
+        "size:xs": {
+          "count": 11,
+          "avg_commits": 1.2,
+          "avg_ttm_hours": 1.3
+        },
+        "size:s": {
+          "count": 11,
+          "avg_commits": 1.4,
+          "avg_ttm_hours": 0.7
+        },
         "size:l": {
           "count": 2,
           "avg_commits": 2.5,
           "avg_ttm_hours": 0.7
         },
         "size:m": {
-          "count": 6,
-          "avg_commits": 1.5,
-          "avg_ttm_hours": 0.7
-        },
-        "size:s": {
-          "count": 8,
+          "count": 5,
           "avg_commits": 1.4,
-          "avg_ttm_hours": 0.6
-        },
-        "size:xs": {
-          "count": 10,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 1.8
+          "avg_ttm_hours": 0.7
         }
       },
       "baseline": null,
@@ -211,7 +222,7 @@
   },
   "regressions": [],
   "summary": {
-    "sensors_available": 8,
+    "sensors_available": 9,
     "sensors_total": 16,
     "regressions_detected": 0,
     "status": "healthy"

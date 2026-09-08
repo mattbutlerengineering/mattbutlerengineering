@@ -1411,3 +1411,48 @@ None this run (`agent-skip` empty, 0 open). Same 2 `agent-failed` issues as yest
 ### Recommendation carried forward
 
 Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Search-API-backed queries (`issues`, `issueFeedback`, `collect-ai-issue-feedback.mjs`) on every cloud-scheduled sensor run since 2026-08-11, while plain list/comment/create/reopen calls succeed. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions); `mcp__github__*` MCP tools remain the working alternative for anything needing Search-API-shaped queries.
+
+## 2026-09-08
+
+**queueEfficiency:** composite 0.972 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:11, size:s:11, size:l:2, size:m:5
+**Issues filed:** 0
+
+## 2026-09-08 (mbe-evening: implement-queue + progress-tracker)
+
+No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code Remote) — all queries via `mcp__github__*` MCP tools; `Closed`/time-to-close use `updated_at` as a proxy for `closedAt`.
+
+### implement-queue iteration summary
+
+Claimed a zone-spread batch of 3: #5091 (ci-fix, packages/rialto visual baselines), #4975 (audit, .github+apps/hospitality Stripe key/deposit-verdict), #5096 (bug, services/reservations pacing/venue-local-date follow-up to #5000/#5095). #4975 and #5096 both merged clean (reviewer scores 9/9, plus stripe-flow-reviewer and e2e-selector-drift-reviewer PASS on #4975; adr-compliance-reviewer and generated-artifact-determinism-reviewer PASS on #5096) as PR #5120 and #5121. #5091 could not be completed: the worker (and this orchestrating session, independently) confirmed the root cause (stale baselines predating #5087/#5090/#5085) but every path to obtain CI-correct Linux pixels is blocked in this environment — `workflow_dispatch` for `visual-noise-floor.yml` is refused by a command-safety guard, artifact downloads (`visual-actuals-replica-a`, `rialto-web-visual-diffs`) redirect to blob storage the org egress-proxy denies, and this sandbox's pre-installed Chromium (`chromium_headless_shell-1194`) is a different Playwright driver revision than `@playwright/test@^1.62.1` expects (`-1234`), with `cdn.playwright.dev` not egress-allowlisted to fetch the matching one. Marked `agent-failed` with full findings documented on the issue. Along the way, found and filed #5119 (`ci-fix`, `ready`) for a genuinely separate, small, isolated Storybook baseline (`overlay-drawer--right`) distinct from #5091's cross-section cascade. One PR-level CI-red round on #5120: the pre-existing `deposit-enabled-config.spec.ts` test encoded the exact provisional-verdict bug the PR fixes (asserted Payment always shows once `deposit.enabled`, ignoring `stripePublishableKey`) — updated the test to assert the corrected behavior (Payment correctly absent under the Hospitality E2E env's real key gap, tracked separately by #4111) and pushed a second commit; CI green after.
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                                 | Target            | Status                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
+| Created/Closed (7d)                          | audit: 31 closed / 29 open; ci-fix: 12 closed / 6 open (raw label sums, no dedup — several issues carry both labels)                                                  | -                 | -                                                                                                     |
+| Closure Rate                                 | 43/(43+35) ≈ 55%                                                                                                                                                      | >80%              | yellow                                                                                                |
+| Time-to-Close                                | audit sample (n=31) mean ≈ 30.0h; ci-fix sample (n=12) mean ≈ 18.4h (both `updated_at` proxy)                                                                         | <24h              | yellow (audit over target, ci-fix under)                                                              |
+| Agent Success (open snapshot)                | 5 has-pr / (5 has-pr + 2 agent-failed) = 71.4%                                                                                                                        | >70%              | green — first green reading in 3 nights (was 66.7% the prior two); #5071's stale-label bug still open |
+| CI Pass (main, last 30 runs)                 | 27 success / 27 non-cancelled/non-pending = 100% (2 cancelled, 1 in-flight excluded)                                                                                  | >95%              | green                                                                                                 |
+| Queue (ready)                                | 45 (down from 48 — this run's iteration removed 3, offset by ~2 new arrivals incl. today's own #5119)                                                                 | <5                | red                                                                                                   |
+| Stale (ready>7d)                             | 0 (oldest remaining `ready` issues are the 2026-09-04 UX audit batch, 4 days old)                                                                                     | 0                 | green                                                                                                 |
+| Blocked (agent-failed)                       | 2 (#5091 rialto visual baselines — new tonight, genuine environment blocker, see above; #4914 nightly-compliance drift, unchanged) — #4606 from prior nights resolved | 0                 | yellow                                                                                                |
+| Skipped (agent-skip)                         | 0                                                                                                                                                                     | 0                 | green                                                                                                 |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — matches tracked #4618, not re-filing                                                                                                            | <$10/day, <$50/7d | unmeasured, same standing gap                                                                         |
+
+### Patterns
+
+- **A third distinct class of "this repo's cloud sessions can't reach CI-rendered pixels" surfaced tonight, beyond the two already in gotchas.md (blob-storage egress, `workflow_dispatch` auth).** The pre-installed Chromium in this sandbox is pinned to a driver revision (`-1194`) older than what the repo's pinned `@playwright/test` version expects (`-1234`), and `cdn.playwright.dev` isn't egress-allowlisted to self-heal it. This closes off "just run `pnpm test:visual` locally" as a workaround for visual-regression issues in a cloud session — worth a gotchas.md entry if a future session hits the same wall (`chrome-headless-shell` executable-not-found immediately after a correct `pnpm --dir packages/rialto build`).
+- **Agent Success crossed into green (71.4%) for the first time in the last 3 tracked nights**, purely from this run's own batch (2 of 3 issues closed clean via has-pr→merged) outrunning the standing #5071 stale-label inflation rather than that bug being fixed — #5071 itself is still open and unmerged.
+- **Queue depth (45) stayed red but continued its slow drain** (48→45), consistent with the last two nights' note that a large fraction of the raw count (the 2026-09-04 UX audit batch, still 0 days into staleness) isn't urgent backlog pressure.
+
+### Recommendations
+
+- Next `/implement-queue` iteration: #5119 (Storybook `overlay-drawer--right` baseline, small/isolated) and #5099 (qs pnpm.overrides stale, mechanical) are both `ready` and well-scoped. #5091 (rialto-web visual cascade) should NOT be retried by an isolated worker until one of: `gh`/working MCP GitHub tools in the worker's own tool set, or an egress allowlist covering `*.blob.core.windows.net` / `cdn.playwright.dev` — otherwise it will burn another full session for the same documented reason.
+- Review #5071 (has-pr label hygiene on reopen, filed 2026-09-06, still open/unmerged) — same recommendation as the last two nights.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing recommendation, deferred to `/optimize-implement-queue` Step 0.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open). 1 new `agent-failed` issue tonight (#5091, environment blocker, documented on the issue and above); #4914 unchanged from prior nights, not re-triaged (out of scope for this pass).
