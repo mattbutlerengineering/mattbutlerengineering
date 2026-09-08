@@ -553,6 +553,39 @@ describe("availabilityService.getAvailableDates", () => {
     // venue/date/party-size — this fails against main, which reports true.
     expect(dates[0]!.hasAvailability).toBe(anySlotAvailable);
   });
+
+  it("agrees with generateTimeSlots when pacing rejects every slot (#5096)", async () => {
+    // maxCoversPerSlot: 1 with no existing reservations/holds means a party
+    // of 2 always exceeds pacing, for every slot, regardless of time —
+    // generateTimeSlots marks every slot unavailable on pacing grounds even
+    // though table conflict checks alone would pass. getAvailableDates (the
+    // bug) doesn't apply checkPacingForSlot at all, so it reports the date as
+    // available with a full slot count — a contradiction of the same class
+    // #5000 fixed for UTC-day bucketing.
+    const venue = makePrismaVenue({ settings: { pacingRules: [{ maxCoversPerSlot: 1 }] } });
+    const table = makePrismaTable();
+
+    vi.mocked(prisma.venue.findUnique).mockResolvedValue(venue as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValue([table] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValue([] as never);
+
+    const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+    const dates = await availabilityService.getAvailableDates(
+      VENUE_ID,
+      "2026-05-05",
+      "2026-05-05",
+      2
+    );
+
+    const anySlotAvailable = slots.some((s) => s.available);
+    expect(slots.length).toBeGreaterThan(0);
+    expect(anySlotAvailable).toBe(false); // generateTimeSlots: pacing rejects every slot
+    // getAvailableDates must not contradict generateTimeSlots for the same
+    // venue/date/party-size — this fails against main, which reports true.
+    expect(dates[0]!.hasAvailability).toBe(anySlotAvailable);
+    expect(dates[0]!.slotCount).toBe(0);
+  });
 });
 
 describe("availabilityService.findBestTable", () => {
