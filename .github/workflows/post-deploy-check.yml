@@ -272,7 +272,10 @@ jobs:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 15
+    # 18 min covers setup (~1 min) + the poll budget below (12 min) + room for
+    # the smoke tests themselves once confirmed. See "Poll for deploy to
+    # land"'s MAX_ATTEMPTS/SLEEP_SECS comment for why the poll budget grew.
+    timeout-minutes: 18
     permissions:
       contents: read
       issues: write
@@ -298,13 +301,16 @@ jobs:
         id: poll-deploy
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
-          # 24x15s = 6 minutes. Was 12x15s (3 min): four consecutive real runs
-          # (#5006 -- ids 33920189903, 33927436459, 33948920980, 33993498356)
-          # all confirmed on attempt 11/12, i.e. the poll step consistently
-          # took ~166-167s against a 180s budget -- essentially zero margin.
-          # Doubling the budget gives real headroom instead of running at the
-          # edge of the observed propagation time on every single deploy.
-          MAX_ATTEMPTS: 24
+          # 48x15s = 12 minutes. Was 24x15s (6 min, #5006). That 6-minute
+          # budget itself started timing out routinely: #5098/#5123/#5124/
+          # #5133/#5134 all auto-filed "could not confirm deploy" within one
+          # ~24h window, and job logs for those runs show the "Poll for
+          # deploy to land" step consistently burning the *entire* 6-minute
+          # budget (e.g. runs 34193374786, 34192473847, 34176995119 -- all
+          # 5m47s-5m48s, i.e. exactly 24 attempts). Doubling again gives real
+          # headroom instead of re-running at the edge of a budget that's
+          # already proven too tight once. See scripts/check-deploy-sha.mjs.
+          MAX_ATTEMPTS: 48
           SLEEP_SECS: 15
         run: |
           # scripts/check-deploy-sha.mjs's exit code IS the gate (#5006): it
