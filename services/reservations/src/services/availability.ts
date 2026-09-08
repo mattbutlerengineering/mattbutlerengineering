@@ -268,11 +268,22 @@ export async function getAvailableDates(
       const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
       const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
+      // Applies checkPacingForSlot the same way generateTimeSlots does, so a
+      // date never reads as available here on grounds the slot list would
+      // then reject (#5096 — same divergence class #5000 fixed for UTC-day
+      // bucketing).
       const hasAvailableTable = suitableTables.some(
         (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
       );
+      const pacingOk = checkPacingForSlot(
+        slotStart,
+        partySize,
+        settings,
+        dateReservations,
+        dateHolds
+      );
 
-      if (hasAvailableTable) {
+      if (hasAvailableTable && pacingOk) {
         availableCount++;
       }
     }
