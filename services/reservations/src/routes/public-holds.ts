@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, ReservationHold } from "@mbe/types";
-import { publicHoldBodyJsonSchema } from "@mbe/types";
+import { createProblemDetails, publicHoldBodyJsonSchema } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
@@ -16,7 +16,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { slug: string };
     Body: { date: string; startTime: string; endTime: string; partySize: number };
-    Reply: ApiResponse<ReservationHold>;
+    Reply: ApiResponse<ReservationHold> | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug/holds",
     {
@@ -38,22 +38,24 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       const ip = request.ip;
 
       if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
-        return reply.status(429).send({
-          type: "https://httpproblems.com/http-status/429",
-          title: "Too Many Holds",
-          status: 429,
-          detail: `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`,
-        } as never);
+        return reply
+          .status(429)
+          .send(
+            createProblemDetails(
+              429,
+              "Too Many Holds",
+              `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`
+            )
+          );
       }
 
       const venue = await venueService.getBySlug(slug);
       if (!venue) {
-        return reply.status(404).send({
-          type: "https://httpproblems.com/http-status/404",
-          title: "Venue Not Found",
-          status: 404,
-          detail: `No venue found with slug '${slug}'.`,
-        } as never);
+        return reply
+          .status(404)
+          .send(
+            createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+          );
       }
 
       const sessionId = randomUUID();
@@ -63,12 +65,15 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       );
 
       if (!result.success) {
-        return reply.status(409).send({
-          type: "https://httpproblems.com/http-status/409",
-          title: "Slot Unavailable",
-          status: 409,
-          detail: result.error ?? "The requested time slot is no longer available.",
-        } as never);
+        return reply
+          .status(409)
+          .send(
+            createProblemDetails(
+              409,
+              "Slot Unavailable",
+              result.error ?? "The requested time slot is no longer available."
+            )
+          );
       }
 
       incrementHoldCount(ip);
