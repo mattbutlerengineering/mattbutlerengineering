@@ -10,3 +10,4 @@
 {"timestamp":"2026-09-04T00:00:00.000Z","criterion":"ci-fix","old_value":1.136,"new_value":1.166,"trigger":"headroom"}
 {"timestamp":"2026-09-05T00:00:00.000Z","criterion":"ci-fix","old_value":1.166,"new_value":1.17,"trigger":"headroom"}
 {"timestamp":"2026-09-07T00:00:00.000Z","criterion":"ci-fix","old_value":1.17,"new_value":1.2,"trigger":"headroom"}
+{"timestamp":"2026-09-08T00:00:00.000Z","criterion":"ci-fix","old_value":1.2,"new_value":1.217,"trigger":"headroom"}
