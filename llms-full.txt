@@ -15109,6 +15109,14 @@
       readonly skipped?: boolean;
       /** Which skip condition fired, when `skipped` is true. */
       readonly skipReason?: SkipReason;
+      /**
+       * True when the LLM judge could not run at all — a non-`success` SDK
+       * result, missing/malformed `structured_output`, or a thrown error.
+       * Fails closed (`passed: false`): an outage must never be indistinguishable
+       * from a genuine pass. Never set together with `skipped`, which marks the
+       * deliberate, by-design skip policy rather than a failure.
+       */
+      readonly evaluationFailed?: boolean;
     }
     export interface EvaluationConfig {
       readonly model: string;
