@@ -57,6 +57,13 @@ export function SearchOrchestrator({
                 ? "Try adjusting your search query."
                 : "Get started by adding your first guest."
             }
+            action={
+              !isSearchActive && (
+                <Button variant="primary" onClick={onAddGuest}>
+                  Add a Guest
+                </Button>
+              )
+            }
           />
         </div>
       )}

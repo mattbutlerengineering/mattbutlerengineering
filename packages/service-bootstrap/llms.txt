@@ -117,8 +117,8 @@
         beforeShutdown?: () => void | Promise<void>;
       }
     </item>
-    <item priority="high">
-      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    <item priority="medium">
+      function delayReject(ms: number, message: string): Promise<never> { /* ... */ }
     </item>
   </file>
   <file path="src/validate-startup-config.ts">

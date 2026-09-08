@@ -2,7 +2,7 @@ import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router";
+import { createBrowserRouter, RouterProvider } from "react-router";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
@@ -97,6 +97,9 @@ const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default
 const BriefingPage = lazy(() =>
   import("./pages/BriefingPage.js").then((m) => ({ default: m.BriefingPage }))
 );
+const NotFoundPage = lazy(() =>
+  import("./pages/NotFoundPage.js").then((m) => ({ default: m.NotFoundPage }))
+);
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -141,14 +144,6 @@ const router = createBrowserRouter(
       element: <App />,
       children: [
         { path: "callback", element: <CallbackRedirect /> },
-        {
-          path: "chat",
-          element: (
-            <Suspense fallback={<LoadingPage />}>
-              <ChatPage />
-            </Suspense>
-          ),
-        },
         {
           path: "onboarding",
           element: (
@@ -257,6 +252,14 @@ const router = createBrowserRouter(
               ),
             },
             {
+              path: "chat",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <ChatPage />
+                </Suspense>
+              ),
+            },
+            {
               path: "profile",
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -298,7 +301,14 @@ const router = createBrowserRouter(
                 </Suspense>
               ),
             },
-            { path: "*", element: <Navigate to="/timeline" replace /> },
+            {
+              path: "*",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <NotFoundPage />
+                </Suspense>
+              ),
+            },
           ],
         },
       ],

@@ -991,6 +991,19 @@ describe("TimelinePage", () => {
       });
     });
 
+    it("links the empty-state hint to the Floor Plans page instead of leaving it as inert text", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], tables: [] })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: /floor plans/i })).toHaveAttribute(
+          "href",
+          "/floor-plans"
+        );
+      });
+    });
+
     it("passes disabled params to useTimelineData when no venue is selected", async () => {
       vi.mocked(useVenue).mockReturnValue(makeVenueContext({ selectedVenueId: null, venues: [] }));
       renderPage();

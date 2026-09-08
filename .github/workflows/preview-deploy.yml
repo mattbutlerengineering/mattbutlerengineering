@@ -111,7 +111,7 @@ jobs:
           set -euo pipefail
           if [ "$FILTER" != "true" ]; then exit 0; fi
           WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
-          npx wrangler deploy \
+          npx wrangler@3.114.17 deploy \
             --config "apps/${APP}/wrangler.toml" \
             --name "$WORKER_NAME" \
             --no-bundle | tee wrangler-deploy.log
@@ -222,7 +222,7 @@ jobs:
         run: |
           for APP in marketing hospitality rialto-web; do
             WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
-            npx wrangler delete --name "$WORKER_NAME" 2>/dev/null && \
+            npx wrangler@3.114.17 delete --name "$WORKER_NAME" 2>/dev/null && \
               echo "Deleted $WORKER_NAME" || \
               echo "No preview for $WORKER_NAME"
           done

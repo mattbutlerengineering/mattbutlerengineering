@@ -230,7 +230,12 @@ test.describe("Venue onboarding wizard", () => {
 
     await expect(mockedPage).toHaveURL(/\/floor-plans\/fp_e2e_created$/);
     await expect(mockedPage.getByRole("heading", { name: "Main Floor" })).toBeVisible();
-    await expect(mockedPage.getByText("Active")).toBeVisible();
+    // Exact match: the launch sequence always activates the plan it creates,
+    // so FloorPlanCanvas's own "(Active)" label (shown whenever
+    // floorPlan.isActive) is on the page too — a substring match resolves to
+    // both and trips Playwright's strict mode. Same fix already applied in
+    // venue-journey.spec.ts:124 for the identical ambiguity.
+    await expect(mockedPage.getByText("Active", { exact: true })).toBeVisible();
   });
 
   // #4817: pins the retry-success launch handoff (VenueOnboardingPage.tsx's

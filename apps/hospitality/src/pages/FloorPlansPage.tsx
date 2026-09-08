@@ -135,6 +135,15 @@ export function FloorPlansPage() {
         <EmptyState
           heading="No floor plans yet"
           description="Create a floor plan to start arranging tables for your venue."
+          action={
+            <Button
+              variant="primary"
+              onClick={() => setShowNewDialog(true)}
+              disabled={!selectedVenueId}
+            >
+              Create Floor Plan
+            </Button>
+          }
         />
       )}
 

@@ -131,6 +131,15 @@ export function ReservationsPage() {
 
   const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
 
+  // Matches TimelinePage's date formatting so the empty-state description
+  // reads as a date a manager would say out loud, not a raw ISO string.
+  const formattedSelectedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
   if (isLoading && (data === undefined || data.length === 0)) {
     return <ReservationsLoadingSkeleton />;
   }
@@ -207,8 +216,17 @@ export function ReservationsPage() {
               searchQuery.trim()
                 ? `No reservations matching '${searchQuery.trim()}'.`
                 : statusFilter === "all"
-                  ? `No reservations found for ${selectedDate}.`
-                  : `No ${statusFilter.toLowerCase()} reservations found for ${selectedDate}.`
+                  ? `No reservations found for ${formattedSelectedDate}.`
+                  : `No ${statusFilter.toLowerCase()} reservations found for ${formattedSelectedDate}.`
+            }
+            action={
+              <Button
+                variant="primary"
+                onClick={() => setShowNewReservationDialog(true)}
+                disabled={!selectedVenueId}
+              >
+                Create Reservation
+              </Button>
             }
           />
         </div>
