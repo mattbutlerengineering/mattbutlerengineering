@@ -149,6 +149,41 @@ describe("GET /public/v1/venues/:slug/availability", () => {
     expect(response.statusCode).toBe(404);
   });
 
+  it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/fake/availability?date=2026-06-15&partySize=4",
+    });
+
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: "about:blank",
+      title: expect.any(String),
+      status: 404,
+    });
+    expect(body.detail).toContain("fake");
+    expect(body).not.toHaveProperty("success");
+  });
+
+  it("returns an RFC 7807 problem-details body for a 400 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/availability?date=2026-06-15&partySize=0",
+    });
+
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: "about:blank",
+      title: expect.any(String),
+      status: 400,
+    });
+    expect(body).not.toHaveProperty("success");
+  });
+
   it("returns empty array when no slots available", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(availabilityService.generateTimeSlots).mockResolvedValueOnce([
