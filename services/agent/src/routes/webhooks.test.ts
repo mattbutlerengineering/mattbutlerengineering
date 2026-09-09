@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { __resetDeliveryDedupForTests } from "../lib/delivery-dedup.js";
 
 // Mock @mbe/agent-core — keep routeModelWithReason / intentToRoutingContext mockable
 // so we can verify the routing wiring without exercising the real SDK import.
@@ -94,6 +95,7 @@ describe("Webhook Routes", () => {
   beforeEach(async () => {
     process.env.GITHUB_WEBHOOK_SECRET = WEBHOOK_SECRET;
     process.env.GITHUB_TOKEN = "test-github-token";
+    __resetDeliveryDedupForTests();
     app = await buildApp({ logger: false });
     await app.ready();
     vi.mocked(triggerSession).mockResolvedValue({
@@ -191,12 +193,49 @@ describe("Webhook Routes", () => {
         expect(response.statusCode).toBe(200);
         expect(JSON.parse(response.body)).toEqual({ received: true });
 
-        expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            taskDescription: expect.stringContaining("Fix the login bug"),
-            baseBranch: "main",
+        await vi.waitFor(() =>
+          expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
+            expect.objectContaining({
+              taskDescription: expect.stringContaining("Fix the login bug"),
+              baseBranch: "main",
+            })
+          )
+        );
+      });
+
+      it("acknowledges with 200 before the intent-extraction LLM call resolves", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
+        let resolveIntent!: (value: null) => void;
+        vi.mocked(extractIssueIntent).mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveIntent = resolve;
           })
         );
+
+        const payloadStr = JSON.stringify(issuePayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: issuePayload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+            "x-github-delivery": "delivery-slow-intent",
+          },
+        });
+
+        // The route already replied — the LLM call is still pending.
+        expect(response.statusCode).toBe(200);
+        expect(vi.mocked(triggerSession)).not.toHaveBeenCalled();
+
+        resolveIntent(null);
+        await vi.waitFor(() => expect(vi.mocked(triggerSession)).toHaveBeenCalled());
       });
 
       it("ignores non-agent labels", async () => {
@@ -233,6 +272,69 @@ describe("Webhook Routes", () => {
         });
 
         expect(vi.mocked(triggerSession)).not.toHaveBeenCalled();
+      });
+
+      describe("x-github-delivery dedup", () => {
+        it("creates exactly one session for a first delivery", async () => {
+          mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ permission: "write" }),
+          } as Response);
+
+          const payloadStr = JSON.stringify(issuePayload);
+          const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+          await app.inject({
+            method: "POST",
+            url: "/v1/webhooks/github",
+            payload: issuePayload,
+            headers: {
+              "x-github-event": "issues",
+              "x-hub-signature-256": signature,
+              "x-github-delivery": "delivery-first",
+            },
+          });
+
+          await vi.waitFor(() => expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1));
+        });
+
+        it("does not create a second session when a delivery is redelivered", async () => {
+          mockFetch.mockResolvedValue({
+            ok: true,
+            json: async () => ({ permission: "write" }),
+          } as Response);
+
+          const payloadStr = JSON.stringify(issuePayload);
+          const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+          const headers = {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+            "x-github-delivery": "delivery-redelivered",
+          };
+
+          await app.inject({
+            method: "POST",
+            url: "/v1/webhooks/github",
+            payload: issuePayload,
+            headers,
+          });
+          await vi.waitFor(() => expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1));
+
+          const replay = await app.inject({
+            method: "POST",
+            url: "/v1/webhooks/github",
+            payload: issuePayload,
+            headers,
+          });
+
+          expect(replay.statusCode).toBe(200);
+          expect(JSON.parse(replay.body)).toEqual({ received: true });
+          // No new call: still exactly one triggerSession invocation from the
+          // first delivery. Give any (incorrect) second dispatch a chance to
+          // run before asserting.
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1);
+        });
       });
 
       describe("model routing from IssueIntent", () => {
@@ -283,13 +385,15 @@ describe("Webhook Routes", () => {
             },
           });
 
+          await vi.waitFor(() =>
+            expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
+              expect.objectContaining({ model: "claude-opus-4-8" })
+            )
+          );
           expect(vi.mocked(intentToRoutingContext)).toHaveBeenCalledWith(mockIntent);
           expect(vi.mocked(routeModelWithReason)).toHaveBeenCalledWith(
             expect.objectContaining({ title: "Fix the login bug" }),
             mockCtx
-          );
-          expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
-            expect.objectContaining({ model: "claude-opus-4-8" })
           );
         });
 
@@ -319,13 +423,15 @@ describe("Webhook Routes", () => {
             },
           });
 
+          await vi.waitFor(() =>
+            expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
+              expect.objectContaining({ model: "claude-sonnet-4-6" })
+            )
+          );
           expect(vi.mocked(intentToRoutingContext)).not.toHaveBeenCalled();
           expect(vi.mocked(routeModelWithReason)).toHaveBeenCalledWith(
             expect.objectContaining({ title: "Fix the login bug" }),
             undefined
-          );
-          expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
-            expect.objectContaining({ model: "claude-sonnet-4-6" })
           );
         });
       });
@@ -466,13 +572,15 @@ describe("Webhook Routes", () => {
         });
 
         // Valid inputs should reach the GitHub API
-        expect(mockFetch).toHaveBeenCalledWith(
-          "https://api.github.com/repos/my-org.corp/my-repo.js/collaborators/alice-bob.dev/permission",
-          expect.objectContaining({
-            headers: expect.objectContaining({
-              Authorization: expect.stringContaining("Bearer"),
-            }),
-          })
+        await vi.waitFor(() =>
+          expect(mockFetch).toHaveBeenCalledWith(
+            "https://api.github.com/repos/my-org.corp/my-repo.js/collaborators/alice-bob.dev/permission",
+            expect.objectContaining({
+              headers: expect.objectContaining({
+                Authorization: expect.stringContaining("Bearer"),
+              }),
+            })
+          )
         );
       });
     });
@@ -518,10 +626,12 @@ describe("Webhook Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            taskDescription: expect.stringContaining("fix the failing test"),
-          })
+        await vi.waitFor(() =>
+          expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
+            expect.objectContaining({
+              taskDescription: expect.stringContaining("fix the failing test"),
+            })
+          )
         );
       });
 
@@ -602,13 +712,15 @@ describe("Webhook Routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
+        await vi.waitFor(() =>
+          expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
+            expect.objectContaining({
+              taskDescription: expect.stringContaining("[CI Retry 1/3]"),
+            })
+          )
+        );
         expect(vi.mocked(sessionService.countCiRetries)).toHaveBeenCalledWith(
           "agent/fix-login-bug"
-        );
-        expect(vi.mocked(triggerSession)).toHaveBeenCalledWith(
-          expect.objectContaining({
-            taskDescription: expect.stringContaining("[CI Retry 1/3]"),
-          })
         );
       });
 

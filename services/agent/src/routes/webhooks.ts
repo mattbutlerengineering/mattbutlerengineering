@@ -5,6 +5,16 @@ import type { IssueInput } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { triggerSession } from "../services/session-trigger.js";
 import { createRawBodyCaptureHook, createVerifiedBodyPreHandler } from "../lib/verified-webhook.js";
+import { isDuplicateDelivery } from "../lib/delivery-dedup.js";
+
+interface WebhookLogger {
+  log: {
+    info: (...args: unknown[]) => void;
+    warn: (...args: unknown[]) => void;
+    error: (...args: unknown[]) => void;
+    debug: (...args: unknown[]) => void;
+  };
+}
 
 const GITHUB_API_BASE = "https://api.github.com";
 const REQUIRED_PERMISSION = "write";
@@ -172,32 +182,55 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const eventType = request.headers["x-github-event"] as string | undefined;
+      const deliveryId = request.headers["x-github-delivery"] as string | undefined;
 
-      switch (eventType) {
-        case "issues":
-          await handleIssueEvent(fastify, request.body as GitHubIssueEvent, githubToken);
-          break;
-
-        case "issue_comment":
-          await handleIssueCommentEvent(
-            fastify,
-            request.body as GitHubIssueCommentEvent,
-            githubToken
-          );
-          break;
-
-        case "check_run":
-          await handleCheckRunEvent(fastify, request.body as GitHubCheckRunEvent);
-          break;
-
-        default:
-          fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+      if (deliveryId && isDuplicateDelivery(deliveryId)) {
+        fastify.log.info({ deliveryId, eventType }, "Duplicate GitHub webhook delivery — no-op");
+        return { received: true };
       }
+
+      // Acknowledge within GitHub's 10s delivery window and do the slow work
+      // (Haiku intent extraction, collaborator-permission REST calls) after
+      // replying — fire-and-forget, same dispatch shape triggerSession uses
+      // for session execution (services/session-trigger.ts). A rejection
+      // here would otherwise be an unhandled promise rejection; the .catch
+      // logs it via fastify.log.error (surfaces in service logs) instead of
+      // losing it.
+      dispatchWebhookEvent(fastify, eventType, request.body, githubToken).catch((err) => {
+        fastify.log.error(
+          { err, eventType, deliveryId },
+          "Unhandled error processing GitHub webhook event"
+        );
+      });
 
       return { received: true };
     }
   );
 };
+
+async function dispatchWebhookEvent(
+  fastify: WebhookLogger,
+  eventType: string | undefined,
+  body: unknown,
+  githubToken: string
+): Promise<void> {
+  switch (eventType) {
+    case "issues":
+      await handleIssueEvent(fastify, body as GitHubIssueEvent, githubToken);
+      break;
+
+    case "issue_comment":
+      await handleIssueCommentEvent(fastify, body as GitHubIssueCommentEvent, githubToken);
+      break;
+
+    case "check_run":
+      await handleCheckRunEvent(fastify, body as GitHubCheckRunEvent);
+      break;
+
+    default:
+      fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+  }
+}
 
 // ── Event handlers ───────────────────────────────────────────────────
 
