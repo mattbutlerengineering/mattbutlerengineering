@@ -329,10 +329,9 @@ describe("Webhook Routes", () => {
 
           expect(replay.statusCode).toBe(200);
           expect(JSON.parse(replay.body)).toEqual({ received: true });
-          // No new call: still exactly one triggerSession invocation from the
-          // first delivery. Give any (incorrect) second dispatch a chance to
-          // run before asserting.
-          await new Promise((resolve) => setTimeout(resolve, 20));
+          // Dedup is checked synchronously in the route handler before any
+          // dispatch is kicked off, so the replay never starts a second
+          // dispatch — no need to wait for one to (not) resolve.
           expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1);
         });
       });
