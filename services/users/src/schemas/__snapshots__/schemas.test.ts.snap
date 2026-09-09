@@ -118,15 +118,23 @@ exports[`User service schemas > UserSchema matches snapshot 1`] = `
       "type": "string",
     },
     "name": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "picture": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "preferences": {

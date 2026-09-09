@@ -119,9 +119,13 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
             "type": "string",
           },
           "floorPlanId": {
-            "type": [
-              "string",
-              "null",
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
             ],
           },
           "id": {
@@ -131,15 +135,23 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
             "type": "boolean",
           },
           "location": {
-            "type": [
-              "string",
-              "null",
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
             ],
           },
           "maxCovers": {
-            "type": [
-              "number",
-              "null",
+            "anyOf": [
+              {
+                "type": "number",
+              },
+              {
+                "type": "null",
+              },
             ],
           },
           "minCovers": {
@@ -206,18 +218,26 @@ exports[`Reservation service schemas > FloorPlanSchema matches snapshot 1`] = `
             "type": "string",
           },
           "tableNumber": {
-            "type": [
-              "string",
-              "null",
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
             ],
           },
           "updatedAt": {
             "type": "string",
           },
           "venueId": {
-            "type": [
-              "string",
-              "null",
+            "anyOf": [
+              {
+                "type": "string",
+              },
+              {
+                "type": "null",
+              },
             ],
           },
         },
@@ -292,30 +312,46 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
       ],
     },
     "email": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "id": {
       "type": "string",
     },
     "lastNoShowAt": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "lastVisit": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "lifetimeSpend": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "name": {
@@ -325,15 +361,23 @@ exports[`Reservation service schemas > GuestSchema matches snapshot 1`] = `
       "type": "number",
     },
     "notes": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "phone": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "riskScore": {
@@ -475,15 +519,23 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
   "$id": "Reservation",
   "properties": {
     "cancellationNote": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "cancellationReason": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "createdAt": {
@@ -499,36 +551,56 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
       "type": "string",
     },
     "guestEmail": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "guestId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "guestName": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "guestPhone": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "id": {
       "type": "string",
     },
     "notes": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "occasion": {
@@ -592,9 +664,13 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
           "type": "string",
         },
         "floorPlanId": {
-          "type": [
-            "string",
-            "null",
+          "anyOf": [
+            {
+              "type": "string",
+            },
+            {
+              "type": "null",
+            },
           ],
         },
         "id": {
@@ -604,15 +680,23 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
           "type": "boolean",
         },
         "location": {
-          "type": [
-            "string",
-            "null",
+          "anyOf": [
+            {
+              "type": "string",
+            },
+            {
+              "type": "null",
+            },
           ],
         },
         "maxCovers": {
-          "type": [
-            "number",
-            "null",
+          "anyOf": [
+            {
+              "type": "number",
+            },
+            {
+              "type": "null",
+            },
           ],
         },
         "minCovers": {
@@ -679,18 +763,26 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
           "type": "string",
         },
         "tableNumber": {
-          "type": [
-            "string",
-            "null",
+          "anyOf": [
+            {
+              "type": "string",
+            },
+            {
+              "type": "null",
+            },
           ],
         },
         "updatedAt": {
           "type": "string",
         },
         "venueId": {
-          "type": [
-            "string",
-            "null",
+          "anyOf": [
+            {
+              "type": "string",
+            },
+            {
+              "type": "null",
+            },
           ],
         },
       },
@@ -720,15 +812,23 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
       "type": "string",
     },
     "userId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "venueId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
   },
@@ -769,9 +869,13 @@ exports[`Reservation service schemas > TableSchema matches snapshot 1`] = `
       "type": "string",
     },
     "floorPlanId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "id": {
@@ -781,15 +885,23 @@ exports[`Reservation service schemas > TableSchema matches snapshot 1`] = `
       "type": "boolean",
     },
     "location": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "maxCovers": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "minCovers": {
@@ -856,18 +968,26 @@ exports[`Reservation service schemas > TableSchema matches snapshot 1`] = `
       "type": "string",
     },
     "tableNumber": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "updatedAt": {
       "type": "string",
     },
     "venueId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
   },
@@ -1180,9 +1300,13 @@ exports[`Reservation service schemas > VenueSchema matches snapshot 1`] = `
       "type": "object",
     },
     "venueGroupId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
   },

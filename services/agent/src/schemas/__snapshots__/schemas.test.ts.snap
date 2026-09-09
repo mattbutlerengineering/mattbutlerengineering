@@ -159,21 +159,33 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "string",
     },
     "branchName": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "completedAt": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "costUsd": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "createPr": {
@@ -183,9 +195,13 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "string",
     },
     "durationMs": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "errors": {
@@ -198,9 +214,13 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "string",
     },
     "inputTokens": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "maxBudgetUsd": {
@@ -213,45 +233,73 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "string",
     },
     "numTurns": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "outputTokens": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "parentId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "prNumber": {
-      "type": [
-        "number",
-        "null",
+      "anyOf": [
+        {
+          "type": "number",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "prUrl": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "resultText": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "startedAt": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
     "status": {
@@ -271,9 +319,13 @@ exports[`Agent service schemas > SessionSchema matches snapshot 1`] = `
       "type": "string",
     },
     "userId": {
-      "type": [
-        "string",
-        "null",
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "type": "null",
+        },
       ],
     },
   },

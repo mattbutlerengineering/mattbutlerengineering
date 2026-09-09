@@ -66,10 +66,10 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^1.0.1",
-    "@changesets/cli": "^3.0.2",
+    "@changesets/changelog-github": "^1.0.0",
+    "@changesets/cli": "^3.0.1",
     "@lhci/cli": "^0.15.1",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.62.1",
     "@size-limit/file": "^13.0.3",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
@@ -77,9 +77,9 @@
     "esbuild": "^0.28.2",
     "glob": "^13.0.6",
     "husky": "^9.1.7",
-    "lint-staged": "^17.5.0",
+    "lint-staged": "^17.3.0",
     "size-limit": "^13.0.3",
-    "turbo": "^2.10.12",
+    "turbo": "^2.10.11",
     "vitest": "catalog:"
   },
   "pnpm": {
