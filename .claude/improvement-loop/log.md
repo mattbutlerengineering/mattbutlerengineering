@@ -1468,6 +1468,12 @@ Claimed a zone-spread batch of 3: #5091 (ci-fix, packages/rialto visual baseline
 
 None this run (`agent-skip` empty, 0 open). 1 new `agent-failed` issue tonight (#5091, environment blocker, documented on the issue and above); #4914 unchanged from prior nights, not re-triaged (out of scope for this pass).
 
+## 2026-09-09
+
+**queueEfficiency:** composite 0.952 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:13, size:m:4, size:xs:7, size:l:1
+**Issues filed:** 0
+
 ## 2026-09-09 (mbe-evening)
 
 ### Metrics
