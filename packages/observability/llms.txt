@@ -58,6 +58,15 @@
         reason: string;
       }
     </item>
+    <item priority="medium">
+      function isSet(env: NodeJS.ProcessEnv, key: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDisabled(env: NodeJS.ProcessEnv): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan { /* ... */ }
+    </item>
   </file>
   <file path="src/rate-limit-monitor.ts">
     <item priority="low">

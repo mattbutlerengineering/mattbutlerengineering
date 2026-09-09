@@ -132,6 +132,7 @@
       interface PerRequestOptions {
         maxRetries?: number;
         timeout?: number;
+        idempotentRetry?: boolean;
       }
     </item>
     <item priority="high">

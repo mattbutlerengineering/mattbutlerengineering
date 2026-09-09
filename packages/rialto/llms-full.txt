@@ -324,6 +324,7 @@
       pendingAction: PendingAction | null;
       send: (content: string) => Promise<void>;
       stop: () => void;
+      retry: () => Promise<void>;
       confirmAction: () => Promise<void>;
       cancelAction: () => void;
     }
@@ -337,6 +338,10 @@
       const getAccessTokenRef = useRef(getAccessToken);
       const messagesRef = useRef(messages);
       const pendingActionRef = useRef(pendingAction);
+      const lastRequestRef = useRef<{
+        body: Record<string, unknown>;
+        baseMessages: ChatMessage[];
+      } | null>(null);
     
       useEffect(() => {
         getAccessTokenRef.current = getAccessToken;
@@ -356,6 +361,7 @@
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
+          lastRequestRef.current = { body, baseMessages };
           setIsStreaming(true);
           setError(null);
     
@@ -452,7 +458,23 @@
         setIsStreaming(false);
       }, []);
     
-      return { messages, isStreaming, error, pendingAction, send, stop, confirmAction, cancelAction };
+      const retry = useCallback(async (): Promise<void> => {
+        const last = lastRequestRef.current;
+        if (!last) return;
+        await streamRequest(last.body, last.baseMessages);
+      }, [streamRequest]);
+    
+      return {
+        messages,
+        isStreaming,
+        error,
+        pendingAction,
+        send,
+        stop,
+        retry,
+        confirmAction,
+        cancelAction,
+      };
     }
   </file>
   </section>
@@ -2150,6 +2172,7 @@
       value,
       onSelect,
       containerRef,
+      extraContainerRefs,
       onRequestTriggerFocus,
     }: UseComboboxOptions): UseComboboxResult {
       const [open, setOpen] = useState(false);
@@ -2291,14 +2314,17 @@
       useEffect(() => {
         if (!open) return;
         const handler = (e: MouseEvent) => {
+          const target = e.target as Node;
           const wrapper = containerRef?.current;
-          if (wrapper && !wrapper.contains(e.target as Node)) {
+          if (!wrapper || wrapper.contains(target)) return;
+          const insideExtra = extraContainerRefs?.some((r) => r.current?.contains(target));
+          if (!insideExtra) {
             setOpen(false);
           }
         };
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
-      }, [open, containerRef]);
+      }, [open, containerRef, extraContainerRefs]);
     
       // Clean up the type-ahead timer on unmount.
       useEffect(() => {
@@ -2505,6 +2531,59 @@
     export const FOCUSABLE_SELECTOR =
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
     export const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
+    export interface UseFocusTrapOptions {
+      /** Element to focus when the trap activates, overriding the default candidate. */
+      initialFocus?: RefObject<HTMLElement | null>;
+    }
+    function resolveInitialFocus(
+      focusable: NodeListOf<HTMLElement>,
+      first: HTMLElement | undefined,
+      initialFocus?: RefObject<HTMLElement | null>
+    ): HTMLElement | undefined {
+      if (initialFocus?.current) return initialFocus.current;
+      const defaultTarget = Array.from(focusable).find(
+        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
+      );
+      return defaultTarget ?? first;
+    }
+    export function useFocusTrap(
+      panelRef: RefObject<HTMLDivElement | null>,
+      enabled: boolean,
+      options?: UseFocusTrapOptions
+    ): void {
+      const initialFocus = options?.initialFocus;
+    
+      useEffect(() => {
+        if (!enabled) return;
+    
+        const panel = panelRef.current;
+        if (!panel) return;
+    
+        const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+    
+        resolveInitialFocus(focusable, first, initialFocus)?.focus();
+    
+        const trap = (e: KeyboardEvent) => {
+          if (e.key !== "Tab") return;
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        };
+    
+        document.addEventListener("keydown", trap);
+        return () => document.removeEventListener("keydown", trap);
+      }, [enabled, panelRef, initialFocus]);
+    }
   </file>
   <file path="src/hooks/usePointerActivation.ts">
     export interface UsePointerActivationResult {

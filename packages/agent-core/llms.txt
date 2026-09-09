@@ -2466,6 +2466,9 @@
     <item priority="high">
       export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig;
     </item>
+    <item priority="medium">
+      function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult { /* ... */ }
+    </item>
     <item priority="high">
       export async function getGitDiff(worktreePath: string): Promise<string> { /* ... */ }
     </item>

@@ -1246,7 +1246,11 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function provisionalDepositRequired(depositConfig: DepositConfig | null): boolean { /* ... */ }
+      export function provisionalDepositRequired(
+        depositConfig: DepositConfig | null,
+        venueSlug: string | undefined,
+        stripePublishableKey: string | undefined
+      ): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
@@ -4020,6 +4024,7 @@
         value,
         onSelect,
         containerRef,
+        extraContainerRefs,
         onRequestTriggerFocus,
       }: UseComboboxOptions): UseComboboxResult { /* ... */ }
     </item>
@@ -4119,6 +4124,25 @@
     </item>
     <item priority="high">
       export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
+    </item>
+    <item priority="low">
+      interface UseFocusTrapOptions {
+        initialFocus?: RefObject<HTMLElement | null>;
+      }
+    </item>
+    <item priority="medium">
+      function resolveInitialFocus(
+        focusable: NodeListOf<HTMLElement>,
+        first: HTMLElement | undefined,
+        initialFocus?: RefObject<HTMLElement | null>
+      ): HTMLElement | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFocusTrap(
+        panelRef: RefObject<HTMLDivElement | null>,
+        enabled: boolean,
+        options?: UseFocusTrapOptions
+      ): void { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/usePointerActivation.ts">
@@ -5627,6 +5651,12 @@
     </item>
     <item priority="high">
       export const venueIdFromParams: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export function venueIdFromEntity<T extends { venueId: string | null }>(
+        getKey: (request: FastifyRequest) => unknown,
+        load: (key: string) => Promise<T | null | undefined>
+      ): VenueIdResolver { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/venues.ts">
@@ -7821,6 +7851,9 @@
     </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
+    </item>
+    <item priority="high">
+      export function venueLocalDateString(instant: Date, ianaTimezone: string): string { /* ... */ }
     </item>
     <item priority="high">
       type DateThreshold = { lt: Date } | { gt: Date };
@@ -10296,6 +10329,9 @@
     <item priority="high">
       export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig;
     </item>
+    <item priority="medium">
+      function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult { /* ... */ }
+    </item>
     <item priority="high">
       export async function getGitDiff(worktreePath: string): Promise<string> { /* ... */ }
     </item>
@@ -11178,6 +11214,7 @@
       interface PerRequestOptions {
         maxRetries?: number;
         timeout?: number;
+        idempotentRetry?: boolean;
       }
     </item>
     <item priority="high">
@@ -12688,6 +12725,15 @@
         reason: string;
       }
     </item>
+    <item priority="medium">
+      function isSet(env: NodeJS.ProcessEnv, key: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDisabled(env: NodeJS.ProcessEnv): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan { /* ... */ }
+    </item>
   </file>
   <file path="packages/observability/src/rate-limit-monitor.ts">
     <item priority="low">
@@ -13143,6 +13189,9 @@
     </item>
     <item priority="medium">
       function delayReject(ms: number, message: string): Promise<never> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">

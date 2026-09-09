@@ -324,6 +324,7 @@
       pendingAction: PendingAction | null;
       send: (content: string) => Promise<void>;
       stop: () => void;
+      retry: () => Promise<void>;
       confirmAction: () => Promise<void>;
       cancelAction: () => void;
     }
@@ -337,6 +338,10 @@
       const getAccessTokenRef = useRef(getAccessToken);
       const messagesRef = useRef(messages);
       const pendingActionRef = useRef(pendingAction);
+      const lastRequestRef = useRef<{
+        body: Record<string, unknown>;
+        baseMessages: ChatMessage[];
+      } | null>(null);
     
       useEffect(() => {
         getAccessTokenRef.current = getAccessToken;
@@ -356,6 +361,7 @@
           const controller = new AbortController();
           abortControllerRef.current = controller;
     
+          lastRequestRef.current = { body, baseMessages };
           setIsStreaming(true);
           setError(null);
     
@@ -452,7 +458,23 @@
         setIsStreaming(false);
       }, []);
     
-      return { messages, isStreaming, error, pendingAction, send, stop, confirmAction, cancelAction };
+      const retry = useCallback(async (): Promise<void> => {
+        const last = lastRequestRef.current;
+        if (!last) return;
+        await streamRequest(last.body, last.baseMessages);
+      }, [streamRequest]);
+    
+      return {
+        messages,
+        isStreaming,
+        error,
+        pendingAction,
+        send,
+        stop,
+        retry,
+        confirmAction,
+        cancelAction,
+      };
     }
   </file>
   </section>
@@ -4077,8 +4099,19 @@
     ): boolean {
       return !depositConfig?.enabled && Boolean(venueSlug) && Boolean(stripePublishableKey);
     }
-    export function provisionalDepositRequired(depositConfig: DepositConfig | null): boolean {
-      return Boolean(depositConfig?.enabled);
+    export function provisionalDepositRequired(
+      depositConfig: DepositConfig | null,
+      venueSlug: string | undefined,
+      stripePublishableKey: string | undefined
+    ): boolean {
+      return (
+        effectiveDepositPolicy({
+          depositConfig,
+          venueSlug,
+          stripePublishableKey,
+          guestIsRisky: false,
+        }) !== null
+      );
     }
   </file>
   <file path="apps/hospitality/src/components/booking-widget/formatDepositCancellationTerms.ts">
@@ -4174,7 +4207,7 @@
       | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
       | { type: "RESET" }
-      | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null }
+      | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
       | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
       | { type: "GO_TO_WAITLIST_JOIN" }
       | { type: "WAITLIST_JOINED"; result: WaitlistResult };
@@ -4319,16 +4352,18 @@
           return INITIAL_STATE;
     
         case "SET_DEPOSIT_CONFIG":
-          // Provisional pre-confirm guess from the venue's general policy alone
-          // (risk isn't known yet); CONFIRM_SUCCESS_* overwrites this with the
-          // final, risk-aware outcome. Delegates to the shared deposit-verdict
-          // module so this can never independently drift from it.
+          // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
+          // overwrites this with the final, risk-aware outcome. `depositRequired`
+          // is computed by the caller via `provisionalDepositRequired` — the
+          // shared deposit-verdict module — so it can never independently drift
+          // from it, and it agrees with the confirm-time verdict on whether
+          // Stripe is configured for this venue.
           return {
             ...state,
             data: {
               ...state.data,
               depositConfig: action.config,
-              depositRequired: provisionalDepositRequired(action.config),
+              depositRequired: action.depositRequired,
             },
           };
     
@@ -4477,7 +4512,11 @@
                 lateCancellationFeePercent: venueConfig.deposit.lateCancellationFeePercent,
                 noShowFeePercent: venueConfig.deposit.noShowFeePercent,
               };
-              dispatch({ type: "SET_DEPOSIT_CONFIG", config });
+              dispatch({
+                type: "SET_DEPOSIT_CONFIG",
+                config,
+                depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+              });
             }
           } catch {
             // Non-fatal — proceed without deposit
@@ -4485,7 +4524,7 @@
         };
     
         fetchDepositConfig();
-      }, [venueSlug, api]);
+      }, [venueSlug, stripePublishableKey, api]);
     
       const goToTimeSlot = useCallback(() => {
         const holdId = flowState.data.hold?.id;
@@ -4606,9 +4645,16 @@
         dispatch({ type: "RESET" });
       }, []);
     
-      const setDepositConfig = useCallback((config: DepositConfig | null) => {
-        dispatch({ type: "SET_DEPOSIT_CONFIG", config });
-      }, []);
+      const setDepositConfig = useCallback(
+        (config: DepositConfig | null) => {
+          dispatch({
+            type: "SET_DEPOSIT_CONFIG",
+            config,
+            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+          });
+        },
+        [venueSlug, stripePublishableKey]
+      );
     
       const goToWaitlistJoin = useCallback(() => {
         dispatch({ type: "GO_TO_WAITLIST_JOIN" });
@@ -13333,6 +13379,7 @@
       value,
       onSelect,
       containerRef,
+      extraContainerRefs,
       onRequestTriggerFocus,
     }: UseComboboxOptions): UseComboboxResult {
       const [open, setOpen] = useState(false);
@@ -13474,14 +13521,17 @@
       useEffect(() => {
         if (!open) return;
         const handler = (e: MouseEvent) => {
+          const target = e.target as Node;
           const wrapper = containerRef?.current;
-          if (wrapper && !wrapper.contains(e.target as Node)) {
+          if (!wrapper || wrapper.contains(target)) return;
+          const insideExtra = extraContainerRefs?.some((r) => r.current?.contains(target));
+          if (!insideExtra) {
             setOpen(false);
           }
         };
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
-      }, [open, containerRef]);
+      }, [open, containerRef, extraContainerRefs]);
     
       // Clean up the type-ahead timer on unmount.
       useEffect(() => {
@@ -13688,6 +13738,59 @@
     export const FOCUSABLE_SELECTOR =
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
     export const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
+    export interface UseFocusTrapOptions {
+      /** Element to focus when the trap activates, overriding the default candidate. */
+      initialFocus?: RefObject<HTMLElement | null>;
+    }
+    function resolveInitialFocus(
+      focusable: NodeListOf<HTMLElement>,
+      first: HTMLElement | undefined,
+      initialFocus?: RefObject<HTMLElement | null>
+    ): HTMLElement | undefined {
+      if (initialFocus?.current) return initialFocus.current;
+      const defaultTarget = Array.from(focusable).find(
+        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
+      );
+      return defaultTarget ?? first;
+    }
+    export function useFocusTrap(
+      panelRef: RefObject<HTMLDivElement | null>,
+      enabled: boolean,
+      options?: UseFocusTrapOptions
+    ): void {
+      const initialFocus = options?.initialFocus;
+    
+      useEffect(() => {
+        if (!enabled) return;
+    
+        const panel = panelRef.current;
+        if (!panel) return;
+    
+        const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+    
+        resolveInitialFocus(focusable, first, initialFocus)?.focus();
+    
+        const trap = (e: KeyboardEvent) => {
+          if (e.key !== "Tab") return;
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last?.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first?.focus();
+            }
+          }
+        };
+    
+        document.addEventListener("keydown", trap);
+        return () => document.removeEventListener("keydown", trap);
+      }, [enabled, panelRef, initialFocus]);
+    }
   </file>
   <file path="packages/rialto/src/hooks/usePointerActivation.ts">
     export interface UsePointerActivationResult {
@@ -17692,7 +17795,12 @@
           const port = process.env.PORT ?? "3003";
           const apiBaseUrl = process.env.AGENT_API_URL ?? `http://localhost:${port}`;
     
-          // Create a parent session to track the orchestration
+          // Create a parent session to track the orchestration. Stamp the
+          // authenticated caller's id — sourced exclusively from the verified
+          // auth context (requireAuth preHandler, mandatory on this route) —
+          // the same pattern POST /v1/sessions uses, so the caller who starts
+          // the orchestration can read/cancel/delete it afterward instead of
+          // getting a 404 from requireSessionAccess's null-owner deny.
           const parentSession = await sessionService.create({
             taskDescription: `[Orchestrator] ${taskDescription}`,
             model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
@@ -17701,6 +17809,7 @@
               (overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession) *
               (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) *
               2,
+            userId: request.user?.id,
           });
     
           await sessionService.updateStatus(parentSession.id, "RUNNING");
@@ -22562,6 +22671,17 @@
       const params = request.params as { venueId?: unknown } | null | undefined;
       return typeof params?.venueId === "string" ? params.venueId : null;
     };
+    export function venueIdFromEntity<T extends { venueId: string | null }>(
+      getKey: (request: FastifyRequest) => unknown,
+      load: (key: string) => Promise<T | null | undefined>
+    ): VenueIdResolver {
+      return async (request) => {
+        const key = getKey(request);
+        if (typeof key !== "string") return null;
+        const entity = await load(key);
+        return entity?.venueId ?? null;
+      };
+    }
   </file>
   <file path="services/reservations/src/routes/venues.ts">
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
@@ -27938,7 +28058,14 @@
             date: { gte: start, lte: actualEnd },
             status: { notIn: [...NOT_BOOKED_STATUSES] },
           },
-          select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+          select: {
+            id: true,
+            tableId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+          },
         }),
         prisma.reservationHold.findMany({
           where: {
@@ -27949,6 +28076,7 @@
           select: {
             id: true,
             tableId: true,
+            date: true,
             startTime: true,
             endTime: true,
             partySize: true,
@@ -27962,9 +28090,15 @@
       const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
       const duration = estimateDuration(partySize, settings);
     
+      // Buckets by the venue-local booking date (the `date` column), not by
+      // `startTime` — for any venue west of UTC an evening reservation's
+      // `startTime` instant falls on the next UTC calendar day, which would
+      // silently bleed the conflict into the wrong bucket. `date` is stored as
+      // `new Date(dateStr)` (UTC midnight of the local date string), so
+      // `toDateString` round-trips it back to the same local date string.
       const reservationsByDate = new Map<string, typeof allReservations>();
       for (const r of allReservations) {
-        const key = toDateString(r.startTime);
+        const key = toDateString(r.date);
         const bucket = reservationsByDate.get(key);
         if (bucket) {
           bucket.push(r);
@@ -27975,7 +28109,7 @@
     
       const holdsByDate = new Map<string, typeof allHolds>();
       for (const h of allHolds) {
-        const key = toDateString(h.startTime);
+        const key = toDateString(h.date);
         const bucket = holdsByDate.get(key);
         if (bucket) {
           bucket.push(h);
@@ -28008,11 +28142,22 @@
           const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
           const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
+          // Applies checkPacingForSlot the same way generateTimeSlots does, so a
+          // date never reads as available here on grounds the slot list would
+          // then reject (#5096 — same divergence class #5000 fixed for UTC-day
+          // bucketing).
           const hasAvailableTable = suitableTables.some(
             (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
           );
+          const pacingOk = checkPacingForSlot(
+            slotStart,
+            partySize,
+            settings,
+            dateReservations,
+            dateHolds
+          );
     
-          if (hasAvailableTable) {
+          if (hasAvailableTable && pacingOk) {
             availableCount++;
           }
         }
@@ -29694,6 +29839,19 @@
       ): Promise<Table[]> {
         if (positions.length === 0) return [];
     
+        // The route authorizes the caller against the floor plan's venue, but every
+        // tableId in `positions` is caller-supplied and unverified. Without a tenant
+        // predicate on the statement itself, a member of one venue can name another
+        // venue's tables and re-point them at their own floor plan. Resolve the
+        // owning venue here so the UPDATE below can be scoped to it.
+        const floorPlan = await prisma.floorPlan.findUnique({
+          where: { id: floorPlanId },
+          select: { venueId: true },
+        });
+        if (!floorPlan) {
+          throw Object.assign(new Error("Floor plan not found"), { code: "P2025" });
+        }
+    
         // Postgres does not guarantee UPDATE ... RETURNING row order matches the
         // input VALUES order. Callers (the /tables/positions route and its
         // hospitality client) key results by table id, not by array position, so
@@ -29708,7 +29866,7 @@
           UPDATE tables AS t
           SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
           FROM (VALUES ${values}) AS v(id, shape_metadata)
-          WHERE t.id = v.id
+          WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
           RETURNING
             t.id,
             t.name,
@@ -29727,11 +29885,12 @@
             t.updated_at AS "updatedAt"
         `;
     
-        // An unknown/deleted tableId in the batch simply doesn't match any row —
-        // the UPDATE doesn't error, it just returns fewer rows. Fail loudly on a
-        // partial match so this restores the pre-#3892 contract: throw the same
-        // P2025 shape isPrismaNotFound/classifyError already map to a 404,
-        // triggering the client's rollback path instead of a silent 200.
+        // An unknown/deleted tableId — or, since the venue predicate above, one
+        // belonging to another venue — simply doesn't match any row: the UPDATE
+        // doesn't error, it just returns fewer rows. Fail loudly on a partial
+        // match so this restores the pre-#3892 contract: throw the same P2025
+        // shape isPrismaNotFound/classifyError already map to a 404, triggering
+        // the client's rollback path instead of a silent 200.
         if (tables.length !== positions.length) {
           throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
         }
@@ -29744,6 +29903,20 @@
         floorPlanId: string,
         shapeMetadata?: TableShapeMetadata
       ): Promise<Table | null> {
+        // The route authorizes on the body's floorPlanId, which leaves :tableId
+        // caller-controlled and unchecked. Assert both sides resolve to the same
+        // venue before writing, so a member of one venue cannot pull another
+        // venue's table onto their own floor plan (and vice versa). A table with
+        // no venue is refused too: it can never match a floor plan's venue, and
+        // adopting an orphan row is the same leak by another route.
+        const [existing, floorPlan] = await Promise.all([
+          prisma.table.findUnique({ where: { id: tableId }, select: { venueId: true } }),
+          prisma.floorPlan.findUnique({ where: { id: floorPlanId }, select: { venueId: true } }),
+        ]);
+        if (!existing?.venueId || !floorPlan || existing.venueId !== floorPlan.venueId) {
+          return null;
+        }
+    
         try {
           const table = await prisma.table.update({
             where: { id: tableId },
@@ -31872,15 +32045,18 @@
         const durationMinutes = data.durationMinutes ?? 90;
         const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
     
-        // Date only (no time component), normalized to midnight UTC
-        const dateOnly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    
-        const dateStr = toDateString(dateOnly);
-    
         // Pre-check for conflicts and pacing before the transaction (which re-checks
         // to prevent TOCTOU races). Fetch the conflict slices once and use the
         // canonical assertBookable predicate (conflict + pacing in one call).
         const venue = await prisma.venue.findUnique({ where: { id: data.venueId } });
+    
+        // Date only (no time component). Derived from the venue-local calendar
+        // date, not `now`'s UTC calendar date — near local midnight for a venue
+        // west of UTC those disagree (#5096, same class as #5000's
+        // getAvailableDates bucketing bug).
+        const dateStr = venueLocalDateString(now, venue?.ianaTimezone ?? "UTC");
+        const dateOnly = new Date(dateStr);
+    
         const settings = (venue?.settings ?? null) as VenueSettings | null;
         const { reservations, holds } = await availabilityService.fetchConflictData(
           data.venueId,
@@ -32150,6 +32326,9 @@
       return scheduleForDay(operatingHours, new Date(date).getUTCDay());
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
+    export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: ianaTimezone }).format(instant);
+    }
     type DateThreshold = { lt: Date } | { gt: Date };
     function passesThreshold(value: Date, threshold: DateThreshold): boolean {
       return "lt" in threshold ? value < threshold.lt : value > threshold.gt;
@@ -41093,6 +41272,18 @@
       model: resolveModelId("haiku"),
       maxBudgetUsd: 0.05,
     };
+    function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult {
+      const detail =
+        error === undefined ? undefined : error instanceof Error ? error.message : String(error);
+      console.error(`[success-evaluator] LLM evaluation could not run: ${reason}`, error ?? "");
+      return {
+        passed: false,
+        confidence: 0,
+        reasoning: detail ? `${reason}: ${detail}` : reason,
+        issues: ["LLM evaluation could not run"],
+        evaluationFailed: true,
+      };
+    }
     export async function getGitDiff(worktreePath: string): Promise<string> {
       try {
         const { stdout } = await execFileAsync("git", ["diff", "HEAD~1..HEAD"], {
@@ -41126,7 +41317,7 @@
         commitTitle: config?.commitTitle,
       });
       if (skip.skip) {
-        return { ...INCONCLUSIVE_RESULT, skipped: true, skipReason: skip.reason };
+        return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
       }
     
       const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
@@ -41157,7 +41348,9 @@
         }
     
         if (!result || result.subtype !== "success") {
-          return INCONCLUSIVE_RESULT;
+          return evaluationFailedResult(
+            `LLM evaluation returned a non-success result (subtype: ${result?.subtype ?? "none"})`
+          );
         }
     
         const parsed = result.structured_output as
@@ -41170,7 +41363,7 @@
           | undefined;
     
         if (!parsed || typeof parsed.passed !== "boolean") {
-          return INCONCLUSIVE_RESULT;
+          return evaluationFailedResult("LLM evaluation returned malformed structured_output");
         }
     
         return {
@@ -41179,8 +41372,8 @@
           reasoning: parsed.reasoning ?? "",
           issues: Array.isArray(parsed.issues) ? parsed.issues : [],
         };
-      } catch {
-        return INCONCLUSIVE_RESULT;
+      } catch (error) {
+        return evaluationFailedResult("LLM evaluation threw", error);
       }
     }
   </file>
@@ -43292,6 +43485,15 @@
     export interface PerRequestOptions {
       maxRetries?: number;
       timeout?: number;
+      /**
+       * Opt-in: allow retrying a non-idempotent method (POST/PATCH) on a
+       * retryable status or network error. Only set this when the caller knows
+       * the request is safe to replay (e.g. guarded by an idempotency key on
+       * the origin). Has no effect on GET/HEAD/PUT/DELETE, which are already
+       * retried by default. Defaults to false — POST/PATCH are never retried
+       * unless explicitly opted in.
+       */
+      idempotentRetry?: boolean;
     }
     export class ApiClient {
       private readonly timeout: number;
@@ -43325,6 +43527,7 @@
     
         const effectiveTimeout = override?.timeout ?? this.timeout;
         const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
+        const idempotentRetry = override?.idempotentRetry ?? false;
     
         const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
     
@@ -43335,7 +43538,8 @@
         };
     
         const url = `${baseUrl}${path}`;
-        const response = await fetchWithRetry(url, fetchOptions, effectiveMaxRetries);
+        const canRetry = SAFE_RETRY_METHODS.has(method) || idempotentRetry;
+        const response = await fetchWithRetry(url, fetchOptions, canRetry ? effectiveMaxRetries : 0);
     
         if (!response.ok) {
           const raw = await response.json().catch(() => null);
@@ -43603,10 +43807,20 @@
       options: RequestInit,
       maxRetries: number
     ): Promise<Response> {
+      let attempt = 0;
       return retry(
         async () => {
           const response = await fetch(url, options);
           if (RETRYABLE_STATUS_CODES.has(response.status)) {
+            // Only the final attempt's response is returned to the caller (for
+            // error-body parsing) — every intermediate failed response is
+            // discarded, so its body must be released here or the connection
+            // leaks.
+            const isLastAttempt = attempt >= maxRetries;
+            attempt += 1;
+            if (!isLastAttempt) {
+              await response.body?.cancel().catch(() => undefined);
+            }
             throw new RetryableStatusError(response);
           }
           return response;
@@ -47379,6 +47593,51 @@
       /** One log-safe line naming which KEY decided the mode. Never a value. */
       readonly reason: string;
     }
+    function isSet(env: NodeJS.ProcessEnv, key: string): boolean {
+      const raw = env[key];
+      return raw != null && raw.trim() !== "";
+    }
+    function isDisabled(env: NodeJS.ProcessEnv): boolean {
+      return env[DISABLED_KEY]?.trim().toLowerCase() === "true";
+    }
+    export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan {
+      if (isDisabled(env)) {
+        return {
+          mode: "disabled",
+          exportTraces: false,
+          exportMetrics: false,
+          reason: `${DISABLED_KEY} is set`,
+        };
+      }
+    
+      const genericSet = isSet(env, ENDPOINT_KEY);
+      const tracesKey = isSet(env, TRACES_ENDPOINT_KEY)
+        ? TRACES_ENDPOINT_KEY
+        : genericSet
+          ? ENDPOINT_KEY
+          : undefined;
+      const metricsKey = isSet(env, METRICS_ENDPOINT_KEY)
+        ? METRICS_ENDPOINT_KEY
+        : genericSet
+          ? ENDPOINT_KEY
+          : undefined;
+    
+      if (tracesKey === undefined && metricsKey === undefined) {
+        return {
+          mode: "unconfigured",
+          exportTraces: false,
+          exportMetrics: false,
+          reason: `no OTLP destination — ${ENDPOINT_KEY}, ${TRACES_ENDPOINT_KEY} and ${METRICS_ENDPOINT_KEY} are all unset`,
+        };
+      }
+    
+      return {
+        mode: "exporting",
+        exportTraces: tracesKey !== undefined,
+        exportMetrics: metricsKey !== undefined,
+        reason: `traces via ${tracesKey ?? "no key"}, metrics via ${metricsKey ?? "no key"}`,
+      };
+    }
   </file>
   <file path="packages/observability/src/rate-limit-monitor.ts">
     export interface RateLimitHit {
@@ -47664,7 +47923,27 @@
       return IGNORED_PATH_PREFIXES.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
     }
     export function initTelemetry(config: OtelConfig): NodeSDK {
-      const isDisabled = process.env.OTEL_SDK_DISABLED === "true";
+      if (telemetrySdk) {
+        return telemetrySdk;
+      }
+    
+      const plan = resolveTelemetryPlan(process.env);
+      const isDisabled = plan.mode === "disabled";
+    
+      // One line, every boot, every mode. The defect this package just fixed was
+      // invisible precisely because an unconfigured process and a healthy one
+      // rendered identically — nothing said which state the service was in until
+      // an export failed. Emitted for `disabled` too, so an absent line always
+      // means "initTelemetry did not run", never "it ran and had nothing to say".
+      //
+      // `console.info` rather than `diag` from @opentelemetry/api: diag is silent unless
+      // OTEL_LOG_LEVEL is set, so it would say nothing in exactly the deployment
+      // that needs it. This runs before Fastify, so pino does not exist yet;
+      // start-service-server.ts already writes to console at the same stage. `info`
+      // specifically because the repo eslint config allows only warn/error/info.
+      // `plan.reason` names the KEY that decided the mode and never its value,
+      // following validateStartupConfig's describeShape discipline.
+      console.info(`[telemetry] mode=${plan.mode} — ${plan.reason}`);
     
       const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: config.serviceName,
@@ -47680,16 +47959,53 @@
         spanProcessors.push(new LangfuseSpanProcessor());
       }
     
+      // The empty collections below are load-bearing, and `undefined` is NOT an
+      // equivalent way to write them. Measured against @opentelemetry/sdk-node
+      // @0.221.0: when `spanProcessors` is absent and `traceExporter` is undefined,
+      // NodeSDK.start() falls through to getSpanProcessorsFromEnv() (sdk.js:213),
+      // which reads an unset OTEL_TRACES_EXPORTER as "otlp" (utils.js:133) and
+      // rebuilds an exporter pointed at http://localhost:4318 — the very defect
+      // this code exists to remove. The metric path falls through identically in
+      // the constructor (sdk.js:147, defaulting OTEL_METRICS_EXPORTER at :29-32),
+      // and so does the LOGS path: with `logRecordProcessors` absent the
+      // constructor never sets _loggerProviderConfig (sdk.js:121-125), so start()
+      // calls configureLoggerProviderFromEnv (sdk.js:231), which reads an unset
+      // OTEL_LOGS_EXPORTER as "otlp" (sdk.js:262-264) and builds a third exporter
+      // at http://localhost:4318/v1/logs. Logs are the worst of the three here:
+      // PinoInstrumentation leaves disableLogSending false, so every Fastify log
+      // line feeds it, and BatchLogRecordProcessor's default scheduledDelayMillis
+      // is 1000 — roughly one connection attempt per second under traffic.
+      // An empty array is truthy, so it takes the caller-supplied branch instead
+      // (sdk.js:202 for spans, :132 for metrics) and yields a collection start()
+      // then declines to register (:217, :182-184). Nothing is exported and
+      // nothing is constructed. Re-read those lines on any sdk-node bump.
+      //
+      // `spanProcessors` is omitted — not emptied — only when there is a real
+      // trace destination and no Langfuse processor, so NodeSDK builds its own
+      // batch processor via createBatchSpanProcessorFromEnv (sdk.js:208-212) and
+      // the OTEL_BSP_* tuning variables keep working. That is today's behaviour.
+      //
+      // The exporters are constructed with NO arguments on purpose: endpoint,
+      // headers, timeout, compression and the /v1/traces vs /v1/metrics suffix all
+      // stay owned by the OTel SDK's own env resolution. This module decides
+      // *whether* to export, never *where* to.
+      const omitSpanProcessors = spanProcessors.length === 0 && plan.exportTraces;
+    
       const sdk = new NodeSDK({
         resource,
-        ...(spanProcessors.length > 0 ? { spanProcessors } : {}),
-        traceExporter: isDisabled ? undefined : new OTLPTraceExporter(),
-        metricReader: isDisabled
-          ? undefined
-          : new PeriodicExportingMetricReader({
-              exporter: new OTLPMetricExporter(),
-              exportIntervalMillis: 30_000,
-            }),
+        ...(omitSpanProcessors ? {} : { spanProcessors }),
+        ...(plan.exportTraces ? { traceExporter: new OTLPTraceExporter() } : {}),
+        metricReaders: plan.exportMetrics
+          ? [
+              new PeriodicExportingMetricReader({
+                exporter: new OTLPMetricExporter(),
+                exportIntervalMillis: 30_000,
+              }),
+            ]
+          : [],
+        // Always empty: this run fixes the unconfigured-default defect, and
+        // turning log export ON is a separate decision nobody has made.
+        logRecordProcessors: [],
         instrumentations: isDisabled
           ? []
           : [
@@ -47701,6 +48017,7 @@
             ],
       });
     
+      telemetrySdk = sdk;
       return sdk;
     }
   </file>
@@ -48345,6 +48662,15 @@
         // 2. Response Hook for status-based logging (catches manual code(4xx).send())
         fastify.addHook("onResponse", async (request, reply) => {
           const status = reply.statusCode;
+          const path = request.url.split("?")[0];
+    
+          // GET /ready legitimately answers 503 while a dependency check (DB,
+          // JWKS) is transiently failing or the service is still starting up
+          // (@mbe/service-bootstrap's readiness-routes.ts) — that's the endpoint
+          // doing its job, not an application error. Without this guard every
+          // routine not-ready response was reported to Sentry as an error with
+          // no actionable diagnostic (Sentry issue 7708625103).
+          if (path === "/ready") return;
     
           if (status >= 500 && !(reply as unknown as SentryReplyMeta).__sentryErrorCaptured) {
             // Only capture 5xx if not already captured by the error handler
@@ -49033,6 +49359,53 @@
         const timer = setTimeout(() => reject(new Error(message)), ms);
         timer.unref?.();
       });
+    }
+    export async function startServiceServer(options: StartServiceServerOptions): Promise<void> {
+      const { initTelemetry } = await import("@mbe/observability");
+      const { initSentry } = await import("@mbe/sentry/node");
+    
+      const sdk = initTelemetry({ serviceName: options.serviceName });
+      sdk.start();
+      initSentry({ serviceName: options.serviceName });
+    
+      const host = process.env.HOST ?? "0.0.0.0";
+    
+      try {
+        const fastify = await options.buildApp();
+        await fastify.listen({ port: options.port, host });
+        fastify.log.info(`Server running at http://${host}:${options.port}`);
+        fastify.log.info(`API docs at http://${host}:${options.port}/docs`);
+    
+        let shutdownStarted = false;
+    
+        const runShutdown = async () => {
+          await options.beforeShutdown?.();
+          await fastify.close();
+          await sdk.shutdown();
+        };
+    
+        const handleShutdownSignal = (signal: NodeJS.Signals): Promise<void> => {
+          if (shutdownStarted) return Promise.resolve();
+          shutdownStarted = true;
+    
+          return Promise.race([
+            runShutdown(),
+            delayReject(SHUTDOWN_TIMEOUT_MS, `shutdown timed out after ${SHUTDOWN_TIMEOUT_MS}ms`),
+          ]).then(
+            () => process.exit(0),
+            (err: unknown) => {
+              fastify.log.error(err, `graceful shutdown on ${signal} failed`);
+              process.exit(1);
+            }
+          );
+        };
+    
+        process.on("SIGTERM", () => handleShutdownSignal("SIGTERM"));
+        process.on("SIGINT", () => handleShutdownSignal("SIGINT"));
+      } catch (err) {
+        console.error(err);
+        process.exit(1);
+      }
     }
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">

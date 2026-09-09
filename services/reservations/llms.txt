@@ -380,6 +380,12 @@
     <item priority="high">
       export const venueIdFromParams: VenueIdResolver;
     </item>
+    <item priority="high">
+      export function venueIdFromEntity<T extends { venueId: string | null }>(
+        getKey: (request: FastifyRequest) => unknown,
+        load: (key: string) => Promise<T | null | undefined>
+      ): VenueIdResolver { /* ... */ }
+    </item>
   </file>
   <file path="src/routes/venues.ts">
     <item priority="high">
@@ -1361,6 +1367,9 @@
     </item>
     <item priority="high">
       export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
+    </item>
+    <item priority="high">
+      export function venueLocalDateString(instant: Date, ianaTimezone: string): string { /* ... */ }
     </item>
     <item priority="high">
       type DateThreshold = { lt: Date } | { gt: Date };

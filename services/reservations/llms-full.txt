@@ -4555,6 +4555,17 @@
       const params = request.params as { venueId?: unknown } | null | undefined;
       return typeof params?.venueId === "string" ? params.venueId : null;
     };
+    export function venueIdFromEntity<T extends { venueId: string | null }>(
+      getKey: (request: FastifyRequest) => unknown,
+      load: (key: string) => Promise<T | null | undefined>
+    ): VenueIdResolver {
+      return async (request) => {
+        const key = getKey(request);
+        if (typeof key !== "string") return null;
+        const entity = await load(key);
+        return entity?.venueId ?? null;
+      };
+    }
   </file>
   <file path="src/routes/venues.ts">
     export const VENUE_CREATE_RATE_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
@@ -5852,7 +5863,14 @@
             date: { gte: start, lte: actualEnd },
             status: { notIn: [...NOT_BOOKED_STATUSES] },
           },
-          select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+          select: {
+            id: true,
+            tableId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+          },
         }),
         prisma.reservationHold.findMany({
           where: {
@@ -5863,6 +5881,7 @@
           select: {
             id: true,
             tableId: true,
+            date: true,
             startTime: true,
             endTime: true,
             partySize: true,
@@ -5876,9 +5895,15 @@
       const lastSeatingBuffer = settings?.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
       const duration = estimateDuration(partySize, settings);
     
+      // Buckets by the venue-local booking date (the `date` column), not by
+      // `startTime` — for any venue west of UTC an evening reservation's
+      // `startTime` instant falls on the next UTC calendar day, which would
+      // silently bleed the conflict into the wrong bucket. `date` is stored as
+      // `new Date(dateStr)` (UTC midnight of the local date string), so
+      // `toDateString` round-trips it back to the same local date string.
       const reservationsByDate = new Map<string, typeof allReservations>();
       for (const r of allReservations) {
-        const key = toDateString(r.startTime);
+        const key = toDateString(r.date);
         const bucket = reservationsByDate.get(key);
         if (bucket) {
           bucket.push(r);
@@ -5889,7 +5914,7 @@
     
       const holdsByDate = new Map<string, typeof allHolds>();
       for (const h of allHolds) {
-        const key = toDateString(h.startTime);
+        const key = toDateString(h.date);
         const bucket = holdsByDate.get(key);
         if (bucket) {
           bucket.push(h);
@@ -5922,11 +5947,22 @@
           const slotStart = createDateTimeFromMinutes(dateStr, minutes, venue.ianaTimezone);
           const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     
+          // Applies checkPacingForSlot the same way generateTimeSlots does, so a
+          // date never reads as available here on grounds the slot list would
+          // then reject (#5096 — same divergence class #5000 fixed for UTC-day
+          // bucketing).
           const hasAvailableTable = suitableTables.some(
             (table) => !checkTableConflict(table.id, slotStart, slotEnd, dateReservations, dateHolds)
           );
+          const pacingOk = checkPacingForSlot(
+            slotStart,
+            partySize,
+            settings,
+            dateReservations,
+            dateHolds
+          );
     
-          if (hasAvailableTable) {
+          if (hasAvailableTable && pacingOk) {
             availableCount++;
           }
         }
@@ -7608,6 +7644,19 @@
       ): Promise<Table[]> {
         if (positions.length === 0) return [];
     
+        // The route authorizes the caller against the floor plan's venue, but every
+        // tableId in `positions` is caller-supplied and unverified. Without a tenant
+        // predicate on the statement itself, a member of one venue can name another
+        // venue's tables and re-point them at their own floor plan. Resolve the
+        // owning venue here so the UPDATE below can be scoped to it.
+        const floorPlan = await prisma.floorPlan.findUnique({
+          where: { id: floorPlanId },
+          select: { venueId: true },
+        });
+        if (!floorPlan) {
+          throw Object.assign(new Error("Floor plan not found"), { code: "P2025" });
+        }
+    
         // Postgres does not guarantee UPDATE ... RETURNING row order matches the
         // input VALUES order. Callers (the /tables/positions route and its
         // hospitality client) key results by table id, not by array position, so
@@ -7622,7 +7671,7 @@
           UPDATE tables AS t
           SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
           FROM (VALUES ${values}) AS v(id, shape_metadata)
-          WHERE t.id = v.id
+          WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
           RETURNING
             t.id,
             t.name,
@@ -7641,11 +7690,12 @@
             t.updated_at AS "updatedAt"
         `;
     
-        // An unknown/deleted tableId in the batch simply doesn't match any row —
-        // the UPDATE doesn't error, it just returns fewer rows. Fail loudly on a
-        // partial match so this restores the pre-#3892 contract: throw the same
-        // P2025 shape isPrismaNotFound/classifyError already map to a 404,
-        // triggering the client's rollback path instead of a silent 200.
+        // An unknown/deleted tableId — or, since the venue predicate above, one
+        // belonging to another venue — simply doesn't match any row: the UPDATE
+        // doesn't error, it just returns fewer rows. Fail loudly on a partial
+        // match so this restores the pre-#3892 contract: throw the same P2025
+        // shape isPrismaNotFound/classifyError already map to a 404, triggering
+        // the client's rollback path instead of a silent 200.
         if (tables.length !== positions.length) {
           throw Object.assign(new Error("One or more tables not found"), { code: "P2025" });
         }
@@ -7658,6 +7708,20 @@
         floorPlanId: string,
         shapeMetadata?: TableShapeMetadata
       ): Promise<Table | null> {
+        // The route authorizes on the body's floorPlanId, which leaves :tableId
+        // caller-controlled and unchecked. Assert both sides resolve to the same
+        // venue before writing, so a member of one venue cannot pull another
+        // venue's table onto their own floor plan (and vice versa). A table with
+        // no venue is refused too: it can never match a floor plan's venue, and
+        // adopting an orphan row is the same leak by another route.
+        const [existing, floorPlan] = await Promise.all([
+          prisma.table.findUnique({ where: { id: tableId }, select: { venueId: true } }),
+          prisma.floorPlan.findUnique({ where: { id: floorPlanId }, select: { venueId: true } }),
+        ]);
+        if (!existing?.venueId || !floorPlan || existing.venueId !== floorPlan.venueId) {
+          return null;
+        }
+    
         try {
           const table = await prisma.table.update({
             where: { id: tableId },
@@ -9786,15 +9850,18 @@
         const durationMinutes = data.durationMinutes ?? 90;
         const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
     
-        // Date only (no time component), normalized to midnight UTC
-        const dateOnly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    
-        const dateStr = toDateString(dateOnly);
-    
         // Pre-check for conflicts and pacing before the transaction (which re-checks
         // to prevent TOCTOU races). Fetch the conflict slices once and use the
         // canonical assertBookable predicate (conflict + pacing in one call).
         const venue = await prisma.venue.findUnique({ where: { id: data.venueId } });
+    
+        // Date only (no time component). Derived from the venue-local calendar
+        // date, not `now`'s UTC calendar date — near local midnight for a venue
+        // west of UTC those disagree (#5096, same class as #5000's
+        // getAvailableDates bucketing bug).
+        const dateStr = venueLocalDateString(now, venue?.ianaTimezone ?? "UTC");
+        const dateOnly = new Date(dateStr);
+    
         const settings = (venue?.settings ?? null) as VenueSettings | null;
         const { reservations, holds } = await availabilityService.fetchConflictData(
           data.venueId,
@@ -10064,6 +10131,9 @@
       return scheduleForDay(operatingHours, new Date(date).getUTCDay());
     }
     export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
+    export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: ianaTimezone }).format(instant);
+    }
     type DateThreshold = { lt: Date } | { gt: Date };
     function passesThreshold(value: Date, threshold: DateThreshold): boolean {
       return "lt" in threshold ? value < threshold.lt : value > threshold.gt;

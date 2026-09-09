@@ -8968,6 +8968,18 @@
       model: resolveModelId("haiku"),
       maxBudgetUsd: 0.05,
     };
+    function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult {
+      const detail =
+        error === undefined ? undefined : error instanceof Error ? error.message : String(error);
+      console.error(`[success-evaluator] LLM evaluation could not run: ${reason}`, error ?? "");
+      return {
+        passed: false,
+        confidence: 0,
+        reasoning: detail ? `${reason}: ${detail}` : reason,
+        issues: ["LLM evaluation could not run"],
+        evaluationFailed: true,
+      };
+    }
     export async function getGitDiff(worktreePath: string): Promise<string> {
       try {
         const { stdout } = await execFileAsync("git", ["diff", "HEAD~1..HEAD"], {
@@ -9001,7 +9013,7 @@
         commitTitle: config?.commitTitle,
       });
       if (skip.skip) {
-        return { ...INCONCLUSIVE_RESULT, skipped: true, skipReason: skip.reason };
+        return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
       }
     
       const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
@@ -9032,7 +9044,9 @@
         }
     
         if (!result || result.subtype !== "success") {
-          return INCONCLUSIVE_RESULT;
+          return evaluationFailedResult(
+            `LLM evaluation returned a non-success result (subtype: ${result?.subtype ?? "none"})`
+          );
         }
     
         const parsed = result.structured_output as
@@ -9045,7 +9059,7 @@
           | undefined;
     
         if (!parsed || typeof parsed.passed !== "boolean") {
-          return INCONCLUSIVE_RESULT;
+          return evaluationFailedResult("LLM evaluation returned malformed structured_output");
         }
     
         return {
@@ -9054,8 +9068,8 @@
           reasoning: parsed.reasoning ?? "",
           issues: Array.isArray(parsed.issues) ? parsed.issues : [],
         };
-      } catch {
-        return INCONCLUSIVE_RESULT;
+      } catch (error) {
+        return evaluationFailedResult("LLM evaluation threw", error);
       }
     }
   </file>

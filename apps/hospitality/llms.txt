@@ -25,7 +25,11 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function provisionalDepositRequired(depositConfig: DepositConfig | null): boolean { /* ... */ }
+      export function provisionalDepositRequired(
+        depositConfig: DepositConfig | null,
+        venueSlug: string | undefined,
+        stripePublishableKey: string | undefined
+      ): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">

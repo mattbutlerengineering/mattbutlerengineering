@@ -920,6 +920,7 @@
         value,
         onSelect,
         containerRef,
+        extraContainerRefs,
         onRequestTriggerFocus,
       }: UseComboboxOptions): UseComboboxResult { /* ... */ }
     </item>
@@ -1019,6 +1020,25 @@
     </item>
     <item priority="high">
       export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
+    </item>
+    <item priority="low">
+      interface UseFocusTrapOptions {
+        initialFocus?: RefObject<HTMLElement | null>;
+      }
+    </item>
+    <item priority="medium">
+      function resolveInitialFocus(
+        focusable: NodeListOf<HTMLElement>,
+        first: HTMLElement | undefined,
+        initialFocus?: RefObject<HTMLElement | null>
+      ): HTMLElement | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFocusTrap(
+        panelRef: RefObject<HTMLDivElement | null>,
+        enabled: boolean,
+        options?: UseFocusTrapOptions
+      ): void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/usePointerActivation.ts">
