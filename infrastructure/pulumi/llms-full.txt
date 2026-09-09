@@ -66,6 +66,17 @@
           name: "E2E Non-Admin Journey User",
         })
       : undefined;
+    export const tenant = new auth0.Tenant("mattbutlerengineering-tenant", {
+      friendlyName: "Matt Butler Engineering",
+      pictureUrl: `https://${domain}/apple-touch-icon.png`,
+    });
+    export const branding = new auth0.Branding("mattbutlerengineering-branding", {
+      logoUrl: `https://${domain}/apple-touch-icon.png`,
+      colors: {
+        primary: "#d4a23a",
+        pageBackground: "#1e1c1a",
+      },
+    });
     export const auth0Outputs = {
       apiIdentifier: api.identifier,
       hospitalityClientId: hospitalityApp.clientId,
