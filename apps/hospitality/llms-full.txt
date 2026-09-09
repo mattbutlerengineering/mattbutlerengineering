@@ -17,6 +17,27 @@
       if (depositConfig.enabled) return depositConfig;
       return guestIsRisky ? depositConfig : null;
     }
+    export function guestRiskMatters(
+      depositConfig: DepositConfig | null,
+      venueSlug: string | undefined,
+      stripePublishableKey: string | undefined
+    ): boolean {
+      return !depositConfig?.enabled && Boolean(venueSlug) && Boolean(stripePublishableKey);
+    }
+    export function provisionalDepositRequired(
+      depositConfig: DepositConfig | null,
+      venueSlug: string | undefined,
+      stripePublishableKey: string | undefined
+    ): boolean {
+      return (
+        effectiveDepositPolicy({
+          depositConfig,
+          venueSlug,
+          stripePublishableKey,
+          guestIsRisky: false,
+        }) !== null
+      );
+    }
   </file>
   <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
     export function formatDepositCancellationTerms(
@@ -55,6 +76,570 @@
       position: number;
       estimatedWaitMinutes: number;
     }
+    export interface BookingFlowData {
+      selectedDate: string | null;
+      selectedEndDate: string | null;
+      partySize: number;
+      slots: TimeSlot[];
+      selectedSlot: TimeSlot | null;
+      slotsLoading: boolean;
+      slotsError: string | null;
+      hold: ReservationHold | null;
+      holdLoading: boolean;
+      holdError: string | null;
+      reservation: Reservation | null;
+      confirmLoading: boolean;
+      confirmError: string | null;
+      depositConfig: DepositConfig | null;
+      /**
+       * Whether a deposit is required for this flow. Before confirmation this is
+       * a provisional guess derived from the venue's general policy alone (risk
+       * is not yet known); `CONFIRM_SUCCESS_WITH_DEPOSIT` / `_NO_DEPOSIT`
+       * overwrite it with the final, risk-aware outcome — the single source of
+       * truth the step set and indicator derive from.
+       */
+      depositRequired: boolean;
+      depositPaymentIntentId: string | null;
+      waitlistResult: WaitlistResult | null;
+      /**
+       * The venue's full public config (name + ianaTimezone, among other fields),
+       * fetched once alongside the deposit config when `venueSlug` is present.
+       * Threaded down to `ConfirmationView` for the "Add to calendar" actions —
+       * null until the fetch resolves, or if `venueSlug` was never provided.
+       */
+      venueConfig: PublicVenueConfig | null;
+    }
+    interface BookingFlowState {
+      step: BookingStep;
+      data: BookingFlowData;
+    }
+    type BookingFlowAction =
+      | { type: "SET_DATE"; date: string | null }
+      | { type: "SET_END_DATE"; date: string | null }
+      | { type: "SET_PARTY_SIZE"; size: number }
+      | { type: "GO_TO_TIME_SLOT" }
+      | { type: "GO_TO_DATE_PARTY" }
+      | { type: "SET_SLOTS"; slots: TimeSlot[] }
+      | { type: "SET_SLOTS_ERROR"; error: string }
+      | { type: "HOLD_START"; slot: TimeSlot }
+      | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
+      | { type: "HOLD_ERROR"; error: string }
+      | { type: "CONFIRM_START" }
+      | { type: "CONFIRM_SUCCESS_NO_DEPOSIT"; reservation: Reservation }
+      | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation }
+      | { type: "CONFIRM_ERROR"; error: string }
+      | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
+      | { type: "GO_BACK_TO_GUEST_DETAILS" }
+      | { type: "EXPIRE_HOLD" }
+      | { type: "RESET" }
+      | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
+      | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
+      | { type: "GO_TO_WAITLIST_JOIN" }
+      | { type: "WAITLIST_JOINED"; result: WaitlistResult };
+    export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
+    export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
+      "date-party",
+      "time-slot",
+      "guest-details",
+      "payment",
+    ];
+    export function deriveStepKeys(depositRequired: boolean): BookingStep[] {
+      return depositRequired ? STEP_KEYS_WITH_DEPOSIT : STEP_KEYS_NO_DEPOSIT;
+    }
+    function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState {
+      switch (action.type) {
+        case "SET_DATE":
+          return { ...state, data: { ...state.data, selectedDate: action.date } };
+    
+        case "SET_END_DATE":
+          return { ...state, data: { ...state.data, selectedEndDate: action.date } };
+    
+        case "SET_PARTY_SIZE":
+          return { ...state, data: { ...state.data, partySize: action.size } };
+    
+        case "GO_TO_TIME_SLOT":
+          return {
+            step: "time-slot",
+            data: {
+              ...state.data,
+              selectedSlot: null,
+              hold: null,
+              slotsLoading: true,
+              slotsError: null,
+              holdError: null,
+            },
+          };
+    
+        case "GO_TO_DATE_PARTY":
+          return {
+            step: "date-party",
+            data: {
+              ...state.data,
+              selectedSlot: null,
+              slots: [],
+              hold: null,
+            },
+          };
+    
+        case "SET_SLOTS":
+          return {
+            ...state,
+            data: { ...state.data, slots: action.slots, slotsLoading: false, slotsError: null },
+          };
+    
+        case "SET_SLOTS_ERROR":
+          return {
+            ...state,
+            data: { ...state.data, slotsError: action.error, slotsLoading: false },
+          };
+    
+        case "HOLD_START":
+          return {
+            ...state,
+            data: { ...state.data, holdLoading: true, holdError: null },
+          };
+    
+        case "HOLD_SUCCESS":
+          return {
+            step: "guest-details",
+            data: {
+              ...state.data,
+              hold: action.hold,
+              selectedSlot: action.slot,
+              holdLoading: false,
+              holdError: null,
+            },
+          };
+    
+        case "HOLD_ERROR":
+          return {
+            ...state,
+            data: { ...state.data, holdError: action.error, holdLoading: false },
+          };
+    
+        case "CONFIRM_START":
+          return {
+            ...state,
+            data: { ...state.data, confirmLoading: true, confirmError: null },
+          };
+    
+        case "CONFIRM_SUCCESS_NO_DEPOSIT":
+          return {
+            step: "confirmation",
+            data: {
+              ...state.data,
+              reservation: action.reservation,
+              confirmLoading: false,
+              confirmError: null,
+              depositRequired: false,
+            },
+          };
+    
+        case "CONFIRM_SUCCESS_WITH_DEPOSIT":
+          return {
+            step: "payment",
+            data: {
+              ...state.data,
+              reservation: action.reservation,
+              confirmLoading: false,
+              confirmError: null,
+              depositRequired: true,
+            },
+          };
+    
+        case "CONFIRM_ERROR":
+          return {
+            ...state,
+            data: { ...state.data, confirmError: action.error, confirmLoading: false },
+          };
+    
+        case "DEPOSIT_SUCCESS":
+          return {
+            step: "confirmation",
+            data: { ...state.data, depositPaymentIntentId: action.paymentIntentId },
+          };
+    
+        case "GO_BACK_TO_GUEST_DETAILS":
+          return { ...state, step: "guest-details" };
+    
+        case "EXPIRE_HOLD":
+          return {
+            step: "time-slot",
+            data: {
+              ...state.data,
+              hold: null,
+              holdError: "Your hold has expired. Please select a new time.",
+              slotsLoading: true,
+            },
+          };
+    
+        case "RESET":
+          return INITIAL_STATE;
+    
+        case "SET_DEPOSIT_CONFIG":
+          // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
+          // overwrites this with the final, risk-aware outcome. `depositRequired`
+          // is computed by the caller via `provisionalDepositRequired` — the
+          // shared deposit-verdict module — so it can never independently drift
+          // from it, and it agrees with the confirm-time verdict on whether
+          // Stripe is configured for this venue.
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              depositConfig: action.config,
+              depositRequired: action.depositRequired,
+            },
+          };
+    
+        case "SET_VENUE_CONFIG":
+          return {
+            ...state,
+            data: { ...state.data, venueConfig: action.config },
+          };
+    
+        case "GO_TO_WAITLIST_JOIN":
+          return { ...state, step: "waitlist-join" };
+    
+        case "WAITLIST_JOINED":
+          return {
+            step: "waitlist-confirmation",
+            data: { ...state.data, waitlistResult: action.result },
+          };
+    
+        default:
+          return state;
+      }
+    }
+    export interface BookingFlowActions {
+      setSelectedDate: (date: string | null) => void;
+      setSelectedEndDate: (date: string | null) => void;
+      setPartySize: (size: number) => void;
+      goToTimeSlot: () => void;
+      goToDateParty: () => void;
+      setSlots: (slots: TimeSlot[]) => void;
+      setSlotsError: (error: string) => void;
+      selectSlotAndHold: (slot: TimeSlot) => Promise<void>;
+      confirmReservation: (details: GuestDetails) => Promise<void>;
+      handleDepositSuccess: (paymentIntentId: string) => void;
+      goBackToGuestDetails: () => void;
+      resetFlow: () => void;
+      setDepositConfig: (config: DepositConfig | null) => void;
+      goToWaitlistJoin: () => void;
+      handleWaitlistJoined: (result: WaitlistResult) => void;
+    }
+    export interface BookingFlowResult {
+      state: BookingStep;
+      data: BookingFlowData;
+      actions: BookingFlowActions;
+      /** The step set for this flow, derived from `data.depositRequired` — the single source of truth. */
+      stepKeys: BookingStep[];
+      /** Index of the current step within `stepKeys`; always valid since both step sets share it. */
+      currentStepIndex: number;
+    }
+    export interface UseBookingFlowDeps {
+      /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
+      api: BookingWidgetApiClient;
+      venueId: string;
+      /** Slug backing the public venue-config + guest-risk endpoints; omit to skip deposit config and risk gating entirely. */
+      venueSlug?: string;
+      /** Present when the venue's Stripe integration is configured; required (with venueSlug) for a deposit to ever be required. */
+      stripePublishableKey?: string;
+      holdDurationMinutes?: number;
+    }
+    export function useBookingFlow({
+      api,
+      venueId,
+      venueSlug,
+      stripePublishableKey,
+      holdDurationMinutes = 10,
+    }: UseBookingFlowDeps): BookingFlowResult {
+      const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
+    
+      const setSelectedDate = useCallback((date: string | null) => {
+        dispatch({ type: "SET_DATE", date });
+      }, []);
+    
+      const setSelectedEndDate = useCallback((date: string | null) => {
+        dispatch({ type: "SET_END_DATE", date });
+      }, []);
+    
+      const setPartySize = useCallback((size: number) => {
+        dispatch({ type: "SET_PARTY_SIZE", size });
+      }, []);
+    
+      // Fetch available time slots for the currently selected date/party size.
+      // Owned here (not the component) so it can be driven headlessly and reused
+      // by both goToTimeSlot and the hold-expiry timer below.
+      const fetchSlots = useCallback(async (): Promise<TimeSlot[]> => {
+        if (!flowState.data.selectedDate) return [];
+        const response = await api.availability.getTimeSlots({
+          venueId,
+          date: flowState.data.selectedDate,
+          partySize: flowState.data.partySize,
+        });
+        return response.filter((slot) => slot.available);
+      }, [api, venueId, flowState.data.selectedDate, flowState.data.partySize]);
+    
+      // Release a hold by ID — errors are ignored, the hold expires anyway.
+      const releaseHold = useCallback(
+        async (holdId: string) => {
+          try {
+            await api.holds.release(holdId);
+          } catch {
+            // Ignore — hold expires anyway
+          }
+        },
+        [api]
+      );
+    
+      // Guest-risk lookup — owned here (not the component) so the risk-gated
+      // deposit override is exercisable headlessly through this hook alone.
+      const fetchGuestRisk = useCallback(
+        async (email?: string, phone?: string): Promise<boolean> => {
+          if (!venueSlug || (!email && !phone)) return false;
+          try {
+            const result = await api.publicVenue.guestRisk(venueSlug, email ? { email } : { phone });
+            return result.requiresDeposit;
+          } catch {
+            return false;
+          }
+        },
+        [api, venueSlug]
+      );
+    
+      // Fetch the venue's public deposit config once, when venueSlug is present.
+      // Owned here (not the component) so it's exercisable headlessly.
+      useEffect(() => {
+        if (!venueSlug) return;
+    
+        const fetchDepositConfig = async () => {
+          try {
+            const venueConfig = await api.venues.getPublicConfig(venueSlug);
+            // Stored in full (not just the deposit portion) so ConfirmationView
+            // can thread name/ianaTimezone through for "Add to calendar" — set
+            // unconditionally, unlike the deposit config below.
+            dispatch({ type: "SET_VENUE_CONFIG", config: venueConfig });
+            // Gate on whether a deposit was ever configured (amountCents
+            // present), not on the venue's general `.enabled` flag — a venue
+            // that configured then disabled its general policy must still
+            // surface its deposit terms so the risky-guest override in
+            // effectiveDepositPolicy can apply them. A venue that never
+            // configured a deposit at all (amountCents null) leaves
+            // depositConfig null, same as before.
+            if (venueConfig.deposit.amountCents != null) {
+              const config: DepositConfig = {
+                enabled: venueConfig.deposit.enabled,
+                depositType: venueConfig.deposit.depositType ?? "flat",
+                amountCents: venueConfig.deposit.amountCents,
+                currency: venueConfig.currencyCode.toLowerCase(),
+                freeCancellationHours: venueConfig.deposit.freeCancellationHours,
+                lateCancellationFeePercent: venueConfig.deposit.lateCancellationFeePercent,
+                noShowFeePercent: venueConfig.deposit.noShowFeePercent,
+              };
+              dispatch({
+                type: "SET_DEPOSIT_CONFIG",
+                config,
+                depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+              });
+            }
+          } catch {
+            // Non-fatal — proceed without deposit
+          }
+        };
+    
+        fetchDepositConfig();
+      }, [venueSlug, stripePublishableKey, api]);
+    
+      const goToTimeSlot = useCallback(() => {
+        const holdId = flowState.data.hold?.id;
+        if (holdId) {
+          releaseHold(holdId);
+        }
+        dispatch({ type: "GO_TO_TIME_SLOT" });
+        fetchSlots()
+          .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+          .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : "Failed to load availability";
+            dispatch({ type: "SET_SLOTS_ERROR", error: msg });
+          });
+      }, [flowState.data.hold, releaseHold, fetchSlots]);
+    
+      const goToDateParty = useCallback(() => {
+        const holdId = flowState.data.hold?.id;
+        if (holdId) {
+          releaseHold(holdId);
+        }
+        dispatch({ type: "GO_TO_DATE_PARTY" });
+      }, [flowState.data.hold, releaseHold]);
+    
+      const setSlots = useCallback((slots: TimeSlot[]) => {
+        dispatch({ type: "SET_SLOTS", slots });
+      }, []);
+    
+      const setSlotsError = useCallback((error: string) => {
+        dispatch({ type: "SET_SLOTS_ERROR", error });
+      }, []);
+    
+      const selectSlotAndHold = useCallback(
+        async (slot: TimeSlot): Promise<void> => {
+          if (!flowState.data.selectedDate) return;
+          dispatch({ type: "HOLD_START", slot });
+          try {
+            const { hold } = await api.holds.create({
+              venueId,
+              date: flowState.data.selectedDate,
+              time: slot.time,
+              partySize: flowState.data.partySize,
+              holdDurationMinutes,
+            });
+            dispatch({ type: "HOLD_SUCCESS", hold, slot });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to hold time slot";
+            dispatch({ type: "HOLD_ERROR", error: msg });
+          }
+        },
+        [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
+      );
+    
+      const confirmReservation = useCallback(
+        async (details: GuestDetails): Promise<void> => {
+          if (!flowState.data.hold) return;
+    
+          // Only check guest risk when it could actually change the verdict
+          // (guestRiskMatters — the shared deposit-verdict module's own gating)
+          // — avoids an unnecessary lookup, and avoids sending guest PII
+          // (email/phone) when there's no deposit flow to gate.
+          const guestIsRisky = guestRiskMatters(
+            flowState.data.depositConfig,
+            venueSlug,
+            stripePublishableKey
+          )
+            ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
+            : false;
+    
+          const depositConfig = effectiveDepositPolicy({
+            depositConfig: flowState.data.depositConfig,
+            venueSlug,
+            stripePublishableKey,
+            guestIsRisky,
+          });
+    
+          dispatch({ type: "CONFIRM_START" });
+          try {
+            const reservation = await api.holds.confirm(flowState.data.hold.id, {
+              guestName: details.name,
+              guestEmail: details.email || undefined,
+              guestPhone: details.phone || undefined,
+              notes: details.notes || undefined,
+            });
+            // `depositConfig` is the resolved output of effectiveDepositPolicy —
+            // per its contract, a non-null result (which may itself carry
+            // `enabled: false` on the risky-guest override path) means a deposit
+            // is required. Checking `.enabled` here would silently drop that
+            // override.
+            if (depositConfig) {
+              dispatch({ type: "CONFIRM_SUCCESS_WITH_DEPOSIT", reservation });
+            } else {
+              dispatch({ type: "CONFIRM_SUCCESS_NO_DEPOSIT", reservation });
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Failed to confirm reservation";
+            dispatch({ type: "CONFIRM_ERROR", error: msg });
+          }
+        },
+        [
+          api,
+          flowState.data.hold,
+          flowState.data.depositConfig,
+          venueSlug,
+          stripePublishableKey,
+          fetchGuestRisk,
+        ]
+      );
+    
+      const handleDepositSuccess = useCallback((paymentIntentId: string) => {
+        dispatch({ type: "DEPOSIT_SUCCESS", paymentIntentId });
+      }, []);
+    
+      const goBackToGuestDetails = useCallback(() => {
+        dispatch({ type: "GO_BACK_TO_GUEST_DETAILS" });
+      }, []);
+    
+      const resetFlow = useCallback(() => {
+        dispatch({ type: "RESET" });
+      }, []);
+    
+      const setDepositConfig = useCallback(
+        (config: DepositConfig | null) => {
+          dispatch({
+            type: "SET_DEPOSIT_CONFIG",
+            config,
+            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+          });
+        },
+        [venueSlug, stripePublishableKey]
+      );
+    
+      const goToWaitlistJoin = useCallback(() => {
+        dispatch({ type: "GO_TO_WAITLIST_JOIN" });
+      }, []);
+    
+      const handleWaitlistJoined = useCallback((result: WaitlistResult) => {
+        dispatch({ type: "WAITLIST_JOINED", result });
+      }, []);
+    
+      // Hold-expiry timer — captured hold in closure; effect restarts on every
+      // hold change. Owned here (not the component) so expiry + availability
+      // reload are exercisable headlessly through this hook alone.
+      useEffect(() => {
+        if (!flowState.data.hold) return undefined;
+        const capturedHold = flowState.data.hold;
+    
+        const interval = setInterval(() => {
+          if (new Date() >= new Date(capturedHold.expiresAt)) {
+            dispatch({ type: "EXPIRE_HOLD" });
+            fetchSlots()
+              .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
+              .catch(() =>
+                dispatch({ type: "SET_SLOTS_ERROR", error: "Failed to reload availability" })
+              );
+          }
+        }, 1000);
+    
+        return () => clearInterval(interval);
+      }, [flowState.data.hold, fetchSlots]);
+    
+      // Render-time derivation — single source of truth for the step set and
+      // indicator. Both step sets share the same indices for every step before
+      // "payment", so the index is always valid regardless of which set is active.
+      const stepKeys = deriveStepKeys(flowState.data.depositRequired);
+      const currentStepIndex = stepKeys.indexOf(flowState.step);
+    
+      return {
+        state: flowState.step,
+        data: flowState.data,
+        stepKeys,
+        currentStepIndex,
+        actions: {
+          setSelectedDate,
+          setSelectedEndDate,
+          setPartySize,
+          goToTimeSlot,
+          goToDateParty,
+          setSlots,
+          setSlotsError,
+          selectSlotAndHold,
+          confirmReservation,
+          handleDepositSuccess,
+          goBackToGuestDetails,
+          resetFlow,
+          setDepositConfig,
+          goToWaitlistJoin,
+          handleWaitlistJoined,
+        },
+      };
+    }
   </file>
   </section>
   <section priority="medium" role="constants">
@@ -71,6 +656,26 @@
     export interface AuthConfigFailure {
       readonly valid: false;
       readonly missing: readonly string[];
+    }
+    export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure {
+      const missing = REQUIRED_AUTH_ENV.filter((env) => !env.value || env.value.trim() === "").map(
+        (env) => env.key
+      );
+    
+      if (missing.length > 0) {
+        return { valid: false, missing };
+      }
+    
+      return {
+        valid: true,
+        config: {
+          authority: import.meta.env.VITE_AUTH_AUTHORITY,
+          clientId: import.meta.env.VITE_AUTH_CLIENT_ID,
+          redirectUri:
+            import.meta.env.VITE_AUTH_REDIRECT_URI || window.location.origin + "/hospitality/callback",
+          audience: import.meta.env.VITE_AUTH_AUDIENCE || undefined,
+        },
+      };
     }
   </file>
   <file path="src/constants/copilotContext.ts">
@@ -118,6 +723,643 @@
         body: loadFixture(fixtureName),
       });
     }
+    function emptyPaginated(route: Route): Promise<void> {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [],
+          pagination: { page: 1, limit: 25, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+        }),
+      });
+    }
+    function jsonOk(route: Route, data: unknown): Promise<void> {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data }),
+      });
+    }
+    export function buildPublicVenueFixture(): PublicVenue {
+      const venues = JSON.parse(loadFixture("venues-list"));
+      return PublicVenueSchema.parse(venues.data[0]);
+    }
+    export function buildPublicVenueConfigFixture(): PublicVenueConfig {
+      const venues = JSON.parse(loadFixture("venues-list"));
+      return PublicVenueConfigSchema.parse({
+        ...venues.data[0],
+        deposit: {
+          enabled: false,
+          depositType: null,
+          amountCents: null,
+          freeCancellationHours: null,
+          lateCancellationFeePercent: null,
+          noShowFeePercent: null,
+        },
+      });
+    }
+    export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig {
+      const venues = JSON.parse(loadFixture("venues-list"));
+      return PublicVenueConfigSchema.parse({
+        ...venues.data[0],
+        deposit: {
+          enabled: true,
+          depositType: "flat",
+          amountCents: 5000,
+          freeCancellationHours: 24,
+          lateCancellationFeePercent: 50,
+          noShowFeePercent: 100,
+        },
+      });
+    }
+    export async function mockApi(page: Page): Promise<void> {
+      // Signal to QueryProvider to disable react-query retries so error states
+      // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
+      // instead of after the default 3x exponential backoff (~7s).
+      await page.addInitScript(() => {
+        (window as unknown as { __e2eNoRetry: boolean }).__e2eNoRetry = true;
+      });
+    
+      // Pre-seed the persisted venue selection with the fixture venue so the app
+      // boots with a selectedVenueId that resolves against the mocked venue list.
+      // Without this, the first render after the venues query settles still has
+      // selectedVenue === null (selection is reconciled in a later effect), which
+      // reads as "no-venue" and fires DashboardLayout's sticky /onboarding
+      // redirect before the reconcile effect runs — a race that bounced ~half the
+      // suite onto the New Venue wizard (issue #3309). The underlying product
+      // race still deserves an in-app fix; this only makes the harness
+      // deterministic.
+      const venuesFixture = JSON.parse(loadFixture("venues-list"));
+      const seededVenueId: string = venuesFixture.data[0].id;
+      await page.addInitScript((id) => {
+        localStorage.setItem("mbe-hospitality-venue-id", id);
+      }, seededVenueId);
+    
+      // Users
+      await page.route("**/api/v1/users/me", (route) =>
+        route.request().method() === "PATCH"
+          ? jsonResponse(route, "user-me")
+          : jsonResponse(route, "user-me")
+      );
+      await page.route("**/api/v1/users/me/preferences", (route) => jsonResponse(route, "user-me"));
+      await page.route("**/api/v1/users?*", (route) => {
+        const fixture = JSON.parse(loadFixture("user-me"));
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [fixture.data],
+            pagination: { page: 1, limit: 25, total: 1, totalPages: 1, hasNext: false, hasPrev: false },
+          }),
+        });
+      });
+    
+      // Venues
+      // Stateful create sequence (#4762): POST /api/v1/venues carries neither a
+      // query string nor an id segment, so it is matched by neither the list
+      // route below nor the id-segment route further down — it needs its own
+      // handler. A single `let`, not an array: this wizard launches one venue
+      // per E2E run. Layered onto the list route so a post-launch refetch (the
+      // handoff in VenueOnboardingPage) sees the venue it just created.
+      let createdVenue: Record<string, unknown> | null = null;
+      await page.route("**/api/v1/venues", (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const venues = JSON.parse(loadFixture("venues-list"));
+        let body: Record<string, unknown> = {};
+        try {
+          const parsed = route.request().postDataJSON();
+          if (parsed !== null && typeof parsed === "object") {
+            body = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // no body — leave empty
+        }
+        const now = new Date().toISOString();
+        createdVenue = {
+          ...venues.data[0],
+          ...body,
+          id: "ven_e2e_created",
+          createdAt: now,
+          updatedAt: now,
+        };
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: createdVenue }),
+        });
+      });
+      await page.route("**/api/v1/venues?*", (route) => {
+        const venues = JSON.parse(loadFixture("venues-list")) as {
+          data: Array<Record<string, unknown>>;
+          pagination: Record<string, unknown>;
+        };
+        const allData = createdVenue ? [...venues.data, createdVenue] : venues.data;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ...venues,
+            data: allData,
+            pagination: { ...venues.pagination, total: allData.length },
+          }),
+        });
+      });
+      await page.route("**/api/v1/venues/by-slug/*", (route) =>
+        jsonOk(route, buildPublicVenueFixture())
+      );
+      await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
+        const method = route.request().method();
+        const venues = JSON.parse(loadFixture("venues-list"));
+        if (method === "POST" || method === "PATCH") {
+          return jsonOk(route, { ...venues.data[0], updatedAt: new Date().toISOString() });
+        }
+        return jsonOk(route, venues.data[0]);
+      });
+    
+      // Venue Groups
+      await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
+    
+      // Tables
+      // Stateful create sequence (#4762): POST /api/v1/tables (bare, no query,
+      // no id segment) appends the new table to a per-context list — mirrors
+      // the reservations/waitlist stateful stores below. Read by the Floor
+      // Plans section's GET-by-id handler so the editor the wizard lands on
+      // renders the tables Launch just created, not the static fixture.
+      const createdTables: Array<Record<string, unknown>> = [];
+      await page.route("**/api/v1/tables", (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const tables = JSON.parse(loadFixture("tables-list"));
+        let body: Record<string, unknown> = {};
+        try {
+          const parsed = route.request().postDataJSON();
+          if (parsed !== null && typeof parsed === "object") {
+            body = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // no body — leave empty
+        }
+        const now = new Date().toISOString();
+        const newTable = {
+          ...tables.data[0],
+          ...body,
+          id: `tbl_e2e_created_${createdTables.length + 1}`,
+          status: "AVAILABLE",
+          createdAt: now,
+          updatedAt: now,
+        };
+        createdTables.push(newTable);
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: newTable }),
+        });
+      });
+      await page.route("**/api/v1/tables?*", (route) => {
+        const tables = JSON.parse(loadFixture("tables-list")) as {
+          data: Array<Record<string, unknown>>;
+          pagination: Record<string, unknown>;
+        };
+        const allData = [...tables.data, ...createdTables];
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ...tables,
+            data: allData,
+            pagination: { ...tables.pagination, total: allData.length },
+          }),
+        });
+      });
+      await page.route(/\/api\/v1\/tables\/[^/?]+\/status$/, (route) => {
+        const tables = JSON.parse(loadFixture("tables-list"));
+        return jsonOk(route, { ...tables.data[0], status: "OCCUPIED" });
+      });
+      await page.route(/\/api\/v1\/tables\/[^/?]+$/, (route) => {
+        const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
+        const created = createdTables.find((table) => table.id === id);
+        if (created) return jsonOk(route, created);
+        const tables = JSON.parse(loadFixture("tables-list"));
+        return jsonOk(route, tables.data[0]);
+      });
+    
+      // Reservations
+      // Per-context stateful store so post-mutation assertions (count +1, updated field)
+      // reflect what the UI just created or edited.
+      const extraReservations: Array<Record<string, unknown>> = [];
+      const reservationUpdates = new Map<string, Record<string, unknown>>();
+    
+      // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
+      // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
+      function todayReservations(): string {
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const fixture = JSON.parse(loadFixture("reservations-list")) as {
+          data: Array<Record<string, unknown>>;
+          pagination: unknown;
+        };
+        return JSON.stringify({
+          ...fixture,
+          data: fixture.data.map((r) => ({
+            ...r,
+            date: today,
+            startTime: String(r.startTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+            endTime: String(r.endTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+          })),
+        });
+      }
+    
+      // Stateful list: base fixture + walk-ins created this session + applied edits.
+      function buildReservationsList(): string {
+        const base = JSON.parse(todayReservations()) as {
+          data: Array<Record<string, unknown>>;
+          pagination: Record<string, unknown>;
+        };
+        const allData = [...base.data, ...extraReservations].map((r) => ({
+          ...r,
+          ...(reservationUpdates.get(r.id as string) ?? {}),
+        }));
+        return JSON.stringify({
+          ...base,
+          data: allData,
+          pagination: { ...(base.pagination as Record<string, unknown>), total: allData.length },
+        });
+      }
+    
+      // Individual reservation — generic handler.
+      // Negative lookahead excludes "walk-in" from this regex as a safety net.
+      // Registered BEFORE the walk-in glob so walk-in wins LIFO (later = higher priority).
+      await page.route(/\/api\/v1\/reservations\/(?!walk-in)[^/?]+$/, (route) => {
+        const method = route.request().method();
+        const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
+        const reservations = JSON.parse(loadFixture("reservations-list"));
+        if (method === "DELETE") {
+          return jsonOk(route, { ...reservations.data[0], status: "CANCELLED" });
+        }
+        if (method === "PATCH") {
+          let body: Record<string, unknown> = {};
+          try {
+            const parsed = route.request().postDataJSON();
+            if (parsed !== null && typeof parsed === "object") {
+              body = parsed as Record<string, unknown>;
+            }
+          } catch {
+            // no body — leave empty
+          }
+          const existing = reservationUpdates.get(id) ?? {};
+          const merged = { ...existing, ...body };
+          reservationUpdates.set(id, merged);
+          const baseItem =
+            (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
+            reservations.data[0];
+          return jsonOk(route, { ...baseItem, ...merged, updatedAt: new Date().toISOString() });
+        }
+        const baseItem =
+          (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
+          reservations.data[0];
+        return jsonOk(route, { ...baseItem, ...(reservationUpdates.get(id) ?? {}) });
+      });
+    
+      // Walk-in — registered LAST so LIFO gives it highest priority over the generic regex above.
+      // POST /api/v1/reservations/walk-in adds the new reservation to the stateful store so the
+      // subsequent GET /api/v1/reservations?* returns count+1.
+      await page.route("**/api/v1/reservations/walk-in", (route) => {
+        const fixture = JSON.parse(todayReservations()) as { data: Array<Record<string, unknown>> };
+        let body: Record<string, unknown> = {};
+        try {
+          const parsed = route.request().postDataJSON();
+          if (parsed !== null && typeof parsed === "object") {
+            body = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // no body — leave empty
+        }
+        const newRes: Record<string, unknown> = {
+          ...fixture.data[0],
+          ...body,
+          id: `res_e2e_walkin_${Date.now()}`,
+          status: "CONFIRMED",
+          notes: "Walk-in",
+        };
+        extraReservations.push(newRes);
+        return jsonOk(route, newRes);
+      });
+      await page.route("**/api/v1/reservations/me*", (route) =>
+        route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
+      );
+      await page.route("**/api/v1/reservations?*", (route) =>
+        route.fulfill({ status: 200, contentType: "application/json", body: buildReservationsList() })
+      );
+    
+      // Waitlist
+      // Per-context stateful store, empty at session start (unlike reservations,
+      // which layers on top of a base fixture). POST adds a "waiting" entry with
+      // the next position; PUT .../seat|notify|cancel transitions it in place so
+      // add -> list -> seat composes across requests instead of every call
+      // returning the same static shape (the stateful-mock gap this class of
+      // Playwright spec is meant to catch).
+      const waitlistEntries: Array<Record<string, unknown>> = [];
+    
+      function waitingEntries(): Array<Record<string, unknown>> {
+        return waitlistEntries
+          .filter((e) => e.status === "waiting")
+          .sort((a, b) => (a.position as number) - (b.position as number));
+      }
+    
+      function buildWaitlistEntry(body: Record<string, unknown>): Record<string, unknown> {
+        const now = new Date().toISOString();
+        return {
+          id: `wl_e2e_${Date.now()}`,
+          venueId: body.venueId ?? "ven_e2e_001",
+          partySize: body.partySize ?? 2,
+          guestName: body.guestName ?? "Guest",
+          guestPhone: body.guestPhone ?? "555-0100",
+          position: waitingEntries().length + 1,
+          estimatedWaitMinutes: 15,
+          status: "waiting",
+          notifiedAt: null,
+          expiresAt: null,
+          createdAt: now,
+          updatedAt: now,
+        };
+      }
+    
+      function updateWaitlistEntry(id: string, patch: Record<string, unknown>): unknown {
+        const index = waitlistEntries.findIndex((e) => e.id === id);
+        if (index === -1) return null;
+        const updated = { ...waitlistEntries[index], ...patch, updatedAt: new Date().toISOString() };
+        waitlistEntries[index] = updated;
+        return updated;
+      }
+    
+      function waitlistIdFromUrl(url: string, suffix: string): string {
+        return (
+          url
+            .replace(/\?.*$/, "")
+            .replace(new RegExp(`/${suffix}$`), "")
+            .split("/")
+            .pop() ?? ""
+        );
+      }
+    
+      await page.route("**/api/v1/waitlist?*", (route) => jsonOk(route, waitingEntries()));
+      await page.route("**/api/v1/waitlist", (route) => {
+        let body: Record<string, unknown> = {};
+        try {
+          const parsed = route.request().postDataJSON();
+          if (parsed !== null && typeof parsed === "object") {
+            body = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // no body — leave empty
+        }
+        const entry = buildWaitlistEntry(body);
+        waitlistEntries.push(entry);
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: entry }),
+        });
+      });
+      await page.route(/\/api\/v1\/waitlist\/[^/?]+\/seat$/, (route) => {
+        const id = waitlistIdFromUrl(route.request().url(), "seat");
+        return jsonOk(route, updateWaitlistEntry(id, { status: "seated" }));
+      });
+      await page.route(/\/api\/v1\/waitlist\/[^/?]+\/notify$/, (route) => {
+        const id = waitlistIdFromUrl(route.request().url(), "notify");
+        return jsonOk(
+          route,
+          updateWaitlistEntry(id, { status: "notified", notifiedAt: new Date().toISOString() })
+        );
+      });
+      await page.route(/\/api\/v1\/waitlist\/[^/?]+\/cancel$/, (route) => {
+        const id = waitlistIdFromUrl(route.request().url(), "cancel");
+        return jsonOk(route, updateWaitlistEntry(id, { status: "cancelled" }));
+      });
+    
+      // Guests
+      // Filter search results by the `query` URL param so empty-search assertions work.
+      // With no query (or empty query), return the full fixture unfiltered.
+      await page.route("**/api/v1/guests/search*", (route) => {
+        const urlObj = new URL(route.request().url());
+        const query = (urlObj.searchParams.get("query") ?? urlObj.searchParams.get("q") ?? "").trim();
+        if (!query) return jsonResponse(route, "guests-list");
+        const fixture = JSON.parse(loadFixture("guests-list")) as {
+          data: Array<Record<string, unknown>>;
+          pagination: Record<string, unknown>;
+        };
+        const lower = query.toLowerCase();
+        const filtered = fixture.data.filter((g) => {
+          const name = String(g.name ?? "").toLowerCase();
+          const email = String(g.email ?? "").toLowerCase();
+          return name.includes(lower) || email.includes(lower);
+        });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: filtered,
+            pagination: { ...fixture.pagination, total: filtered.length },
+          }),
+        });
+      });
+      await page.route("**/api/v1/guests/segments*", (route) => jsonResponse(route, "guest-segments"));
+      await page.route("**/api/v1/guests/find-or-create", (route) => {
+        const guests = JSON.parse(loadFixture("guests-list"));
+        return jsonOk(route, guests.data[0]);
+      });
+      await page.route("**/api/v1/guests?*", (route) => jsonResponse(route, "guests-list"));
+      await page.route(/\/api\/v1\/guests\/[^/?]+$/, (route) => {
+        const method = route.request().method();
+        const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
+        const guests = JSON.parse(loadFixture("guests-list")) as {
+          data: Array<Record<string, unknown>>;
+        };
+        const guest = guests.data.find((g) => g.id === id) ?? guests.data[0];
+        if (method === "PATCH" || method === "PUT") {
+          return jsonOk(route, { ...guest, updatedAt: new Date().toISOString() });
+        }
+        return jsonOk(route, guest);
+      });
+    
+      // Floor Plans
+      // Stateful create sequence (#4762): POST /api/v1/floor-plans (bare, no
+      // query, no id segment) creates the plan the wizard lands on. A single
+      // `let` — one launch, one plan. Its GET-by-id handler below layers in
+      // `tables` from the Tables section's createdTables list, so the editor
+      // the wizard navigates to renders what Launch just created rather than
+      // the static fixture's tables.
+      let createdFloorPlan: Record<string, unknown> | null = null;
+      await page.route("**/api/v1/floor-plans", (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
+        let body: Record<string, unknown> = {};
+        try {
+          const parsed = route.request().postDataJSON();
+          if (parsed !== null && typeof parsed === "object") {
+            body = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // no body — leave empty
+        }
+        const now = new Date().toISOString();
+        createdFloorPlan = {
+          ...floorPlans.data[0],
+          ...body,
+          id: "fp_e2e_created",
+          isActive: false,
+          tables: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({ data: createdFloorPlan }),
+        });
+      });
+      await page.route("**/api/v1/floor-plans?*", (route) => {
+        const floorPlans = JSON.parse(loadFixture("floor-plans-list")) as {
+          data: Array<Record<string, unknown>>;
+          pagination: Record<string, unknown>;
+        };
+        const allData = createdFloorPlan ? [...floorPlans.data, createdFloorPlan] : floorPlans.data;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ...floorPlans,
+            data: allData,
+            pagination: { ...floorPlans.pagination, total: allData.length },
+          }),
+        });
+      });
+      await page.route(/\/api\/v1\/floor-plans\/tables\/positions$/, (route) => {
+        const tables = JSON.parse(loadFixture("tables-list"));
+        return jsonOk(route, tables.data);
+      });
+      await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/activate$/, (route) => {
+        const id = route
+          .request()
+          .url()
+          .replace(/\?.*$/, "")
+          .replace(/\/activate$/, "")
+          .split("/")
+          .pop();
+        if (createdFloorPlan && createdFloorPlan.id === id) {
+          createdFloorPlan = { ...createdFloorPlan, isActive: true };
+          return jsonOk(route, createdFloorPlan);
+        }
+        const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
+        return jsonOk(route, floorPlans.data[0]);
+      });
+      await page.route(/\/api\/v1\/floor-plans\/[^/?]+\/clone$/, (route) => {
+        const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
+        return jsonOk(route, { ...floorPlans.data[0], id: "fp_e2e_clone", name: "Main Floor (Copy)" });
+      });
+      await page.route(/\/api\/v1\/floor-plans\/[^/?]+$/, (route) => {
+        const id = route.request().url().replace(/\?.*$/, "").split("/").pop();
+        if (createdFloorPlan && createdFloorPlan.id === id) {
+          const planTables = createdTables.filter((table) => table.floorPlanId === id);
+          return jsonOk(route, { ...createdFloorPlan, tables: planTables });
+        }
+        const floorPlans = JSON.parse(loadFixture("floor-plans-list"));
+        return jsonOk(route, floorPlans.data[0]);
+      });
+    
+      // Availability
+      await page.route("**/api/v1/availability/*/dates*", (route) => {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [
+              { date: "2026-05-17", hasAvailability: true, slotCount: 5 },
+              { date: "2026-05-18", hasAvailability: true, slotCount: 8 },
+              { date: "2026-05-19", hasAvailability: false, slotCount: 0 },
+            ],
+          }),
+        });
+      });
+      await page.route("**/api/v1/availability/*", (route) =>
+        jsonResponse(route, "availability-slots")
+      );
+    
+      // Holds
+      await page.route("**/api/v1/holds/*/confirm", (route) => {
+        const reservations = JSON.parse(loadFixture("reservations-list"));
+        return jsonOk(route, reservations.data[0]);
+      });
+      await page.route(/\/api\/v1\/holds\/[^/?]+$/, (route) => {
+        const method = route.request().method();
+        if (method === "DELETE") {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ success: true }),
+          });
+        }
+        return jsonOk(route, {
+          id: "hold_e2e_001",
+          venueId: "ven_e2e_001",
+          tableId: "tbl_e2e_001",
+          date: "2026-05-17",
+          startTime: "2026-05-17T18:00:00.000Z",
+          endTime: "2026-05-17T19:30:00.000Z",
+          partySize: 4,
+          sessionId: "sess_e2e_001",
+          expiresAt: "2026-05-17T18:10:00.000Z",
+          createdAt: "2026-05-17T17:50:00.000Z",
+        });
+      });
+      await page.route("**/api/v1/holds", (route) =>
+        jsonOk(route, {
+          id: "hold_e2e_001",
+          venueId: "ven_e2e_001",
+          tableId: "tbl_e2e_001",
+          date: "2026-05-17",
+          startTime: "2026-05-17T18:00:00.000Z",
+          endTime: "2026-05-17T19:30:00.000Z",
+          partySize: 4,
+          sessionId: "sess_e2e_001",
+          expiresAt: "2026-05-17T18:10:00.000Z",
+          createdAt: "2026-05-17T17:50:00.000Z",
+        })
+      );
+    
+      // Intercept the SSE stream request so the app's SseClient (built on
+      // @microsoft/fetch-event-source, which requires an Authorization header
+      // EventSource cannot send) fires onopen (→ "Live") without ever erroring.
+      // fetchEventSource treats a normal end-of-body as a clean close (no retry,
+      // no onerror) — unlike the old EventSource-based stub, no timing hack is
+      // needed here.
+      //
+      // Tests can pre-configure named events to dispatch immediately after the
+      // "connected" event by setting:
+      //   window.__fakeSSEConfig = { events: [{ type, data }] }
+      // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
+      type SseEventEntry = { type: string; data: unknown };
+      await page.route("**/api/v1/events/stream**", async (route) => {
+        const cfg = await page.evaluate(
+          () =>
+            (window as unknown as { __fakeSSEConfig?: { events?: SseEventEntry[] } }).__fakeSSEConfig
+        );
+        const frames = [
+          `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
+          ...(cfg?.events ?? []).map(
+            (evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`
+          ),
+        ];
+        await route.fulfill({
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          body: frames.join(""),
+        });
+      });
+    
+      // Public endpoints
+      await page.route("**/public/v1/venues/*", (route) =>
+        jsonOk(route, buildPublicVenueConfigFixture())
+      );
+    }
   </file>
   <file path="e2e/auth-helpers.ts">
     export interface Auth0Config {
@@ -164,6 +1406,128 @@
         password: password!,
       };
     }
+    function getAuth0Config(): Auth0Config {
+      return validateAuth0Config(process.env);
+    }
+    export interface TokenResponse {
+      access_token: string;
+      id_token: string;
+      token_type: string;
+      expires_in: number;
+    }
+    type FetchFn = typeof fetch;
+    async function fetchAuth0Tokens(
+      config: Auth0Config,
+      fetchFn: FetchFn = fetch
+    ): Promise<TokenResponse> {
+      const response = await fetchFn(`https://${config.domain}/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "http://auth0.com/oauth/grant-type/password-realm",
+          username: config.email,
+          password: config.password,
+          audience: config.audience,
+          client_id: config.clientId,
+          scope: "openid profile email",
+          realm: "Username-Password-Authentication",
+        }),
+      });
+    
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(
+          `Auth0 token request failed (${response.status}): ${body}\n` +
+            "Verify: ROPC grant enabled, test user exists, no MFA, correct credentials."
+        );
+      }
+    
+      return response.json() as Promise<TokenResponse>;
+    }
+    export interface RetryOptions {
+      /** Maximum number of attempts (default: 3). */
+      maxAttempts?: number;
+      /** Base delay in milliseconds for exponential backoff (default: 1000). */
+      baseDelayMs?: number;
+    }
+    export async function fetchAuth0TokensWithRetry(
+      config: Auth0Config,
+      fetchFn: FetchFn = fetch,
+      { maxAttempts = 3, baseDelayMs = 1000 }: RetryOptions = {}
+    ): Promise<TokenResponse> {
+      let lastError: Error | undefined;
+    
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          return await fetchAuth0Tokens(config, fetchFn);
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+    
+          if (attempt < maxAttempts) {
+            const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+            await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+          }
+        }
+      }
+    
+      throw new Error(
+        `Auth0 token request failed after ${maxAttempts} attempts. Last error: ${lastError?.message ?? "unknown"}`
+      );
+    }
+    function decodeJwtPayload(token: string): Record<string, unknown> {
+      const base64 = token.split(".")[1];
+      const json = Buffer.from(base64, "base64url").toString("utf-8");
+      return JSON.parse(json) as Record<string, unknown>;
+    }
+    export function buildOidcUserEntry(
+      config: Auth0Config,
+      tokens: TokenResponse,
+      storageClientId: string = config.clientId
+    ): { key: string; value: string } {
+      const authority = `https://${config.domain}`;
+      const idClaims = decodeJwtPayload(tokens.id_token);
+    
+      const oidcUser = {
+        access_token: tokens.access_token,
+        id_token: tokens.id_token,
+        token_type: tokens.token_type,
+        scope: "openid profile email",
+        expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
+        profile: {
+          sub: idClaims.sub,
+          email: idClaims.email,
+          email_verified: idClaims.email_verified,
+          name: idClaims.name,
+          picture: idClaims.picture,
+          iss: idClaims.iss,
+          aud: idClaims.aud,
+          iat: idClaims.iat,
+          exp: idClaims.exp,
+        },
+      };
+    
+      return {
+        key: `oidc.user:${authority}:${storageClientId}`,
+        value: JSON.stringify(oidcUser),
+      };
+    }
+    export async function injectAuth0Session(page: Page): Promise<void> {
+      const config = getAuth0Config();
+      const tokens = await fetchAuth0TokensWithRetry(config);
+      const entry = buildOidcUserEntry(config, tokens);
+    
+      // Navigate to the app first so localStorage is on the correct origin.
+      // Use localStorage (not sessionStorage) so Playwright's storageState captures
+      // the OIDC session for downstream tests. The AuthProvider is configured with
+      // userStore: new WebStorageStateStore({ store: localStorage }) to match.
+      await page.goto("");
+      await page.evaluate(({ key, value }) => {
+        localStorage.setItem(key, value);
+      }, entry);
+    
+      // Reload so AuthProvider picks up the injected session
+      await page.reload();
+    }
   </file>
   <file path="e2e/fixtures.ts">
     export const test = base.extend<{ authPage: Page; mockedPage: Page }>({
@@ -193,6 +1557,19 @@
   <file path="src/components/floor-plan/floor-plan-geometry.ts">
     export const CANVAS_WIDTH = 800;
     export const CANVAS_HEIGHT = 600;
+    export const GRID_SIZE = 20;
+    export const CANVAS_CENTER = {
+      x: CANVAS_WIDTH / 2,
+      y: CANVAS_HEIGHT / 2,
+    } as const;
+    export const SHAPE_DEFAULTS = {
+      rectangle: { width: 80, height: 60 },
+      square: { width: 60, height: 60 },
+      circle: { width: 70, height: 70 },
+    } as const;
+    export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number {
+      return Math.round(value / gridSize) * gridSize;
+    }
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     export const TABLE_STATUS_COLOR_TOKEN: Record<TableDisplayStatus, string> = {
@@ -212,6 +1589,14 @@
       hasActiveHold: boolean;
       /** Current time, injected by the caller. */
       now: Date;
+    }
+    export interface TableStatusResult {
+      status: TableDisplayStatus;
+      colorToken: string;
+    }
+    export function deriveTableStatus(input: TableStatusInput): TableStatusResult {
+      const status = deriveTableDisplayStatus(input);
+      return { status, colorToken: TABLE_STATUS_COLOR_TOKEN[status] };
     }
   </file>
   </section>
@@ -237,6 +1622,36 @@
       isError: boolean;
       error: Error | null;
     }
+    export function createMutationHook<TVariables, TData = unknown>(
+      options: CreateMutationHookOptions<TVariables, TData>
+    ): () => MutationHookResult<TVariables, TData> {
+      const { invalidateKeys, mutationFn, onSuccess } = options;
+    
+      return function useMutationHook(): MutationHookResult<TVariables, TData> {
+        const api = useApiClient();
+        const queryClient = useQueryClient();
+    
+        const mutation = useMutation<TData, Error, TVariables>({
+          mutationFn: (variables) => mutationFn(api, variables),
+          onSuccess: (data, variables) => {
+            const keys = Array.isArray(invalidateKeys) ? invalidateKeys : [invalidateKeys];
+            for (const key of keys) {
+              queryClient.invalidateQueries({ queryKey: [key] });
+            }
+            onSuccess?.(queryClient, data, variables);
+          },
+        });
+    
+        return {
+          mutate: mutation.mutate,
+          mutateAsync: mutation.mutateAsync,
+          isPending: mutation.isPending,
+          isSuccess: mutation.isSuccess,
+          isError: mutation.isError,
+          error: mutation.error ?? null,
+        };
+      };
+    }
   </file>
   <file path="src/hooks/create-query-hook.ts">
     export interface QueryHookResult<TData> {
@@ -261,6 +1676,65 @@
        */
       select?: (data: TData | undefined) => TResult;
     }
+    export function createQueryHook<TData, TParams = undefined, TResult = TData>(
+      options: CreateQueryHookOptions<TData, TParams, TResult>
+    ): (params?: (TParams & { enabled?: boolean }) | undefined) => QueryHookResult<TResult> {
+      const { key, fetcher, getEnabled, select } = options;
+    
+      return function useQueryHook(
+        params?: (TParams & { enabled?: boolean }) | undefined
+      ): QueryHookResult<TResult> {
+        const api = useApiClient();
+    
+        const enabled = resolveEnabled(params, getEnabled);
+        const queryParams = stripEnabled(params);
+    
+        const query = useQuery({
+          queryKey: queryParams !== undefined ? [key, queryParams] : [key],
+          queryFn: () => fetcher(queryParams as TParams | undefined, api),
+          enabled,
+        });
+    
+        const data = select !== undefined ? select(query.data) : (query.data as unknown as TResult);
+    
+        return {
+          data,
+          isLoading: query.isLoading,
+          error: query.error ?? null,
+          refetch: query.refetch,
+        };
+      };
+    }
+    function resolveEnabled<TParams>(
+      params: (TParams & { enabled?: boolean }) | undefined,
+      getEnabled: ((p: (TParams & { enabled?: boolean }) | undefined) => boolean) | undefined
+    ): boolean {
+      if (getEnabled !== undefined) {
+        // Custom predicate takes priority — but still respect explicit enabled: false
+        if (params !== null && typeof params === "object" && "enabled" in params) {
+          const explicit = (params as { enabled?: boolean }).enabled;
+          if (explicit === false) return false;
+        }
+        return getEnabled(params);
+      }
+      if (params !== null && typeof params === "object" && "enabled" in params) {
+        const explicit = (params as { enabled?: boolean }).enabled;
+        if (explicit === false) return false;
+      }
+      return true;
+    }
+    function stripEnabled<TParams>(
+      params: (TParams & { enabled?: boolean }) | undefined
+    ): TParams | undefined {
+      if (params === undefined || params === null) return undefined;
+      if (typeof params !== "object") return params as unknown as TParams;
+      const { enabled: _enabled, ...rest } = params as Record<string, unknown> & {
+        enabled?: boolean;
+      };
+      // If rest is empty (only key was 'enabled'), return undefined so key stays [key]
+      if (Object.keys(rest).length === 0) return undefined;
+      return rest as unknown as TParams;
+    }
   </file>
   <file path="src/hooks/use-command-palette.ts">
     interface UseCommandPaletteOptions {
@@ -274,6 +1748,91 @@
       readonly setOpen: (open: boolean) => void;
       readonly items: CommandItem[];
       readonly groups: string[];
+    }
+    function sectionGroupName(section: NavSection): string {
+      return section.label ?? "Navigation";
+    }
+    function buildNavItems(
+      sections: readonly NavSection[],
+      navigate: (path: string) => void
+    ): CommandItem[] {
+      return sections.flatMap((section) => {
+        const group = sectionGroupName(section);
+        return section.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          group,
+          onSelect: () => navigate(item.path),
+        }));
+      });
+    }
+    function buildActionItems(
+      navigate: (path: string) => void,
+      toggleTheme: () => void,
+      signOut: () => void
+    ): CommandItem[] {
+      return [
+        {
+          id: "action-new-reservation",
+          label: "New Reservation",
+          group: "Actions",
+          onSelect: () => navigate("/timeline"),
+        },
+        {
+          id: "action-walkin",
+          label: "Walk-in Guest",
+          group: "Actions",
+          onSelect: () => navigate("/timeline?walkin=true"),
+        },
+        {
+          id: "action-new-floor-plan",
+          label: "New Floor Plan",
+          group: "Actions",
+          onSelect: () => navigate("/floor-plans"),
+        },
+        {
+          id: "action-toggle-theme",
+          label: "Toggle Theme",
+          group: "Actions",
+          onSelect: toggleTheme,
+        },
+        {
+          id: "action-sign-out",
+          label: "Sign Out",
+          group: "Actions",
+          onSelect: signOut,
+        },
+      ];
+    }
+    function buildGroups(sections: readonly NavSection[]): string[] {
+      const sectionNames = sections.map(sectionGroupName);
+      // Deduplicate while preserving order, then append "Actions"
+      const unique = Array.from(new Set(sectionNames));
+      return [...unique, "Actions"];
+    }
+    export function useCommandPalette({
+      sections,
+      navigate,
+      toggleTheme,
+      signOut,
+    }: UseCommandPaletteOptions): UseCommandPaletteResult {
+      const [open, setOpen] = useState(false);
+    
+      const items = useMemo(
+        () => [
+          ...buildNavItems(sections, navigate),
+          ...buildActionItems(navigate, toggleTheme, signOut),
+        ],
+        [sections, navigate, toggleTheme, signOut]
+      );
+    
+      const groups = useMemo(() => buildGroups(sections), [sections]);
+    
+      const stableSetOpen = useCallback((next: boolean) => {
+        setOpen(next);
+      }, []);
+    
+      return { open, setOpen: stableSetOpen, items, groups };
     }
   </file>
   <file path="src/hooks/use-form-state.ts">
@@ -344,12 +1903,60 @@
       theme: "system",
       setTheme: () => {},
     });
+    export function useTheme(): ThemeContextValue {
+      return useContext(ThemeContext);
+    }
+    export function useThemeState(): ThemeContextValue {
+      const { preference, setTheme } = useSharedThemeState();
+    
+      return useMemo(
+        () => ({
+          theme: preference,
+          setTheme,
+        }),
+        [preference, setTheme]
+      );
+    }
   </file>
   <file path="src/hooks/use-url-params.ts">
     type SchemaOutput<S extends ZodObject<ZodRawShape>> = z.infer<S>;
     export interface UseUrlParamsResult<S extends ZodObject<ZodRawShape>> {
       params: SchemaOutput<S>;
       setParam: <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOutput<S>[K]) => void;
+    }
+    export function useUrlParams<S extends ZodObject<ZodRawShape>>(
+      schema: S,
+      defaults: SchemaOutput<S>
+    ): UseUrlParamsResult<S> {
+      const [searchParams, setSearchParams] = useSearchParams();
+    
+      const params = useMemo((): SchemaOutput<S> => {
+        const shape = schema.shape;
+        const result: Record<string, unknown> = {};
+    
+        for (const key of Object.keys(shape)) {
+          const rawValue = searchParams.get(key);
+          if (rawValue === null) {
+            result[key] = defaults[key];
+            continue;
+          }
+          const fieldSchema = shape[key] as ZodType;
+          const parsed = fieldSchema.safeParse(rawValue);
+          result[key] = parsed.success ? parsed.data : defaults[key];
+        }
+    
+        return result as SchemaOutput<S>;
+      }, [searchParams, schema, defaults]);
+    
+      const setParam = <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOutput<S>[K]): void => {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.set(key as string, String(value));
+          return next;
+        });
+      };
+    
+      return { params, setParam };
     }
   </file>
   <file path="src/hooks/useApiClient.ts">
@@ -370,6 +1977,20 @@
   <file path="src/hooks/useBriefing.ts">
     export const BRIEFING_QUERY_KEY = "briefing" as const;
     export type BriefingGuest = ApiBriefingGuest;
+    export type BriefingEntry = ApiBriefingEntry;
+    export interface UseBriefingParams {
+      date: string;
+      venueId: string;
+      enabled?: boolean;
+    }
+    export const useBriefing = createQueryHook<BriefingEntry[], UseBriefingParams>({
+      key: BRIEFING_QUERY_KEY,
+      fetcher: async (params, api) => {
+        if (!params) return [];
+        return api.briefing.list({ date: params.date, venueId: params.venueId });
+      },
+      getEnabled: (params) => Boolean(params?.date && params?.venueId),
+    });
   </file>
   <file path="src/hooks/useCancellationQuote.ts">
     export interface CancellationQuote {
@@ -392,6 +2013,43 @@
           return `No-show fee: ${feeAmount} forfeited — refund ${refundAmount}`;
       }
     }
+    export function evaluateCancellationQuote(
+      policy: CancellationPolicy | null,
+      reservationTime: Date,
+      currency = "usd",
+      now: Date = new Date()
+    ): CancellationQuote | null {
+      if (!policy) return null;
+      const fee = evaluateCancellationFee(policy, reservationTime, now);
+      return { fee, label: buildFeeLabel(fee, currency), currency };
+    }
+    export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string {
+      if (!quote || quote.fee.feeType === "none") return note;
+      const audit = `Quoted at cancellation: ${quote.label}`;
+      return note ? `${note}\n${audit}` : audit;
+    }
+    export interface UseCancellationQuoteParams {
+      /** Venue slug used to fetch the cancellation policy. */
+      slug: string | undefined;
+      /** The reservation start time. When absent, no quote is produced. */
+      reservationTime: Date | undefined;
+      /** ISO currency code (e.g. "usd"). Defaults to "usd". */
+      currency?: string;
+    }
+    export function useCancellationQuote({
+      slug,
+      reservationTime,
+      currency = "usd",
+    }: UseCancellationQuoteParams): {
+      quote: CancellationQuote | null;
+      isLoading: boolean;
+    } {
+      const { policy, isLoading } = useVenuePolicy(slug);
+      const quote = reservationTime
+        ? evaluateCancellationQuote(policy, reservationTime, currency)
+        : null;
+      return { quote, isLoading };
+    }
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
     export interface DashboardStats {
@@ -410,6 +2068,86 @@
       error: Error | null;
       refetch: () => void;
     }
+    type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    function getTodayString(): string {
+      return toDateString(new Date());
+    }
+    function computeUpcoming(reservations: readonly Reservation[]): number {
+      const now = new Date();
+      const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    
+      return reservations.filter((r) => {
+        if (r.status === "CANCELLED" || r.status === "NO_SHOW") return false;
+        const start = new Date(r.startTime);
+        return start >= now && start <= twoHoursLater;
+      }).length;
+    }
+    export function computeStatsFromReservations(
+      reservations: readonly Reservation[]
+    ): ReservationStats {
+      if (reservations.length === 0) return FALLBACK_RESERVATION_STATS;
+    
+      const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
+      const cancelled = reservations.filter((r) => r.status === "CANCELLED");
+      const rate =
+        reservations.length > 0 ? Math.round((cancelled.length / reservations.length) * 100) : 0;
+    
+      return {
+        totalReservations: active.length,
+        expectedCovers: active.reduce((sum, r) => sum + r.partySize, 0),
+        upcomingCount: computeUpcoming(reservations),
+        cancellationRate: rate,
+        cancellationTrend: rate > 10 ? "up" : rate < 5 ? "down" : "neutral",
+      };
+    }
+    export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats {
+      if (entries.length === 0) return FALLBACK_WAITLIST_STATS;
+    
+      return {
+        waitlistCount: entries.length,
+        longestWaitMinutes: Math.max(...entries.map((e) => e.estimatedWaitMinutes)),
+      };
+    }
+    export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
+      const { selectedVenueId } = useVenue();
+      const api = useApiClient();
+      const today = getTodayString();
+    
+      const reservationsQuery = useQuery({
+        queryKey: [RESERVATIONS_QUERY_KEY, { date: today, venueId: selectedVenueId, limit: 100 }],
+        queryFn: async () => {
+          const response = await api.reservations.list({
+            date: today,
+            limit: 100,
+            ...(selectedVenueId ? { venueId: selectedVenueId } : {}),
+          });
+          return response.data;
+        },
+      });
+    
+      const waitlistQuery = useQuery({
+        queryKey: [WAITLIST_QUERY_KEY, { venueId: selectedVenueId }],
+        queryFn: () => api.waitlist.list(selectedVenueId ?? ""),
+        enabled: Boolean(selectedVenueId),
+      });
+    
+      const reservations = reservationsQuery.data ?? [];
+      const waitlistEntries = waitlistQuery.data ?? [];
+    
+      const stats: DashboardStats = {
+        ...computeStatsFromReservations(reservations),
+        ...computeWaitlistStats(waitlistEntries),
+      };
+    
+      return {
+        reservations,
+        stats,
+        isLoading: reservationsQuery.isLoading,
+        error: reservationsQuery.error ?? null,
+        refetch: reservationsQuery.refetch,
+      };
+    }
   </file>
   <file path="src/hooks/useDeposits.ts">
     export const useCreateDeposit = createMutationHook<CreateDepositRequest, Deposit>({
@@ -417,9 +2155,81 @@
       mutationFn: (api, data) => api.deposits.create(data),
     });
   </file>
+  <file path="src/hooks/useDocumentTitle.ts">
+    export function useDocumentTitle(title: string): void {
+      useEffect(() => {
+        document.title = title;
+      }, [title]);
+    }
+  </file>
   <file path="src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;
+    export interface UseFloorPlansParams {
+      venueId?: string | null;
+      limit?: number;
+      enabled?: boolean;
+    }
+    export interface UseFloorPlansResult {
+      data: FloorPlan[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export const useFloorPlans = createQueryHook<FloorPlan[], UseFloorPlansParams>({
+      key: FLOOR_PLANS_QUERY_KEY,
+      fetcher: async (params, api) => {
+        const response = await api.floorPlans.list({
+          venueId: params?.venueId ?? undefined,
+          limit: params?.limit ?? 50,
+        });
+        return response.data;
+      },
+    });
+    export interface UseFloorPlanResult {
+      data: FloorPlan | null | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useFloorPlan(id: string | undefined): UseFloorPlanResult {
+      return useFloorPlanQuery({ id }) as QueryHookResult<FloorPlan | null>;
+    }
+    export const useCloneFloorPlan = createMutationHook<string, FloorPlan>({
+      invalidateKeys: FLOOR_PLANS_QUERY_KEY,
+      mutationFn: (api, id) => api.floorPlans.clone(id),
+    });
+    export const useActivateFloorPlan = createMutationHook<string>({
+      invalidateKeys: FLOOR_PLANS_QUERY_KEY,
+      mutationFn: (api, id) => api.floorPlans.setActive(id),
+      onSuccess: (queryClient, _data, id) => {
+        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, id] });
+      },
+    });
+    export interface BulkUpdatePositionsPayload {
+      floorPlanId: string;
+      positions: Parameters<ReturnType<typeof useApiClient>["floorPlans"]["bulkUpdatePositions"]>[1];
+    }
+    export const useBulkUpdatePositions = createMutationHook<BulkUpdatePositionsPayload>({
+      invalidateKeys: [],
+      mutationFn: (api, { floorPlanId, positions }) =>
+        api.floorPlans.bulkUpdatePositions(floorPlanId, positions),
+      onSuccess: (queryClient, _data, variables) => {
+        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+      },
+    });
+    export const useAddTable = createMutationHook<CreateTableRequest, Table>({
+      invalidateKeys: [],
+      mutationFn: (api, data) => api.tables.create(data),
+      onSuccess: (queryClient, _data, variables) => {
+        queryClient.invalidateQueries({ queryKey: [FLOOR_PLAN_QUERY_KEY, variables.floorPlanId] });
+      },
+    });
+    export const useDeleteTable = createMutationHook<string>({
+      // Invalidate all floor plan detail queries since we don't know which plan
+      invalidateKeys: FLOOR_PLAN_QUERY_KEY,
+      mutationFn: (api, tableId) => api.tables.delete(tableId),
+    });
   </file>
   <file path="src/hooks/useGuestDirectory.ts">
     export interface UseGuestDirectoryParams {
@@ -450,6 +2260,98 @@
       isAddingGuest: boolean;
       isUpdatingGuest: boolean;
     }
+    export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGuestDirectoryResult {
+      const api = useApiClient();
+      const queryClient = useQueryClient();
+    
+      // Search state
+      const [searchQuery, setSearchQuery] = useState("");
+      const [debouncedQuery, setDebouncedQuery] = useState("");
+    
+      useEffect(() => {
+        const timer = setTimeout(() => {
+          setDebouncedQuery(searchQuery);
+        }, DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+      }, [searchQuery]);
+    
+      const isSearchActive = debouncedQuery.length > 0;
+    
+      // Queries — only one active at a time
+      const listResult = useGuests({
+        venueId,
+        enabled: !isSearchActive,
+      });
+    
+      const searchResult = useGuestSearch({
+        venueId,
+        query: debouncedQuery,
+        enabled: isSearchActive,
+      });
+    
+      const { data: segments } = useGuestSegments(venueId);
+    
+      const {
+        data: guests = [],
+        isLoading,
+        error,
+        refetch,
+      } = isSearchActive ? searchResult : listResult;
+    
+      // Selection
+      const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+    
+      const selectedGuest = useMemo(
+        () => guests.find((g) => g.id === selectedGuestId) ?? null,
+        [guests, selectedGuestId]
+      );
+    
+      // Mutations
+      const addGuestMutation = useMutation({
+        mutationFn: (data: FindOrCreateGuestRequest) => api.guests.findOrCreate(data),
+        onSuccess: (_data, variables) => {
+          queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
+          queryClient.invalidateQueries({
+            queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId],
+          });
+        },
+      });
+    
+      const updateGuestMutation = useMutation({
+        mutationFn: ({ guestId, data }: { guestId: string; data: UpdateGuestRequest }) =>
+          api.guests.update(guestId, data),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY] });
+        },
+      });
+    
+      const addGuest = async (data: FindOrCreateGuestRequest): Promise<void> => {
+        await addGuestMutation.mutateAsync(data);
+      };
+    
+      const updateGuest = async (guestId: string, data: UpdateGuestRequest): Promise<void> => {
+        await updateGuestMutation.mutateAsync({ guestId, data });
+      };
+    
+      return {
+        guests,
+        segments,
+        isLoading,
+        error,
+        refetch,
+        searchQuery,
+        setSearchQuery,
+        isSearchActive,
+        selectedGuestId,
+        selectedGuest,
+        selectGuest: setSelectedGuestId,
+        clearSelection: () => setSelectedGuestId(null),
+        addGuest,
+        updateGuest,
+        isAddingGuest: addGuestMutation.isPending,
+        isUpdatingGuest: updateGuestMutation.isPending,
+      };
+    }
   </file>
   <file path="src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
@@ -461,10 +2363,128 @@
       venueSlug: string | undefined;
       api: BookingWidgetApiClient;
     }
+    export interface UseGuestRecognitionReturn {
+      result: GuestRecognitionResult | null;
+      isLoading: boolean;
+      error: Error | null;
+      recognize: (email: string) => void;
+    }
+    export function useGuestRecognition({
+      venueSlug,
+      api,
+    }: UseGuestRecognitionParams): UseGuestRecognitionReturn {
+      const [result, setResult] = useState<GuestRecognitionResult | null>(null);
+      const [isLoading, setIsLoading] = useState(false);
+      const [error, setError] = useState<Error | null>(null);
+      const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+      const recognize = useCallback(
+        (email: string) => {
+          if (timerRef.current) {
+            clearTimeout(timerRef.current);
+          }
+    
+          if (!email || !venueSlug) {
+            return;
+          }
+    
+          timerRef.current = setTimeout(async () => {
+            setIsLoading(true);
+            setResult(null);
+            setError(null);
+    
+            try {
+              const recognition = await api.publicVenue.recognizeGuest(venueSlug, email);
+    
+              if (recognition.recognized) {
+                setResult({
+                  firstName: recognition.firstName,
+                  visitCount: recognition.visitCount,
+                  hasPreferences: recognition.hasPreferences,
+                });
+              } else {
+                setResult(null);
+              }
+            } catch (err) {
+              setError(err instanceof Error ? err : new Error("Recognition failed"));
+              setResult(null);
+            } finally {
+              setIsLoading(false);
+            }
+          }, DEBOUNCE_MS);
+        },
+        [venueSlug, api]
+      );
+    
+      return { result, isLoading, error, recognize };
+    }
   </file>
   <file path="src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+    export interface UseGuestsParams {
+      venueId?: string | null;
+      limit?: number;
+      enabled?: boolean;
+    }
+    export interface UseGuestsResult {
+      data: Guest[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export const useGuests = createQueryHook<Guest[], UseGuestsParams>({
+      key: GUESTS_QUERY_KEY,
+      fetcher: async (params, api) => {
+        if (!params?.venueId) return [];
+        const response = await api.guests.list({ venueId: params.venueId, limit: params.limit ?? 50 });
+        return response.data;
+      },
+      getEnabled: (params) => !!params?.venueId,
+    });
+    export interface UseGuestSearchParams {
+      venueId?: string | null;
+      query: string;
+      enabled?: boolean;
+    }
+    export function useGuestSearch(params: UseGuestSearchParams): UseGuestsResult {
+      return useGuestSearchQuery(params);
+    }
+    export interface UseGuestSegmentsResult {
+      data: GuestSegment[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+    }
+    export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
+      return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
+    }
+    export interface UseGuestResult {
+      data: Guest | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useGuest(guestId: string | null | undefined): UseGuestResult {
+      return useGuestQuery({ id: guestId });
+    }
+    export const useAddGuest = createMutationHook<FindOrCreateGuestRequest>({
+      invalidateKeys: GUESTS_QUERY_KEY,
+      mutationFn: (api, data) => api.guests.findOrCreate(data),
+      onSuccess: (queryClient, _data, variables) => {
+        queryClient.invalidateQueries({ queryKey: [GUEST_SEGMENTS_QUERY_KEY, variables.venueId] });
+      },
+    });
+    export const useUpdateGuest = createMutationHook<{ guestId: string; data: UpdateGuestRequest }>({
+      invalidateKeys: GUESTS_QUERY_KEY,
+      mutationFn: (api, { guestId, data }) => api.guests.update(guestId, data),
+    });
+    export const useAddStaffNote = createMutationHook<{ guestId: string; text: string }>({
+      invalidateKeys: GUESTS_QUERY_KEY,
+      mutationFn: (api, { guestId, text }) => api.guests.addNote(guestId, text),
+      onSuccess: (queryClient, _data, variables) => {
+        queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
+      },
+    });
   </file>
   <file path="src/hooks/useIsAdmin.ts">
     export function useIsAdmin(): boolean {
@@ -509,22 +2529,259 @@
       searchQuery: string;
       limit?: number;
     }
+    export interface ReservationDisplayStats {
+      total: number;
+      confirmed: number;
+      pending: number;
+      cancelled: number;
+    }
+    export interface UseReservationDisplayResult {
+      /** Raw data from the API (undefined while loading) */
+      data: Reservation[] | undefined;
+      /** Aggregate stats computed from the full dataset (not affected by filters) */
+      stats: ReservationDisplayStats;
+      /** Reservations after applying statusFilter and searchQuery */
+      filteredData: Reservation[];
+      isLoading: boolean;
+      error: Error | null;
+    }
+    export function useReservationDisplay({
+      date,
+      venueId,
+      statusFilter,
+      searchQuery,
+      limit = 50,
+    }: UseReservationDisplayParams): UseReservationDisplayResult {
+      const { data, isLoading, error } = useReservations({
+        date,
+        venueId,
+        limit,
+      });
+    
+      const allReservations = useMemo(() => data ?? [], [data]);
+    
+      const stats = useMemo<ReservationDisplayStats>(() => {
+        const confirmed = allReservations.filter((r) => r.status === "CONFIRMED").length;
+        const pending = allReservations.filter((r) => r.status === "PENDING").length;
+        const cancelled = allReservations.filter((r) => r.status === "CANCELLED").length;
+        return { total: allReservations.length, confirmed, pending, cancelled };
+      }, [allReservations]);
+    
+      const filteredData = useMemo<Reservation[]>(() => {
+        let result = allReservations;
+    
+        if (statusFilter !== "all") {
+          result = result.filter((r) => r.status === statusFilter);
+        }
+    
+        const trimmed = searchQuery.trim();
+        if (trimmed) {
+          const q = trimmed.toLowerCase();
+          result = result.filter(
+            (r) =>
+              (r.guestName ?? "").toLowerCase().includes(q) ||
+              (r.guestEmail ?? "").toLowerCase().includes(q)
+          );
+        }
+    
+        return result;
+      }, [allReservations, statusFilter, searchQuery]);
+    
+      return { data, stats, filteredData, isLoading, error };
+    }
   </file>
   <file path="src/hooks/useReservations.ts">
     export const RESERVATIONS_QUERY_KEY = "reservations" as const;
     export interface UseReservationsParams extends ListReservationsParams {
       enabled?: boolean;
     }
+    export interface UseReservationsResult {
+      data: Reservation[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+      /** True when `data` was served from the offline cache after a fetch failure. */
+      isFromCache: boolean;
+      /**
+       * Epoch ms `data` was last confirmed synced with the server — the moment
+       * it was written to the offline cache, whether that write just happened
+       * (fresh fetch) or happened in the past (the entry now being served as
+       * `isFromCache` fallback). `undefined` until a successful fetch or cache
+       * read has resolved for the current `(venueId, date)`.
+       */
+      lastSyncedAt: number | undefined;
+    }
+    interface KeyedCacheEntry {
+      key: string;
+      reservations: Reservation[];
+      cachedAt: number;
+    }
+    function fallbackKey(venueId: string, date: string): string {
+      return `${venueId}::${date}`;
+    }
+    export function useReservations(
+      params?: (UseReservationsParams & { enabled?: boolean }) | undefined
+    ): UseReservationsResult {
+      const query = useReservationsQuery(params);
+      const venueId = params?.venueId;
+      const date = params?.date;
+      const currentKey =
+        venueId !== undefined && date !== undefined ? fallbackKey(venueId, date) : undefined;
+    
+      const [cachedFallback, setCachedFallback] = useState<KeyedCacheEntry | undefined>(undefined);
+      const [lastWrite, setLastWrite] = useState<KeyedCacheEntry | undefined>(undefined);
+    
+      useEffect(() => {
+        if (query.data === undefined || venueId === undefined || date === undefined) return;
+        const key = fallbackKey(venueId, date);
+        const cachedAt = Date.now();
+        setLastWrite({ key, reservations: query.data, cachedAt });
+        // Best-effort write — a cache failure (e.g. IndexedDB unavailable) must
+        // never block rendering the freshly-fetched data.
+        void setCachedReservations(venueId, date, query.data).catch(() => undefined);
+      }, [query.data, venueId, date]);
+    
+      useEffect(() => {
+        if (query.error === null || venueId === undefined || date === undefined) return;
+        let cancelled = false;
+        const key = fallbackKey(venueId, date);
+        getCachedReservations(venueId, date)
+          .then((cached) => {
+            if (cancelled) return;
+            setCachedFallback(
+              cached !== null
+                ? { key, reservations: cached.reservations, cachedAt: cached.cachedAt }
+                : undefined
+            );
+          })
+          // Best-effort read — leave the original fetch error surfaced as-is.
+          .catch(() => undefined);
+        return () => {
+          cancelled = true;
+        };
+      }, [query.error, venueId, date]);
+    
+      // Render-time guard: `cachedFallback`/`lastWrite` can lag behind
+      // `(venueId, date)` switching faster than the async cache lookup above
+      // resolves (or simply holding the previous key's value while today's
+      // hasn't fetched yet). Requiring the stored key to match the current one —
+      // rather than resetting the state in an effect — makes a stale-key render
+      // unrepresentable regardless of how the two race.
+      const fallbackEntry =
+        cachedFallback !== undefined && cachedFallback.key === currentKey ? cachedFallback : undefined;
+      const freshEntry =
+        lastWrite !== undefined && lastWrite.key === currentKey ? lastWrite : undefined;
+    
+      if (query.error !== null && fallbackEntry !== undefined) {
+        return {
+          data: fallbackEntry.reservations,
+          isLoading: false,
+          error: null,
+          refetch: query.refetch,
+          isFromCache: true,
+          lastSyncedAt: fallbackEntry.cachedAt,
+        };
+      }
+    
+      return {
+        data: query.data,
+        isLoading: query.isLoading,
+        error: query.error,
+        refetch: query.refetch,
+        isFromCache: false,
+        lastSyncedAt: freshEntry?.cachedAt,
+      };
+    }
+    export const useCreateReservation = createMutationHook<CreateReservationRequest, Reservation>({
+      invalidateKeys: RESERVATIONS_QUERY_KEY,
+      mutationFn: (api, data) => api.reservations.create(data),
+    });
   </file>
   <file path="src/hooks/useSessionClock.ts">
     export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
     export type SessionPhase = "fresh" | "refresh-window" | "expired";
+    export type SessionClock =
+      { remainingMs: null; phase: null } | { remainingMs: number; phase: SessionPhase };
+    export function classifySessionPhase(remainingMs: number): SessionPhase {
+      if (remainingMs <= 0) return "expired";
+      if (remainingMs <= REFRESH_WINDOW_MS) return "refresh-window";
+      return "fresh";
+    }
+    export function readEpochClaim(claims: unknown, key: string): number | undefined {
+      if (typeof claims !== "object" || claims === null) return undefined;
+      const value = (claims as Record<string, unknown>)[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+    }
+    export function computeElapsedPercent(
+      issuedAt: number | undefined,
+      expiresAt: number | undefined,
+      remainingMs: number | null
+    ): number | null {
+      if (issuedAt === undefined || expiresAt === undefined || remainingMs === null) return null;
+      const lifetimeMs = (expiresAt - issuedAt) * 1000;
+      if (lifetimeMs <= 0) return null;
+      const elapsedMs = Math.min(lifetimeMs, Math.max(0, lifetimeMs - remainingMs));
+      return (elapsedMs / lifetimeMs) * 100;
+    }
+    export function useSessionClock(expiresAt: number | undefined): SessionClock {
+      const [now, setNow] = useState(() => Date.now());
+    
+      useEffect(() => {
+        if (expiresAt === undefined) return undefined;
+    
+        let interval: ReturnType<typeof setInterval> | null = null;
+    
+        const start = () => {
+          interval ??= setInterval(() => setNow(Date.now()), TICK_MS);
+        };
+        const stop = () => {
+          if (interval !== null) {
+            clearInterval(interval);
+            interval = null;
+          }
+        };
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === "hidden") {
+            stop();
+          } else {
+            setNow(Date.now());
+            start();
+          }
+        };
+    
+        if (document.visibilityState !== "hidden") start();
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+    
+        return () => {
+          stop();
+          document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+      }, [expiresAt]);
+    
+      if (expiresAt === undefined) return { remainingMs: null, phase: null };
+    
+      const remainingMs = Math.max(0, expiresAt * 1000 - now);
+      return { remainingMs, phase: classifySessionPhase(remainingMs) };
+    }
   </file>
   <file path="src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
       enabled?: boolean;
     }
+    export interface UseTablesResult {
+      data: Table[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export const useTables = createQueryHook<Table[], UseTablesParams>({
+      key: TABLES_QUERY_KEY,
+      fetcher: async (params, api) => {
+        const response = await api.tables.list(params ?? {});
+        return response.data;
+      },
+    });
   </file>
   <file path="src/hooks/useTimelineData.ts">
     export interface UseTimelineDataParams {
@@ -538,6 +2795,151 @@
        *  displayed fee derive from the same evaluation. `null` when no policy. */
       quote: CancellationQuote | null;
     }
+    export interface TimelineStats {
+      confirmed: number;
+      pending: number;
+      totalCovers: number;
+      total: number;
+    }
+    export interface UseTimelineDataResult {
+      reservations: Reservation[];
+      tables: Table[];
+      isLoading: boolean;
+      fetchError: Error | null;
+      stats: TimelineStats;
+      /** True when `reservations` was served from the offline cache after a
+       * fetch failure — see `useReservations().isFromCache`. */
+      isFromCache: boolean;
+      /** Epoch ms `reservations` was last confirmed synced with the server —
+       * see `useReservations().lastSyncedAt`. */
+      lastSyncedAt: number | undefined;
+      seatGuest: (reservation: Reservation) => Promise<Reservation>;
+      cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
+      updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
+      createWalkIn: (data: {
+        partySize: number;
+        tableId: string;
+        venueId: string;
+        guestName?: string;
+      }) => Promise<void>;
+      updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
+    }
+    export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTimelineDataResult {
+      const api = useApiClient();
+      const queryClient = useQueryClient();
+    
+      const enabled = !!venueId;
+    
+      const {
+        data: allReservations,
+        isLoading: reservationsLoading,
+        error: reservationsError,
+        isFromCache,
+        lastSyncedAt,
+      } = useReservations({
+        venueId,
+        date,
+        limit: 200,
+        enabled,
+      });
+    
+      const {
+        data: rawTables,
+        isLoading: tablesLoading,
+        error: tablesError,
+      } = useTables({
+        venueId,
+        limit: 100,
+        enabled,
+      });
+    
+      const isLoading = reservationsLoading || tablesLoading;
+      const fetchError = reservationsError ?? tablesError;
+    
+      const tables = useMemo(() => {
+        if (!rawTables) return [];
+        return [...rawTables].sort((a, b) => {
+          if (a.priority !== b.priority) return b.priority - a.priority;
+          return (a.tableNumber || a.name).localeCompare(b.tableNumber || b.name);
+        });
+      }, [rawTables]);
+    
+      const reservations = useMemo(
+        () => (allReservations ?? []).filter((r) => r.date === date),
+        [allReservations, date]
+      );
+    
+      const stats = useMemo<TimelineStats>(() => {
+        const confirmed = reservations.filter((r) => r.status === "CONFIRMED").length;
+        const pending = reservations.filter((r) => r.status === "PENDING").length;
+        const totalCovers = reservations
+          .filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW")
+          .reduce((sum, r) => sum + r.partySize, 0);
+        return { confirmed, pending, totalCovers, total: reservations.length };
+      }, [reservations]);
+    
+      const invalidateAll = () => {
+        queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
+        queryClient.invalidateQueries({ queryKey: [TABLES_QUERY_KEY] });
+      };
+    
+      const seatGuest = async (reservation: Reservation): Promise<Reservation> => {
+        const updated = await api.reservations.update(reservation.id, { status: "CONFIRMED" });
+        await api.tables.updateStatus(reservation.tableId, "OCCUPIED");
+        invalidateAll();
+        return updated;
+      };
+    
+      const cancelReservation = async (
+        id: string,
+        { reason, note, quote }: CancelArgs
+      ): Promise<void> => {
+        await api.reservations.cancelWithReason(id, {
+          cancellationReason: reason,
+          cancellationNote: withQuotedFeeNote(note, quote),
+        });
+        invalidateAll();
+      };
+    
+      const updateReservation = async (
+        id: string,
+        data: UpdateReservationRequest
+      ): Promise<Reservation> => {
+        const updated = await api.reservations.update(id, data);
+        invalidateAll();
+        return updated;
+      };
+    
+      const createWalkIn = async (data: {
+        partySize: number;
+        tableId: string;
+        venueId: string;
+        guestName?: string;
+      }): Promise<void> => {
+        await api.reservations.walkIn(data);
+        invalidateAll();
+      };
+    
+      const updateTableStatus = async (tableId: string, status: TableStatus): Promise<void> => {
+        await api.tables.updateStatus(tableId, status);
+        invalidateAll();
+      };
+    
+      return {
+        reservations,
+        tables,
+        isLoading,
+        fetchError,
+        stats,
+        isFromCache,
+        lastSyncedAt,
+        seatGuest,
+        cancelReservation,
+        updateReservation,
+        createWalkIn,
+        updateTableStatus,
+      };
+    }
   </file>
   <file path="src/hooks/useTimelineKeyboard.ts">
     export interface TimelineReservationEntry {
@@ -548,10 +2950,167 @@
       entries: TimelineReservationEntry[];
       onActivate?: (reservationId: string) => void;
     }
+    export interface UseTimelineKeyboardResult {
+      focusedId: string | null;
+      setFocusedId: (id: string | null) => void;
+      handleKeyDown: (e: React.KeyboardEvent) => void;
+    }
+    export function useTimelineKeyboard({
+      entries,
+      onActivate,
+    }: UseTimelineKeyboardParams): UseTimelineKeyboardResult {
+      const [focusedId, setFocusedId] = useState<string | null>(null);
+    
+      const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent) => {
+          if (entries.length === 0) return;
+    
+          const currentIndex = focusedId
+            ? entries.findIndex((entry) => entry.reservationId === focusedId)
+            : -1;
+    
+          switch (e.key) {
+            case "ArrowRight":
+              e.preventDefault();
+              if (focusedId !== null) {
+                const nextIdx = Math.min(currentIndex + 1, entries.length - 1);
+                const next = entries[nextIdx];
+                if (next) setFocusedId(next.reservationId);
+              } else {
+                const first = entries[0];
+                if (first) setFocusedId(first.reservationId);
+              }
+              break;
+    
+            case "ArrowLeft":
+              e.preventDefault();
+              if (focusedId !== null) {
+                const prevIdx = Math.max(currentIndex - 1, 0);
+                const prev = entries[prevIdx];
+                if (prev) setFocusedId(prev.reservationId);
+              } else {
+                const last = entries[entries.length - 1];
+                if (last) setFocusedId(last.reservationId);
+              }
+              break;
+    
+            case "ArrowDown":
+              e.preventDefault();
+              if (focusedId !== null) {
+                const current = entries[currentIndex];
+                if (current) {
+                  const nextRowEntries = entries.filter(
+                    (entry) => entry.tableIndex === current.tableIndex + 1
+                  );
+                  const nextRowFirst = nextRowEntries[0];
+                  if (nextRowFirst) setFocusedId(nextRowFirst.reservationId);
+                }
+              }
+              break;
+    
+            case "ArrowUp":
+              e.preventDefault();
+              if (focusedId !== null) {
+                const current = entries[currentIndex];
+                if (current && current.tableIndex > 0) {
+                  const prevRowEntries = entries.filter(
+                    (entry) => entry.tableIndex === current.tableIndex - 1
+                  );
+                  const prevRowLast = prevRowEntries[prevRowEntries.length - 1];
+                  if (prevRowLast) setFocusedId(prevRowLast.reservationId);
+                }
+              }
+              break;
+    
+            case "Enter":
+              if (focusedId !== null) {
+                onActivate?.(focusedId);
+              }
+              break;
+    
+            case " ":
+              e.preventDefault();
+              if (focusedId !== null) {
+                onActivate?.(focusedId);
+              }
+              break;
+    
+            case "Escape":
+              setFocusedId(null);
+              break;
+          }
+        },
+        [entries, focusedId, onActivate]
+      );
+    
+      return { focusedId, setFocusedId, handleKeyDown };
+    }
   </file>
   <file path="src/hooks/useUsers.ts">
     export const CURRENT_USER_QUERY_KEY = "currentUser" as const;
     export const USERS_QUERY_KEY = "users" as const;
+    export interface UseCurrentUserResult {
+      data: User | null | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useCurrentUser(): UseCurrentUserResult {
+      return useCurrentUserQuery() as QueryHookResult<User | null>;
+    }
+    export function useUpdateCurrentUser() {
+      const api = useApiClient();
+      const queryClient = useQueryClient();
+    
+      return useMutation({
+        mutationFn: ({ id, data }: { id: string; data: UpdateUserRequest }) =>
+          api.users.update(id, data),
+        onSuccess: (updatedUser) => {
+          queryClient.setQueryData([CURRENT_USER_QUERY_KEY], updatedUser);
+        },
+      });
+    }
+    export function useUpdatePreferences() {
+      const api = useApiClient();
+      const queryClient = useQueryClient();
+    
+      return useMutation({
+        mutationFn: (preferences: UpdatePreferencesRequest) => api.users.updatePreferences(preferences),
+        onSuccess: (updatedUser) => {
+          queryClient.setQueryData([CURRENT_USER_QUERY_KEY], updatedUser);
+        },
+      });
+    }
+    export interface UseUsersParams {
+      page?: number;
+      limit?: number;
+      enabled?: boolean;
+    }
+    export interface UseUsersResult {
+      data: User[] | undefined;
+      pagination:
+        | {
+            total: number;
+            totalPages: number;
+            page: number;
+            limit: number;
+            hasNext: boolean;
+          }
+        | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useUsers(params: UseUsersParams = {}): UseUsersResult {
+      const result = useUsersQuery(params);
+      return {
+        data: result.data?.data,
+        pagination: result.data?.pagination,
+        isLoading: result.isLoading,
+        error: result.error,
+        refetch: result.refetch,
+      };
+    }
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
     export const VENUE_POLICY_QUERY_KEY = "venue-policy" as const;
@@ -596,16 +3155,152 @@
       nextStep: SetupStep | null;
       progress: number; // 0–100
     }
+    export const STEP_ORDER: readonly SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
+    export function computeReadiness(
+      venue: Venue | null,
+      floorPlans: readonly FloorPlan[],
+      isError = false
+    ): VenueReadiness {
+      if (!venue) {
+        return { status: "no-venue", completedSteps: [], nextStep: null, progress: 0 };
+      }
+    
+      if (isError) {
+        return LOADING;
+      }
+    
+      const completed: SetupStep[] = [];
+    
+      // Gate 1: Onboarding — venue exists with name, timezone, currency
+      if (venue.name && venue.ianaTimezone && venue.currencyCode) {
+        completed.push("onboarding");
+      }
+    
+      // Gate 2: Operating hours — at least one day that's not closed
+      if (venue.operatingHours) {
+        const days = Object.values(venue.operatingHours);
+        const hasOpenDay = days.some((day) => day !== undefined && day.closed !== true);
+        if (hasOpenDay) {
+          completed.push("operating-hours");
+        }
+      }
+    
+      // Gate 3: Floor plan with at least one table
+      const hasFloorPlanWithTables = floorPlans.some((fp) => fp.tables && fp.tables.length > 0);
+      if (hasFloorPlanWithTables) {
+        completed.push("floor-plan");
+      }
+    
+      const progress = (completed.length / STEP_ORDER.length) * 100;
+    
+      if (completed.length === STEP_ORDER.length) {
+        return { status: "operational", completedSteps: completed, nextStep: null, progress };
+      }
+    
+      const nextStep = STEP_ORDER.find((step) => !completed.includes(step)) ?? null;
+      return { status: "setup", completedSteps: completed, nextStep, progress };
+    }
+    export function useVenueReadiness(): VenueReadiness {
+      const { selectedVenue, selectedVenueId, isLoading } = useVenue();
+      const { accessToken } = useAuth();
+      const enabled = !!selectedVenueId && !!accessToken;
+    
+      // Compose the shared react-query floor-plans hook instead of a bespoke effect.
+      // The query is keyed by venueId, so switching venues fetches fresh data and
+      // in-flight requests for stale venues are ignored by react-query.
+      const { data: floorPlans, error } = useFloorPlans({
+        venueId: selectedVenueId,
+        limit: 10,
+        enabled,
+      });
+    
+      const isError = error !== null;
+    
+      const readiness = useMemo(
+        () => computeReadiness(selectedVenue, floorPlans ?? [], isError),
+        [selectedVenue, floorPlans, isError]
+      );
+    
+      if (isLoading) {
+        return LOADING;
+      }
+    
+      // Venue is resolved, but its floor plans are still loading (and haven't
+      // errored) — we cannot yet distinguish "setup" from "operational", so stay in
+      // the indeterminate loading state instead of flapping to "setup" and
+      // triggering a spurious /setup -> /timeline redirect. (See #1968 cluster A.)
+      const awaitingFloorPlans = enabled && floorPlans === undefined && !isError;
+      if (awaitingFloorPlans) {
+        return LOADING;
+      }
+    
+      return readiness;
+    }
   </file>
   <file path="src/hooks/useVenues.ts">
     export const VENUES_QUERY_KEY = "venues" as const;
     export const VENUE_BY_SLUG_QUERY_KEY = "venueBySlug" as const;
+    export interface UseVenuesParams {
+      limit?: number;
+      enabled?: boolean;
+    }
+    export interface UseVenuesResult {
+      data: Venue[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export const useVenues = createQueryHook<Venue[], UseVenuesParams>({
+      key: VENUES_QUERY_KEY,
+      fetcher: async (params, api) => {
+        const response = await api.venues.list({ limit: params?.limit ?? 50 });
+        return response.data;
+      },
+    });
+    export const useUpdateVenue = createMutationHook<{ venueId: string; data: UpdateVenueRequest }>({
+      invalidateKeys: VENUES_QUERY_KEY,
+      mutationFn: (api, { venueId, data }) => api.venues.update(venueId, data),
+    });
+    export interface UseVenueBySlugResult {
+      data: PublicVenue | null | undefined;
+      isLoading: boolean;
+      error: Error | null;
+    }
+    export function useVenueBySlug(slug: string | undefined): UseVenueBySlugResult {
+      return useVenueBySlugQuery({ slug }) as QueryHookResult<PublicVenue | null>;
+    }
   </file>
   <file path="src/hooks/useWaitlist.ts">
     export const WAITLIST_QUERY_KEY = "waitlist" as const;
     export interface UseWaitlistParams {
       venueId: string;
     }
+    export const useWaitlist = createQueryHook<WaitlistEntry[], UseWaitlistParams>({
+      key: WAITLIST_QUERY_KEY,
+      fetcher: async (params, api) => {
+        if (!params) return [];
+        return api.waitlist.list(params.venueId);
+      },
+      getEnabled: (params) => Boolean(params?.venueId),
+    });
+    export const useCreateWaitlistEntry = createMutationHook<CreateWaitlistEntryRequest, WaitlistEntry>(
+      {
+        invalidateKeys: WAITLIST_QUERY_KEY,
+        mutationFn: (api, data) => api.waitlist.create(data),
+      }
+    );
+    export const useSeatWaitlistEntry = createMutationHook<string, WaitlistEntry>({
+      invalidateKeys: WAITLIST_QUERY_KEY,
+      mutationFn: (api, id) => api.waitlist.seat(id),
+    });
+    export const useNotifyWaitlistEntry = createMutationHook<string, WaitlistEntry>({
+      invalidateKeys: WAITLIST_QUERY_KEY,
+      mutationFn: (api, id) => api.waitlist.notify(id),
+    });
+    export const useCancelWaitlistEntry = createMutationHook<string, WaitlistEntry>({
+      invalidateKeys: WAITLIST_QUERY_KEY,
+      mutationFn: (api, id) => api.waitlist.cancel(id),
+    });
   </file>
   </section>
   <section priority="medium" role="journeys">
@@ -614,6 +3309,157 @@
     interface VenueSummary {
       id: string;
       name: string;
+    }
+    export async function authenticateAgainstLiveSite(page: Page): Promise<string> {
+      const config = validateAuth0Config();
+      const tokens = await fetchAuth0TokensWithRetry(config);
+      const storageClientId = process.env["JOURNEY_OIDC_CLIENT_ID"] || config.clientId;
+      const entry = buildOidcUserEntry(config, tokens, storageClientId);
+    
+      await page.goto("");
+      await page.evaluate(({ key, value }) => {
+        localStorage.setItem(key, value);
+      }, entry);
+      await page.reload();
+    
+      return tokens.access_token;
+    }
+    export function isNonAdminAuthConfigured(
+      env: Record<string, string | undefined> = process.env
+    ): boolean {
+      return Boolean(env["E2E_NONADMIN_AUTH_EMAIL"]) && Boolean(env["E2E_NONADMIN_AUTH_PASSWORD"]);
+    }
+    export function resolveNonAdminAuthEnv(
+      env: Record<string, string | undefined> = process.env
+    ): Record<string, string | undefined> {
+      const email = env["E2E_NONADMIN_AUTH_EMAIL"];
+      const password = env["E2E_NONADMIN_AUTH_PASSWORD"];
+    
+      const missing: string[] = [];
+      if (!email) missing.push("E2E_NONADMIN_AUTH_EMAIL");
+      if (!password) missing.push("E2E_NONADMIN_AUTH_PASSWORD");
+    
+      if (missing.length > 0) {
+        throw new Error(
+          `Missing required non-admin journey env vars: ${missing.join(", ")}\n\n` +
+            "  E2E_NONADMIN_AUTH_EMAIL     — an Auth0 user WITHOUT the admin role\n" +
+            "  E2E_NONADMIN_AUTH_PASSWORD  — that user's password\n\n" +
+            "They are deliberately not defaulted to the admin credentials: the " +
+            "first-venue bootstrap case only exists for non-admins, so an admin " +
+            "fallback would make this journey pass without exercising it."
+        );
+      }
+    
+      return { ...env, E2E_AUTH_EMAIL: email, E2E_AUTH_PASSWORD: password };
+    }
+    export function readTokenPermissions(accessToken: string): string[] {
+      const segments = accessToken.split(".");
+      if (segments.length !== 3 || !segments[1]) {
+        throw new Error(
+          "Access token is not a well-formed JWT (expected three dot-separated segments)"
+        );
+      }
+    
+      const claims: unknown = JSON.parse(Buffer.from(segments[1], "base64url").toString("utf8"));
+      if (typeof claims !== "object" || claims === null) {
+        throw new Error("Access token payload did not decode to an object");
+      }
+    
+      const permissions = (claims as { permissions?: unknown }).permissions;
+      if (permissions === undefined) return [];
+      if (!Array.isArray(permissions)) {
+        throw new Error("Access token `permissions` claim is present but not an array");
+      }
+      return permissions.map(String);
+    }
+    export async function authenticateNonAdmin(): Promise<{
+      accessToken: string;
+      permissions: string[];
+    }> {
+      const config = validateAuth0Config(resolveNonAdminAuthEnv());
+      const tokens = await fetchAuth0TokensWithRetry(config);
+      return {
+        accessToken: tokens.access_token,
+        permissions: readTokenPermissions(tokens.access_token),
+      };
+    }
+    export async function createVenueAs(
+      accessToken: string,
+      name: string
+    ): Promise<{ status: number; id?: string }> {
+      const response = await apiRequest(accessToken, "/api/v1/venues", "POST", {
+        name,
+        slug: name,
+        ianaTimezone: "America/Los_Angeles",
+      });
+    
+      if (!response.ok) return { status: response.status };
+    
+      const body = (await response.json()) as { data?: { id?: string } };
+      return { status: response.status, id: body.data?.id };
+    }
+    async function apiRequest(
+      accessToken: string,
+      path: string,
+      method: string,
+      body?: unknown
+    ): Promise<Response> {
+      const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
+      if (body !== undefined) headers["Content-Type"] = "application/json";
+    
+      return fetch(`${API_BASE_URL}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    }
+    export async function listSyntheticVenues(accessToken: string): Promise<VenueSummary[]> {
+      const response = await apiRequest(accessToken, "/api/v1/venues?limit=100", "GET");
+      if (!response.ok) {
+        throw new Error(`Listing venues failed (HTTP ${response.status})`);
+      }
+    
+      const payload = (await response.json()) as { data?: VenueSummary[] };
+      return (payload.data ?? []).filter((venue) => venue.name?.startsWith(SYNTHETIC_VENUE_PREFIX));
+    }
+    export interface DeleteVenueResult {
+      ok: boolean;
+      status: number;
+    }
+    async function deleteVenueFloorPlans(accessToken: string, venueId: string): Promise<void> {
+      const response = await apiRequest(
+        accessToken,
+        `/api/v1/floor-plans?venueId=${venueId}&limit=100`,
+        "GET"
+      );
+      if (!response.ok) return; // best-effort — the retried delete below surfaces the real status either way
+      const payload = (await response.json()) as { data?: { id: string }[] };
+      for (const floorPlan of payload.data ?? []) {
+        await apiRequest(accessToken, `/api/v1/floor-plans/${floorPlan.id}`, "DELETE");
+      }
+    }
+    export async function deleteVenue(
+      accessToken: string,
+      venueId: string
+    ): Promise<DeleteVenueResult> {
+      let response = await apiRequest(accessToken, `/api/v1/venues/${venueId}`, "DELETE");
+      if (response.status === 409) {
+        await deleteVenueFloorPlans(accessToken, venueId);
+        response = await apiRequest(accessToken, `/api/v1/venues/${venueId}`, "DELETE");
+      }
+      const status = response.status;
+      return { ok: status === 204 || status === 404, status };
+    }
+    export async function sweepSyntheticVenues(accessToken: string): Promise<string[]> {
+      const leftovers = await listSyntheticVenues(accessToken);
+      const undeleted: string[] = [];
+    
+      for (const venue of leftovers) {
+        const result = await deleteVenue(accessToken, venue.id);
+        if (!result.ok) undeleted.push(`${venue.name} (HTTP ${result.status})`);
+      }
+    
+      return undeleted;
     }
   </file>
   <file path="e2e/journeys/journey-recorder.ts">
@@ -625,6 +3471,116 @@
       error?: string;
       /** Visible `[role="alert"]` text when the step failed — see capturePageError. */
       pageError?: string;
+    }
+    export interface JourneyReport {
+      runId: string;
+      runUrl: string;
+      startedAt: string;
+      venueName: string;
+      steps: JourneyStepResult[];
+      consoleErrors: string[];
+    }
+    async function capturePageError(page: Page): Promise<string | undefined> {
+      try {
+        const alert = page.locator('[role="alert"]:visible').first();
+        if ((await alert.count()) === 0) return undefined;
+        const text = await alert.innerText({ timeout: ALERT_READ_TIMEOUT_MS });
+        return redactSecrets(text).trim() || undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    function slugify(name: string): string {
+      return name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    }
+    export function resolveRunContext(): { runId: string; runUrl: string } {
+      const runId = process.env["GITHUB_RUN_ID"] ?? `local-${Date.now()}`;
+      const server = process.env["GITHUB_SERVER_URL"] ?? "https://github.com";
+      const repo = process.env["GITHUB_REPOSITORY"];
+      return { runId, runUrl: repo ? `${server}/${repo}/actions/runs/${runId}` : "(local run)" };
+    }
+    export function createJourneyRecorder(page: Page, venueName: string) {
+      const steps: JourneyStepResult[] = [];
+      const consoleErrors: string[] = [];
+      const { runId, runUrl } = resolveRunContext();
+      const startedAt = new Date().toISOString();
+    
+      page.on("console", (message) => {
+        if (message.type() === "error") consoleErrors.push(message.text());
+      });
+      page.on("pageerror", (error) => consoleErrors.push(error.message));
+    
+      const hasFailed = () => steps.some((step) => step.status === "failed");
+    
+      async function runTimed(name: string, fn: () => Promise<void>): Promise<void> {
+        const startedMs = Date.now();
+        try {
+          await fn();
+          steps.push({ name, status: "passed", durationMs: Date.now() - startedMs });
+        } catch (err) {
+          const error = err instanceof Error ? err.message : String(err);
+          const pageError = await capturePageError(page);
+          steps.push({
+            name,
+            status: "failed",
+            durationMs: Date.now() - startedMs,
+            error,
+            ...(pageError ? { pageError } : {}),
+          });
+          await page
+            .screenshot({ path: join(ARTIFACT_DIR, `journey-${slugify(name)}.png`), fullPage: true })
+            .catch(() => undefined);
+        }
+      }
+    
+      return {
+        /** Runs a journey step, or records it as skipped once the journey broke. */
+        async step(name: string, fn: () => Promise<void>): Promise<void> {
+          if (hasFailed()) {
+            steps.push({ name, status: "skipped", durationMs: 0 });
+            return;
+          }
+          await runTimed(name, fn);
+        },
+    
+        /** Runs a step even after a failure — used for cleanup, which must happen. */
+        async cleanupStep(name: string, fn: () => Promise<void>): Promise<void> {
+          await runTimed(name, fn);
+        },
+    
+        /** Adds a note that is friction, not failure (e.g. an undeletable leftover). */
+        note(message: string): void {
+          consoleErrors.push(message);
+        },
+    
+        /**
+         * Records a step as deliberately skipped — distinct from `passed` (its
+         * assertions never ran) and `failed` (does not fail `assertGreen()`).
+         * For steps a caller decides not to attempt at all, e.g. one gated on
+         * credentials that were never provisioned (#4527).
+         */
+        skip(name: string): void {
+          steps.push({ name, status: "skipped", durationMs: 0 });
+        },
+    
+        report(): JourneyReport {
+          return { runId, runUrl, startedAt, venueName, steps: [...steps], consoleErrors };
+        },
+    
+        write(): void {
+          mkdirSync(dirname(REPORT_PATH), { recursive: true });
+          writeFileSync(REPORT_PATH, `${JSON.stringify(this.report(), null, 2)}\n`);
+        },
+    
+        /** Fails the Playwright test when any step failed. */
+        assertGreen(): void {
+          const failed = steps.find((step) => step.status === "failed");
+          if (failed) throw new Error(`Journey failed at "${failed.name}": ${failed.error}`);
+        },
+      };
     }
   </file>
   </section>
@@ -642,6 +3598,39 @@
       const code = (error as Error & { error?: unknown }).error;
       return typeof code === "string" ? code : "";
     }
+    export function describeAuthError(error: Error): AuthErrorDescription {
+      const haystack = `${oidcErrorCode(error)} ${error.message}`;
+    
+      if (ACCESS_DENIED_PATTERN.test(haystack)) {
+        return {
+          title: "Access denied",
+          body: "Your account doesn't have access to Hospitality. Contact your administrator if you think this is a mistake.",
+          canRetry: false,
+        };
+      }
+    
+      if (EXPIRED_FLOW_PATTERN.test(haystack)) {
+        return {
+          title: "That sign-in link expired",
+          body: "Sign-in links are single-use. Start again and it should go through.",
+          canRetry: true,
+        };
+      }
+    
+      if (NETWORK_PATTERN.test(haystack)) {
+        return {
+          title: "Can't reach the sign-in service",
+          body: "Check your connection and try again in a moment.",
+          canRetry: true,
+        };
+      }
+    
+      return {
+        title: "Sign-in hit a snag",
+        body: "Something unexpected happened during sign-in. Trying again usually clears it up.",
+        canRetry: true,
+      };
+    }
   </file>
   <file path="src/lib/offline-cache.ts">
     export type FloorPlanSnapshot = TableStatusDelta[];
@@ -652,6 +3641,99 @@
       /** Epoch ms this entry was written — surfaced to callers as the
        * "last synced" timestamp for the offline/stale-data banner. */
       cachedAt: number;
+    }
+    export interface CachedReservations {
+      reservations: Reservation[];
+      cachedAt: number;
+    }
+    interface FloorPlanCacheEntry {
+      venueId: string;
+      date: string;
+      snapshot: FloorPlanSnapshot;
+    }
+    interface OfflineCacheSchema extends DBSchema {
+      reservations: {
+        key: string;
+        value: ReservationsCacheEntry;
+      };
+      floorPlanSnapshots: {
+        key: string;
+        value: FloorPlanCacheEntry;
+      };
+    }
+    function getDb(): Promise<IDBPDatabase<OfflineCacheSchema>> {
+      dbPromise ??= openDB<OfflineCacheSchema>(DB_NAME, DB_VERSION, {
+        upgrade(db) {
+          db.createObjectStore(RESERVATIONS_STORE);
+          db.createObjectStore(FLOOR_PLAN_SNAPSHOTS_STORE);
+        },
+      });
+      return dbPromise;
+    }
+    function reservationsKey(venueId: string, date: string): string {
+      return `${venueId}::${date}`;
+    }
+    function todayDateKey(): string {
+      return new Date().toISOString().slice(0, 10);
+    }
+    export async function getCachedReservations(
+      venueId: string,
+      date: string
+    ): Promise<CachedReservations | null> {
+      const db = await getDb();
+      const entry = await db.get(RESERVATIONS_STORE, reservationsKey(venueId, date));
+      if (entry === undefined) return null;
+      return { reservations: entry.reservations, cachedAt: entry.cachedAt };
+    }
+    export async function setCachedReservations(
+      venueId: string,
+      date: string,
+      reservations: Reservation[]
+    ): Promise<void> {
+      const db = await getDb();
+      const entry: ReservationsCacheEntry = { venueId, date, reservations, cachedAt: Date.now() };
+      await db.put(RESERVATIONS_STORE, entry, reservationsKey(venueId, date));
+    }
+    export async function getCachedFloorPlanSnapshot(
+      venueId: string
+    ): Promise<FloorPlanSnapshot | null> {
+      const db = await getDb();
+      const entry = await db.get(FLOOR_PLAN_SNAPSHOTS_STORE, venueId);
+      return entry?.snapshot ?? null;
+    }
+    export async function setCachedFloorPlanSnapshot(
+      venueId: string,
+      snapshot: FloorPlanSnapshot
+    ): Promise<void> {
+      const db = await getDb();
+      const entry: FloorPlanCacheEntry = {
+        venueId,
+        date: todayDateKey(),
+        snapshot,
+      };
+      await db.put(FLOOR_PLAN_SNAPSHOTS_STORE, entry, venueId);
+    }
+    export async function evictStaleEntries(today: string): Promise<void> {
+      const db = await getDb();
+      await Promise.all([
+        evictStaleFromStore(db, RESERVATIONS_STORE, today),
+        evictStaleFromStore(db, FLOOR_PLAN_SNAPSHOTS_STORE, today),
+      ]);
+    }
+    async function evictStaleFromStore(
+      db: IDBPDatabase<OfflineCacheSchema>,
+      storeName: "reservations" | "floorPlanSnapshots",
+      today: string
+    ): Promise<void> {
+      const tx = db.transaction(storeName, "readwrite");
+      let cursor = await tx.store.openCursor();
+      while (cursor) {
+        if (cursor.value.date !== today) {
+          await cursor.delete();
+        }
+        cursor = await cursor.continue();
+      }
+      await tx.done;
     }
   </file>
   <file path="src/lib/sse-client.ts">
@@ -674,6 +3756,132 @@
       /** Injectable fetchEventSource implementation — defaults to the real one. */
       fetchEventSourceImpl?: FetchEventSourceFn;
     }
+    class ConnectionClosed extends Error {}
+    export class SseClient {
+      private readonly options: Required<
+        Pick<SseClientOptions, "onConnected" | "onDisconnected" | "fetchEventSourceImpl">
+      > &
+        SseClientOptions;
+      private abortController: AbortController | null = null;
+      private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+      private reconnectAttempts = 0;
+      private lastEventId: string | null = null;
+    
+      constructor(options: SseClientOptions) {
+        this.options = {
+          onConnected: () => undefined,
+          onDisconnected: () => undefined,
+          fetchEventSourceImpl: fetchEventSource,
+          ...options,
+        };
+      }
+    
+      /** Open the SSE connection. No-op if already connected. */
+      connect(): void {
+        if (this.abortController !== null) return;
+        this.openConnection();
+      }
+    
+      /** Close the connection and cancel any pending reconnect. */
+      disconnect(): void {
+        this.clearReconnectTimer();
+        this.closeConnection();
+      }
+    
+      private openConnection(): void {
+        const controller = new AbortController();
+        this.abortController = controller;
+    
+        const headers: Record<string, string> = {};
+        const token = this.options.getAccessToken?.();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+    
+        void this.options
+          .fetchEventSourceImpl(this.buildUrl(), {
+            headers,
+            signal: controller.signal,
+            openWhenHidden: true,
+            onopen: async (response: Response) => {
+              const contentType = response.headers.get("content-type");
+              if (!response.ok || !contentType?.startsWith("text/event-stream")) {
+                throw new Error(`SSE connection failed: ${response.status}`);
+              }
+              this.reconnectAttempts = 0;
+              this.options.onConnected();
+            },
+            onmessage: (ev: { event: string; data: string; id: string }) => {
+              if (ev.id) {
+                this.lastEventId = ev.id;
+              }
+              if (!this.options.eventTypes.includes(ev.event)) return;
+              this.handleRawEvent(ev.event, ev.data);
+            },
+            onerror: (err: unknown) => {
+              this.abortController = null;
+              this.options.onError(err instanceof Error ? err : new Error("SSE connection error"));
+              this.options.onDisconnected();
+              this.scheduleReconnect();
+              throw new ConnectionClosed();
+            },
+          })
+          .catch((err: unknown) => {
+            if (!(err instanceof ConnectionClosed)) throw err;
+          });
+      }
+    
+      private handleRawEvent(type: string, rawData: string): void {
+        let payload: unknown;
+        try {
+          payload = JSON.parse(rawData);
+        } catch (err) {
+          this.options.onError(
+            err instanceof Error
+              ? err
+              : new Error(`Failed to parse SSE event "${type}": ${String(err)}`)
+          );
+          return;
+        }
+        this.options.onEvent(type, payload);
+      }
+    
+      private scheduleReconnect(): void {
+        const attempts = this.reconnectAttempts;
+        const delay =
+          attempts >= MAX_BACKOFF_ATTEMPTS
+            ? RATE_LIMIT_COOLDOWN_MS
+            : Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempts), MAX_BACKOFF_MS);
+        this.reconnectAttempts = attempts + 1;
+    
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.openConnection();
+        }, delay);
+      }
+    
+      private clearReconnectTimer(): void {
+        if (this.reconnectTimer !== null) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+      }
+    
+      private closeConnection(): void {
+        if (this.abortController !== null) {
+          this.abortController.abort();
+          this.abortController = null;
+        }
+      }
+    
+      private buildUrl(): string {
+        const url = new URL(this.options.url);
+        if (this.lastEventId !== null) {
+          url.searchParams.set("lastEventId", this.lastEventId);
+        }
+        return url.toString();
+      }
+    }
   </file>
   </section>
   <section priority="medium" role="src">
@@ -690,6 +3898,73 @@
     export interface NavSection {
       label?: string;
       items: NavItem[];
+    }
+    function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] {
+      const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
+    
+      const STEP_LABELS: Record<SetupStep, string> = {
+        onboarding: "Venue Basics",
+        "operating-hours": "Set Operating Hours",
+        "floor-plan": "Create Floor Plan",
+      };
+    
+      const STEP_PATHS: Record<SetupStep, string> = {
+        onboarding: "/onboarding",
+        "operating-hours": "/setup/hours",
+        "floor-plan": "/floor-plans",
+      };
+    
+      const items: NavItem[] = STEP_ORDER.map((step) => {
+        const isCompleted = readiness.completedSteps.includes(step);
+        const isCurrent = readiness.nextStep === step;
+        const isLocked = !isCompleted && !isCurrent;
+    
+        return {
+          id: `setup-${step}`,
+          label: STEP_LABELS[step],
+          path: STEP_PATHS[step],
+          stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
+          disabled: isLocked,
+        };
+      });
+    
+      const setupSection: NavSection = {
+        label: "Get Started",
+        items,
+      };
+    
+      return isAdmin ? [setupSection, ACCOUNT, ADMIN] : [setupSection, ACCOUNT];
+    }
+    function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
+      const PRIMARY: NavSection = {
+        items: [
+          { id: "briefing", label: "Tonight's Service", path: "/briefing" },
+          { id: "timeline", label: "Timeline", path: "/timeline" },
+          { id: "reservations", label: "Reservations", path: "/reservations" },
+          { id: "waitlist", label: "Waitlist", path: "/waitlist" },
+          { id: "guests", label: "Guests", path: "/guests" },
+          { id: "home", label: "Dashboard", path: "/dashboard" },
+        ],
+      };
+    
+      const MANAGE: NavSection = {
+        label: "Manage",
+        items: [
+          { id: "floor-plans", label: "Floor Plans", path: "/floor-plans" },
+          { id: "booking-widget", label: "Booking Widget", path: "/booking-widget" },
+        ],
+      };
+    
+      return isAdmin ? [PRIMARY, MANAGE, ACCOUNT, ADMIN] : [PRIMARY, MANAGE, ACCOUNT];
+    }
+    export function buildNavSections(
+      readiness: VenueReadiness,
+      isAdmin: boolean
+    ): readonly NavSection[] {
+      if (readiness.status !== "operational") {
+        return buildSetupSections(readiness, isAdmin);
+      }
+      return buildOperationalSections(isAdmin);
     }
   </file>
   <file path="src/return-to-store.ts">
@@ -723,6 +3998,24 @@
       left: number;
       width: number;
     }
+    export function computeReservationLayout(
+      startTime: string,
+      endTime: string,
+      { startHour, hourWidth, isMobile }: ReservationLayoutParams
+    ): ReservationLayoutResult {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+    
+      const startMinutes = start.getHours() * 60 + start.getMinutes();
+      const endMinutes = end.getHours() * 60 + end.getMinutes();
+      const startOffset = startMinutes - startHour * 60;
+      const duration = endMinutes - startMinutes;
+    
+      const left = (startOffset / 60) * hourWidth;
+      const width = Math.max((duration / 60) * hourWidth - 4, isMobile ? 30 : 40);
+    
+      return { left, width };
+    }
   </file>
   <file path="src/components/timeline/useGridFocus.ts">
     export interface GridCoordinate {
@@ -734,6 +4027,68 @@
       colCount: number;
       initial?: GridCoordinate;
     }
+    export interface UseGridFocusResult {
+      active: GridCoordinate;
+      setActive: (coord: GridCoordinate) => void;
+      moveUp: () => void;
+      moveDown: () => void;
+      moveLeft: () => void;
+      moveRight: () => void;
+      handleKeyDown: (e: React.KeyboardEvent) => void;
+    }
+    function clamp(value: number, count: number): number {
+      if (count <= 0) return 0;
+      return Math.max(0, Math.min(value, count - 1));
+    }
+    export function useGridFocus({
+      rowCount,
+      colCount,
+      initial = { row: 0, col: 0 },
+    }: UseGridFocusParams): UseGridFocusResult {
+      const [active, setActive] = useState<GridCoordinate>(initial);
+    
+      const move = useCallback(
+        (deltaRow: number, deltaCol: number) => {
+          if (rowCount <= 0 || colCount <= 0) return;
+          setActive((current) => ({
+            row: clamp(current.row + deltaRow, rowCount),
+            col: clamp(current.col + deltaCol, colCount),
+          }));
+        },
+        [rowCount, colCount]
+      );
+    
+      const moveUp = useCallback(() => move(-1, 0), [move]);
+      const moveDown = useCallback(() => move(1, 0), [move]);
+      const moveLeft = useCallback(() => move(0, -1), [move]);
+      const moveRight = useCallback(() => move(0, 1), [move]);
+    
+      const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent) => {
+          switch (e.key) {
+            case "ArrowUp":
+              e.preventDefault();
+              moveUp();
+              break;
+            case "ArrowDown":
+              e.preventDefault();
+              moveDown();
+              break;
+            case "ArrowLeft":
+              e.preventDefault();
+              moveLeft();
+              break;
+            case "ArrowRight":
+              e.preventDefault();
+              moveRight();
+              break;
+          }
+        },
+        [moveUp, moveDown, moveLeft, moveRight]
+      );
+    
+      return { active, setActive, moveUp, moveDown, moveLeft, moveRight, handleKeyDown };
+    }
   </file>
   </section>
   <section priority="medium" role="utils">
@@ -744,6 +4099,70 @@
     }
     function buildEventTitle(venue: PublicVenueConfig): string {
       return `${venue.name} Reservation`;
+    }
+    function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string {
+      const partyLine = `Party of ${reservation.partySize}.`;
+      return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
+    }
+    export function buildGoogleCalendarUrl(
+      reservation: Reservation,
+      venue: PublicVenueConfig,
+      opts: BuildCalendarLinkOptions = {}
+    ): string {
+      const start = formatIcsLocalDateTime(reservation.startTime, venue.ianaTimezone);
+      const end = formatIcsLocalDateTime(reservation.endTime, venue.ianaTimezone);
+      const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: buildEventTitle(venue),
+        dates: `${start}/${end}`,
+        details: buildEventDescription(reservation, opts.cancellationUrl),
+        location: venue.name,
+        ctz: venue.ianaTimezone,
+      });
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    }
+    function pad2(value: number): string {
+      return String(value).padStart(2, "0");
+    }
+    function formatUtcOffset(offsetMinutes: number): string {
+      const sign = offsetMinutes < 0 ? "-" : "+";
+      const abs = Math.abs(offsetMinutes);
+      return `${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`;
+    }
+    function formatIsoWithOffset(isoInstant: string, timeZone: string): string {
+      const local = formatIcsLocalDateTime(isoInstant, timeZone); // YYYYMMDDTHHMMSS
+      const year = local.slice(0, 4);
+      const month = local.slice(4, 6);
+      const day = local.slice(6, 8);
+      const hour = local.slice(9, 11);
+      const minute = local.slice(11, 13);
+      const second = local.slice(13, 15);
+      const localAsUtcMs = Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      );
+      const offsetMinutes = Math.round((localAsUtcMs - new Date(isoInstant).getTime()) / 60_000);
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}${formatUtcOffset(offsetMinutes)}`;
+    }
+    export function buildOutlookCalendarUrl(
+      reservation: Reservation,
+      venue: PublicVenueConfig,
+      opts: BuildCalendarLinkOptions = {}
+    ): string {
+      const params = new URLSearchParams({
+        path: "/calendar/action/compose",
+        rru: "addevent",
+        subject: buildEventTitle(venue),
+        startdt: formatIsoWithOffset(reservation.startTime, venue.ianaTimezone),
+        enddt: formatIsoWithOffset(reservation.endTime, venue.ianaTimezone),
+        body: buildEventDescription(reservation, opts.cancellationUrl),
+        location: venue.name,
+      });
+      return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
     }
   </file>
   <file path="src/utils/format.ts">
@@ -762,6 +4181,28 @@
         year: "numeric",
       });
     }
+    export function formatTime(isoString: string): string {
+      return new Date(isoString).toLocaleTimeString(LOCALE, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+    export function formatLocalTime(hhmm: string): string {
+      const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
+      return new Date(Date.UTC(1970, 0, 1, hours, minutes)).toLocaleTimeString(LOCALE, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "UTC",
+      });
+    }
+    export function formatCurrencyFromCents(amountCents: number, currency: string): string {
+      return new Intl.NumberFormat(LOCALE, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+      }).format(amountCents / 100);
+    }
   </file>
   <file path="src/utils/ics.ts">
     export interface BuildReservationIcsOptions {
@@ -778,6 +4219,82 @@
         .replace(/;/g, "\\;")
         .replace(/,/g, "\\,")
         .replace(/\r\n|\r|\n/g, "\\n");
+    }
+    function isContinuationByte(byte: number): boolean {
+      return (byte & 0xc0) === 0x80;
+    }
+    function foldLine(line: string): string {
+      const bytes = textEncoder.encode(line);
+      if (bytes.length <= MAX_LINE_OCTETS) {
+        return line;
+      }
+    
+      const segments: string[] = [];
+      let start = 0;
+      let limit = MAX_LINE_OCTETS;
+      while (start < bytes.length) {
+        let end = Math.min(start + limit, bytes.length);
+        while (end > start && end < bytes.length && isContinuationByte(bytes[end] as number)) {
+          end -= 1;
+        }
+        segments.push(textDecoder.decode(bytes.subarray(start, end)));
+        start = end;
+        // Continuation lines carry a 1-octet leading space, so they get 1 fewer content octet.
+        limit = MAX_LINE_OCTETS - 1;
+      }
+      return segments.join(CRLF + " ");
+    }
+    function formatIcsUtcTimestamp(date: Date): string {
+      const iso = date.toISOString(); // e.g. 2026-01-10T12:00:00.000Z
+      return `${iso.slice(0, 4)}${iso.slice(5, 7)}${iso.slice(8, 10)}T${iso.slice(11, 13)}${iso.slice(14, 16)}${iso.slice(17, 19)}Z`;
+    }
+    export function formatIcsLocalDateTime(isoInstant: string, timeZone: string): string {
+      const date = new Date(isoInstant);
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      });
+      const parts = formatter.formatToParts(date);
+      const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "00";
+      return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
+    }
+    function buildDescription(reservation: Reservation, cancellationUrl?: string): string {
+      const partyLine = `Party of ${reservation.partySize}.`;
+      return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
+    }
+    export function buildReservationIcs(
+      reservation: Reservation,
+      venue: PublicVenueConfig,
+      opts: BuildReservationIcsOptions = {}
+    ): string {
+      const now = opts.now ?? new Date();
+      const uid = opts.uid ?? `${reservation.id}@mattbutlerengineering.com`;
+      const tzid = venue.ianaTimezone;
+    
+      const properties = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//mattbutlerengineering//hospitality//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        `UID:${escapeIcsText(uid)}`,
+        `DTSTAMP:${formatIcsUtcTimestamp(now)}`,
+        `DTSTART;TZID=${tzid}:${formatIcsLocalDateTime(reservation.startTime, tzid)}`,
+        `DTEND;TZID=${tzid}:${formatIcsLocalDateTime(reservation.endTime, tzid)}`,
+        `SUMMARY:${escapeIcsText(`${venue.name} Reservation`)}`,
+        `DESCRIPTION:${escapeIcsText(buildDescription(reservation, opts.cancellationUrl))}`,
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ];
+    
+      return properties.map(foldLine).join(CRLF);
     }
   </file>
   <file path="src/utils/ordinal.ts">
@@ -805,6 +4322,12 @@
       COMPLETED: "Completed",
       NO_SHOW: "No Show",
     };
+    export function formatReservationTime(isoString: string): string {
+      return new Date(isoString).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
   </file>
   <file path="src/utils/venueOpenLabel.ts">
     export const WEEKDAY_LABEL: Readonly<Record<Weekday, string>> = {
@@ -834,6 +4357,125 @@
   <file path="src/utils/venueOpenState.ts">
     export type Weekday = keyof OperatingHours;
     export type LocalTime = string;
+    export type VenueOpenState =
+      | { readonly state: "open"; readonly closesAt: LocalTime }
+      | { readonly state: "opening-soon"; readonly opensAt: LocalTime }
+      | {
+          readonly state: "closed";
+          readonly opensAt: LocalTime;
+          /** `null` = later today. */
+          readonly opensOn: Weekday | null;
+        }
+      | { readonly state: "unset" };
+    export interface DeriveVenueOpenStateInput {
+      readonly operatingHours: OperatingHours | null | undefined;
+      readonly ianaTimezone: string | null | undefined;
+      readonly now: Date;
+      /** Lead window for `opening-soon`, inclusive. @default 60 */
+      readonly openingSoonMinutes?: number;
+    }
+    interface DayWindow {
+      readonly open: number;
+      readonly close: number;
+      readonly overnight: boolean;
+      readonly opensAt: LocalTime;
+      readonly closesAt: LocalTime;
+    }
+    interface VenueDay {
+      readonly weekday: Weekday;
+      readonly window: DayWindow | null;
+    }
+    interface VenueClock {
+      /** Index into `WEEKDAYS`. */
+      readonly day: number;
+      /** Minutes since venue-local midnight. */
+      readonly nowMin: number;
+    }
+    function readVenueClock(timeZone: string, now: Date): VenueClock | null {
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          weekday: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const day = WEEKDAYS.indexOf(get("weekday")?.toLowerCase() as Weekday);
+        const hour = Number(get("hour"));
+        const minute = Number(get("minute"));
+        if (day < 0 || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+        return { day, nowMin: hour * 60 + minute };
+      } catch {
+        return null;
+      }
+    }
+    function toMinutes(hhmm: string): number | null {
+      if (!LOCAL_TIME_PATTERN.test(hhmm)) return null;
+      const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
+      return hours * 60 + minutes;
+    }
+    function toWindow(schedule: DaySchedule | undefined): DayWindow | null {
+      if (schedule == null || schedule.closed === true) return null;
+      const open = toMinutes(schedule.open);
+      const close = toMinutes(schedule.close);
+      if (open === null || close === null || open === close) return null;
+      return { open, close, overnight: close < open, opensAt: schedule.open, closesAt: schedule.close };
+    }
+    export function deriveVenueOpenState(input: DeriveVenueOpenStateInput): VenueOpenState | null {
+      const {
+        operatingHours,
+        ianaTimezone,
+        now,
+        openingSoonMinutes = DEFAULT_OPENING_SOON_MINUTES,
+      } = input;
+    
+      // `Intl` silently falls back to the machine zone for `undefined` — gate first.
+      if (typeof ianaTimezone !== "string" || ianaTimezone.length === 0) return null;
+      const clock = readVenueClock(ianaTimezone, now);
+      if (clock === null) return null;
+    
+      if (!hasOperatingHours(operatingHours)) return UNSET;
+    
+      const days: readonly VenueDay[] = WEEKDAYS.map((weekday) => ({
+        weekday,
+        window: toWindow(operatingHours?.[weekday]),
+      }));
+      if (days.every(({ window }) => window === null)) return UNSET;
+    
+      const { day, nowMin } = clock;
+      const today = days[day]?.window ?? null;
+      if (today !== null) {
+        const inDaytimeWindow = !today.overnight && today.open <= nowMin && nowMin < today.close;
+        const inOvernightEvening = today.overnight && nowMin >= today.open;
+        if (inDaytimeWindow || inOvernightEvening) return { state: "open", closesAt: today.closesAt };
+      }
+    
+      const yesterday = days[(day + DAYS_PER_WEEK - 1) % DAYS_PER_WEEK]?.window ?? null;
+      if (yesterday !== null && yesterday.overnight && nowMin < yesterday.close) {
+        return { state: "open", closesAt: yesterday.closesAt };
+      }
+    
+      for (let offset = 0; offset <= DAYS_PER_WEEK; offset += 1) {
+        const candidate = days[(day + offset) % DAYS_PER_WEEK];
+        if (candidate === undefined || candidate.window === null) continue;
+        if (offset === 0 && candidate.window.open <= nowMin) continue;
+        const lead = offset * MINUTES_PER_DAY + candidate.window.open - nowMin;
+        if (lead <= openingSoonMinutes) {
+          return { state: "opening-soon", opensAt: candidate.window.opensAt };
+        }
+        return {
+          state: "closed",
+          opensAt: candidate.window.opensAt,
+          opensOn: offset === 0 ? null : candidate.weekday,
+        };
+      }
+    
+      // Invariant: at least one window exists (checked above), so the loop always
+      // returns within one week. This line is unreachable.
+      return UNSET;
+    }
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
@@ -849,6 +4491,116 @@
       /** Centre coordinates, always multiples of GRID_SIZE. */
       x: number;
       y: number;
+    }
+    export interface FloorPlanDraft {
+      templateId: string | null;
+      planName: string;
+      tables: readonly DraftTable[];
+      /** False once the manager has moved, added or removed anything. Gates the replace-confirm. */
+      pristine: boolean;
+    }
+    export const DRAFT_ID = "__draft__";
+    export const DUPLICATE_TABLE_NAME_MESSAGE = "A table with this name already exists";
+    export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft = {
+      templateId: null,
+      planName: "",
+      tables: [],
+      pristine: true,
+    };
+    export function draftToCanvasTables(draft: FloorPlanDraft): Table[] {
+      return draft.tables.map((table) => {
+        const shapeMetadata: TableShapeMetadata = {
+          shape: table.shape,
+          x: table.x,
+          y: table.y,
+          ...SHAPE_DEFAULTS[table.shape],
+        };
+    
+        return {
+          id: table.localId,
+          name: table.name,
+          tableNumber: null,
+          capacity: table.capacity,
+          minCovers: table.minCovers,
+          maxCovers: null,
+          location: null,
+          isActive: true,
+          priority: 0,
+          status: "AVAILABLE",
+          venueId: null,
+          floorPlanId: null,
+          shapeMetadata,
+          createdAt: DRAFT_TIMESTAMP,
+          updatedAt: DRAFT_TIMESTAMP,
+        };
+      });
+    }
+    export function draftToCanvasFloorPlan(draft: FloorPlanDraft): FloorPlan {
+      return {
+        id: DRAFT_ID,
+        venueId: DRAFT_ID,
+        name: draft.planName,
+        isActive: false,
+        layoutJson: {
+          width: CANVAS_WIDTH,
+          height: CANVAS_HEIGHT,
+          gridSize: GRID_SIZE,
+          showGrid: true,
+        },
+        createdAt: DRAFT_TIMESTAMP,
+        updatedAt: DRAFT_TIMESTAMP,
+      };
+    }
+    export function draftTableFromCreateRequest(
+      request: CreateTableRequest,
+      localId: string
+    ): DraftTable {
+      const shapeMetadata = request.shapeMetadata;
+      // Invariant: AddTableDialog always populates shapeMetadata (shape/x/y are
+      // required for a table to render on the canvas at all).
+      if (!shapeMetadata) {
+        throw new Error("draftTableFromCreateRequest: request.shapeMetadata is required");
+      }
+    
+      return {
+        localId,
+        name: request.name,
+        capacity: request.capacity,
+        minCovers: request.minCovers ?? 1,
+        shape: shapeMetadata.shape,
+        x: shapeMetadata.x,
+        y: shapeMetadata.y,
+      };
+    }
+    export function draftTableToCreateRequest(
+      table: DraftTable,
+      venueId: string,
+      floorPlanId: string
+    ): CreateTableRequest {
+      const dims = SHAPE_DEFAULTS[table.shape];
+    
+      return {
+        name: table.name,
+        capacity: table.capacity,
+        minCovers: table.minCovers,
+        venueId,
+        floorPlanId,
+        shapeMetadata: {
+          shape: table.shape,
+          x: table.x,
+          y: table.y,
+          width: dims.width,
+          height: dims.height,
+        },
+      };
+    }
+    export function findDuplicateName(
+      tables: readonly DraftTable[],
+      name: string,
+      ignoreLocalId?: string
+    ): boolean {
+      const trimmed = name.trim();
+      return tables.some((table) => table.localId !== ignoreLocalId && table.name.trim() === trimmed);
     }
   </file>
   <file path="src/components/venue-onboarding/floor-plan-templates.ts">
@@ -866,6 +4618,215 @@
       /** Omitted when rows === 1. */
       pitchY?: number;
     }
+    export interface FloorPlanTemplate {
+      id: TemplateId;
+      /** Picker card label. */
+      name: string;
+      /** The floor plan's name once created — fixed per template, not editable in the wizard. */
+      planName: string;
+      /** Card summary line, e.g. "14 tables · 48 seats". */
+      summary: string;
+      /** Card zone line, e.g. "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats". */
+      zoneLine: string;
+      zones: readonly Zone[];
+    }
+    function tablesForZone(zone: Zone): DraftTable[] {
+      return Array.from({ length: zone.rows * zone.cols }, (_, i) => {
+        const r = Math.floor(i / zone.cols);
+        const c = i % zone.cols;
+        const name = `${zone.prefix}${i + 1}`;
+        const x = zone.cols === 1 ? zone.origin.x : zone.origin.x + c * (zone.pitchX ?? 0);
+        const y = zone.rows === 1 ? zone.origin.y : zone.origin.y + r * (zone.pitchY ?? 0);
+    
+        return {
+          localId: name,
+          name,
+          capacity: zone.capacity,
+          minCovers: zone.minCovers,
+          shape: zone.shape,
+          x,
+          y,
+        };
+      });
+    }
+    export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] {
+      return template.zones.flatMap(tablesForZone);
+    }
+    export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
+      {
+        id: "restaurant",
+        name: "Restaurant",
+        planName: "Main Dining Room",
+        summary: "14 tables · 48 seats",
+        zoneLine: "4 window 2-tops · 6 four-tops · 2 round 6-tops · 2 bar seats",
+        zones: [
+          {
+            prefix: "W",
+            shape: "square",
+            capacity: 2,
+            minCovers: 1,
+            origin: { x: 100, y: 80 },
+            cols: 4,
+            rows: 1,
+            pitchX: 120,
+          },
+          {
+            prefix: "T",
+            shape: "rectangle",
+            capacity: 4,
+            minCovers: 2,
+            origin: { x: 120, y: 220 },
+            cols: 3,
+            rows: 2,
+            pitchX: 160,
+            pitchY: 140,
+          },
+          {
+            prefix: "R",
+            shape: "circle",
+            capacity: 6,
+            minCovers: 4,
+            origin: { x: 660, y: 220 },
+            cols: 1,
+            rows: 2,
+            pitchY: 140,
+          },
+          {
+            prefix: "B",
+            shape: "square",
+            capacity: 2,
+            minCovers: 1,
+            origin: { x: 120, y: 500 },
+            cols: 2,
+            rows: 1,
+            pitchX: 120,
+          },
+        ],
+      },
+      {
+        id: "cafe",
+        name: "Cafe",
+        planName: "Main Floor",
+        summary: "10 tables · 24 seats",
+        zoneLine: "5 window 2-tops · 3 café rounds · 2 four-tops",
+        zones: [
+          {
+            prefix: "W",
+            shape: "square",
+            capacity: 2,
+            minCovers: 1,
+            origin: { x: 100, y: 80 },
+            cols: 5,
+            rows: 1,
+            pitchX: 120,
+          },
+          {
+            prefix: "C",
+            shape: "circle",
+            capacity: 2,
+            minCovers: 1,
+            origin: { x: 140, y: 260 },
+            cols: 3,
+            rows: 1,
+            pitchX: 140,
+          },
+          {
+            prefix: "L",
+            shape: "rectangle",
+            capacity: 4,
+            minCovers: 2,
+            origin: { x: 200, y: 440 },
+            cols: 2,
+            rows: 1,
+            pitchX: 120,
+          },
+        ],
+      },
+      {
+        id: "bar",
+        name: "Bar",
+        planName: "Bar Floor",
+        summary: "12 tables · 40 seats",
+        zoneLine: "6 high-tops · 4 standing rounds · 2 booths",
+        zones: [
+          {
+            prefix: "H",
+            shape: "square",
+            capacity: 2,
+            minCovers: 1,
+            origin: { x: 100, y: 80 },
+            cols: 6,
+            rows: 1,
+            pitchX: 120,
+          },
+          {
+            prefix: "S",
+            shape: "circle",
+            capacity: 4,
+            minCovers: 2,
+            origin: { x: 140, y: 260 },
+            cols: 4,
+            rows: 1,
+            pitchX: 140,
+          },
+          {
+            prefix: "B",
+            shape: "rectangle",
+            capacity: 6,
+            minCovers: 3,
+            origin: { x: 160, y: 440 },
+            cols: 2,
+            rows: 1,
+            pitchX: 140,
+          },
+        ],
+      },
+      {
+        id: "patio",
+        name: "Patio",
+        planName: "Patio",
+        summary: "8 tables · 36 seats",
+        zoneLine: "6 umbrella rounds · 2 long tables",
+        zones: [
+          {
+            prefix: "P",
+            shape: "circle",
+            capacity: 4,
+            minCovers: 2,
+            origin: { x: 160, y: 140 },
+            cols: 3,
+            rows: 2,
+            pitchX: 180,
+            pitchY: 160,
+          },
+          {
+            prefix: "L",
+            shape: "rectangle",
+            capacity: 6,
+            minCovers: 3,
+            origin: { x: 200, y: 460 },
+            cols: 2,
+            rows: 1,
+            pitchX: 180,
+          },
+        ],
+      },
+      {
+        id: "blank",
+        name: "Blank",
+        planName: "Main Floor",
+        summary: "No tables",
+        zoneLine: "Start empty — add tables yourself",
+        zones: [],
+      },
+    ] as const;
+    export function templateById(id: TemplateId): FloorPlanTemplate {
+      const template = FLOOR_PLAN_TEMPLATES.find((candidate) => candidate.id === id);
+      if (!template) {
+        throw new Error(`templateById: no template registered for id "${id}"`);
+      }
+      return template;
+    }
   </file>
   <file path="src/components/venue-onboarding/generate-slug.ts">
     export function generateSlug(name: string): string {
@@ -880,6 +4841,267 @@
   <file path="src/components/venue-onboarding/launch-sequence.ts">
     export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
     export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
+    export interface LaunchProgress {
+      venueId: string | null;
+      floorPlanId: string | null;
+      /** Names, not ids — the name is the server's unique key and therefore the resume key. */
+      createdTableNames: readonly string[];
+      activated: boolean;
+      inFlightStage: LaunchStageId | null;
+      failedStage: LaunchStageId | null;
+      errorMessage: string | null;
+    }
+    export const INITIAL_LAUNCH_PROGRESS: LaunchProgress = {
+      venueId: null,
+      floorPlanId: null,
+      createdTableNames: [],
+      activated: false,
+      inFlightStage: null,
+      failedStage: null,
+      errorMessage: null,
+    };
+    export const DEFAULT_LAYOUT: FloorPlanLayout = {
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      gridSize: GRID_SIZE,
+      showGrid: true,
+    };
+    export function stagesFor(draft: FloorPlanDraft): readonly LaunchStageId[] {
+      if (draft.tables.length === 0) {
+        return ALL_STAGES.filter((stage) => stage !== "tables");
+      }
+      return ALL_STAGES;
+    }
+    function isStageDone(
+      progress: LaunchProgress,
+      stage: LaunchStageId,
+      draft: FloorPlanDraft
+    ): boolean {
+      switch (stage) {
+        case "venue":
+          return progress.venueId !== null;
+        case "floorPlan":
+          return progress.floorPlanId !== null;
+        case "tables":
+          return draft.tables.every((table) => progress.createdTableNames.includes(table.name));
+        case "activate":
+          return progress.activated;
+      }
+    }
+    export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null {
+      for (const stage of stagesFor(draft)) {
+        if (!isStageDone(progress, stage, draft)) {
+          return stage;
+        }
+      }
+      return null;
+    }
+    function isDoneWithoutDraft(progress: LaunchProgress, stage: LaunchStageId): boolean {
+      switch (stage) {
+        case "venue":
+          return progress.venueId !== null;
+        case "floorPlan":
+          return progress.floorPlanId !== null;
+        case "tables":
+          return progress.createdTableNames.length > 0;
+        case "activate":
+          return progress.activated;
+      }
+    }
+    export function stageStateOf(progress: LaunchProgress, stage: LaunchStageId): LaunchStageState {
+      if (progress.inFlightStage === stage) return "in-flight";
+      if (progress.failedStage === stage) return "failed";
+      return isDoneWithoutDraft(progress, stage) ? "done" : "pending";
+    }
+    export function tablesDoneCount(progress: LaunchProgress): number {
+      return progress.createdTableNames.length;
+    }
+    export function isAlreadyCreatedError(err: unknown): boolean {
+      return err instanceof Error && err.message === DUPLICATE_TABLE_NAME_MESSAGE;
+    }
+    export interface LaunchApi {
+      venues: { create(data: CreateVenueRequest): Promise<Venue> };
+      floorPlans: {
+        create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
+        setActive(id: string): Promise<FloorPlan>;
+      };
+      tables: { create(data: CreateTableRequest): Promise<Table> };
+    }
+    function withFallback(err: unknown, fallback: string): Error {
+      return err instanceof Error && err.message ? err : new Error(fallback);
+    }
+    async function runVenueStage(
+      api: LaunchApi,
+      venuePayload: CreateVenueRequest,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      let venue: Venue;
+      try {
+        venue = await api.venues.create(venuePayload);
+      } catch (err) {
+        throw withFallback(err, "Couldn't create the venue");
+      }
+      const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
+      onProgress(next);
+      return next;
+    }
+    async function runFloorPlanStage(
+      api: LaunchApi,
+      draft: FloorPlanDraft,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      const venueId = progress.venueId;
+      // Invariant: nextStage only selects "floorPlan" once "venue" is done
+      // (stagesFor's order is fixed), so venueId is always set here.
+      if (venueId === null) {
+        throw new Error("runLaunchSequence: floorPlan stage reached without a venueId");
+      }
+    
+      let floorPlan: FloorPlan;
+      try {
+        floorPlan = await api.floorPlans.create({
+          venueId,
+          name: draft.planName,
+          layoutJson: DEFAULT_LAYOUT,
+        });
+      } catch (err) {
+        throw withFallback(err, "Couldn't create the floor plan");
+      }
+      const next: LaunchProgress = { ...progress, floorPlanId: floorPlan.id, inFlightStage: null };
+      onProgress(next);
+      return next;
+    }
+    class LaunchStageError extends Error {
+      readonly partialProgress: LaunchProgress;
+    
+      constructor(message: string, partialProgress: LaunchProgress) {
+        super(message);
+        this.partialProgress = partialProgress;
+      }
+    }
+    async function runTablesStage(
+      api: LaunchApi,
+      draft: FloorPlanDraft,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      const venueId = progress.venueId;
+      const floorPlanId = progress.floorPlanId;
+      // Invariant: nextStage only selects "tables" once "venue" and
+      // "floorPlan" are done (stagesFor's order is fixed).
+      if (venueId === null || floorPlanId === null) {
+        throw new Error("runLaunchSequence: tables stage reached without venueId/floorPlanId");
+      }
+    
+      let current = progress;
+      const total = draft.tables.length;
+    
+      for (const [index, table] of draft.tables.entries()) {
+        if (current.createdTableNames.includes(table.name)) {
+          // Already created in a prior attempt — resume starts at the next one.
+          continue;
+        }
+    
+        try {
+          await api.tables.create(draftTableToCreateRequest(table, venueId, floorPlanId));
+        } catch (err) {
+          if (!isAlreadyCreatedError(err)) {
+            const fallback = `Stopped at table ${index + 1} of ${total}`;
+            throw new LaunchStageError(withFallback(err, fallback).message, current);
+          }
+          // A duplicate-name rejection means the table already exists —
+          // counts as done, loop continues to the next table.
+        }
+    
+        current = { ...current, createdTableNames: [...current.createdTableNames, table.name] };
+        onProgress(current);
+      }
+    
+      current = { ...current, inFlightStage: null };
+      onProgress(current);
+      return current;
+    }
+    async function runActivateStage(
+      api: LaunchApi,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      const floorPlanId = progress.floorPlanId;
+      // Invariant: nextStage only selects "activate" once "floorPlan" is done
+      // (stagesFor's order is fixed).
+      if (floorPlanId === null) {
+        throw new Error("runLaunchSequence: activate stage reached without a floorPlanId");
+      }
+    
+      try {
+        await api.floorPlans.setActive(floorPlanId);
+      } catch (err) {
+        throw withFallback(err, "Couldn't make the plan live");
+      }
+      const next: LaunchProgress = { ...progress, activated: true, inFlightStage: null };
+      onProgress(next);
+      return next;
+    }
+    async function runStage(
+      api: LaunchApi,
+      stage: LaunchStageId,
+      draft: FloorPlanDraft,
+      venuePayload: CreateVenueRequest,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      switch (stage) {
+        case "venue":
+          return runVenueStage(api, venuePayload, progress, onProgress);
+        case "floorPlan":
+          return runFloorPlanStage(api, draft, progress, onProgress);
+        case "tables":
+          return runTablesStage(api, draft, progress, onProgress);
+        case "activate":
+          return runActivateStage(api, progress, onProgress);
+      }
+    }
+    export async function runLaunchSequence(
+      api: LaunchApi,
+      draft: FloorPlanDraft,
+      venuePayload: CreateVenueRequest,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      let current = progress;
+    
+      while (true) {
+        const stage = nextStage(current, draft);
+        if (stage === null) {
+          return current;
+        }
+    
+        current = { ...current, inFlightStage: stage, failedStage: null, errorMessage: null };
+        // Emit before awaiting the stage — otherwise venue/floorPlan/activate
+        // (which call onProgress only once, on completion) never surface an
+        // in-flight value, and stageStateOf can never read "in-flight" for them.
+        onProgress(current);
+    
+        try {
+          current = await runStage(api, stage, draft, venuePayload, current, onProgress);
+        } catch (err) {
+          // A LaunchStageError carries whatever progress accumulated before
+          // the failure (e.g. tables created before the one that rejected) —
+          // use it instead of the pre-stage `current` so that work isn't lost.
+          const base = err instanceof LaunchStageError ? err.partialProgress : current;
+          current = {
+            ...base,
+            inFlightStage: null,
+            failedStage: stage,
+            errorMessage: err instanceof Error ? err.message : "Something went wrong",
+          };
+          onProgress(current);
+          return current;
+        }
+      }
+    }
   </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
     export interface OnboardingStep {
@@ -905,6 +5127,401 @@
       operatingHours: OperatingHours;
       settings: SettingsData;
       floorPlan: FloorPlanDraft;
+    }
+    export interface OnboardingWizardErrors {
+      basicInfo: Partial<Record<keyof BasicInfoData, string>>;
+      locationTime: Partial<Record<keyof LocationTimeData, string>>;
+      operatingHours: OperatingHoursValidationErrors | null;
+      settings: Partial<Record<keyof SettingsData, string>>;
+      floorPlan: string | null;
+    }
+    interface OnboardingWizardState {
+      step: number;
+      data: OnboardingWizardData;
+      errors: OnboardingWizardErrors;
+      highestStepReached: number;
+      slugStatus: SlugStatus;
+      launch: LaunchProgress;
+    }
+    type OnboardingWizardAction =
+      | { type: "SET_STEP_DATA"; step: "basicInfo"; data: BasicInfoData }
+      | { type: "SET_STEP_DATA"; step: "locationTime"; data: LocationTimeData }
+      | { type: "SET_STEP_DATA"; step: "operatingHours"; data: OperatingHours }
+      | { type: "SET_STEP_DATA"; step: "settings"; data: SettingsData }
+      | { type: "NEXT" }
+      | { type: "BACK" }
+      | { type: "GO_TO_STEP"; step: number }
+      | { type: "VALIDATE" }
+      | { type: "SLUG_CHECK_START" }
+      | { type: "SLUG_CHECK_RESULT"; status: "taken" | "available" }
+      | { type: "SET_TEMPLATE"; templateId: TemplateId }
+      | { type: "ADD_DRAFT_TABLE"; request: CreateTableRequest }
+      | { type: "MOVE_DRAFT_TABLE"; localId: string; x: number; y: number }
+      | { type: "REMOVE_DRAFT_TABLE"; localId: string }
+      | { type: "SET_LAUNCH_PROGRESS"; progress: LaunchProgress };
+    function runStepValidation(state: OnboardingWizardState): {
+      state: OnboardingWizardState;
+      valid: boolean;
+    } {
+      switch (state.step) {
+        case 1: {
+          const errors = validateBasicInfo(state.data.basicInfo, state.slugStatus);
+          return {
+            state: { ...state, errors: { ...state.errors, basicInfo: errors } },
+            valid: Object.keys(errors).length === 0,
+          };
+        }
+        case 2: {
+          const errors = validateLocationTime(state.data.locationTime);
+          return {
+            state: { ...state, errors: { ...state.errors, locationTime: errors } },
+            valid: Object.keys(errors).length === 0,
+          };
+        }
+        case 3: {
+          const errors = validateOperatingHours(state.data.operatingHours);
+          return {
+            state: { ...state, errors: { ...state.errors, operatingHours: errors } },
+            valid: errors === null,
+          };
+        }
+        case 4: {
+          const errors = validateSettings(state.data.settings);
+          return {
+            state: { ...state, errors: { ...state.errors, settings: errors } },
+            valid: Object.keys(errors).length === 0,
+          };
+        }
+        case 5: {
+          const valid = state.data.floorPlan.templateId !== null;
+          return {
+            state: {
+              ...state,
+              errors: { ...state.errors, floorPlan: valid ? null : FLOOR_PLAN_REQUIRED_MESSAGE },
+            },
+            valid,
+          };
+        }
+        default:
+          return { state, valid: true };
+      }
+    }
+    function reducer(
+      state: OnboardingWizardState,
+      action: OnboardingWizardAction
+    ): OnboardingWizardState {
+      switch (action.type) {
+        case "SET_STEP_DATA":
+          switch (action.step) {
+            case "basicInfo": {
+              const slugChanged = action.data.slug !== state.data.basicInfo.slug;
+              return {
+                ...state,
+                data: { ...state.data, basicInfo: action.data },
+                slugStatus: slugChanged ? "idle" : state.slugStatus,
+              };
+            }
+            case "locationTime":
+              return { ...state, data: { ...state.data, locationTime: action.data } };
+            case "operatingHours":
+              return {
+                ...state,
+                data: { ...state.data, operatingHours: action.data },
+                errors: { ...state.errors, operatingHours: null },
+              };
+            case "settings":
+              return { ...state, data: { ...state.data, settings: action.data } };
+            default:
+              return state;
+          }
+    
+        case "NEXT": {
+          const { state: validated, valid } = runStepValidation(state);
+          if (!valid) return validated;
+          const nextStep = Math.min(validated.step + 1, TOTAL_STEPS);
+          return {
+            ...validated,
+            step: nextStep,
+            highestStepReached: Math.max(validated.highestStepReached, nextStep),
+          };
+        }
+    
+        case "VALIDATE":
+          // Recompute the current step's errors without advancing — restores the
+          // on-blur field validation the step inputs wire to onValidate.
+          return runStepValidation(state).state;
+    
+        case "BACK": {
+          const floor = state.launch.venueId !== null ? 5 : 1;
+          return { ...state, step: Math.max(state.step - 1, floor) };
+        }
+    
+        case "GO_TO_STEP": {
+          const floor = state.launch.venueId !== null ? 5 : 1;
+          if (action.step >= floor && action.step <= state.highestStepReached) {
+            return { ...state, step: action.step };
+          }
+          return state;
+        }
+    
+        case "SLUG_CHECK_START":
+          return { ...state, slugStatus: "checking" };
+    
+        case "SLUG_CHECK_RESULT": {
+          if (action.status === "taken") {
+            return {
+              ...state,
+              slugStatus: "taken",
+              errors: {
+                ...state.errors,
+                basicInfo: {
+                  ...state.errors.basicInfo,
+                  slug: "A venue with this slug already exists",
+                },
+              },
+            };
+          }
+          const { slug: _removed, ...rest } = state.errors.basicInfo;
+          return { ...state, slugStatus: "available", errors: { ...state.errors, basicInfo: rest } };
+        }
+    
+        case "SET_TEMPLATE": {
+          const template = templateById(action.templateId);
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              floorPlan: {
+                templateId: action.templateId,
+                planName: template.planName,
+                tables: tablesForTemplate(template),
+                pristine: true,
+              },
+            },
+            errors: { ...state.errors, floorPlan: null },
+          };
+        }
+    
+        case "ADD_DRAFT_TABLE": {
+          const table = draftTableFromCreateRequest(action.request, action.request.name);
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              floorPlan: {
+                ...state.data.floorPlan,
+                tables: [...state.data.floorPlan.tables, table],
+                pristine: false,
+              },
+            },
+          };
+        }
+    
+        case "MOVE_DRAFT_TABLE":
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              floorPlan: {
+                ...state.data.floorPlan,
+                tables: state.data.floorPlan.tables.map((table) =>
+                  table.localId === action.localId ? { ...table, x: action.x, y: action.y } : table
+                ),
+                pristine: false,
+              },
+            },
+          };
+    
+        case "REMOVE_DRAFT_TABLE":
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              floorPlan: {
+                ...state.data.floorPlan,
+                tables: state.data.floorPlan.tables.filter((table) => table.localId !== action.localId),
+                pristine: false,
+              },
+            },
+          };
+    
+        case "SET_LAUNCH_PROGRESS":
+          return { ...state, launch: action.progress };
+    
+        default:
+          return state;
+      }
+    }
+    export interface OnboardingWizardActions {
+      setStepData: <K extends keyof OnboardingWizardData>(
+        step: K,
+        data: OnboardingWizardData[K]
+      ) => void;
+      next: () => void;
+      back: () => void;
+      goToStep: (step: number) => void;
+      validateStep: () => void;
+      checkSlugAvailability: (checkPromise: Promise<unknown>) => Promise<void>;
+      setTemplate: (templateId: TemplateId) => void;
+      addDraftTable: (request: CreateTableRequest) => void;
+      moveDraftTable: (localId: string, x: number, y: number) => void;
+      removeDraftTable: (localId: string) => void;
+      setLaunchProgress: (progress: LaunchProgress) => void;
+    }
+    export interface OnboardingWizardResult {
+      step: number;
+      data: OnboardingWizardData;
+      errors: OnboardingWizardErrors;
+      highestStepReached: number;
+      slugStatus: SlugStatus;
+      launch: LaunchProgress;
+      actions: OnboardingWizardActions;
+    }
+    export function useOnboardingWizard(): OnboardingWizardResult {
+      const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+    
+      const setStepData = useCallback(
+        <K extends keyof OnboardingWizardData>(step: K, data: OnboardingWizardData[K]) => {
+          switch (step) {
+            case "basicInfo":
+              dispatch({ type: "SET_STEP_DATA", step: "basicInfo", data: data as BasicInfoData });
+              return;
+            case "locationTime":
+              dispatch({
+                type: "SET_STEP_DATA",
+                step: "locationTime",
+                data: data as LocationTimeData,
+              });
+              return;
+            case "operatingHours":
+              dispatch({
+                type: "SET_STEP_DATA",
+                step: "operatingHours",
+                data: data as OperatingHours,
+              });
+              return;
+            case "settings":
+              dispatch({ type: "SET_STEP_DATA", step: "settings", data: data as SettingsData });
+              return;
+          }
+        },
+        []
+      );
+    
+      const next = useCallback(() => dispatch({ type: "NEXT" }), []);
+      const back = useCallback(() => dispatch({ type: "BACK" }), []);
+      const goToStep = useCallback((step: number) => dispatch({ type: "GO_TO_STEP", step }), []);
+      const validateStep = useCallback(() => dispatch({ type: "VALIDATE" }), []);
+    
+      const checkSlugAvailability = useCallback(
+        async (checkPromise: Promise<unknown>): Promise<void> => {
+          dispatch({ type: "SLUG_CHECK_START" });
+          try {
+            await checkPromise;
+            dispatch({ type: "SLUG_CHECK_RESULT", status: "taken" });
+          } catch {
+            dispatch({ type: "SLUG_CHECK_RESULT", status: "available" });
+          }
+        },
+        []
+      );
+    
+      const setTemplate = useCallback(
+        (templateId: TemplateId) => dispatch({ type: "SET_TEMPLATE", templateId }),
+        []
+      );
+      const addDraftTable = useCallback(
+        (request: CreateTableRequest) => dispatch({ type: "ADD_DRAFT_TABLE", request }),
+        []
+      );
+      const moveDraftTable = useCallback(
+        (localId: string, x: number, y: number) =>
+          dispatch({ type: "MOVE_DRAFT_TABLE", localId, x, y }),
+        []
+      );
+      const removeDraftTable = useCallback(
+        (localId: string) => dispatch({ type: "REMOVE_DRAFT_TABLE", localId }),
+        []
+      );
+      const setLaunchProgress = useCallback(
+        (progress: LaunchProgress) => dispatch({ type: "SET_LAUNCH_PROGRESS", progress }),
+        []
+      );
+    
+      // Stabilise the actions object identity across renders. Each callback is
+      // already memoized, so this object never changes — consumers can safely list
+      // `actions` in effect dependency arrays without re-running every render.
+      const actions = useMemo<OnboardingWizardActions>(
+        () => ({
+          setStepData,
+          next,
+          back,
+          goToStep,
+          validateStep,
+          checkSlugAvailability,
+          setTemplate,
+          addDraftTable,
+          moveDraftTable,
+          removeDraftTable,
+          setLaunchProgress,
+        }),
+        [
+          setStepData,
+          next,
+          back,
+          goToStep,
+          validateStep,
+          checkSlugAvailability,
+          setTemplate,
+          addDraftTable,
+          moveDraftTable,
+          removeDraftTable,
+          setLaunchProgress,
+        ]
+      );
+    
+      return {
+        step: state.step,
+        data: state.data,
+        errors: state.errors,
+        highestStepReached: state.highestStepReached,
+        slugStatus: state.slugStatus,
+        launch: state.launch,
+        actions,
+      };
+    }
+    export function buildOnboardingPayload(data: OnboardingWizardData): CreateVenueRequest {
+      const payload: CreateVenueRequest = {
+        name: data.basicInfo.name.trim(),
+        slug: data.basicInfo.slug.trim(),
+        ianaTimezone: data.locationTime.ianaTimezone,
+        currencyCode: data.locationTime.currencyCode,
+      };
+    
+      if (data.basicInfo.venueGroupId) {
+        payload.venueGroupId = data.basicInfo.venueGroupId;
+      }
+    
+      if (Object.keys(data.operatingHours).length > 0) {
+        payload.operatingHours = data.operatingHours;
+      }
+    
+      const venueSettings: VenueSettings = {};
+      if (data.settings.defaultReservationDuration !== "") {
+        venueSettings.defaultReservationDuration = Number(data.settings.defaultReservationDuration);
+      }
+      if (data.settings.maxPartySize !== "") {
+        venueSettings.maxPartySize = Number(data.settings.maxPartySize);
+      }
+      if (data.settings.advanceBookingDays !== "") {
+        venueSettings.maxAdvanceBooking = Number(data.settings.advanceBookingDays);
+      }
+    
+      if (Object.keys(venueSettings).length > 0) {
+        payload.settings = venueSettings;
+      }
+    
+      return payload;
     }
   </file>
   </section>

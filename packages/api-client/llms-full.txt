@@ -18,6 +18,46 @@
         readonly totalPages: number;
       };
     }
+    export interface CreateSessionRequest {
+      taskDescription: string;
+      model?: string;
+      maxBudgetUsd?: number;
+      maxTurns?: number;
+      baseBranch?: string;
+      parentId?: string;
+    }
+    export interface ListSessionsParams {
+      status?: "pending" | "running" | "succeeded" | "failed" | "cancelled";
+      page?: number;
+      limit?: number;
+    }
+    export class AgentSessionClient extends ApiClient {
+      constructor(config: ClientConfig) {
+        super(config);
+      }
+    
+      async createSession(
+        body: CreateSessionRequest,
+        override?: PerRequestOptions
+      ): Promise<SessionSummary> {
+        return this.postOne<SessionSummary>("/v1/sessions", body, undefined, override);
+      }
+    
+      async getSession(id: string, override?: PerRequestOptions): Promise<SessionSummary> {
+        return this.getOne<SessionSummary>(`/v1/sessions/${id}`, undefined, undefined, override);
+      }
+    
+      async listSessions(
+        params: ListSessionsParams = {},
+        override?: PerRequestOptions
+      ): Promise<PaginatedSessions> {
+        return this.get<PaginatedSessions>("/v1/sessions", params as QueryParams, undefined, override);
+      }
+    
+      async cancelSession(id: string, override?: PerRequestOptions): Promise<SessionSummary> {
+        return this.postOne<SessionSummary>(`/v1/sessions/${id}/cancel`, {}, undefined, override);
+      }
+    }
   </file>
   <file path="src/availability.ts">
     export interface GetTimeSlotsParams {
@@ -31,6 +71,112 @@
       startDate: string;
       endDate: string;
       partySize: number;
+    }
+    export class AvailabilityClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Get available time slots for a venue on a specific date
+       */
+      async getTimeSlots(params: GetTimeSlotsParams): Promise<TimeSlot[]> {
+        const { venueId, ...query } = params;
+        return this.client.getOne<TimeSlot[]>(`/api/v1/availability/${venueId}`, query as QueryParams);
+      }
+    
+      /**
+       * Get dates with availability in a range
+       */
+      async getDates(params: GetDatesParams): Promise<DateAvailability[]> {
+        const { venueId, ...query } = params;
+        return this.client.getOne<DateAvailability[]>(
+          `/api/v1/availability/${venueId}/dates`,
+          query as QueryParams
+        );
+      }
+    }
+    export class HoldsClient {
+      private sessionId: string | null = null;
+    
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Set session ID for hold operations
+       */
+      setSessionId(sessionId: string): void {
+        this.sessionId = sessionId;
+      }
+    
+      /**
+       * Get current session ID
+       */
+      getSessionId(): string | null {
+        return this.sessionId;
+      }
+    
+      /**
+       * Create a hold on a time slot
+       */
+      async create(data: CreateHoldRequest): Promise<{ hold: ReservationHold; sessionId: string }> {
+        // Generate session ID before the request so create and confirm use the same ID
+        if (!this.sessionId) {
+          this.sessionId = crypto.randomUUID();
+        }
+    
+        const response = await this.client.request<{ data: ReservationHold }>("/api/v1/holds", {
+          method: "POST",
+          body: JSON.stringify(data),
+          headers: {
+            "x-session-id": this.sessionId,
+          },
+        });
+    
+        return { hold: response.data, sessionId: this.sessionId };
+      }
+    
+      /**
+       * Get a hold by ID
+       */
+      async get(id: string): Promise<ReservationHold> {
+        return this.client.getOne<ReservationHold>(`/api/v1/holds/${id}`);
+      }
+    
+      /**
+       * Release a hold
+       */
+      async release(id: string): Promise<void> {
+        if (!this.sessionId) {
+          throw new Error("Session ID required to release hold");
+        }
+    
+        await this.client.request<{ success: boolean }>(`/api/v1/holds/${id}`, {
+          method: "DELETE",
+          headers: {
+            "x-session-id": this.sessionId,
+          },
+        });
+      }
+    
+      /**
+       * Confirm a hold and create a reservation
+       */
+      async confirm(id: string, details: ConfirmHoldRequest): Promise<Reservation> {
+        if (!this.sessionId) {
+          throw new Error("Session ID required to confirm hold");
+        }
+    
+        const response = await this.client.request<{ data: Reservation }>(
+          `/api/v1/holds/${id}/confirm`,
+          {
+            method: "POST",
+            body: JSON.stringify(details),
+            headers: {
+              "x-session-id": this.sessionId,
+            },
+          }
+        );
+    
+        return response.data;
+      }
     }
   </file>
   <file path="src/briefing.ts">
@@ -49,6 +195,42 @@
       tags: string[] | null;
       communicationPreference: string | null;
     }
+    export interface BriefingEntry {
+      id: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      status: "PENDING" | "CONFIRMED";
+      notes: string | null;
+      cancellationReason: string | null;
+      cancellationNote: string | null;
+      guestName: string | null;
+      guestId: string | null;
+      userId: string | null;
+      occasion: string | null;
+      seatingPreference: string | null;
+      tableId: string;
+      table?: { id: string; name: string; tableNumber: string | null } | null;
+      venueId: string | null;
+      createdAt: string;
+      updatedAt: string;
+      guest: BriefingGuest | null;
+    }
+    export class BriefingClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Get tonight's service briefing — PENDING and CONFIRMED reservations for
+       * the given date and venue, enriched with full guest CRM data.
+       */
+      async list(params: GetBriefingParams): Promise<BriefingEntry[]> {
+        return this.client.getOne<BriefingEntry[]>(
+          "/api/v1/briefing",
+          params as unknown as QueryParams
+        );
+      }
+    }
   </file>
   <file path="src/client.ts">
     export type QueryParams = Record<string, string | number | boolean | undefined | null>;
@@ -60,6 +242,376 @@
       const s = sp.toString();
       return s ? `?${s}` : "";
     }
+    export interface ClientConfig {
+      baseUrl: string;
+      getAccessToken?: () => string | null | Promise<string | null>;
+      timeout?: number;
+      maxRetries?: number;
+      onError?: (error: ApiClientError) => void;
+    }
+    export interface RequestOptions extends RequestInit {
+      signal?: AbortSignal;
+    }
+    export interface PerRequestOptions {
+      maxRetries?: number;
+      timeout?: number;
+      /**
+       * Opt-in: allow retrying a non-idempotent method (POST/PATCH) on a
+       * retryable status or network error. Only set this when the caller knows
+       * the request is safe to replay (e.g. guarded by an idempotency key on
+       * the origin). Has no effect on GET/HEAD/PUT/DELETE, which are already
+       * retried by default. Defaults to false — POST/PATCH are never retried
+       * unless explicitly opted in.
+       */
+      idempotentRetry?: boolean;
+    }
+    export class ApiClient {
+      private readonly timeout: number;
+      private readonly maxRetries: number;
+    
+      constructor(private config: ClientConfig) {
+        this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS;
+        this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+      }
+    
+      async request<T>(
+        path: string,
+        options: RequestOptions = {},
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const { baseUrl, getAccessToken } = this.config;
+        const method = options.method ?? "GET";
+    
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          ...(options.headers as Record<string, string>),
+        };
+    
+        if (getAccessToken) {
+          const token = await getAccessToken();
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+        }
+    
+        const effectiveTimeout = override?.timeout ?? this.timeout;
+        const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
+        const idempotentRetry = override?.idempotentRetry ?? false;
+    
+        const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
+    
+        const fetchOptions: RequestInit = {
+          ...options,
+          headers,
+          signal: combinedSignal,
+        };
+    
+        const url = `${baseUrl}${path}`;
+        const canRetry = SAFE_RETRY_METHODS.has(method) || idempotentRetry;
+        const response = await fetchWithRetry(url, fetchOptions, canRetry ? effectiveMaxRetries : 0);
+    
+        if (!response.ok) {
+          const raw = await response.json().catch(() => null);
+          const problemDetails = parseProblemDetails(raw, response.status);
+          const clientError = new ApiClientError(problemDetails, method, path);
+          this.config.onError?.(clientError);
+          throw clientError;
+        }
+    
+        if (response.status === 204) {
+          return undefined as T;
+        }
+    
+        const data = await response.json();
+    
+        if (schema) {
+          const result = schema.safeParse(data);
+          if (!result.success) {
+            const validationError = new ApiValidationError(result.error, method, path);
+            // Cast to ApiClientError so onError can observe validation errors too.
+            // Callers can narrow with `instanceof ApiValidationError`.
+            this.config.onError?.(validationError as unknown as ApiClientError);
+            throw validationError;
+          }
+          return result.data;
+        }
+    
+        return data as T;
+      }
+    
+      get<T>(
+        path: string,
+        params?: QueryParams,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const query = params ? buildQueryString(params) : "";
+        return this.request<T>(`${path}${query}`, { method: "GET" }, schema, override);
+      }
+    
+      post<T>(
+        path: string,
+        body: unknown,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        return this.request<T>(
+          path,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          },
+          schema,
+          override
+        );
+      }
+    
+      patch<T>(
+        path: string,
+        body: unknown,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        return this.request<T>(
+          path,
+          {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          },
+          schema,
+          override
+        );
+      }
+    
+      put<T>(
+        path: string,
+        body: unknown,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        return this.request<T>(
+          path,
+          {
+            method: "PUT",
+            body: JSON.stringify(body),
+          },
+          schema,
+          override
+        );
+      }
+    
+      delete(path: string, override?: PerRequestOptions): Promise<void> {
+        return this.request<void>(path, { method: "DELETE" }, undefined, override);
+      }
+    
+      /**
+       * GET + unwrap `.data` from ApiResponse envelope.
+       * Use for single-resource endpoints that return `{ data: T }`.
+       * Pass a Zod schema to validate the unwrapped value at runtime.
+       */
+      async getOne<T>(
+        path: string,
+        params?: QueryParams,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+        const response = await this.get<{ data: T }>(path, params, envelopeSchema, override);
+        return response.data;
+      }
+    
+      /**
+       * POST + unwrap `.data` from ApiResponse envelope.
+       * Use for create endpoints that return `{ data: T }`.
+       * Pass a Zod schema to validate the unwrapped value at runtime.
+       */
+      async postOne<T>(
+        path: string,
+        body: unknown,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+        const response = await this.post<{ data: T }>(path, body, envelopeSchema, override);
+        return response.data;
+      }
+    
+      /**
+       * PATCH + unwrap `.data` from ApiResponse envelope.
+       * Use for update endpoints that return `{ data: T }`.
+       * Pass a Zod schema to validate the unwrapped value at runtime.
+       */
+      async patchOne<T>(
+        path: string,
+        body: unknown,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+        const response = await this.patch<{ data: T }>(path, body, envelopeSchema, override);
+        return response.data;
+      }
+    
+      /**
+       * PUT + unwrap `.data` from ApiResponse envelope.
+       * Use for state-transition endpoints (e.g. seat/cancel/expire) that return `{ data: T }`.
+       * Pass a Zod schema to validate the unwrapped value at runtime.
+       */
+      async putOne<T>(
+        path: string,
+        body: unknown,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+        const response = await this.put<{ data: T }>(path, body, envelopeSchema, override);
+        return response.data;
+      }
+    
+      /**
+       * DELETE + unwrap `.data` from ApiResponse envelope.
+       * Use for delete endpoints that return the affected resource as `{ data: T }`
+       * (e.g. a soft-delete/cancel that hands back the updated resource).
+       * Pass a Zod schema to validate the unwrapped value at runtime.
+       */
+      async deleteOne<T>(
+        path: string,
+        schema?: z.ZodSchema<T>,
+        override?: PerRequestOptions
+      ): Promise<T> {
+        const envelopeSchema = schema ? z.object({ data: schema }) : undefined;
+        const response = await this.request<{ data: T }>(
+          path,
+          { method: "DELETE" },
+          envelopeSchema,
+          override
+        );
+        return response.data;
+      }
+    }
+    export type ErrorCategory =
+      | "badRequest"
+      | "unauthorized"
+      | "forbidden"
+      | "notFound"
+      | "conflict"
+      | "validationError"
+      | "rateLimited"
+      | "serverError"
+      | "unknown";
+    function categorizeStatus(code: number): ErrorCategory {
+      switch (code) {
+        case 400:
+          return "badRequest";
+        case 401:
+          return "unauthorized";
+        case 403:
+          return "forbidden";
+        case 404:
+          return "notFound";
+        case 409:
+          return "conflict";
+        case 422:
+          return "validationError";
+        case 429:
+          return "rateLimited";
+        default:
+          if (code >= 500) return "serverError";
+          return "unknown";
+      }
+    }
+    export class ApiClientError extends Error {
+      /**
+       * RFC 7807 ProblemDetails — the sole error representation.
+       * Always present: synthesized defensively for non-7807 response bodies.
+       */
+      readonly problemDetails: ProblemDetails;
+    
+      constructor(
+        problemDetails: ProblemDetails,
+        public method?: string,
+        public path?: string
+      ) {
+        const prefix = method && path ? `${method} ${path} failed: ` : "";
+        super(`${prefix}${problemDetails.status} ${problemDetails.detail}`);
+        this.name = "ApiClientError";
+        this.problemDetails = problemDetails;
+      }
+    
+      /** HTTP status code, derived from the ProblemDetails shape. */
+      get statusCode(): number {
+        return this.problemDetails.status;
+      }
+    
+      /**
+       * Semantic error category derived from HTTP status code.
+       * Callers can switch on this instead of raw status codes.
+       */
+      get category(): ErrorCategory {
+        return categorizeStatus(this.statusCode);
+      }
+    }
+    export class ApiValidationError extends Error {
+      constructor(
+        public error: z.ZodError,
+        public method?: string,
+        public path?: string
+      ) {
+        const prefix = method && path ? `${method} ${path} failed validation: ` : "";
+        super(`${prefix}${error.message}`);
+        this.name = "ApiValidationError";
+      }
+    }
+    function createCombinedSignal(timeoutMs: number, callerSignal?: AbortSignal | null): AbortSignal {
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    
+      if (!callerSignal) {
+        return timeoutSignal;
+      }
+    
+      return AbortSignal.any([timeoutSignal, callerSignal]);
+    }
+    async function fetchWithRetry(
+      url: string,
+      options: RequestInit,
+      maxRetries: number
+    ): Promise<Response> {
+      let attempt = 0;
+      return retry(
+        async () => {
+          const response = await fetch(url, options);
+          if (RETRYABLE_STATUS_CODES.has(response.status)) {
+            // Only the final attempt's response is returned to the caller (for
+            // error-body parsing) — every intermediate failed response is
+            // discarded, so its body must be released here or the connection
+            // leaks.
+            const isLastAttempt = attempt >= maxRetries;
+            attempt += 1;
+            if (!isLastAttempt) {
+              await response.body?.cancel().catch(() => undefined);
+            }
+            throw new RetryableStatusError(response);
+          }
+          return response;
+        },
+        {
+          maxRetries,
+          baseDelayMs: BASE_BACKOFF_MS,
+          jitter: true,
+          isRetryable: (e) => e instanceof TypeError || e instanceof RetryableStatusError,
+        }
+      ).catch((error) => {
+        if (error instanceof RetryableStatusError) return error.response;
+        throw error;
+      });
+    }
+    class RetryableStatusError extends Error {
+      constructor(public readonly response: Response) {
+        super(`Retryable status: ${response.status}`);
+        this.name = "RetryableStatusError";
+      }
+    }
   </file>
   <file path="src/deposits.ts">
     export interface CreateDepositRequest {
@@ -68,6 +620,51 @@
       currency?: string;
     }
     export type DepositTransition = "capture" | "refund" | "forfeit";
+    export class DepositsClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * Create (collect) a deposit for a reservation.
+       */
+      async create(data: CreateDepositRequest): Promise<Deposit> {
+        return this.client.postOne<Deposit>(DEPOSIT_BASE_PATH, data, DepositSchema);
+      }
+    
+      /**
+       * Read a single deposit by id.
+       */
+      async get(id: string): Promise<Deposit> {
+        return this.client.getOne<Deposit>(`${DEPOSIT_BASE_PATH}/${id}`, undefined, DepositSchema);
+      }
+    
+      /**
+       * Capture (apply) a held deposit — charges the card.
+       */
+      async capture(id: string): Promise<Deposit> {
+        return this.transition(id, "capture");
+      }
+    
+      /**
+       * Refund a held deposit — releases the authorization.
+       */
+      async refund(id: string): Promise<Deposit> {
+        return this.transition(id, "refund");
+      }
+    
+      /**
+       * Forfeit a held deposit — captures it as a no-show/late-cancel fee.
+       */
+      async forfeit(id: string): Promise<Deposit> {
+        return this.transition(id, "forfeit");
+      }
+    
+      /**
+       * Run a back-office deposit state transition (`capture` | `refund` | `forfeit`).
+       */
+      async transition(id: string, action: DepositTransition): Promise<Deposit> {
+        return this.client.postOne<Deposit>(`${DEPOSIT_BASE_PATH}/${id}/${action}`, {}, DepositSchema);
+      }
+    }
   </file>
   <file path="src/floor-plans.ts">
     export class FloorPlansClient {
@@ -156,6 +753,103 @@
       page?: number;
       limit?: number;
       venueId: string;
+    }
+    export interface SearchGuestsParams {
+      venueId: string;
+      query?: string;
+      hasNotVisitedInDays?: number;
+    }
+    export class GuestsClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List guests for a venue
+       */
+      async list(params: ListGuestsParams): Promise<PaginatedResponse<Guest>> {
+        return this.client.get<PaginatedResponse<Guest>>(
+          "/api/v1/guests",
+          params as unknown as QueryParams,
+          guestListSchema
+        );
+      }
+    
+      /**
+       * Search guests
+       */
+      async search(params: SearchGuestsParams): Promise<PaginatedResponse<Guest>> {
+        return this.client.get<PaginatedResponse<Guest>>(
+          "/api/v1/guests/search",
+          params as unknown as QueryParams,
+          guestListSchema
+        );
+      }
+    
+      /**
+       * Get guest segments for a venue
+       */
+      async getSegments(venueId: string): Promise<GuestSegment[]> {
+        return this.client.getOne<GuestSegment[]>(
+          `/api/v1/guests/segments?venueId=${venueId}`,
+          undefined,
+          z.array(GuestSegmentSchema)
+        );
+      }
+    
+      /**
+       * Get a guest by ID
+       */
+      async get(id: string): Promise<Guest> {
+        return this.client.getOne<Guest>(`/api/v1/guests/${id}`, undefined, GuestSchema);
+      }
+    
+      /**
+       * Create a new guest
+       */
+      async create(data: CreateGuestRequest): Promise<Guest> {
+        return this.client.postOne<Guest>("/api/v1/guests", data, GuestSchema);
+      }
+    
+      /**
+       * Find or create a guest by email/phone
+       */
+      async findOrCreate(data: FindOrCreateGuestRequest): Promise<Guest> {
+        return this.client.postOne<Guest>("/api/v1/guests/find-or-create", data, GuestSchema);
+      }
+    
+      /**
+       * Update a guest
+       */
+      async update(id: string, data: UpdateGuestRequest): Promise<Guest> {
+        return this.client.patchOne<Guest>(`/api/v1/guests/${id}`, data, GuestSchema);
+      }
+    
+      /**
+       * Delete a guest
+       */
+      async delete(id: string): Promise<void> {
+        await this.client.delete(`/api/v1/guests/${id}`);
+      }
+    
+      /**
+       * Add a staff note to a guest
+       */
+      async addNote(id: string, text: string): Promise<Guest> {
+        return this.client.postOne<Guest>(`/api/v1/guests/${id}/notes`, { text }, GuestSchema);
+      }
+    
+      /**
+       * Get lapsing guests for a venue (on-demand scan)
+       */
+      async getLapsing(venueId: string): Promise<LapsingGuest[]> {
+        return this.client.getOne<LapsingGuest[]>(`/api/v1/guests/lapsing?venueId=${venueId}`);
+      }
+    
+      /**
+       * Send a win-back message to a guest
+       */
+      async sendWinBack(id: string): Promise<{ sent: boolean }> {
+        return this.client.postOne<{ sent: boolean }>(`/api/v1/guests/${id}/win-back`, {});
+      }
     }
   </file>
   <file path="src/health.ts">
@@ -313,6 +1007,123 @@
       status: ReservationStatus;
       notes: string | null;
     }
+    export interface ManagedReservationVenue {
+      id: string;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+    }
+    export interface ManageReservationData {
+      reservation: ManagedReservation;
+      venue: ManagedReservationVenue | null;
+    }
+    export class ReservationsClient {
+      constructor(private client: ApiClient) {}
+    
+      /**
+       * List reservations with optional filters
+       */
+      async list(params: ListReservationsParams = {}): Promise<PaginatedResponse<Reservation>> {
+        return this.client.get<PaginatedResponse<Reservation>>(
+          RESERVATION_BASE_PATH,
+          params as QueryParams,
+          reservationListSchema
+        );
+      }
+    
+      /**
+       * Get current user's reservations
+       */
+      async me(page = 1, limit = 10): Promise<PaginatedResponse<Reservation>> {
+        return this.client.get<PaginatedResponse<Reservation>>(
+          `${RESERVATION_BASE_PATH}/me?page=${page}&limit=${limit}`,
+          undefined,
+          reservationListSchema
+        );
+      }
+    
+      /**
+       * Get a reservation by ID
+       */
+      async get(id: string): Promise<Reservation> {
+        return this.client.getOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          undefined,
+          ReservationSchema
+        );
+      }
+    
+      /**
+       * Create a new reservation
+       */
+      async create(data: CreateReservationRequest): Promise<Reservation> {
+        return this.client.postOne<Reservation>(RESERVATION_BASE_PATH, data, ReservationSchema);
+      }
+    
+      /**
+       * Update a reservation
+       */
+      async update(id: string, data: UpdateReservationRequest): Promise<Reservation> {
+        return this.client.patchOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          data,
+          ReservationSchema
+        );
+      }
+    
+      /**
+       * Cancel a reservation
+       */
+      async cancel(id: string): Promise<Reservation> {
+        return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+      }
+    
+      /**
+       * Cancel a reservation with an optional reason and note
+       */
+      async cancelWithReason(
+        id: string,
+        reason?: { cancellationReason?: string; cancellationNote?: string }
+      ): Promise<Reservation> {
+        return this.client.patchOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          {
+            status: "CANCELLED",
+            ...reason,
+          },
+          ReservationSchema
+        );
+      }
+    
+      /**
+       * Create a walk-in reservation
+       */
+      async walkIn(data: {
+        partySize: number;
+        tableId: string;
+        venueId: string;
+        guestName?: string;
+        durationMinutes?: number;
+      }): Promise<Reservation> {
+        return this.client.postOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/walk-in`,
+          data,
+          ReservationSchema
+        );
+      }
+    
+      /**
+       * Look up a reservation via a guest-facing manage token (public, unauthenticated).
+       * Encodes the token internally and unwraps the `{ data }` envelope.
+       */
+      async manageReservation(token: string): Promise<ManageReservationData> {
+        return this.client.getOne<ManageReservationData>(
+          `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`,
+          undefined,
+          manageReservationDataSchema
+        );
+      }
+    }
   </file>
   <file path="src/retry.ts">
     export interface RetryOptions {
@@ -333,6 +1144,35 @@
     }
     function sleep(ms: number): Promise<void> {
       return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    function backoffMs(attempt: number, baseDelayMs: number, jitter: boolean): number {
+      const base = baseDelayMs * Math.pow(2, attempt);
+      if (!jitter) return base;
+      const jitterAmount = base * JITTER_FACTOR * (2 * Math.random() - 1);
+      return base + jitterAmount;
+    }
+    export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> {
+      const { maxRetries, baseDelayMs, jitter = true, isRetryable = () => true } = options;
+    
+      let lastError: unknown;
+    
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error;
+    
+          if (attempt < maxRetries && isRetryable(error)) {
+            await sleep(backoffMs(attempt, baseDelayMs, jitter));
+            continue;
+          }
+    
+          throw error;
+        }
+      }
+    
+      // Unreachable — loop always throws or returns, but TypeScript needs this.
+      throw lastError;
     }
   </file>
   <file path="src/streaming.ts">

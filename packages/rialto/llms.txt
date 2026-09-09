@@ -78,6 +78,59 @@
     <item priority="medium">
       function pad(value: number, length: number): string { /* ... */ }
     </item>
+    <item priority="high">
+      export function parseIsoDate(iso: string): { year: number; month: number; day: number } | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toIsoDate(year: number, month: number, day: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isoToUtc(iso: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addDays(iso: string, delta: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function daysInMonth(year: number, month: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addMonthsToIso(iso: string, delta: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addMonthsToMonth(month: CalendarMonth, delta: number): CalendarMonth { /* ... */ }
+    </item>
+    <item priority="high">
+      export function monthOfIso(iso: string): CalendarMonth { /* ... */ }
+    </item>
+    <item priority="high">
+      export function startOfWeek(iso: string, weekStartsOn: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildWeeks(month: CalendarMonth, weekStartsOn: number): string[][] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface WeekInfoLike {
+        firstDay: number;
+      }
+    </item>
+    <item priority="high">
+      export function resolveWeekStart(
+        locale: string | undefined,
+        weekStartsOn: number | undefined
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekdayLabels(
+        locale: string | undefined,
+        weekStartsOn: number
+      ): { short: string; long: string }[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localToday(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function monthLabel(month: CalendarMonth, locale: string | undefined): string { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="Card">
@@ -122,6 +175,41 @@
         content: string;
         elements?: ChatMessageElement[];
       }
+    </item>
+    <item priority="low">
+      interface PendingAction {
+        actionId: string;
+        toolName: string;
+        toolInput: Record<string, unknown>;
+      }
+    </item>
+    <item priority="high">
+      interface NDJSONLine {
+        type: "text" | "tool_status" | "element" | "action_request";
+        content?: string;
+        tool?: string;
+        status?: string;
+        element?: ChatMessageElement;
+      }
+    </item>
+    <item priority="low">
+      interface UseChatStreamOptions {
+        api: string;
+        domainContext: DomainContext;
+        getAccessToken: () => string | null | Promise<string | null>;
+      }
+    </item>
+    <item priority="low">
+      interface UseChatStreamReturn {
+        messages: ChatMessage[];
+        isStreaming: boolean;
+        error: Error | null;
+        pendingAction: PendingAction | null;
+        send: (content: string) => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn { /* ... */ }
     </item>
   </file>
   </section>
@@ -203,6 +291,31 @@
     <item priority="high">
       export function charToMatrix(char: string): readonly (readonly boolean[])[] { /* ... */ }
     </item>
+    <item priority="low">
+      interface TextToMatrixOptions {
+        letterSpacing?: number;
+        rows?: number;
+        cols?: number;
+        align?: "start" | "center" | "end";
+      }
+    </item>
+    <item priority="high">
+      export function textToMatrix(
+        text: string,
+        options: TextToMatrixOptions = {}
+      ): readonly (readonly boolean[])[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createEmptyMatrix(rows: number, cols: number): readonly (readonly boolean[])[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mergeMatrices(
+        target: readonly (readonly boolean[])[],
+        source: readonly (readonly boolean[])[],
+        offsetRow: number,
+        offsetCol: number
+      ): readonly (readonly boolean[])[] { /* ... */ }
+    </item>
   </file>
   <file path="src/components/FlipDot/use-flip-dot-animation.ts">
     <item priority="low">
@@ -217,6 +330,20 @@
         mode?: FlipDotAnimationMode;
       }
     </item>
+    <item priority="low">
+      interface UseFlipDotAnimationReturn {
+        matrix: readonly (readonly boolean[])[];
+        start: () => void;
+        pause: () => void;
+        reset: () => void;
+        isPlaying: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useFlipDotAnimation(
+        options: UseFlipDotAnimationOptions
+      ): UseFlipDotAnimationReturn { /* ... */ }
+    </item>
   </file>
   <file path="src/components/FlipDot/use-flip-dot-sound.ts">
     <item priority="high">
@@ -230,6 +357,12 @@
         playClick: () => void;
         playBatchClick: (count: number) => void;
       }
+    </item>
+    <item priority="high">
+      export function useFlipDotSound({
+        enabled,
+        volume = 0.3,
+      }: UseFlipDotSoundOptions): UseFlipDotSoundReturn { /* ... */ }
     </item>
   </file>
   </section>
@@ -257,6 +390,9 @@
     </item>
     <item priority="high">
       export const FormContext: unknown;
+    </item>
+    <item priority="high">
+      export function useFormContext(): FormContextValue { /* ... */ }
     </item>
   </file>
   </section>
@@ -326,6 +462,23 @@
         silkStyle: StrandStyle;
       }
     </item>
+    <item priority="high">
+      interface Strand {
+        x: number;
+        y: number;
+        px: number;
+        py: number;
+      }
+    </item>
+    <item priority="high">
+      export function startSilkFlow(canvas: HTMLCanvasElement): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readPalette(element: Element): Palette { /* ... */ }
+    </item>
   </file>
   <file path="src/components/SilkFlow/silk-flow-field.ts">
     <item priority="high">
@@ -333,6 +486,27 @@
     </item>
     <item priority="high">
       export const FIELD_TIME_STEP: unknown;
+    </item>
+    <item priority="low">
+      type ValueNoise = (x: number, y: number) => number;
+    </item>
+    <item priority="high">
+      export function silkParticleCount(width: number, height: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function silkStrandAngle(noise: ValueNoise, x: number, y: number, t: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createValueNoise(): ValueNoise { /* ... */ }
+    </item>
+    <item priority="medium">
+      function latticeHash(ix: number, iy: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function smoothstep(t: number): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function lerp(a: number, b: number, t: number): number { /* ... */ }
     </item>
   </file>
   </section>
@@ -343,6 +517,12 @@
     </item>
     <item priority="low">
       type CharsetName = keyof typeof CHARSETS;
+    </item>
+    <item priority="high">
+      export function normalizeChar(raw: string, charset: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextChar(current: string, charset: string): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -375,6 +555,15 @@
     <item priority="high">
       export function daysBetween(a: string, b: string): number { /* ... */ }
     </item>
+    <item priority="high">
+      export function addDays(iso: string, n: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseISODate(iso: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function monthOf(iso: string): string { /* ... */ }
+    </item>
   </file>
   <file path="src/components/TapeChart/defaultStrings.ts">
     <item priority="low">
@@ -386,6 +575,9 @@
     <item priority="high">
       export const DEFAULT_STRINGS: ResolvedStrings;
     </item>
+    <item priority="high">
+      export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings { /* ... */ }
+    </item>
   </file>
   <file path="src/components/TapeChart/types.ts">
     <item priority="low">
@@ -393,6 +585,86 @@
     </item>
     <item priority="low">
       type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+    </item>
+    <item priority="low">
+      type TapeChartDensity = "compact" | "comfortable";
+    </item>
+    <item priority="low">
+      type TapeChartViewMode = "grid" | "list";
+    </item>
+    <item priority="low">
+      type TapeChartOverlapKind = "conflict" | "shared";
+    </item>
+    <item priority="low">
+      interface TapeChartReservation {
+        id: string;
+        roomId: string;
+        start: string;
+        end: string;
+        status: TapeChartStatus;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartRoom {
+        id: string;
+        name: string;
+        category?: string;
+        capacity?: number;
+        status?: TapeChartRoomStatus;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartFormattedParts {
+        startLong: string;
+        endLong: string;
+        nights: number;
+        priceTotal?: string;
+        partySize?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartStrings {
+        regionLabel?: string;
+        roomsColumnLabel?: string;
+        arrivalsLabel?: string;
+        departuresLabel?: string;
+        inHouseLabel?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartMovePayload {
+        id: string;
+        toRoomId: string;
+        newStart: string;
+        newEnd: string;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartProps {
+        reservations: TapeChartReservation[];
+        rooms: TapeChartRoom[];
+        startDate: string;
+        endDate: string;
+        locale?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartPositionedBar {
+        reservation: TapeChartReservation;
+        startOffset: number;
+        span: number;
+        lane: number;
+        clippedStart: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface TapeChartLayout {
+        barsByRoom: Map<string, TapeChartPositionedBar[]>;
+        dayCount: number;
+        laneCountByRoom: Map<string, number>;
+        maxLanes: number;
+        dailyCounts: Array<{ date: string; arrivals: number; departures: numbe...;
+      }
     </item>
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
@@ -432,6 +704,23 @@
         laneCount: number;
       } { /* ... */ }
     </item>
+    <item priority="high">
+      type OverlapClassifier = (a: TapeChartReservation, b: TapeChartReservation) => Tap...;
+    </item>
+    <item priority="medium">
+      function worstOf(
+        current: TapeChartOverlapKind | undefined,
+        next: TapeChartOverlapKind
+      ): TapeChartOverlapKind { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyReservationEvent(
+        prev: TapeChartReservation[],
+        event:
+          | { type: "created" | "updated"; reservation: TapeChartReservation }
+          | { type: "cancelled"; id: string }
+      ): TapeChartReservation[] { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="Text">
@@ -454,6 +743,25 @@
     <item priority="high">
       export function toTimeString(totalMinutes: number): string { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildTimeSlots(stepMinutes: number): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimeDisplay(value: string, locale?: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TimeBounds {
+        min?: string;
+        max?: string;
+        isTimeDisabled?: (time: string) => boolean;
+      }
+    </item>
+    <item priority="high">
+      export function isTimeSlotDisabled(
+        value: string,
+        { min, max, isTimeDisabled }: TimeBounds
+      ): boolean { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="Toast">
@@ -471,6 +779,30 @@
         label: string;
         onClick: () => void;
       }
+    </item>
+    <item priority="low">
+      interface ToastData {
+        id: string;
+        title: string;
+        description?: string;
+        variant?: ToastVariant;
+        duration?: number;
+      }
+    </item>
+    <item priority="low">
+      type ToastInput = Omit<ToastData, "id">;
+    </item>
+    <item priority="low">
+      interface ToastContextValue {
+        toast: (data: ToastInput) => void;
+        dismiss: (id: string) => void;
+      }
+    </item>
+    <item priority="high">
+      export const ToastContext: unknown;
+    </item>
+    <item priority="high">
+      export function useToast(): ToastContextValue { /* ... */ }
     </item>
   </file>
   </section>
@@ -495,6 +827,33 @@
     <item priority="high">
       export const PLATE_RADIUS: unknown;
     </item>
+    <item priority="high">
+      export const PIVOT: unknown;
+    </item>
+    <item priority="high">
+      export const TOOTH_RATIO: unknown;
+    </item>
+    <item priority="high">
+      export const ESCAPE_TEETH: unknown;
+    </item>
+    <item priority="high">
+      export const ROTOR_RADIUS: unknown;
+    </item>
+    <item priority="high">
+      export const MOVEMENT: unknown;
+    </item>
+    <item priority="high">
+      export function toothLength(radius: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tipRadius(part: MovementPart): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function outerReach(part: MovementPart): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findBodyOverlaps(parts: Record<string, MovementPart>): string[] { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="components">
@@ -504,6 +863,18 @@
     </item>
     <item priority="low">
       type CatalogAliases = Readonly<Record<string, string>>;
+    </item>
+    <item priority="low">
+      type CatalogPropSchemas = Readonly<Record<string, string>>;
+    </item>
+    <item priority="low">
+      interface CatalogMeta {
+        name: string;
+        include?: boolean;
+        description: string;
+        slots?: readonly string[];
+        charLimits?: CatalogCharLimits;
+      }
     </item>
   </file>
   </section>
@@ -533,6 +904,25 @@
         containerRef?: RefObject<HTMLElement | null>;
         extraContainerRefs?: RefObject<HTMLElement | null>[];
       }
+    </item>
+    <item priority="low">
+      interface UseComboboxResult {
+        open: boolean;
+        focusedIndex: number;
+        openWithFocus: () => void;
+        close: () => void;
+        toggle: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useCombobox({
+        items,
+        value,
+        onSelect,
+        containerRef,
+        extraContainerRefs,
+        onRequestTriggerFocus,
+      }: UseComboboxOptions): UseComboboxResult { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useDirection.ts">
@@ -577,6 +967,52 @@
         htmlFor: string;
       }
     </item>
+    <item priority="low">
+      interface FieldDescriptionProps {
+        id: string;
+      }
+    </item>
+    <item priority="low">
+      interface FieldErrorProps {
+        id: string | undefined;
+        role: "alert";
+        "aria-atomic": true;
+      }
+    </item>
+    <item priority="low">
+      interface FieldControlProps {
+        id: string;
+        required: boolean | undefined;
+        "aria-invalid": true | undefined;
+        "aria-describedby": string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface FieldLiveRegionProps {
+        role: "status";
+        "aria-live": "polite";
+        "aria-atomic": true;
+        className: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface UseFieldResult {
+        id: string;
+        labelProps: FieldLabelProps;
+        descriptionProps: FieldDescriptionProps;
+        errorProps: FieldErrorProps;
+        controlProps: FieldControlProps;
+      }
+    </item>
+    <item priority="high">
+      export function useField({
+        id: externalId,
+        hint,
+        error,
+        required,
+        showOptional: showOptionalProp,
+      }: UseFieldOptions): UseFieldResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useFocusTrap.ts">
     <item priority="high">
@@ -584,6 +1020,25 @@
     </item>
     <item priority="high">
       export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
+    </item>
+    <item priority="low">
+      interface UseFocusTrapOptions {
+        initialFocus?: RefObject<HTMLElement | null>;
+      }
+    </item>
+    <item priority="medium">
+      function resolveInitialFocus(
+        focusable: NodeListOf<HTMLElement>,
+        first: HTMLElement | undefined,
+        initialFocus?: RefObject<HTMLElement | null>
+      ): HTMLElement | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFocusTrap(
+        panelRef: RefObject<HTMLDivElement | null>,
+        enabled: boolean,
+        options?: UseFocusTrapOptions
+      ): void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/usePointerActivation.ts">
@@ -628,6 +1083,23 @@
     <item priority="medium">
       function getStoredTheme(): ThemePreference { /* ... */ }
     </item>
+    <item priority="medium">
+      function storeTheme(theme: ThemePreference): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveTheme(pref: ThemePreference): "light" | "dark" { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ThemeState {
+        preference: ThemePreference;
+        theme: "light" | "dark";
+        setTheme: (next: ThemePreference) => void;
+        toggleTheme: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useThemeState(): ThemeState { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useTilt.ts">
     <item priority="high">
@@ -656,6 +1128,24 @@
       interface TokenGroup {
         
       }
+    </item>
+    <item priority="high">
+      export function isToken(node: DtcgToken | TokenGroup | string | undefined): node is DtcgToken { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TokenEntry {
+        path: readonly string[];
+        token: DtcgToken;
+      }
+    </item>
+    <item priority="high">
+      export function walkTokens(group: TokenGroup, prefix: readonly string[] = []): TokenEntry[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cssVarName(path: readonly string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function assertTokenParity(light: TokenGroup, dark: TokenGroup): void { /* ... */ }
     </item>
   </file>
   </section>
@@ -694,6 +1184,34 @@
         noMatchValue: DeviceContext[keyof DeviceContext];
       }
     </item>
+    <item priority="high">
+      type MqlTuple = [
+        MediaQueryList,
+        MediaQueryList,
+        MediaQueryList,
+       ...;
+    </item>
+    <item priority="medium">
+      function getSnapshot(): DeviceContext { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getServerSnapshot(): DeviceContext { /* ... */ }
+    </item>
+    <item priority="medium">
+      function computeSnapshot(): DeviceContext { /* ... */ }
+    </item>
+    <item priority="medium">
+      function handleChange() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ensureListeners() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(callback: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDeviceContext(): DeviceContext { /* ... */ }
+    </item>
   </file>
   <file path="src/providers/useMotionPreset.ts">
     <item priority="low">
@@ -707,6 +1225,32 @@
         ease: readonly [number, number, number, number];
       }
     </item>
+    <item priority="low">
+      interface SpringOptions {
+        stiffness: number;
+        damping: number;
+        mass: number;
+      }
+    </item>
+    <item priority="low">
+      interface SpringTransition {
+        type: "spring";
+        stiffness: number;
+        damping: number;
+        mass: number;
+      }
+    </item>
+    <item priority="low">
+      interface MotionPreset {
+        precision: EasedTransition | InstantTransition;
+        spring: SpringTransition | InstantTransition;
+        springGentle: SpringTransition | InstantTransition;
+        tilt: SpringOptions;
+      }
+    </item>
+    <item priority="high">
+      export function useMotionPreset(): MotionPreset { /* ... */ }
+    </item>
   </file>
   <file path="src/providers/useUIEnvironment.ts">
     <item priority="low">
@@ -719,6 +1263,9 @@
     <item priority="high">
       export const UIEnvironmentContext: unknown;
     </item>
+    <item priority="high">
+      export function useUIEnvironment(): UIEnvironment { /* ... */ }
+    </item>
   </file>
   <file path="src/providers/vibes.ts">
     <item priority="low">
@@ -726,6 +1273,9 @@
     </item>
     <item priority="low">
       type VibeOverrides = Record<string, string>;
+    </item>
+    <item priority="high">
+      export const vibes: Record<VibeName, VibeOverrides>;
     </item>
   </file>
   </section>
@@ -741,6 +1291,74 @@
     </item>
     <item priority="high">
       export const characterLimits: CharacterLimit[];
+    </item>
+    <item priority="low">
+      interface CharacterLimitInfo {
+        prop: string;
+        max: number;
+        reason?: string;
+      }
+    </item>
+    <item priority="low">
+      interface PropInfo {
+        name: string;
+        type: string;
+        resolvedType: string;
+        required: boolean;
+        default?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ComponentMetadata {
+        name: string;
+        exportIdentifier: string;
+        importPath: string;
+        subpath: string;
+        description?: string;
+      }
+    </item>
+    <item priority="medium">
+      function getJsDocComment(symbol: ts.Symbol): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function typeToString(type: ts.Type, checker: ts.TypeChecker): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDeclaredInRialto(prop: ts.Symbol, rialtoSrcDir: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getComponentSubpath(
+        resolved: ts.Symbol,
+        name: string,
+        rialtoComponentsDir: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function limitRootProp(prop: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function loadCatalogCharLimits(componentsDir: string): Map<string, Record<string, number>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function assertCharacterLimitsResolve(components: ComponentMetadata[]): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractComponents(
+        program: ts.Program,
+        entryFile: string,
+        rialtoComponentsDir: string,
+        rialtoSrcDir: string,
+        catalogCharLimits: Map<string, Record<string, number>>
+      ): ComponentMetadata[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function introspectComponents(rootDir: string): ComponentMetadata[] { /* ... */ }
     </item>
   </file>
   <file path="scripts/component-projection.ts">
@@ -760,6 +1378,21 @@
         reason?: string;
       }
     </item>
+    <item priority="low">
+      interface ProjectedComponent {
+        name: string;
+        description?: string;
+        importPath?: string;
+        props: PropInfo[];
+        slots: string[];
+      }
+    </item>
+    <item priority="high">
+      export function projectComponents(
+        components: ComponentMetadata[],
+        options: { includeImportPath: boolean }
+      ): ProjectedComponent[] { /* ... */ }
+    </item>
   </file>
   <file path="scripts/generate-all.ts">
     <item priority="medium">
@@ -773,6 +1406,15 @@
     <item priority="medium">
       function sectionHeader(key: string, description: string | undefined): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function wrapComment(text: string): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function renderBlock(selector: string, fileRoot: TokenGroup, trailer?: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function main(): void { /* ... */ }
+    </item>
   </file>
   <file path="scripts/generate-exports.ts">
     <item priority="high">
@@ -785,6 +1427,18 @@
     <item priority="high">
       type ExportsMap = Record<string, string | ExportEntry>;
     </item>
+    <item priority="high">
+      export function buildExportsMap(rootDir: string): ExportsMap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function writeStylesTypeStub(rootDir: string): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function loadPkg(rootDir: string): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function main(): void { /* ... */ }
+    </item>
   </file>
   <file path="scripts/generate-figma-tokens.ts">
     <item priority="high">
@@ -794,6 +1448,63 @@
     </item>
     <item priority="medium">
       function readJson(filePath: string): TokenGroup { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runRegex(pattern: RegExp, input: string): RegExpMatchArray | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function runRegexAll(pattern: RegExp, input: string): ReadonlyArray<RegExpMatchArray> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseCssProperties(css: string): ReadonlyArray<{
+        readonly name: string;
+        readonly value: string;
+        readonly comment: string;
+      }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractCssBlock(css: string, selector: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function cssNameToPath(name: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setNestedValue(
+        obj: TokenGroup,
+        pathSegments: readonly string[],
+        value: DtcgToken
+      ): TokenGroup { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readRadiusTokens(tokensDir: string): TokenGroup { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readShadowTokens(tokensDir: string): {
+        readonly light: TokenGroup;
+        readonly dark: TokenGroup;
+        readonly shared: TokenGroup;
+      } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function categoryToType(category: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readVibeOverrides(providersDir: string): {
+        readonly transacting: TokenGroup;
+        readonly presenting: TokenGroup;
+      } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function inferType(category: string, value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isNumericValue(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function main() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function countTokens(group: TokenGroup): number { /* ... */ }
     </item>
   </file>
   <file path="scripts/generate-manifest.ts">
@@ -811,6 +1522,9 @@
         generatedAt: string
       ): Manifest { /* ... */ }
     </item>
+    <item priority="medium">
+      function main() { /* ... */ }
+    </item>
   </file>
   <file path="scripts/generate-registry.ts">
     <item priority="high">
@@ -821,6 +1535,9 @@
     </item>
     <item priority="high">
       export function buildRegistry(components: ComponentMetadata[], version: string): Registry { /* ... */ }
+    </item>
+    <item priority="medium">
+      function main() { /* ... */ }
     </item>
   </file>
   <file path="scripts/lib-entrypoints.ts">
@@ -833,6 +1550,12 @@
     </item>
     <item priority="medium">
       function listComponentEntries(): LibEntry[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const libEntries: LibEntry[];
+    </item>
+    <item priority="high">
+      export function viteEntryMap(): Record<string, string> { /* ... */ }
     </item>
   </file>
   <file path="scripts/lib-external.ts">
@@ -852,6 +1575,23 @@
     <item priority="low">
       type IconCategory = (typeof iconCategories)[number];
     </item>
+    <item priority="low">
+      interface IconEntry {
+        concept: string;
+        label: string;
+        icon: LucideIcon;
+        category: IconCategory;
+      }
+    </item>
+    <item priority="high">
+      export const iconVocabulary: readonly IconEntry[];
+    </item>
+    <item priority="high">
+      export function getIcon(concept: string): LucideIcon | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getIconsByCategory(category: IconCategory): readonly IconEntry[] { /* ... */ }
+    </item>
   </file>
   <file path="src/tokens/motion.ts">
     <item priority="high">
@@ -859,6 +1599,24 @@
     </item>
     <item priority="high">
       export const precision: unknown;
+    </item>
+    <item priority="high">
+      export const spring: unknown;
+    </item>
+    <item priority="high">
+      export const springGentle: unknown;
+    </item>
+    <item priority="high">
+      export const springTilt: unknown;
+    </item>
+    <item priority="high">
+      export const boop: unknown;
+    </item>
+    <item priority="high">
+      export const staggerReveal: unknown;
+    </item>
+    <item priority="high">
+      export const reduced: unknown;
     </item>
   </file>
   </section>
