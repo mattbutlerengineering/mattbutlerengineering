@@ -4,9 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
 import { BookingWidget, hasOperatingHours } from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./PublicBookingPage.module.css";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
+
+/** Default title while the venue is still resolving (or on a not-found slug) — distinguishes this guest surface from a staff-sounding "Dashboard" tab (#4973). */
+const DEFAULT_TITLE = "Book a table — Hospitality";
 
 const NOT_FOUND_HEADING = "Venue not found";
 const NOT_FOUND_DESCRIPTION =
@@ -37,6 +41,8 @@ export function PublicBookingPage() {
     enabled: !!venueSlug,
     retry: false,
   });
+
+  useDocumentTitle(venue ? `Book a table — ${venue.name}` : DEFAULT_TITLE);
 
   // beforeunload beacon to release holds
   useEffect(() => {
