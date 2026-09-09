@@ -1507,12 +1507,3 @@ None this run (`agent-skip` empty, 0 open). 1 new `agent-failed` issue tonight (
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open).
-
-## 2026-09-09 (learning-loop)
-
-**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency; domainActivity/agentCost/lighthouse/mutationScore/flakyTests/e2eStability unavailable this run; issues/issueFeedback query failed — GitHub REST fallback credential not valid for direct API calls, per gotchas.md § Claude Code Remote)
-**Regressions:** 1 detected, 1 issue created — ciHealth.pass_rate_pct: 100 → 94 (-6, high). Root-caused during triage (not left as a bare metric): the single failure in the 30-run/main window is "Pulumi Deploy" (`34385123277` at `0a60bbb`), failing `pulumi refresh` with `403 Forbidden: Insufficient scope` on `auth0:index:Branding` (`read:branding`) and `auth0:index:Tenant` (`read:tenant_settings`) — confirmed recurring on the prior main run too (`34383702799` at `6c0a54c`), not a one-off flake. Filed #5169 (`ready`, `ci-fix`, `bug`) with the Auth0 M2M scope hypothesis and repro evidence; no open duplicate found (searched by root-cause terms and by sensor/metric name).
-**Verifications:** 5 checked, 0 verified, 0 failed — all 5 skipped (Lighthouse inventory / completed-CI-run lookups unavailable in this session), consistent with prior nights' environment limits. Threshold auto-tuner applied 1 adjustment: ci-fix 1.217 → 1.22 (headroom).
-**AI issue feedback:** query failed (GitHub REST fallback 403, same auth limitation as `issues`/`issueFeedback` sensors) — no feedback-derived budgets available; used skill default budget (3) for the `ci-fix` category regression above.
-**Skill proposals:** 0 (Wednesday — Friday-only)
-**Threshold notes:** false-positive / fix-effectiveness rates not computable this run — all 5 recent verifications were environment-limited skips, not real wontfix/invalid outcomes, so no signal either way.
