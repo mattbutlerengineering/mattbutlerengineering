@@ -12,6 +12,23 @@
         statements?: number;
       }
     </item>
+    <item priority="low">
+      interface VitestCoverageOptions {
+        include: string[];
+        exclude: string[];
+        thresholds: CoverageThresholds;
+        reporter?: CoverageConfig["reporter"];
+      }
+    </item>
+    <item priority="low">
+      interface VitestPresetOptions {
+        environment?: "node" | "jsdom";
+        globals?: boolean;
+        include?: string[];
+        coverage: VitestCoverageOptions;
+        extend?: ViteUserConfig;
+      }
+    </item>
   </file>
   </section>
 </codebase>
