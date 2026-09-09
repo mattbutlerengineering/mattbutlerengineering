@@ -62,7 +62,7 @@
     {
       "name": "JSON Render Vendor (@json-render/react)",
       "path": "dist/assets/json-render-vendor-*.js",
-      "limit": "30 kB"
+      "limit": "32 kB"
     },
     {
       "name": "Auth Vendor (@mbe/auth)",

@@ -11,7 +11,7 @@ packages:
 catalog:
   zod: "^4.5.4"
   vitest: "^4.1.11"
-  "@vitest/coverage-v8": "^5.0.0"
+  "@vitest/coverage-v8": "^4.1.11"
   typescript: "^6.0.3"
   "@types/node": "^26.2.0"
   fastify: "^5.12.3"
