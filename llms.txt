@@ -1724,6 +1724,11 @@
       export const useCreateDeposit: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useDocumentTitle.ts">
+    <item priority="high">
+      export function useDocumentTitle(title: string): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;

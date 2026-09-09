@@ -279,6 +279,32 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
+  describe("document title (#4973)", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("sets a route-specific title on the timeline route", () => {
+      renderLayout("/timeline");
+      expect(document.title).toBe("Timeline · Hospitality");
+    });
+
+    it("sets a different title on the guests route", () => {
+      renderLayout("/guests");
+      expect(document.title).toBe("Guests · Hospitality");
+    });
+
+    it("sets a different title on the settings route", () => {
+      renderLayout("/settings");
+      expect(document.title).toBe("Settings · Hospitality");
+    });
+  });
+
   it("renders breadcrumbs and sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
