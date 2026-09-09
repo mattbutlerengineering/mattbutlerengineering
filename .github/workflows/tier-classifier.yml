@@ -140,6 +140,11 @@ jobs:
             reasons.add(`unmatched paths default to T2: ${files.slice(0,3).join(', ')}${files.length > 3 ? `…` : ''}`);
           }
 
+          // Snapshot the path-derived tier before any prose-keyword rule
+          // below can move `highest` — see the #5082 comment on the secrets
+          // rule for why this is needed.
+          const pathTier = highest;
+
           const title = process.env.PR_TITLE || '';
           const body = process.env.PR_BODY || '';
           const added = parseInt(process.env.ADDED_LINES || '0', 10);
@@ -172,9 +177,31 @@ jobs:
           // (visual-snapshot rotation, see #3919-era gotchas), which is not
           // a secrets-rotation signal. `leak` keeps its real inflections
           // (leaked/leaking/leaks) since those stay unambiguous.
+          // #5082: this used to hard-set `highest = T4` unconditionally, so a
+          // PR that only TALKS about secrets/incidents (e.g. a retro doc, or
+          // a template checklist item) jumped straight to tier:critical even
+          // when every changed file was markdown — #4710 was a one-file
+          // docs/process-retro.md PR that got escalated this way purely on
+          // prose, and blocked auto-merge for 44.8 hours. Every other
+          // escalation rule in this file (added-lines, fork) uses
+          // `Math.min(T4, highest + 1)` — bump by one tier, never hard-set.
+          // This rule now does the same UNLESS a changed file already
+          // matched a T3/T4 sensitive-path rule above (`pathTier >= T3`): a
+          // keyword plus a sensitive path is exactly the signal this rule
+          // exists to catch (e.g. a PR touching services/users/src/auth/**
+          // that also discusses a credential leak), so that case keeps the
+          // hard-set-to-T4 behaviour. See
+          // scripts/__tests__/tier-classifier-workflow.test.mjs for both
+          // directions (#3606, #4279, #4883 are the earlier fixes to this
+          // same rule's keyword matching, not its escalation strength).
           if (/\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b/i.test(title + ' ' + bodyProse)) {
-            highest = T4;
-            reasons.add('escalate to T4: title/body mentions secrets or incident');
+            if (pathTier >= T3) {
+              highest = T4;
+              reasons.add('escalate to T4: title/body mentions secrets or incident (sensitive path already matched)');
+            } else if (highest < T4) {
+              highest = Math.min(T4, highest + 1);
+              reasons.add('escalate one tier: title/body mentions secrets or incident');
+            }
           }
           // docs/change-tiers.md: "PR body explicitly asks reviewers to
           // bypass a check." The old /bypass.*check|skip.*review/i matched any

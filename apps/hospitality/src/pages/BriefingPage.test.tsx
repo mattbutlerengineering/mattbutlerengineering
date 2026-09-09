@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { MemoryRouter, Routes, Route } from "react-router";
 import { BriefingPage } from "./BriefingPage.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
@@ -20,6 +20,9 @@ vi.mock("../components/PageHeader", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div data-testid="alert">{children}</div>,
+  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
+    <button onClick={onClick}>{children}</button>
+  ),
   Badge: ({
     children,
     variant,
@@ -32,13 +35,16 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   EmptyState: ({
     heading,
     description,
+    action,
   }: {
     heading: React.ReactNode;
     description?: React.ReactNode;
+    action?: React.ReactNode;
   }) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
+      {action}
     </div>
   ),
   Input: (props: {
@@ -175,6 +181,30 @@ describe("BriefingPage", () => {
 
     renderPage();
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+  });
+
+  it("offers an action inside the empty state that navigates to Reservations", () => {
+    vi.mocked(useBriefing).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/briefing"]}>
+        <Routes>
+          <Route path="/briefing" element={<BriefingPage />} />
+          <Route path="/reservations" element={<div data-testid="reservations-page" />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const empty = screen.getByTestId("empty-state");
+    const actionButton = within(empty).getByRole("button");
+    fireEvent.click(actionButton);
+
+    expect(screen.getByTestId("reservations-page")).toBeInTheDocument();
   });
 
   it("exposes an accessible name for the service date input", () => {

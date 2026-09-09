@@ -3,6 +3,7 @@ import {
   useState,
   useRef,
   useCallback,
+  useEffect,
   useId,
   cloneElement,
   isValidElement,
@@ -43,16 +44,35 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     const shouldReduceMotion = useReducedMotion();
     const tooltipId = useId();
 
+    // A single trigger fires both mouseEnter and focus (pointing at a button,
+    // then clicking it). Arming a second timer would orphan the first, which
+    // hide() can no longer reach — it would fire later and re-open the tooltip
+    // with nothing hovered or focused. Keep at most one pending timer, anchored
+    // to whichever trigger armed it first.
     const show = useCallback(() => {
-      timeoutRef.current = setTimeout(() => setOpen(true), delay);
+      if (timeoutRef.current !== undefined) return;
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = undefined;
+        setOpen(true);
+      }, delay);
     }, [delay]);
 
     const hide = useCallback(() => {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
       setOpen(false);
     }, []);
 
     useEscapeKey(hide, open);
+
+    // A trigger can unmount inside the delay window (a row that re-renders, a
+    // dialog that closes). Without this the pending timer outlives the component.
+    useEffect(
+      () => () => {
+        clearTimeout(timeoutRef.current);
+      },
+      []
+    );
 
     // Axis-aware animation origin
     const axis = placement === "top" || placement === "bottom" ? "y" : "x";

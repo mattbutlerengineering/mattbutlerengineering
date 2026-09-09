@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Alert,
@@ -344,6 +344,12 @@ function WaitlistRow({
 
 export function WaitlistPage() {
   const { selectedVenueId } = useVenue();
+  const addToWaitlistFormRef = useRef<HTMLDivElement>(null);
+  const focusAddToWaitlistForm = () => {
+    const container = addToWaitlistFormRef.current;
+    container?.scrollIntoView({ behavior: "smooth", block: "center" });
+    container?.querySelector("input")?.focus();
+  };
   const {
     data: entries,
     isLoading,
@@ -377,14 +383,22 @@ export function WaitlistPage() {
       )}
 
       {selectedVenueId && (
-        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+        <div ref={addToWaitlistFormRef} style={{ marginBlock: "var(--rialto-space-md)" }}>
           <AddToWaitlistForm venueId={selectedVenueId} />
         </div>
       )}
 
       {!isLoading && !error && displayEntries.length === 0 && (
         <div aria-live="polite" role="status">
-          <EmptyState heading="No one waiting" description="The waitlist is currently empty." />
+          <EmptyState
+            heading="No one waiting"
+            description="The waitlist is currently empty."
+            action={
+              <Button variant="primary" onClick={focusAddToWaitlistForm}>
+                Add a Guest
+              </Button>
+            }
+          />
         </div>
       )}
 

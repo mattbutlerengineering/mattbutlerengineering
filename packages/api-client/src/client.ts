@@ -24,6 +24,15 @@ const BASE_BACKOFF_MS = 1_000;
 
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
 
+/**
+ * Methods safe to replay automatically: no side effects (GET/HEAD) or
+ * naturally idempotent (PUT replaces, DELETE removes). POST and PATCH are
+ * excluded — a replay after an origin-side commit (e.g. a gateway timeout
+ * that fires after the request already succeeded) would duplicate the
+ * side effect (e.g. a reservation, hold, or deposit charge).
+ */
+const SAFE_RETRY_METHODS = new Set(["GET", "HEAD", "PUT", "DELETE"]);
+
 export interface ClientConfig {
   baseUrl: string;
   getAccessToken?: () => string | null | Promise<string | null>;
@@ -43,6 +52,15 @@ export interface RequestOptions extends RequestInit {
 export interface PerRequestOptions {
   maxRetries?: number;
   timeout?: number;
+  /**
+   * Opt-in: allow retrying a non-idempotent method (POST/PATCH) on a
+   * retryable status or network error. Only set this when the caller knows
+   * the request is safe to replay (e.g. guarded by an idempotency key on
+   * the origin). Has no effect on GET/HEAD/PUT/DELETE, which are already
+   * retried by default. Defaults to false — POST/PATCH are never retried
+   * unless explicitly opted in.
+   */
+  idempotentRetry?: boolean;
 }
 
 export class ApiClient {
@@ -77,6 +95,7 @@ export class ApiClient {
 
     const effectiveTimeout = override?.timeout ?? this.timeout;
     const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
+    const idempotentRetry = override?.idempotentRetry ?? false;
 
     const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
 
@@ -87,7 +106,8 @@ export class ApiClient {
     };
 
     const url = `${baseUrl}${path}`;
-    const response = await fetchWithRetry(url, fetchOptions, effectiveMaxRetries);
+    const canRetry = SAFE_RETRY_METHODS.has(method) || idempotentRetry;
+    const response = await fetchWithRetry(url, fetchOptions, canRetry ? effectiveMaxRetries : 0);
 
     if (!response.ok) {
       const raw = await response.json().catch(() => null);
@@ -372,10 +392,20 @@ async function fetchWithRetry(
   options: RequestInit,
   maxRetries: number
 ): Promise<Response> {
+  let attempt = 0;
   return retry(
     async () => {
       const response = await fetch(url, options);
       if (RETRYABLE_STATUS_CODES.has(response.status)) {
+        // Only the final attempt's response is returned to the caller (for
+        // error-body parsing) — every intermediate failed response is
+        // discarded, so its body must be released here or the connection
+        // leaks.
+        const isLastAttempt = attempt >= maxRetries;
+        attempt += 1;
+        if (!isLastAttempt) {
+          await response.body?.cancel().catch(() => undefined);
+        }
         throw new RetryableStatusError(response);
       }
       return response;

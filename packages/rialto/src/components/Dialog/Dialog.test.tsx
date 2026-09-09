@@ -129,6 +129,18 @@ describe("Dialog", () => {
       // At minimum, a button exists and the dialog is rendered
       expect(screen.getAllByRole("button").length).toBeGreaterThan(0);
     });
+
+    it("does not focus the close button first", () => {
+      render(
+        <Dialog open onClose={() => {}} title="Edit profile">
+          <button>First</button>
+        </Dialog>
+      );
+      expect(document.activeElement).toBe(screen.getByText("First"));
+      expect(document.activeElement).not.toBe(
+        screen.getByRole("button", { name: /close dialog/i })
+      );
+    });
   });
 
   describe("ref forwarding", () => {

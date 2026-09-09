@@ -2131,6 +2131,13 @@
       mutationFn: (api, data) => api.deposits.create(data),
     });
   </file>
+  <file path="src/hooks/useDocumentTitle.ts">
+    export function useDocumentTitle(title: string): void {
+      useEffect(() => {
+        document.title = title;
+      }, [title]);
+    }
+  </file>
   <file path="src/hooks/useFloorPlans.ts">
     export const FLOOR_PLANS_QUERY_KEY = "floorPlans" as const;
     export const FLOOR_PLAN_QUERY_KEY = "floorPlan" as const;

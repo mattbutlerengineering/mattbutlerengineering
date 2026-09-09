@@ -3429,6 +3429,11 @@
       export const useCreateDeposit: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useDocumentTitle.ts">
+    <item priority="high">
+      export function useDocumentTitle(title: string): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useFloorPlans.ts">
     <item priority="high">
       export const FLOOR_PLANS_QUERY_KEY: unknown;
@@ -3997,7 +4002,7 @@
         value?: string;
         onSelect?: (value: string) => void;
         containerRef?: RefObject<HTMLElement | null>;
-        onRequestTriggerFocus?: () => void;
+        extraContainerRefs?: RefObject<HTMLElement | null>[];
       }
     </item>
     <item priority="low">
@@ -4113,7 +4118,7 @@
       export const FOCUSABLE_SELECTOR: unknown;
     </item>
     <item priority="high">
-      export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void { /* ... */ }
+      export const FOCUS_TRAP_SKIP_INITIAL_ATTR: unknown;
     </item>
   </file>
   <file path="packages/rialto/src/hooks/usePointerActivation.ts">
@@ -12671,6 +12676,19 @@
       ): ErrorRateHealthCheckResult { /* ... */ }
     </item>
   </file>
+  <file path="packages/observability/src/otel-config.ts">
+    <item priority="low">
+      type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    </item>
+    <item priority="low">
+      interface TelemetryPlan {
+        mode: TelemetryMode;
+        exportTraces: boolean;
+        exportMetrics: boolean;
+        reason: string;
+      }
+    </item>
+  </file>
   <file path="packages/observability/src/rate-limit-monitor.ts">
     <item priority="low">
       interface RateLimitHit {
@@ -13123,8 +13141,8 @@
         beforeShutdown?: () => void | Promise<void>;
       }
     </item>
-    <item priority="high">
-      export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
+    <item priority="medium">
+      function delayReject(ms: number, message: string): Promise<never> { /* ... */ }
     </item>
   </file>
   <file path="packages/service-bootstrap/src/validate-startup-config.ts">

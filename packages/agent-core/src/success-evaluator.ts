@@ -23,6 +23,14 @@ export interface EvaluationResult {
   readonly skipped?: boolean;
   /** Which skip condition fired, when `skipped` is true. */
   readonly skipReason?: SkipReason;
+  /**
+   * True when the LLM judge could not run at all — a non-`success` SDK
+   * result, missing/malformed `structured_output`, or a thrown error.
+   * Fails closed (`passed: false`): an outage must never be indistinguishable
+   * from a genuine pass. Never set together with `skipped`, which marks the
+   * deliberate, by-design skip policy rather than a failure.
+   */
+  readonly evaluationFailed?: boolean;
 }
 
 export interface EvaluationConfig {
@@ -35,12 +43,40 @@ export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig = {
   maxBudgetUsd: 0.05,
 };
 
-const INCONCLUSIVE_RESULT: EvaluationResult = {
+/**
+ * Result for the deliberate skip policy (trivial diffs, dep bumps,
+ * test-only changes) — a by-design cost optimization, not a failure. This
+ * is the ONLY case where an unevaluated diff is still reported as a pass;
+ * see `evaluationFailedResult` below for the fail-closed counterpart used
+ * when the LLM judge itself could not run.
+ */
+const SKIP_RESULT: EvaluationResult = {
   passed: true,
   confidence: 0,
   reasoning: "Evaluation unavailable — defaulting to pass",
   issues: [],
 };
+
+/**
+ * Fail-closed result for when the LLM judge could not run: a non-`success`
+ * SDK result, missing/malformed `structured_output`, or a thrown error.
+ * `passed: false` so the gate blocks the PR from leaving draft, per the
+ * package's "all gates must pass for a non-draft PR" rule — an inconclusive
+ * evaluation must never read the same as a genuine pass. Logs the failure
+ * so an operator can tell an outage from a clean run.
+ */
+function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult {
+  const detail =
+    error === undefined ? undefined : error instanceof Error ? error.message : String(error);
+  console.error(`[success-evaluator] LLM evaluation could not run: ${reason}`, error ?? "");
+  return {
+    passed: false,
+    confidence: 0,
+    reasoning: detail ? `${reason}: ${detail}` : reason,
+    issues: ["LLM evaluation could not run"],
+    evaluationFailed: true,
+  };
+}
 
 // ── Evaluation ──────────────────────────────────────────────────────
 
@@ -89,10 +125,15 @@ export type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyI
  * Evaluate whether a diff addresses a task via an LLM judge.
  *
  * The skip policy is absorbed internally: callers no longer pre-check
- * whether to evaluate. When the policy fires, this returns the
- * inconclusive result (`passed: true, confidence: 0`) plus the additive
+ * whether to evaluate. When the policy fires, this returns the deliberate
+ * skip result (`passed: true, confidence: 0`) plus the additive
  * `skipped: true` / `skipReason` markers, WITHOUT calling the LLM. Pass
  * `testsPassed` / `commitTitle` via `config` to drive the skip decision.
+ *
+ * When the LLM judge itself fails to run — a non-`success` SDK result,
+ * missing/malformed `structured_output`, or a thrown error — this fails
+ * closed (`passed: false, confidence: 0, evaluationFailed: true`) instead,
+ * so an outage is never indistinguishable from a genuine pass.
  *
  * The empty-diff branch is preserved unchanged (`passed: false,
  * confidence: 1.0`) and takes precedence over the skip markers.
@@ -117,7 +158,7 @@ export async function evaluateSuccess(
     commitTitle: config?.commitTitle,
   });
   if (skip.skip) {
-    return { ...INCONCLUSIVE_RESULT, skipped: true, skipReason: skip.reason };
+    return { ...SKIP_RESULT, skipped: true, skipReason: skip.reason };
   }
 
   const mergedConfig = { ...DEFAULT_EVALUATION_CONFIG, ...config };
@@ -148,7 +189,9 @@ export async function evaluateSuccess(
     }
 
     if (!result || result.subtype !== "success") {
-      return INCONCLUSIVE_RESULT;
+      return evaluationFailedResult(
+        `LLM evaluation returned a non-success result (subtype: ${result?.subtype ?? "none"})`
+      );
     }
 
     const parsed = result.structured_output as
@@ -161,7 +204,7 @@ export async function evaluateSuccess(
       | undefined;
 
     if (!parsed || typeof parsed.passed !== "boolean") {
-      return INCONCLUSIVE_RESULT;
+      return evaluationFailedResult("LLM evaluation returned malformed structured_output");
     }
 
     return {
@@ -170,7 +213,7 @@ export async function evaluateSuccess(
       reasoning: parsed.reasoning ?? "",
       issues: Array.isArray(parsed.issues) ? parsed.issues : [],
     };
-  } catch {
-    return INCONCLUSIVE_RESULT;
+  } catch (error) {
+    return evaluationFailedResult("LLM evaluation threw", error);
   }
 }

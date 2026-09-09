@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import { Drawer, Button, Divider, Stack, Text, Card } from "@mattbutlerengineering/rialto";
@@ -422,7 +423,13 @@ export function TimelinePage() {
           ) : tables.length === 0 ? (
             <div className={styles.emptyState}>
               <Text className={styles.emptyStateText}>No tables configured for this venue.</Text>
-              <Text className={styles.emptyStateHint}>Add tables in the Floor Plans section.</Text>
+              <Text className={styles.emptyStateHint}>
+                Add tables in the{" "}
+                <Link to="/floor-plans" className={styles.emptyStateLink}>
+                  Floor Plans
+                </Link>{" "}
+                section.
+              </Text>
             </div>
           ) : isMobile ? (
             <TimelineMobileView

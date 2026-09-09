@@ -1525,12 +1525,38 @@
             body: updateTablePositionsBodyJsonSchema,
           },
         },
-        async (request) => {
-          const tables = await floorPlanService.bulkUpdateTablePositions(
-            request.body.floorPlanId,
-            request.body.positions
+        async (request, reply) => {
+          const { floorPlanId, positions } = request.body;
+    
+          const floorPlan = await floorPlanService.getById(floorPlanId);
+          if (!floorPlan) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+          }
+    
+          // Auth above is scoped to the body's floorPlanId, but the write below
+          // mutates each positions[].tableId directly with no venue awareness of
+          // its own — a caller who owns floorPlanId could otherwise re-point a
+          // table belonging to a DIFFERENT venue onto it. Same bug class as
+          // #5008's /assign fix; checked here (not in the DB layer) so a
+          // cross-venue table is rejected before any write is attempted.
+          const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
+          const crossVenueTable = tables.find(
+            (table) => table !== null && table.venueId !== floorPlan.venueId
           );
-          return { data: tables };
+          if (crossVenueTable) {
+            return reply
+              .code(403)
+              .send(
+                createProblemDetails(
+                  403,
+                  titleForStatus(403),
+                  "One or more tables do not belong to the floor plan's venue"
+                )
+              );
+          }
+    
+          const updatedTables = await floorPlanService.bulkUpdateTablePositions(floorPlanId, positions);
+          return { data: updatedTables };
         }
       );
     
@@ -1544,7 +1570,12 @@
         {
           preHandler: [
             requireAuth,
-            requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+            // Pinned to the *table* being mutated (:tableId), not the floor plan
+            // named in the body — see issue #5008. The body's floorPlanId can
+            // legitimately belong to the caller's own venue while :tableId
+            // belongs to someone else's; authorizing on the body let a caller
+            // re-point another venue's table onto their own floor plan.
+            requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
           ],
           schema: {
             summary: "Assign table to floor plan",
@@ -2586,7 +2617,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { date: string; partySize: string };
-        Reply: ApiResponse<TimeSlot[]>;
+        Reply: ApiResponse<TimeSlot[]> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/availability",
         {
@@ -2608,22 +2639,18 @@
     
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
-            return reply.status(404).send({
-              type: "https://httpproblems.com/http-status/404",
-              title: "Venue Not Found",
-              status: 404,
-              detail: `No venue found with slug '${slug}'.`,
-            } as never);
+            return reply
+              .status(404)
+              .send(
+                createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+              );
           }
     
           const partySizeResult = validatePartySize(partySize);
           if (!partySizeResult.valid) {
-            return reply.status(400).send({
-              type: "https://httpproblems.com/http-status/400",
-              title: "Invalid Party Size",
-              status: 400,
-              detail: partySizeResult.error,
-            } as never);
+            return reply
+              .status(400)
+              .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
           }
     
           const slots = await availabilityService.generateTimeSlots(
@@ -2823,7 +2850,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string };
-        Reply: ApiResponse<GuestRecognition>;
+        Reply: ApiResponse<GuestRecognition> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/guests/recognize",
         {
@@ -2856,19 +2883,17 @@
           const { email } = request.query;
     
           if (!email) {
-            return reply.status(400).send({
-              success: false,
-              error: "email query parameter is required",
-            } as never);
+            return reply
+              .status(400)
+              .send(createProblemDetails(400, "Bad Request", "email query parameter is required"));
           }
     
           const venue = await venueService.getBySlug(slug);
     
           if (!venue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           const recognition = await recognizeGuest(venue.id, email);
@@ -2885,7 +2910,7 @@
       fastify.get<{
         Params: { slug: string };
         Querystring: { email?: string; phone?: string };
-        Reply: ApiResponse<GuestRiskResult>;
+        Reply: ApiResponse<GuestRiskResult> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/guest-risk",
         {
@@ -2916,18 +2941,18 @@
           const { email, phone } = request.query;
     
           if (!email && !phone) {
-            return reply.status(400).send({
-              success: false,
-              error: "email or phone query parameter is required",
-            } as never);
+            return reply
+              .status(400)
+              .send(
+                createProblemDetails(400, "Bad Request", "email or phone query parameter is required")
+              );
           }
     
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           const guest = email
@@ -2960,7 +2985,7 @@
       fastify.post<{
         Params: { slug: string };
         Body: { date: string; startTime: string; endTime: string; partySize: number };
-        Reply: ApiResponse<ReservationHold>;
+        Reply: ApiResponse<ReservationHold> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug/holds",
         {
@@ -2982,22 +3007,24 @@
           const ip = request.ip;
     
           if (getActiveHoldCount(ip) >= MAX_ACTIVE_HOLDS) {
-            return reply.status(429).send({
-              type: "https://httpproblems.com/http-status/429",
-              title: "Too Many Holds",
-              status: 429,
-              detail: `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`,
-            } as never);
+            return reply
+              .status(429)
+              .send(
+                createProblemDetails(
+                  429,
+                  "Too Many Holds",
+                  `Maximum ${MAX_ACTIVE_HOLDS} active holds per session.`
+                )
+              );
           }
     
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
-            return reply.status(404).send({
-              type: "https://httpproblems.com/http-status/404",
-              title: "Venue Not Found",
-              status: 404,
-              detail: `No venue found with slug '${slug}'.`,
-            } as never);
+            return reply
+              .status(404)
+              .send(
+                createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+              );
           }
     
           const sessionId = randomUUID();
@@ -3007,12 +3034,15 @@
           );
     
           if (!result.success) {
-            return reply.status(409).send({
-              type: "https://httpproblems.com/http-status/409",
-              title: "Slot Unavailable",
-              status: 409,
-              detail: result.error ?? "The requested time slot is no longer available.",
-            } as never);
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(
+                  409,
+                  "Slot Unavailable",
+                  result.error ?? "The requested time slot is no longer available."
+                )
+              );
           }
     
           incrementHoldCount(ip);
@@ -3271,7 +3301,7 @@
     
       fastify.get<{
         Params: { slug: string };
-        Reply: ApiResponse<PublicVenueConfig>;
+        Reply: ApiResponse<PublicVenueConfig> | ReturnType<typeof createProblemDetails>;
       }>(
         "/:slug",
         {
@@ -3298,10 +3328,9 @@
           const publicVenue = await venueService.getPublicConfigBySlug(slug);
     
           if (!publicVenue) {
-            return reply.status(404).send({
-              success: false,
-              error: "Venue not found",
-            } as never);
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
           }
     
           return reply.send({ data: publicVenue });
@@ -4155,12 +4184,10 @@
        * to that venue. Null when the table does not exist or is unassigned (→ 403 for
        * non-admins; platform admins bypass the check).
        */
-      const resolveTableVenueId: VenueIdResolver = async (request) => {
-        const params = request.params as { id?: unknown };
-        if (typeof params.id !== "string") return null;
-        const table = await tableService.getById(params.id);
-        return table?.venueId ?? null;
-      };
+      const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
+        (request) => (request.params as { id?: unknown }).id,
+        tableService.getById
+      );
     
       // List tables
       fastify.get<{
@@ -10699,7 +10726,14 @@
       return current ?? next;
     }
     async function getSnapshot(venueId: string, now: Date = new Date()): Promise<TableStatusDelta[]> {
-      const today = new Date(toDateString(now));
+      // "Today" must be the venue-local calendar date, not `now`'s UTC calendar
+      // date — near local midnight for a venue west of UTC those two disagree
+      // (#5096, same class as #5000's getAvailableDates bucketing bug).
+      const venue = await prisma.venue.findUnique({
+        where: { id: venueId },
+        select: { ianaTimezone: true },
+      });
+      const today = new Date(venueLocalDateString(now, venue?.ianaTimezone ?? "UTC"));
     
       const [tables, reservationRows] = await Promise.all([
         prisma.table.findMany({ where: { venueId }, select: { id: true } }),

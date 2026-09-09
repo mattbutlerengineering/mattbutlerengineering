@@ -5,6 +5,9 @@ vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService({
     prisma: {
+      venue: {
+        findUnique: vi.fn(),
+      },
       table: {
         findMany: vi.fn(),
       },
@@ -168,6 +171,28 @@ describe("tableStatusService.getSnapshot", () => {
       where: {
         venueId: VENUE_ID,
         date: new Date("2026-05-05"),
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+    });
+  });
+
+  it("derives 'today' from the venue-local date, not the UTC calendar day", async () => {
+    // 2026-05-05T06:00:00Z is 2026-05-04T23:00:00 PDT (UTC-7 in May) — the
+    // venue-local date is still May 4th, a full UTC calendar day earlier.
+    // `new Date(toDateString(now))` (the bug) buckets this as May 5th.
+    const nowNearLocalMidnight = new Date("2026-05-05T06:00:00Z");
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+      ianaTimezone: "America/Los_Angeles",
+    } as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([]);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([]);
+
+    await tableStatusService.getSnapshot(VENUE_ID, nowNearLocalMidnight);
+
+    expect(prisma.reservation.findMany).toHaveBeenCalledWith({
+      where: {
+        venueId: VENUE_ID,
+        date: new Date("2026-05-04"),
         status: { notIn: ["CANCELLED", "NO_SHOW"] },
       },
     });

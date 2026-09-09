@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SearchOrchestrator } from "./SearchOrchestrator.js";
 import type {
@@ -12,10 +12,11 @@ import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Button: ({ children, onClick }: ButtonProps) => <button onClick={onClick}>{children}</button>,
-  EmptyState: ({ heading, description }: EmptyStateProps) => (
+  EmptyState: ({ heading, description, action }: EmptyStateProps) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
+      {action}
     </div>
   ),
   Input: (props: InputProps) => (
@@ -157,6 +158,26 @@ describe("SearchOrchestrator", () => {
     );
     expect(screen.getByText("No guests yet")).toBeDefined();
     expect(screen.getByText("Get started by adding your first guest.")).toBeDefined();
+  });
+
+  it("offers an action button inside the default empty state that calls onAddGuest", async () => {
+    const onAddGuest = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SearchOrchestrator
+        searchQuery=""
+        onSearchChange={vi.fn()}
+        onAddGuest={onAddGuest}
+        guestCount={0}
+        totalCount={0}
+        isSearchActive={false}
+        isEmpty={true}
+      />
+    );
+    const emptyState = screen.getByTestId("empty-state");
+    const actionButton = within(emptyState).getByRole("button");
+    await user.click(actionButton);
+    expect(onAddGuest).toHaveBeenCalled();
   });
 
   it("does not show empty state when guests present", () => {

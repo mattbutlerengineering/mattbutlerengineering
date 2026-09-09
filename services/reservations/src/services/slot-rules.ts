@@ -116,6 +116,20 @@ export function parseOperatingHours(
  */
 export const NOT_BOOKED_STATUSES: readonly ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
 
+/**
+ * Converts a UTC instant (typically `now`) to the venue-local calendar date
+ * string (YYYY-MM-DD) for a given IANA timezone. This is the "what day is it
+ * right now, at this venue" query — distinct from `toDateString` (from
+ * `@mbe/types`), which reads a Date's own UTC calendar day. That's correct
+ * for date-only DB columns (stored as local-midnight-UTC, so they round-trip
+ * through `toDateString` to the same local date string) but wrong when
+ * applied directly to `now` for a venue west of UTC near local midnight —
+ * `now`'s UTC calendar day can already be tomorrow relative to the venue.
+ */
+export function venueLocalDateString(instant: Date, ianaTimezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: ianaTimezone }).format(instant);
+}
+
 type DateThreshold = { lt: Date } | { gt: Date };
 
 function passesThreshold(value: Date, threshold: DateThreshold): boolean {

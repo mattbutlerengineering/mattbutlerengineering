@@ -10,7 +10,7 @@ import { ReservationBlock } from "./ReservationBlock";
 import { TableStatusBadge } from "../TableStatusBadge.js";
 import { useTimelineKeyboard } from "../../hooks/useTimelineKeyboard.js";
 import { useGridFocus } from "./useGridFocus.js";
-import { computeReservationLayout } from "./reservationLayout.js";
+import { computeReservationLayout, type ReservationLayoutResult } from "./reservationLayout.js";
 import styles from "./TimelineGrid.module.css";
 
 const HOUR_WIDTH = 120;
@@ -123,6 +123,21 @@ export function TimelineGrid({
     }
     return map;
   }, [reservations]);
+
+  const reservationStyleById = useMemo(() => {
+    const map = new Map<string, ReservationLayoutResult>();
+    for (const reservation of reservations) {
+      map.set(
+        reservation.id,
+        computeReservationLayout(reservation.startTime, reservation.endTime, {
+          startHour,
+          hourWidth,
+          isMobile,
+        })
+      );
+    }
+    return map;
+  }, [reservations, startHour, hourWidth, isMobile]);
 
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const lastMinuteRef = useRef(currentTime.getMinutes());
@@ -237,11 +252,10 @@ export function TimelineGrid({
               </div>
 
               {(reservationsByTable.get(table.id) ?? []).map((reservation) => {
-                const blockStyle = computeReservationLayout(
-                  reservation.startTime,
-                  reservation.endTime,
-                  { startHour, hourWidth, isMobile }
-                );
+                // Invariant: reservationStyleById is built from the same `reservations`
+                // array reservationsByTable groups from, so every reservation reachable
+                // here always has an entry.
+                const blockStyle = reservationStyleById.get(reservation.id)!;
                 const isFocused = focusedReservationId === reservation.id;
                 return (
                   <ReservationBlock

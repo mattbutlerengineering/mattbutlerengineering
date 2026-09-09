@@ -231,4 +231,14 @@ describe("Autocomplete", () => {
     const { container } = render(<Autocomplete options={options} />);
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
+
+  it("memoizes filtered options and skips recomputation on unrelated re-renders", () => {
+    const filterSpy = vi.spyOn(options, "filter");
+    const { rerender } = render(<Autocomplete label="Fruit" options={options} className="a" />);
+    const callsAfterMount = filterSpy.mock.calls.length;
+    // Re-render with the same options/value but an unrelated prop change.
+    rerender(<Autocomplete label="Fruit" options={options} className="b" />);
+    expect(filterSpy.mock.calls.length).toBe(callsAfterMount);
+    filterSpy.mockRestore();
+  });
 });

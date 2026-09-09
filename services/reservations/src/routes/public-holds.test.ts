@@ -162,6 +162,29 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     expect(response.statusCode).toBe(409);
   });
 
+  it("returns an RFC 7807 problem-details body for a 409 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValueOnce({
+      success: false,
+      error: "No tables available",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: "about:blank",
+      title: expect.any(String),
+      status: 409,
+      detail: "No tables available",
+    });
+    expect(body).not.toHaveProperty("success");
+  });
+
   it("returns 404 for unknown venue", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
 
@@ -172,6 +195,53 @@ describe("POST /public/v1/venues/:slug/holds", () => {
     });
 
     expect(response.statusCode).toBe(404);
+  });
+
+  it("returns an RFC 7807 problem-details body for a 404 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/fake/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+
+    const body = response.json();
+    expect(body).toMatchObject({
+      type: "about:blank",
+      title: expect.any(String),
+      status: 404,
+    });
+    expect(body.detail).toContain("fake");
+    expect(body).not.toHaveProperty("success");
+  });
+
+  it("returns an RFC 7807 problem-details body for a 429 (ADR-008)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValue({ success: true, hold: mockHold });
+
+    for (let i = 0; i < MAX_ACTIVE_HOLDS; i++) {
+      const created = await app.inject({
+        method: "POST",
+        url: "/public/v1/venues/the-oak-table/holds",
+        payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+      });
+      expect(created.statusCode).toBe(201);
+    }
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+
+    const body = blocked.json();
+    expect(body).toMatchObject({
+      type: "about:blank",
+      title: expect.any(String),
+      status: 429,
+    });
+    expect(body).not.toHaveProperty("success");
   });
 
   it("rejects an empty {} payload with 400", async () => {
