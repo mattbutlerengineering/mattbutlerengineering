@@ -699,6 +699,149 @@ describe("Webhook Routes", () => {
       });
     });
 
+    describe("prompt acknowledgement + delivery dedup", () => {
+      const issuePayload = {
+        action: "labeled",
+        label: { name: "agent" },
+        issue: {
+          number: 42,
+          title: "Fix the login bug",
+          body: "The login page throws a 500 error",
+          html_url: "https://github.com/org/repo/issues/42",
+          labels: [{ name: "agent" }, { name: "bug" }],
+        },
+        repository: {
+          full_name: "org/repo",
+          default_branch: "main",
+        },
+        sender: { login: "collaborator", type: "User" },
+      };
+
+      it("acknowledges 200 before the intent-extraction LLM call resolves", async () => {
+        let resolveIntent!: (value: null) => void;
+        const pendingIntent = new Promise<null>((resolve) => {
+          resolveIntent = resolve;
+        });
+        vi.mocked(extractIssueIntent).mockReturnValueOnce(pendingIntent);
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
+        const payloadStr = JSON.stringify(issuePayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: issuePayload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+            "x-github-delivery": "delivery-returns-before-llm",
+          },
+        });
+
+        // The route acknowledged already — the detached work (which awaits
+        // extractIssueIntent, then triggerSession) has not run yet.
+        expect(response.statusCode).toBe(200);
+        expect(JSON.parse(response.body)).toEqual({ received: true });
+        expect(vi.mocked(triggerSession)).not.toHaveBeenCalled();
+
+        // Let the detached work finish and confirm it still completes.
+        resolveIntent(null);
+        await vi.waitFor(() => expect(vi.mocked(triggerSession)).toHaveBeenCalled());
+      });
+
+      it("creates exactly one session on a first delivery", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
+        const payloadStr = JSON.stringify(issuePayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: issuePayload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+            "x-github-delivery": "delivery-first",
+          },
+        });
+
+        expect(response.statusCode).toBe(200);
+        await vi.waitFor(() => expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1));
+      });
+
+      it("treats a replayed x-github-delivery as a no-op — no second session", async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+
+        const payloadStr = JSON.stringify(issuePayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+        const headers = {
+          "x-github-event": "issues",
+          "x-hub-signature-256": signature,
+          "x-github-delivery": "delivery-replayed",
+        };
+
+        const first = await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: issuePayload,
+          headers,
+        });
+        expect(first.statusCode).toBe(200);
+        await vi.waitFor(() => expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1));
+
+        // Redelivery of the exact same x-github-delivery id.
+        const replay = await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: issuePayload,
+          headers,
+        });
+
+        expect(replay.statusCode).toBe(200);
+        expect(JSON.parse(replay.body)).toEqual({ received: true });
+        // Dedup check is synchronous before any dispatch — no need to wait.
+        expect(vi.mocked(triggerSession)).toHaveBeenCalledTimes(1);
+      });
+
+      it("logs, rather than losing, an error thrown by the detached handler", async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ permission: "write" }),
+        } as Response);
+        vi.mocked(triggerSession).mockRejectedValueOnce(new Error("triggerSession boom"));
+        const logErrorSpy = vi.spyOn(app.log, "error");
+
+        const payloadStr = JSON.stringify(issuePayload);
+        const signature = signPayload(payloadStr, WEBHOOK_SECRET);
+
+        const response = await app.inject({
+          method: "POST",
+          url: "/v1/webhooks/github",
+          payload: issuePayload,
+          headers: {
+            "x-github-event": "issues",
+            "x-hub-signature-256": signature,
+            "x-github-delivery": "delivery-error",
+          },
+        });
+
+        // Detached failure must not surface as a failed delivery.
+        expect(response.statusCode).toBe(200);
+        await vi.waitFor(() => expect(logErrorSpy).toHaveBeenCalled());
+      });
+    });
+
     it("returns 200 for unhandled event types", async () => {
       const payload = { action: "created" };
       const payloadStr = JSON.stringify(payload);

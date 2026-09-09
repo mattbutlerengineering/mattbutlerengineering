@@ -1763,32 +1763,54 @@
           }
     
           const eventType = request.headers["x-github-event"] as string | undefined;
+          const deliveryId = request.headers["x-github-delivery"] as string | undefined;
     
-          switch (eventType) {
-            case "issues":
-              await handleIssueEvent(fastify, request.body as GitHubIssueEvent, githubToken);
-              break;
-    
-            case "issue_comment":
-              await handleIssueCommentEvent(
-                fastify,
-                request.body as GitHubIssueCommentEvent,
-                githubToken
-              );
-              break;
-    
-            case "check_run":
-              await handleCheckRunEvent(fastify, request.body as GitHubCheckRunEvent);
-              break;
-    
-            default:
-              fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+          // Redeliveries carry the same x-github-delivery id as the original
+          // attempt. Claim it before doing any work so a replay is a synchronous
+          // no-op — it never reaches dispatchGitHubEvent, let alone triggerSession.
+          if (deliveryId && !defaultDeliveryDedupStore.claim(deliveryId)) {
+            fastify.log.info({ deliveryId, eventType }, "Duplicate GitHub webhook delivery — skipping");
+            return { received: true };
           }
+    
+          // Acknowledge inside GitHub's 10s delivery window. The work below
+          // (extractIssueIntent's Haiku call, checkCollaboratorPermission's REST
+          // round trip, triggerSession) can exceed that window on its own, which
+          // is what causes GitHub to mark the delivery failed and redeliver it.
+          // Dispatch fire-and-forget — the same shape triggerSession itself uses
+          // for executeSession() in services/session-trigger.ts — and log any
+          // failure via the structured (pino) fastify.log instead of losing it.
+          dispatchGitHubEvent(fastify, eventType, request.body, githubToken).catch((err) => {
+            fastify.log.error({ err, eventType, deliveryId }, "GitHub webhook event handling failed");
+          });
     
           return { received: true };
         }
       );
     };
+    async function dispatchGitHubEvent(
+      fastify: FastifyInstance,
+      eventType: string | undefined,
+      body: unknown,
+      githubToken: string
+    ): Promise<void> {
+      switch (eventType) {
+        case "issues":
+          await handleIssueEvent(fastify, body as GitHubIssueEvent, githubToken);
+          return;
+    
+        case "issue_comment":
+          await handleIssueCommentEvent(fastify, body as GitHubIssueCommentEvent, githubToken);
+          return;
+    
+        case "check_run":
+          await handleCheckRunEvent(fastify, body as GitHubCheckRunEvent);
+          return;
+    
+        default:
+          fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+      }
+    }
     async function handleIssueEvent(
       fastify: {
         log: {
@@ -2836,6 +2858,36 @@
     
       _enforceCapForUser,
     };
+  </file>
+  <file path="src/services/webhook-delivery-dedup.ts">
+    export interface DeliveryDedupStore {
+      /**
+       * Claims `id` for processing. Returns true the first time an id is seen
+       * (caller should process the delivery) and false on any replay within the
+       * retention window (caller must treat it as a no-op).
+       */
+      claim(id: string): boolean;
+    }
+    export function createDeliveryDedupStore(retentionMs = DEFAULT_RETENTION_MS): DeliveryDedupStore {
+      const seenAt = new Map<string, number>();
+    
+      function prune(now: number): void {
+        for (const [id, ts] of seenAt) {
+          if (now - ts > retentionMs) seenAt.delete(id);
+        }
+      }
+    
+      return {
+        claim(id: string): boolean {
+          const now = Date.now();
+          prune(now);
+          if (seenAt.has(id)) return false;
+          seenAt.set(id, now);
+          return true;
+        },
+      };
+    }
+    export const defaultDeliveryDedupStore: DeliveryDedupStore = createDeliveryDedupStore();
   </file>
   </section>
   <section priority="medium" role="src">
