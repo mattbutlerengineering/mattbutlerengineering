@@ -1,5 +1,25 @@
 <codebase path="services/agent">
   <section priority="medium" role="lib">
+  <file path="src/lib/delivery-dedup.ts">
+    function evictExpired(now: number): void {
+      for (const [id, seenAtMs] of seenDeliveries) {
+        if (now - seenAtMs > RETENTION_MS) {
+          seenDeliveries.delete(id);
+        }
+      }
+    }
+    export function isDuplicateDelivery(deliveryId: string): boolean {
+      const now = Date.now();
+      evictExpired(now);
+    
+      if (seenDeliveries.has(deliveryId)) {
+        return true;
+      }
+    
+      seenDeliveries.set(deliveryId, now);
+      return false;
+    }
+  </file>
   <file path="src/lib/verified-webhook.ts">
     export interface VerifiedWebhookOptions {
       header: string;
@@ -1035,25 +1055,17 @@
     ];
   </file>
   <file path="src/routes/webhooks.ts">
+    interface WebhookLogger {
+      log: {
+        info: (...args: unknown[]) => void;
+        warn: (...args: unknown[]) => void;
+        error: (...args: unknown[]) => void;
+        debug: (...args: unknown[]) => void;
+      };
+    }
     interface CollaboratorPermission {
       permission: string;
       role_name: string;
-    }
-    interface GitHubIssueEvent {
-      action: string;
-      label?: { name: string };
-      issue: {
-        number: number;
-        title: string;
-        body: string | null;
-        html_url: string;
-        labels: Array<{ name: string }>;
-      };
-      repository: {
-        full_name: string;
-        default_branch: string;
-      };
-      sender: { login: string; type: string };
     }
   </file>
   </section>
