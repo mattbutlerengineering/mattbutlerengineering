@@ -5345,6 +5345,14 @@
       export const webhookRoutes: FastifyPluginAsync;
     </item>
     <item priority="low">
+      async function dispatchGitHubEvent(
+        fastify: FastifyInstance,
+        eventType: string | undefined,
+        body: unknown,
+        githubToken: string
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
       async function handleIssueEvent(
         fastify: {
           log: {
@@ -6939,6 +6947,19 @@
     </item>
     <item priority="high">
       export const storedSpecService: unknown;
+    </item>
+  </file>
+  <file path="services/agent/src/services/webhook-delivery-dedup.ts">
+    <item priority="low">
+      interface DeliveryDedupStore {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createDeliveryDedupStore(retentionMs = DEFAULT_RETENTION_MS): DeliveryDedupStore { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultDeliveryDedupStore: DeliveryDedupStore;
     </item>
   </file>
   <file path="services/reservations/src/services/assert-bookable.ts">
