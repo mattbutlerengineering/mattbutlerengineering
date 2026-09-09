@@ -2152,6 +2152,14 @@
       }
     </item>
   </file>
+  <file path="services/agent/src/lib/delivery-dedup.ts">
+    <item priority="medium">
+      function evictExpired(now: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isDuplicateDelivery(deliveryId: string): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/lib/verified-webhook.ts">
     <item priority="low">
       interface VerifiedWebhookOptions {
@@ -2564,24 +2572,16 @@
   </file>
   <file path="services/agent/src/routes/webhooks.ts">
     <item priority="high">
-      interface CollaboratorPermission {
-        permission: string;
-        role_name: string;
+      interface WebhookLogger {
+        log: {
+          info: (...args: unknown[]) => void;
+          warn: (...a...;
       }
     </item>
     <item priority="high">
-      interface GitHubIssueEvent {
-        action: string;
-        label?: { name: string };
-        issue: {
-          number: number;
-          title: string;
-          body: string...;
-        repository: {
-          full_name: string;
-          default_branch: string;
-        };
-        sender: { login: string; type: string };
+      interface CollaboratorPermission {
+        permission: string;
+        role_name: string;
       }
     </item>
   </file>
