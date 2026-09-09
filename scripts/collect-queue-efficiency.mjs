@@ -28,8 +28,14 @@ import { read } from "./metrics-store.mjs";
 export const QUEUE_EFFICIENCY_COMPOSITE_DROP = 0.05;
 export const QUEUE_EFFICIENCY_FPS_DROP = 0.1;
 
-/** Worktree branch patterns used by implement-queue agents. */
-const WORKER_BRANCH_RE = /^worktree-agent-/;
+/**
+ * Worker branch prefixes used by agent automation across the repo:
+ * implement-queue worktree agents (`worktree-agent-`), `mbe agent run`
+ * conventions, and the legacy fix/feat-scoped agent branches. Kept in sync
+ * with `.github/workflows/ai-audit.yml`'s inline jq predicate — see
+ * `scripts/__tests__/ai-audit-workflow.test.mjs` for the pin between them.
+ */
+const WORKER_BRANCH_RE = /^(worktree-agent-|agent-|fix\/agent-|feat\/agent-)/;
 
 /**
  * Stable reason code for an `available: false` result caused by readPrs()
@@ -61,15 +67,18 @@ export function classifyUnavailableReason(err) {
 }
 
 /**
- * An AI/worker PR is identified by:
+ * The repo's single AI/worker-PR predicate. An AI/worker PR is identified by:
  *   - `agent-authored` label (current convention), OR
  *   - `has-pr` label (legacy coordination label), OR
- *   - a `worktree-agent-*` branch name (matches implement-queue worktree pattern).
+ *   - a worker branch name (see {@link WORKER_BRANCH_RE}).
+ *
+ * Exported so `scripts/pr-metrics.mjs` reuses this instead of carrying its
+ * own copy (#5012) — this module is the canonical source of truth.
  *
  * @param {{ headRefName?: string, labels?: Array<{ name: string }> }} pr
  * @returns {boolean}
  */
-function isAiPr(pr) {
+export function isAiPr(pr) {
   const labels = pr.labels ?? [];
   if (labels.some((l) => l.name === "agent-authored")) return true;
   if (labels.some((l) => l.name === "has-pr")) return true;

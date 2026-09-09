@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { GhAuthError, GhRateLimitError, MissingGithubTokenError } from "@mbe/gh-client";
-import { collectQueueEfficiency, defaultReadPrs } from "../collect-queue-efficiency.mjs";
+import { collectQueueEfficiency, defaultReadPrs, isAiPr } from "../collect-queue-efficiency.mjs";
 
 const TEST_NOW = new Date("2026-06-27T12:00:00Z");
 
@@ -643,5 +643,35 @@ describe("defaultReadPrs (gh CLI wiring via the injected ghClient)", () => {
     };
 
     expect(defaultReadPrs(ghClient)).toBeNull();
+  });
+});
+
+// `isAiPr` is exported so it is the single source of truth for "is this an
+// AI-authored PR" — `scripts/pr-metrics.mjs` imports it instead of carrying
+// its own copy (#5012). These branch prefixes mirror the four regexes that
+// `.github/workflows/ai-audit.yml`'s inline jq predicate matches, pinned
+// against this same export in `scripts/__tests__/ai-audit-workflow.test.mjs`.
+describe("isAiPr (exported — the shared AI-PR predicate)", () => {
+  it("matches the agent-authored label alone", () => {
+    expect(isAiPr({ headRefName: "fix/typo", labels: [{ name: "agent-authored" }] })).toBe(true);
+  });
+
+  it("matches the legacy has-pr label alone", () => {
+    expect(isAiPr({ headRefName: "fix/typo", labels: [{ name: "has-pr" }] })).toBe(true);
+  });
+
+  it.each(["worktree-agent-abc123", "agent-thing", "fix/agent-thing", "feat/agent-thing"])(
+    "matches worker branch prefix %s with no AI label",
+    (headRefName) => {
+      expect(isAiPr({ headRefName, labels: [] })).toBe(true);
+    }
+  );
+
+  it("returns false for a human PR with no AI label and no worker branch", () => {
+    expect(isAiPr({ headRefName: "fix/typo", labels: [{ name: "feature" }] })).toBe(false);
+  });
+
+  it("does not crash on missing labels/headRefName", () => {
+    expect(isAiPr({})).toBe(false);
   });
 });

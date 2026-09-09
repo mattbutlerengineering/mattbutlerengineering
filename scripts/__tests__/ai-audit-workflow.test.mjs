@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { isAiPr } from "../collect-queue-efficiency.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const WORKFLOW_PATH = join(REPO_ROOT, ".github/workflows/ai-audit.yml");
@@ -113,6 +114,32 @@ describe("ai-audit.yml AI predicate", () => {
       pr(4283, { labels: ["has-pr", "tier:trivial"], headRefName: "chore/queue-telemetry" }),
     ];
     expect(selectAiPrs(prs)).toEqual([4267, 4283]);
+  });
+});
+
+// #5012: ai-audit.yml's jq predicate is a hand-maintained mirror of the
+// shared, exported `isAiPr` in collect-queue-efficiency.mjs (jq can't import
+// a JS module directly). This pins the two implementations to the same
+// answer over a shared fixture set so a future edit to either one that
+// silently diverges from the other breaks here, instead of only surfacing
+// as an audit report quietly drawing from the wrong population again.
+describe("ai-audit.yml jq predicate vs. the shared isAiPr export", () => {
+  const FIXTURES = [
+    pr(1, { labels: ["agent-authored"] }),
+    pr(2, { labels: ["has-pr"] }),
+    pr(3, { headRefName: "worktree-agent-abc123" }),
+    pr(4, { headRefName: "agent-thing" }),
+    pr(5, { headRefName: "fix/agent-thing" }),
+    pr(6, { headRefName: "feat/agent-thing" }),
+    pr(7, { labels: ["tier:standard"], headRefName: "fix/typo" }),
+    pr(8, { labels: [], headRefName: "feature/my-human-pr" }),
+  ];
+
+  it("agrees with isAiPr on every fixture", () => {
+    const jqSelected = new Set(selectAiPrs(FIXTURES));
+    for (const candidate of FIXTURES) {
+      expect(jqSelected.has(candidate.number)).toBe(isAiPr(candidate));
+    }
   });
 });
 
