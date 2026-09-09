@@ -1,19 +1,19 @@
 {
   "id": "example-bugfix",
-  "category": "bugfix",
-  "prompt": "A reservation cancellation email is sent even when the guest opted out of notifications. Fix the bug so opted-out guests receive no cancellation email, and add a regression test.",
+  "category": "test-writing",
+  "prompt": "Add a regression test to services/reservations/src/services/booking-notifications.test.ts, in the cancelBookingNotifications describe block, that locks in an existing (correct) behavior: a reservation cancellation email is transactional, per services/reservations/src/services/contact-policy.ts, so it must still be sent even when the guest has unsubscribed from marketing. Build a reservation whose guest carries unsubscribed: true (see the existing makeReservation/makeDeps helpers and communicationPreference-based test cases in the same describe block for the pattern), call cancelBookingNotifications, and assert notificationAdapter.sendBookingCancelled was still invoked. Do not change any production code — the behavior is already correct; only the test coverage is missing.",
   "fixtureRef": "services/reservations",
   "rubric": {
     "testsMustPass": true,
     "typecheckMustPass": true,
     "lintMustPass": false,
     "judgeCriteria": [
-      "The fix gates the cancellation email on the guest's notification opt-in",
-      "A regression test covers the opted-out path"
+      "The new test builds a reservation whose guest has unsubscribed: true and asserts sendBookingCancelled is still called",
+      "No production code is changed — only test coverage is added"
     ]
   },
   "budget": {
-    "maxTurns": 40,
-    "maxCostUsd": 1.0
+    "maxTurns": 20,
+    "maxCostUsd": 0.5
   }
 }

@@ -59,6 +59,7 @@ import { Footer } from "../../components/Footer/Footer";
 import { Form } from "../../components/Form/Form";
 import { FormField } from "../../components/FormField/FormField";
 import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
+import { Handshake } from "../../components/Handshake/Handshake";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
@@ -71,6 +72,7 @@ import { MasterOverride } from "../../components/MasterOverride/MasterOverride";
 import { Meter } from "../../components/Meter/Meter";
 import { Navbar } from "../../components/Navbar/Navbar";
 import { NavigationMenu } from "../../components/NavigationMenu/NavigationMenu";
+import { NeonSign } from "../../components/NeonSign/NeonSign";
 import { NumberInput } from "../../components/NumberInput/NumberInput";
 import { Odometer } from "../../components/Odometer/Odometer";
 import { PageHeader } from "../../components/PageHeader/PageHeader";
@@ -157,6 +159,7 @@ export type BarrelExportName =
   | "Form"
   | "FormField"
   | "GlobalNav"
+  | "Handshake"
   | "Heading"
   | "Hero"
   | "HoverCard"
@@ -169,6 +172,7 @@ export type BarrelExportName =
   | "Meter"
   | "Navbar"
   | "NavigationMenu"
+  | "NeonSign"
   | "NumberInput"
   | "Odometer"
   | "PageHeader"
@@ -490,6 +494,9 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <GlobalNav currentApp="marketing" />,
   },
 
+  Handshake: {
+    element: <Handshake aria-label="Verifying sign-in" stations={["Browser", "Identity"]} />,
+  },
   Heading: {
     element: <Heading>Title</Heading>,
   },
@@ -569,6 +576,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
+  },
+
+  NeonSign: {
+    element: <NeonSign state="open" aria-label="Open until 10:00 PM" />,
   },
 
   NumberInput: {

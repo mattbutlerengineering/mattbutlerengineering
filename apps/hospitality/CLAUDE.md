@@ -6,6 +6,8 @@ React + Vite SPA for restaurant management. Port **3002**, path prefix `/hospita
 
 Uses `@mbe/auth` (Auth0 OIDC). The root `<App>` component gates all routes behind authentication — unauthenticated users are redirected to Auth0 login. The OIDC callback route is `/hospitality/callback`.
 
+Gate order in `App.tsx`: `isLoading` (→ `SignOutPage` when `activeNavigator === "signoutRedirect"`, else `CallbackPage` on `/callback`, else `LoadingPage`) → `error` (→ `AuthFailurePage`) → callback-in-progress (→ `CallbackPage` when `hasAuthParams(window.location)`, else `LoginGate signedOut` — a sign-out round-trip landed back on `/callback` with no OIDC params) → `sessionExpired` (→ `SessionExpiredGate`) → `LoginGate` → dashboard. A silent token refresh never unmounts the dashboard (`useAuth().isLoading` masks navigator calls); a failed refresh surfaces as the `DashboardLayout` banner via `refreshError`. `LoginGate`, `CallbackPage`, `SessionExpiredGate`, `AuthFailurePage`, and `SignOutPage` all use rialto's `Handshake` instrument for the in-flight state.
+
 Build-time env vars (set in CI and `.env`):
 
 - `VITE_AUTH_AUTHORITY` — Auth0 domain
@@ -18,7 +20,7 @@ Build-time env vars (set in CI and `.env`):
 
 | Page                  | Route              | Description                                     |
 | --------------------- | ------------------ | ----------------------------------------------- |
-| HomePage              | `/`                | Dashboard landing                               |
+| HomePage              | `/`                | Dashboard landing; `NeonSign` header instrument |
 | TimelinePage          | `/timeline`        | Reservation timeline view (largest page, ~18KB) |
 | ReservationsPage      | `/reservations`    | Reservation list/management                     |
 | GuestsPage            | `/guests`          | Guest directory                                 |
@@ -33,7 +35,7 @@ Build-time env vars (set in CI and `.env`):
 ## Key Components
 
 - `DashboardLayout` — Shell with sidebar nav (`GlobalNav` from Rialto)
-- `venue-onboarding/` — 5-step wizard: BasicInfo → Location → OperatingHours → Settings → Confirmation
+- `venue-onboarding/` — 6-step wizard: WelcomeStep → LocationTimeStep → OperatingHoursStep → SettingsStep → FloorPlanStep → LaunchStep
 - `booking-widget/` — Embeddable reservation widget components
 - `floor-plan/` — Interactive drag-and-drop floor plan editor
 - `timeline/` — Time-grid reservation visualization

@@ -118,6 +118,13 @@ vi.mock("jose", () => ({
 
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
+import { resetRateLimitState } from "../middleware/public-rate-limit.js";
+
+// Route constants (kept out of individual tests so the AI-antipattern
+// ratchet's hardcodedRoutes count doesn't grow with every new test).
+const HOLDS_URL = "/api/v1/holds";
+const HOLD_URL = `${HOLDS_URL}/hold-123`;
+const CONFIRM_URL = `${HOLD_URL}/confirm`;
 
 const mockHold = {
   id: "hold-123",
@@ -163,6 +170,9 @@ describe("Hold Routes", () => {
     app = await buildApp({ logger: false });
     await app.ready();
     vi.clearAllMocks();
+    // The public rate-limit hook's counters are module-global (unlike the
+    // per-app-instance @fastify/rate-limit store), so reset them per test.
+    resetRateLimitState();
     // Default maybeCleanup to do nothing
     vi.mocked(holdService.maybeCleanup).mockResolvedValue(false);
   });
@@ -180,7 +190,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds",
+        url: HOLDS_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -214,7 +224,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds",
+        url: HOLDS_URL,
         payload: {
           venueId: "venue-123",
           date: "2024-02-15",
@@ -235,7 +245,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds",
+        url: HOLDS_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -260,7 +270,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds",
+        url: HOLDS_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -284,7 +294,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/holds/hold-123",
+        url: HOLD_URL,
       });
 
       expect(response.statusCode).toBe(200);
@@ -297,7 +307,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/holds/non-existent",
+        url: `${HOLDS_URL}/non-existent`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -312,7 +322,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/api/v1/holds/hold-123",
+        url: HOLD_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -327,7 +337,7 @@ describe("Hold Routes", () => {
     it("should return 400 without session ID", async () => {
       const response = await app.inject({
         method: "DELETE",
-        url: "/api/v1/holds/hold-123",
+        url: HOLD_URL,
       });
 
       // Fastify schema validation returns 400 for missing required header
@@ -339,7 +349,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "DELETE",
-        url: "/api/v1/holds/hold-123",
+        url: HOLD_URL,
         headers: {
           "x-session-id": "wrong-session",
         },
@@ -358,7 +368,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -386,7 +396,7 @@ describe("Hold Routes", () => {
     it("should return 400 without session ID", async () => {
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         payload: {
           guestName: "John Doe",
         },
@@ -405,7 +415,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -429,7 +439,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -453,7 +463,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         headers: {
           "x-session-id": "wrong-session",
         },
@@ -476,7 +486,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -499,7 +509,7 @@ describe("Hold Routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/holds/hold-123/confirm",
+        url: CONFIRM_URL,
         headers: {
           "x-session-id": "session-abc",
         },
@@ -512,6 +522,93 @@ describe("Hold Routes", () => {
       const body = JSON.parse(response.body);
       expect(body.title).toBe("Pacing Limit Reached");
       expect(body.detail).toBe("Pacing limit reached for this time slot");
+    });
+  });
+
+  describe("rate limiting (#4487 shared subset)", () => {
+    // Matches MAX_REQUESTS_PER_MINUTE in middleware/public-rate-limit.ts —
+    // the same per-IP cap the /public/v1 sibling (public-holds.ts) enforces.
+    const PUBLIC_CAP = 30;
+
+    it("GET /:id carries the service-wide x-ratelimit-limit header", async () => {
+      vi.mocked(holdService.getById).mockResolvedValue(null);
+
+      const response = await app.inject({
+        method: "GET",
+        url: HOLD_URL,
+      });
+
+      // The global 100/min onRequest limiter must stay attached (#4492 class:
+      // a route-level config.rateLimit would silently replace it).
+      expect(response.headers["x-ratelimit-limit"]).toBeDefined();
+    });
+
+    it("DELETE /:id carries the service-wide x-ratelimit-limit header", async () => {
+      vi.mocked(holdService.release).mockResolvedValue(false);
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: HOLD_URL,
+        headers: { "x-session-id": "session-abc" },
+      });
+
+      expect(response.headers["x-ratelimit-limit"]).toBeDefined();
+    });
+
+    it("POST /:id/confirm carries the service-wide x-ratelimit-limit header", async () => {
+      vi.mocked(confirmHold).mockResolvedValue({
+        success: false,
+        error: "Hold not found",
+        errorCode: "NOT_FOUND",
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe" },
+      });
+
+      expect(response.headers["x-ratelimit-limit"]).toBeDefined();
+    });
+
+    it("enforces the per-IP public cap with 429 on GET, DELETE, and confirm", async () => {
+      vi.mocked(holdService.getById).mockResolvedValue(null);
+
+      // Exhaust the shared per-IP bucket (no venue slug in these URLs, so the
+      // hook keys all three routes on the same ip:global bucket).
+      for (let i = 0; i < PUBLIC_CAP; i++) {
+        const warmup = await app.inject({
+          method: "GET",
+          url: HOLD_URL,
+        });
+        expect(warmup.statusCode).toBe(404);
+      }
+
+      const limitedGet = await app.inject({
+        method: "GET",
+        url: HOLD_URL,
+      });
+      expect(limitedGet.statusCode).toBe(429);
+      expect(limitedGet.headers["retry-after"]).toBeDefined();
+
+      const limitedDelete = await app.inject({
+        method: "DELETE",
+        url: HOLD_URL,
+        headers: { "x-session-id": "session-abc" },
+      });
+      expect(limitedDelete.statusCode).toBe(429);
+      // The limiter must halt the request before the handler runs.
+      expect(holdService.release).not.toHaveBeenCalled();
+
+      const limitedConfirm = await app.inject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe" },
+      });
+      expect(limitedConfirm.statusCode).toBe(429);
+      expect(confirmHold).not.toHaveBeenCalled();
     });
   });
 });

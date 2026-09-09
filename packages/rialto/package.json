@@ -178,6 +178,10 @@
       "types": "./dist/lib/components/GlobalNav/index.d.ts",
       "import": "./dist/lib/components/GlobalNav/index.js"
     },
+    "./Handshake": {
+      "types": "./dist/lib/components/Handshake/index.d.ts",
+      "import": "./dist/lib/components/Handshake/index.js"
+    },
     "./Heading": {
       "types": "./dist/lib/components/Heading/index.d.ts",
       "import": "./dist/lib/components/Heading/index.js"
@@ -225,6 +229,10 @@
     "./NavigationMenu": {
       "types": "./dist/lib/components/NavigationMenu/index.d.ts",
       "import": "./dist/lib/components/NavigationMenu/index.js"
+    },
+    "./NeonSign": {
+      "types": "./dist/lib/components/NeonSign/index.d.ts",
+      "import": "./dist/lib/components/NeonSign/index.js"
     },
     "./NumberInput": {
       "types": "./dist/lib/components/NumberInput/index.d.ts",
@@ -408,12 +416,12 @@
     "@mbe/api-client": "workspace:*",
     "@mbe/config": "workspace:*",
     "@playwright/test": "^1.62.1",
-    "@storybook/addon-a11y": "^10.5.9",
-    "@storybook/addon-docs": "^10.5.9",
-    "@storybook/addon-onboarding": "^10.5.9",
-    "@storybook/addon-vitest": "^10.5.9",
-    "@storybook/react": "^10.5.9",
-    "@storybook/react-vite": "^10.5.9",
+    "@storybook/addon-a11y": "^10.5.10",
+    "@storybook/addon-docs": "^10.5.10",
+    "@storybook/addon-onboarding": "^10.5.10",
+    "@storybook/addon-vitest": "^10.5.10",
+    "@storybook/react": "^10.5.10",
+    "@storybook/react-vite": "^10.5.10",
     "@storybook/test": "^8.6.15",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
@@ -425,19 +433,19 @@
     "@vitest/browser-playwright": "^4.1.11",
     "@vitest/coverage-v8": "catalog:",
     "axe-core": "^4.13.0",
-    "eslint-plugin-storybook": "^10.5.10",
+    "eslint-plugin-storybook": "^10.6.0",
     "framer-motion": "catalog:",
     "jsdom": "catalog:",
     "lucide-react": "catalog:",
     "playwright": "^1.62.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "storybook": "^10.5.9",
+    "storybook": "^10.5.10",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "vite": "catalog:",
     "vite-plugin-dts": "^5.0.3",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.11",
     "vitest-axe": "^0.1.0"
   },
   "size-limit": [
@@ -486,7 +494,7 @@
         "dist/lib/components/Select/index.js",
         "dist/lib/chunks/Select-*.js"
       ],
-      "limit": "1800 B"
+      "limit": "1850 B"
     },
     {
       "name": "Autocomplete (subpath)",

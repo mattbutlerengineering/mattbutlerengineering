@@ -14,6 +14,8 @@ export interface StoredSpecResponse {
   updatedAt: string;
 }
 
+export type StoredSpecPublicResponse = Omit<StoredSpecResponse, "userId">;
+
 export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
   return {
     id: s.id,
@@ -25,6 +27,14 @@ export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
+}
+
+// PUBLIC — omits userId. Use for endpoints reachable without auth (e.g. the
+// spec permalink viewer), which have no legitimate use for the owner's
+// internal user id.
+export function mapStoredSpecPublic(s: StoredSpec): StoredSpecPublicResponse {
+  const { userId: _userId, ...rest } = mapStoredSpec(s);
+  return rest;
 }
 
 async function _enforceCapForUser(userId: string): Promise<void> {

@@ -11,6 +11,643 @@ no retro.
 
 ---
 
+## 2026-09-06
+
+Window: **2026-08-31 → 2026-09-06**. Sources: GitHub REST/search API (repo-scoped
+PR, issue, workflow-run and check-run endpoints), `metrics/stale-human-blocked.jsonl`,
+`.claude/improvement-loop/log.md`, `.claude/rules/gotchas.md`,
+`docs/scheduled-tasks.md`, `.github/workflows/tier-classifier.yml`, and the working
+tree at `e4e5b86`. Note the cloud checkout is shallow (50 commits, back to
+2026-09-03), so every historical claim below is sourced from the API, not `git log`.
+
+**189 PRs merged, 4 closed unmerged, 0 open at window close. 168 issues filed,
+120 closed (net +48).** Median PR lived **15.6 minutes**; 156 of 189 (82.5%)
+merged inside an hour. Main CI passed 43 of 46 non-cancelled runs (93.5%).
+
+Throughput is not the problem. Three things went wrong, and all three were
+**already written down**:
+
+1. **Both Friday weekly routines produced nothing** — `mbe-weekly-improve` and
+   `mbe-doc-rot` have no artifact of any kind for 2026-09-04. This is the exact
+   silent-death signature Pass 1 exists to catch.
+2. **The tier classifier put `tier:critical` on this routine's own PR again.**
+   Last week's entry predicted it in writing ("Every future weekly retro will be
+   `tier:critical` by construction"). #4710 then became the slowest PR of the
+   week at **44.8 hours** — 88× the median.
+3. **The stale-issue detector reported the single most-ignored issue in the repo
+   as fresh**, and therefore did not label it.
+
+### Routine liveness
+
+Cross-checked `docs/scheduled-tasks.md`'s catalog against observed artifacts. A
+routine is "alive" only if it both ran and landed its expected artifact.
+
+| Routine                     | Expected artifact               | Observed 08-31 → 09-06                                           | Verdict                      |
+| --------------------------- | ------------------------------- | ---------------------------------------------------------------- | ---------------------------- |
+| `mbe-morning` (ACMM)        | `chore(acmm): daily audit` PR   | #4779, #4884, #4915, #5054 merged; #4949 + #5018 closed unmerged | **ran 7/7, landed 5/7**      |
+| `mbe-morning` (`/ideate`)   | proposal / decompose batch      | batch activity present across window                             | alive                        |
+| `mbe-evening` (queue)       | implement-queue + telemetry PRs | telemetry PR every day 08-31 → 09-06 (20 PRs)                    | alive, 7/7                   |
+| `mbe-evening` (tracker)     | `progress-tracker` PR           | #4718, #4867, #4902, #4935, #4963, #5072 — **no 09-05**          | 6/7                          |
+| `mbe-evening` (optimize-IQ) | `optimize-implement-queue` PR   | #4719, #4867, #4903, #4936, #4964, #5073 — **no 09-05**          | 6/7                          |
+| `mbe-midday` / `mbe-night`  | implement-queue PRs             | PRs in both UTC bands every day                                  | alive                        |
+| `mbe-auditor`               | ≤3 `audit` issues/day           | 76 `audit` issues filed in window (per #5073's log entry)        | alive                        |
+| `mbe-learning-loop`         | metrics PR / sensor triage      | #4799, #4886, #4919, #4953, #5020, #5057; 09-06 entry via #5073  | alive, 7/7                   |
+| `mbe-weekly-improve` (Fri)  | 1 PR + `ready` issues           | **nothing on 2026-09-04 — no PR in any state, no issues**        | **DARK**                     |
+| `mbe-doc-rot` (Fri)         | 1 PR                            | **nothing on 2026-09-04 — no `rot sweep` PR in any state**       | **DARK**                     |
+| `mbe-weekly-retro` (Sun)    | 1 PR                            | #4710 merged 09-01 after 44.8 h                                  | alive, but see Friction      |
+| `mbe-monthly-meta-audit`    | 1 PR + issues                   | 1st of month — #4884-era window, not re-verified                 | n/a                          |
+| `drift-fix.yml`             | PR when drifted                 | ran, no drift → no PR                                            | alive, correct silence       |
+| `audit-sweep.yml` (Mon)     | issues                          | audit issues filed 09-01                                         | alive                        |
+| `automation-pr-rescue.yml`  | update-branch + re-dispatch     | ran throughout                                                   | alive                        |
+| `stale-human-blocked.yml`   | label + record stale issues     | #5079 (09-06), 10 rows written                                   | ran — but see Blockers       |
+| `nightly-compliance`        | issue when drift detected       | 7 issues in 7 nights, never deduped                              | alive, **filing duplicates** |
+
+**The two dark routines are the finding.** Verified three ways: no merged PR on
+2026-09-04 matching either signature (all 16 merges that day accounted for), no
+open PR (the repo had zero open PRs at window close), and no closed-unmerged PR
+(only 4 in the whole window, all identified). Neither routine filed an issue
+either. Their RemoteTrigger state lives on claude.ai and cannot be read from this
+session — that check is in Escalations.
+
+The ACMM gap is different and milder: the routine ran all 7 days, but the 09-03
+(#4949) and 09-04 (#5018) audit PRs were **closed unmerged on 09-05** rather than
+landing. Worth a glance, not an alarm — #5059 (`fix(acmm): pass computed state to
+updateBadge()`) landed the same day and may have superseded them.
+
+### Blockers
+
+Open issues carrying `ready-for-human` / `needs-review` / `blocked` /
+`agent-failed`, ordered by **true** last human touch.
+
+That word "true" is load-bearing. `stale-human-blocked.yml` ran 7h38m before this
+retro and applied `ready-for-human` to qualifying issues, which bumps `updatedAt`
+— so the naive "sort by `updatedAt` ascending" this pass is specified with now
+sorts freshly-flagged stale issues to the _bottom_. The workflow anticipated that
+and records its own `last_human_touch_at` in `metrics/stale-human-blocked.jsonl`.
+Both numbers are given below where they disagree.
+
+| Issue | True idle | Detector said | Ask                                                               |
+| ----- | --------- | ------------- | ----------------------------------------------------------------- |
+| #3277 | **59 d**  | 6 d           | Run `pulumi refresh` against prod in a watched deploy window      |
+| #4111 | **26 d**  | 2 d           | Set a test-mode Stripe publishable key on the Hospitality E2E job |
+| #3253 | 20 d      | 20 d          | Decide whether to take the TypeScript 7 migration now             |
+| #3585 | 20 d      | 20 d          | Decide: route AI features through the Claude CLI, or drop them    |
+| #3388 | 20 d      | 13 d          | Add `TURBO_TOKEN` + `TURBO_TEAM` to repo settings                 |
+| #3322 | 19 d      | 19 d          | Pick rialto's publish registry and supply the matching token      |
+| #3978 | 19 d      | 19 d          | Decide whether the video-game-UI exploration is wanted at all     |
+| #4119 | 19 d      | 19 d          | Dispatch `pulumi-r2-checksum-validation.yml`, read its verdict    |
+| #4413 | 16 d      | 16 d          | Review and close the W34 AI audit trail                           |
+| #4487 | 14 d      | 7 d           | Decide the auth model for the public booking widget               |
+| #4199 | 2 d       | —             | Blocked on #4199's own SDK-adapter fix; agent-implementable       |
+| #4606 | 7 d       | —             | `agent-failed` — needs a retry decision                           |
+| #4914 | 4 d       | —             | `agent-failed` nightly-compliance drift; see Recurring causes     |
+
+**#3389 (native merge queue vs custom train) is no longer open** — the standing
+list this pass was seeded with is stale on that point.
+
+The detector's misses are not rounding error. **#3277 has had zero activity since
+2026-07-10** (`updatedAt` 2026-07-10T03:22:01Z, 1 comment, no timeline activity
+of its own). The detector computed `last_human_touch_at: 2026-08-30`, `days_stale: 6`,
+`labeled: false` — below the 14-day threshold, so the most-ignored issue in the
+repo was the one issue it declined to flag. Root cause is in
+`scripts/stale-human-blocked.mjs:119`: `lastHumanTouchAt()` filters the timeline
+through a **denylist** of exactly two event types —
+`LABEL_ONLY_EVENTS = ["labeled", "unlabeled"]` — so every other timeline event
+counts as a human touch, including `cross-referenced` and `mentioned`. This repo
+merges ~27 automation PRs a day; any one of them that references an issue resets
+that issue's staleness clock. Same mechanism explains #4111 (26 d → 2 d) and
+#3388 (20 d → 13 d). The error is one-directional: it can only ever under-report,
+which is the wrong direction for a detector whose entire job is surfacing neglect.
+
+### Friction
+
+| Measure              | Value                                                |
+| -------------------- | ---------------------------------------------------- |
+| Merged               | 189                                                  |
+| Open at window close | 0                                                    |
+| Closed unmerged      | 4 (#4949, #5018 ACMM; #4798, #4960 revert proposals) |
+| Median open→merge    | 15.6 min                                             |
+| p25 / p75 / p90      | 14.4 min / 30.3 min / 3.6 h                          |
+| Merged < 1 h         | 156 (82.5%)                                          |
+| Slowest              | **#4710 — 44.8 h**                                   |
+| Reverts merged       | 0                                                    |
+
+Merges per day fell steadily across the window — 62, 37, 25, 20, 16, 16, 13. Two
+points do not make a trend and seven barely do; the 08-31 peak is a Sunday
+catch-up and the decline tracks the `ready` queue draining, not a stall. Flagging
+it to re-read next week, not concluding anything.
+
+**The slowest PR of the week was this routine's own output, for a reason this
+routine documented last week and nobody acted on.** #4710 changed one markdown
+file. `tier-classifier.yml` classified it
+`docs/process-retro.md -> T1: markdown only · escalate to T4: title/body mentions
+secrets or incident`. Per `docs/change-tiers.md`, T4 blocks auto-merge and
+requires Matt personally plus an ADR reference. It sat 44.8 hours.
+
+The trigger is line 175 of the workflow:
+
+```js
+if (
+  /\b(?:secrets?|credentials?|rotate|leak(?:s|ed|ing)?|incidents?)\b/i.test(title + " " + bodyProse)
+) {
+  highest = T4; // hard set, not +1
+}
+```
+
+Note `highest = T4` — an unconditional jump from the bottom tier to the top, with
+no reference to what the PR actually changed. And note _why_ it fires here: this
+routine's brief mandates naming the specific unblocking action ("'Needs review'
+is not an ask; 'add TURBO_TOKEN to repo secrets' is"). Writing a good Escalations
+section is what makes the retro T4.
+
+This is the **fourth** instance of the same class, and the first three were each
+fixed narrowly rather than structurally: #3606 (the PR template's own checklist
+matched the pattern, escalating every template-filled PR), #4279 (prose merely
+_discussing_ a bypass), #4883 (`"incidental"` substring-matching `incident`,
+closed 09-01). Each fix taught the regex one more thing it should not match. None
+addressed the actual defect, which is that **a keyword in prose sets the tier
+without consulting the changed paths.** #4883's word-boundary fix works exactly
+as designed here — "secrets" really is the word — and the classification is still
+wrong.
+
+Interim mitigation, applied to this very PR: the workflow reads only
+`PR_TITLE`/`PR_BODY`, never the diff, so a retro whose PR _body_ avoids the
+trigger vocabulary lands as T1 while the entry itself says whatever it needs to.
+That is a workaround dependent on every future author knowing it, which is why
+it is also filed as an issue.
+
+Three of the four unmerged PRs were healthy process, not friction: #4798 and
+#4960 were revert proposals opened by the watchdog against #4789 and #4956, both
+correctly closed unmerged once main was fixed forward instead. Per the #3590
+gotcha, `classifyRevertState()` files an RCA only on `merged`, so neither
+produced a false RCA. That machinery works.
+
+### Recurring causes
+
+Failed CI runs in the window, grouped by cause.
+
+**1. Automation-branch approval-park — ~95% of all failure runs, and not a
+defect.** Every commit on `automation/production-feedback` creates _two_ CI runs
+against the same SHA within one second: a `pull_request` run that parks at
+`action_required`, never schedules a job, and concludes `failure` after ~14
+minutes of wall clock; and a `workflow_dispatch` twin that runs properly and
+succeeds. Verified on ten consecutive SHAs (`5f0eaf64`, `bd477ba6`, `95cb7312`,
+`88e1b5ac`, `84d06040`, `7fd514bc`, `44efb670`, `f960ef80`, `130cbd9d`,
+`a60cf46b`); run `34057249105` has `conclusion: failure` with `total_count: 0`
+jobs, and `33865510095` was caught mid-transition still reading `action_required`.
+Nine workflows do this per SHA (CI, ADR check, Auto Review, Auto-Merge Policy,
+Copilot Review Apply, Merge Queue, Secret Scan, ai-attribution, tier-classifier),
+so a single automation PR leaves nine phantom failures behind. 225 CI runs have
+accumulated on that one branch.
+
+This is the #3684 approval-park trap, already recorded in `gotchas.md` as "still
+live", and the #3538/#4025 dispatch escape hatch is working exactly as designed —
+the PRs do merge. Costs are **zero runner minutes** (no jobs execute) but a run
+history that is mostly noise: any repo-wide `gh run list` triage is now useless,
+and any future sensor built on raw run-conclusion counts will read this as a
+catastrophic pass-rate collapse. The `ciHealth` sensor is safe only because #4538
+scoped it to `--branch main`; #5005 is already open for two other sensors with
+the same denominator/scoping defect. Deliberately **not** filing a fourth issue
+here — the remedy (suppress or auto-cancel a run GitHub creates before we get
+control) is genuinely ambiguous, and a `ready` issue would burn a worker on a
+design question.
+
+**2. `nightly-compliance` files a fresh issue every night and never dedupes.**
+Seven issues in seven nights: #4780, #4877, #4914, #4947, #4997, #5052, #5076.
+Five of them (#4780, #4877, #4947, #4997, #5052) reported the _identical_
+`packages/rialto#test` timeout signature and were closed together on 09-05 once
+#5068 fixed the root cause — five separate triage passes for one bug, because
+nothing recognised the reports as duplicates of each other. #4914 and #5076
+remain open. `.claude/improvement-loop/log.md` names this gap explicitly and
+defers it ("worth a `meta-improvement` if a _different_ recurring nightly failure
+starts the same multi-day duplicate chain again"); #5076 was filed today, so that
+condition is met.
+
+**Nothing about this is in `gotchas.md`** — zero matches for `nightly-compliance`
+or `dedup`. Bitten seven times in seven days, undocumented. That is precisely the
+`/gotcha-harvest` trigger condition.
+
+**3. `pnpm audit` registry timeouts — real, recurring, and correctly closed.**
+Four-plus Build failures from `ERR_SOCKET_TIMEOUT` against
+`registry.npmjs.org`, fixed in #5040 (network-resilient retry gated on
+`isTransientAuditError()`), and documented in `gotchas.md` as #4993 in the same
+week it happened. This is the loop working as designed; noted as a positive, not
+a finding.
+
+**4. Main-red episodes — three, all short.** #4956 (merged 09-03 22:10) broke
+main and was fixed forward within ~3 h; #4789 the same shape on 08-31; one
+further failure on 09-01. Main CI closed the window at 43/46 non-cancelled
+(93.5%). One isolated `E2E Tests` failure on a `worktree-agent-*` branch, not
+recurring.
+
+### Throughput
+
+**168 issues filed, 120 closed — net +48.** Last week was +6, so the backlog grew
+eight times faster. The cause is identifiable and mostly benign: 76 of the 168 are
+`audit`-labeled, dominated by the 2026-09-04 site-audit batch, and 23 of the 44
+issues currently sitting in `ready` are `[Audit] UX:` findings from that single
+sweep (per #5073's log entry). PR throughput moved the other way — 189 merged
+against 138 last week.
+
+The queue is growing but not rotting: `ready` depth 44 against a target of <5, yet
+**zero** `ready` issues are older than 7 days, and mean time-to-close is ~11 h.
+That is a queue being fed faster than it drains, not one being ignored.
+
+`metrics/process-metrics.jsonl` and `metrics/queue-telemetry.jsonl` were recreated
+on 2026-07-30 and remain thin; `metrics/a11y-history.jsonl`, `domain-metrics.jsonl`
+and `eval-reports.jsonl` are still **0 bytes**, as is
+`.claude/agent-spend/sessions.jsonl` (#4618, its fourth recorded occurrence). No
+trend claim is made from any of them here.
+
+### Top 3 changes
+
+1. **Make the tier classifier consult the diff before a prose keyword can set
+   T4.** Highest leverage available: it is a handful of lines in one workflow, it
+   is provably recurring (four instances), and it currently taxes every artifact
+   this factory produces _about_ its own operations — retros, doc-rot sweeps,
+   audit summaries — with the heaviest human gate in the repo. Fixing it converts
+   a guaranteed multi-day human wait into an auto-merge. Filed as **#5082**.
+
+2. **Make `lastHumanTouchAt()` an allowlist instead of a denylist.** The stale
+   detector is the only machinery whose whole purpose is surfacing human
+   blockers, and it under-reports by construction in a repo that merges ~27
+   automation PRs a day. It missed a 59-day-old issue by a factor of ten. The fix
+   is one line in a pure, already-unit-tested function. Filed as **#5083**.
+
+3. **Give `nightly-compliance` a dedupe key.** Seven issues, seven nights, one
+   root cause behind five of them. Low effort, removes a recurring daily triage
+   tax, and the pattern is already proven elsewhere in the repo. Filed as **#5084**.
+
+Deliberately not in this list: the phantom-run noise (cause 1 above — real, but
+the fix is a design question, not a task) and the sensor-denominator class
+(#5005, already open).
+
+### Escalations
+
+Human-only. None of these are agent-implementable; none are filed as `ready`.
+
+1. **Check whether `mbe-weekly-improve` and `mbe-doc-rot` are still enabled at
+   https://claude.ai/code/scheduled.** Both produced nothing on Friday 2026-09-04.
+   Trigger IDs from `docs/scheduled-tasks.md`: `trig_01G12wULcCweXSb2jmVkChPW`
+   (weekly-improve, `0 14 * * 5`) and `trig_0176gF6ty4Jg8oyyXYApKWyi` (doc-rot,
+   `0 15 * * 5`). This is the 2026-07-10 silent-death signature; that outage ran
+   19 days before anyone noticed. **Highest-priority item in this retro.**
+2. **#3388** — add `TURBO_TOKEN` and `TURBO_TEAM` to repo settings so CI stops
+   running cold. 20 days idle.
+3. **#4111** — set a test-mode Stripe publishable key on the Hospitality E2E job.
+   26 days idle.
+4. **#3585** — decide: route AI features through the Claude CLI, or remove them.
+   No API key is available and the decision has been open 20 days.
+5. **#3322** — decide which registry rialto publishes to, and supply the matching
+   token. 19 days idle.
+6. **#3277** — run `pulumi refresh` against prod in a watched deploy window so
+   `ignoreChanges` can be narrowed. **59 days idle, the oldest item in the repo.**
+7. **#4119** — dispatch `pulumi-r2-checksum-validation.yml` and read its verdict
+   before the Pulumi CLI pin can be lifted. 19 days idle.
+8. **#4487** — decide the auth model for `/api/v1/holds`, used by the live public
+   booking widget. 14 days idle, security-labeled.
+9. **#3253** — decide whether to take the TypeScript 7 migration now. 20 days idle.
+10. **#4606 / #4914 / #5076** — three `agent-failed` / drift issues need a retry-or-close
+    call.
+
+---
+
+## 2026-08-30
+
+Window: **2026-08-24 → 2026-08-30**. Sources: GitHub REST API (repo-scoped PR /
+issue / workflow-run / check-run endpoints), `metrics/process-metrics.jsonl`,
+`metrics/queue-telemetry.jsonl`, `.claude/rules/gotchas.md`,
+`docs/scheduled-tasks.md`, and the working tree at `b962010`.
+
+**143 PRs opened, 138 merged, 1 closed unmerged, 4 still open. 61 issues filed,
+55 closed (net +6). Zero reverts.** Median PR lived **17 minutes**; 76% merged
+inside an hour. Queue telemetry: 25 claims, 24 merged, CI first-pass 18/24.
+`queueEfficiency` held 0.948–0.982 all week with no regressions.
+
+Three routines that were dark or blind last week came back this week — the
+progress-tracker (fixed by #4564), `mbe-weekly-improve`, and the
+scheduled-workflow-health watchdog, which filed its first true-positive
+(#4609). That is the good news, and it is real.
+
+The story is what the throughput numbers hide. **A 4-file, +38-line change
+merged on 2026-08-23 with its own visual check already red, and cost five days
+of red visual CI on `main` plus a 34-file, +9,950-line remediation.** The rule
+it broke is already written down in `gotchas.md`. Nothing enforced it, because
+the check it went red on is advisory and `CI Gate` — the only required check —
+was green.
+
+### Routine liveness
+
+Cross-checked `docs/scheduled-tasks.md`'s catalog against observed artifacts.
+
+| Routine                     | Expected artifact                | Observed 08-24 → 08-30                                        | Verdict                        |
+| --------------------------- | -------------------------------- | ------------------------------------------------------------- | ------------------------------ |
+| `mbe-morning` (ACMM)        | `chore(acmm): daily audit` PR    | #4533, #4557, #4579, #4595, #4632, #4671, #4702               | alive, 7/7                     |
+| `mbe-morning` (`/ideate`)   | proposal / decompose batch       | batch #4532; #4633–#4640 decomposed 08-28                     | alive                          |
+| `mbe-evening` (queue)       | implement-queue + telemetry PRs  | telemetry PR every day 08-24 → 08-30                          | alive, 7/7                     |
+| `mbe-evening` (tracker)     | `process-metrics` + log entry    | #4571, #4587, #4619, #4665 — daily since 08-26                | **recovered** (see below)      |
+| `mbe-evening` (optimize-IQ) | `optimize-implement-queue` PR    | #4572, #4588, #4620, #4666 — daily since 08-26                | **recovered**                  |
+| `mbe-midday` / `mbe-night`  | implement-queue PRs              | 25 telemetry claims across both UTC bands                     | alive                          |
+| `mbe-auditor`               | ≤3 `audit` issues/day            | 2, 1, 3, 2, 2, 2, 3 (15 total)                                | alive, 7/7                     |
+| `mbe-learning-loop`         | metrics PR / sensor triage       | #4608 (08-27), #4642 (08-28), #4704 (08-30); #4641 regression | **intermittent — 3/7 days**    |
+| `mbe-weekly-improve` (Fri)  | 1 PR + `ready` issues            | #4627 at 14:52Z + #4628/#4629/#4630 at 14:53Z                 | **recovered** (was dark 08-21) |
+| `mbe-doc-rot` (Fri)         | 1 PR                             | #4631 "docs: weekly rot sweep 2026-08-28"                     | alive                          |
+| `mbe-weekly-retro` (Sun)    | 1 PR                             | 08-23 entry present in this file                              | alive                          |
+| `mbe-monthly-meta-audit`    | 1 PR + issues                    | 1st of month — outside window                                 | n/a                            |
+| `drift-fix.yml`             | PR when drifted                  | 7 runs, 7 success, no drift → no PR                           | alive, correct silence         |
+| `audit-sweep.yml` (Mon)     | issues                           | ran 08-24, success                                            | alive                          |
+| `pr-metrics.yml` (Mon)      | metrics PR                       | #4523 (08-24)                                                 | alive                          |
+| `automation-pr-rescue.yml`  | update-branch + re-dispatch      | 98 runs, all success                                          | alive                          |
+| `stale-human-blocked.yml`   | label + record stale issues      | #4705 (08-30)                                                 | alive                          |
+| `scheduled-workflow-health` | `ci-fix` issue per dead workflow | 7 runs; **filed #4609** (Venue Journey, 3 consecutive)        | **alive and sighted — fixed**  |
+| `chaos-agent.yml` (Mon)     | seeded bug → audit catches it    | 08-24 failed, 08-25 re-ran green                              | recovered                      |
+| `release.yml`               | npm publish of rialto            | green because publish still self-skips (#3322 unchanged)      | green ≠ working                |
+
+#### Three things last week's retro flagged are fixed
+
+- **The watchdog can see again.** `scheduled-workflow-health.yml` was blind for
+  seven days (a `fetch-depth: 1` checkout made `git log -1 -- <path>` report the
+  tip commit for every workflow, so every failing workflow looked freshly
+  fixed). This week it filed **#4609** — "Venue Journey has failed 3 consecutive
+  scheduled runs" — against real failures on 08-24, 08-25 and 08-26. First
+  true-positive of its life. Venue Journey has been green since.
+- **The progress-tracker is writing again.** #4564 (`fix(progress-tracker):
+persist log.md instead …`, merged 08-25) ended the 10-day
+  `metrics/process-metrics.jsonl` gap that ran 08-16 → 08-25, and closed #4570.
+  Daily entries have landed 08-26 through 08-29 without a miss.
+- **`mbe-weekly-improve` produced on Friday.** Dark on 08-21; on 08-28 it fired
+  at 14:00Z and produced #4627 at 14:52Z plus #4628/#4629/#4630 at 14:53Z.
+
+`mbe-learning-loop` is the one that is still not right: it produced a metrics PR
+on only 3 of 7 days (08-27, 08-28, 08-30). Better than last week's 1-of-7, but
+four dark days is not a working daily routine. No issue filed for it this week —
+it is improving on its own trajectory, and a fourth `[Meta]` issue against the
+same routine would just add to the pile (#4570 and #4618 already exist).
+
+### Blockers
+
+Open issues labelled `ready-for-human`, `needs-review`, `blocked`,
+`agent-failed` or `stealable`, oldest-touched first. **Eight are stale beyond
+seven days.** Each one-line ask is in **Escalations** below.
+
+| Issue | Days idle | Label(s)                     | Subject                                          |
+| ----- | --------- | ---------------------------- | ------------------------------------------------ |
+| #3277 | **51**    | `ready-for-human`            | Narrow Pulumi `ignoreChanges`                    |
+| #4111 | **19**    | `blocked`, `ready-for-human` | Deposit E2E can't reach the Stripe payment step  |
+| #3585 | **13**    | `ready-for-human`            | No `ANTHROPIC_API_KEY` — route via CLI or remove |
+| #3388 | **13**    | `blocked`, `ready-for-human` | Turborepo remote caching needs `TURBO_TOKEN`     |
+| #3253 | **13**    | `blocked`, `ready-for-human` | TypeScript 7 migration                           |
+| #3978 | **13**    | `ready-for-human`            | Rialto video-game UI exploration                 |
+| #4119 | **12**    | `ci-fix`, `ready-for-human`  | Unpin Pulumi CLI, validate 3.256.0+ against R2   |
+| #3322 | **12**    | `ready-for-human`            | Release npm 401 — credential decision            |
+| #4487 | 7         | `needs-review`, `security`   | `/api/v1/holds` lacks auth and rate limiting     |
+| #4199 | 5         | `blocked`                    | `mbe agent eval` hardcodes the SDK adapter       |
+| #4606 | 0         | `agent-failed`               | human-touch-classifier backfill re-run           |
+
+**#3389 is resolved** — the native-merge-queue-vs-custom-train decision closed
+on 08-17. Last week's list is otherwise unchanged, and #3277 has now gone
+**51 days** without a touch. It is a one-line Pulumi config narrowing whose only
+blocker is that nobody has said yes.
+
+#4487 is worth naming separately: a security finding on a route the live public
+booking widget calls, filed 08-23, untouched since. It sits at exactly the
+seven-day line and will be the oldest `needs-review` item next week.
+
+### Friction
+
+138 PRs merged. Median **17 min**, mean 86 min, p90 **240 min**. 105 of 138
+(76%) merged within the hour; six took longer than six hours; one took longer
+than a day. **28 distinct non-automation branches went red at least once before
+merging** (~20% of merged PRs). Zero reverts, and no PR needed a follow-up
+revert within 48h.
+
+The two slowest PRs of the week are the same story:
+
+| PR    | Open→merge | Subject                                                                                |
+| ----- | ---------- | -------------------------------------------------------------------------------------- |
+| #4519 | **24.1 h** | `perf(ci): cache .turbo/cache with actions/cache`                                      |
+| #4613 | **22.8 h** | `fix(rialto-web): give the visual suite a measured sensitivity, with its 49 baselines` |
+
+**#4613 is the week's real cost centre, and it was avoidable.** The arc:
+
+1. **#4496** (`fix(rialto-web): tighten visual-regression tolerance to an
+absolute pixel budget`, 4 files, +38/−1) merged **2026-08-23T23:43Z** with
+   `Visual Regression (rialto-web)` at **`failure` on its own head SHA**
+   (`f5209a4`) — verified against the check-runs API.
+2. `main` then failed `Rialto Visual Regression` and `Rialto Web E2E` on 08-24,
+   08-25 and 08-26 — six of the 23 main-branch failures this week.
+3. **#4560** was filed 08-25 ("visual baselines red on main since 08-23 —
+   #4496 tightened the pixel…"), followed by **#4584** on 08-26.
+4. **#4613** merged 08-28 after 22.8 hours open: **34 files, +9,950/−85**,
+   regenerating all 49 Linux-runner baselines.
+5. **#4654** then added a noise-floor measurement harness so the tolerance can
+   be set from data instead of guessed.
+
+`gotchas.md` already says, in § CI: _"Merging a PR with its own visual CI red
+starts a cascading red streak on main affecting all subsequent PRs."_ The rule
+was correct, written down, and unenforced. The reason is structural, not human:
+`CI Gate`'s `needs:` list (`ci.yml:759-775`) contains `lint`, `typecheck`,
+`architecture-audit`, `build`, `test`, `hadolint`, `trivy`, `migrations`,
+`migration-dry-run`, `dependency-audit`, `integrity` and
+`ai-antipattern-ratchet` — and no visual job. `Visual Regression (rialto-web)`
+is advisory, so auto-merge saw a green gate and merged. A documented rule that
+only a human can enforce is not a gate; it is a hope.
+
+### Recurring causes
+
+192 workflow runs failed in the window. Grouped by cause rather than count:
+
+| Cause                                                      | Runs    | Real defect?          |
+| ---------------------------------------------------------- | ------- | --------------------- |
+| Parked-then-killed runs on `automation/*` branches         | **100** | **no — phantom**      |
+| Dependabot PR branches (vitest 4.1.11, production-deps)    | 23      | yes, contained to PR  |
+| Visual-baseline streak on `main` (#4496 → #4613)           | 6       | yes — see Friction    |
+| Venue Journey scheduled runs (08-24/25/26)                 | 3       | yes — caught by #4609 |
+| Agent worktree branches (13 distinct)                      | 21      | mixed, all merged     |
+| Feature/fix branches, one-off                              | 30      | mixed, all merged     |
+| Circuit Breaker trips (consequence, not cause)             | 2       | derivative            |
+| Chaos Agent, ACMM Regression, Secret Scan, Deploy Services | 7       | mixed                 |
+
+#### 52% of the failure ledger is phantom
+
+**100 of 192 failed runs — every one on an `automation/*` branch — completed
+with `conclusion: failure` and _zero jobs_.** They cluster nine-at-a-time at
+eleven distinct timestamps, one cluster per automation PR: `CI`, `ADR check`,
+`Auto Review`, `Auto-Merge Policy`, `Copilot Review Apply`, `Merge Queue`,
+`Secret Scan`, `ai-attribution` and `tier-classifier`, all created within
+~3 seconds of the PR and all ending with nothing having run.
+
+The mechanism is documented in `production-feedback.yml` itself (lines 180-193):
+because automation commits are pushed with `GITHUB_TOKEN`/`AUTOMATION_PAT`,
+every `pull_request`-triggered run parks at `action_required`, and
+`scripts/approve-automation-runs.mjs` exists to approve them. The observable
+outcome says the approval is not landing: the PR merges ~14 minutes later on the
+dispatched CI run's commit status, `delete-branch: true` removes the branch, and
+the still-parked runs die as `failure`.
+
+The likely reason is a race — `approvePendingRuns()` does a single-shot
+`listRuns()` then approves whatever it finds
+(`scripts/approve-automation-runs.mjs`, no `sleep`/retry/poll anywhere in its
+236 lines), and it runs within seconds of the PR being opened, plausibly before
+GitHub has finished parking the runs. Every step of the producing workflow
+reports `success`, so nothing surfaces the miss. **I could not read the job logs
+to confirm the race directly** — Actions log downloads redirect to
+`productionresultssa10.blob.core.windows.net`, which this environment's egress
+proxy blocks — so the mechanism is inferred from the outcome (9/9 runs with zero
+jobs, repeated across eleven clusters) rather than observed. That inference is
+what issue 2 below asks a worker to confirm first.
+
+This is noise, not breakage: no PR was blocked and nothing regressed. It costs
+in legibility. Half the failure ledger is false, so anything that scans failures
+— `/ci-monitor`, `scheduled-workflow-health`, a human running `gh run list` —
+starts from a 2:1 noise floor.
+
+#### `ciHealth` false positives: third occurrence, still undocumented
+
+The `ciHealth` sensor filed a high-severity `ci-fix` regression three times in
+13 days — **#4333** (08-17), **#4538** (08-24), **#4685** (08-29) — and **all
+three were false positives**. Each burned a triage cycle to prove nothing was
+broken:
+
+- #4538: the sensor queried the last 30 runs repo-wide; every `failure` in the
+  sample was on an open Dependabot PR branch, and `main` was green throughout.
+- #4685: `pass_rate_pct` counted `skipped` and `cancelled` in the denominator.
+  The sensor's own payload showed `failed: 0` — a 40-point "regression" with
+  zero failures.
+
+Both root causes are now fixed in `scripts/sensors-registry.mjs` — the query is
+`--branch main` scoped, and the rate is `passed/(passed+failed)`. Good. But
+**nothing about this class is in `gotchas.md`** (zero matches for `ciHealth` or
+`pass_rate`), which is exactly the condition Pass 4 exists to catch: bitten
+three times, fixed twice, undocumented. The next sensor written against a
+run-count denominator will rediscover it.
+
+One residual inconsistency worth noting while someone is in that file: the
+sensor's `format:` string still prints `${data.passed}/${data.completed}`
+(`sensors-registry.mjs:568`) while `pass_rate_pct` is now computed over
+`passed + failed`. The human-readable line and the metric disagree — e.g.
+"100% pass rate (11/30)" — which is precisely the kind of thing that makes the
+_fourth_ triage confusing.
+
+#### The tier classifier escalates any PR that says the word "secrets"
+
+Found by this retro's own PR. **#4710 — a markdown-only change to this file —
+was labelled `tier:critical`**, with the reason
+`docs/process-retro.md -> T1: markdown only · escalate to T4: title/body
+mentions secrets or incident`. Per `docs/change-tiers.md:119`, T4 blocks merge
+until Matt personally approves and requires an ADR reference in the PR body.
+
+The trigger is the Escalations table above, which says "add `TURBO_TOKEN` +
+`TURBO_TEAM` to repo secrets". That phrasing is not incidental — this routine's
+own brief mandates it ("'Needs review' is not an ask; 'add TURBO_TOKEN to repo
+secrets' is"). **Every future weekly retro will be `tier:critical` by
+construction**, as will every doc-rot sweep or audit summary that names a
+credential.
+
+It is not just this routine. Three of the six `tier:critical` PRs created in the
+window carry that same reason on an otherwise T1/T2 change:
+
+| PR    | Classifier reason                                                                     |
+| ----- | ------------------------------------------------------------------------------------- |
+| #4547 | `docs/SECRETS.md -> T1: markdown only · escalate to T4: … mentions secrets`           |
+| #4563 | `unmatched paths default to T2: .github/workflows/ci.yml · escalate to T4: … secrets` |
+| #4710 | `docs/process-retro.md -> T1: markdown only · escalate to T4: … secrets`              |
+
+#4547 is the purest case: a PR that **edits the secrets documentation file**
+will always mention "secret", so `docs/SECRETS.md` can never be edited without
+tripping T4.
+
+The cause is bare mention-matching at `.github/workflows/tier-classifier.yml:159`:
+
+```js
+if (/secret|credential|rotate|leak|incident/i.test(title + " " + bodyProse)) {
+```
+
+No word boundaries, no request cue, no distinction between _doing_ something to
+a secret and _naming_ one. **The identical bug was already fixed one rule
+below.** The bypass modifier at lines 164-192 used to match any mention; it now
+requires a request cue or line-leading imperative, was validated by replaying
+the 300 most recent PR bodies (9 escalations, all descriptive — #3919 → #3921),
+and is pinned by `scripts/__tests__/tier-classifier-workflow.test.mjs`. The
+comment at line 169 even names the secrets rule as "the same class". #3606
+narrowed it once, by stripping `- [ ]` template checklist lines, but that
+addressed one false-positive source rather than the matching strategy.
+
+The fix is to apply the bypass rule's own proven shape to the secrets rule:
+require an action cue near the keyword (rotate/leak/exposed/committed/revoke),
+and treat a keyword inside an inline-code span or a table cell as a mention,
+not an action — then validate by replay and pin it with tests, exactly as
+#3921 did.
+
+**This is not filed as an issue.** The three-issue cap was already spent on
+#4711/#4712/#4713 before this surfaced, and on leverage it would have displaced
+#4713 (which documents an already-fixed bug) had the order been reversed. It is
+raised once on #4710 with the proposed patch, and it should be the first thing
+filed next week if nobody picks it up sooner. It is not filed here because this
+run's PR is scoped to `docs/process-retro.md` and must not touch
+`.github/workflows/`.
+
+### Throughput
+
+**61 issues filed, 55 closed — the backlog grew by 6.** 32 issues open at the
+end of the window, of which only **4 carry `ready`**. The queue is not starved
+because the backlog is empty; it stays near-empty because ideation and the
+auditor keep refilling it just ahead of the workers.
+
+`metrics/process-metrics.jsonl` now has continuous coverage 08-26 → 08-29 after
+the #4564 fix, and `queueEfficiency` composite ran 0.980, 0.982, 0.948, 0.959 —
+flat, no regressions detected. `metrics/queue-telemetry.jsonl` records 25 claims
+for the window, 24 merged (96%), CI first-pass 18 of 24, rework cycles on 4, all
+at the `sonnet` tier, reviewer verdict `pass` on 22 and `skipped` on 3.
+
+Four days of tracker data and a +6 issue delta over one week is **too thin to
+call a trend**. Two consecutive weeks of net-positive backlog growth would be a
+signal; one is noise. Recording the number, not a direction.
+
+### Top 3 changes
+
+1. **Make a red visual check block the merge that caused it.** The single most
+   expensive event this week (#4496 → five days red → #4613, 34 files,
+   +9,950 lines) happened because `Visual Regression (rialto-web)` is advisory
+   while `CI Gate` is required. The cheapest version is not making the whole
+   visual suite required — that would trade this failure mode for a flakier one
+   — but a targeted fitness check: a PR that changes visual tolerance or
+   snapshot config **and** leaves its own visual check red, or changes the
+   tolerance without regenerating baselines in the same PR, fails the gate.
+   → filed as **#4711**.
+2. **Stop the phantom-failure flood at its source.** 100 of 192 failures are
+   parked automation runs that nobody approved in time. Giving
+   `approve-automation-runs.mjs` a bounded poll instead of a single-shot query
+   removes half the failure ledger and restores the signal for every tool and
+   human that reads it. → filed as **#4712** (which asks a worker to confirm the
+   race from the job logs before implementing, since this run could not read
+   them).
+3. **Write the `ciHealth` class into `gotchas.md`.** Three false-positive
+   high-severity issues in 13 days, two code fixes, zero documentation. One
+   `gotchas.md` entry — sensors that compute a rate over raw workflow-run counts
+   must scope the branch and exclude non-outcome conclusions — costs minutes and
+   stops the next sensor author from rebuilding the same trap. → filed as
+   **#4713**.
+
+### Escalations
+
+Only a human can move these. None are filed as `ready` — an agent cannot grant a
+credential or make a product call.
+
+| Issue | Ask                                                                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| #3277 | **Approve or reject** narrowing Pulumi `ignoreChanges` to drift-tolerant paths. 51 days idle; the change itself is one config edit.                                                                    |
+| #4111 | **Add `VITE_STRIPE_PUBLISHABLE_KEY`** (test-mode `pk_test_…`) to the Hospitality E2E job's secrets so the deposit E2E can reach Stripe.                                                                |
+| #3585 | **Decide**: route AI features through the Claude CLI, or delete them. No `ANTHROPIC_API_KEY` is available and none is coming.                                                                          |
+| #3388 | **Add `TURBO_TOKEN` + `TURBO_TEAM`** to repo secrets to switch on Turborepo remote caching.                                                                                                            |
+| #3253 | **Decide** whether to take the TypeScript 7 migration now or pin off it; it is `size:l` and blocks nothing else today.                                                                                 |
+| #3978 | **Say yes or no** to the rialto video-game-UI exploration — it is a product-direction call, not an engineering one.                                                                                    |
+| #4119 | **Dispatch** `pulumi-r2-checksum-validation.yml` against the scratch bucket and read its verdict before the CLI pin can be lifted.                                                                     |
+| #3322 | **Choose the registry** for rialto — npmjs or GitHub Packages — and provision the matching token. `release.yml` has been green-but-skipping since #3322 was filed.                                     |
+| #4487 | **Review** the `/api/v1/holds` security finding: the live public booking widget calls a route with no auth, venue-slug scoping, or per-route rate limit, while its `/public/v1` sibling has all three. |
+
+---
+
 ## 2026-08-23
 
 Window: **2026-08-17 → 2026-08-23**. Sources: GitHub REST API (PR/issue search,

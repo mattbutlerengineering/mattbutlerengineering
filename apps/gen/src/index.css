@@ -6,5 +6,10 @@
 }
 
 body {
-  font-family: inherit;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-regular);
+  line-height: var(--rialto-leading-normal);
+  color: var(--rialto-text-primary);
+  background-color: var(--rialto-surface);
 }

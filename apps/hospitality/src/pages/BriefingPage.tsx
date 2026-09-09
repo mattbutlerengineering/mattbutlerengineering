@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Alert,
   Badge,
+  Button,
   Card,
   EmptyState,
   Input,
@@ -144,6 +145,7 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
 /* ── Main component ──────────────────────────────── */
 
 export function BriefingPage() {
+  const navigate = useNavigate();
   const { selectedVenueId } = useVenue();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
@@ -211,6 +213,11 @@ export function BriefingPage() {
           <EmptyState
             heading="No reservations"
             description={`No reservations for ${selectedDate}.`}
+            action={
+              <Button variant="primary" onClick={() => navigate("/reservations")}>
+                Go to Reservations
+              </Button>
+            }
           />
         </div>
       )}

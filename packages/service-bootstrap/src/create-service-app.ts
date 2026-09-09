@@ -183,6 +183,27 @@ export async function createServiceApp(
     },
   });
 
+  // Fastify's default not-found handler runs outside the route pipeline, so
+  // the limiter's onRoute hook (which attaches to every *registered* route)
+  // never sees an unmatched path — 404s were completely unbounded. Passing
+  // fastify.rateLimit() with no options reuses the exact global
+  // pluginComponent/store above (same 100/min-per-IP bucket, same key), so
+  // path-scanning counts against the identical budget every real endpoint uses.
+  // The handler body below deliberately reproduces Fastify's own default
+  // 404 response verbatim (fastify/lib/four-oh-four.js `basic404`) — this
+  // fix is scoped to adding rate limiting, not to changing the shape of an
+  // already-live response body, so the RFC 7807 envelope (ADR-002) is not
+  // applied here. TS requires a handler for the (opts, handler) overload,
+  // though the JS API also accepts opts-only with the identical body.
+  fastify.setNotFoundHandler({ preHandler: fastify.rateLimit() }, (request, reply) => {
+    // eslint-disable-next-line mbe-local/require-rfc-7807-errors -- intentionally mirrors Fastify's existing default 404 body; see comment above
+    reply.code(404).send({
+      message: `Route ${request.method}:${request.url} not found`,
+      error: "Not Found",
+      statusCode: 404,
+    });
+  });
+
   // --- Swagger / OpenAPI ---
   const swaggerVersion = config.swagger.version ?? "1.0.0";
   await fastify.register(swagger, {

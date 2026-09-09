@@ -577,6 +577,11 @@
     },
     {
       "from": "@mbe/sentry",
+      "to": "@mbe/observability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/sentry",
       "to": "@mbe/types",
       "type": "dependency"
     },

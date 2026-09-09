@@ -18,6 +18,29 @@ pnpm test:visual
 
 **Never claim a UI change works without running `pnpm test:visual` and reviewing the diff PNGs.**
 
+### Reading a failed visual run on a pull request
+
+When the `visual` job of `.github/workflows/rialto-web-e2e.yml` fails on a pull
+request, you no longer have to download the `rialto-web-visual-diffs` artifact to
+see what changed. The `publish-visual-diffs` job posts a single sticky comment on
+that PR carrying, for each changed snapshot, its name and its measured pixel
+difference against the `maxDiffPixels` budget, with the baseline / actual / diff
+PNGs embedded inline. The comment is readable as plain text — so
+`gh pr view <N> --comments` gives you the snapshot names and pixel counts without
+fetching an image — and the image URLs are unauthenticated
+`raw.githubusercontent.com` links, so they can be fetched directly. Re-running
+the job rewrites that one comment; a later passing run retracts it.
+
+Two limits worth knowing. The comment shows at most six snapshots as images and
+names the rest in an overflow list, so the artifact is still the full record. And
+the workflow's `paths:` filter means it only runs when the pull request's
+cumulative diff touches `apps/rialto-web/**`, `packages/rialto/src/**` or
+`infrastructure/worker/**` — a PR that backs out its entire `apps/rialto-web/**`
+change stops triggering the workflow, so a failure comment from an earlier push
+can be left standing. Delete it by hand in that case.
+
+See `docs/features/visual-diffs-in-pr/` for the design.
+
 ## Component Reference
 
 ```typescript

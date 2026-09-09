@@ -50,6 +50,21 @@ const EXPECTED_SHAPE = "an absolute https URL, e.g. https://your-tenant.us.auth0
  * @throws {Error} when `AUTH_AUTHORITY` is set but malformed.
  */
 export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): void {
+  // SENTRY_DSN is required in production, and unlike AUTH_AUTHORITY its ABSENCE
+  // is the fail-fast condition. `initSentry` returns early and silently when the
+  // DSN is missing, so a service reporting nothing because it is unconfigured
+  // and one reporting nothing because it has not errored yet are byte-identical
+  // from outside. That is what let backend errors go unreported for five months.
+  // Boot is the last moment the distinction is still observable, so it is made
+  // here. Dev and test are deliberately unaffected: local runs and the test
+  // suite must not need a DSN.
+  if (env.NODE_ENV === "production" && (env.SENTRY_DSN ?? "").trim() === "") {
+    throw new Error(
+      "Missing SENTRY_DSN in production: the service would boot with error " +
+        "reporting silently disabled. Set it in the deploy environment."
+    );
+  }
+
   const authority = env.AUTH_AUTHORITY;
 
   // Absent/empty is "not configured", handled by the fail-closed auth gate.

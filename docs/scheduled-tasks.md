@@ -8,7 +8,8 @@ than auto-merging.
 
 - **Manage / disable / inspect:** https://claude.ai/code/routines
 - **Create or edit from the CLI:** the `/schedule` skill (uses the `RemoteTrigger` tool).
-- Routines **cannot be deleted via the API** — disable them in the web UI.
+- Routines can be deleted via the API (`delete_trigger`) — see
+  [Editing a routine](#editing-a-routine) below — or disabled in the web UI.
 
 All times below are **America/Los_Angeles (PT)**; cron expressions are stored in UTC.
 

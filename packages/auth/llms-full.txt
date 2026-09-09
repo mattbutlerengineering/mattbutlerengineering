@@ -9,6 +9,87 @@
     export type VenueIdResolver = (
       request: FastifyRequest
     ) => string | null | undefined | Promise<string | null | undefined>;
+    export type VenueMembershipLookup = (userSub: string, venueId: string) => Promise<boolean>;
+    export type HasAnyVenueMembership = (userSub: string) => Promise<boolean>;
+    export function requireVenueAccess(
+      lookupMembership: VenueMembershipLookup,
+      resolveVenueId: VenueIdResolver
+    ) {
+      return async function venueAccessHandler(
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): Promise<void> {
+        const user = request.user;
+    
+        if (!user) {
+          reply
+            .code(401)
+            .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
+          return;
+        }
+    
+        // Platform admins are scoped to every venue; skip the per-request lookup.
+        if (hasPermission(user, "admin")) {
+          return;
+        }
+    
+        const venueId = await resolveVenueId(request);
+        if (!venueId) {
+          reply
+            .code(403)
+            .send(
+              createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
+            );
+          return;
+        }
+    
+        const isMember = await lookupMembership(user.raw.sub, venueId);
+        if (!isMember) {
+          reply
+            .code(403)
+            .send(
+              createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
+            );
+          return;
+        }
+      };
+    }
+    export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembership) {
+      return async function venueCreateAccessHandler(
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): Promise<void> {
+        const user = request.user;
+    
+        if (!user) {
+          reply
+            .code(401)
+            .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
+          return;
+        }
+    
+        // Platform admins may create any venue; skip the per-request lookup.
+        if (hasPermission(user, "admin")) {
+          return;
+        }
+    
+        // Deliberately unguarded: a rejection propagates to the error handler.
+        // See HasAnyVenueMembership's contract for why this must not be caught.
+        const alreadyHasVenue = await hasAnyVenueMembership(user.raw.sub);
+    
+        if (alreadyHasVenue) {
+          reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                titleForStatus(403),
+                "Admin role required to create additional venues"
+              )
+            );
+        }
+      };
+    }
   </file>
   <file path="src/fastify/ownership.ts">
     export interface AuthorizationContext {
@@ -16,6 +97,72 @@
       isOwner: boolean;
     }
     export type OwnerResolver = (request: FastifyRequest) => Promise<string | null>;
+    export interface OwnershipOptions {
+      /**
+       * How to respond when the caller is denied access.
+       * - "forbid" (default): 403 for a non-owner or null owner, 401 when the
+       *   current identity is unresolvable. The resource is known to exist and the
+       *   caller simply lacks access.
+       * - "hide": 404 for every denial (non-owner, null owner, unresolvable
+       *   identity). Existence-hiding — a deny is indistinguishable from a genuine
+       *   not-found, so unauthorized callers learn nothing about the resource.
+       */
+      denial?: "forbid" | "hide";
+    }
+    function denyRequest(
+      reply: FastifyReply,
+      denial: "forbid" | "hide",
+      forbidStatus: 401 | 403
+    ): void {
+      if (denial === "hide") {
+        reply.code(404).send(createProblemDetails(404, titleForStatus(404), "Resource not found"));
+        return;
+      }
+      const detail =
+        forbidStatus === 401 ? "Authentication required" : "You do not have access to this resource";
+      reply
+        .code(forbidStatus)
+        .send(createProblemDetails(forbidStatus, titleForStatus(forbidStatus), detail));
+    }
+    export function requireOwnershipOrAdmin(
+      resolveOwnerId: OwnerResolver,
+      resolveCurrentId: OwnerResolver = (req) => Promise.resolve(req.user?.id ?? null),
+      options: OwnershipOptions = {}
+    ) {
+      const denial = options.denial ?? "forbid";
+    
+      return async function ownershipOrAdminHandler(
+        request: FastifyRequest,
+        reply: FastifyReply
+      ): Promise<void> {
+        const user = request.user;
+        const isAdmin = hasPermission(user, "admin");
+    
+        if (isAdmin) {
+          request.authorization = { isAdmin: true, isOwner: false };
+          return;
+        }
+    
+        const [ownerId, currentId] = await Promise.all([
+          resolveOwnerId(request),
+          resolveCurrentId(request),
+        ]);
+    
+        if (currentId === null) {
+          denyRequest(reply, denial, 401);
+          return;
+        }
+    
+        const isOwner = ownerId !== null && ownerId === currentId;
+    
+        if (!isOwner) {
+          denyRequest(reply, denial, 403);
+          return;
+        }
+    
+        request.authorization = { isAdmin: false, isOwner: true };
+      };
+    }
   </file>
   <file path="src/fastify/plugin.ts">
     export interface AuthPluginOptions {
@@ -41,12 +188,237 @@
       verifier?: JwtVerifier;
     }
     export type JwtVerifier = (token: string) => Promise<VerifiedJWTPayload>;
+    export function isTestBypass(
+      request: Pick<FastifyRequest, "headers">,
+      bypassTestMode: boolean
+    ): boolean {
+      return (
+        process.env.NODE_ENV === "test" && bypassTestMode && request.headers["x-auth-bypass"] === "true"
+      );
+    }
+    export function toAuthUser(payload: VerifiedJWTPayload): AuthUser | null {
+      if (typeof payload.sub !== "string") {
+        return null;
+      }
+    
+      const jwtPayload: JWTPayload = {
+        ...payload,
+        sub: payload.sub,
+        iss: payload.iss ?? "",
+        aud: payload.aud ?? "",
+        exp: payload.exp ?? 0,
+        iat: payload.iat ?? 0,
+        email: payload.email as string | undefined,
+        email_verified: payload.email_verified as boolean | undefined,
+        name: payload.name as string | undefined,
+        picture: payload.picture as string | undefined,
+      };
+    
+      return {
+        id: jwtPayload.sub,
+        email: jwtPayload.email,
+        name: jwtPayload.name,
+        picture: jwtPayload.picture,
+        emailVerified: jwtPayload.email_verified,
+        raw: jwtPayload,
+      };
+    }
+    export function createJoseVerifier(authority: string, audience: string): JwtVerifier {
+      const normalizedAuthority = authority.replace(/\/$/, "");
+      const jwksUri = `${normalizedAuthority}/.well-known/jwks.json`;
+      const JWKS = createRemoteJWKSet(new URL(jwksUri));
+      const issuer = `${normalizedAuthority}/`;
+    
+      return async (token) => {
+        const { payload } = await jwtVerify(token, JWKS, { issuer, audience, algorithms: ["RS256"] });
+        return payload;
+      };
+    }
+    async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) {
+      const { authority, audience, excludePaths = [], bypassTestMode = false } = options;
+    
+      // Verifier seam: default to the standard OIDC/JWKS adapter (ADR-010), or the
+      // injected verifier when provided. Default behaviour is identical to before.
+      const verify = options.verifier ?? createJoseVerifier(authority, audience);
+    
+      // Expose bypassTestMode on the instance so requireAuth (a standalone preHandler)
+      // can consult it without reading process.env at request time.
+      fastify.decorate("authBypassTestMode", bypassTestMode);
+    
+      // Prominent startup warning when the test auth bypass is enabled. The bypass
+      // grants a hardcoded admin identity with no JWT validation, so it must never
+      // be active outside tests (only active when NODE_ENV=test, via the guard in the onRequest hook).
+      if (bypassTestMode) {
+        fastify.log.warn(
+          "AUTH_BYPASS_IN_TESTS=true — auth bypass is ENABLED. Matching requests " +
+            "skip JWT validation and receive a hardcoded admin identity. This bypass is default " +
+            "OFF and only activates when NODE_ENV=test. NEVER set AUTH_BYPASS_IN_TESTS in production."
+        );
+      }
+    
+      // Warn if rate limiting has not been registered by the consuming service.
+      // The auth plugin delegates rate limiting to consumers (e.g., @fastify/rate-limit).
+      fastify.addHook("onReady", async () => {
+        if (!fastify.hasDecorator("rateLimit")) {
+          fastify.log.warn(
+            "Auth plugin registered without rate limiting — register @fastify/rate-limit before @mbe/auth to protect auth endpoints"
+          );
+        }
+      });
+    
+      // github[js/missing-rate-limiting] - rate limiting is the consumer's responsibility.
+      // Consuming services (e.g., services/users) register @fastify/rate-limit globally
+      // before this plugin, so all routes — including this onRequest hook — are covered.
+      fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
+        // 1. Explicit test bypass — the single predicate, shared with requireAuth.
+        if (isTestBypass(request, bypassTestMode)) {
+          request.user = {
+            id: "auth0|user-123",
+            email: "test@example.com",
+            raw: {
+              sub: "auth0|user-123",
+              iss: "https://test.auth0.com",
+              aud: ["https://api.test.com"],
+              exp: Math.floor(Date.now() / 1000) + 3600,
+              iat: Math.floor(Date.now() / 1000),
+              permissions: ["admin"],
+            },
+          };
+          return;
+        }
+    
+        // 2. Skip excluded paths
+        if (excludePaths.some((path) => request.url.startsWith(path))) {
+          return;
+        }
+    
+        // 3. Regular JWT Validation
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith("Bearer ")) {
+          return;
+        }
+    
+        const token = authHeader.slice(7);
+    
+        // 4. Rate limit verification (defense-in-depth)
+        // github[js/missing-rate-limiting] — restrictive limit for crypto-intensive verification
+        if (fastify.hasDecorator("rateLimit")) {
+          // hasDecorator("rateLimit") is the runtime proof the decorator exists; the
+          // cast supplies its shape because @mbe/auth does not depend on
+          // @fastify/rate-limit, so its module augmentation is not in scope.
+          const rateLimitedFastify = fastify as unknown as {
+            rateLimit: (opts: {
+              max: number;
+              timeWindow: string;
+              keyGenerator: (req: FastifyRequest) => string;
+            }) => Promise<void>;
+          };
+          try {
+            await rateLimitedFastify.rateLimit({
+              max: 10,
+              timeWindow: "1 minute",
+              keyGenerator: (req: FastifyRequest) => req.ip,
+            });
+          } catch (error) {
+            if (
+              typeof error === "object" &&
+              error !== null &&
+              "statusCode" in error &&
+              error.statusCode === 429
+            ) {
+              return reply
+                .code(429)
+                .send(
+                  createProblemDetails(429, titleForStatus(429), "Authentication rate limit exceeded")
+                );
+            }
+            // Fall through on other errors — don't block auth due to rate limit failures
+          }
+        }
+    
+        // 5. Verify the token via the seam, then map claims to the request user.
+        try {
+          const payload = await verify(token);
+          const user = toAuthUser(payload);
+    
+          if (!user) {
+            request.log.warn("JWT missing required 'sub' claim");
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, titleForStatus(401), "Invalid token: missing sub"));
+          }
+    
+          request.user = user;
+        } catch (error) {
+          request.log.warn({ error }, "JWT validation failed");
+          return reply.code(401).send(createProblemDetails(401, titleForStatus(401), "Invalid token"));
+        }
+      });
+    }
+    export const authPlugin: FastifyPluginAsync<AuthPluginOptions> = fp(authPluginImpl, {
+      name: "@mbe/auth",
+      fastify: "5.x",
+    });
+    export function hasPermission(user: AuthUser | undefined, permission: string): boolean {
+      const permissions = user?.raw?.permissions;
+      if (!Array.isArray(permissions)) return false;
+      return permissions.includes(permission);
+    }
+    export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
+      const bypassTestMode = (request.server as FastifyInstance).authBypassTestMode ?? false;
+      if (!request.user && !isTestBypass(request, bypassTestMode)) {
+        return reply
+          .code(401)
+          .send(
+            createProblemDetails(401, titleForStatus(401), "Missing or invalid authorization header")
+          );
+      }
+    }
+    export async function optionalAuth(_request: FastifyRequest, _reply: FastifyReply) {}
+    export function getAuthPluginOptionsFromEnv(): AuthPluginOptions {
+      const authority = process.env.AUTH_AUTHORITY;
+      const audience = process.env.AUTH_AUDIENCE;
+    
+      if (!authority || !audience) {
+        throw new Error("Missing required auth environment variables: AUTH_AUTHORITY, AUTH_AUDIENCE");
+      }
+    
+      return {
+        authority,
+        audience,
+        excludePaths: ["/health", "/docs", "/v1/webhooks"],
+        bypassTestMode: process.env.AUTH_BYPASS_IN_TESTS === "true",
+      };
+    }
   </file>
   </section>
   <section priority="medium" role="react">
+  <file path="src/react/auth-error.ts">
+    export const SILENT_AUTH_ERROR_SOURCES = ["signinSilent", "renewSilent", "signoutSilent"] as const;
+    export function isSilentAuthError(error: unknown): boolean {
+      if (typeof error !== "object" || error === null) return false;
+      const source = (error as { source?: unknown }).source;
+      return typeof source === "string" && SILENT_SOURCES.has(source);
+    }
+  </file>
   <file path="src/react/hooks.ts">
+    export type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigator"]>;
     export function useAuth() {
       const auth = useOIDCAuth();
+      const lifecycle = useSessionLifecycle();
+    
+      // react-oidc-context flips `isLoading` on for the whole life of ANY
+      // navigator call (signinSilent, signinRedirect, …). A background refresh or
+      // an opening sign-in redirect is not "loading" to a consumer — rendering a
+      // loading screen there unmounts the authenticated app mid-session (or hides
+      // the login gate's own in-flight state). Sign-OUT navigators are the
+      // exception: oidc-client-ts removes the user before the end-session
+      // navigation, so without the loading mask the login gate would flash with
+      // a live Sign In button that races the redirect. Loading therefore means
+      // bootstrap, callback processing, or a sign-out in flight.
+      const activeNavigator = auth.activeNavigator;
+      const signOutInFlight = activeNavigator !== undefined && SIGN_OUT_NAVIGATORS.has(activeNavigator);
+      const silentFailure = isSilentAuthError(auth.error);
     
       const user: AuthUser | null = auth.user
         ? {
@@ -60,22 +432,43 @@
         : null;
     
       return {
-        /** Whether auth state is loading */
-        isLoading: auth.isLoading,
+        /** Whether the initial auth bootstrap (or the sign-in callback) is still resolving */
+        isLoading: auth.isLoading && (activeNavigator === undefined || signOutInFlight),
+        /** The navigator currently in flight (`"signinRedirect"`, `"signinSilent"`, …), if any */
+        activeNavigator,
+        /** Whether a silent token refresh is in flight — the session stays live meanwhile */
+        isRefreshing: activeNavigator === "signinSilent",
+        /**
+         * Whether the access token has expired (or was already expired when the
+         * stored session was restored). Distinct from "never signed in".
+         */
+        sessionExpired: lifecycle.expired || auth.user?.expired === true,
         /** Whether user is authenticated */
         isAuthenticated: auth.isAuthenticated,
         /** Current authenticated user */
         user,
         /** Access token for API calls */
         accessToken: auth.user?.access_token ?? null,
-        /** Sign in - redirects to OIDC provider */
-        signIn: () => auth.signinRedirect(),
+        /**
+         * Sign in - redirects to OIDC provider. Carries `returnTo` (an
+         * app-relative path, defaulting to the current location relative to the
+         * app base path) through the OIDC `state` so the destination survives the
+         * round-trip. Consumers receive it back via the provider's
+         * `onSigninCallback(returnTo)`.
+         */
+        signIn: (options?: SignInOptions) => {
+          const returnTo =
+            options?.returnTo ?? deriveReturnTo(window.location, auth.settings.redirect_uri);
+          return auth.signinRedirect({ state: { returnTo } });
+        },
         /** Sign out - redirects to OIDC provider */
         signOut: () => auth.signoutRedirect(),
         /** Sign in silently (refresh token) */
         signInSilent: () => auth.signinSilent(),
-        /** Auth error if any */
-        error: auth.error,
+        /** Interactive sign-in / sign-out error, if any — never a background refresh failure */
+        error: silentFailure ? undefined : auth.error,
+        /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
+        refreshError: silentFailure ? (auth.error ?? null) : null,
       };
     }
     export interface AccessTokenState {
@@ -86,6 +479,127 @@
        * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
        */
       refreshError: Error | null;
+    }
+    export function useAccessToken(): AccessTokenState {
+      const auth = useOIDCAuth();
+      const expiresAt = auth.user?.expires_at;
+      const signinSilent = auth.signinSilent;
+      const [localRefreshError, setLocalRefreshError] = useState<Error | null>(null);
+    
+      // The context-wrapped signinSilent never rejects: react-oidc-context catches,
+      // dispatches ERROR with a silent `source`, and resolves null. So the real
+      // failure signal is the context error; the local catch only matters for a
+      // custom UserManager that throws.
+      const contextRefreshError = isSilentAuthError(auth.error) ? (auth.error ?? null) : null;
+    
+      useEffect(() => {
+        if (!expiresAt) return;
+    
+        const msUntilExpiry = expiresAt * 1000 - Date.now();
+        // Refresh REFRESH_LEAD_MS before expiry; fire immediately if already inside the window.
+        const delay = Math.max(0, msUntilExpiry - REFRESH_LEAD_MS);
+    
+        const timer = setTimeout(() => {
+          signinSilent()
+            .then(() => setLocalRefreshError(null))
+            .catch((error: unknown) => {
+              setLocalRefreshError(error instanceof Error ? error : new Error(String(error)));
+            });
+        }, delay);
+    
+        return () => clearTimeout(timer);
+      }, [expiresAt, signinSilent]);
+    
+      return {
+        accessToken: auth.user?.access_token ?? null,
+        refreshError: contextRefreshError ?? localRefreshError,
+      };
+    }
+    export function useRequireAuth() {
+      const auth = useAuth();
+      const signInRef = useRef(auth.signIn);
+    
+      useEffect(() => {
+        signInRef.current = auth.signIn;
+      }, [auth.signIn]);
+    
+      const stableSignIn = useCallback(() => {
+        signInRef.current();
+      }, []);
+    
+      useEffect(() => {
+        if (!auth.isLoading && !auth.isAuthenticated) {
+          stableSignIn();
+        }
+      }, [auth.isLoading, auth.isAuthenticated, stableSignIn]);
+    
+      return auth;
+    }
+  </file>
+  <file path="src/react/return-to.ts">
+    export interface SignInOptions {
+      /**
+       * App-relative path (starting with "/", relative to the router basename) to
+       * restore after sign-in. Defaults to the current location.
+       */
+      returnTo?: string;
+    }
+    export function isSafeReturnTo(value: unknown): value is string {
+      if (typeof value !== "string" || value.length === 0) return false;
+      if (!value.startsWith("/")) return false;
+      if (value.startsWith("//") || value.startsWith("/\\")) return false;
+      return true;
+    }
+    export function appBasePath(redirectUri: string): string {
+      try {
+        const pathname = new URL(redirectUri).pathname;
+        const base = pathname.replace(/\/[^/]*$/, "");
+        return base === "/" ? "" : base;
+      } catch {
+        return "";
+      }
+    }
+    function isCallbackPath(pathname: string, redirectUri: string): boolean {
+      try {
+        return pathname === new URL(redirectUri).pathname;
+      } catch {
+        return false;
+      }
+    }
+    export function deriveReturnTo(
+      location: Pick<Location, "pathname" | "search" | "hash">,
+      redirectUri: string
+    ): string {
+      if (isCallbackPath(location.pathname, redirectUri)) return "/";
+    
+      const base = appBasePath(redirectUri);
+      const full = location.pathname + location.search + location.hash;
+    
+      let candidate = full;
+      if (base && full.startsWith(base)) {
+        const next = full.charAt(base.length);
+        if (next === "" || next === "/" || next === "?" || next === "#") {
+          const rest = full.slice(base.length);
+          candidate = rest.startsWith("/") ? rest : "/" + rest;
+        }
+      }
+    
+      return isSafeReturnTo(candidate) ? candidate : "/";
+    }
+    export function extractReturnTo(state: unknown): string | undefined {
+      if (state === null || typeof state !== "object") return undefined;
+      const candidate = (state as Record<string, unknown>).returnTo;
+      return isSafeReturnTo(candidate) ? candidate : undefined;
+    }
+  </file>
+  <file path="src/react/session-lifecycle-context.ts">
+    export interface SessionLifecycleState {
+      /** True from the moment the access token expires until a new user session loads. */
+      readonly expired: boolean;
+    }
+    export const SessionLifecycleContext = createContext<SessionLifecycleState>(DEFAULT_STATE);
+    export function useSessionLifecycle(): SessionLifecycleState {
+      return use(SessionLifecycleContext);
     }
   </file>
   </section>
@@ -126,6 +640,14 @@
       picture?: string;
       /** Custom claims */
       [key: string]: unknown;
+    }
+    export interface AuthUser {
+      id: string;
+      email?: string;
+      name?: string;
+      picture?: string;
+      emailVerified?: boolean;
+      raw: JWTPayload;
     }
   </file>
   </section>

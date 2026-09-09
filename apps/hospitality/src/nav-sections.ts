@@ -86,6 +86,7 @@ function buildOperationalSections(isAdmin: boolean): readonly NavSection[] {
       { id: "briefing", label: "Tonight's Service", path: "/briefing" },
       { id: "timeline", label: "Timeline", path: "/timeline" },
       { id: "reservations", label: "Reservations", path: "/reservations" },
+      { id: "waitlist", label: "Waitlist", path: "/waitlist" },
       { id: "guests", label: "Guests", path: "/guests" },
       { id: "home", label: "Dashboard", path: "/dashboard" },
     ],

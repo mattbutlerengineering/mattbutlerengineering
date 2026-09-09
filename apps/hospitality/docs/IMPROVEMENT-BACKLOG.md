@@ -19,6 +19,7 @@
 - [x] **#12** Unsaved changes warning — beforeunload + useBlocker + ConfirmDialog on FloorPlanEditorPage
 - [x] All hardcoded CSS colors replaced with Rialto tokens (all pages + all components)
 - [x] **#10** Keyboard accessibility for Timeline grid — arrow-key navigation + focus tracking (#4402), Enter/Space activation (#4408), visible focus ring (#4444), keyboard-only E2E coverage (#4453)
+- [x] **#13** Floor plan templates — five layouts (Restaurant, Cafe, Bar, Patio, Blank) added to the venue-onboarding wizard's Floor Plan step
 
 ---
 

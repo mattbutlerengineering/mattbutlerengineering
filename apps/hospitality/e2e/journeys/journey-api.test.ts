@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   deleteVenue,
+  isNonAdminAuthConfigured,
   readTokenPermissions,
   resolveNonAdminAuthEnv,
   sweepSyntheticVenues,
@@ -207,6 +208,24 @@ describe("resolveNonAdminAuthEnv", () => {
     expect(() =>
       resolveNonAdminAuthEnv({ E2E_NONADMIN_AUTH_EMAIL: "operator@example.com" })
     ).toThrow(/E2E_NONADMIN_AUTH_PASSWORD/);
+  });
+});
+
+describe("isNonAdminAuthConfigured", () => {
+  it("is true once both non-admin variables are set", () => {
+    expect(
+      isNonAdminAuthConfigured({
+        E2E_NONADMIN_AUTH_EMAIL: "operator@example.com",
+        E2E_NONADMIN_AUTH_PASSWORD: "operator-secret",
+      })
+    ).toBe(true);
+  });
+
+  it("is false when either variable is missing (#4527 — unprovisioned repo)", () => {
+    expect(isNonAdminAuthConfigured({ E2E_NONADMIN_AUTH_EMAIL: "operator@example.com" })).toBe(
+      false
+    );
+    expect(isNonAdminAuthConfigured({})).toBe(false);
   });
 });
 

@@ -20,6 +20,23 @@ describe("PinInput", () => {
       expect(cells.length).toBe(6);
     });
 
+    it("renders exactly `length` cells when value is empty", () => {
+      render(<PinInput value="" length={6} onChange={vi.fn()} />);
+      expect(screen.getAllByRole("textbox")).toHaveLength(6);
+    });
+
+    it("renders `length` cells for a partial value, filling only the leading cells", () => {
+      const { container } = render(<PinInput value="12" length={6} onChange={vi.fn()} />);
+      const inputs = getInputs(container);
+      expect(inputs).toHaveLength(6);
+      expect(inputs[0]!.value).toBe("1");
+      expect(inputs[1]!.value).toBe("2");
+      expect(inputs[2]!.value).toBe("");
+      expect(inputs[3]!.value).toBe("");
+      expect(inputs[4]!.value).toBe("");
+      expect(inputs[5]!.value).toBe("");
+    });
+
     it("renders label when provided", () => {
       render(<PinInput label="Enter code" value="1" onChange={vi.fn()} />);
       expect(screen.getByText("Enter code")).toBeInTheDocument();
@@ -187,5 +204,45 @@ describe("PinInput — required marker + aria-live announcements", () => {
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveTextContent("Code complete");
+  });
+
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike the old always-mounted echo region. See #4833.
+  it("announces the error hint via an alert region", () => {
+    render(
+      <PinInput label="Code" length={4} error hint="Code expired" value="12" onChange={() => {}} />
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Code expired");
+  });
+
+  it("does not duplicate the error message into a separate hidden echo node", () => {
+    render(
+      <PinInput label="Code" length={4} error hint="Code expired" value="12" onChange={() => {}} />
+    );
+    expect(screen.getAllByText("Code expired")).toHaveLength(1);
+  });
+});
+
+describe("PinInput — onComplete", () => {
+  it("calls onComplete exactly once with the full value when the final digit is typed", () => {
+    const onComplete = vi.fn();
+    const { container } = render(
+      <PinInput value="123" length={4} onChange={() => {}} onComplete={onComplete} />
+    );
+    const inputs = getInputs(container);
+    fireEvent.change(inputs[3]!, { target: { value: "4" } });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith("1234");
+  });
+
+  it("does not call onComplete while the value is shorter than length", () => {
+    const onComplete = vi.fn();
+    const { container } = render(
+      <PinInput value="1" length={4} onChange={() => {}} onComplete={onComplete} />
+    );
+    const inputs = getInputs(container);
+    fireEvent.change(inputs[1]!, { target: { value: "2" } });
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

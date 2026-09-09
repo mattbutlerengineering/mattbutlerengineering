@@ -10,15 +10,19 @@ function ToastTrigger({
   variant,
   description,
   duration,
+  action,
 }: {
   title: string;
   variant?: "default" | "success" | "error" | "accent";
   description?: string;
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }) {
   const { toast } = useToast();
   return (
-    <button onClick={() => toast({ title, variant, description, duration })}>Show Toast</button>
+    <button onClick={() => toast({ title, variant, description, duration, action })}>
+      Show Toast
+    </button>
   );
 }
 
@@ -108,6 +112,54 @@ describe("ToastProvider", () => {
       await waitFor(() => expect(screen.queryByText("Dismissible toast")).not.toBeInTheDocument(), {
         timeout: 3000,
       });
+    });
+  });
+
+  describe("toast action", () => {
+    it("renders an action button and invokes its onClick", async () => {
+      const user = userEvent.setup();
+      const onUndo = vi.fn();
+      render(
+        <ToastProvider>
+          <ToastTrigger
+            title="Driver removed"
+            duration={0}
+            action={{ label: "Undo", onClick: onUndo }}
+          />
+        </ToastProvider>
+      );
+      await user.click(screen.getByRole("button", { name: "Show Toast" }));
+      const undoButton = await screen.findByRole("button", { name: "Undo" });
+      await user.click(undoButton);
+      expect(onUndo).toHaveBeenCalledTimes(1);
+    });
+
+    it("dismisses the toast once its action is invoked", async () => {
+      const user = userEvent.setup();
+      render(
+        <ToastProvider>
+          <ToastTrigger
+            title="Driver removed"
+            duration={0}
+            action={{ label: "Undo", onClick: vi.fn() }}
+          />
+        </ToastProvider>
+      );
+      await user.click(screen.getByRole("button", { name: "Show Toast" }));
+      await user.click(await screen.findByRole("button", { name: "Undo" }));
+      await waitFor(() => expect(screen.queryByText("Driver removed")).not.toBeInTheDocument());
+    });
+
+    it("renders no action button when none is provided", async () => {
+      const user = userEvent.setup();
+      render(
+        <ToastProvider>
+          <ToastTrigger title="Plain toast" duration={0} />
+        </ToastProvider>
+      );
+      await user.click(screen.getByRole("button", { name: "Show Toast" }));
+      await waitFor(() => expect(screen.getByText("Plain toast")).toBeInTheDocument());
+      expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
     });
   });
 

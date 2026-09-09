@@ -1,0 +1,97 @@
+.page {
+  max-inline-size: 880px;
+  margin-inline: auto;
+  padding-block: var(--rialto-space-2xl);
+  padding-inline: var(--rialto-space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xl);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Instrument panel ─────────────────────────── */
+
+.panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-lg);
+  background: var(--rialto-surface);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-soft);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.stations {
+  grid-column: 1 / 4;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--rialto-space-md);
+}
+
+.station {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-md);
+  text-align: center;
+}
+
+.stationName {
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-sm);
+  font-weight: 500;
+  letter-spacing: var(--rialto-tracking-tight);
+  color: var(--rialto-text-primary);
+  text-transform: uppercase;
+}
+
+/* ── Handshake instrument ──────────────────────── */
+
+.handshake {
+  grid-column: 1 / 4;
+  inline-size: min(100%, 560px);
+  margin-inline: auto;
+}
+
+/* ── Readout, caption, controls ───────────────── */
+
+.readoutRow {
+  display: flex;
+  justify-content: center;
+}
+
+.caption {
+  min-block-size: 3lh;
+  text-align: center;
+  max-inline-size: 60ch;
+  margin-inline: auto;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+}
+
+.errorToggle {
+  margin-inline-start: var(--rialto-space-lg);
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: var(--rialto-space-md);
+  }
+
+  .stationName {
+    font-size: var(--rialto-text-xs);
+  }
+}

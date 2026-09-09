@@ -5,6 +5,17 @@ import { deriveReducedMotionOverrides } from "./reduced-motion";
 import { vibes, type VibeName, type VibeOverrides } from "./vibes";
 import { UIEnvironmentContext, type UIEnvironment } from "./useUIEnvironment";
 
+/**
+ * `<meta name="theme-color">` content, mirroring the `--rialto-surface`
+ * ground token (packages/rialto/src/tokens/colors.css) literally — meta
+ * tags can't read CSS custom properties, so these two must be kept in sync
+ * by hand with the token source of truth.
+ */
+const THEME_COLOR: Record<"light" | "dark", string> = {
+  light: "#f8f6f3",
+  dark: "#1e1c1a",
+};
+
 /* ── Props ───────────────────────────────────── */
 
 export interface RialtoProviderProps {
@@ -63,6 +74,19 @@ export function RialtoProvider({
   // Sync theme to <html> so body-level styles (global.css) inherit dark tokens
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", resolvedTheme);
+  }, [resolvedTheme]);
+
+  // Sync the mobile browser chrome color to the resolved theme. The two
+  // static, media-keyed <meta name="theme-color"> tags in each app's
+  // index.html only track the OS prefers-color-scheme query, so an explicit
+  // in-page toggle (independent of OS preference) leaves them stale. Mutate
+  // both tags' content directly rather than adding a third un-mediaed tag —
+  // this sidesteps browser theme-color precedence ambiguity entirely, and
+  // the static pair still paints the correct frame color before hydration
+  // or with JS disabled.
+  useEffect(() => {
+    const metas = document.querySelectorAll('meta[name="theme-color"]');
+    metas.forEach((meta) => meta.setAttribute("content", THEME_COLOR[resolvedTheme]));
   }, [resolvedTheme]);
 
   // Context value — memoized to prevent unnecessary re-renders

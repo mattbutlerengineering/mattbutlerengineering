@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,6 +67,17 @@ describe("loadSuite", () => {
 
     const tasks = await loadSuite(dir);
     expect(tasks).toHaveLength(1);
+  });
+
+  it("does not recurse into subdirectories", async () => {
+    await writeFile(join(dir, "fix-login.json"), JSON.stringify(validTask));
+    const sub = join(dir, "nested");
+    await mkdir(sub);
+    await writeFile(join(sub, "nested-task.json"), JSON.stringify({ ...validTask, id: "nested" }));
+
+    const tasks = await loadSuite(dir);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].id).toBe("fix-login");
   });
 });
 

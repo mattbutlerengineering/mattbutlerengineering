@@ -443,6 +443,10 @@ describe("Auth fail-closed behavior", () => {
       NODE_ENV: "production",
       AUTH_AUTHORITY: undefined,
       AUTH_AUDIENCE: undefined,
+      // validateStartupConfig now refuses a production boot without a DSN, and
+      // it runs before the auth gate -- supply one so this test still reaches
+      // the fail-closed auth assertion it is actually about.
+      SENTRY_DSN: "https://key@o1.ingest.sentry.io/2",
     };
 
     await expect(buildApp({ logger: false })).rejects.toThrow(

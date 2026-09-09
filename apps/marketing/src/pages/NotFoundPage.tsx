@@ -23,7 +23,7 @@ export function NotFoundPage() {
         404
       </Heading>
       <Text variant="body" color="secondary" className={styles.message}>
-        This page doesn&apos;t exist. It may have been moved or removed.
+        Wrong door. That page never made the list.
       </Text>
 
       <Stack gap="lg" align="center">

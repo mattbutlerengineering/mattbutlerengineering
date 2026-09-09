@@ -4,7 +4,7 @@ import { VerticalStepRail } from "./VerticalStepRail";
 import { ONBOARDING_STEPS } from "./onboarding-steps";
 
 describe("VerticalStepRail", () => {
-  it("renders all 5 steps with a label and a one-line description", () => {
+  it("renders all 6 steps with a label and a one-line description", () => {
     render(<VerticalStepRail currentStep={1} highestStepReached={1} />);
 
     for (const step of ONBOARDING_STEPS) {

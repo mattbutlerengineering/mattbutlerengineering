@@ -47,6 +47,14 @@ describe("durableManifest()", () => {
       expect(reason.length).toBeGreaterThan(0);
     }
   });
+
+  // #4801 — verify-fixes.mjs's threshold auto-tuner writes to this file, but
+  // it was absent from METRICS/DURABLE_OUTSIDE/EXTERNAL, so persist-metrics.mjs
+  // never staged it and every tuned threshold was lost on the next ephemeral
+  // cloud checkout.
+  it("covers .github/auto-qa-tuning.json (verify-fixes.mjs threshold auto-tuner output)", () => {
+    expect(durableManifest()).toContain(".github/auto-qa-tuning.json");
+  });
 });
 
 // ---------------------------------------------------------------------------

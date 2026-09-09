@@ -11,6 +11,11 @@
     <item priority="high">
       export function createRawBodyCaptureHook(): preParsingAsyncHookHandler { /* ... */ }
     </item>
+    <item priority="high">
+      export function createVerifiedBodyPreHandler(
+        opts: VerifiedWebhookOptions
+      ): preHandlerAsyncHookHandler { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="prisma">
@@ -68,6 +73,37 @@
         providerMetadata: unknown;
       }
     </item>
+    <item priority="low">
+      interface GenRunnerConfig {
+        systemPrompt: string;
+        modelId: string;
+        maxSteps: number;
+        onFinish?: (payload: GenFinishPayload) => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export const GEN_WRITE_TOOLS: ReadonlySet<string>;
+    </item>
+    <item priority="low">
+      type GenToolMap = Record<string, unknown>;
+    </item>
+    <item priority="low">
+      type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
+    </item>
+    <item priority="low">
+      interface GenRunner {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createGenRunner(config: GenRunnerConfig): GenRunner { /* ... */ }
+    </item>
+    <item priority="low">
+      async function handleToolCall(
+        event: { toolCallId: string; toolName: string; input: unknown },
+        onEvent: GenEventCallback
+      ): Promise<void> { /* ... */ }
+    </item>
   </file>
   <file path="src/routes/gen-specs.ts">
     <item priority="high">
@@ -80,6 +116,29 @@
     </item>
     <item priority="high">
       type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: ...;
+    </item>
+    <item priority="high">
+      export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) { /* ... */ }
+    </item>
+    <item priority="high">
+      interface GenUsage {
+        inputTokens?: number;
+        outputTokens?: number;
+      }
+    </item>
+    <item priority="high">
+      export function logGenCost(
+        log: FastifyBaseLogger,
+        opts: {
+          readonly userId?: string;
+          readonly usage: GenUsage;
+          readonly providerMetadata?: unknown;
+          readonly label: string;
+        }
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyStreamHeaders(reply: FastifyReply, contentType: string): void { /* ... */ }
     </item>
   </file>
   <file path="src/routes/health.ts">
@@ -106,6 +165,9 @@
         totalCostUsd: number;
       }
     </item>
+    <item priority="high">
+      export const orchestrateRoutes: FastifyPluginAsync;
+    </item>
   </file>
   <file path="src/routes/remediation.ts">
     <item priority="high">
@@ -126,6 +188,9 @@
     </item>
     <item priority="high">
       export const requireSessionAccess: unknown;
+    </item>
+    <item priority="high">
+      export const sessionRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/webhooks.ts">
@@ -150,6 +215,85 @@
         sender: { login: string; type: string };
       }
     </item>
+    <item priority="high">
+      interface GitHubIssueCommentEvent {
+        action: string;
+        comment: {
+          body: string;
+          html_url: string;
+          user: { log...;
+        issue: {
+          number: number;
+          title: string;
+          html_url: st...;
+        repository: {
+          full_name: string;
+          default_branch: string;
+        };
+        sender: { login: string; type: string };
+      }
+    </item>
+    <item priority="high">
+      interface GitHubCheckRunEvent {
+        action: string;
+        check_run: {
+          conclusion: string | null;
+          name: string;
+          he...;
+        repository: {
+          full_name: string;
+          default_branch: string;
+        };
+      }
+    </item>
+    <item priority="low">
+      async function checkCollaboratorPermission(
+        username: string,
+        repository: string,
+        githubToken: string
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const webhookRoutes: FastifyPluginAsync;
+    </item>
+    <item priority="low">
+      async function handleIssueEvent(
+        fastify: {
+          log: {
+            info: (...args: unknown[]) => void;
+            warn: (...args: unknown[]) => void;
+            error: (...args: unknown[]) => void;
+          };
+        },
+        event: GitHubIssueEvent,
+        githubToken: string
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function handleIssueCommentEvent(
+        fastify: {
+          log: {
+            info: (...args: unknown[]) => void;
+            warn: (...args: unknown[]) => void;
+            error: (...args: unknown[]) => void;
+          };
+        },
+        event: GitHubIssueCommentEvent,
+        githubToken: string
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function handleCheckRunEvent(
+        fastify: {
+          log: {
+            info: (...args: unknown[]) => void;
+            warn: (...args: unknown[]) => void;
+            error: (...args: unknown[]) => void;
+          };
+        },
+        event: GitHubCheckRunEvent
+      ): Promise<void> { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="schemas">
@@ -159,6 +303,18 @@
     </item>
     <item priority="high">
       export const SessionEventSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateSessionBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PaginationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ErrorSchema: unknown;
+    </item>
+    <item priority="high">
+      export function registerSchemas(fastify: FastifyInstance) { /* ... */ }
     </item>
   </file>
   </section>
@@ -187,6 +343,9 @@
         
       }
     </item>
+    <item priority="high">
+      export function createLivenessMonitor(config: LivenessMonitorConfig): LivenessMonitor { /* ... */ }
+    </item>
   </file>
   <file path="src/services/logger.ts">
     <item priority="high">
@@ -211,6 +370,23 @@
         reason?: string;
       }
     </item>
+    <item priority="low">
+      interface CircuitBreaker {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createCircuitBreaker(opts?: {
+        failureThreshold?: number;
+        resetAfterMs?: number;
+      }): CircuitBreaker { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkCircuitBreaker(): CircuitCheckResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function recordRemediationOutcome(succeeded: boolean): void { /* ... */ }
+    </item>
   </file>
   <file path="src/services/session-concurrency.ts">
     <item priority="low">
@@ -221,6 +397,12 @@
     <item priority="high">
       export function createSessionConcurrency(limit: number): SessionConcurrency { /* ... */ }
     </item>
+    <item priority="high">
+      export function resolveConcurrencyLimit(): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultConcurrency: SessionConcurrency;
+    </item>
   </file>
   <file path="src/services/session-event-emitter.ts">
     <item priority="low">
@@ -230,6 +412,19 @@
       interface SessionEventEmitter {
         
       }
+    </item>
+    <item priority="high">
+      class InProcessSessionEventEmitter {
+        emitter: unknown;
+        async publish(): Promise<unknown>;
+        async subscribe(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      export function getSessionEventEmitter(): SessionEventEmitter { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setSessionEventEmitter(emitter: SessionEventEmitter): void { /* ... */ }
     </item>
   </file>
   <file path="src/services/session-executor.ts">
@@ -244,6 +439,21 @@
         
       }
     </item>
+    <item priority="high">
+      export function createSessionExecutor(config: SessionExecutorConfig): SessionExecutor { /* ... */ }
+    </item>
+    <item priority="medium">
+      function defaultExecutor(): SessionExecutor { /* ... */ }
+    </item>
+    <item priority="high">
+      export const getActiveSessionCount: unknown;
+    </item>
+    <item priority="high">
+      export const executeSession: unknown;
+    </item>
+    <item priority="high">
+      export const cancelSession: unknown;
+    </item>
   </file>
   <file path="src/services/session-lifecycle-store.ts">
     <item priority="medium">
@@ -251,6 +461,9 @@
     </item>
     <item priority="medium">
       function toStoredSession(row: Session): StoredSession { /* ... */ }
+    </item>
+    <item priority="high">
+      export const sessionLifecycleStore: SessionLifecycleStore;
     </item>
   </file>
   <file path="src/services/session-trigger.ts">
@@ -269,6 +482,9 @@
         accepted: boolean;
       }
     </item>
+    <item priority="high">
+      export async function triggerSession(opts: TriggerSessionOptions): Promise<TriggerSessionResult> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/session.ts">
     <item priority="medium">
@@ -277,6 +493,17 @@
     <item priority="high">
       export function mapPrismaEvent(event: SessionEvent): AgentSessionEvent { /* ... */ }
     </item>
+    <item priority="high">
+      interface ListOptions {
+        page: number;
+        limit: number;
+        status?: SessionStatus;
+        userId?: string;
+      }
+    </item>
+    <item priority="high">
+      export const sessionService: unknown;
+    </item>
   </file>
   <file path="src/services/storage-event-mapper.ts">
     <item priority="medium">
@@ -284,6 +511,9 @@
     </item>
     <item priority="medium">
       function summarizeToolInput(input: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } { /* ... */ }
     </item>
   </file>
   <file path="src/services/stored-spec.ts">
@@ -296,8 +526,20 @@
         rawLines: unknown;
       }
     </item>
+    <item priority="low">
+      type StoredSpecPublicResponse = Omit<StoredSpecResponse, "userId">;
+    </item>
     <item priority="high">
       export function mapStoredSpec(s: StoredSpec): StoredSpecResponse { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapStoredSpecPublic(s: StoredSpec): StoredSpecPublicResponse { /* ... */ }
+    </item>
+    <item priority="low">
+      async function _enforceCapForUser(userId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const storedSpecService: unknown;
     </item>
   </file>
   </section>

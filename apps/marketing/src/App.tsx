@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router";
-import { Footer, GlobalNav, Text } from "@mattbutlerengineering/rialto";
+import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() => import("./pages/HomePage").then((m) => ({ default: m.HomePage })));
@@ -28,6 +28,14 @@ interface AppProps {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
+// Reserves the height HeroSection commits to (minHeight="90vh") for the
+// duration of HomePage's lazy-chunk fetch, so the footer never paints
+// in-viewport only to be shoved off-screen once the real content mounts
+// (#4835 — measured CLS 0.28, single shift sourced from the footer).
+function HomeRouteFallback() {
+  return <Skeleton variant="rect" width="100%" height="90vh" />;
+}
+
 export function App({ theme, onThemeToggle }: AppProps) {
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -53,7 +61,14 @@ export function App({ theme, onThemeToggle }: AppProps) {
       <main id="main-content" tabIndex={-1} className={styles.main}>
         <Suspense fallback={null}>
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route
+              path="/"
+              element={
+                <Suspense fallback={<HomeRouteFallback />}>
+                  <HomePage />
+                </Suspense>
+              }
+            />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/weekly" element={<WeeklyIntakePage />} />
             <Route path="/metrics" element={<MetricsPage />} />

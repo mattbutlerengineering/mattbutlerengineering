@@ -10,6 +10,9 @@ import { PAGE_REGISTRY } from "./data/page-registry";
 /* ── Lazy-loaded demo pages ──────────────────────── */
 const SignIn = lazy(() => import("./pages/auth/SignIn").then((m) => ({ default: m.SignIn })));
 const SignUp = lazy(() => import("./pages/auth/SignUp").then((m) => ({ default: m.SignUp })));
+const SessionExpired = lazy(() =>
+  import("./pages/auth/SessionExpired").then((m) => ({ default: m.SessionExpired }))
+);
 const Dashboard = lazy(() =>
   import("./pages/dashboard/Dashboard").then((m) => ({ default: m.Dashboard }))
 );
@@ -39,6 +42,9 @@ const LayoutDemo = lazy(() =>
 );
 const Telemetry = lazy(() =>
   import("./pages/telemetry/Telemetry").then((m) => ({ default: m.Telemetry }))
+);
+const AuthFlowPage = lazy(() =>
+  import("./pages/auth/AuthFlowPage").then((m) => ({ default: m.AuthFlowPage }))
 );
 const DemoLayout = lazy(() =>
   import("./layouts/DemoLayout").then((m) => ({ default: m.DemoLayout }))
@@ -103,10 +109,12 @@ export const routeTree: RouteObject[] = [
     children: [
       { path: "login", element: suspended(SignIn) },
       { path: "signup", element: suspended(SignUp) },
+      { path: "session-expired", element: suspended(SessionExpired) },
       { path: "dashboard", element: suspended(Dashboard) },
       { path: "teams/new", element: suspended(TeamCreate) },
       { path: "layouts", element: suspended(LayoutDemo) },
       { path: "telemetry", element: suspended(Telemetry) },
+      { path: "auth-flow", element: suspended(AuthFlowPage) },
       { path: "visual-test", element: suspended(VisualTest) },
       {
         element: suspended(DriverProvider),

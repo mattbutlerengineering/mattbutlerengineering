@@ -128,6 +128,19 @@ describe("ImageUpload", () => {
       expect(onChange).toHaveBeenCalledWith(null);
       expect(clickSpy).toHaveBeenCalled();
     });
+
+    it("does not open file picker on Enter when preview is showing", async () => {
+      const user = userEvent.setup();
+      render(<ImageUpload value="https://example.com/logo.png" />);
+
+      const tile = document.querySelector('[role="button"]') as HTMLElement;
+      const input = document.querySelector("input[type='file']") as HTMLInputElement;
+      const clickSpy = vi.spyOn(input, "click");
+
+      tile.focus();
+      await user.keyboard("{Enter}");
+      expect(clickSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe("uploading state", () => {

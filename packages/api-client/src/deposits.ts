@@ -64,10 +64,6 @@ export class DepositsClient {
    * Run a back-office deposit state transition (`capture` | `refund` | `forfeit`).
    */
   async transition(id: string, action: DepositTransition): Promise<Deposit> {
-    return this.client.postOne<Deposit>(
-      `${DEPOSIT_BASE_PATH}/${id}/${action}`,
-      undefined,
-      DepositSchema
-    );
+    return this.client.postOne<Deposit>(`${DEPOSIT_BASE_PATH}/${id}/${action}`, {}, DepositSchema);
   }
 }

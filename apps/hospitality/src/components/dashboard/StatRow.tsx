@@ -32,6 +32,8 @@ export function StatRow({ stats }: StatRowProps) {
     { label: "Today's Reservations", value: stats.totalReservations },
     { label: "Expected Covers", value: stats.expectedCovers },
     { label: "Upcoming (2 hrs)", value: stats.upcomingCount },
+    { label: "Waitlist", value: stats.waitlistCount },
+    { label: "Longest Wait (min)", value: stats.longestWaitMinutes },
   ];
 
   return (

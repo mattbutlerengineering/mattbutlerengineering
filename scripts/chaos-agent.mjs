@@ -45,7 +45,9 @@ const ghClient = createGhClient();
 
 const TARGET_APPS = ["apps/marketing", "apps/hospitality", "apps/rialto-web"];
 
-export function findTargetFile(type) {
+// `_type` is accepted for call-site symmetry but unused: target selection is
+// currently type-independent (a random .tsx under a random target app).
+export function findTargetFile(_type) {
   const app = TARGET_APPS[Math.floor(Math.random() * TARGET_APPS.length)];
   const files = execFileSync("find", [path.join(ROOT, app, "src"), "-name", "*.tsx"], {
     encoding: "utf-8",
@@ -217,7 +219,14 @@ function main() {
       try {
         ghClient.pr.create(buildChaosPrArgs(type, targetFile, relativePath));
       } catch (e) {
+        // #4287: this used to log and fall through, so the workflow reported
+        // success while producing no PR. The 2026-08-25 run did exactly that
+        // — `chaos-audit` did not exist as a repo label, `gh pr create`
+        // refused, and the job went green with a pushed branch and nothing
+        // for the audit loops to detect. A chaos run whose whole output is
+        // the PR has not succeeded if the PR was never created.
         console.error(`gh command failed: ${e.message}`);
+        process.exit(1);
       }
     }
   } else {

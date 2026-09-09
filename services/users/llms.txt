@@ -19,6 +19,9 @@
     <item priority="medium">
       function resolveTargetUserId(request: FastifyRequest): Promise<string | null> { /* ... */ }
     </item>
+    <item priority="high">
+      export const userRoutes: FastifyPluginAsync;
+    </item>
   </file>
   </section>
   <section priority="medium" role="schemas">
@@ -28,6 +31,15 @@
     </item>
     <item priority="high">
       export const UserSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PaginationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ErrorSchema: unknown;
+    </item>
+    <item priority="high">
+      export function registerSchemas(fastify: FastifyInstance) { /* ... */ }
     </item>
   </file>
   </section>

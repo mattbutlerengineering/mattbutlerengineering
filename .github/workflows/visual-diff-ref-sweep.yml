@@ -1,0 +1,57 @@
+name: Visual Diff Ref Sweep
+
+# Bounds the growth of refs/heads/visual-diffs/**, the namespace
+# rialto-web-e2e.yml's publish-visual-diffs job pushes diff images to.
+# Reachability is what keeps a standing PR comment's images alive, so the
+# retention rule IS the storage design; it lives in scripts/visual-diff-refs.mjs
+# (planRefSweep, unit-tested) and this file is a thin caller.
+#
+# Deliberately NOT folded into branch-cleanup.yml. That workflow hard-wires
+# DRY_RUN to 'true' for every event except workflow_dispatch, so its scheduled
+# runs — the only unattended ones — can never delete anything. A sweep added
+# there would be decorative. scripts/__tests__/visual-diff-ref-sweep.test.mjs
+# asserts this file does not reproduce that wiring, and that the trap really is
+# present in branch-cleanup.yml so the assertion is not vacuous.
+#
+# There is no `push:` trigger here, and there must never be one: a ref under
+# visual-diffs/ starting a CI run would turn every failing visual job into a
+# run storm. scripts/__tests__/visual-diff-ref-trigger-safety.test.mjs guards
+# that across every workflow in this directory.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # daily, 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (log the verdicts, delete nothing)"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write # git push --delete on the diff refs
+  pull-requests: read # gh pr list — which PRs are still open
+
+jobs:
+  sweep:
+    name: Sweep visual diff refs
+    runs-on: ubuntu-latest
+    steps:
+      # Shallow is fine: the sweep reads the remote through `git ls-remote` and
+      # dates commits through the GitHub git-database API. It never needs the
+      # diff images themselves, which is the whole point of not fetching them.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Sweep
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Scheduled runs are LIVE — an unattended sweep that can only ever
+          # dry-run is the branch-cleanup.yml failure this workflow exists to
+          # avoid. A hand dispatch honours its input and defaults to dry.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        # No pnpm install, no build: scripts/visual-diff-refs.mjs imports only
+        # node builtins, so bare node is the entire runtime it needs.
+        run: |
+          set -o pipefail
+          node scripts/visual-diff-refs.mjs

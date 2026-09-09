@@ -14,15 +14,10 @@ import {
   updateTableBodyJsonSchema,
   updateTableStatusBodyJsonSchema,
 } from "@mbe/types";
-import {
-  requireAuth,
-  requireAdmin,
-  requireVenueAccess,
-  type VenueIdResolver,
-} from "@mbe/auth/fastify";
+import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { TableTransitionError } from "../services/table.js";
-import { venueIdFromBody } from "./venue-access.js";
+import { venueIdFromBody, venueIdFromQuery, venueIdFromEntity } from "./venue-access.js";
 
 export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve domain services from the buildApp seam (issue #3357) rather than
@@ -35,21 +30,22 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
    * to that venue. Null when the table does not exist or is unassigned (→ 403 for
    * non-admins; platform admins bypass the check).
    */
-  const resolveTableVenueId: VenueIdResolver = async (request) => {
-    const params = request.params as { id?: unknown };
-    if (typeof params.id !== "string") return null;
-    const table = await tableService.getById(params.id);
-    return table?.venueId ?? null;
-  };
+  const resolveTableVenueId: VenueIdResolver = venueIdFromEntity(
+    (request) => (request.params as { id?: unknown }).id,
+    tableService.getById
+  );
 
   // List tables
   fastify.get<{
-    Querystring: { page?: string; limit?: string; activeOnly?: string };
+    Querystring: { page?: string; limit?: string; activeOnly?: string; venueId?: string };
     Reply: PaginatedResponse<Table>;
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireAdmin],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, venueIdFromQuery),
+      ],
       schema: {
         summary: "List all tables",
         operationId: "listTables",
@@ -72,7 +68,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     async (request) => {
       const { page, limit } = parsePaginationQuery(request.query);
       const activeOnly = request.query.activeOnly === "true";
-      return tableService.list(page, limit, activeOnly);
+      return tableService.list(page, limit, activeOnly, request.query.venueId);
     }
   );
 

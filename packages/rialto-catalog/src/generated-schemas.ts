@@ -65,6 +65,7 @@ export const generatedSchemas = {
   Checkbox: z.object({
     label: z.string().max(30).optional(),
     checked: z.boolean().optional(),
+    defaultChecked: z.boolean().optional(),
     required: z.boolean().optional(),
     indeterminate: z.boolean().optional(),
     disabled: z.boolean().optional(),

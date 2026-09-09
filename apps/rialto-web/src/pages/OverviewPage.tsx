@@ -1,16 +1,18 @@
 import { useNavigate } from "react-router";
 import { Button, Card, Heading, Hero, Stack, Stat, Text } from "@mattbutlerengineering/rialto";
-import manifest from "@mattbutlerengineering/rialto/manifest";
 import { NAV_SECTIONS } from "../data/nav-sections.js";
 import styles from "./OverviewPage.module.css";
 
 // Counts are derived from generated/build-time sources so the stat row never
 // drifts from the shipped library:
-// - components  → the compiled rialto manifest
+// - components  → __RIALTO_COMPONENT_COUNT__, counted from the compiled
+//                 rialto manifest at build time (see component-count.config.ts) —
+//                 not imported at runtime, since the manifest also carries every
+//                 component's full description/prop table/character limits
 // - categories  → the nav registry (itself derived from the page registry)
 // - tokens      → __RIALTO_TOKEN_COUNT__, counted from the shipped stylesheet
 //                 at build time (see token-count.config.ts)
-const COMPONENT_COUNT = manifest.components.length;
+const COMPONENT_COUNT = __RIALTO_COMPONENT_COUNT__;
 const CATEGORY_COUNT = NAV_SECTIONS.length;
 const FIRST_COMPONENT_PATH = NAV_SECTIONS[0]?.items[0]?.path ?? "/";
 

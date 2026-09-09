@@ -94,7 +94,13 @@ export type {
 } from "./guest.js";
 
 // Waitlist types
-export type { WaitlistJoinRequest, WaitlistJoinResult } from "./waitlist.js";
+export type {
+  WaitlistJoinRequest,
+  WaitlistJoinResult,
+  WaitlistStatus,
+  WaitlistEntry,
+  CreateWaitlistEntryRequest,
+} from "./waitlist.js";
 
 // Agent types
 export type {

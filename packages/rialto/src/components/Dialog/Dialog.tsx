@@ -85,6 +85,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   className={styles.close}
                   onClick={onClose}
                   aria-label="Close dialog"
+                  data-focus-trap-skip-initial="true"
                 >
                   <svg
                     width="14"

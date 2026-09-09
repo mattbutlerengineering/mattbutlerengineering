@@ -16,7 +16,7 @@
 export const COST_SUITE_DIR = "packages/agent-core/eval-suite/cost";
 
 /** Short-name → relative-path map for built-in named suites. */
-const NAMED_SUITES: Readonly<Record<string, string>> = {
+export const NAMED_SUITES: Readonly<Record<string, string>> = {
   cost: COST_SUITE_DIR,
 };
 

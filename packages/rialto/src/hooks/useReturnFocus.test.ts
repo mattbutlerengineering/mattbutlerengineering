@@ -99,7 +99,7 @@ describe("useReturnFocus", () => {
     expect(document.activeElement).toBe(document.body);
   });
 
-  it("handles unmount while open without throwing", () => {
+  it("restores focus to the captured trigger on unmount while still open", () => {
     const trigger = document.createElement("button");
     document.body.appendChild(trigger);
     trigger.focus();
@@ -112,7 +112,12 @@ describe("useReturnFocus", () => {
       rerender({ open: true });
     });
 
-    // Unmount while still open — should not throw
+    // Move focus away (simulating the trapped panel taking focus)
+    const other = document.createElement("button");
+    document.body.appendChild(other);
+    other.focus();
+
+    // Unmount while still open — should not throw, and should restore focus
     expect(() => {
       act(() => {
         unmount();
@@ -122,7 +127,10 @@ describe("useReturnFocus", () => {
       });
     }).not.toThrow();
 
+    expect(document.activeElement).toBe(trigger);
+
     document.body.removeChild(trigger);
+    document.body.removeChild(other);
   });
 
   it("clears the captured trigger after restoring focus", () => {

@@ -1,0 +1,25 @@
+/* ── Session-expired gate ─────────────────────
+   Same machined-card-on-atmosphere stage as
+   LoginGate, composed rather than duplicated so
+   the two gates cannot drift apart.
+   ──────────────────────────────────────────── */
+
+.gate {
+  composes: gate from "./LoginGate.module.css";
+}
+
+.atmosphere {
+  composes: atmosphere from "./LoginGate.module.css";
+}
+
+.grain {
+  composes: grain from "./LoginGate.module.css";
+}
+
+.card {
+  composes: card from "./LoginGate.module.css";
+}
+
+.handshake {
+  width: min(100%, 320px);
+}

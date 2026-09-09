@@ -98,28 +98,93 @@ describe("tier-classifier keyword escalation vs. the PR template", () => {
     expect(label).not.toBe("tier:critical");
   });
 
-  it("still escalates to T4 when the title genuinely mentions secrets", () => {
+  // #5082: the keyword rule used to hard-set T4 regardless of what the PR
+  // actually touched — PR #4710 changed exactly one markdown file and was
+  // escalated to tier:critical purely because its body discussed "secrets".
+  // The rule now only hard-sets T4 when a changed file already matched a
+  // T3/T4 sensitive-path rule; otherwise it escalates by at most one tier,
+  // same as every other escalation rule in the file.
+  it("escalates by at most one tier (not to T4) when a keyword appears but no changed file is sensitive", () => {
     const { tier, label, reasons } = runClassifier({
       title: "fix: rotate leaked Stripe key",
       body: PR_TEMPLATE,
       files: ["docs/onboarding.md"],
     });
 
-    expect(tier).toBe(4);
-    expect(label).toBe("tier:critical");
-    expect(reasons).toMatch(/secrets or incident/);
+    expect(tier).not.toBe(4);
+    expect(label).not.toBe("tier:critical");
+    expect(reasons).toMatch(/escalate one tier: title\/body mentions secrets or incident/);
   });
 
-  it("still escalates to T4 when the body prose describes a credential leak", () => {
-    const { tier, label } = runClassifier({
+  it("still hard-escalates to T4 when the body prose describes a credential leak AND a changed file matched a sensitive path", () => {
+    const { tier, label, reasons } = runClassifier({
       title: "fix: redact log field",
       body: `${PR_TEMPLATE}\n\n## Summary\n\nWe discovered a credential was leaked in application logs and this PR redacts it.`,
-      files: ["services/users/src/logger.ts"],
+      files: ["services/users/src/auth/session.ts"],
+    });
+
+    expect(tier).toBe(4);
+    expect(label).toBe("tier:critical");
+    expect(reasons).toMatch(/sensitive path already matched/);
+  });
+
+  it("classifies a docs-only PR discussing repo secrets as at most tier:standard, not tier:critical (#5082, #4710)", () => {
+    const { tier, label } = runClassifier({
+      title: "docs: capture retro item on CI secrets rotation",
+      body: `${PR_TEMPLATE}\n\n## Summary\n\nAdd \`TURBO_TOKEN\` + \`TURBO_TEAM\` to repo secrets so remote caching works in CI.`,
+      files: ["docs/process-retro.md"],
+    });
+
+    expect(tier).toBeLessThanOrEqual(2);
+    expect(label).not.toBe("tier:critical");
+  });
+
+  it("still classifies a PR touching services/users/src/auth/** as tier:critical with the same secrets-mentioning body (#5082)", () => {
+    const { tier, label } = runClassifier({
+      title: "fix: harden session cookie handling",
+      body: `${PR_TEMPLATE}\n\n## Summary\n\nAdd \`TURBO_TOKEN\` + \`TURBO_TEAM\` to repo secrets so remote caching works in CI.`,
+      files: ["services/users/src/auth/session.ts"],
     });
 
     expect(tier).toBe(4);
     expect(label).toBe("tier:critical");
   });
+
+  it("still classifies a prisma migration PR as tier:critical regardless of body text (#5082)", () => {
+    const { tier, label } = runClassifier({
+      title: "chore: add index",
+      body: `${PR_TEMPLATE}\n\n## Summary\n\nNothing sensitive here, just a routine schema tweak.`,
+      files: ["prisma/migrations/20260907_add_index/migration.sql"],
+    });
+
+    expect(tier).toBe(4);
+    expect(label).toBe("tier:critical");
+  });
+
+  // #4879 is a 19-line docs-only PR that got escalated to T4 because its body
+  // said "returned one incidental hit" — /secret|credential|rotate|leak|incident/i
+  // has no word boundaries, so "incidental" substring-matches "incident". This
+  // is a different mechanism than #3606 (checklist-line stripping): the false
+  // positive here comes from prose the stripper legitimately keeps.
+  const SUBSTRING_FALSE_POSITIVES = [
+    ["incidental", "returned one incidental hit, inside an unrelated table cell"],
+    ["coincidentally", "coincidentally the same value appears twice in the fixture"],
+    ["leaky", "this refactor removes a leaky abstraction from the client"],
+    ["rotated baseline", "the rotated baseline was regenerated after the CSS change"],
+  ];
+
+  for (const [name, prose] of SUBSTRING_FALSE_POSITIVES) {
+    it(`does not escalate to T4 on the "${name}" substring false positive (#4879)`, () => {
+      const { tier, reasons } = runClassifier({
+        title: "docs: fix typo in onboarding guide",
+        body: `${PR_TEMPLATE}\n\n## Summary\n\n${prose}`,
+        files: ["docs/onboarding.md"],
+      });
+
+      expect(reasons).not.toMatch(/secrets or incident/);
+      expect(tier).not.toBe(4);
+    });
+  }
 });
 
 describe("tier-classifier bypass rule: a request escalates, a description does not", () => {

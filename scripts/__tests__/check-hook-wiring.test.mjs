@@ -6,9 +6,10 @@
  */
 
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { findOrphanedHooks, formatOrphanFinding, buildFailMessage } from "../check-hook-wiring.mjs";
 
@@ -157,6 +158,15 @@ describe("findOrphanedHooks", () => {
     // The CI-enforcing assertion: every real .claude/hooks/* file must be
     // wired (or allowlisted) on the current tree, not just in fixtures.
     expect(findOrphanedHooks()).toEqual([]);
+  });
+});
+
+describe("the real repository — repo-audit wiring (#4628)", () => {
+  it("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", () => {
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8"));
+
+    expect(pkg.scripts["repo-audit"]).toContain("check-hook-wiring.mjs");
   });
 });
 

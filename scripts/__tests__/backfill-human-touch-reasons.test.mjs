@@ -8,6 +8,7 @@ import {
   defaultFetchPrDetails,
   normalizeAuthorLogin,
   isMechanicalCommit,
+  findHumanCommitIndex,
   parseMaxCalls,
 } from "../backfill-human-touch-reasons.mjs";
 import { append, read } from "../metrics-store.mjs";
@@ -375,6 +376,38 @@ describe("isMechanicalCommit", () => {
     expect(isMechanicalCommit(undefined)).toBe(false);
     expect(isMechanicalCommit(null)).toBe(false);
     expect(isMechanicalCommit(42)).toBe(false);
+  });
+});
+
+// ── Agent-vs-agent identity (#4603) ──────────────────────
+
+describe("findHumanCommitIndex — agent identity false positives", () => {
+  it("PR#4013-shaped: PR opened under the operator's own account, sole commit authored by 'claude' — no human touch", () => {
+    const commits = [
+      { authors: [{ login: "claude" }], messageHeadline: "feat: add authenticated WaitlistClient" },
+    ];
+
+    expect(findHumanCommitIndex(commits, "mattbutlerengineering")).toBe(-1);
+  });
+
+  it("treats 'claude[bot]' commit-author logins as agent-equivalent too", () => {
+    const commits = [
+      { authors: [{ login: "claude[bot]" }], messageHeadline: "fix: initial agent commit" },
+    ];
+
+    expect(findHumanCommitIndex(commits, "mattbutlerengineering")).toBe(-1);
+  });
+
+  it("still finds a genuine human commit distinct from both the PR author and known agent identities", () => {
+    const commits = [
+      { authors: [{ login: "claude" }], messageHeadline: "fix: initial agent commit" },
+      {
+        authors: [{ login: "areal-human" }],
+        messageHeadline: "fix: manual fixup after review",
+      },
+    ];
+
+    expect(findHumanCommitIndex(commits, "mattbutlerengineering")).toBe(1);
   });
 });
 

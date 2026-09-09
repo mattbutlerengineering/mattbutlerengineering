@@ -27,9 +27,9 @@
 3. **Step 2 — Location & Time:** selects timezone, currency
 4. **Step 3 — Operating Hours:** toggles days on/off, sets open/close times
 5. **Step 4 — Settings:** default reservation duration, max party size, advance booking days
-6. **Step 5 — Review:** confirms all data → clicks "Create Venue"
-7. Redirected to Floor Plan creation for the new venue
-8. Creates floor plan → adds tables → activates the plan
+6. **Step 5 — Floor Plan:** picks a template layout (Restaurant, Cafe, Bar, Patio, or Blank) → arranges tables on the canvas
+7. **Step 6 — Review:** confirms all data → clicks "Launch Venue"
+8. Lands in the floor plan editor with the new plan already active
 
 ### Acceptance Criteria
 
@@ -38,12 +38,12 @@
 - [ ] Each step validates before allowing "Next"
 - [ ] "Back" preserves form state (no data loss)
 - [ ] On API error, shows retry with preserved form data
-- [ ] After venue creation, floor plan editor opens with the new venue's ID
-- [ ] Floor plan can be activated immediately
+- [x] After venue creation, floor plan editor opens with the new venue's ID
+- [x] Floor plan can be activated immediately
 
 ### Done Definition
 
-Manager has a venue with at least one active floor plan containing tables. Timeline page shows the venue's tables.
+Manager has a venue with at least one active floor plan containing tables. Timeline page shows the venue's tables. The venue-onboarding wizard's Floor Plan and Launch steps now reach this end-to-end in one flow.
 
 ---
 

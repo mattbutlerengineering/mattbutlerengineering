@@ -3,6 +3,7 @@ import {
   formatLongDate,
   formatLongDateWithYear,
   formatTime,
+  formatLocalTime,
   formatCurrencyFromCents,
 } from "./format.js";
 
@@ -63,6 +64,19 @@ describe("formatTime", () => {
     const iso = "2024-03-15T20:00:00.000Z";
     const result = formatTime(iso);
     expect(result).not.toMatch(/^20:/);
+  });
+});
+
+describe("formatLocalTime", () => {
+  // Wall-clock strings, not instants: pinned to UTC, so these hold under any TZ.
+  it.each([
+    ["17:00", "5:00 PM"],
+    ["22:00", "10:00 PM"],
+    ["02:00", "2:00 AM"],
+    ["00:00", "12:00 AM"],
+    ["12:30", "12:30 PM"],
+  ])("formats %s as %s", (hhmm, expected) => {
+    expect(formatLocalTime(hhmm)).toBe(expected);
   });
 });
 

@@ -193,3 +193,64 @@ describe("normalizeSensorReport — domainActivity", () => {
     expect(metrics.domainActivity.venueId).toBeNull();
   });
 });
+
+describe("normalizeSensorReport — acmm", () => {
+  // Matches scripts/sensors-registry.mjs's acmm registry entry collect() output.
+  const ACMM_REPORT = {
+    generated_at: "2026-08-31T12:00:00.000Z",
+    sensors: {
+      acmm: {
+        available: true,
+        level: 4,
+        level_name: "Managed",
+        criteria_met: 88,
+        criteria_total: 114,
+        last_run: "2026-08-30T09:00:00.000Z",
+        capped: true,
+        failing_gates: [
+          {
+            name: "queueEfficiency",
+            description: "Queue efficiency composite below threshold",
+            value: 0.62,
+            threshold: 0.75,
+            direction: "min",
+          },
+        ],
+      },
+    },
+    regressions: [],
+    summary: { sensors_available: 1, sensors_total: 1, regressions_detected: 0 },
+  };
+
+  it("extracts level, criteria, and failing gates when available", () => {
+    const metrics = normalizeSensorReport(ACMM_REPORT);
+    expect(metrics.acmm.available).toBe(true);
+    expect(metrics.acmm.level).toBe(4);
+    expect(metrics.acmm.levelName).toBe("Managed");
+    expect(metrics.acmm.criteriaMet).toBe(88);
+    expect(metrics.acmm.criteriaTotal).toBe(114);
+    expect(metrics.acmm.lastRun).toBe("2026-08-30T09:00:00.000Z");
+    expect(metrics.acmm.capped).toBe(true);
+    expect(metrics.acmm.failingGates).toEqual([
+      {
+        name: "queueEfficiency",
+        description: "Queue efficiency composite below threshold",
+        value: 0.62,
+        threshold: 0.75,
+        direction: "min",
+      },
+    ]);
+  });
+
+  it("degrades to unavailable without throwing when the sensor key is absent", () => {
+    const metrics = normalizeSensorReport({ sensors: {} });
+    expect(metrics.acmm.available).toBe(false);
+    expect(metrics.acmm.level).toBeNull();
+    expect(metrics.acmm.levelName).toBeNull();
+    expect(metrics.acmm.criteriaMet).toBeNull();
+    expect(metrics.acmm.criteriaTotal).toBeNull();
+    expect(metrics.acmm.lastRun).toBeNull();
+    expect(metrics.acmm.capped).toBe(false);
+    expect(metrics.acmm.failingGates).toEqual([]);
+  });
+});

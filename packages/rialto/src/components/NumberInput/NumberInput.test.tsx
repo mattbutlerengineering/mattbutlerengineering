@@ -206,10 +206,16 @@ describe("NumberInput — rendering extras", () => {
 });
 
 describe("NumberInput — aria-live announcements", () => {
-  it("announces the error hint via a polite status region", () => {
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike the old always-mounted echo region. See #4833.
+  it("announces the error hint via an alert region", () => {
     render(<NumberInput label="Qty" value={5} onChange={noop} error hint="Too high" />);
-    const status = screen.getByRole("status");
-    expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveTextContent("Too high");
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Too high");
+  });
+
+  it("does not duplicate the error message into a separate hidden echo node", () => {
+    render(<NumberInput label="Qty" value={5} onChange={noop} error hint="Too high" />);
+    expect(screen.getAllByText("Too high")).toHaveLength(1);
   });
 });

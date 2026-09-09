@@ -7,6 +7,46 @@
     <item priority="low">
       async function loadCatalogMeta(file: string): Promise<CatalogMeta> { /* ... */ }
     </item>
+    <item priority="medium">
+      function stripUndefined(typeStr: string): { inner: string; wasOptional: boolean } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapTypeToZod(
+        typeStr: string,
+        isOptional: boolean,
+        maxLen: number | undefined
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PropSchema {
+        propName: string;
+        zodExpr: string;
+      }
+    </item>
+    <item priority="high">
+      export function buildComponentSchemas(
+        canonicalComponents: ComponentMetadata[],
+        metas: Map<string, CatalogMeta>
+      ): Map<string, PropSchema[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hardcodedSchemaLines(metas: Map<string, CatalogMeta>): Record<string, string[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatGeneratedSchemas(
+        componentSchemas: Map<string, PropSchema[]>,
+        hardcoded: Record<string, string[]>
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function inlineRecord(record: Readonly<Record<string, string | number>>): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatGeneratedCatalog(metas: Map<string, CatalogMeta>): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main() { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="src">
@@ -16,6 +56,15 @@
     </item>
     <item priority="low">
       type CatalogAliases = Readonly<Record<string, string>>;
+    </item>
+    <item priority="low">
+      interface CatalogMeta {
+        name: string;
+        include?: boolean;
+        description: string;
+        slots?: readonly string[];
+        charLimits?: CatalogCharLimits;
+      }
     </item>
   </file>
   <file path="src/catalog.ts">

@@ -349,6 +349,98 @@ describe("AiHealthPage", () => {
     });
   });
 
+  describe("ACMM Maturity panel", () => {
+    it("renders level, level name, and criteria-detected stats when available", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...MOCK_REPORT,
+          sensors: {
+            ...MOCK_REPORT.sensors,
+            acmm: {
+              available: true,
+              level: 5,
+              level_name: "Semi-Automated",
+              criteria_met: 96,
+              criteria_total: 99,
+              capped: false,
+              failing_gates: [],
+            },
+          },
+        }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("ACMM Maturity")).toBeInTheDocument();
+        expect(screen.getByText("Level 5")).toBeInTheDocument();
+        expect(screen.getByText("Semi-Automated")).toBeInTheDocument();
+        expect(screen.getByText("96/99")).toBeInTheDocument();
+      });
+    });
+
+    it("renders a graceful not-available state when the sensor is missing", async () => {
+      const { acmm: _acmm, ...restSensors } = NEW_SCHEMA_REPORT.sensors;
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...NEW_SCHEMA_REPORT, sensors: restSensors }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("ACMM Maturity")).toBeInTheDocument();
+        expect(screen.getByText("acmm")).toBeInTheDocument();
+      });
+      expect(screen.queryByText("Criteria Detected")).not.toBeInTheDocument();
+    });
+
+    it("shows a warning alert naming each failing gate's description when capped", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...MOCK_REPORT,
+          sensors: {
+            ...MOCK_REPORT.sensors,
+            acmm: {
+              available: true,
+              level: 4,
+              level_name: "Assisted",
+              criteria_met: 80,
+              criteria_total: 99,
+              capped: true,
+              failing_gates: [
+                {
+                  name: "acmm:human-touch-ratio",
+                  description: "Human-touch ratio must be below 50% to reach level 5",
+                  value: 0.62,
+                  threshold: 0.5,
+                  direction: "below",
+                },
+              ],
+            },
+          },
+        }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(
+          screen.getByText("Human-touch ratio must be below 50% to reach level 5")
+        ).toBeInTheDocument();
+        expect(screen.queryByText("acmm:human-touch-ratio")).not.toBeInTheDocument();
+      });
+    });
+
+    it("does not render the blocking-gate alert when not capped", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...MOCK_REPORT, generated_at: isoHoursAgo(1) }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("ACMM Maturity")).toBeInTheDocument();
+      });
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
   describe("stale-data banner", () => {
     it("hides the banner when generated_at is 47h59m old", async () => {
       mockFetch.mockResolvedValue({

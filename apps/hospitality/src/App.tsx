@@ -2,10 +2,16 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
-import { useAuth } from "@mbe/auth/react";
-import { Stack, Text, Button, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
+import { useAuth, isSafeReturnTo, hasAuthParams } from "@mbe/auth/react";
+import { Text, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
 import { useTheme, resolveTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
+import { LoginGate } from "./components/LoginGate";
+import { CallbackPage } from "./components/CallbackPage";
+import { SessionExpiredGate } from "./components/SessionExpiredGate";
+import { AuthFailurePage } from "./pages/AuthFailurePage";
+import { SignOutPage } from "./pages/SignOutPage";
+import { readReturnTo } from "./return-to-store";
 import styles from "./App.module.css";
 
 /**
@@ -41,7 +47,7 @@ function UnauthenticatedShell({
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
-  const { isLoading, isAuthenticated, error } = useAuth();
+  const { isLoading, isAuthenticated, error, sessionExpired, activeNavigator } = useAuth();
 
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -60,33 +66,30 @@ export function App() {
     <GlobalNav currentApp="hospitality" theme={resolved} onThemeToggle={handleThemeToggle} />
   );
 
+  // On the callback path the wait is a credential exchange, not a generic
+  // load — show the handshake for it. `isLoading` is only true here for the
+  // initial user restore or a redirect callback; a silent refresh never trips
+  // it (see useAuth), so the dashboard stays mounted through a token renewal.
+  const isCallback = window.location.pathname.endsWith("/callback");
+
   if (isLoading) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoadingPage />
+        {activeNavigator === "signoutRedirect" ? (
+          <SignOutPage />
+        ) : isCallback ? (
+          <CallbackPage />
+        ) : (
+          <LoadingPage />
+        )}
       </UnauthenticatedShell>
     );
   }
 
-  // If on the callback path, show loading while OIDC finishes processing
-  const isCallback = window.location.pathname.endsWith("/callback");
-
   if (error) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <Stack gap="lg" align="center">
-          <Stack gap="sm" align="center">
-            <Text as="h1" variant="display" color="primary">
-              Authentication Error
-            </Text>
-            <Text variant="body" color="secondary">
-              {error.message}
-            </Text>
-          </Stack>
-          <Button variant="primary" onClick={() => window.location.assign("/hospitality")}>
-            Try Again
-          </Button>
-        </Stack>
+        <AuthFailurePage error={error} lane={isCallback ? 1 : 0} />
       </UnauthenticatedShell>
     );
   }
@@ -94,7 +97,18 @@ export function App() {
   if (isCallback && !isAuthenticated) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoadingPage />
+        {hasAuthParams(window.location) ? <CallbackPage /> : <LoginGate signedOut />}
+      </UnauthenticatedShell>
+    );
+  }
+
+  // Checked before `isAuthenticated`: react-oidc-context does not re-evaluate
+  // it when a token expires in place, and a lapsed session deserves a
+  // "your session ended" moment rather than a cold login gate.
+  if (sessionExpired) {
+    return (
+      <UnauthenticatedShell nav={nav}>
+        <SessionExpiredGate />
       </UnauthenticatedShell>
     );
   }
@@ -102,7 +116,7 @@ export function App() {
   if (!isAuthenticated) {
     return (
       <UnauthenticatedShell nav={nav}>
-        <LoginPrompt />
+        <LoginGate />
       </UnauthenticatedShell>
     );
   }
@@ -117,33 +131,14 @@ export function App() {
   );
 }
 
-function LoginPrompt() {
-  const { signIn } = useAuth();
-
-  return (
-    <Stack gap="lg" align="center" data-testid="login-prompt">
-      <Stack gap="sm" align="center">
-        <Text as="h1" variant="display" color="primary">
-          Hospitality
-        </Text>
-        <Text variant="body" color="secondary">
-          Restaurant management, simplified.
-        </Text>
-      </Stack>
-      <Button variant="primary" size="lg" onClick={() => signIn()}>
-        Sign In
-      </Button>
-      <Text variant="caption" color="tertiary">
-        Manage reservations, guests, and floor plans
-      </Text>
-    </Stack>
-  );
-}
-
 /**
- * Redirect helper for the callback route — after successful auth,
- * navigates to home.
+ * Redirect helper for the callback route — after successful auth, navigates
+ * to the deep link preserved through sign-in (see return-to-store), or home
+ * when none was carried. The stored value originates from the OIDC state
+ * param, which is attacker-influenceable, so it is re-validated against open
+ * redirects before navigating.
  */
 export function CallbackRedirect() {
-  return <Navigate to="/" replace />;
+  const returnTo = readReturnTo();
+  return <Navigate to={isSafeReturnTo(returnTo) ? returnTo : "/"} replace />;
 }

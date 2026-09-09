@@ -5,14 +5,16 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+const { defaultAuthUser } = vi.hoisted(() => ({
+  defaultAuthUser: {
+    name: "Auth User",
+    email: "auth@example.com",
+    picture: "https://example.com/auth.jpg",
+  },
+}));
+
 vi.mock("@mbe/auth/react", () => ({
-  useAuth: vi.fn(() => ({
-    user: {
-      name: "Auth User",
-      email: "auth@example.com",
-      picture: "https://example.com/auth.jpg",
-    },
-  })),
+  useAuth: vi.fn(() => ({ user: defaultAuthUser })),
 }));
 
 const mockApiClient = {
@@ -64,6 +66,11 @@ vi.mock("./ProfilePage.module.css", () => ({
     heroSkeleton: "heroSkeleton",
     heroSkeletonText: "heroSkeletonText",
     avatarRing: "avatarRing",
+    sessionCluster: "sessionCluster",
+    sessionReadout: "sessionReadout",
+    sessionCountdown: "sessionCountdown",
+    sessionSeparator: "sessionSeparator",
+    sessionStatus: "sessionStatus",
   },
 }));
 
@@ -94,6 +101,29 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </dl>
   ),
   Divider: () => <hr />,
+  Meter: ({ label, value }: { label?: string; value?: number | null }) => (
+    <div
+      data-testid="meter"
+      aria-label={label}
+      data-value={value === null ? "null" : String(value)}
+    />
+  ),
+  Odometer: ({
+    value,
+    "aria-label": ariaLabel,
+  }: {
+    value?: number | string;
+    "aria-label"?: string;
+  }) => (
+    <span data-testid="odometer" aria-label={ariaLabel}>
+      {String(value)}
+    </span>
+  ),
+  StatusLED: ({ variant, pulse, label }: { variant?: string; pulse?: boolean; label?: string }) => (
+    <span data-testid={`status-led-${variant}`} data-pulse={String(Boolean(pulse))}>
+      {label}
+    </span>
+  ),
   Input: ({
     label,
     value,
@@ -128,6 +158,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 import { ProfilePage } from "./ProfilePage.js";
+import { useAuth } from "@mbe/auth/react";
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -515,6 +546,94 @@ describe("ProfilePage", () => {
       await waitFor(() => {
         expect(screen.getAllByText("7d ago").length).toBeGreaterThan(0);
       });
+    });
+  });
+
+  describe("session panel", () => {
+    function mockSessionClaims(claims: Record<string, unknown> | undefined) {
+      vi.mocked(useAuth).mockReturnValue({
+        user: { ...defaultAuthUser, raw: claims },
+      } as unknown as ReturnType<typeof useAuth>);
+    }
+
+    afterEach(() => {
+      // Restore the factory default so later tests see the raw-less auth user.
+      vi.mocked(useAuth).mockImplementation(
+        () => ({ user: defaultAuthUser }) as unknown as ReturnType<typeof useAuth>
+      );
+    });
+
+    it("renders the countdown and a pulsing success LED when plenty of life remains", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      // ~10.5 minutes remaining keeps the minutes reel stable at 10 for the whole test.
+      mockSessionClaims({ exp: nowSec + 630, iat: nowSec - 600 });
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("odometer").length).toBe(2);
+      });
+      const [minutes] = screen.getAllByTestId("odometer");
+      expect(minutes?.textContent).toBe("10");
+
+      const led = screen.getByTestId("status-led-success");
+      expect(led.getAttribute("data-pulse")).toBe("true");
+
+      // Lifetime elapsed meter reads a real number derived from iat/exp.
+      const meter = screen.getByTestId("meter");
+      expect(meter.getAttribute("data-value")).not.toBe("null");
+      expect(Number(meter.getAttribute("data-value"))).toBeGreaterThan(0);
+    });
+
+    it("shows a pulsing warning LED inside the 5-minute refresh window", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockSessionClaims({ exp: nowSec + 120, iat: nowSec - 600 });
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("status-led-warning")).toBeDefined();
+      });
+      expect(screen.getByTestId("status-led-warning").getAttribute("data-pulse")).toBe("true");
+    });
+
+    it("shows a steady danger LED and a zeroed countdown when expired", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockSessionClaims({ exp: nowSec - 60, iat: nowSec - 660 });
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("status-led-danger")).toBeDefined();
+      });
+      expect(screen.getByTestId("status-led-danger").getAttribute("data-pulse")).toBe("false");
+
+      const odometers = screen.getAllByTestId("odometer");
+      expect(odometers.map((o) => o.textContent)).toEqual(["0", "0"]);
+    });
+
+    it("renders an indeterminate meter when the issue-time claim is missing", async () => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      mockSessionClaims({ exp: nowSec + 630 });
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("meter")).toBeDefined();
+      });
+      expect(screen.getByTestId("meter").getAttribute("data-value")).toBe("null");
+    });
+
+    it("renders a quiet empty state with no NaN when no expiry claim exists", async () => {
+      // Factory default auth user has no raw claims at all.
+      const { container } = renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByText("No active session token to read.")).toBeDefined();
+      });
+      expect(screen.queryAllByTestId("odometer")).toHaveLength(0);
+      expect(screen.queryAllByTestId("meter")).toHaveLength(0);
+      expect(container.textContent).not.toContain("NaN");
     });
   });
 });

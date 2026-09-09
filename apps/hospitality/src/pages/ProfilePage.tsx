@@ -10,15 +10,24 @@ import {
   DataList,
   Divider,
   Input,
+  Meter,
+  Odometer,
   Skeleton,
   SkeletonGroup,
   Stack,
+  StatusLED,
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { DataListItem } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { useCurrentUser, useUpdateCurrentUser } from "../hooks/useUsers.js";
+import {
+  computeElapsedPercent,
+  readEpochClaim,
+  useSessionClock,
+  type SessionPhase,
+} from "../hooks/useSessionClock.js";
 import styles from "./ProfilePage.module.css";
 
 interface ProfileFormData {
@@ -52,8 +61,79 @@ function formatRelativeTime(date: string | Date): string {
   });
 }
 
+/** How each session phase reads on the instrument cluster's telltale LED. */
+const SESSION_LED: Record<
+  SessionPhase,
+  { variant: "success" | "warning" | "danger"; pulse: boolean; label: string }
+> = {
+  fresh: { variant: "success", pulse: true, label: "Session active" },
+  "refresh-window": { variant: "warning", pulse: true, label: "Refreshing soon" },
+  expired: { variant: "danger", pulse: false, label: "Session expired" },
+};
+
+interface SessionClusterProps {
+  remainingMs: number;
+  phase: SessionPhase;
+  /** Percent of token lifetime elapsed, or null when not derivable. */
+  elapsedPercent: number | null;
+}
+
+/** The live instruments: countdown reels, telltale LED, and lifetime gauge. */
+function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterProps) {
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const led = SESSION_LED[phase];
+
+  return (
+    <div className={styles.sessionCluster}>
+      <div className={styles.sessionReadout}>
+        <div
+          className={styles.sessionCountdown}
+          role="timer"
+          aria-label="Time until the session token expires"
+        >
+          <Odometer
+            value={minutes}
+            formatOptions={{ minimumIntegerDigits: 2, useGrouping: false }}
+            aria-label="Minutes remaining"
+          />
+          <Text className={styles.sessionSeparator} aria-hidden="true">
+            :
+          </Text>
+          <Odometer
+            value={seconds}
+            formatOptions={{ minimumIntegerDigits: 2, useGrouping: false }}
+            aria-label="Seconds remaining"
+          />
+        </div>
+        <div className={styles.sessionStatus}>
+          <StatusLED variant={led.variant} pulse={led.pulse} label={led.label} />
+          <Text variant="caption" color="secondary">
+            {led.label}
+          </Text>
+        </div>
+      </div>
+      <Meter label="Token lifetime elapsed" value={elapsedPercent} showValue size="sm" />
+    </div>
+  );
+}
+
 export function ProfilePage() {
   const { user: authUser } = useAuth();
+  // Session timing comes from the token claims @mbe/auth/react surfaces via
+  // `user.raw` (`exp`/`iat`, epoch seconds). react-oidc-context's access-token
+  // `expires_at` isn't reachable here without adding a direct dependency on
+  // it, and claims are treated as untrusted data — anything malformed simply
+  // yields the panel's empty state.
+  const sessionExpiresAt = readEpochClaim(authUser?.raw, "exp");
+  const sessionIssuedAt = readEpochClaim(authUser?.raw, "iat");
+  const sessionClock = useSessionClock(sessionExpiresAt);
+  const sessionElapsedPercent = computeElapsedPercent(
+    sessionIssuedAt,
+    sessionExpiresAt,
+    sessionClock.remainingMs
+  );
   const { data: user, isLoading, error, refetch } = useCurrentUser();
   const updateMutation = useUpdateCurrentUser();
 
@@ -231,6 +311,26 @@ export function ProfilePage() {
               </div>
             )}
           </div>
+        </Card>
+
+        {/* Session instrument cluster */}
+        <Card>
+          <div className={styles.sectionHeader}>
+            <Text variant="label" color="primary">
+              Session
+            </Text>
+          </div>
+          {sessionClock.phase === null ? (
+            <Text variant="caption" color="secondary">
+              No active session token to read.
+            </Text>
+          ) : (
+            <SessionCluster
+              remainingMs={sessionClock.remainingMs}
+              phase={sessionClock.phase}
+              elapsedPercent={sessionElapsedPercent}
+            />
+          )}
         </Card>
 
         {/* Edit form */}

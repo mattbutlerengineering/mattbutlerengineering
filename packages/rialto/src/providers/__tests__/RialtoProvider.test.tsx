@@ -1,6 +1,20 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { RialtoProvider } from "../RialtoProvider";
 import { useUIEnvironment } from "../useUIEnvironment";
+import { useThemeState } from "../../hooks/useThemeState";
+import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
+
+/* ── Test consumer: mirrors how apps (e.g. marketing) wire the toggle ── */
+
+function ToggleableApp() {
+  const { theme, toggleTheme } = useThemeState();
+  return (
+    <RialtoProvider theme={theme}>
+      <ThemeToggle theme={theme} onToggle={toggleTheme} />
+    </RialtoProvider>
+  );
+}
 
 /* ── Test consumer component ─────────────────── */
 
@@ -98,6 +112,51 @@ describe("RialtoProvider", () => {
     );
     const wrapper = container.firstElementChild as HTMLElement;
     expect(wrapper.getAttribute("style")).toBeNull();
+  });
+});
+
+describe("RialtoProvider theme-color meta sync (#4896)", () => {
+  // Mirrors the two static, media-keyed tags every app ships in index.html
+  // (the pre-hydration/no-JS fallback) so the effect under test has real
+  // nodes to mutate, exactly like production.
+  beforeEach(() => {
+    document.head.innerHTML = `
+      <meta name="theme-color" content="#f8f6f3" media="(prefers-color-scheme: light)" />
+      <meta name="theme-color" content="#1e1c1a" media="(prefers-color-scheme: dark)" />
+    `;
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    document.head.innerHTML = "";
+    localStorage.clear();
+  });
+
+  function themeColorContents(): (string | null)[] {
+    return Array.from(document.querySelectorAll('meta[name="theme-color"]')).map((meta) =>
+      meta.getAttribute("content")
+    );
+  }
+
+  it("sets both meta tags' content to match the initial resolved theme", () => {
+    render(
+      <RialtoProvider theme="light">
+        <span>Light</span>
+      </RialtoProvider>
+    );
+    expect(themeColorContents()).toEqual(["#f8f6f3", "#f8f6f3"]);
+  });
+
+  it("updates both meta tags' content after a real toggle click", async () => {
+    const user = userEvent.setup();
+    render(<ToggleableApp />);
+
+    // Starting state: matchMedia mock resolves 'system' to light.
+    expect(themeColorContents()).toEqual(["#f8f6f3", "#f8f6f3"]);
+
+    await user.click(screen.getByRole("button"));
+
+    expect(themeColorContents()).toEqual(["#1e1c1a", "#1e1c1a"]);
   });
 });
 

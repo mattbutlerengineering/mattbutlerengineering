@@ -55,9 +55,13 @@ export const tableService = {
   async list(
     page: number,
     limit: number,
-    activeOnly: boolean = false
+    activeOnly: boolean = false,
+    venueId?: string
   ): Promise<PaginatedResponse<Table>> {
-    const where = activeOnly ? { isActive: true } : {};
+    const where: Record<string, unknown> = activeOnly ? { isActive: true } : {};
+    if (venueId) {
+      where.venueId = venueId;
+    }
 
     const [tables, total] = await Promise.all([
       prisma.table.findMany({

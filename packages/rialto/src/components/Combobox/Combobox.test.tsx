@@ -326,6 +326,41 @@ describe("Combobox — async loading & empty states", () => {
   });
 });
 
+describe("Combobox — aria-live announcements", () => {
+  // role="alert" on a freshly-mounted node is spec-reliable for insertion-
+  // with-content, unlike role="status"/aria-live="polite" on a conditionally
+  // mounted region (which can be born with content before AT registers it
+  // as live). See #4833 / #4841 / #4842.
+  it("announces the error hint via an alert region", () => {
+    render(<Combobox label="Fruit" options={options} error hint="Selection required" />);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Selection required");
+  });
+
+  it("does not render an alert region for the plain (non-error) hint", () => {
+    render(<Combobox label="Fruit" options={options} hint="Pick one" />);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("mounts a fresh alert node rather than mutating the hint node's role when error flips true", () => {
+    const { rerender } = render(
+      <Combobox label="Fruit" options={options} hint="Selection required" />
+    );
+    const hintNode = screen.getByText("Selection required");
+    rerender(<Combobox label="Fruit" options={options} error hint="Selection required" />);
+    const alertNode = screen.getByRole("alert");
+    // A genuine DOM insertion (distinct keys) yields a new node identity;
+    // an attribute-toggled `role` on the same pre-existing node (the shape
+    // #4841/#4842 removed) would keep the same node reference here.
+    expect(alertNode).not.toBe(hintNode);
+  });
+
+  it("does not duplicate the error message into a separate hidden node", () => {
+    render(<Combobox label="Fruit" options={options} error hint="Selection required" />);
+    expect(screen.getAllByText("Selection required")).toHaveLength(1);
+  });
+});
+
 describe("Combobox — accessibility (axe)", () => {
   it("has no violations when closed", async () => {
     const { container } = render(<Combobox label="Fruit" options={options} />);

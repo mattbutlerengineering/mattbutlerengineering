@@ -1,3 +1,13 @@
 {"timestamp":"2026-05-23T00:00:00.000Z","criterion":"ci-fix","old_value":1.0,"new_value":0.95,"trigger":"seed"}
 {"date":"2026-05-10","reason":"Acceptance rate 100% is excellent (>=95%). Stuck-turns threshold relaxed from 8 to 9 — agents are producing quality work and may benefit from more turns."}
 {"timestamp":"2026-08-11T00:00:00.000Z","criterion":"ci-fix","old_value":1,"new_value":1.03,"trigger":"headroom"}
+{"timestamp":"2026-08-27T00:00:00.000Z","criterion":"ci-fix","old_value":1.03,"new_value":1.06,"trigger":"headroom"}
+{"timestamp":"2026-08-28T00:00:00.000Z","criterion":"ci-fix","old_value":1.06,"new_value":1.09,"trigger":"headroom"}
+{"timestamp":"2026-08-30T00:00:00.000Z","criterion":"ci-fix","old_value":1.09,"new_value":1.12,"trigger":"headroom"}
+{"timestamp":"2026-08-31T00:00:00.000Z","criterion":"ci-fix","old_value":1.09,"new_value":1.105,"trigger":"headroom"}
+{"timestamp":"2026-09-01T00:00:00.000Z","criterion":"ci-fix","old_value":1.105,"new_value":1.106,"trigger":"headroom"}
+{"timestamp":"2026-09-03T00:00:00.000Z","criterion":"ci-fix","old_value":1.106,"new_value":1.136,"trigger":"headroom"}
+{"timestamp":"2026-09-04T00:00:00.000Z","criterion":"ci-fix","old_value":1.136,"new_value":1.166,"trigger":"headroom"}
+{"timestamp":"2026-09-05T00:00:00.000Z","criterion":"ci-fix","old_value":1.166,"new_value":1.17,"trigger":"headroom"}
+{"timestamp":"2026-09-07T00:00:00.000Z","criterion":"ci-fix","old_value":1.17,"new_value":1.2,"trigger":"headroom"}
+{"timestamp":"2026-09-08T00:00:00.000Z","criterion":"ci-fix","old_value":1.2,"new_value":1.217,"trigger":"headroom"}

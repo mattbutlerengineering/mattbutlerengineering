@@ -147,7 +147,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
-        run: npx wrangler@3 deploy --config apps/marketing/wrangler.toml
+        run: npx wrangler@3.114.17 deploy --config apps/marketing/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -177,13 +177,14 @@ jobs:
           VITE_AUTH_AUDIENCE: https://api.mattbutlerengineering.com
           VITE_AUTH_REDIRECT_URI: https://mattbutlerengineering.com/hospitality/callback
           VITE_API_URL: https://mattbutlerengineering.com
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
-        run: npx wrangler@3 deploy --config apps/hospitality/wrangler.toml
+        run: npx wrangler@3.114.17 deploy --config apps/hospitality/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -216,7 +217,7 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Deploy to Workers Static Assets
-        run: npx wrangler@3 deploy --config apps/rialto-web/wrangler.toml
+        run: npx wrangler@3.114.17 deploy --config apps/rialto-web/wrangler.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -274,7 +275,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "::warning::Rolling back mattbutlerengineering-marketing"
-          npx wrangler@3 rollback --name mattbutlerengineering-marketing --message "Auto-rollback: post-deploy verification failed"
+          npx wrangler@3.114.17 rollback --name mattbutlerengineering-marketing --message "Auto-rollback: post-deploy verification failed"
 
       - name: Rollback hospitality
         if: needs.detect-changes.outputs.hospitality == 'true'
@@ -283,7 +284,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "::warning::Rolling back mattbutlerengineering-hospitality"
-          npx wrangler@3 rollback --name mattbutlerengineering-hospitality --message "Auto-rollback: post-deploy verification failed"
+          npx wrangler@3.114.17 rollback --name mattbutlerengineering-hospitality --message "Auto-rollback: post-deploy verification failed"
 
       - name: Rollback rialto-web
         if: needs.detect-changes.outputs.rialto-web == 'true'
@@ -292,7 +293,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "::warning::Rolling back mattbutlerengineering-rialto-web"
-          npx wrangler@3 rollback --name mattbutlerengineering-rialto-web --message "Auto-rollback: post-deploy verification failed"
+          npx wrangler@3.114.17 rollback --name mattbutlerengineering-rialto-web --message "Auto-rollback: post-deploy verification failed"
 
       - name: Re-verify after rollback
         run: |

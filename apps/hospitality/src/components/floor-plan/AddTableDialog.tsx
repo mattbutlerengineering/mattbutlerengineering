@@ -95,9 +95,17 @@ export function AddTableDialog({ venueId, floorPlanId, onSubmit, onClose }: AddT
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
-      <div ref={panelRef} className={styles.dialog} role="dialog" aria-modal="true">
+      <div
+        ref={panelRef}
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-table-dialog-title"
+      >
         <div className={styles.dialogHeader}>
-          <Heading className={styles.dialogTitle}>Add Table</Heading>
+          <Heading id="add-table-dialog-title" className={styles.dialogTitle}>
+            Add Table
+          </Heading>
           <Button className={styles.closeButton} onClick={handleClose} aria-label="Close dialog">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

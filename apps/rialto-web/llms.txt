@@ -15,6 +15,134 @@
         preferences: CookiePreferences;
       }
     </item>
+    <item priority="high">
+      export const DEFAULT_PREFERENCES: CookiePreferences;
+    </item>
+    <item priority="medium">
+      function readStoredConsent(): ConsentState { /* ... */ }
+    </item>
+    <item priority="medium">
+      function persistConsent(state: ConsentState): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useCookieConsent() { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="auth">
+  <file path="src/pages/auth/auth-validation.ts">
+    <item priority="high">
+      export const MFA_CODE_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const MFA_REJECT_CODE: unknown;
+    </item>
+    <item priority="high">
+      export function isValidEmail(email: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isAcceptedMfaCode(code: string): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pages/auth/authFlowMachine.ts">
+    <item priority="high">
+      export const STATIONS: unknown;
+    </item>
+    <item priority="low">
+      type StationId = (typeof STATIONS)[number];
+    </item>
+    <item priority="high">
+      export const HANDSHAKE_STATIONS: unknown;
+    </item>
+    <item priority="low">
+      type LedVariant = "neutral" | "accent" | "success" | "danger" | "warning" | "off";
+    </item>
+    <item priority="low">
+      type ChannelId = "browser-idp" | "browser-api";
+    </item>
+    <item priority="low">
+      type Direction = "outbound" | "inbound";
+    </item>
+    <item priority="low">
+      type Payload = "challenge" | "code" | "code-verifier" | "tokens" | "access-token" | "tampered-callback";
+    </item>
+    <item priority="low">
+      interface FlowStep {
+        id: string;
+        readout: string;
+        caption: string;
+        channel: ChannelId | null;
+        direction: Direction | null;
+      }
+    </item>
+    <item priority="high">
+      export const HAPPY_PATH: readonly FlowStep[];
+    </item>
+    <item priority="high">
+      export const ERROR_FORK_INDEX: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_STEP: FlowStep;
+    </item>
+    <item priority="low">
+      interface AuthFlowState {
+        stepIndex: number;
+        playing: boolean;
+        errorBranch: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const INITIAL_STATE: AuthFlowState;
+    </item>
+    <item priority="low">
+      type AuthFlowAction = { type: "next" } | { type: "play" } | { type: "pause" } | { type: "reset" } | { type: "set-error-branch"; en;
+    </item>
+    <item priority="high">
+      export function currentStep(state: AuthFlowState): FlowStep { /* ... */ }
+    </item>
+    <item priority="high">
+      export function handshakeFor(step: FlowStep): { state: HandshakeState; lane: 0 | 1 } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function advance(state: AuthFlowState, action: AuthFlowAction): AuthFlowState { /* ... */ }
+    </item>
+  </file>
+  <file path="src/pages/auth/score-password.ts">
+    <item priority="high">
+      export const MIN_PASSWORD_LENGTH: unknown;
+    </item>
+    <item priority="high">
+      export const BONUS_LENGTH: unknown;
+    </item>
+    <item priority="low">
+      interface PasswordRequirements {
+        minLength: boolean;
+        mixedCase: boolean;
+        numberOrSymbol: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface PasswordAssessment {
+        score: 0 | 1 | 2 | 3 | 4;
+        satisfied: PasswordRequirements;
+      }
+    </item>
+    <item priority="high">
+      export const STRENGTH_LABELS: unknown;
+    </item>
+    <item priority="high">
+      export function scorePassword(password: string): PasswordAssessment { /* ... */ }
+    </item>
+    <item priority="high">
+      export function meterVariantForScore(score: number): "error" | "default" | "success" { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="component-count.config.ts">
+  <file path="component-count.config.ts">
+    <item priority="high">
+      export function resolveRialtoComponentCount(): number { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="data">
@@ -32,6 +160,9 @@
     </item>
     <item priority="high">
       export const COMPONENT_COUNT: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_PAGES: readonly NavItem[];
     </item>
   </file>
   <file path="src/data/page-registry.ts">
@@ -53,6 +184,63 @@
         load?: () => Promise<unknown>;
       }
     </item>
+    <item priority="low">
+      interface NavItem {
+        id: string;
+        label: string;
+        path: string;
+        comingSoon?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface NavSection {
+        label: string;
+        items: NavItem[];
+      }
+    </item>
+    <item priority="medium">
+      function validateEntry(entry: PageEntry): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toPascalCase(label: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function deriveExportName(entry: Pick<RawPageEntry, "label" | "category">): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveLoad(entry: RawPageEntry): () => Promise<unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const PAGE_REGISTRY: PageEntry[];
+    </item>
+    <item priority="high">
+      export function buildNavSections(entries: PageEntry[]): NavSection[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSitemapPaths(entries: PageEntry[]): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const REGISTRY_NAV_SECTIONS: NavSection[];
+    </item>
+    <item priority="high">
+      export const REGISTRY_SITEMAP_PATHS: string[];
+    </item>
+  </file>
+  <file path="src/data/rialto-components.ts">
+    <item priority="high">
+      interface RialtoManifest {
+        components: readonly unknown[];
+      }
+    </item>
+    <item priority="high">
+      export function countRialtoComponents(manifest: RialtoManifest): number { /* ... */ }
+    </item>
   </file>
   <file path="src/data/rialto-tokens.ts">
     <item priority="high">
@@ -65,6 +253,33 @@
     </item>
     <item priority="medium">
       function addDaysISO(iso: string, n: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeRooms(count = 30): TapeChartRoom[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeReservations(
+        rooms: TapeChartRoom[],
+        startDate: string,
+        endDate: string,
+        density = 0.6
+      ): TapeChartReservation[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function makeOverlapScenario(): {
+        rooms: TapeChartRoom[];
+        reservations: TapeChartReservation[];
+        startDate: "2026-03-02";
+        endDate: "2026-03-09";
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function classifyDormAsShared(
+        rooms: TapeChartRoom[]
+      ): (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind { /* ... */ }
+    </item>
+    <item priority="high">
+      export function defaultDateRange() { /* ... */ }
     </item>
   </file>
   </section>
@@ -88,6 +303,12 @@
         deleteDriver: (id: string) => void;
       }
     </item>
+    <item priority="high">
+      export const DriverContext: unknown;
+    </item>
+    <item priority="high">
+      export function useDrivers() { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="examples">
@@ -101,6 +322,112 @@
         label: string;
         description: string;
       }
+    </item>
+    <item priority="high">
+      export const WIZARD_STEPS: WizardStepDef[];
+    </item>
+    <item priority="high">
+      export const LAST_STEP_INDEX: unknown;
+    </item>
+    <item priority="low">
+      interface RoomOption {
+        id: string;
+        name: string;
+        description: string;
+        pricePerNight: number;
+      }
+    </item>
+    <item priority="high">
+      export const ROOMS: RoomOption[];
+    </item>
+    <item priority="high">
+      export const TAX_RATE: unknown;
+    </item>
+    <item priority="low">
+      interface GuestInfo {
+        firstName: string;
+        lastName: string;
+        email: string;
+        phone: string;
+      }
+    </item>
+    <item priority="low">
+      interface PaymentInfo {
+        cardName: string;
+        cardNumber: string;
+        expiry: string;
+        cvc: string;
+      }
+    </item>
+    <item priority="low">
+      interface BookingWizardState {
+        checkIn: string | null;
+        checkOut: string | null;
+        roomId: string | null;
+        guest: GuestInfo;
+        payment: PaymentInfo;
+      }
+    </item>
+    <item priority="high">
+      export const INITIAL_WIZARD_STATE: BookingWizardState;
+    </item>
+    <item priority="medium">
+      function isoToUtc(iso: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nightsBetween(checkIn: string | null, checkOut: string | null): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextIsoDay(iso: string | null): string | undefined { /* ... */ }
+    </item>
+    <item priority="low">
+      type FieldErrors = Record<string, string>;
+    </item>
+    <item priority="high">
+      export function validateDates(state: BookingWizardState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateRoom(state: BookingWizardState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateGuest(state: BookingWizardState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validatePayment(state: BookingWizardState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AdvanceResult {
+        step: number;
+        errors: FieldErrors;
+        advanced: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function goBack(current: number): number { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PriceBreakdown {
+        nights: number;
+        roomName: string;
+        ratePerNight: number;
+        subtotal: number;
+        taxes: number;
+      }
+    </item>
+    <item priority="high">
+      export function priceBreakdown(state: BookingWizardState): PriceBreakdown | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function maskCardNumber(cardNumber: string): string { /* ... */ }
     </item>
   </file>
   <file path="src/pages/examples/notification-center.ts">
@@ -116,6 +443,39 @@
         timestamp: string;
       }
     </item>
+    <item priority="low">
+      type NotificationFilter = "all" | "unread";
+    </item>
+    <item priority="high">
+      export function typeLabel(type: NotificationType): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function agoIso(ms: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NOTIFICATIONS: NotificationItem[];
+    </item>
+    <item priority="high">
+      export function sortByRecency(items: NotificationItem[]): NotificationItem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function unreadCount(items: NotificationItem[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterNotifications(
+        items: NotificationItem[],
+        filter: NotificationFilter
+      ): NotificationItem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markRead(items: NotificationItem[], id: string): NotificationItem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markAllRead(items: NotificationItem[]): NotificationItem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatRelativeTime(iso: string, now: Date = new Date()): string { /* ... */ }
+    </item>
   </file>
   <file path="src/pages/examples/onboarding.ts">
     <item priority="low">
@@ -129,6 +489,69 @@
         heading: string;
         blurb: string;
       }
+    </item>
+    <item priority="high">
+      export const ONBOARDING_STEPS: OnboardingStepDef[];
+    </item>
+    <item priority="high">
+      export const FIRST_STEP_INDEX: unknown;
+    </item>
+    <item priority="high">
+      export const LAST_STEP_INDEX: unknown;
+    </item>
+    <item priority="high">
+      export function nextStep(index: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function previousStep(index: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isFinalStep(index: number): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function completionPercent(index: number): number { /* ... */ }
+    </item>
+    <item priority="low">
+      type PropertyType = "boutique" | "resort" | "inn";
+    </item>
+    <item priority="high">
+      export const PROPERTY_TYPES: { id: PropertyType; label: string }[];
+    </item>
+    <item priority="low">
+      interface SpacePreset {
+        value: string;
+        label: string;
+      }
+    </item>
+    <item priority="high">
+      export const SPACE_PRESETS: SpacePreset[];
+    </item>
+    <item priority="low">
+      interface OnboardingState {
+        propertyName: string;
+        propertyType: PropertyType;
+        spacePreset: string;
+        instantBooking: boolean;
+        requireDeposit: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const INITIAL_ONBOARDING_STATE: OnboardingState;
+    </item>
+    <item priority="low">
+      interface SummaryRow {
+        label: string;
+        value: string;
+      }
+    </item>
+    <item priority="medium">
+      function labelFor<T extends { label: string }>(
+        options: T[],
+        match: (option: T) => boolean
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function launchSummary(state: OnboardingState): SummaryRow[] { /* ... */ }
     </item>
   </file>
   </section>
@@ -165,6 +588,19 @@
         /**
          * Transform applied to the served HTML *before...;
     </item>
+    <item priority="low">
+      type CspRecorder = {
+        /** Returns every violation the page has recorded so ...;
+    </item>
+    <item priority="high">
+      type ViolationStore = { [STORE_KEY]?: CspViolation[] };
+    </item>
+    <item priority="high">
+      export async function applyEdgeCsp(
+        context: BrowserContext,
+        options: ApplyEdgeCspOptions = {}
+      ): Promise<CspRecorder> { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="telemetry">
@@ -186,6 +622,53 @@
         tyreFL: number;
         tyreFR: number;
       }
+    </item>
+    <item priority="low">
+      interface TelemetryFrame {
+        t: number;
+        lap: number;
+        totalLaps: number;
+        position: number;
+        zones: TelemetryZone[];
+      }
+    </item>
+    <item priority="low">
+      type FeedState = { kind: "connecting" } | { kind: "empty" } | { kind: "live"; frame: Telemet | { kind: "hold"; frame: Telemet | { kind: "stale"; frame: Teleme;
+    </item>
+    <item priority="low">
+      interface TelemetryFeedOptions {
+        seed: number;
+        frozen: boolean;
+        intervalMs?: number;
+        started?: boolean;
+        paused?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const PLACEHOLDER_ZONES: TelemetryZone[];
+    </item>
+    <item priority="medium">
+      function randomFrom(state: number): () => number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mix(seed: number, index: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function telemetryFrame(
+        seed: number,
+        index: number,
+        intervalMs: number = DEFAULT_INTERVAL_MS
+      ): TelemetryFrame { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useTelemetryFeed({
+        seed,
+        frozen,
+        intervalMs = DEFAULT_INTERVAL_MS,
+        started = true,
+        paused = false,
+        degraded = false,
+      }: TelemetryFeedOptions): FeedState { /* ... */ }
     </item>
   </file>
   </section>
@@ -211,6 +694,60 @@
         tokens: readonly TokenDoc[];
       }
     </item>
+    <item priority="high">
+      export const COLOR_GROUPS: readonly TokenGroup[];
+    </item>
+    <item priority="high">
+      export const COLOR_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export const TYPOGRAPHY_GROUPS: readonly TokenGroup[];
+    </item>
+    <item priority="high">
+      export const TYPOGRAPHY_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export const SURFACE_LEVELS: TokenGroup;
+    </item>
+    <item priority="high">
+      export const ELEVATION_LEVELS: TokenGroup;
+    </item>
+    <item priority="high">
+      export const SURFACE_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export const MOTION_GROUPS: readonly TokenGroup[];
+    </item>
+    <item priority="high">
+      export const MOTION_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export const SPACING_SCALE: TokenGroup;
+    </item>
+    <item priority="high">
+      export const SPACING_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export const RADIUS_SCALE: TokenGroup;
+    </item>
+    <item priority="high">
+      export const RADIUS_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export const SHADOW_GROUPS: readonly TokenGroup[];
+    </item>
+    <item priority="high">
+      export const SHADOW_TOKEN_NAMES: readonly string[];
+    </item>
+    <item priority="low">
+      interface IconCategoryGuidance {
+        label: string;
+        description: string;
+      }
+    </item>
+    <item priority="high">
+      export const ICON_CATEGORY_GUIDANCE: Record<string, IconCategoryGuidance>;
+    </item>
   </file>
   <file path="src/pages/tokens/use-live-tokens.ts">
     <item priority="medium">
@@ -218,6 +755,15 @@
     </item>
     <item priority="medium">
       function readThemeSnapshot(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDocumentTheme(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readTokenValue(name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useLiveTokenValues(names: readonly string[]): Record<string, string> { /* ... */ }
     </item>
   </file>
   </section>
@@ -228,6 +774,21 @@
     </item>
     <item priority="high">
       export const tableColumns: unknown;
+    </item>
+    <item priority="high">
+      export const tableData: unknown;
+    </item>
+    <item priority="high">
+      export const tapeChartDefaultRooms: unknown;
+    </item>
+    <item priority="high">
+      export const tapeChartDefaultReservations: unknown;
+    </item>
+    <item priority="high">
+      export const tapeChartStressRooms: unknown;
+    </item>
+    <item priority="high">
+      export const tapeChartStressReservations: unknown;
     </item>
   </file>
   </section>

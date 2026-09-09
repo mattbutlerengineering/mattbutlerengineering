@@ -1,0 +1,25 @@
+/*
+ * The noise-floor measurement's known-regression signal for the rialto
+ * Storybook visual suite.
+ *
+ * Injected by packages/rialto/playwright.noise-floor.config.ts via
+ * `expect.toHaveScreenshot.stylePath`, so the perturbation touches no
+ * component, story, or Storybook source file. Sibling of
+ * apps/rialto-web/e2e/noise-floor-perturbation.css — same property, same
+ * value (docs/fixes/visual-tolerance-threshold/defect.md § Reproduction).
+ *
+ * The two selectors are the two screenshot-subject forms visual.spec.ts
+ * builds: `page.locator(story.selector ?? "#storybook-root")`, whose only
+ * selector override in use is "html" (portal-rendered stories).
+ * noise-floor-coverage.test.ts asserts that and fails closed on a third form.
+ *
+ * Known, harmless non-uniformity: #storybook-root sits inside <html>, so the
+ * default subjects composite two stacked opacities (~0.30 effective) — a
+ * STRONGER perturbation, never weaker, and the decision rule's S is a
+ * minimum. Do not add a :not(:has(...)) refinement: it would silently
+ * under-perturb a future nested subject, the dangerous direction.
+ */
+#storybook-root,
+html {
+  opacity: 0.55;
+}

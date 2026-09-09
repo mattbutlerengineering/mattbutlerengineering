@@ -96,12 +96,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               <Lock size={12} aria-hidden className={styles.lockIcon} />
             )}
           </div>
-          {hint && (
-            <span {...field.descriptionProps} className={styles.hint}>
-              {hint}
-            </span>
-          )}
-          <span {...field.liveRegionProps}>{error && hint ? hint : ""}</span>
+          {hint &&
+            (error ? (
+              <span key="error" {...field.errorProps} className={styles.hint}>
+                {hint}
+              </span>
+            ) : (
+              <span key="hint" {...field.descriptionProps} className={styles.hint}>
+                {hint}
+              </span>
+            ))}
         </div>
       </DisabledTooltip>
     );

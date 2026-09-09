@@ -17,6 +17,7 @@ export {
 export { FloorPlansClient } from "./floor-plans.js";
 export { DepositsClient, type CreateDepositRequest, type DepositTransition } from "./deposits.js";
 export { PublicVenueClient, type GetGuestRiskParams } from "./public-venue.js";
+export { WaitlistClient } from "./waitlist.js";
 export {
   BriefingClient,
   type GetBriefingParams,
@@ -54,6 +55,7 @@ import { TablesClient } from "./tables.js";
 import { GuestsClient } from "./guests.js";
 import { FloorPlansClient } from "./floor-plans.js";
 import { PublicVenueClient } from "./public-venue.js";
+import { WaitlistClient } from "./waitlist.js";
 import { AvailabilityClient, HoldsClient } from "./availability.js";
 import { BriefingClient } from "./briefing.js";
 import { DepositsClient } from "./deposits.js";
@@ -86,6 +88,7 @@ export function createApiClient(config: {
     guests: new GuestsClient(client),
     floorPlans: new FloorPlansClient(client),
     publicVenue: new PublicVenueClient(client),
+    waitlist: new WaitlistClient(client),
     availability: new AvailabilityClient(client),
     holds: new HoldsClient(client),
     briefing: new BriefingClient(client),

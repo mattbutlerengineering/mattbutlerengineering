@@ -231,3 +231,16 @@ describe("deploy-secret provisioning (real repo)", () => {
     expect(unprovisioned).toEqual([]);
   });
 });
+
+// ── Regression guard: #4628 ──────────────────────────────────────────────
+// The check above ran only as this vitest assertion for months — unlike
+// every sibling fitness check, it never ran as part of `pnpm repo-audit`
+// (CI's Architecture Audit job), so a regression would fail `pnpm test`
+// but not the job that actually gates merges on it.
+describe("the real repository — repo-audit wiring (#4628)", () => {
+  it("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
+
+    expect(pkg.scripts["repo-audit"]).toContain("check-deploy-secret-provisioning.mjs");
+  });
+});

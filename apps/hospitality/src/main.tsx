@@ -2,13 +2,14 @@ import "@mattbutlerengineering/rialto/styles";
 import "./index.css";
 import { StrictMode, Suspense, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router";
+import { createBrowserRouter, RouterProvider } from "react-router";
 import { RialtoProvider, ErrorBoundary, ToastProvider } from "@mattbutlerengineering/rialto";
 import { AuthProvider } from "@mbe/auth/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState, resolveTheme } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
+import { rememberReturnTo } from "./return-to-store";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -41,6 +42,9 @@ const ReservationsPage = lazy(() =>
 );
 const GuestsPage = lazy(() =>
   import("./pages/GuestsPage.js").then((m) => ({ default: m.GuestsPage }))
+);
+const WaitlistPage = lazy(() =>
+  import("./pages/WaitlistPage.js").then((m) => ({ default: m.WaitlistPage }))
 );
 const FloorPlansPage = lazy(() =>
   import("./pages/FloorPlansPage.js").then((m) => ({
@@ -93,6 +97,9 @@ const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default
 const BriefingPage = lazy(() =>
   import("./pages/BriefingPage.js").then((m) => ({ default: m.BriefingPage }))
 );
+const NotFoundPage = lazy(() =>
+  import("./pages/NotFoundPage.js").then((m) => ({ default: m.NotFoundPage }))
+);
 
 // Validate auth config at startup — fail fast with a user-friendly error
 const authConfigResult = validateAuthConfig();
@@ -137,14 +144,6 @@ const router = createBrowserRouter(
       element: <App />,
       children: [
         { path: "callback", element: <CallbackRedirect /> },
-        {
-          path: "chat",
-          element: (
-            <Suspense fallback={<LoadingPage />}>
-              <ChatPage />
-            </Suspense>
-          ),
-        },
         {
           path: "onboarding",
           element: (
@@ -213,6 +212,14 @@ const router = createBrowserRouter(
               ),
             },
             {
+              path: "waitlist",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <WaitlistPage />
+                </Suspense>
+              ),
+            },
+            {
               path: "briefing",
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -241,6 +248,14 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <BookingWidgetDemoPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "chat",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <ChatPage />
                 </Suspense>
               ),
             },
@@ -286,7 +301,14 @@ const router = createBrowserRouter(
                 </Suspense>
               ),
             },
-            { path: "*", element: <Navigate to="/timeline" replace /> },
+            {
+              path: "*",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <NotFoundPage />
+                </Suspense>
+              ),
+            },
           ],
         },
       ],
@@ -318,7 +340,7 @@ function Root() {
       <RialtoProvider theme={resolveTheme(themeState.theme)}>
         <ToastProvider>
           <ErrorBoundary onError={handleErrorBoundary}>
-            <AuthProvider config={authConfigResult.config}>
+            <AuthProvider config={authConfigResult.config} onSigninCallback={rememberReturnTo}>
               <QueryProvider>
                 <RouterProvider router={router} />
               </QueryProvider>

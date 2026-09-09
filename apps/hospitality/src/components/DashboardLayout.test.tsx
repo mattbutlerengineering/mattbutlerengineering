@@ -3,14 +3,21 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, useAccessToken } from "@mbe/auth/react";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
+import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { DashboardLayout } from "./DashboardLayout.js";
+import { ChatPage } from "../pages/ChatPage.js";
 import React from "react";
+
+vi.mock("../pages/ChatPage.js", () => ({
+  ChatPage: () => <h1>Chat</h1>,
+}));
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
+  useAccessToken: vi.fn(),
 }));
 
 vi.mock("../hooks/useVenueReadiness.js", () => ({
@@ -38,6 +45,27 @@ vi.mock("../hooks/use-command-palette.js", () => ({
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
+  Banner: ({
+    children,
+    action,
+    onDismiss,
+    dismissible,
+  }: {
+    children: React.ReactNode;
+    action?: React.ReactNode;
+    onDismiss?: () => void;
+    dismissible?: boolean;
+  }) => (
+    <div role="alert" data-testid="refresh-banner">
+      {children}
+      {action}
+      {dismissible && (
+        <button aria-label="Dismiss" onClick={onDismiss}>
+          x
+        </button>
+      )}
+    </div>
+  ),
   Breadcrumb: ({ items }: { items: Array<{ label: string; onClick?: () => void }> }) => (
     <nav data-testid="breadcrumb" aria-label="Breadcrumb">
       <ol>
@@ -62,6 +90,9 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Kbd: () => <div />,
+  WatchLoader: ({ "aria-label": ariaLabel }: { "aria-label": string }) => (
+    <div role="img" aria-label={ariaLabel} />
+  ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
@@ -80,9 +111,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 describe("DashboardLayout", () => {
   beforeEach(() => {
     vi.mocked(useAuth).mockReturnValue({
+      signIn: vi.fn(),
       signOut: vi.fn(),
       accessToken: "test-token",
-    } as ReturnType<typeof useAuth>);
+    } as unknown as ReturnType<typeof useAuth>);
+    vi.mocked(useAccessToken).mockReturnValue({
+      accessToken: "test-token",
+      refreshError: null,
+    });
   });
 
   // "onboarding" is a top-level sibling route here — matching the real app's
@@ -106,6 +142,7 @@ describe("DashboardLayout", () => {
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
+              <Route path="chat" element={<ChatPage />} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -125,7 +162,7 @@ describe("DashboardLayout", () => {
     // No dashboard chrome and no outlet content while readiness is unknown.
     expect(screen.queryByTestId("dashboard-layout")).not.toBeInTheDocument();
     expect(screen.queryByText("Timeline Content")).not.toBeInTheDocument();
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Loading" })).toBeInTheDocument();
   });
 
   it("redirects to onboarding when no venue exists, without ever rendering dashboard chrome", () => {
@@ -242,6 +279,32 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
+  describe("document title (#4973)", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("sets a route-specific title on the timeline route", () => {
+      renderLayout("/timeline");
+      expect(document.title).toBe("Timeline · Hospitality");
+    });
+
+    it("sets a different title on the guests route", () => {
+      renderLayout("/guests");
+      expect(document.title).toBe("Guests · Hospitality");
+    });
+
+    it("sets a different title on the settings route", () => {
+      renderLayout("/settings");
+      expect(document.title).toBe("Settings · Hospitality");
+    });
+  });
+
   it("renders breadcrumbs and sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
@@ -253,6 +316,21 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // Breadcrumb shows "Home" on the timeline route; sidebar shows "Timeline" nav item
     expect(screen.getByTestId("breadcrumb")).toHaveTextContent("Home");
+  });
+
+  it("renders the chat route with a heading inside the main landmark (#4971)", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+      progress: 100,
+    });
+    renderLayout("/chat");
+    const heading = screen.getByRole("heading", { level: 1, name: "Chat" });
+    expect(screen.getByRole("main")).toContainElement(heading);
+    // The sidebar (and its nav items) must still be visible — this is what
+    // gives the user a way back, unlike the pre-fix standalone /chat route.
+    expect(screen.getByTestId("breadcrumb")).toBeInTheDocument();
   });
 
   it("has no Copilot nav item in sidebar", () => {
@@ -345,6 +423,70 @@ describe("DashboardLayout", () => {
     const wrapper = screen.getByTestId("chat-panel").closest("[data-chat-wrapper]") as HTMLElement;
     expect(wrapper).not.toBeNull();
     expect(wrapper.style.zIndex).toBeTruthy();
+  });
+
+  describe("session refresh banner", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("renders an alert banner when the silent refresh fails", () => {
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/timeline");
+
+      expect(screen.getByTestId("refresh-banner")).toHaveTextContent(
+        `${SESSION_LAPSE_COPY.refreshFailedLead} ${SESSION_LAPSE_COPY.body}`
+      );
+    });
+
+    it("does not render the banner when there is no refresh error", () => {
+      renderLayout("/timeline");
+
+      expect(screen.queryByTestId("refresh-banner")).not.toBeInTheDocument();
+    });
+
+    it("hides the banner when dismissed", async () => {
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/timeline");
+      const user = userEvent.setup();
+      await user.click(screen.getByLabelText("Dismiss"));
+
+      expect(screen.queryByTestId("refresh-banner")).not.toBeInTheDocument();
+    });
+
+    it("signs in again with the current location as returnTo", async () => {
+      const signIn = vi.fn();
+      vi.mocked(useAuth).mockReturnValue({
+        signIn,
+        signOut: vi.fn(),
+        accessToken: "test-token",
+      } as unknown as ReturnType<typeof useAuth>);
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/reservations?date=2026-09-01");
+      const user = userEvent.setup();
+      const actionButton = screen.getByRole("button", { name: SESSION_LAPSE_COPY.action });
+      expect(actionButton).toHaveAccessibleName(SESSION_LAPSE_COPY.action);
+      await user.click(actionButton);
+
+      expect(signIn).toHaveBeenCalledWith({ returnTo: "/reservations?date=2026-09-01" });
+    });
   });
 
   it("keeps ChatPanel mounted after closing to preserve session state", async () => {

@@ -11,6 +11,14 @@ on:
       - "services/users/**"
       - "packages/database/**"
       - ".github/workflows/e2e.yml"
+      # The hospitality job's own helper scripts. Without these, a PR editing
+      # e.g. the auth preflight — a hard gate that fails the whole suite —
+      # gets zero E2E validation, and the breakage lands on the NEXT
+      # unrelated hospitality PR instead (the class
+      # scripts/check-workflow-paths-coverage.mjs exists to catch).
+      - "scripts/e2e-auth-preflight.mjs"
+      - "scripts/e2e-failure-rate.mjs"
+      - "scripts/check-endpoint.mjs"
   workflow_dispatch:
 
 concurrency:
@@ -47,6 +55,12 @@ jobs:
               - 'services/users/**'
               - 'packages/database/**'
               - '.github/workflows/e2e.yml'
+              # Keep in step with the trigger paths above: all three helper
+              # scripts run inside the hospitality job, so a change to them
+              # must not only start the workflow but also un-skip this suite.
+              - 'scripts/e2e-auth-preflight.mjs'
+              - 'scripts/e2e-failure-rate.mjs'
+              - 'scripts/check-endpoint.mjs'
             marketing:
               - 'apps/marketing/**'
               - 'packages/rialto/**'

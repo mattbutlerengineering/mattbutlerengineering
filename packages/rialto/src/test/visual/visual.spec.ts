@@ -22,12 +22,20 @@
  * Storybook 10.5.0 — see #3518). Stories whose interacted state is part of
  * the baseline (focus rings, opened overlays, typed values) get their
  * interaction driven explicitly via Playwright below, after loadStory() and
- * before the screenshot. play() functions still run for Storybook's own test
- * runner; they are just no longer load-bearing for this harness.
+ * before the screenshot. loadStory() navigates with `embed=true` (see
+ * story-url.ts) to make sure of that: Storybook's preview resolves
+ * `shouldAutoplay = !shouldEmbed(search)`, so without `embed=true` it still
+ * auto-runs each story's own play() function on load, racing the interact()
+ * helpers below for any story whose play() performs the same action. That
+ * race caused ConfirmDialog, Dialog, and Drawer's triggers to be
+ * double-clicked (the second click permanently blocked by the first open's
+ * backdrop) and Toast to be shown twice (breaking the strict-mode
+ * `getByText("Success!")` locator) — see #4584.
  */
 
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
+import { buildStoryUrl } from "./story-url";
 
 /**
  * Chromium tracks a page-global input modality (pointer vs. keyboard) and
@@ -98,10 +106,12 @@ async function interactDialog(page: Page): Promise<void> {
 
 async function interactDrawer(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Open Drawer" }).click();
-  // useFocusTrap focuses the first focusable descendant (the close button)
-  // in a passive effect, which can run after the click's own microtask —
-  // wait for it explicitly instead of racing the screenshot against it.
-  await expect(page.getByRole("button", { name: "Close" })).toBeFocused();
+  // useFocusTrap focuses the first focusable descendant that isn't marked
+  // data-focus-trap-skip-initial (the Close button opts out, per #4970) in
+  // a passive effect, which can run after the click's own microtask — wait
+  // for it explicitly instead of racing the screenshot against it. In this
+  // story that's the "Display Name" input, the first field in the body.
+  await expect(page.getByLabel("Display Name")).toBeFocused();
   await makeFocusVisible(page);
 }
 
@@ -235,7 +245,7 @@ async function loadStory(page: Page, storyId: string): Promise<void> {
   });
   // Tell framer-motion to skip all motion
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(`/iframe.html?id=${storyId}&viewMode=story`);
+  await page.goto(buildStoryUrl(storyId));
   // Wait for lazy images/network to settle, then for the vendored webfonts —
   // a screenshot taken before fonts.ready would capture fallback glyphs.
   await page.waitForLoadState("networkidle");

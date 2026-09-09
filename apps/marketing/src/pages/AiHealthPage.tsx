@@ -13,6 +13,7 @@ import {
   type SensorReport,
   type QueueEfficiencyMetrics,
   type DomainActivityMetrics,
+  type AcmmMetrics,
 } from "../data/ai-health.js";
 import styles from "./AiHealthPage.module.css";
 
@@ -162,6 +163,58 @@ function DomainActivityPanel({ domainActivity }: { domainActivity: DomainActivit
   );
 }
 
+function AcmmPanel({ acmm }: { acmm: AcmmMetrics }) {
+  if (!acmm.available) {
+    return (
+      <div className={styles.sensorGrid}>
+        <div className={styles.sensorRow}>
+          <Text className={styles.sensorName}>acmm</Text>
+          <div className={styles.sensorBadge}>
+            <Badge color="red" size="sm">
+              Unavailable
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.statGrid}>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Maturity Level</Text>
+          <Text className={styles.statValue}>
+            {acmm.level == null ? PLACEHOLDER : `Level ${acmm.level}`}
+          </Text>
+          {acmm.levelName && <Text className={styles.statNote}>{acmm.levelName}</Text>}
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Criteria Detected</Text>
+          <Text className={styles.statValue}>
+            {acmm.criteriaMet == null || acmm.criteriaTotal == null
+              ? PLACEHOLDER
+              : `${acmm.criteriaMet}/${acmm.criteriaTotal}`}
+          </Text>
+        </Card>
+      </div>
+      {acmm.capped && acmm.failingGates.length > 0 && (
+        <Alert
+          variant="warning"
+          title="Maturity level capped by a blocking gate"
+          className={styles.staleBanner}
+        >
+          <ul>
+            {acmm.failingGates.map((gate) => (
+              <li key={gate.description}>{gate.description}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+    </>
+  );
+}
+
 async function fetchSensorReport(signal: AbortSignal): Promise<SensorReport> {
   const response = await fetch("/sensor-report.json", { signal });
   if (!response.ok) {
@@ -261,6 +314,11 @@ export function AiHealthPage() {
       <section className={styles.section}>
         <Heading level={2}>Domain Activity</Heading>
         <DomainActivityPanel domainActivity={metrics.domainActivity} />
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>ACMM Maturity</Heading>
+        <AcmmPanel acmm={metrics.acmm} />
       </section>
 
       <section className={styles.section}>

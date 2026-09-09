@@ -52,6 +52,11 @@ describe("AddTableDialog", () => {
     expect(screen.getByLabelText("Min Covers")).toBeInTheDocument();
   });
 
+  it("has an accessible name matching the dialog heading", () => {
+    render(<AddTableDialog {...defaultProps} />);
+    expect(screen.getByRole("dialog", { name: "Add Table" })).toBeInTheDocument();
+  });
+
   it("has default capacity of 4 and min covers of 1", () => {
     render(<AddTableDialog {...defaultProps} />);
     expect(screen.getByLabelText("Capacity")).toHaveValue(4);

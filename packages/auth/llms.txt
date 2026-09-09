@@ -9,6 +9,21 @@
         request: FastifyRequest
       ) => string | null | undefine...;
     </item>
+    <item priority="low">
+      type VenueMembershipLookup = (userSub: string, venueId: string) => Promise<boolean>;
+    </item>
+    <item priority="low">
+      type HasAnyVenueMembership = (userSub: string) => Promise<boolean>;
+    </item>
+    <item priority="high">
+      export function requireVenueAccess(
+        lookupMembership: VenueMembershipLookup,
+        resolveVenueId: VenueIdResolver
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembership) { /* ... */ }
+    </item>
   </file>
   <file path="src/fastify/ownership.ts">
     <item priority="low">
@@ -19,6 +34,25 @@
     </item>
     <item priority="low">
       type OwnerResolver = (request: FastifyRequest) => Promise<string | null>;
+    </item>
+    <item priority="low">
+      interface OwnershipOptions {
+        denial?: "forbid" | "hide";
+      }
+    </item>
+    <item priority="medium">
+      function denyRequest(
+        reply: FastifyReply,
+        denial: "forbid" | "hide",
+        forbidStatus: 401 | 403
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function requireOwnershipOrAdmin(
+        resolveOwnerId: OwnerResolver,
+        resolveCurrentId: OwnerResolver = (req) => Promise.resolve(req.user?.id ?? null),
+        options: OwnershipOptions = {}
+      ) { /* ... */ }
     </item>
   </file>
   <file path="src/fastify/plugin.ts">
@@ -34,10 +68,51 @@
     <item priority="low">
       type JwtVerifier = (token: string) => Promise<VerifiedJWTPayload>;
     </item>
+    <item priority="high">
+      export function isTestBypass(
+        request: Pick<FastifyRequest, "headers">,
+        bypassTestMode: boolean
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toAuthUser(payload: VerifiedJWTPayload): AuthUser | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createJoseVerifier(authority: string, audience: string): JwtVerifier { /* ... */ }
+    </item>
+    <item priority="low">
+      async function authPluginImpl(fastify: FastifyInstance, options: AuthPluginOptions) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const authPlugin: FastifyPluginAsync<AuthPluginOptions>;
+    </item>
+    <item priority="high">
+      export function hasPermission(user: AuthUser | undefined, permission: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function requireAuth(request: FastifyRequest, reply: FastifyReply) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function optionalAuth(_request: FastifyRequest, _reply: FastifyReply) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getAuthPluginOptionsFromEnv(): AuthPluginOptions { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="react">
+  <file path="src/react/auth-error.ts">
+    <item priority="high">
+      export const SILENT_AUTH_ERROR_SOURCES: unknown;
+    </item>
+    <item priority="high">
+      export function isSilentAuthError(error: unknown): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/react/hooks.ts">
+    <item priority="low">
+      type ActiveNavigator = NonNullable<ReturnType<typeof useOIDCAuth>["activeNavigat...;
+    </item>
     <item priority="high">
       export function useAuth() { /* ... */ }
     </item>
@@ -46,6 +121,50 @@
         accessToken: string | null;
         refreshError: Error | null;
       }
+    </item>
+    <item priority="high">
+      export function useAccessToken(): AccessTokenState { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useRequireAuth() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/react/return-to.ts">
+    <item priority="low">
+      interface SignInOptions {
+        returnTo?: string;
+      }
+    </item>
+    <item priority="high">
+      export function isSafeReturnTo(value: unknown): value is string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function appBasePath(redirectUri: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isCallbackPath(pathname: string, redirectUri: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deriveReturnTo(
+        location: Pick<Location, "pathname" | "search" | "hash">,
+        redirectUri: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractReturnTo(state: unknown): string | undefined { /* ... */ }
+    </item>
+  </file>
+  <file path="src/react/session-lifecycle-context.ts">
+    <item priority="low">
+      interface SessionLifecycleState {
+        expired: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const SessionLifecycleContext: unknown;
+    </item>
+    <item priority="high">
+      export function useSessionLifecycle(): SessionLifecycleState { /* ... */ }
     </item>
   </file>
   </section>
@@ -67,6 +186,15 @@
         aud: string | string[];
         exp: number;
         iat: number;
+      }
+    </item>
+    <item priority="low">
+      interface AuthUser {
+        id: string;
+        email?: string;
+        name?: string;
+        picture?: string;
+        emailVerified?: boolean;
       }
     </item>
   </file>

@@ -27,11 +27,13 @@
   color: var(--rialto-text-primary);
 }
 
-.errorBanner {
-  padding: var(--rialto-space-md);
-  background: var(--rialto-error-muted);
-  border: 1px solid var(--rialto-error);
+.templatePreview {
+  inline-size: 100%;
+  max-inline-size: 12rem;
+  aspect-ratio: 4 / 3;
   border-radius: var(--rialto-radius-default);
+  border: 1px solid var(--rialto-border);
+  margin-block-start: var(--rialto-space-sm);
 }
 
 /* ── Celebration ─────────────────────────── */

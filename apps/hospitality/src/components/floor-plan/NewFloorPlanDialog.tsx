@@ -90,9 +90,17 @@ export function NewFloorPlanDialog({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className={styles.overlay} onClick={handleOverlayClick} onKeyDown={handleOverlayKeyDown}>
-      <div ref={panelRef} className={styles.dialog} role="dialog" aria-modal="true">
+      <div
+        ref={panelRef}
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-floor-plan-dialog-title"
+      >
         <div className={styles.dialogHeader}>
-          <Heading className={styles.dialogTitle}>New Floor Plan</Heading>
+          <Heading id="new-floor-plan-dialog-title" className={styles.dialogTitle}>
+            New Floor Plan
+          </Heading>
           <Button className={styles.closeButton} onClick={handleClose} aria-label="Close dialog">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

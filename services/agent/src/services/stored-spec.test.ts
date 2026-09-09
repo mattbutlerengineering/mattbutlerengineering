@@ -15,7 +15,7 @@ vi.mock("./database.js", () => ({
 }));
 
 import { prisma } from "./database.js";
-import { storedSpecService, mapStoredSpec } from "./stored-spec.js";
+import { storedSpecService, mapStoredSpec, mapStoredSpecPublic } from "./stored-spec.js";
 
 const mockSpec = {
   id: "spec-1",
@@ -53,6 +53,23 @@ describe("stored-spec", () => {
       const favorited = { ...mockSpec, isFavorite: true };
       const result = mapStoredSpec(favorited);
       expect(result.isFavorite).toBe(true);
+    });
+  });
+
+  describe("mapStoredSpecPublic", () => {
+    it("omits userId while keeping every other field", () => {
+      const result = mapStoredSpecPublic(mockSpec);
+
+      expect(result).not.toHaveProperty("userId");
+      expect(result).toEqual({
+        id: "spec-1",
+        prompt: "Build a landing page",
+        spec: { components: ["hero", "footer"] },
+        rawLines: ["line 1", "line 2"],
+        isFavorite: false,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      });
     });
   });
 

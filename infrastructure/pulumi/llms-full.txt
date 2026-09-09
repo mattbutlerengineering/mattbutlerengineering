@@ -18,6 +18,10 @@
       webOrigins: webOrigins,
       allowedOrigins: webOrigins,
       oidcConformant: true,
+      // Matches the live prod tenant's `sso: true`. Left undeclared, Pulumi reads
+      // the live value as drift and plans to reset it to the provider default on
+      // the next `pulumi up` — see index.test.ts's "declares sso: true" test.
+      sso: true,
       jwtConfiguration: {
         alg: "RS256",
         lifetimeInSeconds: 36000,
@@ -38,6 +42,36 @@
         idleTokenLifetime: 1296000, // 15 days
       },
     });
+    export const hospitalityApiGrant = new auth0.ClientGrant(
+      "mattbutlerengineering-hospitality-api-grant",
+      {
+        clientId: hospitalityApp.clientId,
+        audience: api.identifier,
+        scopes: ["openid", "profile", "email"],
+      }
+    );
+    export const e2eUser = new auth0.User("e2e-test-user", {
+      connectionName: "Username-Password-Authentication",
+      email: "e2e-test@mattbutlerengineering.com",
+      password: e2ePassword,
+      emailVerified: true,
+      name: "E2E Test User",
+    });
+    export const e2eNonAdminUser = nonAdminPassword
+      ? new auth0.User("e2e-nonadmin-user", {
+          connectionName: "Username-Password-Authentication",
+          email: "e2e-nonadmin@mattbutlerengineering.com",
+          password: nonAdminPassword,
+          emailVerified: true,
+          name: "E2E Non-Admin Journey User",
+        })
+      : undefined;
+    export const auth0Outputs = {
+      apiIdentifier: api.identifier,
+      hospitalityClientId: hospitalityApp.clientId,
+      e2eUserEmail: e2eUser.email,
+      e2eNonAdminUserEmail: e2eNonAdminUser?.email,
+    };
   </file>
   </section>
   <section priority="medium" role="index.ts">
@@ -54,6 +88,67 @@
     ): digitalocean.types.input.AppSpecServiceEnv {
       return { key, value };
     }
+    export const auth0ApiIdentifier = auth0Outputs.apiIdentifier;
+    export const auth0ClientId = auth0Outputs.hospitalityClientId;
+    export const sessionsKvNamespaceId = sessionsKv.id;
+    export const cacheKvNamespaceId = cacheKv.id;
+    export interface ApiServiceArgs {
+      name: string;
+      port: number;
+      dockerfile: string;
+      extraEnvs?: digitalocean.types.input.AppSpecServiceEnv[];
+    }
+    function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] {
+      return [
+        extraEnv("NODE_ENV", "production"),
+        extraEnv("PORT", String(port)),
+        extraEnv("CORS_ORIGIN", `https://${domain}`),
+        extraEnv("API_BASE_URL", `https://api.${domain}/api`),
+        extraEnv("AUTH_AUTHORITY", AUTH_AUTHORITY),
+        extraEnv("AUTH_AUDIENCE", `https://api.${domain}`),
+        secretEnv("DATABASE_URL", databaseUrl),
+      ];
+    }
+    export function apiService(args: ApiServiceArgs): digitalocean.types.input.AppSpecService {
+      return {
+        name: args.name,
+        github: {
+          repo: "mattbutlerengineering/mattbutlerengineering",
+          branch: "main",
+          deployOnPush: false,
+        },
+        sourceDir: "/",
+        dockerfilePath: args.dockerfile,
+        instanceCount: 1,
+        instanceSizeSlug: "apps-s-1vcpu-0.5gb",
+        httpPort: args.port,
+        envs: [
+          ...sharedEnvs(args.port),
+          // Keyed off the service name rather than passed in, so adding a service
+          // without a DSN is a lookup that yields "" and still declares the key,
+          // never a silently absent env var.
+          secretEnv("SENTRY_DSN", sentryDsnByService[args.name] ?? ""),
+          ...(args.extraEnvs ?? []),
+          ...otelEnvs,
+        ],
+        healthCheck: {
+          httpPath: "/ready",
+          initialDelaySeconds: 10,
+          periodSeconds: 10,
+          timeoutSeconds: 5,
+          successThreshold: 1,
+          failureThreshold: 3,
+        },
+      };
+    }
+    export const apiAppUrl = apiApp.liveUrl;
+    export const apiAppDefaultDomain = apiApp.defaultIngress;
+    export const appUrl = pulumi.interpolate`https://${domain}`;
+    export const apiUrl = pulumi.interpolate`https://api.${domain}/api`;
+    export const hospitalityUrl = pulumi.interpolate`https://${domain}/hospitality`;
+    export const rialtoUrl = pulumi.interpolate`https://${domain}/rialto`;
+    export const genUrl = pulumi.interpolate`https://${domain}/gen`;
+    export const healthKvNamespaceId = healthKv.id;
   </file>
   </section>
 </codebase>

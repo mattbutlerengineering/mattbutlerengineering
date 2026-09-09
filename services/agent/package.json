@@ -40,8 +40,8 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@prisma/client-runtime-utils": "^7.9.1",
-    "@scalar/fastify-api-reference": "^1.65.1",
-    "ai": "^7.0.70",
+    "@scalar/fastify-api-reference": "^1.66.1",
+    "ai": "^7.0.74",
     "fastify": "catalog:",
     "pg": "^8.23.0",
     "zod": "catalog:"

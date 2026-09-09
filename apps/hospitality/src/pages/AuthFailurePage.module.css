@@ -1,0 +1,44 @@
+/* ── Auth failure page ────────────────────────
+   Same machined-card-on-atmosphere stage as
+   LoginGate, composed rather than duplicated so
+   the auth surfaces cannot drift apart.
+   ──────────────────────────────────────────── */
+
+.gate {
+  composes: gate from "../components/LoginGate.module.css";
+}
+
+.atmosphere {
+  composes: atmosphere from "../components/LoginGate.module.css";
+}
+
+.grain {
+  composes: grain from "../components/LoginGate.module.css";
+}
+
+.card {
+  composes: card from "../components/LoginGate.module.css";
+}
+
+.handshake {
+  width: min(100%, 360px);
+}
+
+/* ── Auth error details (collapsed raw message) ── */
+
+.errorDetails {
+  max-width: 480px;
+  text-align: center;
+}
+
+.errorDetails summary {
+  cursor: pointer;
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-tertiary);
+}
+
+.errorDetails summary:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-radius: var(--rialto-radius-sharp);
+}

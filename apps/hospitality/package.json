@@ -16,7 +16,7 @@
     "test:journey": "playwright test --config playwright.journey.config.ts",
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
     "size": "size-limit",
-    "size:check": "size-limit"
+    "size:check": "node scripts/check-vendor-chunk-coverage.mjs && size-limit"
   },
   "size-limit": [
     {
@@ -35,9 +35,39 @@
       "limit": "3.5 kB"
     },
     {
+      "name": "Venue Onboarding (lazy chunk)",
+      "path": "dist/assets/VenueOnboardingPage-*.js",
+      "limit": "7.5 kB"
+    },
+    {
       "name": "Canvas Vendor (konva/react-konva, lazy chunk)",
       "path": "dist/assets/canvas-vendor-*.js",
       "limit": "100 kB"
+    },
+    {
+      "name": "React Vendor (react/react-dom)",
+      "path": "dist/assets/react-vendor-*.js",
+      "limit": "85 kB"
+    },
+    {
+      "name": "Rialto Vendor (design system)",
+      "path": "dist/assets/rialto-vendor-*.js",
+      "limit": "72 kB"
+    },
+    {
+      "name": "Router Vendor (react-router)",
+      "path": "dist/assets/router-vendor-*.js",
+      "limit": "29 kB"
+    },
+    {
+      "name": "JSON Render Vendor (@json-render/react)",
+      "path": "dist/assets/json-render-vendor-*.js",
+      "limit": "30 kB"
+    },
+    {
+      "name": "Auth Vendor (@mbe/auth)",
+      "path": "dist/assets/auth-vendor-*.js",
+      "limit": "21 kB"
     }
   ],
   "dependencies": {
@@ -51,8 +81,8 @@
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
-    "@stripe/react-stripe-js": "^6.8.1",
-    "@stripe/stripe-js": "^9.13.0",
+    "@stripe/react-stripe-js": "^6.8.2",
+    "@stripe/stripe-js": "^9.14.0",
     "@tanstack/react-query": "^5.101.4",
     "idb": "^8.0.3",
     "konva": "^10.3.1",

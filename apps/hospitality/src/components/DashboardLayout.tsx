@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, Navigate, Outlet } from "react-router";
-import { useAuth } from "@mbe/auth/react";
+import { useAuth, useAccessToken } from "@mbe/auth/react";
 import {
+  Banner,
   Breadcrumb,
   CommandPalette,
   ErrorBoundary,
@@ -15,12 +16,14 @@ import {
 import type { BreadcrumbItem } from "@mattbutlerengineering/rialto";
 import { registry } from "@mbe/rialto-catalog";
 import { HOSPITALITY_DOMAIN_CONTEXT } from "../constants/copilotContext.js";
+import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { useCommandPalette } from "../hooks/use-command-palette.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useTheme, resolveTheme } from "../hooks/use-theme.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { buildNavSections } from "../nav-sections.js";
 import type { NavItem } from "../nav-sections.js";
-import { VenueProvider } from "../contexts/VenueContext.js";
+import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import { LoadingPage } from "../pages/LoadingPage.js";
@@ -34,6 +37,7 @@ const ROUTE_LABELS: Record<string, string> = {
   timeline: "Timeline",
   reservations: "Reservations",
   guests: "Guests",
+  waitlist: "Waitlist",
   "floor-plans": "Floor Plans",
   "booking-widget": "Booking Widget",
   onboarding: "New Venue",
@@ -55,17 +59,35 @@ const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
 function DashboardLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, accessToken } = useAuth();
+  const { signIn, signOut, accessToken } = useAuth();
+  const { refreshError } = useAccessToken();
   const { theme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
   const isAdmin = useIsAdmin();
+  const { selectedVenue } = useVenue();
   useSSESync();
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Silent-refresh failure banner: dismissal is tracked per error instance so
+  // a NEW failure after dismissal surfaces again (render-time derivation, no
+  // effect-driven state sync).
+  const [dismissedRefreshError, setDismissedRefreshError] = useState<Error | null>(null);
+  const showRefreshBanner = refreshError !== null && refreshError !== dismissedRefreshError;
+
   const path = location.pathname.replace(/^\/hospitality/, "");
+
+  // Per-route document title (#4973): every dashboard route previously
+  // inherited the static "Dashboard - Matt Butler Engineering" title, so tab
+  // switching, browser history, and screen-reader page announcements
+  // couldn't distinguish one page from another. Reuses the same
+  // last-segment -> ROUTE_LABELS lookup as the breadcrumbs below, so the two
+  // can't silently diverge.
+  const pageSegments = path.replace(/^\//, "").split("/").filter(Boolean);
+  const pageLabel = ROUTE_LABELS[pageSegments[pageSegments.length - 1] ?? ""] ?? "Details";
+  useDocumentTitle(`${pageLabel} · ${selectedVenue?.name ?? "Hospitality"}`);
 
   // Single source of truth for the two render-time-gate branches below —
   // computed once and reused by the instrumentation effect so the two can't
@@ -134,6 +156,13 @@ function DashboardLayoutInner() {
   const handleMobileToggle = useCallback(() => {
     setIsMobileMenuOpen((prev) => !prev);
   }, []);
+
+  // Re-authenticate after a failed silent refresh, preserving the current
+  // page (app-relative, so the post-login restore doesn't double-prefix the
+  // /hospitality basename) through the OIDC round-trip.
+  const handleSignInAgain = useCallback(() => {
+    signIn({ returnTo: (path || "/") + location.search + location.hash });
+  }, [signIn, path, location.search, location.hash]);
 
   // Build extra items to inject into named sections (immutable map)
   const extraItems = useMemo(() => {
@@ -306,6 +335,20 @@ function DashboardLayoutInner() {
           className={styles.content}
           style={{ outline: "none" }}
         >
+          {showRefreshBanner && (
+            <Banner
+              variant="warning"
+              dismissible
+              onDismiss={() => setDismissedRefreshError(refreshError)}
+              action={
+                <Button variant="secondary" onClick={handleSignInAgain}>
+                  {SESSION_LAPSE_COPY.action}
+                </Button>
+              }
+            >
+              {SESSION_LAPSE_COPY.refreshFailedLead} {SESSION_LAPSE_COPY.body}
+            </Banner>
+          )}
           <div className={styles.breadcrumbBar}>
             <Breadcrumb items={breadcrumbs} />
             <SystemHealthBadge />

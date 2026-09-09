@@ -83,7 +83,7 @@ function DriverPreview({ driver }: { driver: Driver }) {
 }
 
 export function DriverList() {
-  const { drivers, deleteDriver } = useDrivers();
+  const { drivers, deleteDriver, restoreDriver } = useDrivers();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -120,8 +120,12 @@ export function DriverList() {
     deleteDriver(driver.id);
     setDeleteTarget(null);
     toast({
-      title: `${driver.name} removed`,
+      title: `${driver.name} is off the roster`,
       variant: "default",
+      action: {
+        label: "Undo",
+        onClick: () => restoreDriver(driver),
+      },
     });
   }
 

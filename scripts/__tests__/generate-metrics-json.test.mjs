@@ -120,7 +120,6 @@ describe("selectRecentAgentChanges", () => {
       {
         number: 1,
         title: "script url",
-        // eslint-disable-next-line no-script-url
         url: "javascript:alert(1)",
         mergedAt: "2026-07-01T00:00:00Z",
       },

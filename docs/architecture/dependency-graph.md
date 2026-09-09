@@ -128,6 +128,7 @@ flowchart TD
   rialto_catalog --> config
   rialto_plugin --> rialto
   rialto_plugin --> config
+  sentry --> observability
   sentry --> types
   sentry --> config
   service_bootstrap --> auth

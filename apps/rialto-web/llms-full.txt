@@ -11,6 +11,292 @@
       readonly consented: boolean;
       readonly preferences: CookiePreferences;
     }
+    export const DEFAULT_PREFERENCES: CookiePreferences = {
+      essential: true,
+      analytics: false,
+      functional: false,
+      marketing: false,
+    };
+    function readStoredConsent(): ConsentState {
+      if (typeof window === "undefined") {
+        return { consented: false, preferences: DEFAULT_PREFERENCES };
+      }
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        return { consented: false, preferences: DEFAULT_PREFERENCES };
+      }
+      try {
+        const parsed = JSON.parse(stored) as ConsentState;
+        return {
+          consented: parsed.consented,
+          preferences: {
+            ...DEFAULT_PREFERENCES,
+            ...parsed.preferences,
+            essential: true,
+          },
+        };
+      } catch {
+        return { consented: false, preferences: DEFAULT_PREFERENCES };
+      }
+    }
+    function persistConsent(state: ConsentState): void {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+    export function useCookieConsent() {
+      const [state, setState] = useState<ConsentState>(readStoredConsent);
+    
+      const acceptAll = useCallback(() => {
+        const next: ConsentState = { consented: true, preferences: ALL_ACCEPTED };
+        persistConsent(next);
+        setState(next);
+      }, []);
+    
+      const rejectAll = useCallback(() => {
+        const next: ConsentState = {
+          consented: true,
+          preferences: DEFAULT_PREFERENCES,
+        };
+        persistConsent(next);
+        setState(next);
+      }, []);
+    
+      const savePreferences = useCallback((prefs: Omit<CookiePreferences, "essential">) => {
+        const next: ConsentState = {
+          consented: true,
+          preferences: { ...prefs, essential: true },
+        };
+        persistConsent(next);
+        setState(next);
+      }, []);
+    
+      const reset = useCallback(() => {
+        localStorage.removeItem(STORAGE_KEY);
+        setState({ consented: false, preferences: DEFAULT_PREFERENCES });
+      }, []);
+    
+      return {
+        consented: state.consented,
+        preferences: state.preferences,
+        acceptAll,
+        rejectAll,
+        savePreferences,
+        reset,
+      } as const;
+    }
+  </file>
+  </section>
+  <section priority="medium" role="auth">
+  <file path="src/pages/auth/auth-validation.ts">
+    export const MFA_CODE_LENGTH = 6;
+    export const MFA_REJECT_CODE = "000000";
+    export function isValidEmail(email: string): boolean {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    export function isAcceptedMfaCode(code: string): boolean {
+      return new RegExp(`^\\d{${MFA_CODE_LENGTH}}$`).test(code) && code !== MFA_REJECT_CODE;
+    }
+  </file>
+  <file path="src/pages/auth/authFlowMachine.ts">
+    export const STATIONS = ["browser", "idp", "api"] as const;
+    export type StationId = (typeof STATIONS)[number];
+    export const HANDSHAKE_STATIONS = ["Identity", "Browser", "API"] as const;
+    export type LedVariant = "neutral" | "accent" | "success" | "danger" | "warning" | "off";
+    export type ChannelId = "browser-idp" | "browser-api";
+    export type Direction = "outbound" | "inbound";
+    export type Payload =
+      "challenge" | "code" | "code-verifier" | "tokens" | "access-token" | "tampered-callback";
+    export interface FlowStep {
+      id: string;
+      /** Split-flap readout value (fits the alphanumeric charset). */
+      readout: string;
+      /** One-line plain-language explanation of the step. */
+      caption: string;
+      /** Channel the pulse travels this step, or null when nothing crosses the wire. */
+      channel: ChannelId | null;
+      /** Null exactly when `channel` is null. */
+      direction: Direction | null;
+      /** Null exactly when `channel` is null. */
+      carries: Payload | null;
+      /** Complete LED state for every station. */
+      leds: Record<StationId, LedVariant>;
+    }
+    export const HAPPY_PATH: readonly FlowStep[] = [
+      {
+        id: "authorize",
+        readout: "AUTHORIZE",
+        caption:
+          "You click Sign in. Before anything leaves the browser, the SPA generates a random PKCE verifier and derives its SHA-256 challenge.",
+        channel: null,
+        direction: null,
+        carries: null,
+        leds: { browser: "accent", idp: "neutral", api: "neutral" },
+      },
+      {
+        id: "redirect",
+        readout: "REDIRECT",
+        caption:
+          "The browser redirects to the identity provider's authorize endpoint carrying the hashed challenge and a random state value — never the secret verifier.",
+        channel: "browser-idp",
+        direction: "outbound",
+        carries: "challenge",
+        leds: { browser: "accent", idp: "accent", api: "neutral" },
+      },
+      {
+        id: "code",
+        readout: "CODE",
+        caption:
+          "You authenticate at the provider. It redirects back with a single-use authorization code and echoes the state so the SPA can verify the callback.",
+        channel: "browser-idp",
+        direction: "inbound",
+        carries: "code",
+        leds: { browser: "accent", idp: "success", api: "neutral" },
+      },
+      {
+        id: "exchange",
+        readout: "EXCHANGE",
+        caption:
+          "The SPA posts the code and the original verifier to the token endpoint. The provider hashes the verifier and checks it against the challenge it saw earlier.",
+        channel: "browser-idp",
+        direction: "outbound",
+        carries: "code-verifier",
+        leds: { browser: "accent", idp: "accent", api: "neutral" },
+      },
+      {
+        id: "tokens",
+        readout: "TOKENS",
+        caption:
+          "Verifier confirmed — the provider issues an access token and a rotating refresh session. The one-time code is now spent.",
+        channel: "browser-idp",
+        direction: "inbound",
+        carries: "tokens",
+        leds: { browser: "success", idp: "success", api: "neutral" },
+      },
+      {
+        id: "api-call",
+        readout: "API CALL",
+        caption:
+          "The SPA calls the API with the access token as a Bearer credential. The API verifies the token's signature and audience before answering.",
+        channel: "browser-api",
+        direction: "outbound",
+        carries: "access-token",
+        leds: { browser: "success", idp: "neutral", api: "accent" },
+      },
+      {
+        id: "refresh",
+        readout: "REFRESH",
+        caption:
+          "Five minutes before the token expires, the SPA silently repeats the dance — a fresh challenge, a fresh one-time code, new tokens — with no interruption for you.",
+        channel: "browser-idp",
+        direction: "outbound",
+        carries: "challenge",
+        leds: { browser: "accent", idp: "accent", api: "success" },
+      },
+    ];
+    export const ERROR_FORK_INDEX = 2;
+    export const ERROR_STEP: FlowStep = {
+      id: "state-mismatch",
+      readout: "REJECTED",
+      caption:
+        "The callback's state parameter does not match the one the SPA sent, so the SPA rejects the redirect outright — the code is never exchanged. This check blocks CSRF and injected callbacks.",
+      channel: "browser-idp",
+      direction: "inbound",
+      carries: "tampered-callback",
+      leds: { browser: "danger", idp: "neutral", api: "neutral" },
+    };
+    export interface AuthFlowState {
+      stepIndex: number;
+      playing: boolean;
+      errorBranch: boolean;
+    }
+    export const INITIAL_STATE: AuthFlowState = {
+      stepIndex: 0,
+      playing: false,
+      errorBranch: false,
+    };
+    export type AuthFlowAction =
+      | { type: "next" }
+      | { type: "play" }
+      | { type: "pause" }
+      | { type: "reset" }
+      | { type: "set-error-branch"; enabled: boolean };
+    export function currentStep(state: AuthFlowState): FlowStep {
+      if (state.errorBranch && state.stepIndex === ERROR_FORK_INDEX) return ERROR_STEP;
+      return HAPPY_PATH[state.stepIndex] ?? ERROR_STEP;
+    }
+    export function handshakeFor(step: FlowStep): { state: HandshakeState; lane: 0 | 1 } {
+      if (step.channel === null) return { state: "idle", lane: 0 };
+      const lane = step.channel === "browser-idp" ? 0 : 1;
+      const state = step.carries === "tampered-callback" ? "failed" : "negotiating";
+      return { state, lane };
+    }
+    export function advance(state: AuthFlowState, action: AuthFlowAction): AuthFlowState {
+      switch (action.type) {
+        case "next": {
+          // A rejected callback halts the flow — only reset or toggling the
+          // branch off moves things again.
+          if (state.errorBranch && state.stepIndex === ERROR_FORK_INDEX) return state;
+          const stepIndex = Math.min(state.stepIndex + 1, HAPPY_PATH.length - 1);
+          return stepIndex === state.stepIndex ? state : { ...state, stepIndex };
+        }
+        case "play":
+          return state.playing ? state : { ...state, playing: true };
+        case "pause":
+          return state.playing ? { ...state, playing: false } : state;
+        case "reset":
+          return INITIAL_STATE;
+        case "set-error-branch":
+          return action.enabled
+            ? { stepIndex: ERROR_FORK_INDEX, playing: false, errorBranch: true }
+            : { ...state, errorBranch: false };
+      }
+    }
+  </file>
+  <file path="src/pages/auth/score-password.ts">
+    export const MIN_PASSWORD_LENGTH = 12;
+    export const BONUS_LENGTH = 16;
+    export interface PasswordRequirements {
+      /** At least {@link MIN_PASSWORD_LENGTH} characters */
+      minLength: boolean;
+      /** Contains both an upper- and a lower-case letter */
+      mixedCase: boolean;
+      /** Contains a digit or a symbol */
+      numberOrSymbol: boolean;
+    }
+    export interface PasswordAssessment {
+      /** 0-4: one point per satisfied requirement, +1 bonus for length >= {@link BONUS_LENGTH} when all are met */
+      score: 0 | 1 | 2 | 3 | 4;
+      satisfied: PasswordRequirements;
+    }
+    export const STRENGTH_LABELS = ["Too weak", "Weak", "Fair", "Strong", "Very strong"] as const;
+    export function scorePassword(password: string): PasswordAssessment {
+      const satisfied: PasswordRequirements = {
+        minLength: password.length >= MIN_PASSWORD_LENGTH,
+        mixedCase: /[a-z]/.test(password) && /[A-Z]/.test(password),
+        numberOrSymbol: /[0-9]/.test(password) || /[^a-zA-Z0-9]/.test(password),
+      };
+    
+      const base = Object.values(satisfied).filter(Boolean).length;
+      const allSatisfied = base === 3;
+      const score = (allSatisfied && password.length >= BONUS_LENGTH ? 4 : base) as 0 | 1 | 2 | 3 | 4;
+    
+      return { score, satisfied };
+    }
+    export function meterVariantForScore(score: number): "error" | "default" | "success" {
+      if (score <= 1) return "error";
+      if (score === 2) return "default";
+      return "success";
+    }
+  </file>
+  </section>
+  <section priority="medium" role="component-count.config.ts">
+  <file path="component-count.config.ts">
+    export function resolveRialtoComponentCount(): number {
+      const manifestPath = require.resolve("@mattbutlerengineering/rialto/manifest");
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+        components: readonly unknown[];
+      };
+      return countRialtoComponents(manifest);
+    }
   </file>
   </section>
   <section priority="medium" role="data">
@@ -19,10 +305,12 @@
     export const DEMO_ROUTES = {
       signIn: `${DEMOS_BASE}/login`,
       signUp: `${DEMOS_BASE}/signup`,
+      sessionExpired: `${DEMOS_BASE}/session-expired`,
       dashboard: `${DEMOS_BASE}/dashboard`,
       teamCreate: `${DEMOS_BASE}/teams/new`,
       layouts: `${DEMOS_BASE}/layouts`,
       telemetry: `${DEMOS_BASE}/telemetry`,
+      authFlow: `${DEMOS_BASE}/auth-flow`,
       drivers: `${DEMOS_BASE}/drivers`,
       driverNew: `${DEMOS_BASE}/drivers/new`,
       driver: (id: string) => `${DEMOS_BASE}/drivers/${id}`,
@@ -35,6 +323,16 @@
       (total, section) => total + section.items.length,
       0
     );
+    export const DEMO_PAGES: readonly NavItem[] = [
+      { id: "sign-in", label: "Sign In", path: DEMO_ROUTES.signIn },
+      { id: "sign-up", label: "Sign Up", path: DEMO_ROUTES.signUp },
+      { id: "dashboard", label: "Dashboard", path: DEMO_ROUTES.dashboard },
+      { id: "drivers", label: "Drivers CRUD", path: DEMO_ROUTES.drivers },
+      { id: "teams", label: "Team Create", path: DEMO_ROUTES.teamCreate },
+      { id: "layouts", label: "Layout Demo", path: DEMO_ROUTES.layouts },
+      { id: "telemetry", label: "Telemetry HUD", path: DEMO_ROUTES.telemetry },
+      { id: "auth-flow", label: "Auth Flow", path: DEMO_ROUTES.authFlow },
+    ] as const;
   </file>
   <file path="src/data/page-registry.ts">
     export interface PageEntry {
@@ -52,6 +350,101 @@
       comingSoon?: boolean;
       /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
       load?: () => Promise<unknown>;
+    }
+    export interface NavItem {
+      id: string;
+      label: string;
+      path: string;
+      comingSoon?: boolean;
+    }
+    export interface NavSection {
+      label: string;
+      items: NavItem[];
+    }
+    function validateEntry(entry: PageEntry): void {
+      if (!entry.id) throw new Error(`PageRegistry: entry missing required field "id"`);
+      if (!entry.label)
+        throw new Error(`PageRegistry: entry "${entry.id}" missing required field "label"`);
+      if (!entry.category)
+        throw new Error(`PageRegistry: entry "${entry.id}" missing required field "category"`);
+    }
+    function toPascalCase(label: string): string {
+      return label
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("");
+    }
+    function deriveExportName(entry: Pick<RawPageEntry, "label" | "category">): string {
+      const base = toPascalCase(entry.label);
+      return entry.category === "Examples" ? `${base}ExamplePage` : `${base}Page`;
+    }
+    function resolveLoad(entry: RawPageEntry): () => Promise<unknown> {
+      if (entry.load) return entry.load;
+      if (entry.comingSoon) return () => Promise.resolve({});
+    
+      const exportName = deriveExportName(entry);
+      const modulePath = Object.keys(PAGE_MODULES).find((key) => key.endsWith(`/${exportName}.tsx`));
+      if (!modulePath) {
+        throw new Error(
+          `PageRegistry: no page module found for "${entry.id}" (expected export "${exportName}"). ` +
+            `Add an explicit "load" to the entry if its module doesn't follow the {label}Page convention.`
+        );
+      }
+    
+      const importModule = PAGE_MODULES[modulePath]!;
+      return () => importModule().then((mod) => ({ default: mod[exportName] }));
+    }
+    function derivePath(entry: Pick<RawPageEntry, "id" | "category">): string {
+      if (entry.category === "Dashboard") return "/dashboard";
+      if (entry.category === "Examples") return `/examples/${entry.id.replace(/^example-/, "")}`;
+      return `/components/${entry.id}`;
+    }
+    export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] {
+      return rawEntries.map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        category: entry.category,
+        path: derivePath(entry),
+        ...(entry.comingSoon ? { comingSoon: true } : {}),
+        load: resolveLoad(entry),
+      }));
+    }
+    export const PAGE_REGISTRY: PageEntry[] = buildPageRegistry(RAW_PAGE_ENTRIES);
+    export function buildNavSections(entries: PageEntry[]): NavSection[] {
+      // Validate all entries first
+      for (const entry of entries) {
+        validateEntry(entry);
+      }
+    
+      const sectionMap = new Map<string, NavItem[]>();
+    
+      for (const entry of entries) {
+        if (!sectionMap.has(entry.category)) {
+          sectionMap.set(entry.category, []);
+        }
+        sectionMap.get(entry.category)!.push({
+          id: entry.id,
+          label: entry.label,
+          path: entry.path,
+          ...(entry.comingSoon ? { comingSoon: true } : {}),
+        });
+      }
+    
+      return Array.from(sectionMap.entries()).map(([label, items]) => ({ label, items }));
+    }
+    export function buildSitemapPaths(entries: PageEntry[]): string[] {
+      return entries.map((e) => e.path);
+    }
+    export const REGISTRY_NAV_SECTIONS: NavSection[] = buildNavSections(PAGE_REGISTRY);
+    export const REGISTRY_SITEMAP_PATHS: string[] = buildSitemapPaths(PAGE_REGISTRY);
+  </file>
+  <file path="src/data/rialto-components.ts">
+    interface RialtoManifest {
+      components: readonly unknown[];
+    }
+    export function countRialtoComponents(manifest: RialtoManifest): number {
+      return manifest.components.length;
     }
   </file>
   <file path="src/data/rialto-tokens.ts">
@@ -74,6 +467,218 @@
       const [y, m, d] = iso.split("-").map(Number);
       const ms = Date.UTC(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n);
       return new Date(ms).toISOString().slice(0, 10);
+    }
+    export function makeRooms(count = 30): TapeChartRoom[] {
+      const rnd = mulberry32(42);
+      const rooms: TapeChartRoom[] = [];
+      for (let i = 0; i < count; i++) {
+        const number = 1000 + i;
+        const tier = i < count * 0.5 ? "Standard" : i < count * 0.85 ? "Deluxe" : "Suite";
+        const capacity = tier === "Standard" ? 2 : tier === "Deluxe" ? 3 : 4;
+        rooms.push({
+          id: `room-${number}`,
+          name: `${number}`,
+          category: tier,
+          capacity,
+          status: ROOM_STATUSES[Math.floor(rnd() * ROOM_STATUSES.length)],
+        });
+      }
+      return rooms;
+    }
+    export function makeReservations(
+      rooms: TapeChartRoom[],
+      startDate: string,
+      endDate: string,
+      density = 0.6
+    ): TapeChartReservation[] {
+      const rnd = mulberry32(7);
+      const reservations: TapeChartReservation[] = [];
+      const daysBetween = (a: string, b: string) => {
+        const [ay, am, ad] = a.split("-").map(Number);
+        const [by, bm, bd] = b.split("-").map(Number);
+        return Math.round(
+          (Date.UTC(by ?? 1970, (bm ?? 1) - 1, bd ?? 1) -
+            Date.UTC(ay ?? 1970, (am ?? 1) - 1, ad ?? 1)) /
+            86400000
+        );
+      };
+      const rangeDays = daysBetween(startDate, endDate);
+      if (rangeDays <= 0) return [];
+    
+      for (const room of rooms) {
+        let cursor = Math.floor(rnd() * 3); // small initial gap
+        while (cursor < rangeDays) {
+          if (rnd() > density) {
+            cursor += 1 + Math.floor(rnd() * 3);
+            continue;
+          }
+          const stayLength = 1 + Math.floor(rnd() * 5);
+          const endOffset = Math.min(rangeDays, cursor + stayLength);
+          if (endOffset - cursor < 1) break;
+          const start = addDaysISO(startDate, cursor);
+          const end = addDaysISO(startDate, endOffset);
+          const guestName = `${FIRST_NAMES[Math.floor(rnd() * FIRST_NAMES.length)]} ${LAST_NAMES[Math.floor(rnd() * LAST_NAMES.length)]}`;
+          const source = SOURCES[Math.floor(rnd() * SOURCES.length)];
+          const status: TapeChartStatus =
+            cursor < rangeDays / 2
+              ? rnd() < 0.7
+                ? "confirmed"
+                : "checkedIn"
+              : rnd() < 0.3
+                ? "tentative"
+                : "confirmed";
+          reservations.push({
+            id: `res-${room.id}-${cursor}`,
+            roomId: room.id,
+            start,
+            end,
+            status,
+            guestName,
+            partySize: 1 + Math.floor(rnd() * (room.capacity ?? 2)),
+            ratePerNight: (100 + Math.floor(rnd() * 200)) * 100,
+            currency: "USD",
+            source,
+          });
+          cursor = endOffset + Math.floor(rnd() * 2);
+        }
+      }
+      return reservations;
+    }
+    export function makeOverlapScenario(): {
+      rooms: TapeChartRoom[];
+      reservations: TapeChartReservation[];
+      startDate: "2026-03-02";
+      endDate: "2026-03-09";
+    } {
+      const rooms: TapeChartRoom[] = [
+        { id: "ov-201", name: "201", category: "Standard", capacity: 2 },
+        { id: "ov-202", name: "202", category: "Deluxe", capacity: 3 },
+        { id: "ov-dorm-a", name: "Dorm A", category: "Dorm", capacity: 6 },
+        { id: "ov-203", name: "203", category: "Standard", capacity: 2 },
+      ];
+      const base = { currency: "USD", source: "Direct" } as const;
+      const reservations: TapeChartReservation[] = [
+        // 201 — two private-room bookings that collide on Wed/Thu.
+        {
+          ...base,
+          id: "ov-a",
+          roomId: "ov-201",
+          start: "2026-03-02",
+          end: "2026-03-06",
+          status: "confirmed",
+          guestName: "Marisol Vega",
+          partySize: 2,
+          ratePerNight: 18000,
+        },
+        {
+          ...base,
+          id: "ov-b",
+          roomId: "ov-201",
+          start: "2026-03-04",
+          end: "2026-03-08",
+          status: "confirmed",
+          guestName: "Tobias Lindqvist",
+          partySize: 1,
+          ratePerNight: 18000,
+        },
+        // 202 — a 3-deep stack; all three cover Thu 03-05.
+        {
+          ...base,
+          id: "ov-c",
+          roomId: "ov-202",
+          start: "2026-03-02",
+          end: "2026-03-07",
+          status: "checkedIn",
+          guestName: "Harriet Okafor",
+          partySize: 2,
+          ratePerNight: 24000,
+        },
+        {
+          ...base,
+          id: "ov-d",
+          roomId: "ov-202",
+          start: "2026-03-03",
+          end: "2026-03-06",
+          status: "tentative",
+          guestName: "Elias Brandt",
+          partySize: 3,
+          ratePerNight: 24000,
+        },
+        {
+          ...base,
+          id: "ov-e",
+          roomId: "ov-202",
+          start: "2026-03-05",
+          end: "2026-03-09",
+          status: "confirmed",
+          guestName: "Nadia Petrova",
+          partySize: 2,
+          ratePerNight: 24000,
+        },
+        // Dorm A — three bunks sharing one room: legitimate co-occupancy.
+        {
+          ...base,
+          id: "ov-f",
+          roomId: "ov-dorm-a",
+          start: "2026-03-02",
+          end: "2026-03-05",
+          status: "confirmed",
+          guestName: "Oscar Delacroix",
+          partySize: 1,
+          ratePerNight: 4500,
+        },
+        {
+          ...base,
+          id: "ov-g",
+          roomId: "ov-dorm-a",
+          start: "2026-03-02",
+          end: "2026-03-06",
+          status: "confirmed",
+          guestName: "Wren Castellano",
+          partySize: 1,
+          ratePerNight: 4500,
+        },
+        {
+          ...base,
+          id: "ov-h",
+          roomId: "ov-dorm-a",
+          start: "2026-03-03",
+          end: "2026-03-07",
+          status: "confirmed",
+          guestName: "Imani Adeyemi",
+          partySize: 1,
+          ratePerNight: 4500,
+        },
+        // 203 — a single booking, so the sibling row keeps its one-lane height.
+        {
+          ...base,
+          id: "ov-i",
+          roomId: "ov-203",
+          start: "2026-03-03",
+          end: "2026-03-07",
+          status: "confirmed",
+          guestName: "Lucas Moreau",
+          partySize: 2,
+          ratePerNight: 18000,
+        },
+      ];
+      return { rooms, reservations, startDate: "2026-03-02", endDate: "2026-03-09" };
+    }
+    export function classifyDormAsShared(
+      rooms: TapeChartRoom[]
+    ): (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind {
+      const roomsById = new Map(rooms.map((r) => [r.id, r]));
+      return (a, _b) => (roomsById.get(a.roomId)?.category === "Dorm" ? "shared" : "conflict");
+    }
+    export function defaultDateRange() {
+      // Anchor the start to the Thursday of the current week, extend 14 days.
+      const today = new Date();
+      const dayOfWeek = today.getUTCDay(); // 0=Sun..6=Sat
+      const back = dayOfWeek >= 4 ? dayOfWeek - 4 : 7 - (4 - dayOfWeek);
+      const startDate = new Date(today.getTime() - back * 86400000);
+      const startIso = startDate.toISOString().slice(0, 10);
+      const endIso = addDaysISO(startIso, 14);
+      return { startDate: startIso, endDate: endIso };
     }
   </file>
   </section>
@@ -98,6 +703,12 @@
       deleteDriver: (id: string) => void;
       restoreDriver: (driver: Driver) => void;
     }
+    export const DriverContext = createContext<DriverContextValue | null>(null);
+    export function useDrivers() {
+      const ctx = useContext(DriverContext);
+      if (!ctx) throw new Error("useDrivers must be used within DriverProvider");
+      return ctx;
+    }
   </file>
   </section>
   <section priority="medium" role="examples">
@@ -107,6 +718,174 @@
       id: WizardStepId;
       label: string;
       description: string;
+    }
+    export const WIZARD_STEPS: WizardStepDef[] = [
+      { id: "dates", label: "Dates", description: "Check-in & check-out" },
+      { id: "room", label: "Room", description: "Choose your room" },
+      { id: "guest", label: "Guest", description: "Who is staying" },
+      { id: "payment", label: "Payment", description: "Payment details" },
+      { id: "confirmation", label: "Confirmation", description: "Review & confirm" },
+    ];
+    export const LAST_STEP_INDEX = WIZARD_STEPS.length - 1;
+    export interface RoomOption {
+      id: string;
+      name: string;
+      description: string;
+      /** Nightly rate in whole USD. */
+      pricePerNight: number;
+    }
+    export const ROOMS: RoomOption[] = [
+      {
+        id: "garden-queen",
+        name: "Garden Queen",
+        description: "Queen bed with a private garden-facing balcony.",
+        pricePerNight: 180,
+      },
+      {
+        id: "harbor-king",
+        name: "Harbor King",
+        description: "King bed and a corner window over the harbor.",
+        pricePerNight: 260,
+      },
+      {
+        id: "rooftop-suite",
+        name: "Rooftop Suite",
+        description: "Two rooms, soaking tub, and rooftop terrace access.",
+        pricePerNight: 420,
+      },
+    ];
+    export const TAX_RATE = 0.12;
+    export interface GuestInfo {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+    }
+    export interface PaymentInfo {
+      cardName: string;
+      cardNumber: string;
+      expiry: string;
+      cvc: string;
+    }
+    export interface BookingWizardState {
+      checkIn: string | null;
+      checkOut: string | null;
+      roomId: string | null;
+      guest: GuestInfo;
+      payment: PaymentInfo;
+    }
+    export const INITIAL_WIZARD_STATE: BookingWizardState = {
+      checkIn: null,
+      checkOut: null,
+      roomId: null,
+      guest: { firstName: "", lastName: "", email: "", phone: "" },
+      payment: { cardName: "", cardNumber: "", expiry: "", cvc: "" },
+    };
+    function isoToUtc(iso: string): number | null {
+      const match = ISO_DATE.exec(iso);
+      if (!match) return null;
+      return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    }
+    export function nightsBetween(checkIn: string | null, checkOut: string | null): number {
+      if (!checkIn || !checkOut) return 0;
+      const start = isoToUtc(checkIn);
+      const end = isoToUtc(checkOut);
+      if (start == null || end == null || end <= start) return 0;
+      return Math.round((end - start) / MS_PER_DAY);
+    }
+    export function nextIsoDay(iso: string | null): string | undefined {
+      if (!iso) return undefined;
+      const utc = isoToUtc(iso);
+      if (utc == null) return undefined;
+      return new Date(utc + MS_PER_DAY).toISOString().slice(0, 10);
+    }
+    export type FieldErrors = Record<string, string>;
+    export function validateDates(state: BookingWizardState): FieldErrors {
+      const errors: FieldErrors = {};
+      if (!state.checkIn) errors.checkIn = "Choose a check-in date.";
+      if (!state.checkOut) errors.checkOut = "Choose a check-out date.";
+      if (state.checkIn && state.checkOut && state.checkOut <= state.checkIn) {
+        errors.checkOut = "Check-out must be after check-in.";
+      }
+      return errors;
+    }
+    export function validateRoom(state: BookingWizardState): FieldErrors {
+      return state.roomId ? {} : { roomId: "Select a room to continue." };
+    }
+    export function validateGuest(state: BookingWizardState): FieldErrors {
+      const errors: FieldErrors = {};
+      const { firstName, lastName, email } = state.guest;
+      if (!firstName.trim()) errors.firstName = "First name is required.";
+      if (!lastName.trim()) errors.lastName = "Last name is required.";
+      if (!email.trim()) errors.email = "Email is required.";
+      else if (!EMAIL.test(email.trim())) errors.email = "Enter a valid email address.";
+      return errors;
+    }
+    export function validatePayment(state: BookingWizardState): FieldErrors {
+      const errors: FieldErrors = {};
+      const { cardName, cardNumber, expiry, cvc } = state.payment;
+      if (!cardName.trim()) errors.cardName = "Name on card is required.";
+      if (!/^\d{16}$/.test(cardNumber.replace(/\s+/g, ""))) {
+        errors.cardNumber = "Enter the 16-digit card number.";
+      }
+      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry.trim())) {
+        errors.expiry = "Use MM/YY format.";
+      }
+      if (!/^\d{3,4}$/.test(cvc.trim())) {
+        errors.cvc = "Enter the 3-4 digit security code.";
+      }
+      return errors;
+    }
+    export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors {
+      const validator = STEP_VALIDATORS[stepIndex];
+      return validator ? validator(state) : {};
+    }
+    export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean {
+      return Object.keys(validateStep(stepIndex, state)).length === 0;
+    }
+    export interface AdvanceResult {
+      step: number;
+      errors: FieldErrors;
+      advanced: boolean;
+    }
+    export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult {
+      const errors = validateStep(current, state);
+      if (Object.keys(errors).length > 0) {
+        return { step: current, errors, advanced: false };
+      }
+      const next = Math.min(current + 1, LAST_STEP_INDEX);
+      return { step: next, errors: {}, advanced: next !== current };
+    }
+    export function goBack(current: number): number {
+      return Math.max(0, current - 1);
+    }
+    export interface PriceBreakdown {
+      nights: number;
+      roomName: string;
+      ratePerNight: number;
+      subtotal: number;
+      taxes: number;
+      total: number;
+    }
+    export function priceBreakdown(state: BookingWizardState): PriceBreakdown | null {
+      const room = ROOMS.find((candidate) => candidate.id === state.roomId);
+      const nights = nightsBetween(state.checkIn, state.checkOut);
+      if (!room || nights === 0) return null;
+      const subtotal = room.pricePerNight * nights;
+      const taxes = Math.round(subtotal * TAX_RATE);
+      return {
+        nights,
+        roomName: room.name,
+        ratePerNight: room.pricePerNight,
+        subtotal,
+        taxes,
+        total: subtotal + taxes,
+      };
+    }
+    export function maskCardNumber(cardNumber: string): string {
+      const digits = cardNumber.replace(/\D+/g, "");
+      if (digits.length < 4) return "••••";
+      return `•••• •••• •••• ${digits.slice(-4)}`;
     }
   </file>
   <file path="src/pages/examples/notification-center.ts">
@@ -119,6 +898,125 @@
       /** ISO timestamp. */
       timestamp: string;
       read: boolean;
+    }
+    export type NotificationFilter = "all" | "unread";
+    export function typeLabel(type: NotificationType): string {
+      return TYPE_LABEL[type];
+    }
+    function agoIso(ms: number): string {
+      return new Date(NOW - ms).toISOString();
+    }
+    export const NOTIFICATIONS: NotificationItem[] = [
+      {
+        id: "N-1",
+        type: "booking",
+        title: "New reservation confirmed",
+        message: "Elena Marchetti booked Suite 402 for Aug 14–18.",
+        timestamp: agoIso(4 * MINUTE),
+        read: false,
+      },
+      {
+        id: "N-2",
+        type: "payment",
+        title: "Payment received",
+        message: "$1,740 charged for reservation RES-1107.",
+        timestamp: agoIso(22 * MINUTE),
+        read: false,
+      },
+      {
+        id: "N-3",
+        type: "system",
+        title: "Nightly sync completed",
+        message: "Channel manager sync finished with no errors.",
+        timestamp: agoIso(HOUR),
+        read: true,
+      },
+      {
+        id: "N-4",
+        type: "booking",
+        title: "Guest checked in",
+        message: "Marcus Webb checked into Deluxe 218.",
+        timestamp: agoIso(3 * HOUR),
+        read: false,
+      },
+      {
+        id: "N-5",
+        type: "payment",
+        title: "Refund issued",
+        message: "$320 refunded for cancelled reservation RES-0764.",
+        timestamp: agoIso(5 * HOUR),
+        read: true,
+      },
+      {
+        id: "N-6",
+        type: "system",
+        title: "Rate plan updated",
+        message: "Weekend rates for Suite rooms increased 8%.",
+        timestamp: agoIso(9 * HOUR),
+        read: true,
+      },
+      {
+        id: "N-7",
+        type: "booking",
+        title: "Reservation cancelled",
+        message: "RES-0518 was cancelled by the guest.",
+        timestamp: agoIso(DAY),
+        read: false,
+      },
+      {
+        id: "N-8",
+        type: "payment",
+        title: "Payment failed",
+        message: "Card declined on reservation RES-1152 — retry required.",
+        timestamp: agoIso(DAY + 6 * HOUR),
+        read: false,
+      },
+      {
+        id: "N-9",
+        type: "system",
+        title: "Storage nearing capacity",
+        message: "Document storage is at 82% of plan capacity.",
+        timestamp: agoIso(2 * DAY),
+        read: true,
+      },
+      {
+        id: "N-10",
+        type: "booking",
+        title: "Upgrade requested",
+        message: "Guest requested an upgrade to Rooftop Suite.",
+        timestamp: agoIso(3 * DAY),
+        read: true,
+      },
+    ];
+    export function sortByRecency(items: NotificationItem[]): NotificationItem[] {
+      return [...items].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    }
+    export function unreadCount(items: NotificationItem[]): number {
+      return items.filter((n) => !n.read).length;
+    }
+    export function filterNotifications(
+      items: NotificationItem[],
+      filter: NotificationFilter
+    ): NotificationItem[] {
+      return filter === "unread" ? items.filter((n) => !n.read) : items;
+    }
+    export function markRead(items: NotificationItem[], id: string): NotificationItem[] {
+      return items.map((n) => (n.id === id ? { ...n, read: true } : n));
+    }
+    export function markAllRead(items: NotificationItem[]): NotificationItem[] {
+      return items.map((n) => (n.read ? n : { ...n, read: true }));
+    }
+    export function formatRelativeTime(iso: string, now: Date = new Date()): string {
+      const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+      const diffMs = new Date(iso).getTime() - now.getTime();
+      const diffSecs = Math.round(diffMs / 1000);
+      if (Math.abs(diffSecs) < 60) return rtf.format(diffSecs, "second");
+      const diffMins = Math.round(diffSecs / 60);
+      if (Math.abs(diffMins) < 60) return rtf.format(diffMins, "minute");
+      const diffHours = Math.round(diffMins / 60);
+      if (Math.abs(diffHours) < 24) return rtf.format(diffHours, "hour");
+      const diffDays = Math.round(diffHours / 24);
+      return rtf.format(diffDays, "day");
     }
   </file>
   <file path="src/pages/examples/onboarding.ts">
@@ -133,6 +1031,98 @@
       heading: string;
       /** Panel sub-heading, in the product's own voice. */
       blurb: string;
+    }
+    export const ONBOARDING_STEPS: OnboardingStepDef[] = [
+      {
+        id: "property",
+        label: "Property",
+        description: "Name and type",
+        heading: "Tell us about your property",
+        blurb: "This is the name guests see on confirmations and receipts.",
+      },
+      {
+        id: "spaces",
+        label: "Spaces",
+        description: "What you rent out",
+        heading: "Set up your spaces",
+        blurb: "Pick the closest match — you can add individual spaces later.",
+      },
+      {
+        id: "preferences",
+        label: "Preferences",
+        description: "How you take bookings",
+        heading: "Choose how bookings work",
+        blurb: "Sensible defaults are pre-selected. Change them any time in Settings.",
+      },
+      {
+        id: "launch",
+        label: "Launch",
+        description: "You're live",
+        heading: "You're ready to take bookings",
+        blurb: "Your property is live. Here's what we set up for you.",
+      },
+    ];
+    export const FIRST_STEP_INDEX = 0;
+    export const LAST_STEP_INDEX = ONBOARDING_STEPS.length - 1;
+    export function nextStep(index: number): number {
+      return Math.min(index + 1, LAST_STEP_INDEX);
+    }
+    export function previousStep(index: number): number {
+      return Math.max(index - 1, FIRST_STEP_INDEX);
+    }
+    export function isFinalStep(index: number): boolean {
+      return index === LAST_STEP_INDEX;
+    }
+    export function completionPercent(index: number): number {
+      return Math.round(((index + 1) / ONBOARDING_STEPS.length) * 100);
+    }
+    export type PropertyType = "boutique" | "resort" | "inn";
+    export const PROPERTY_TYPES: { id: PropertyType; label: string }[] = [
+      { id: "boutique", label: "Boutique hotel" },
+      { id: "resort", label: "Resort" },
+      { id: "inn", label: "Inn" },
+    ];
+    export interface SpacePreset {
+      value: string;
+      label: string;
+    }
+    export const SPACE_PRESETS: SpacePreset[] = [
+      { value: "rooms", label: "Guest rooms only" },
+      { value: "rooms-dining", label: "Guest rooms and dining" },
+      { value: "rooms-dining-events", label: "Guest rooms, dining, and event space" },
+    ];
+    export interface OnboardingState {
+      propertyName: string;
+      propertyType: PropertyType;
+      spacePreset: string;
+      instantBooking: boolean;
+      requireDeposit: boolean;
+    }
+    export const INITIAL_ONBOARDING_STATE: OnboardingState = {
+      propertyName: "Harbor House",
+      propertyType: "boutique",
+      spacePreset: "rooms-dining",
+      instantBooking: true,
+      requireDeposit: false,
+    };
+    export interface SummaryRow {
+      label: string;
+      value: string;
+    }
+    function labelFor<T extends { label: string }>(
+      options: T[],
+      match: (option: T) => boolean
+    ): string {
+      return options.find(match)?.label ?? "—";
+    }
+    export function launchSummary(state: OnboardingState): SummaryRow[] {
+      return [
+        { label: "Property", value: state.propertyName },
+        { label: "Type", value: labelFor(PROPERTY_TYPES, (t) => t.id === state.propertyType) },
+        { label: "Spaces", value: labelFor(SPACE_PRESETS, (p) => p.value === state.spacePreset) },
+        { label: "Instant booking", value: state.instantBooking ? "On" : "Off" },
+        { label: "Deposit required", value: state.requireDeposit ? "Yes" : "No" },
+      ];
     }
   </file>
   </section>
@@ -196,6 +1186,66 @@
        */
       mutate?: (html: string) => string;
     };
+    export type CspRecorder = {
+      /** Returns every violation the page has recorded so far, and clears them. */
+      drain(page: Page): Promise<CspViolation[]>;
+    };
+    type ViolationStore = { [STORE_KEY]?: CspViolation[] };
+    export async function applyEdgeCsp(
+      context: BrowserContext,
+      options: ApplyEdgeCspOptions = {}
+    ): Promise<CspRecorder> {
+      // Installed via addInitScript so the listener exists before any page script
+      // runs. A listener attached after navigation misses parse-time violations —
+      // which is most of them.
+      await context.addInitScript((key: string) => {
+        const store: unknown[] = [];
+        (window as unknown as Record<string, unknown>)[key] = store;
+        document.addEventListener("securitypolicyviolation", (event) => {
+          store.push({
+            effectiveDirective: event.effectiveDirective,
+            blockedURI: event.blockedURI,
+            sample: event.sample,
+            documentURI: event.documentURI,
+          });
+        });
+      }, STORE_KEY);
+    
+      await context.route("**/*", async (route) => {
+        if (route.request().resourceType() !== "document") {
+          await route.continue();
+          return;
+        }
+    
+        const response = await route.fetch();
+        const nonce = crypto.randomUUID().replace(/-/g, "");
+        const original = await response.text();
+        const body = injectNonceIntoHtml(options.mutate ? options.mutate(original) : original, nonce);
+    
+        const headers: Record<string, string> = { ...response.headers() };
+        // The upstream length and encoding describe the body we just replaced.
+        delete headers["content-length"];
+        delete headers["content-encoding"];
+        headers["content-security-policy"] = buildCspDirectives(nonce);
+    
+        await route.fulfill({ status: response.status(), headers, body });
+      });
+    
+      return {
+        async drain(page: Page): Promise<CspViolation[]> {
+          return page.evaluate((key: string) => {
+            const store = (window as unknown as ViolationStore)[key as typeof STORE_KEY];
+            if (!Array.isArray(store)) {
+              throw new Error(
+                `applyEdgeCsp: no violation store on ${document.documentURI}. The init ` +
+                  "script did not run, so a zero-violation result would be meaningless."
+              );
+            }
+            return store.splice(0, store.length);
+          }, STORE_KEY);
+        },
+      };
+    }
   </file>
   </section>
   <section priority="medium" role="telemetry">
@@ -217,6 +1267,131 @@
       fuel: number;
       tyreFL: number;
       tyreFR: number;
+    }
+    export interface TelemetryFrame {
+      /** ms since session start, derived from the frame index. */
+      t: number;
+      lap: number;
+      totalLaps: number;
+      position: number;
+      zones: TelemetryZone[];
+      /** Drives the live row highlight. */
+      activeZoneId: string;
+      vitals: TelemetryVitals;
+      /** Newest first. */
+      events: Array<{ t: number; label: string }>;
+    }
+    export type FeedState =
+      | { kind: "connecting" }
+      | { kind: "empty" }
+      | { kind: "live"; frame: TelemetryFrame }
+      | { kind: "hold"; frame: TelemetryFrame }
+      | { kind: "stale"; frame: TelemetryFrame; since: number };
+    export interface TelemetryFeedOptions {
+      seed: number;
+      /** Pin the feed to one frame — `?frozen=1`, and every visual baseline. */
+      frozen: boolean;
+      intervalMs?: number;
+      /** `false` yields `empty`: the HUD chrome with no session behind it. */
+      started?: boolean;
+      /** `true` yields `hold`: the last frame, retained deliberately. */
+      paused?: boolean;
+      /** `true` yields `stale`: the last frame, retained because nothing newer came. */
+      degraded?: boolean;
+    }
+    export const PLACEHOLDER_ZONES: TelemetryZone[] = ZONES.map(({ id, zone }) => ({
+      id,
+      zone,
+      speed: 0,
+      best: 0,
+      delta: 0,
+    }));
+    function randomFrom(state: number): () => number {
+      let a = state >>> 0;
+      return () => {
+        a = (a + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function mix(seed: number, index: number): number {
+      return (Math.imul(seed, 0x9e3779b1) ^ Math.imul(index + 1, 0x85ebca6b)) >>> 0;
+    }
+    export function telemetryFrame(
+      seed: number,
+      index: number,
+      intervalMs: number = DEFAULT_INTERVAL_MS
+    ): TelemetryFrame {
+      const random = randomFrom(mix(seed, index));
+    
+      const zones = ZONES.map(({ id, zone, best }) => {
+        const speed = Math.round(best * (0.96 + random() * 0.06));
+        return { id, zone, speed, best, delta: speed - best };
+      });
+    
+      const activeZone = ZONES[index % ZONES.length];
+      const wear = Math.min(1, index / (FRAMES_PER_LAP * TOTAL_LAPS));
+    
+      const events = Array.from({ length: Math.min(MAX_EVENTS, index + 1) }, (_, back) => {
+        const at = index - back;
+        return {
+          t: at * intervalMs,
+          label: EVENT_LABELS[mix(seed, at) % EVENT_LABELS.length] ?? EVENT_LABELS[0]!,
+        };
+      });
+    
+      return {
+        t: index * intervalMs,
+        lap: Math.min(TOTAL_LAPS, 1 + Math.floor(index / FRAMES_PER_LAP)),
+        totalLaps: TOTAL_LAPS,
+        position: 1 + (mix(seed, Math.floor(index / FRAMES_PER_LAP)) % 8),
+        zones,
+        activeZoneId: activeZone?.id ?? "z1",
+        vitals: {
+          throttle: Number(random().toFixed(3)),
+          brake: Number((random() * 0.4).toFixed(3)),
+          fuel: Number(Math.max(0, 1 - wear * 0.85).toFixed(3)),
+          tyreFL: Number(Math.max(0, 1 - wear * 0.6).toFixed(3)),
+          tyreFR: Number(Math.max(0, 1 - wear * 0.65).toFixed(3)),
+        },
+        events,
+      };
+    }
+    export function useTelemetryFeed({
+      seed,
+      frozen,
+      intervalMs = DEFAULT_INTERVAL_MS,
+      started = true,
+      paused = false,
+      degraded = false,
+    }: TelemetryFeedOptions): FeedState {
+      // `null` means no frame has arrived yet. A feed that will never tick —
+      // frozen, held, or degraded from the start — resolves its frame immediately:
+      // there is nothing to wait for, and `hold`/`stale` are states *about* a
+      // frame, so they cannot be entered without one.
+      const [index, setIndex] = useState<number | null>(frozen || paused || degraded ? 0 : null);
+    
+      const ticking = started && !frozen && !paused && !degraded;
+    
+      useEffect(() => {
+        if (!ticking) return;
+        const timer = setInterval(() => {
+          setIndex((current) => (current === null ? 1 : current + 1));
+        }, intervalMs);
+        return () => clearInterval(timer);
+      }, [ticking, intervalMs]);
+    
+      const frame = useMemo(
+        () => (index === null ? null : telemetryFrame(seed, index, intervalMs)),
+        [seed, index, intervalMs]
+      );
+    
+      if (!started) return { kind: "empty" };
+      if (frame === null) return { kind: "connecting" };
+      if (degraded) return { kind: "stale", frame, since: frame.t };
+      if (paused) return { kind: "hold", frame };
+      return { kind: "live", frame };
     }
   </file>
   </section>
@@ -255,6 +1430,306 @@
       description: string;
       tokens: readonly TokenDoc[];
     }
+    export const COLOR_GROUPS: readonly TokenGroup[] = [
+      {
+        label: "Surfaces",
+        description: "Background layers, from the page base up to raised panels.",
+        tokens: [
+          { name: "--rialto-surface", usage: "Page and default component backgrounds" },
+          { name: "--rialto-surface-elevated", usage: "Cards, popovers, elevated containers" },
+          {
+            name: "--rialto-surface-recessed",
+            usage: "Input fields, slider tracks, recessed channels",
+          },
+          { name: "--rialto-surface-matte", usage: "Disabled fills, subtle divider backgrounds" },
+          { name: "--rialto-surface-deep", usage: "Heavy separators, decorative dark accents" },
+        ],
+      },
+      {
+        label: "Text",
+        description: "Foreground text colors, tuned to WCAG contrast on the surface.",
+        tokens: [
+          { name: "--rialto-text-primary", usage: "Headings, body text, primary labels" },
+          { name: "--rialto-text-secondary", usage: "Descriptions, helper text, secondary labels" },
+          { name: "--rialto-text-tertiary", usage: "Placeholders, disabled text, timestamps" },
+          { name: "--rialto-text-on-accent", usage: "Text on accent-filled backgrounds" },
+        ],
+      },
+      {
+        label: "Borders",
+        description: "Separators and outlines for cards, inputs, and dividers.",
+        tokens: [
+          { name: "--rialto-border", usage: "Default borders for cards, inputs, dividers" },
+          { name: "--rialto-border-strong", usage: "Emphasized borders, active input outlines" },
+        ],
+      },
+      {
+        label: "Accent",
+        description: "Amber gold — surgical use for primary actions and focus.",
+        tokens: [
+          { name: "--rialto-accent", usage: "Primary buttons, focus rings, active/selected states" },
+          { name: "--rialto-accent-hover", usage: "Primary button hover state" },
+          {
+            name: "--rialto-accent-muted",
+            usage: "Subtle accent backgrounds (selected rows, active tabs)",
+          },
+          { name: "--rialto-accent-glow", usage: "Focus ring outer glow" },
+        ],
+      },
+      {
+        label: "Semantic",
+        description: "Status colors for error, warning, and success states.",
+        tokens: [
+          { name: "--rialto-error", usage: "Error text, destructive fills, invalid borders" },
+          { name: "--rialto-error-muted", usage: "Error alert backgrounds, error badge tints" },
+          { name: "--rialto-warning", usage: "Warning text, caution banners, pending states" },
+          { name: "--rialto-warning-muted", usage: "Warning alert backgrounds, warning badge tints" },
+          { name: "--rialto-success", usage: "Success text, confirmation icons" },
+          { name: "--rialto-success-muted", usage: "Success alert backgrounds, success badge tints" },
+        ],
+      },
+      {
+        label: "Overlay",
+        description: "Scrim behind modal and drawer surfaces.",
+        tokens: [{ name: "--rialto-overlay", usage: "Modal/drawer backdrop, scrim behind overlays" }],
+      },
+    ];
+    export const COLOR_TOKEN_NAMES: readonly string[] = COLOR_GROUPS.flatMap((group) =>
+      group.tokens.map((token) => token.name)
+    );
+    export const TYPOGRAPHY_GROUPS: readonly TokenGroup[] = [
+      {
+        label: "Font families",
+        description: "Three families: sans for UI, display for headings, mono for values.",
+        tokens: [
+          { name: "--rialto-font-sans", usage: "Default body and UI text" },
+          { name: "--rialto-font-display", usage: "Display headings, hero text" },
+          { name: "--rialto-font-mono", usage: "Code, Kbd, monospaced values" },
+        ],
+      },
+      {
+        label: "Type scale",
+        description: "A minor-third (1.2) scale from fine print to hero display.",
+        tokens: [
+          { name: "--rialto-text-xs", usage: "Badges, fine print, legal text" },
+          { name: "--rialto-text-sm", usage: "Captions, helper text, timestamps" },
+          { name: "--rialto-text-base", usage: "Body text (default size)" },
+          { name: "--rialto-text-md", usage: "Subheadings, card titles" },
+          { name: "--rialto-text-lg", usage: "Section headings" },
+          { name: "--rialto-text-xl", usage: "Page headings" },
+          { name: "--rialto-text-2xl", usage: "Major headings, dialog titles" },
+          { name: "--rialto-text-3xl", usage: "Hero display text" },
+          { name: "--rialto-text-4xl", usage: "Dramatic display, landing pages" },
+        ],
+      },
+      {
+        label: "Font weights",
+        description: "Restrained weight range, including variable-font intermediates.",
+        tokens: [
+          { name: "--rialto-weight-light", usage: "De-emphasized text, large display numerals" },
+          { name: "--rialto-weight-book", usage: "Between light and regular — subtle de-emphasis" },
+          { name: "--rialto-weight-regular", usage: "Body text (default weight)" },
+          { name: "--rialto-weight-demi", usage: "Between regular and medium — gentle emphasis" },
+          { name: "--rialto-weight-medium", usage: "Labels, headings, emphasized text" },
+        ],
+      },
+      {
+        label: "Line heights",
+        description: "Leading for headings, body, and long-form prose.",
+        tokens: [
+          { name: "--rialto-leading-tight", usage: "Headings, single-line labels" },
+          { name: "--rialto-leading-normal", usage: "Body text, descriptions" },
+          { name: "--rialto-leading-relaxed", usage: "Long-form prose, multi-line descriptions" },
+        ],
+      },
+      {
+        label: "Letter spacing",
+        description: "Tracking for headings, body, and uppercase labels.",
+        tokens: [
+          { name: "--rialto-tracking-tight", usage: "Headings, large display text" },
+          { name: "--rialto-tracking-normal", usage: "Body text (default tracking)" },
+          { name: "--rialto-tracking-wide", usage: "Uppercase labels, badge text, small caps" },
+        ],
+      },
+    ];
+    export const TYPOGRAPHY_TOKEN_NAMES: readonly string[] = TYPOGRAPHY_GROUPS.flatMap((group) =>
+      group.tokens.map((token) => token.name)
+    );
+    export const SURFACE_LEVELS: TokenGroup = {
+      label: "Surface levels",
+      description: "Background layers composed as stacked panels, base to deepest.",
+      tokens: [
+        { name: "--rialto-surface", usage: "Page and default component backgrounds" },
+        { name: "--rialto-surface-elevated", usage: "Cards, popovers, elevated containers" },
+        { name: "--rialto-surface-recessed", usage: "Input fields, slider tracks, recessed channels" },
+        { name: "--rialto-surface-matte", usage: "Disabled fills, subtle divider backgrounds" },
+        { name: "--rialto-surface-deep", usage: "Heavy separators, decorative dark accents" },
+      ],
+    };
+    export const ELEVATION_LEVELS: TokenGroup = {
+      label: "Elevation",
+      description: "Shadow tiers composed on elevated panels, subtle lift to dramatic.",
+      tokens: [
+        { name: "--rialto-shadow-xs", usage: "Subtle lift — buttons at rest, tags, badges" },
+        { name: "--rialto-shadow-sm", usage: "Standard elevation — cards, dropdowns" },
+        { name: "--rialto-shadow-md", usage: "Pronounced elevation — hovered cards, active dropdowns" },
+        { name: "--rialto-shadow-lg", usage: "Dramatic elevation — modals, floating panels" },
+        { name: "--rialto-shadow-pressed", usage: "Recessed inputs, slider tracks, active press" },
+        { name: "--rialto-shadow-glass", usage: "Floating frosted-glass overlays" },
+        { name: "--rialto-shadow-ambient", usage: "Warm gold halo for CTAs and active selections" },
+        {
+          name: "--rialto-shadow-luminous",
+          usage: "Cards lit from within — elevation plus warm bloom",
+        },
+      ],
+    };
+    export const SURFACE_TOKEN_NAMES: readonly string[] = [
+      ...SURFACE_LEVELS.tokens.map((token) => token.name),
+      ...ELEVATION_LEVELS.tokens.map((token) => token.name),
+    ];
+    export const MOTION_GROUPS: readonly TokenGroup[] = [
+      {
+        label: "Duration",
+        description: "Timing tokens for state changes, from micro-interactions to deliberate movement.",
+        tokens: [
+          { name: "--rialto-duration-fast", usage: "Micro-interactions — hover color, icon swaps" },
+          { name: "--rialto-duration-standard", usage: "Standard state changes — most UI transitions" },
+          {
+            name: "--rialto-duration-slow",
+            usage: "Deliberate movement — card hover lift, panel slide",
+          },
+        ],
+      },
+      {
+        label: "Easing",
+        description: "Acceleration curves — precision for crisp UI, smooth for gentle entrances.",
+        tokens: [
+          {
+            name: "--rialto-ease-precision",
+            usage: "Crisp, instant-feeling transitions and hover states",
+          },
+          { name: "--rialto-ease-smooth", usage: "Gentle entrances and exits, larger movements" },
+        ],
+      },
+    ];
+    export const MOTION_TOKEN_NAMES: readonly string[] = MOTION_GROUPS.flatMap((group) =>
+      group.tokens.map((token) => token.name)
+    );
+    export const SPACING_SCALE: TokenGroup = {
+      label: "Spacing scale",
+      description: "A 4px-based scale for padding, gaps, and layout rhythm.",
+      tokens: [
+        { name: "--rialto-space-2xs", usage: "Icon padding, tight chip internals" },
+        { name: "--rialto-space-xs", usage: "Badge padding, tight gaps between related items" },
+        { name: "--rialto-space-sm", usage: "Button padding, input internal spacing" },
+        { name: "--rialto-space-md", usage: "Default component padding, Stack gaps" },
+        { name: "--rialto-space-lg", usage: "Card padding, between components in a form" },
+        { name: "--rialto-space-xl", usage: "Between card groups, dialog body padding" },
+        { name: "--rialto-space-2xl", usage: "Section spacing within a page" },
+        { name: "--rialto-space-3xl", usage: "Major page sections" },
+        { name: "--rialto-space-4xl", usage: "Hero spacing, full-page layout gaps" },
+      ],
+    };
+    export const SPACING_TOKEN_NAMES: readonly string[] = SPACING_SCALE.tokens.map(
+      (token) => token.name
+    );
+    export const RADIUS_SCALE: TokenGroup = {
+      label: "Radius scale",
+      description: "Corner rounding by hierarchy, from square edges to fully round.",
+      tokens: [
+        { name: "--rialto-radius-none", usage: "Square corners — flush panels, full-bleed media" },
+        { name: "--rialto-radius-sharp", usage: "Chips, badges, small inline elements" },
+        { name: "--rialto-radius-default", usage: "Buttons, inputs, standard interactive elements" },
+        { name: "--rialto-radius-soft", usage: "Cards, dialogs, containers" },
+        { name: "--rialto-radius-round", usage: "Pills, avatars, full-round elements" },
+      ],
+    };
+    export const RADIUS_TOKEN_NAMES: readonly string[] = RADIUS_SCALE.tokens.map((token) => token.name);
+    export const SHADOW_GROUPS: readonly TokenGroup[] = [
+      {
+        label: "Elevation",
+        description: "Ambient drop shadows lifting a surface off the page, subtle to dramatic.",
+        tokens: [
+          { name: "--rialto-shadow-xs", usage: "Subtle lift — buttons at rest, tags, badges" },
+          { name: "--rialto-shadow-sm", usage: "Standard elevation — cards, dropdowns" },
+          {
+            name: "--rialto-shadow-md",
+            usage: "Pronounced elevation — hovered cards, active dropdowns",
+          },
+          { name: "--rialto-shadow-lg", usage: "Dramatic elevation — modals, floating panels" },
+        ],
+      },
+      {
+        label: "Interaction & depth",
+        description: "Inset and ring shadows for tactile press, focus, and frosted-glass panels.",
+        tokens: [
+          { name: "--rialto-shadow-pressed", usage: "Recessed inputs, slider tracks, active press" },
+          { name: "--rialto-shadow-focus", usage: "Focus-visible ring for interactive elements" },
+          { name: "--rialto-shadow-glass", usage: "Floating frosted-glass overlays, command palette" },
+        ],
+      },
+      {
+        label: "Warm glow",
+        description: "Gold ambient bloom for CTAs and elements that should breathe warmth.",
+        tokens: [
+          { name: "--rialto-shadow-ambient", usage: "Warm gold halo — CTAs, active selections" },
+          {
+            name: "--rialto-shadow-luminous",
+            usage: "Cards lit from within — elevation plus warm bloom",
+          },
+        ],
+      },
+    ];
+    export const SHADOW_TOKEN_NAMES: readonly string[] = SHADOW_GROUPS.flatMap((group) =>
+      group.tokens.map((token) => token.name)
+    );
+    export interface IconCategoryGuidance {
+      /** Human-readable section heading for the category. */
+      label: string;
+      /** Semantic guidance on when to reach for icons in this category. */
+      description: string;
+    }
+    export const ICON_CATEGORY_GUIDANCE: Record<string, IconCategoryGuidance> = {
+      navigation: {
+        label: "Navigation",
+        description:
+          "Wayfinding and directional affordances — move between views and reveal structure.",
+      },
+      actions: {
+        label: "Actions",
+        description:
+          "Verbs the user performs on content — reserve filled or primary styling for the main action.",
+      },
+      communication: {
+        label: "Communication",
+        description: "Messaging, notifications, and contact channels.",
+      },
+      status: {
+        label: "Status",
+        description:
+          "Outcome and state signals — pair with the matching semantic color, never color alone.",
+      },
+      content: {
+        label: "Content",
+        description: "Files, folders, and media objects.",
+      },
+      user: {
+        label: "User",
+        description: "People, accounts, and identity.",
+      },
+      data: {
+        label: "Data",
+        description: "Sorting, filtering, and quantitative trends.",
+      },
+      media: {
+        label: "Media",
+        description: "Playback and capture controls.",
+      },
+      commerce: {
+        label: "Commerce",
+        description: "Cart, payment, and fulfillment.",
+      },
+    };
   </file>
   <file path="src/pages/tokens/use-live-tokens.ts">
     function subscribeTheme(onChange: () => void): () => void {
@@ -272,6 +1747,22 @@
       if (typeof document === "undefined") return DEFAULT_THEME;
       return document.documentElement.getAttribute(THEME_ATTR) ?? DEFAULT_THEME;
     }
+    export function useDocumentTheme(): string {
+      return useSyncExternalStore(subscribeTheme, readThemeSnapshot, () => DEFAULT_THEME);
+    }
+    export function readTokenValue(name: string): string {
+      if (typeof document === "undefined") return "";
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    export function useLiveTokenValues(names: readonly string[]): Record<string, string> {
+      // Subscribe to theme flips so the values re-derive against the live cascade.
+      useDocumentTheme();
+      const resolved: Record<string, string> = {};
+      for (const name of names) {
+        resolved[name] = readTokenValue(name);
+      }
+      return resolved;
+    }
   </file>
   </section>
   <section priority="medium" role="visual-test">
@@ -285,6 +1776,440 @@
       { key: "name" as const, header: "Name", sortable: true },
       { key: "role" as const, header: "Role" },
       { key: "status" as const, header: "Status" },
+    ];
+    export const tableData = [
+      { id: "1", name: "Alice", role: "Engineer", status: "Active" },
+      { id: "2", name: "Bob", role: "Designer", status: "Away" },
+      { id: "3", name: "Carol", role: "Manager", status: "Active" },
+    ];
+    export const tapeChartDefaultRooms = [
+      { id: "r1", name: "101", category: "Standard", capacity: 2, status: "ready" as const },
+      { id: "r2", name: "102", category: "Standard", capacity: 2, status: "occupied" as const },
+      { id: "r3", name: "103", category: "Standard", capacity: 2, status: "dirty" as const },
+      { id: "r4", name: "104", category: "Deluxe", capacity: 3, status: "ready" as const },
+      { id: "r5", name: "105", category: "Deluxe", capacity: 3, status: "occupied" as const },
+      { id: "r6", name: "106", category: "Deluxe", capacity: 3, status: "outOfOrder" as const },
+      { id: "r7", name: "107", category: "Suite", capacity: 4, status: "ready" as const },
+      { id: "r8", name: "108", category: "Suite", capacity: 4, status: "occupied" as const },
+    ];
+    export const tapeChartDefaultReservations = [
+      {
+        id: "rsv-1",
+        roomId: "r1",
+        start: "2026-01-15",
+        end: "2026-01-18",
+        status: "confirmed" as const,
+        guestName: "Alice Tanaka",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "rsv-2",
+        roomId: "r2",
+        start: "2026-01-16",
+        end: "2026-01-21",
+        status: "checkedIn" as const,
+        guestName: "Bob García",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "rsv-3",
+        roomId: "r3",
+        start: "2026-01-17",
+        end: "2026-01-19",
+        status: "tentative" as const,
+        guestName: "Clara Singh",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Booking.com",
+      },
+      {
+        id: "rsv-4",
+        roomId: "r4",
+        start: "2026-01-15",
+        end: "2026-01-22",
+        status: "checkedIn" as const,
+        guestName: "Daniil Patel",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "rsv-5",
+        roomId: "r5",
+        start: "2026-01-18",
+        end: "2026-01-20",
+        status: "confirmed" as const,
+        guestName: "Erika Mohan",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Expedia",
+      },
+      {
+        id: "rsv-6",
+        roomId: "r7",
+        start: "2026-01-15",
+        end: "2026-01-17",
+        status: "checkedOut" as const,
+        guestName: "Fatima Hernández",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "rsv-7",
+        roomId: "r7",
+        start: "2026-01-19",
+        end: "2026-01-22",
+        status: "confirmed" as const,
+        guestName: "Gabriel Rossi",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "rsv-8",
+        roomId: "r8",
+        start: "2026-01-16",
+        end: "2026-01-19",
+        status: "checkedIn" as const,
+        guestName: "Hideo Bauer",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Booking.com",
+      },
+    ];
+    export const tapeChartStressRooms = Array.from({ length: 24 }, (_, i) => {
+      const number = 1000 + i;
+      const tier = i < 12 ? "Standard" : i < 20 ? "Deluxe" : "Suite";
+      const capacity = tier === "Standard" ? 2 : tier === "Deluxe" ? 3 : 4;
+      const statuses = ["ready", "occupied", "dirty", "outOfOrder"] as const;
+      const status = statuses[i % 4]!;
+      return { id: `room-${number}`, name: String(number), category: tier, capacity, status };
+    });
+    export const tapeChartStressReservations = [
+      {
+        id: "s-1",
+        roomId: "room-1000",
+        start: "2026-01-15",
+        end: "2026-01-18",
+        status: "confirmed" as const,
+        guestName: "Alice Tanaka",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-2",
+        roomId: "room-1001",
+        start: "2026-01-16",
+        end: "2026-01-22",
+        status: "checkedIn" as const,
+        guestName: "Bob García",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-3",
+        roomId: "room-1002",
+        start: "2026-01-17",
+        end: "2026-01-19",
+        status: "tentative" as const,
+        guestName: "Clara Singh",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Booking.com",
+      },
+      {
+        id: "s-4",
+        roomId: "room-1003",
+        start: "2026-01-15",
+        end: "2026-01-29",
+        status: "checkedIn" as const,
+        guestName: "Daniil Patel",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-5",
+        roomId: "room-1004",
+        start: "2026-01-18",
+        end: "2026-01-21",
+        status: "confirmed" as const,
+        guestName: "Erika Mohan",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Expedia",
+      },
+      {
+        id: "s-6",
+        roomId: "room-1005",
+        start: "2026-01-15",
+        end: "2026-01-17",
+        status: "checkedOut" as const,
+        guestName: "Fatima Hernández",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-7",
+        roomId: "room-1006",
+        start: "2026-01-19",
+        end: "2026-01-25",
+        status: "confirmed" as const,
+        guestName: "Gabriel Rossi",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-8",
+        roomId: "room-1007",
+        start: "2026-01-16",
+        end: "2026-01-19",
+        status: "checkedIn" as const,
+        guestName: "Hideo Bauer",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Booking.com",
+      },
+      {
+        id: "s-9",
+        roomId: "room-1008",
+        start: "2026-01-22",
+        end: "2026-01-26",
+        status: "confirmed" as const,
+        guestName: "Ingrid García",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-10",
+        roomId: "room-1009",
+        start: "2026-01-15",
+        end: "2026-01-21",
+        status: "checkedIn" as const,
+        guestName: "Jiro Suzuki",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-11",
+        roomId: "room-1010",
+        start: "2026-01-20",
+        end: "2026-01-24",
+        status: "confirmed" as const,
+        guestName: "Kenji Tanaka",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Expedia",
+      },
+      {
+        id: "s-12",
+        roomId: "room-1011",
+        start: "2026-01-17",
+        end: "2026-01-23",
+        status: "checkedIn" as const,
+        guestName: "Liam O'Neill",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-13",
+        roomId: "room-1012",
+        start: "2026-01-15",
+        end: "2026-01-19",
+        status: "checkedOut" as const,
+        guestName: "Mateo Lannister",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-14",
+        roomId: "room-1013",
+        start: "2026-01-21",
+        end: "2026-01-26",
+        status: "confirmed" as const,
+        guestName: "Noa Chen",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-15",
+        roomId: "room-1014",
+        start: "2026-01-16",
+        end: "2026-01-20",
+        status: "checkedIn" as const,
+        guestName: "Oksana Patel",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Booking.com",
+      },
+      {
+        id: "s-16",
+        roomId: "room-1015",
+        start: "2026-01-18",
+        end: "2026-01-25",
+        status: "confirmed" as const,
+        guestName: "Priya Singh",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-17",
+        roomId: "room-1016",
+        start: "2026-01-22",
+        end: "2026-01-29",
+        status: "tentative" as const,
+        guestName: "Quinn O'Neill",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Expedia",
+      },
+      {
+        id: "s-18",
+        roomId: "room-1017",
+        start: "2026-01-15",
+        end: "2026-01-22",
+        status: "checkedIn" as const,
+        guestName: "Rafael Hernández",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-19",
+        roomId: "room-1018",
+        start: "2026-01-19",
+        end: "2026-01-23",
+        status: "confirmed" as const,
+        guestName: "Sofía Rossi",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-20",
+        roomId: "room-1019",
+        start: "2026-01-17",
+        end: "2026-01-21",
+        status: "checkedIn" as const,
+        guestName: "Tyrion Bauer",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Booking.com",
+      },
+      {
+        id: "s-21",
+        roomId: "room-1020",
+        start: "2026-01-15",
+        end: "2026-01-29",
+        status: "checkedIn" as const,
+        guestName: "Ursula Mohan",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-22",
+        roomId: "room-1021",
+        start: "2026-01-20",
+        end: "2026-01-25",
+        status: "confirmed" as const,
+        guestName: "Viktor Suzuki",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-23",
+        roomId: "room-1022",
+        start: "2026-01-16",
+        end: "2026-01-22",
+        status: "checkedIn" as const,
+        guestName: "Wren Tanaka",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-24",
+        roomId: "room-1023",
+        start: "2026-01-23",
+        end: "2026-01-28",
+        status: "confirmed" as const,
+        guestName: "Xander Patel",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-25",
+        roomId: "room-1003",
+        start: "2026-01-19",
+        end: "2026-01-21",
+        status: "tentative" as const,
+        guestName: "Yuki Singh",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-26",
+        roomId: "room-1009",
+        start: "2026-01-23",
+        end: "2026-01-26",
+        status: "confirmed" as const,
+        guestName: "Zara Bauer",
+        ratePerNight: 180,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-27",
+        roomId: "room-1015",
+        start: "2026-01-26",
+        end: "2026-01-29",
+        status: "confirmed" as const,
+        guestName: "Anika García",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Expedia",
+      },
+      {
+        id: "s-28",
+        roomId: "room-1017",
+        start: "2026-01-25",
+        end: "2026-01-28",
+        status: "tentative" as const,
+        guestName: "Bri Hernández",
+        ratePerNight: 220,
+        currency: "USD",
+        source: "Direct",
+      },
+      {
+        id: "s-29",
+        roomId: "room-1023",
+        start: "2026-01-15",
+        end: "2026-01-19",
+        status: "checkedOut" as const,
+        guestName: "Cyrus O'Neill",
+        ratePerNight: 320,
+        currency: "USD",
+        source: "Direct",
+      },
     ];
   </file>
   </section>

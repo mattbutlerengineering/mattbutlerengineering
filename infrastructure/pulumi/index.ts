@@ -34,6 +34,24 @@ const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 const manageTokenSecret = config.getSecret("manageTokenSecret");
 const unsubscribeTokenSecret = config.getSecret("unsubscribeTokenSecret");
 
+// ── Error reporting (Sentry) ───────────────────────────────────────
+// One DSN per service, not one shared: the org already has separate `users-api`,
+// `reservations-api` and `agent-api` projects, each with its own key, so this
+// costs no extra provisioning and buys per-service issue streams, alert rules
+// and quotas — no single noisy service crowding out another's events.
+//
+// Each falls back to "" rather than dropping out of the spec when unset. An env
+// var that disappears when its config is missing is the shape that hid the
+// Sentry blackout for five months; an empty value is at least visible in
+// `doctl apps spec get`. The real values are delivered by deploy-services.yml's
+// yq bridge (ignoreChanges: ["spec"] below blocks env pushes from Pulumi), and
+// an absent one is refused at boot by validateStartupConfig().
+const sentryDsnByService: Record<string, pulumi.Input<string>> = {
+  "users-api": config.getSecret("sentryDsnUsersApi") ?? "",
+  "reservations-api": config.getSecret("sentryDsnReservationsApi") ?? "",
+  "agent-api": config.getSecret("sentryDsnAgentApi") ?? "",
+};
+
 // ── Observability (Grafana Cloud OTLP) ─────────────────────────────
 const otelEndpoint = config.get("otelEndpoint") ?? "";
 const otelHeaders = config.getSecret("otelHeaders");
@@ -107,7 +125,15 @@ export function apiService(args: ApiServiceArgs): digitalocean.types.input.AppSp
     instanceCount: 1,
     instanceSizeSlug: "apps-s-1vcpu-0.5gb",
     httpPort: args.port,
-    envs: [...sharedEnvs(args.port), ...(args.extraEnvs ?? []), ...otelEnvs],
+    envs: [
+      ...sharedEnvs(args.port),
+      // Keyed off the service name rather than passed in, so adding a service
+      // without a DSN is a lookup that yields "" and still declares the key,
+      // never a silently absent env var.
+      secretEnv("SENTRY_DSN", sentryDsnByService[args.name] ?? ""),
+      ...(args.extraEnvs ?? []),
+      ...otelEnvs,
+    ],
     healthCheck: {
       httpPath: "/ready",
       initialDelaySeconds: 10,

@@ -1,0 +1,229 @@
+name: Rialto Visual Noise Floor
+
+# Measures how many pixels the rialto Storybook visual suite moves by on a real
+# Linux runner when NOTHING has changed, and how many a known regression moves
+# — the two numbers packages/rialto/playwright.visual.config.ts's tolerance has
+# never been set from. Its provisional `threshold: 0.01` is explicitly
+# unmeasured until this has run; see the comment in that config and
+# docs/fixes/visual-tolerance-threshold/ for the design this instantiates.
+#
+# Sibling of visual-noise-floor.yml (the rialto-web suite). The offline halves
+# — scripts/visual-noise-floor.mjs and scripts/visual-tolerance-rule.mjs — are
+# suite-agnostic and shared unchanged; only the capture legs differ, because
+# each suite has its own server, config, spec, and perturbation surface.
+#
+# It never compares, never asserts, and cannot change what any required check
+# concludes. Every leg runs Playwright with `--update-snapshots=all`, which
+# WRITES actuals instead of diffing them, so the tolerance under investigation
+# cannot influence what is captured. The differencing happens offline in the
+# analyze job, against the suite's own installed comparator.
+#
+# Three capture legs, one run: GitHub moves runner images on its own schedule
+# (the 2026-08-11 Pulumi outage is the in-repo instance), so two dispatches
+# days apart are two populations, and scripts/visual-noise-floor.mjs REFUSES
+# to difference legs whose recorded provenance disagrees. replica-b is a
+# second runner rather than a repeat on the first: host-to-host variance is
+# part of the noise being measured.
+on:
+  # Dispatch-only, deliberately — unlike the sibling, this file lands on main
+  # BEFORE any measurement is requested, so the sibling's pre-merge
+  # `measure/**` ref-push path is unnecessary here and is omitted to keep the
+  # disposable-ref namespace (scripts/__tests__/visual-diff-ref-trigger-safety
+  # .test.mjs) owned by exactly one workflow. To measure:
+  #   gh workflow run rialto-visual-noise-floor.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rialto-visual-noise-floor-${{ github.ref }}
+  # NOT cancel-in-progress. A half-finished measurement is worse than none:
+  # cancelling one leg leaves two artifacts the analyzer refuses anyway,
+  # having already paid for them.
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: capture
+    strategy:
+      # fail-fast would cancel the surviving legs the moment one dies, turning
+      # a recoverable single-leg failure into three wasted runner legs.
+      fail-fast: false
+      matrix:
+        include:
+          - leg: replica-a
+            config: playwright.visual.config.ts
+          - leg: replica-b
+            config: playwright.visual.config.ts
+          - leg: perturbed
+            config: playwright.noise-floor.config.ts
+    # The same label the production `Visual Regression (Storybook)` job in
+    # rialto-visual.yml uses. A different label would measure a different
+    # machine, which is the one thing this workflow exists not to do.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      # No rialto build step, matching the production job exactly: Storybook
+      # serves the suite straight from source.
+      - name: Install Playwright browsers
+        run: pnpm --dir packages/rialto exec playwright install --with-deps chromium
+
+      - name: Capture actuals (${{ matrix.leg }})
+        # --update-snapshots=all WRITES every screenshot instead of comparing
+        # it, so this leg's output is independent of the very tolerance being
+        # measured. The invocation otherwise matches the production visual
+        # job's (`pnpm --dir packages/rialto test:visual`) — same config file
+        # for the two replicas, same cwd, same spec set.
+        run: |
+          set -o pipefail
+          pnpm --dir packages/rialto exec playwright test \
+            --config ${{ matrix.config }} \
+            --update-snapshots=all
+
+      - name: Record provenance
+        # Written INTO the screenshots directory so it travels with the PNGs
+        # in one artifact. scripts/visual-noise-floor.mjs reads only *.png as
+        # snapshots, so this file cannot be mistaken for one — and it refuses
+        # to difference any leg that lacks it.
+        run: |
+          set -o pipefail
+          node - > packages/rialto/src/test/visual/__screenshots__/provenance.json <<'JS'
+          const path = require("path");
+          const { createRequire } = require("module");
+          const require_ = createRequire(path.join(process.cwd(), "packages/rialto/package.json"));
+          const coreDir = path.dirname(
+            require_.resolve("playwright-core/package.json", {
+              paths: [path.dirname(require_.resolve("@playwright/test"))],
+            })
+          );
+          const chromium = require(path.join(coreDir, "browsers.json")).browsers.find(
+            (b) => b.name === "chromium"
+          );
+          process.stdout.write(
+            `${JSON.stringify(
+              {
+                imageOs: process.env.ImageOS ?? null,
+                imageVersion: process.env.ImageVersion ?? null,
+                playwrightVersion: require_("@playwright/test/package.json").version,
+                chromiumBuild: `chromium-${chromium.revision} (${chromium.browserVersion})`,
+              },
+              null,
+              2
+            )}\n`
+          );
+          JS
+          cat packages/rialto/src/test/visual/__screenshots__/provenance.json
+
+      - name: Upload actuals (${{ matrix.leg }})
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rialto-visual-actuals-${{ matrix.leg }}
+          # Explicit globs, not the directory: unlike the rialto-web suite,
+          # this suite's Playwright outputDir lives INSIDE __screenshots__
+          # (__screenshots__/test-results, gitignored), and the artifact must
+          # carry only the snapshots plus their provenance.
+          path: |
+            packages/rialto/src/test/visual/__screenshots__/*.png
+            packages/rialto/src/test/visual/__screenshots__/provenance.json
+          retention-days: 14
+          if-no-files-found: error
+
+  analyze:
+    name: analyze
+    # All three legs. A failed leg means NO analysis rather than a two-leg
+    # difference — `run` needs both replicas and `signal` needs the perturbed
+    # one, so any missing leg makes the measurement a different measurement.
+    needs: [capture]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Its own clean checkout, deliberately: the capture legs overwrite the
+      # committed baselines in their own workspaces, so the `drift` pairing's
+      # `committed` side has to come from a pristine tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        # No `playwright install` here — the analyzer needs the comparator's
+        # JavaScript, never a browser.
+        run: pnpm install --frozen-lockfile
+
+      - name: Download replica-a actuals
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rialto-visual-actuals-replica-a
+          path: actuals/replica-a
+      - name: Download replica-b actuals
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rialto-visual-actuals-replica-b
+          path: actuals/replica-b
+      - name: Download perturbed actuals
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rialto-visual-actuals-perturbed
+          path: actuals/perturbed
+
+      - name: Measure
+        # Also appends the sweep table to the step summary. `committed` is the
+        # checkout's own baselines, untouched by any capture leg.
+        run: |
+          set -o pipefail
+          node scripts/visual-noise-floor.mjs \
+            --replica-a actuals/replica-a \
+            --replica-b actuals/replica-b \
+            --perturbed actuals/perturbed \
+            --committed packages/rialto/src/test/visual/__screenshots__ \
+            --out measurement.json
+
+      - name: Recommend
+        run: |
+          set -o pipefail
+          node scripts/visual-tolerance-rule.mjs < measurement.json > recommendation.json
+          cat recommendation.json
+
+      - name: Summarise the recommendation
+        run: |
+          set -o pipefail
+          node - >> "$GITHUB_STEP_SUMMARY" <<'JS'
+          const { verdict, threshold, maxDiffPixels, evidence } = require("./recommendation.json");
+          const rows = [
+            ["verdict", verdict],
+            ["threshold", threshold],
+            ["maxDiffPixels", maxDiffPixels ?? "(none emitted)"],
+            ["N (noise)", evidence.N ?? "—"],
+            ["S (signal)", evidence.S ?? "—"],
+            ["separation", evidence.separation ?? "—"],
+            ["formReview", evidence.formReview ?? "—"],
+          ];
+          process.stdout.write(
+            `## Recommendation\n\n| field | value |\n| ----- | ----- |\n` +
+              `${rows.map(([k, v]) => `| ${k} | ${v} |`).join("\n")}\n\n` +
+              "This is a recommendation, not a change. Nothing in this run edits a config.\n"
+          );
+          JS
+
+      - name: Upload the measurement and the recommendation
+        # always(), because a `no-separation` or `signal-not-observed` verdict
+        # is exactly the run whose numbers someone needs to read.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rialto-visual-noise-floor-measurement
+          path: |
+            measurement.json
+            recommendation.json
+          retention-days: 30
+          if-no-files-found: warn

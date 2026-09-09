@@ -9,6 +9,7 @@ import {
   type UpdateFloorPlanRequest,
   type UpdateTablePositionRequest,
   createProblemDetails,
+  titleForStatus,
   listFloorPlansQueryJsonSchema,
   createFloorPlanBodyJsonSchema,
   updateFloorPlanBodyJsonSchema,
@@ -24,31 +25,25 @@ import {
 import { parsePaginationQuery } from "@mbe/database";
 import { floorPlanService } from "../services/floor-plan.js";
 import { tableService } from "../services/table.js";
-import { venueIdFromBody, venueIdFromParams } from "./venue-access.js";
+import { venueIdFromBody, venueIdFromParams, venueIdFromEntity } from "./venue-access.js";
 
 /** Resolves the venue owning a floor plan addressed by `:id` (→ 403 if absent). */
-const resolveFloorPlanVenueId: VenueIdResolver = async (request) => {
-  const params = request.params as { id?: unknown };
-  if (typeof params.id !== "string") return null;
-  const floorPlan = await floorPlanService.getById(params.id);
-  return floorPlan?.venueId ?? null;
-};
+const resolveFloorPlanVenueId: VenueIdResolver = venueIdFromEntity(
+  (request) => (request.params as { id?: unknown }).id,
+  floorPlanService.getById
+);
 
 /** Resolves the venue owning the floor plan named in the request body (`floorPlanId`). */
-const resolveFloorPlanBodyVenueId: VenueIdResolver = async (request) => {
-  const body = request.body as { floorPlanId?: unknown } | null | undefined;
-  if (typeof body?.floorPlanId !== "string") return null;
-  const floorPlan = await floorPlanService.getById(body.floorPlanId);
-  return floorPlan?.venueId ?? null;
-};
+const resolveFloorPlanBodyVenueId: VenueIdResolver = venueIdFromEntity(
+  (request) => (request.body as { floorPlanId?: unknown } | null | undefined)?.floorPlanId,
+  floorPlanService.getById
+);
 
 /** Resolves the venue owning a table addressed by `:tableId` (→ 403 if absent/unassigned). */
-const resolveTableParamVenueId: VenueIdResolver = async (request) => {
-  const params = request.params as { tableId?: unknown };
-  if (typeof params.tableId !== "string") return null;
-  const table = await tableService.getById(params.tableId);
-  return table?.venueId ?? null;
-};
+const resolveTableParamVenueId: VenueIdResolver = venueIdFromEntity(
+  (request) => (request.params as { tableId?: unknown }).tableId,
+  tableService.getById
+);
 
 export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
@@ -260,12 +255,38 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
         body: updateTablePositionsBodyJsonSchema,
       },
     },
-    async (request) => {
-      const tables = await floorPlanService.bulkUpdateTablePositions(
-        request.body.floorPlanId,
-        request.body.positions
+    async (request, reply) => {
+      const { floorPlanId, positions } = request.body;
+
+      const floorPlan = await floorPlanService.getById(floorPlanId);
+      if (!floorPlan) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Floor plan not found"));
+      }
+
+      // Auth above is scoped to the body's floorPlanId, but the write below
+      // mutates each positions[].tableId directly with no venue awareness of
+      // its own — a caller who owns floorPlanId could otherwise re-point a
+      // table belonging to a DIFFERENT venue onto it. Same bug class as
+      // #5008's /assign fix; checked here (not in the DB layer) so a
+      // cross-venue table is rejected before any write is attempted.
+      const tables = await Promise.all(positions.map((pos) => tableService.getById(pos.tableId)));
+      const crossVenueTable = tables.find(
+        (table) => table !== null && table.venueId !== floorPlan.venueId
       );
-      return { data: tables };
+      if (crossVenueTable) {
+        return reply
+          .code(403)
+          .send(
+            createProblemDetails(
+              403,
+              titleForStatus(403),
+              "One or more tables do not belong to the floor plan's venue"
+            )
+          );
+      }
+
+      const updatedTables = await floorPlanService.bulkUpdateTablePositions(floorPlanId, positions);
+      return { data: updatedTables };
     }
   );
 
@@ -279,7 +300,12 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
     {
       preHandler: [
         requireAuth,
-        requireVenueAccess(fastify.venueMembershipLookup, resolveFloorPlanBodyVenueId),
+        // Pinned to the *table* being mutated (:tableId), not the floor plan
+        // named in the body — see issue #5008. The body's floorPlanId can
+        // legitimately belong to the caller's own venue while :tableId
+        // belongs to someone else's; authorizing on the body let a caller
+        // re-point another venue's table onto their own floor plan.
+        requireVenueAccess(fastify.venueMembershipLookup, resolveTableParamVenueId),
       ],
       schema: {
         summary: "Assign table to floor plan",

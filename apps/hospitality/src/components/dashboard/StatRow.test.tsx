@@ -61,6 +61,8 @@ const STATS: DashboardStats = {
   upcomingCount: 3,
   cancellationRate: 10,
   cancellationTrend: "neutral",
+  waitlistCount: 4,
+  longestWaitMinutes: 25,
 };
 
 describe("StatRow", () => {
@@ -68,12 +70,14 @@ describe("StatRow", () => {
     render(<StatRow stats={STATS} />);
 
     const odometers = screen.getAllByTestId("odometer");
-    expect(odometers.length).toBe(3);
+    expect(odometers.length).toBe(5);
 
     // Counts are exposed as accessible text.
     expect(screen.getByText("5")).toBeDefined();
     expect(screen.getByText("20")).toBeDefined();
     expect(screen.getByText("3")).toBeDefined();
+    expect(screen.getByText("4")).toBeDefined();
+    expect(screen.getByText("25")).toBeDefined();
   });
 
   it("renders the bounded cancellation rate via a Meter with 0-100 bounds", () => {
@@ -93,7 +97,7 @@ describe("StatRow", () => {
     render(<StatRow stats={STATS} />);
 
     expect(screen.getAllByTestId("meter").length).toBe(1);
-    expect(screen.getAllByTestId("odometer").length).toBe(3);
+    expect(screen.getAllByTestId("odometer").length).toBe(5);
   });
 
   it("labels every metric with accessible text", () => {
@@ -103,9 +107,20 @@ describe("StatRow", () => {
     expect(screen.getByText("Expected Covers")).toBeDefined();
     expect(screen.getByText("Upcoming (2 hrs)")).toBeDefined();
     expect(screen.getByText("Cancellation Rate")).toBeDefined();
+    expect(screen.getByText("Waitlist")).toBeDefined();
+    expect(screen.getByText("Longest Wait (min)")).toBeDefined();
 
     // Each count Odometer carries an accessible name matching its label.
     const covers = screen.getByLabelText("Expected Covers");
     expect(covers.getAttribute("data-testid")).toBe("odometer");
+  });
+
+  it("renders waitlist tiles as 0 when nobody is waiting", () => {
+    render(<StatRow stats={{ ...STATS, waitlistCount: 0, longestWaitMinutes: 0 }} />);
+
+    const waitlist = screen.getByLabelText("Waitlist");
+    expect(waitlist.textContent).toBe("0");
+    const longestWait = screen.getByLabelText("Longest Wait (min)");
+    expect(longestWait.textContent).toBe("0");
   });
 });

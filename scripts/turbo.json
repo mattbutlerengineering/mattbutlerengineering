@@ -1,0 +1,70 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "//": "Package Configuration for @mbe/scripts. Its suite is a repo-audit suite: many tests read files OUTSIDE scripts/ (workflow guards read .github/workflows/**, the visual-tolerance guards read apps/rialto-web/playwright.config.ts and e2e/**, hook tests execute .claude/hooks/** against .claude/settings.json, phantom-tokens walks apps/** and packages/rialto/src/**, workspace-coverage reads every package.json, vitest-workspace-coverage walks for vitest.config.*). Root turbo.json's task inputs hash none of those, so a mutation that breaks a guard left the task hash byte-identical and a cache hit could skip the red run (docs/backlog.md seed, from maintenance:visual-tolerance-threshold). These inputs over-approximate on purpose: an extra cache miss is noise, a false cache hit silently skips a guard. Enforced end-to-end by scripts/__tests__/turbo-task-inputs.test.mjs, which mutates a watched file and asserts the dry-run hash moves. If a new test reads a path no glob below covers, add the glob here. The trailing negated globs exclude node_modules/dist/coverage/test-results/playwright-report/.turbo: unlike $TURBO_DEFAULT$'s implicit walk, these explicit apps/**|services/**|infrastructure/** globs hash gitignored-but-present files too, so a sibling package's concurrently-running build/test artifacts (e.g. CI's `turbo test:coverage --concurrency=2`) moved this hash out from under scripts/__tests__/turbo-task-inputs.test.mjs's A/B/A restore check with zero source change (#4644 CI failure). None of the excluded dirs hold source content any guard reads. src/generated (Prisma clients, rewritten by in-graph db:generate tasks) and storybook-static joined the exclusions after the invariant test in turbo-task-inputs.test.mjs pinned the property: 63 services/*/src/generated/prisma/** files were still hashed through services/**.",
+  "tasks": {
+    "lint": {
+      "inputs": ["**/*.{js,mjs,cjs}", "package.json", "$TURBO_ROOT$/eslint.config.js"]
+    },
+    "test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.claude/hooks/**",
+        "$TURBO_ROOT$/.claude/settings.json",
+        "$TURBO_ROOT$/.claude/skills/**",
+        "$TURBO_ROOT$/.github/**",
+        "$TURBO_ROOT$/.gitignore",
+        "$TURBO_ROOT$/.nvmrc",
+        "$TURBO_ROOT$/apps/**",
+        "$TURBO_ROOT$/infrastructure/**",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/rialto/src/**",
+        "$TURBO_ROOT$/plugins/*/package.json",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/services/**",
+        "$TURBO_ROOT$/tools/*/package.json",
+        "$TURBO_ROOT$/vitest.config.ts",
+        "$TURBO_ROOT$/**/vitest.config.*",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "!$TURBO_ROOT$/**/dist/**",
+        "!$TURBO_ROOT$/**/coverage/**",
+        "!$TURBO_ROOT$/**/test-results/**",
+        "!$TURBO_ROOT$/**/playwright-report/**",
+        "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/src/generated/**",
+        "!$TURBO_ROOT$/**/storybook-static/**"
+      ]
+    },
+    "test:coverage": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.claude/hooks/**",
+        "$TURBO_ROOT$/.claude/settings.json",
+        "$TURBO_ROOT$/.claude/skills/**",
+        "$TURBO_ROOT$/.github/**",
+        "$TURBO_ROOT$/.gitignore",
+        "$TURBO_ROOT$/.nvmrc",
+        "$TURBO_ROOT$/apps/**",
+        "$TURBO_ROOT$/infrastructure/**",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/packages/rialto/src/**",
+        "$TURBO_ROOT$/plugins/*/package.json",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/services/**",
+        "$TURBO_ROOT$/tools/*/package.json",
+        "$TURBO_ROOT$/vitest.config.ts",
+        "$TURBO_ROOT$/**/vitest.config.*",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "!$TURBO_ROOT$/**/dist/**",
+        "!$TURBO_ROOT$/**/coverage/**",
+        "!$TURBO_ROOT$/**/test-results/**",
+        "!$TURBO_ROOT$/**/playwright-report/**",
+        "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/src/generated/**",
+        "!$TURBO_ROOT$/**/storybook-static/**"
+      ]
+    }
+  }
+}

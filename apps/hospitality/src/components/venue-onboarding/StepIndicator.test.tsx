@@ -5,14 +5,14 @@ import { ONBOARDING_STEPS } from "./onboarding-steps";
 
 describe("StepIndicator", () => {
   it("marks the current step with aria-current and labels it with the shared step name", () => {
-    render(<StepIndicator currentStep={2} totalSteps={5} highestStepReached={2} />);
+    render(<StepIndicator currentStep={2} totalSteps={6} highestStepReached={2} />);
 
     const current = screen.getByLabelText(`Step 2: ${ONBOARDING_STEPS[1].label}`);
     expect(current).toHaveAttribute("aria-current", "step");
   });
 
   it("shows a checkmark on completed steps", () => {
-    render(<StepIndicator currentStep={3} totalSteps={5} highestStepReached={3} />);
+    render(<StepIndicator currentStep={3} totalSteps={6} highestStepReached={3} />);
 
     // Step 1 is completed → its dot renders a checkmark rather than the number.
     const completed = screen.getByLabelText(new RegExp(`Step 1: ${ONBOARDING_STEPS[0].label}`));
@@ -24,7 +24,7 @@ describe("StepIndicator", () => {
     render(
       <StepIndicator
         currentStep={3}
-        totalSteps={5}
+        totalSteps={6}
         highestStepReached={3}
         onStepClick={onStepClick}
       />
@@ -40,7 +40,7 @@ describe("StepIndicator", () => {
     render(
       <StepIndicator
         currentStep={1}
-        totalSteps={5}
+        totalSteps={6}
         highestStepReached={1}
         onStepClick={onStepClick}
       />

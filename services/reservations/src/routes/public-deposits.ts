@@ -37,6 +37,16 @@ export const publicDepositRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:slug/deposits/payment-intent",
     {
+      // Dedicated per-route cap: each call creates a real Stripe Customer +
+      // PaymentIntent (cost, quota pressure, and an enumeration oracle
+      // against reservationId/slug pairs). Default `onRequest` hook stage —
+      // no auth/request-context is needed to key on, so this only swaps the
+      // service-wide 100/min limiter for a stricter one at the SAME stage,
+      // never disabling it (see gotchas.md "Fastify / rate limiting" for the
+      // preHandler footgun this deliberately avoids).
+      config: {
+        rateLimit: { max: 10, timeWindow: "1 minute" },
+      },
       schema: {
         summary: "Create PaymentIntent for deposit (public booking widget)",
         tags: ["Public"],

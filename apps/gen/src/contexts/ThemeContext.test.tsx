@@ -3,8 +3,29 @@ import { render, screen } from "@testing-library/react";
 import { renderHook, act } from "@testing-library/react";
 import { ThemeProvider, useTheme } from "./ThemeContext.js";
 
+/** Mock `window.matchMedia` for the `(prefers-color-scheme: dark)` query,
+ * mirroring the pattern already used in ../hooks/usePanelLayout.test.ts and
+ * packages/rialto/src/hooks/useThemeState.test.ts. */
+function mockMatchMedia(prefersDark: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query === "(prefers-color-scheme: dark)" && prefersDark,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 beforeEach(() => {
   localStorage.clear();
+  // Default: system prefers light, no explicit choice stored.
+  mockMatchMedia(false);
 });
 
 describe("ThemeProvider", () => {
@@ -17,7 +38,25 @@ describe("ThemeProvider", () => {
     expect(screen.getByText("hello")).toBeTruthy();
   });
 
-  it("starts with light theme by default", () => {
+  it("resolves dark when the system prefers dark and no explicit choice is stored", () => {
+    mockMatchMedia(true);
+    const { result } = renderHook(() => useTheme(), {
+      wrapper: ThemeProvider,
+    });
+    expect(result.current.theme).toBe("dark");
+  });
+
+  it("resolves light when the system prefers light and no explicit choice is stored", () => {
+    mockMatchMedia(false);
+    const { result } = renderHook(() => useTheme(), {
+      wrapper: ThemeProvider,
+    });
+    expect(result.current.theme).toBe("light");
+  });
+
+  it("an explicit stored choice wins over the system preference", () => {
+    localStorage.setItem("mbe-theme-preference", "light");
+    mockMatchMedia(true);
     const { result } = renderHook(() => useTheme(), {
       wrapper: ThemeProvider,
     });

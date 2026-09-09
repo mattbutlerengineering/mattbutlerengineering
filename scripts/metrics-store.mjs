@@ -107,6 +107,8 @@ export const DURABLE_OUTSIDE = {
   ".claude/improvement-loop/revert-log.md": "written by .github/workflows/revert-rca-detection.yml",
   "apps/marketing/public/sensor-report.json":
     "public AI-health page copy, written by scripts/sensor-report.mjs",
+  ".github/auto-qa-tuning.json":
+    "sensor threshold adjustments, written by verify-fixes.mjs's auto-tuner",
 };
 
 /**

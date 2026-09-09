@@ -209,6 +209,7 @@ const DATA_COMPONENTS = [
   "TapeChart",
   "Timeline",
   "Tree",
+  "NeonSign",
 ] as const;
 
 describe("manifest drift guard — data category", () => {

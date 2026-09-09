@@ -57,6 +57,7 @@ describe("buildApp() in production with REDIS_URL unset (#4172)", () => {
     process.env.AUTH_AUTHORITY = "https://example.us.auth0.com";
     process.env.AUTH_AUDIENCE = "https://api.example.com";
     process.env.MANAGE_TOKEN_SECRET = "test-manage-token-secret";
+    process.env.SENTRY_DSN = "https://key@o1.ingest.sentry.io/2";
     delete process.env.REDIS_URL;
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 

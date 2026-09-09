@@ -28,7 +28,7 @@ const STATUS_VARIANT = {
 
 export function DriverRead() {
   const { id } = useParams<{ id: string }>();
-  const { drivers, getDriver, deleteDriver } = useDrivers();
+  const { drivers, getDriver, deleteDriver, restoreDriver } = useDrivers();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -71,8 +71,12 @@ export function DriverRead() {
     deleteDriver(driver.id);
     setConfirmDelete(false);
     toast({
-      title: `${driver.name} removed`,
+      title: `${driver.name} is off the roster`,
       variant: "default",
+      action: {
+        label: "Undo",
+        onClick: () => restoreDriver(driver),
+      },
     });
     navigate(DEMO_ROUTES.drivers);
   }

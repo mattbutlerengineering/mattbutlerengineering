@@ -54,6 +54,10 @@ export const hospitalityApp = new auth0.Client("mattbutlerengineering-hospitalit
   webOrigins: webOrigins,
   allowedOrigins: webOrigins,
   oidcConformant: true,
+  // Matches the live prod tenant's `sso: true`. Left undeclared, Pulumi reads
+  // the live value as drift and plans to reset it to the provider default on
+  // the next `pulumi up` — see index.test.ts's "declares sso: true" test.
+  sso: true,
   jwtConfiguration: {
     alg: "RS256",
     lifetimeInSeconds: 36000,

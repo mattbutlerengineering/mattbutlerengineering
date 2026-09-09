@@ -16,6 +16,7 @@ import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
+import { venueLocalDateString } from "./slot-rules.js";
 import { mapPrismaTable } from "./table.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
@@ -31,6 +32,7 @@ export interface ListReservationsOptions {
   status?: ReservationStatus;
   tableId?: string;
   venueId?: string;
+  guestId?: string;
 }
 
 export interface CreateReservationResult {
@@ -57,7 +59,7 @@ export interface UpdateReservationResult {
 
 export const reservationService = {
   async list(options: ListReservationsOptions): Promise<PaginatedResponse<Reservation>> {
-    const { page, limit, date, status, tableId, venueId } = options;
+    const { page, limit, date, status, tableId, venueId, guestId } = options;
 
     const where: Record<string, unknown> = {};
     if (date) {
@@ -71,6 +73,9 @@ export const reservationService = {
     }
     if (venueId) {
       where.venueId = venueId;
+    }
+    if (guestId) {
+      where.guestId = guestId;
     }
 
     const [reservations, total] = await Promise.all([
@@ -480,15 +485,18 @@ export const reservationService = {
     const durationMinutes = data.durationMinutes ?? 90;
     const endTime = new Date(now.getTime() + durationMinutes * 60 * 1000);
 
-    // Date only (no time component), normalized to midnight UTC
-    const dateOnly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-
-    const dateStr = toDateString(dateOnly);
-
     // Pre-check for conflicts and pacing before the transaction (which re-checks
     // to prevent TOCTOU races). Fetch the conflict slices once and use the
     // canonical assertBookable predicate (conflict + pacing in one call).
     const venue = await prisma.venue.findUnique({ where: { id: data.venueId } });
+
+    // Date only (no time component). Derived from the venue-local calendar
+    // date, not `now`'s UTC calendar date — near local midnight for a venue
+    // west of UTC those disagree (#5096, same class as #5000's
+    // getAvailableDates bucketing bug).
+    const dateStr = venueLocalDateString(now, venue?.ianaTimezone ?? "UTC");
+    const dateOnly = new Date(dateStr);
+
     const settings = (venue?.settings ?? null) as VenueSettings | null;
     const { reservations, holds } = await availabilityService.fetchConflictData(
       data.venueId,

@@ -84,7 +84,7 @@ describe("Table", () => {
     it("sorts by column on header click (asc first)", async () => {
       const user = userEvent.setup();
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
-      await user.click(screen.getByRole("columnheader", { name: /Driver/ }));
+      await user.click(screen.getByRole("button", { name: /Driver/ }));
 
       const rows = screen.getAllByRole("row").slice(1); // skip header
       const firstCell = rows[0]?.querySelector("td");
@@ -94,9 +94,9 @@ describe("Table", () => {
     it("reverses sort on second click (desc)", async () => {
       const user = userEvent.setup();
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
-      const header = screen.getByRole("columnheader", { name: /Driver/ });
-      await user.click(header);
-      await user.click(header);
+      const button = screen.getByRole("button", { name: /Driver/ });
+      await user.click(button);
+      await user.click(button);
 
       const rows = screen.getAllByRole("row").slice(1);
       const firstCell = rows[0]?.querySelector("td");
@@ -106,7 +106,7 @@ describe("Table", () => {
     it("sorts numeric columns correctly (asc)", async () => {
       const user = userEvent.setup();
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
-      await user.click(screen.getByRole("columnheader", { name: /Points/ }));
+      await user.click(screen.getByRole("button", { name: /Points/ }));
 
       const rows = screen.getAllByRole("row").slice(1);
       const firstCell = rows[0]?.querySelectorAll("td")[2];
@@ -116,7 +116,7 @@ describe("Table", () => {
     it("sets aria-sort=ascending on sorted column", async () => {
       const user = userEvent.setup();
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
-      await user.click(screen.getByRole("columnheader", { name: /Driver/ }));
+      await user.click(screen.getByRole("button", { name: /Driver/ }));
       expect(screen.getByRole("columnheader", { name: /Driver/ })).toHaveAttribute(
         "aria-sort",
         "ascending"
@@ -127,8 +127,9 @@ describe("Table", () => {
       const user = userEvent.setup();
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
       const header = screen.getByRole("columnheader", { name: /Driver/ });
-      await user.click(header);
-      await user.click(header);
+      const button = screen.getByRole("button", { name: /Driver/ });
+      await user.click(button);
+      await user.click(button);
       expect(header).toHaveAttribute("aria-sort", "descending");
     });
 
@@ -150,9 +151,59 @@ describe("Table", () => {
       const user = userEvent.setup();
       render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
       const header = screen.getByRole("columnheader", { name: /Driver/ });
-      header.focus();
+      const button = screen.getByRole("button", { name: /Driver/ });
+      button.focus();
       await user.keyboard("{Enter}");
       expect(header).toHaveAttribute("aria-sort", "ascending");
+    });
+
+    it("renders a nested button for a sortable column header, leaving the th non-interactive", () => {
+      render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
+      const header = screen.getByRole("columnheader", { name: /Driver/ });
+      const button = screen.getByRole("button", { name: /Driver/ });
+
+      expect(header).toContainElement(button);
+      expect(button.tagName).toBe("BUTTON");
+      expect(button).toHaveAttribute("type", "button");
+      expect(header).not.toHaveAttribute("tabIndex");
+      expect(header).not.toHaveAttribute("onclick");
+    });
+
+    it("does not render a button for a non-sortable column header", () => {
+      render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
+      const header = screen.getByRole("columnheader", { name: "Team" });
+      expect(header.querySelector("button")).not.toBeInTheDocument();
+      expect(header).not.toHaveAttribute("tabIndex");
+    });
+
+    it("cycles sort direction via aria-sort on the parent th when the button is clicked", async () => {
+      const user = userEvent.setup();
+      render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
+      const header = screen.getByRole("columnheader", { name: /Driver/ });
+      const button = screen.getByRole("button", { name: /Driver/ });
+
+      expect(header).toHaveAttribute("aria-sort", "none");
+      await user.click(button);
+      expect(header).toHaveAttribute("aria-sort", "ascending");
+      await user.click(button);
+      expect(header).toHaveAttribute("aria-sort", "descending");
+    });
+
+    it("cycles sort direction via aria-sort on the parent th using keyboard Enter and Space after tabbing to the button", async () => {
+      const user = userEvent.setup();
+      render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
+      const header = screen.getByRole("columnheader", { name: /Driver/ });
+      const button = screen.getByRole("button", { name: /Driver/ });
+
+      expect(header).toHaveAttribute("aria-sort", "none");
+
+      await user.tab();
+      expect(button).toHaveFocus();
+      await user.keyboard("{Enter}");
+      expect(header).toHaveAttribute("aria-sort", "ascending");
+
+      await user.keyboard(" ");
+      expect(header).toHaveAttribute("aria-sort", "descending");
     });
   });
 

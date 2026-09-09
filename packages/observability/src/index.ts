@@ -1,6 +1,8 @@
 export { initTelemetry } from "./sdk.js";
 export type { OtelConfig } from "./sdk.js";
 
+export { redactSignal, REDACTED } from "./redact.js";
+
 export { createRequestIdMiddleware, getRequestId, logWithRequestId } from "./request-id.js";
 
 export { createReadinessTracker, registerStandardChecks, buildJwksUrl } from "./readiness.js";

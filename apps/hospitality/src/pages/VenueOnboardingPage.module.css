@@ -2,6 +2,12 @@
   max-width: 40rem;
 }
 
+/* Step 5 (floor plan) needs room for the 800x600 canvas — applied alongside
+   .wizardContainer, so its later max-width wins the cascade. */
+.wizardContainerWide {
+  max-width: 64rem;
+}
+
 /* The vertical rail in the brand panel is the desktop progress view; hide the
    condensed horizontal indicator there to avoid a duplicate. */
 @media (min-width: 768px) {

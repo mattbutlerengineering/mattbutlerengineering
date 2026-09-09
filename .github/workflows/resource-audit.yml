@@ -31,9 +31,12 @@ jobs:
 
       - name: Run resource audit
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # MBE_CLOUDFLARE_API_TOKEN is the canonical CF token secret name
+          # every other workflow uses (see docs/SECRETS.md) — this workflow
+          # previously referenced a bare CLOUDFLARE_API_TOKEN secret that
+          # was never provisioned, failing every scheduled run deterministically.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/resource-audit.mjs

@@ -2,3 +2,22 @@
   margin-block-start: var(--rialto-space-lg);
   margin-block-end: var(--rialto-space-lg);
 }
+
+.withAside {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--rialto-space-md);
+  flex-wrap: wrap;
+}
+
+.aside {
+  flex: 0 0 auto;
+}
+
+/* Matches the mobile breakpoint in DashboardLayout.module.css */
+@media (max-width: 767px) {
+  .aside {
+    flex-basis: 100%;
+  }
+}

@@ -152,13 +152,13 @@ describe("FloorPlansClient", () => {
   });
 
   describe("setActive / activate", () => {
-    it("sends POST /api/v1/floor-plans/:id/active", async () => {
+    it("sends POST /api/v1/floor-plans/:id/activate — the route the service registers", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeFloorPlan }));
 
       await makeClient().setActive("fp1");
 
       const [url, options] = mockFetch.mock.calls[0]!;
-      expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/active");
+      expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/activate");
       expect(options?.method).toBe("POST");
     });
 
@@ -168,12 +168,22 @@ describe("FloorPlansClient", () => {
       await makeClient().activate("fp1");
 
       const [url] = mockFetch.mock.calls[0]!;
-      expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/active");
+      expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/activate");
+    });
+
+    it("sends a parseable JSON body — an empty body with Content-Type: application/json is rejected by Fastify with 400", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeFloorPlan }));
+
+      await makeClient().setActive("fp1");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(() => JSON.parse(options?.body as string)).not.toThrow();
+      expect(options?.body).toBe("{}");
     });
   });
 
   describe("bulkUpdatePositions", () => {
-    it("sends POST /api/v1/floor-plans/:id/bulk-update-positions with positions", async () => {
+    it("sends POST /api/v1/floor-plans/tables/positions with { floorPlanId, positions } — the service's contract", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: [fakeTable] }));
 
       const positions = [
@@ -185,9 +195,9 @@ describe("FloorPlansClient", () => {
       const result = await makeClient().bulkUpdatePositions("fp1", positions);
 
       const [url, options] = mockFetch.mock.calls[0]!;
-      expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/bulk-update-positions");
+      expect(url).toBe("https://api.test.com/api/v1/floor-plans/tables/positions");
       expect(options?.method).toBe("POST");
-      expect(JSON.parse(options?.body as string)).toEqual(positions);
+      expect(JSON.parse(options?.body as string)).toEqual({ floorPlanId: "fp1", positions });
       expect(result).toEqual([fakeTable]);
     });
   });
@@ -203,6 +213,17 @@ describe("FloorPlansClient", () => {
       expect(url).toBe("https://api.test.com/api/v1/floor-plans/fp1/clone");
       expect(options?.method).toBe("POST");
       expect(result).toEqual(cloned);
+    });
+
+    it("sends a parseable JSON body — an empty body with Content-Type: application/json is rejected by Fastify with 400", async () => {
+      const cloned = { ...fakeFloorPlan, id: "fp2" };
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: cloned }));
+
+      await makeClient().clone("fp1");
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      expect(() => JSON.parse(options?.body as string)).not.toThrow();
+      expect(options?.body).toBe("{}");
     });
   });
 

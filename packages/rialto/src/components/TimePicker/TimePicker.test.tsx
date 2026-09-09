@@ -130,4 +130,17 @@ describe("TimePicker", () => {
     // 10:00 is disabled → active lands on 11:00.
     expect(option("11:00")).toHaveAttribute("data-active", "true");
   });
+
+  it("wires aria-expanded, aria-haspopup, and aria-controls on the trigger, toggling on open", async () => {
+    const { trigger } = renderPicker();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    const controlsId = trigger.getAttribute("aria-controls");
+    expect(controlsId).toBeTruthy();
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("dialog")).toHaveAttribute("id", controlsId as string);
+  });
 });

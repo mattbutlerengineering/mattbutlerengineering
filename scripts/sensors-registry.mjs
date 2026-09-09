@@ -378,6 +378,17 @@ export const SENSORS = [
       const total = Object.keys(checks).length;
       const passed = Object.values(checks).filter((c) => c.passed).length;
 
+      const gates = state.computation?.behavioralGates ?? [];
+      const failingGates = gates
+        .filter((g) => g.passed === false)
+        .map(({ name, description, value, threshold, direction }) => ({
+          name,
+          description,
+          value,
+          threshold,
+          direction,
+        }));
+
       return {
         available: true,
         level: state.currentLevel ?? null,
@@ -385,6 +396,8 @@ export const SENSORS = [
         criteria_met: passed,
         criteria_total: total,
         last_run: state.lastRun ?? null,
+        capped: state.computation?.capped ?? false,
+        failing_gates: failingGates,
       };
     },
     format: (data, name) =>
@@ -535,8 +548,11 @@ export const SENSORS = [
       const completed = runs.filter((r) => r.status === "completed");
       const passed = completed.filter((r) => r.conclusion === "success");
       const failed = completed.filter((r) => r.conclusion === "failure");
-      const passRate =
-        completed.length > 0 ? Math.round((passed.length / completed.length) * 100) : 100;
+      // #4685: skipped (intentional no-op) and cancelled (concurrency-superseded
+      // rerun) conclusions are neither passes nor failures — excluding them from
+      // the denominator keeps the metric scoped to real pass/fail outcomes.
+      const scored = passed.length + failed.length;
+      const passRate = scored > 0 ? Math.round((passed.length / scored) * 100) : 100;
 
       return {
         available: true,
@@ -549,7 +565,10 @@ export const SENSORS = [
       };
     },
     format: (data, name) =>
-      `${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.completed})`,
+      // #4713: report the same denominator pass_rate_pct is computed over
+      // (passed + failed) — `completed` also includes skipped/cancelled
+      // runs, so it used to disagree with the rate (e.g. "100% (11/30)").
+      `${name}: ${data.pass_rate_pct}% pass rate (${data.passed}/${data.passed + data.failed})`,
     thresholds: { ci_pass_rate_drop: 5 },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available || !previous?.available) return [];
@@ -640,40 +659,66 @@ export const SENSORS = [
     id: "issues",
     category: "quality",
     collect: ({ ghClient, now }) => {
+      // #4641: a single `--limit 50 --state all` fetch (sorted by createdAt
+      // desc) gets crowded out by a creation burst — issues closed in the
+      // window but created before it fall off the top-50 and silently
+      // vanish from closed_7d, even though they really did close. That
+      // makes closure_rate mechanically drop whenever issue creation
+      // volume rises, independent of actual closure throughput. Scoping
+      // created/closed counts to two independent server-side searches
+      // (rather than filtering one shared, capped array) means closed_7d
+      // can never be truncated by creation volume.
       const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
-      let issuesRaw;
+      const sinceDate = sevenDaysAgo.toISOString().slice(0, 10);
+      let createdIssues;
+      let closedIssues;
+      let openIssues;
       try {
-        issuesRaw = ghClient.issue.list([
+        createdIssues = ghClient.issue.list([
           "--state",
           "all",
+          "--search",
+          `created:>=${sinceDate}`,
           "--limit",
-          "50",
+          "200",
           "--json",
-          "number,state,labels,createdAt,closedAt",
+          "number,createdAt",
+        ]);
+        closedIssues = ghClient.issue.list([
+          "--state",
+          "closed",
+          "--search",
+          `closed:>=${sinceDate}`,
+          "--limit",
+          "200",
+          "--json",
+          "number,closedAt",
+        ]);
+        openIssues = ghClient.issue.list([
+          "--state",
+          "open",
+          "--limit",
+          "200",
+          "--json",
+          "number,labels",
         ]);
       } catch (err) {
         // Distinguishable from "no issues" (#3937) — a thrown error (e.g.
         // auth failure) is a query failure, not an empty-but-valid result.
         return { available: false, error: describeGhError(err) };
       }
-      const recentIssues = issuesRaw.filter((i) => new Date(i.createdAt) >= sevenDaysAgo);
-      const recentClosed = issuesRaw.filter(
-        (i) => i.closedAt && new Date(i.closedAt) >= sevenDaysAgo
-      );
-      const openReady = issuesRaw.filter(
-        (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "ready")
-      );
-      const agentFailed = issuesRaw.filter(
-        (i) => i.state === "OPEN" && (i.labels ?? []).some((l) => l.name === "agent-failed")
+      const openReady = openIssues.filter((i) => (i.labels ?? []).some((l) => l.name === "ready"));
+      const agentFailed = openIssues.filter((i) =>
+        (i.labels ?? []).some((l) => l.name === "agent-failed")
       );
 
       return {
         available: true,
-        created_7d: recentIssues.length,
-        closed_7d: recentClosed.length,
+        created_7d: createdIssues.length,
+        closed_7d: closedIssues.length,
         closure_rate:
-          recentIssues.length > 0
-            ? Math.round((recentClosed.length / recentIssues.length) * 100)
+          createdIssues.length > 0
+            ? Math.round((closedIssues.length / createdIssues.length) * 100)
             : 100,
         queue_depth: openReady.length,
         agent_failed: agentFailed.length,
@@ -855,9 +900,22 @@ export const SENSORS = [
     collect: ({ root, ghClient }) => {
       let ghRuns;
       try {
+        // #5005: scoped to main-branch runs of the real E2E workflow only —
+        // the same class of bug ciHealth had (#4538, unscoped branch) plus
+        // the one flakyTests already guards against (unscoped workflow, see
+        // its comment above): an unfiltered query pulls in "mostly ...
+        // unrelated workflows (Secret Scan, Release, ADR check, ...)", so
+        // "consecutive E2E failures on non-frontend runs" was actually
+        // measuring consecutive failures of ANY workflow on ANY branch whose
+        // commit didn't touch apps/**/packages/rialto/**. Targets "E2E Tests"
+        // (.github/workflows/e2e.yml) — the Hospitality/Marketing E2E suite.
         ghRuns = ghClient.workflow.runs([
           "--limit",
           "30",
+          "--branch",
+          "main",
+          "--workflow",
+          "E2E Tests",
           "--json",
           "conclusion,createdAt,headBranch,headSha",
         ]);

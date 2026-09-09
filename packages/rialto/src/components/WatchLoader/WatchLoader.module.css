@@ -92,10 +92,19 @@
   overflow: visible;
 }
 
+/* ── Plate ────────────────────────────────────── */
+.plate {
+  fill: url(#watch-plate);
+  stroke: var(--watch-rotor-edge);
+  stroke-width: 1.4;
+}
+
 /* ── Bridges ──────────────────────────────────── */
 .bridge {
   fill: var(--watch-bridge);
-  opacity: 0.55;
+  stroke: var(--watch-gear-hub);
+  stroke-width: 0.5;
+  opacity: 0.75;
 }
 
 /* ── Gears ────────────────────────────────────── */
@@ -136,14 +145,24 @@
   animation: watch-spin calc(var(--watch-cycle) * 0.5) linear infinite;
 }
 
-/* ── Escape wheel ─────────────────────────────── */
+/* ── Escape wheel — one discrete tooth per balance beat ── */
+.escape {
+  animation: watch-spin calc(var(--watch-cycle) * 3) steps(15, end) infinite;
+}
+.axleRace {
+  fill: none;
+  stroke: none;
+}
 .escapeBody {
   fill: var(--watch-gear);
   stroke: var(--watch-gear-hub);
   stroke-width: 0.5;
 }
 
-/* ── Balance wheel ────────────────────────────── */
+/* ── Balance wheel — pendulum swing, eased at each reversal ── */
+.balance {
+  animation: watch-swing calc(var(--watch-cycle) * 0.4) ease-in-out infinite;
+}
 .balanceRim {
   fill: none;
   stroke: var(--watch-balance);
@@ -163,11 +182,22 @@
 .rotor {
   animation: watch-spin calc(var(--watch-cycle) * 1.4) linear infinite;
 }
+.rotorRace {
+  fill: none;
+  stroke: var(--watch-rotor-edge);
+  stroke-width: 0.6;
+  opacity: 0.4;
+}
 .rotorBody {
   fill: var(--watch-rotor);
   stroke: var(--watch-rotor-edge);
   stroke-width: 1;
-  opacity: 0.92;
+  opacity: 0.85;
+}
+.rotorHub {
+  fill: var(--watch-rotor);
+  stroke: var(--watch-rotor-edge);
+  stroke-width: 0.8;
 }
 .rotorWeight {
   fill: var(--watch-rotor-edge);
@@ -183,19 +213,40 @@
   }
 }
 
-/* ── Reduced motion — pause everything, static snapshot ── */
+@keyframes watch-swing {
+  0%,
+  100% {
+    transform: rotate(26deg);
+  }
+  50% {
+    transform: rotate(-26deg);
+  }
+}
+
+/* ── Reduced motion — pause everything, static snapshot.
+   The parked rotor is ghosted so the movement beneath still reads. ── */
 .reduced .rotor,
 .reduced .gearLarge,
 .reduced .gearMedium,
-.reduced .gearSmall {
+.reduced .gearSmall,
+.reduced .balance,
+.reduced .escape {
   animation: none;
+}
+.reduced .rotorBody {
+  opacity: 0.5;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .rotor,
   .gearLarge,
   .gearMedium,
-  .gearSmall {
+  .gearSmall,
+  .balance,
+  .escape {
     animation: none;
+  }
+  .rotorBody {
+    opacity: 0.5;
   }
 }

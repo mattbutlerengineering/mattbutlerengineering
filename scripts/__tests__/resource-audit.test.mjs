@@ -6,6 +6,7 @@ import {
   findOrphanedDnsRecords,
   buildReport,
   findPriorResourceAuditIssue,
+  extractZoneId,
 } from "../resource-audit.mjs";
 
 describe("isAllowlisted", () => {
@@ -159,5 +160,30 @@ describe("findPriorResourceAuditIssue", () => {
   test("returns null for empty or nullish input", () => {
     expect(findPriorResourceAuditIssue([])).toBeNull();
     expect(findPriorResourceAuditIssue(null)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractZoneId — resolves the CF zone ID for the audited domain from the
+// CF `/zones?name=` response, replacing a `CLOUDFLARE_ZONE_ID` secret that
+// was never provisioned (see .claude/rules/gotchas.md and docs/SECRETS.md,
+// where every other consumer authenticates via MBE_CLOUDFLARE_API_TOKEN and
+// none needs a zone-id secret — Pulumi derives it from non-secret config).
+// ---------------------------------------------------------------------------
+
+describe("extractZoneId", () => {
+  test("finds the zone matching the domain", () => {
+    const zones = [{ id: "zone-1", name: "example.com" }];
+    expect(extractZoneId(zones, "example.com")).toBe("zone-1");
+  });
+
+  test("returns null when no zone matches the domain", () => {
+    const zones = [{ id: "zone-1", name: "other.com" }];
+    expect(extractZoneId(zones, "example.com")).toBeNull();
+  });
+
+  test("boundary: empty or nullish zones list returns null", () => {
+    expect(extractZoneId([], "example.com")).toBeNull();
+    expect(extractZoneId(null, "example.com")).toBeNull();
   });
 });

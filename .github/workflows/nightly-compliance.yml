@@ -64,9 +64,15 @@ jobs:
             echo '## Lint, typecheck, test'
             echo
             for cmd in lint typecheck test; do
-              pnpm "$cmd" > "/tmp/$cmd.out" 2>&1
-              cmd_status=$?
-              if [ "$cmd_status" -eq 0 ]; then
+              # `pnpm "$cmd"` must be the condition of an `if`, never a bare
+              # statement followed by `cmd_status=$?` — the default GH Actions
+              # shell is `bash -e {0}` (no pipefail), so a bare non-zero exit
+              # aborts the whole step right there and `cmd_status=$?` never
+              # runs. That silently deleted the FAILED branch for months: the
+              # loop always died mid-`test`, so no `✗` was ever written and
+              # drift detection below never fired. See the `if`-guarded form
+              # already used correctly in "Run gating scripts" below.
+              if pnpm "$cmd" > "/tmp/$cmd.out" 2>&1; then
                 echo "- ✓ \`pnpm $cmd\` passed"
               else
                 echo "- ✗ \`pnpm $cmd\` FAILED"
@@ -86,8 +92,28 @@ jobs:
           {
             echo '## Gating scripts'
             echo
-              for script in scripts/check-*.js; do
-              name=$(basename "$script" .js)
+            # scripts/check-* is a mix of .js and .mjs — the glob below scans
+            # both. It used to scan `.js` only, which silently never ran the
+            # 14 `.mjs` gating scripts (including check-ai-antipatterns and
+            # check-orphaned-tests) for the workflow's whole 100-day life.
+            #
+            # Any script excluded from the nightly loop must be named here,
+            # explicitly, with a one-line reason — never left out by quietly
+            # narrowing the glob. That silent-narrowing shape is exactly the
+            # bug this comment exists to prevent from recurring.
+            excluded=(
+              "check-endpoint" # library CLI: needs <name> <url> args; no bare invocation to run nightly
+              "check-dep-sync" # shells to `npx depcheck` per workspace package (30+); unpinned + network-dependent + minutes long, not nightly-budget-appropriate
+            )
+            for script in scripts/check-*.js scripts/check-*.mjs; do
+              name=$(basename "$script")
+              name="${name%.js}"
+              name="${name%.mjs}"
+              skip=false
+              for ex in "${excluded[@]}"; do
+                [ "$name" = "$ex" ] && skip=true
+              done
+              [ "$skip" = true ] && continue
               if node "$script" > "/tmp/$name.out" 2>&1; then
                 echo "- ✓ \`$name\` passed"
               else
@@ -104,12 +130,30 @@ jobs:
         id: acmm
         continue-on-error: true
         run: |
+          # audit.js always exits 0 by design (it's diagnostic, not gating —
+          # see its own header comment) — capturing its exit status here is
+          # about a real crash (thrown error, missing file), not the maturity
+          # level. The behavioral-gate ✗/✓ lines it prints are the actual
+          # drift signal `Detect drift` below keys on; piping straight into
+          # `head -25` (no pipefail) both hid a non-zero exit and, measured
+          # against a real run, truncated the output before those lines ever
+          # printed — the report always ended at the "Behavioral gates
+          # (strict):" header with the verdict itself cut off. `head -100`
+          # comfortably covers a real run (47 lines) while still bounding a
+          # runaway crash dump.
+          if node plugins/acmm/scripts/audit.js > /tmp/acmm.out 2>&1; then
+            acmm_mark="✓ \`acmm audit\` ran to completion"
+          else
+            acmm_mark="✗ \`acmm audit\` FAILED (non-zero exit)"
+          fi
           {
             echo '## ACMM audit'
             echo
             echo '```'
-             node plugins/acmm/scripts/audit.js 2>&1 | head -25
+            head -100 /tmp/acmm.out
             echo '```'
+            echo
+            echo "- $acmm_mark"
           } >> /tmp/report.md
 
       - name: Detect drift
@@ -125,7 +169,13 @@ jobs:
           {
             echo '## Summary'
             echo
-            echo "Drift: $(grep -c '✗' /tmp/report.md || echo 0) failures, $(grep -c '✓' /tmp/report.md || echo 0) passes"
+            # No `|| echo 0` fallback: `grep -c` always prints a valid count
+            # (0 or more) to stdout even when it exits 1 on zero matches — the
+            # common case for a clean run. The `|| echo 0` used to fire on
+            # every zero-match count, printing a second "0" on its own line
+            # and splitting this summary across two lines ("Drift: 0" then
+            # "0 failures, N passes" on the next).
+            echo "Drift: $(grep -c '✗' /tmp/report.md) failures, $(grep -c '✓' /tmp/report.md) passes"
           } >> /tmp/report.md
 
       - name: Upload report artifact
