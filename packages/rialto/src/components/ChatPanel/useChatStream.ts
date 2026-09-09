@@ -45,6 +45,7 @@ export interface UseChatStreamReturn {
   pendingAction: PendingAction | null;
   send: (content: string) => Promise<void>;
   stop: () => void;
+  retry: () => Promise<void>;
   confirmAction: () => Promise<void>;
   cancelAction: () => void;
 }
@@ -59,6 +60,10 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
   const getAccessTokenRef = useRef(getAccessToken);
   const messagesRef = useRef(messages);
   const pendingActionRef = useRef(pendingAction);
+  const lastRequestRef = useRef<{
+    body: Record<string, unknown>;
+    baseMessages: ChatMessage[];
+  } | null>(null);
 
   useEffect(() => {
     getAccessTokenRef.current = getAccessToken;
@@ -78,6 +83,7 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      lastRequestRef.current = { body, baseMessages };
       setIsStreaming(true);
       setError(null);
 
@@ -174,5 +180,21 @@ export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): Us
     setIsStreaming(false);
   }, []);
 
-  return { messages, isStreaming, error, pendingAction, send, stop, confirmAction, cancelAction };
+  const retry = useCallback(async (): Promise<void> => {
+    const last = lastRequestRef.current;
+    if (!last) return;
+    await streamRequest(last.body, last.baseMessages);
+  }, [streamRequest]);
+
+  return {
+    messages,
+    isStreaming,
+    error,
+    pendingAction,
+    send,
+    stop,
+    retry,
+    confirmAction,
+    cancelAction,
+  };
 }

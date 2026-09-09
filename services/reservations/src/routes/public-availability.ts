@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { TimeSlot, ApiResponse } from "@mbe/types";
-import { publicAvailabilityQueryJsonSchema } from "@mbe/types";
+import { createProblemDetails, publicAvailabilityQueryJsonSchema } from "@mbe/types";
 import { validatePartySize } from "@mbe/database";
 import { venueService } from "../services/venue.js";
 import { availabilityService } from "../services/availability.js";
@@ -10,7 +10,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{
     Params: { slug: string };
     Querystring: { date: string; partySize: string };
-    Reply: ApiResponse<TimeSlot[]>;
+    Reply: ApiResponse<TimeSlot[]> | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug/availability",
     {
@@ -32,22 +32,18 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
 
       const venue = await venueService.getBySlug(slug);
       if (!venue) {
-        return reply.status(404).send({
-          type: "https://httpproblems.com/http-status/404",
-          title: "Venue Not Found",
-          status: 404,
-          detail: `No venue found with slug '${slug}'.`,
-        } as never);
+        return reply
+          .status(404)
+          .send(
+            createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
+          );
       }
 
       const partySizeResult = validatePartySize(partySize);
       if (!partySizeResult.valid) {
-        return reply.status(400).send({
-          type: "https://httpproblems.com/http-status/400",
-          title: "Invalid Party Size",
-          status: 400,
-          detail: partySizeResult.error,
-        } as never);
+        return reply
+          .status(400)
+          .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
       }
 
       const slots = await availabilityService.generateTimeSlots(

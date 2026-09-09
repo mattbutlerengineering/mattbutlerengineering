@@ -17,6 +17,51 @@
         return Readable.from(rawBody);
       };
     }
+    export function createVerifiedBodyPreHandler(
+      opts: VerifiedWebhookOptions
+    ): preHandlerAsyncHookHandler {
+      return async (request, reply) => {
+        const secret = process.env[opts.secretEnv];
+        if (!secret) {
+          request.log.warn(`${opts.secretEnv} not configured — rejecting webhook`);
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Webhook secret not configured"));
+        }
+    
+        const signature = request.headers[opts.header] as string | undefined;
+        if (!signature) {
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Missing webhook signature"));
+        }
+    
+        const rawBody = (request as unknown as Record<string | symbol, unknown>)[kRawBody] as
+          Buffer | undefined;
+        if (!rawBody) {
+          return reply.code(401).send(createProblemDetails(401, "Unauthorized", "Missing raw body"));
+        }
+    
+        const expected =
+          opts.format === "sha256="
+            ? `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`
+            : createHmac("sha256", secret).update(rawBody).digest("hex");
+    
+        if (expected.length !== signature.length) {
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
+        }
+    
+        if (!timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+          return reply
+            .code(401)
+            .send(createProblemDetails(401, "Unauthorized", "Invalid webhook signature"));
+        }
+    
+        request.verifiedBody = rawBody;
+      };
+    }
   </file>
   </section>
   <section priority="medium" role="prisma">
@@ -631,6 +676,119 @@
       readonly usage: { readonly inputTokens?: number; readonly outputTokens?: number };
       readonly providerMetadata: unknown;
     }
+    export interface GenRunnerConfig {
+      readonly systemPrompt: string;
+      readonly modelId: string;
+      readonly maxSteps: number;
+      readonly onFinish?: (payload: GenFinishPayload) => Promise<void>;
+    }
+    export const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set([
+      "create_reservation",
+      "modify_reservation",
+      "cancel_reservation",
+      "seat_walk_in",
+      "update_table_status",
+    ]);
+    export type GenToolMap = Record<string, unknown>;
+    export type GenEventCallback = (event: GenStreamEvent) => Promise<void>;
+    export interface GenRunner {
+      run(
+        messages: ReadonlyArray<{ role: "user" | "assistant"; content: string }>,
+        tools: GenToolMap,
+        onEvent: GenEventCallback
+      ): Promise<void>;
+    }
+    export function createGenRunner(config: GenRunnerConfig): GenRunner {
+      return {
+        async run(messages, tools, onEvent) {
+          const aiMessages = [
+            {
+              role: "system" as const,
+              content: config.systemPrompt,
+              providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+            },
+            ...messages,
+          ];
+    
+          const result = streamText({
+            model: anthropic(config.modelId),
+            messages: aiMessages,
+            tools: tools as Parameters<typeof streamText>[0]["tools"],
+            stopWhen: stepCountIs(config.maxSteps),
+            onFinish: config.onFinish
+              ? async ({ usage, providerMetadata }) => {
+                  await config.onFinish!({ usage, providerMetadata });
+                }
+              : undefined,
+          });
+    
+          for await (const event of result.fullStream) {
+            if (event.type === "text-delta") {
+              await onEvent({ type: "text", content: event.text });
+            } else if (event.type === "tool-call") {
+              await handleToolCall(event, onEvent);
+            } else if (event.type === "tool-result") {
+              await onEvent({
+                type: "tool_status",
+                tool: event.toolName,
+                status: "complete",
+              });
+            }
+          }
+        },
+      };
+    }
+    async function handleToolCall(
+      event: { toolCallId: string; toolName: string; input: unknown },
+      onEvent: GenEventCallback
+    ): Promise<void> {
+      const { toolName, toolCallId, input } = event;
+    
+      // Permission check: blocked tool names (policy from agent-core)
+      if (GEN_BLOCKED_TOOLS.has(toolName)) {
+        await onEvent({
+          type: "permission_denied",
+          toolName,
+          reason: `Tool "${toolName}" is not allowed in gen sessions`,
+        });
+        return;
+      }
+    
+      // Permission check: bash command patterns (policy from agent-core)
+      if (toolName === "Bash") {
+        const command = (input as Record<string, unknown>).command as string | undefined;
+        if (command) {
+          const blockReason = genIsBashCommandBlocked(command);
+          if (blockReason) {
+            await onEvent({ type: "permission_denied", toolName, reason: blockReason });
+            return;
+          }
+        }
+      }
+    
+      // render_component emits element events (no status — handled by tool-result)
+      if (toolName === "render_component") {
+        const typedInput = input as { elements?: unknown[] };
+        for (const element of typedInput.elements ?? []) {
+          await onEvent({ type: "element", element });
+        }
+        return;
+      }
+    
+      // Write tools emit action_request (require user confirmation)
+      if (GEN_WRITE_TOOLS.has(toolName)) {
+        await onEvent({
+          type: "action_request",
+          actionId: toolCallId,
+          toolName,
+          toolInput: input,
+        });
+        return;
+      }
+    
+      // Read/status tools emit running status
+      await onEvent({ type: "tool_status", tool: toolName, status: "running" });
+    }
   </file>
   <file path="src/routes/gen-specs.ts">
     export const genSpecsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -737,6 +895,53 @@
   <file path="src/routes/gen-stream.ts">
     export const GEN_MODEL_ID = "claude-haiku-4.5";
     type GenChatMessage = { readonly role: "user" | "assistant"; readonly content: string };
+    export function buildGenMessages(systemPrompt: string, messages: ReadonlyArray<GenChatMessage>) {
+      return [
+        {
+          role: "system" as const,
+          content: systemPrompt,
+          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+        },
+        ...messages,
+      ];
+    }
+    interface GenUsage {
+      readonly inputTokens?: number;
+      readonly outputTokens?: number;
+    }
+    export function logGenCost(
+      log: FastifyBaseLogger,
+      opts: {
+        readonly userId?: string;
+        readonly usage: GenUsage;
+        readonly providerMetadata?: unknown;
+        readonly label: string;
+      }
+    ): void {
+      const anthropicMeta = (
+        opts.providerMetadata as
+          | { anthropic?: { cacheCreationInputTokens?: number; cacheReadInputTokens?: number } }
+          | undefined
+      )?.anthropic;
+    
+      log.info(
+        {
+          userId: opts.userId,
+          modelId: GEN_MODEL_ID,
+          inputTokens: opts.usage.inputTokens,
+          outputTokens: opts.usage.outputTokens,
+          cacheReadInputTokens: anthropicMeta?.cacheReadInputTokens ?? 0,
+          cacheCreationInputTokens: anthropicMeta?.cacheCreationInputTokens ?? 0,
+        },
+        opts.label
+      );
+    }
+    export function applyStreamHeaders(reply: FastifyReply, contentType: string): void {
+      reply.header("Content-Type", contentType);
+      reply.header("Cache-Control", "no-cache");
+      reply.header("Connection", "keep-alive");
+      reply.header("X-Accel-Buffering", "no");
+    }
   </file>
   <file path="src/routes/health.ts">
     export const healthRoutes: FastifyPluginAsync = async (fastify) => {
@@ -768,6 +973,169 @@
       totalCostUsd: number;
       durationMs: number;
     }
+    export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /v1/orchestrate — Decompose a task into sub-sessions
+      fastify.post<{
+        Body: OrchestrateBody;
+        Reply: ApiResponse<OrchestrateResponse> | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Orchestrate a complex task",
+            operationId: "orchestrateTask",
+            description:
+              "Decomposes a complex task into independent sub-tasks, creates agent sessions " +
+              "for each, monitors them to completion, and returns a synthesis.",
+            tags: ["Orchestration"],
+            body: {
+              type: "object",
+              required: ["taskDescription"],
+              properties: {
+                taskDescription: { type: "string", minLength: 1 },
+                model: {
+                  type: "string",
+                  description: "Model for the orchestrator agent",
+                },
+                sessionModel: {
+                  type: "string",
+                  description: "Model for child coding sessions",
+                },
+                maxBudgetPerSession: {
+                  type: "number",
+                  minimum: 0.01,
+                  maximum: 10.0,
+                  description: "Budget cap per child session in USD",
+                },
+                maxTurnsPerSession: {
+                  type: "number",
+                  minimum: 1,
+                  maximum: 200,
+                  description: "Max turns per child session",
+                },
+                baseBranch: { type: "string" },
+                maxConcurrentSessions: {
+                  type: "number",
+                  minimum: 1,
+                  maximum: 10,
+                  description: "Max child sessions to run in parallel",
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Orchestration result",
+                type: "object",
+                properties: {
+                  data: {
+                    type: "object",
+                    properties: {
+                      parentSessionId: { type: "string" },
+                      status: {
+                        type: "string",
+                        enum: ["succeeded", "failed", "partially_succeeded", "in_progress"],
+                      },
+                      childSessionIds: {
+                        type: "array",
+                        items: { type: "string" },
+                      },
+                      summary: { type: "string" },
+                      totalCostUsd: { type: "number" },
+                      durationMs: { type: "number" },
+                    },
+                  },
+                },
+              },
+              400: { $ref: "AgentProblemDetails#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const { taskDescription, ...overrides } = request.body;
+    
+          // Resolve the API base URL — the orchestrator calls back into this service
+          const port = process.env.PORT ?? "3003";
+          const apiBaseUrl = process.env.AGENT_API_URL ?? `http://localhost:${port}`;
+    
+          // Create a parent session to track the orchestration. Stamp the
+          // authenticated caller's id — sourced exclusively from the verified
+          // auth context (requireAuth preHandler, mandatory on this route) —
+          // the same pattern POST /v1/sessions uses, so the caller who starts
+          // the orchestration can read/cancel/delete it afterward instead of
+          // getting a 404 from requireSessionAccess's null-owner deny.
+          const parentSession = await sessionService.create({
+            taskDescription: `[Orchestrator] ${taskDescription}`,
+            model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
+            maxTurns: 200,
+            maxBudgetUsd:
+              (overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession) *
+              (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) *
+              2,
+            userId: request.user?.id,
+          });
+    
+          await sessionService.updateStatus(parentSession.id, "RUNNING");
+          await sessionService.addEvent(parentSession.id, "orchestrator:start", {
+            message: `Decomposing: ${taskDescription}`,
+          });
+    
+          // Run orchestrator (blocking — this is a long-running request)
+          const result = await runOrchestrator(
+            {
+              taskDescription,
+              apiBaseUrl,
+              parentSessionId: parentSession.id,
+              model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
+              sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
+              maxBudgetPerSession:
+                overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession,
+              maxTurnsPerSession:
+                overrides.maxTurnsPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxTurnsPerSession,
+              baseBranch: overrides.baseBranch ?? DEFAULT_ORCHESTRATOR_CONFIG.baseBranch,
+              maxConcurrentSessions:
+                overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions,
+            },
+            async (event) => {
+              await sessionService.addEvent(parentSession.id, event.type, {
+                message: event.message,
+              });
+            }
+          );
+    
+          // Update parent session with final status. "in_progress" means children are still
+          // running/pending — leave the parent RUNNING rather than falsely marking it FAILED.
+          const finalStatus =
+            result.status === "succeeded"
+              ? "SUCCEEDED"
+              : result.status === "in_progress"
+                ? "RUNNING"
+                : "FAILED";
+          await sessionService.updateStatus(parentSession.id, finalStatus, {
+            resultText: result.summary,
+            costUsd: result.totalCostUsd,
+            durationMs: result.durationMs,
+          });
+    
+          await sessionService.addEvent(parentSession.id, "orchestrator:complete", {
+            status: result.status,
+            childSessionIds: result.childSessionIds,
+            totalCostUsd: result.totalCostUsd,
+          });
+    
+          return reply.code(200).send({
+            data: {
+              parentSessionId: parentSession.id,
+              status: result.status,
+              childSessionIds: result.childSessionIds,
+              summary: result.summary,
+              totalCostUsd: result.totalCostUsd,
+              durationMs: result.durationMs,
+            },
+          });
+        }
+      );
+    };
   </file>
   <file path="src/routes/remediation.ts">
     type AlertPayload = z.infer<typeof AlertPayloadSchema>;
@@ -1033,6 +1401,222 @@
         { denial: "hide" }
       ),
     ];
+    export const sessionRoutes: FastifyPluginAsync = async (fastify) => {
+      // POST /v1/sessions — Create + start a new session
+      fastify.post<{
+        Body: CreateAgentSessionRequest;
+        Reply: ApiResponse<AgentSession> | ProblemDetails;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "Create a new agent session",
+            operationId: "createSession",
+            description: "Creates a session and immediately begins execution in the background.",
+            tags: ["Sessions"],
+            body: { $ref: "CreateSessionBody#" },
+            response: {
+              201: {
+                description: "Session created and execution started",
+                type: "object",
+                properties: { data: { $ref: "Session#" } },
+              },
+              400: { $ref: "AgentProblemDetails#" },
+              429: { $ref: "AgentProblemDetails#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          // Stamp the authenticated creator's id. Sourced exclusively from the
+          // verified auth context (requireAuth preHandler) — never from the
+          // client-supplied request body — so callers cannot spoof ownership.
+          const result = await triggerSession({
+            ...request.body,
+            userId: request.user?.id,
+          });
+    
+          if (!result.accepted) {
+            return reply
+              .code(429)
+              .send(
+                createProblemDetails(
+                  429,
+                  "Too Many Requests",
+                  `Maximum concurrent sessions (${defaultConcurrency.limit}) reached. Try again later.`
+                )
+              );
+          }
+    
+          return reply.code(201).send({ data: result.session! });
+        }
+      );
+    
+      // GET /v1/sessions — List sessions (paginated)
+      fastify.get<{
+        Querystring: { page?: string; limit?: string; status?: string };
+        Reply: PaginatedResponse<AgentSession>;
+      }>(
+        "/",
+        {
+          preHandler: [requireAuth],
+          schema: {
+            summary: "List agent sessions",
+            operationId: "listSessions",
+            description: "Retrieve a paginated list of sessions, optionally filtered by status.",
+            tags: ["Sessions"],
+            querystring: {
+              type: "object",
+              properties: {
+                page: { type: "string", default: "1" },
+                limit: { type: "string", default: "10" },
+                status: {
+                  type: "string",
+                  enum: ["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"],
+                },
+              },
+            },
+            response: {
+              200: {
+                description: "Paginated list of sessions",
+                ...createListResponseSchema("Session#"),
+              },
+            },
+          },
+        },
+        async (request) => {
+          const { page, limit } = parsePaginationQuery(request.query);
+          const status = request.query.status as AgentSessionStatus | undefined;
+    
+          const prismaStatus = status?.toUpperCase() as
+            "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED" | undefined;
+    
+          // Admins see all sessions; non-admins see only their own
+          const userId = hasPermission(request.user, "admin") ? undefined : request.user?.id;
+    
+          return sessionService.list({ page, limit, status: prismaStatus, userId });
+        }
+      );
+    
+      // GET /v1/sessions/:id — Get session details
+      fastify.get<{
+        Params: { id: string };
+        Reply: ApiResponse<AgentSession> | ProblemDetails;
+      }>(
+        "/:id",
+        {
+          preHandler: [requireAuth, ...requireSessionAccess],
+          schema: {
+            summary: "Get session by ID",
+            operationId: "getSession",
+            tags: ["Sessions"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "Session#" } },
+              },
+              404: { $ref: "AgentProblemDetails#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const session = request.agentSession;
+          if (!session) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+          return { data: session };
+        }
+      );
+    
+      // POST /v1/sessions/:id/cancel — Cancel a running session
+      fastify.post<{
+        Params: { id: string };
+        Reply: ApiResponse<AgentSession> | ProblemDetails;
+      }>(
+        "/:id/cancel",
+        {
+          preHandler: [requireAuth, ...requireSessionAccess],
+          schema: {
+            summary: "Cancel a running session",
+            operationId: "cancelSession",
+            tags: ["Sessions"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              200: {
+                type: "object",
+                properties: { data: { $ref: "Session#" } },
+              },
+              404: { $ref: "AgentProblemDetails#" },
+              409: { $ref: "AgentProblemDetails#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const session = request.agentSession;
+          if (!session) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+    
+          if (session.status !== "running") {
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, "Conflict", `Session is ${session.status}, not running`));
+          }
+    
+          const cancelled = await cancelSession(session.id);
+          if (!cancelled) {
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, "Conflict", "Session is not actively executing"));
+          }
+    
+          const updated = await sessionService.getById(session.id);
+          return { data: updated! };
+        }
+      );
+    
+      // DELETE /v1/sessions/:id — Delete a session
+      fastify.delete<{
+        Params: { id: string };
+        Reply: void | ProblemDetails;
+      }>(
+        "/:id",
+        {
+          preHandler: [requireAuth, ...requireSessionAccess],
+          schema: {
+            summary: "Delete a session",
+            operationId: "deleteSession",
+            tags: ["Sessions"],
+            params: {
+              type: "object",
+              properties: { id: { type: "string" } },
+              required: ["id"],
+            },
+            response: {
+              204: { description: "Session deleted", type: "null" },
+              404: { $ref: "AgentProblemDetails#" },
+            },
+          },
+        },
+        async (request, reply) => {
+          const session = request.agentSession;
+          if (!session) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Session not found"));
+          }
+          await sessionService.delete(request.params.id);
+          return reply.code(204).send();
+        }
+      );
+    };
   </file>
   <file path="src/routes/webhooks.ts">
     interface CollaboratorPermission {
@@ -1055,12 +1639,361 @@
       };
       sender: { login: string; type: string };
     }
+    interface GitHubIssueCommentEvent {
+      action: string;
+      comment: {
+        body: string;
+        html_url: string;
+        user: { login: string };
+      };
+      issue: {
+        number: number;
+        title: string;
+        html_url: string;
+        pull_request?: { url: string };
+      };
+      repository: {
+        full_name: string;
+        default_branch: string;
+      };
+      sender: { login: string; type: string };
+    }
+    interface GitHubCheckRunEvent {
+      action: string;
+      check_run: {
+        conclusion: string | null;
+        name: string;
+        head_sha: string;
+        check_suite: {
+          head_branch: string | null;
+        };
+      };
+      repository: {
+        full_name: string;
+        default_branch: string;
+      };
+    }
+    async function checkCollaboratorPermission(
+      username: string,
+      repository: string,
+      githubToken: string
+    ): Promise<boolean> {
+      if (!GITHUB_REPO_RE.test(repository) || !GITHUB_USERNAME_RE.test(username)) {
+        return false;
+      }
+    
+      try {
+        const response = await fetch(
+          `${GITHUB_API_BASE}/repos/${repository}/collaborators/${username}/permission`,
+          {
+            headers: {
+              Authorization: `Bearer ${githubToken}`,
+              Accept: "application/vnd.github.v3+json",
+              "User-Agent": "mattbutlerengineering-agent-service",
+            },
+          }
+        );
+    
+        if (!response.ok) {
+          return false;
+        }
+    
+        const data = (await response.json()) as CollaboratorPermission;
+        const permissionLevel = data.permission || data.role_name;
+    
+        const permissionHierarchy: Record<string, number> = {
+          admin: 4,
+          maintain: 3,
+          write: 2,
+          read: 1,
+          none: 0,
+        };
+    
+        const userLevel = permissionHierarchy[permissionLevel] ?? 0;
+        const requiredLevel = permissionHierarchy[REQUIRED_PERMISSION] ?? 2;
+    
+        return userLevel >= requiredLevel;
+      } catch {
+        return false;
+      }
+    }
+    export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.addHook("preParsing", createRawBodyCaptureHook());
+      fastify.addHook(
+        "preHandler",
+        createVerifiedBodyPreHandler({
+          header: "x-hub-signature-256",
+          secretEnv: "GITHUB_WEBHOOK_SECRET",
+          format: "sha256=",
+        })
+      );
+    
+      // POST /v1/webhooks/github — Handle GitHub webhook events
+      // github[js/missing-rate-limiting] — restrictive limit for high-impact webhook
+      fastify.post<{
+        Body: unknown;
+        Reply: { received: true } | ProblemDetails;
+      }>(
+        "/github",
+        {
+          schema: {
+            summary: "GitHub webhook receiver",
+            operationId: "handleGitHubWebhook",
+            description:
+              "Handles GitHub webhook events to automatically trigger agent sessions. " +
+              "Supports: issue labeled 'agent', PR comments with '/agent', and CI failure retries.",
+            tags: ["Webhooks"],
+            response: {
+              200: {
+                type: "object",
+                properties: { received: { type: "boolean" } },
+              },
+              401: { $ref: "AgentProblemDetails#" },
+            },
+          },
+          config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          const githubToken = process.env.GITHUB_TOKEN;
+          if (!githubToken) {
+            fastify.log.warn("GITHUB_TOKEN not configured — cannot verify collaborator permissions");
+            return reply
+              .code(401)
+              .send(createProblemDetails(401, "Unauthorized", "GitHub token not configured"));
+          }
+    
+          const eventType = request.headers["x-github-event"] as string | undefined;
+    
+          switch (eventType) {
+            case "issues":
+              await handleIssueEvent(fastify, request.body as GitHubIssueEvent, githubToken);
+              break;
+    
+            case "issue_comment":
+              await handleIssueCommentEvent(
+                fastify,
+                request.body as GitHubIssueCommentEvent,
+                githubToken
+              );
+              break;
+    
+            case "check_run":
+              await handleCheckRunEvent(fastify, request.body as GitHubCheckRunEvent);
+              break;
+    
+            default:
+              fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+          }
+    
+          return { received: true };
+        }
+      );
+    };
+    async function handleIssueEvent(
+      fastify: {
+        log: {
+          info: (...args: unknown[]) => void;
+          warn: (...args: unknown[]) => void;
+          error: (...args: unknown[]) => void;
+        };
+      },
+      event: GitHubIssueEvent,
+      githubToken: string
+    ): Promise<void> {
+      // Only handle "labeled" action with the agent label
+      if (event.action !== "labeled") return;
+      if (event.label?.name !== AGENT_LABEL) return;
+    
+      const hasPermission = await checkCollaboratorPermission(
+        event.sender.login,
+        event.repository.full_name,
+        githubToken
+      );
+    
+      if (!hasPermission) {
+        fastify.log.warn(
+          { user: event.sender.login, issue: event.issue.number },
+          "Unauthorized user attempted to trigger agent session"
+        );
+        return;
+      }
+    
+      // Attempt structured intent extraction via Haiku
+      const intent = await extractIssueIntent(
+        event.issue.title,
+        event.issue.body ?? "",
+        event.issue.number
+      );
+    
+      let taskDescription: string;
+      if (intent) {
+        taskDescription = intent.taskDescription;
+        fastify.log.info(
+          { issueNumber: event.issue.number, scope: intent.estimatedScope },
+          "Issue intent extracted"
+        );
+      } else {
+        // Fall back to raw concatenation if extraction fails
+        taskDescription =
+          `Issue #${event.issue.number}: ${event.issue.title}\n\n` +
+          `${event.issue.body ?? "No description provided."}\n\n` +
+          `Source: ${event.issue.html_url}`;
+        fastify.log.warn(
+          { issueNumber: event.issue.number },
+          "Intent extraction failed — using raw issue text"
+        );
+      }
+    
+      // Route the model: use intent-derived context when available, regex-only otherwise.
+      const issueInput: IssueInput = {
+        title: event.issue.title,
+        labels: event.issue.labels.map((l) => l.name),
+        body: event.issue.body ?? "",
+      };
+      const routingCtx = intent ? intentToRoutingContext(intent) : undefined;
+      const { modelId } = routeModelWithReason(issueInput, routingCtx);
+    
+      const result = await triggerSession({
+        taskDescription,
+        baseBranch: event.repository.default_branch,
+        model: modelId,
+      });
+    
+      if (!result.accepted) {
+        fastify.log.warn(
+          { issueNumber: event.issue.number },
+          "Concurrency cap reached — session not created"
+        );
+      }
+    }
+    async function handleIssueCommentEvent(
+      fastify: {
+        log: {
+          info: (...args: unknown[]) => void;
+          warn: (...args: unknown[]) => void;
+          error: (...args: unknown[]) => void;
+        };
+      },
+      event: GitHubIssueCommentEvent,
+      githubToken: string
+    ): Promise<void> {
+      if (event.action !== "created") return;
+    
+      // Only handle PR comments (issues with a pull_request field)
+      if (!event.issue.pull_request) return;
+    
+      const match = event.comment.body.match(AGENT_COMMAND_PATTERN);
+      if (!match) return;
+    
+      const hasPermission = await checkCollaboratorPermission(
+        event.comment.user.login,
+        event.repository.full_name,
+        githubToken
+      );
+    
+      if (!hasPermission) {
+        fastify.log.warn(
+          { user: event.comment.user.login, pr: event.issue.number },
+          "Unauthorized user attempted to trigger agent session via comment"
+        );
+        return;
+      }
+    
+      const instructionMatch = match[1];
+      if (!instructionMatch) return;
+      const taskInstruction = instructionMatch.trim();
+    
+      const taskDescription =
+        `PR #${event.issue.number}: ${event.issue.title}\n\n` +
+        `Instruction from @${event.comment.user.login}: ${taskInstruction}\n\n` +
+        `Source: ${event.comment.html_url}`;
+    
+      fastify.log.info(
+        { prNumber: event.issue.number, user: event.comment.user.login },
+        "Creating session from PR comment"
+      );
+    
+      const result = await triggerSession({
+        taskDescription,
+        baseBranch: event.repository.default_branch,
+      });
+    
+      if (!result.accepted) {
+        fastify.log.warn(
+          { prNumber: event.issue.number },
+          "Concurrency cap reached — session not created"
+        );
+      }
+    }
+    async function handleCheckRunEvent(
+      fastify: {
+        log: {
+          info: (...args: unknown[]) => void;
+          warn: (...args: unknown[]) => void;
+          error: (...args: unknown[]) => void;
+        };
+      },
+      event: GitHubCheckRunEvent
+    ): Promise<void> {
+      if (event.action !== "completed") return;
+      if (event.check_run.conclusion !== "failure") return;
+    
+      // Only retry on agent-created branches
+      const branch = event.check_run.check_suite.head_branch;
+      if (!branch || !branch.startsWith(AGENT_BRANCH_PREFIX)) return;
+    
+      const retryCount = await sessionService.countCiRetries(branch);
+    
+      if (retryCount >= MAX_CI_RETRIES) {
+        fastify.log.info({ branch, retries: retryCount }, "Max CI retries reached — skipping");
+        return;
+      }
+    
+      const taskDescription =
+        `[CI Retry ${retryCount + 1}/${MAX_CI_RETRIES}] ` +
+        `Fix CI failure on branch ${branch}.\n\n` +
+        `Check run "${event.check_run.name}" failed at commit ${event.check_run.head_sha}.\n` +
+        `Review the CI output and fix the failing tests or build errors.`;
+    
+      fastify.log.info({ branch, attempt: retryCount + 1 }, "Creating CI retry session");
+    
+      const result = await triggerSession({
+        taskDescription,
+        baseBranch: event.repository.default_branch,
+      });
+    
+      if (!result.accepted) {
+        fastify.log.warn({ branch }, "Concurrency cap reached — CI retry session not created");
+      }
+    }
   </file>
   </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/index.ts">
     export const SessionSchema = sessionJsonSchema;
     export const SessionEventSchema = sessionEventJsonSchema;
+    export const CreateSessionBodySchema = createSessionBodyJsonSchema;
+    export const PaginationSchema = {
+      $id: "AgentPagination",
+      type: "object",
+      required: ["page", "limit", "total", "totalPages", "hasNext", "hasPrev"],
+      properties: {
+        page: { type: "number", example: 1 },
+        limit: { type: "number", example: 10 },
+        total: { type: "number", example: 42 },
+        totalPages: { type: "number", example: 5 },
+        hasNext: { type: "boolean", example: true },
+        hasPrev: { type: "boolean", example: false },
+      },
+    } as const;
+    export const ErrorSchema = { ...problemDetailsJsonSchema, $id: "AgentProblemDetails" } as const;
+    export function registerSchemas(fastify: FastifyInstance) {
+      fastify.addSchema(SessionSchema);
+      fastify.addSchema(SessionEventSchema);
+      fastify.addSchema(CreateSessionBodySchema);
+      fastify.addSchema(PaginationSchema);
+      fastify.addSchema(ErrorSchema);
+    }
   </file>
   </section>
   <section priority="medium" role="services">
@@ -1082,6 +2015,65 @@
       start(logger: FastifyBaseLogger): void;
       stop(): void;
     }
+    export function createLivenessMonitor(config: LivenessMonitorConfig): LivenessMonitor {
+      const { inactivityThresholdMs, checkIntervalMs, sessionService, cancelSession } = config;
+    
+      let intervalHandle: ReturnType<typeof setInterval> | null = null;
+      let activeLogger: FastifyBaseLogger | null = null;
+    
+      async function checkStaleSessions(): Promise<void> {
+        try {
+          const staleSessionIds = await sessionService.findStaleSessions(inactivityThresholdMs);
+    
+          const results = await Promise.allSettled(
+            staleSessionIds.map(async (sessionId) => {
+              activeLogger?.warn(
+                `[liveness] Session ${sessionId} exceeded inactivity threshold — auto-cancelling`
+              );
+    
+              const cancelled = await cancelSession(sessionId);
+              if (cancelled) {
+                await sessionService.addEvent(sessionId, "session:error", {
+                  message: `Auto-cancelled: exceeded inactivity threshold (${inactivityThresholdMs / 1000}s)`,
+                  reason: "liveness_timeout",
+                });
+              }
+            })
+          );
+    
+          results.forEach((result, index) => {
+            if (result.status === "rejected") {
+              activeLogger?.error(
+                { err: result.reason, sessionId: staleSessionIds[index] },
+                `[liveness] Failed to process stale session ${staleSessionIds[index]}`
+              );
+            }
+          });
+        } catch (error) {
+          activeLogger?.error({ err: error }, "[liveness] Error checking stale sessions");
+        }
+      }
+    
+      return {
+        start(logger: FastifyBaseLogger): void {
+          if (intervalHandle) return;
+          activeLogger = logger;
+          intervalHandle = setInterval(() => void checkStaleSessions(), checkIntervalMs);
+          logger.info(
+            `[liveness] Monitor started (check every ${checkIntervalMs / 1000}s, timeout ${inactivityThresholdMs / 1000}s)`
+          );
+        },
+    
+        stop(): void {
+          if (intervalHandle) {
+            clearInterval(intervalHandle);
+            intervalHandle = null;
+            activeLogger?.info("[liveness] Monitor stopped");
+            activeLogger = null;
+          }
+        },
+      };
+    }
   </file>
   <file path="src/services/logger.ts">
     export function setServiceLogger(logger: FastifyBaseLogger): void {
@@ -1101,6 +2093,66 @@
     export interface CircuitCheckResult {
       readonly allowed: boolean;
       readonly reason?: string;
+    }
+    export interface CircuitBreaker {
+      check(): CircuitCheckResult;
+      recordOutcome(succeeded: boolean): void;
+    }
+    export function createCircuitBreaker(opts?: {
+      failureThreshold?: number;
+      resetAfterMs?: number;
+    }): CircuitBreaker {
+      const failureThreshold = opts?.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD;
+      const resetAfterMs = opts?.resetAfterMs ?? DEFAULT_RESET_AFTER_MS;
+    
+      const state: CircuitState = {
+        consecutiveFailures: 0,
+        lastFailureAt: null,
+        isOpen: false,
+        openedAt: null,
+      };
+    
+      return {
+        check(): CircuitCheckResult {
+          if (!state.isOpen) {
+            return { allowed: true };
+          }
+    
+          const elapsed = Date.now() - (state.openedAt ?? 0);
+          if (elapsed > resetAfterMs) {
+            // Half-open: allow one attempt to see if things recovered
+            state.isOpen = false;
+            state.consecutiveFailures = 0;
+            return { allowed: true };
+          }
+    
+          return {
+            allowed: false,
+            reason: `Circuit open — ${state.consecutiveFailures} consecutive remediation failures. Resets in ${Math.ceil((resetAfterMs - elapsed) / 60_000)} min.`,
+          };
+        },
+    
+        recordOutcome(succeeded: boolean): void {
+          if (succeeded) {
+            state.consecutiveFailures = 0;
+            state.isOpen = false;
+            state.openedAt = null;
+          } else {
+            state.consecutiveFailures++;
+            state.lastFailureAt = Date.now();
+            if (state.consecutiveFailures >= failureThreshold) {
+              state.isOpen = true;
+              state.openedAt = Date.now();
+            }
+          }
+        },
+      };
+    }
+    export function checkCircuitBreaker(): CircuitCheckResult {
+      return defaultBreaker.check();
+    }
+    export function recordRemediationOutcome(succeeded: boolean): void {
+      defaultBreaker.recordOutcome(succeeded);
     }
   </file>
   <file path="src/services/session-concurrency.ts">
@@ -1142,6 +2194,11 @@
         },
       };
     }
+    export function resolveConcurrencyLimit(): number {
+      return parseInt(process.env.MAX_CONCURRENT_SESSIONS ?? "5", 10);
+    }
+    export const defaultConcurrency: SessionConcurrency =
+      createSessionConcurrency(resolveConcurrencyLimit());
   </file>
   <file path="src/services/session-event-emitter.ts">
     export type SessionEventListener = (event: AgentSessionEvent) => void;
@@ -1153,6 +2210,31 @@
        * @returns an unsubscribe function.
        */
       subscribe(sessionId: string, listener: SessionEventListener): () => void;
+    }
+    export class InProcessSessionEventEmitter implements SessionEventEmitter {
+      private readonly emitter = new EventEmitter();
+    
+      constructor() {
+        // SSE fan-out can exceed the default 10-listener warning threshold.
+        this.emitter.setMaxListeners(0);
+      }
+    
+      publish(event: AgentSessionEvent): void {
+        this.emitter.emit(event.sessionId, event);
+      }
+    
+      subscribe(sessionId: string, listener: SessionEventListener): () => void {
+        this.emitter.on(sessionId, listener);
+        return () => {
+          this.emitter.off(sessionId, listener);
+        };
+      }
+    }
+    export function getSessionEventEmitter(): SessionEventEmitter {
+      return sessionEventEmitter;
+    }
+    export function setSessionEventEmitter(emitter: SessionEventEmitter): void {
+      sessionEventEmitter = emitter;
     }
   </file>
   <file path="src/services/session-executor.ts">
@@ -1167,6 +2249,45 @@
       cancelSession(sessionId: string): Promise<boolean>;
       getActiveSessionCount(): number;
     }
+    export function createSessionExecutor(config: SessionExecutorConfig): SessionExecutor {
+      const { concurrency, store } = config;
+    
+      const orchestrator = createSessionLifecycleOrchestrator({
+        store,
+        resolveRepoPath: () => resolve(process.env.REPO_PATH ?? process.cwd()),
+        runSession,
+        concurrency,
+        projectEvent,
+        // Live-bound so the real Fastify logger — wired in later at boot via
+        // setServiceLogger — is used even though this orchestrator may be
+        // constructed before that happens (the default executor is lazy).
+        logger: { error: (meta, message) => getServiceLogger().error(meta, message) },
+      });
+    
+      return {
+        async executeSession(session: AgentSession): Promise<void> {
+          await orchestrator.execute(session.id);
+        },
+        cancelSession(sessionId: string): Promise<boolean> {
+          return orchestrator.cancel(sessionId);
+        },
+        getActiveSessionCount(): number {
+          return orchestrator.getActiveSessionCount();
+        },
+      };
+    }
+    function defaultExecutor(): SessionExecutor {
+      _defaultExecutor ??= createSessionExecutor({
+        concurrency: defaultConcurrency,
+        store: sessionLifecycleStore,
+      });
+      return _defaultExecutor;
+    }
+    export const getActiveSessionCount = (): number => defaultExecutor().getActiveSessionCount();
+    export const executeSession = (session: AgentSession): Promise<void> =>
+      defaultExecutor().executeSession(session);
+    export const cancelSession = (sessionId: string): Promise<boolean> =>
+      defaultExecutor().cancelSession(sessionId);
   </file>
   <file path="src/services/session-lifecycle-store.ts">
     function toPrismaStatus(status: LifecycleStatus): PrismaSessionStatus {
@@ -1197,6 +2318,84 @@
         sdkSessionId: row.sdkSessionId,
       };
     }
+    export const sessionLifecycleStore: SessionLifecycleStore = {
+      async create(input: CreateSessionInput): Promise<StoredSession> {
+        const row = await prisma.session.create({
+          data: {
+            taskDescription: input.taskDescription,
+            ...(input.baseBranch !== undefined && { baseBranch: input.baseBranch }),
+            ...(input.model !== undefined && { model: input.model }),
+            ...(input.maxTurns !== undefined && { maxTurns: input.maxTurns }),
+            ...(input.maxBudgetUsd !== undefined && { maxBudgetUsd: input.maxBudgetUsd }),
+            ...(input.createPr !== undefined && { createPr: input.createPr }),
+            ...(input.userId != null && { userId: input.userId }),
+            ...(input.parentId != null && { parentId: input.parentId }),
+          },
+        });
+        return toStoredSession(row);
+      },
+    
+      async getById(id: string): Promise<StoredSession | null> {
+        const row = await prisma.session.findUnique({ where: { id } });
+        return row ? toStoredSession(row) : null;
+      },
+    
+      async updateStatus(
+        id: string,
+        status: LifecycleStatus,
+        patch?: SessionResultPatch,
+        opts?: { readonly fromStatus?: readonly LifecycleStatus[] }
+      ): Promise<StoredSession | null> {
+        const prismaStatus = toPrismaStatus(status);
+        const now = new Date();
+        const data = {
+          status: prismaStatus,
+          ...(prismaStatus === "RUNNING" && { startedAt: now }),
+          ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(prismaStatus) && { completedAt: now }),
+          ...(patch?.branchName !== undefined && { branchName: patch.branchName }),
+          ...(patch?.prUrl !== undefined && { prUrl: patch.prUrl }),
+          ...(patch?.prNumber !== undefined && { prNumber: patch.prNumber }),
+          ...(patch?.resultText !== undefined && { resultText: patch.resultText }),
+          ...(patch?.costUsd !== undefined && { costUsd: patch.costUsd }),
+          ...(patch?.inputTokens !== undefined && { inputTokens: patch.inputTokens }),
+          ...(patch?.outputTokens !== undefined && { outputTokens: patch.outputTokens }),
+          ...(patch?.numTurns !== undefined && { numTurns: patch.numTurns }),
+          ...(patch?.durationMs !== undefined && { durationMs: patch.durationMs }),
+          ...(patch?.errors !== undefined && { errors: [...patch.errors] }),
+          ...(patch?.sdkSessionId !== undefined && { sdkSessionId: patch.sdkSessionId }),
+        };
+    
+        if (opts?.fromStatus) {
+          // Compare-and-swap: scope the update to rows still in an expected prior
+          // status so the DB enforces the transition. A 0-row update means the
+          // CAS lost the race (e.g. the session already reached a terminal
+          // state) — signal that with null instead of clobbering.
+          const { count } = await prisma.session.updateMany({
+            where: { id, status: { in: opts.fromStatus.map(toPrismaStatus) } },
+            data,
+          });
+          if (count === 0) return null;
+          const row = await prisma.session.findUnique({ where: { id } });
+          return row ? toStoredSession(row) : null;
+        }
+    
+        try {
+          const row = await prisma.session.update({ where: { id }, data });
+          return toStoredSession(row);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async addEvent(id: string, type: string, data: Record<string, unknown>): Promise<void> {
+        const event = await prisma.sessionEvent.create({
+          data: { sessionId: id, type, data: data as Prisma.InputJsonValue },
+        });
+        // Publish on the seam so SSE subscribers receive it live, without polling.
+        getSessionEventEmitter().publish(mapPrismaEvent(event));
+      },
+    };
   </file>
   <file path="src/services/session-trigger.ts">
     export interface TriggerSessionOptions {
@@ -1213,6 +2412,36 @@
     export interface TriggerSessionResult {
       session: AgentSession | null;
       accepted: boolean;
+    }
+    export async function triggerSession(opts: TriggerSessionOptions): Promise<TriggerSessionResult> {
+      // Early-reject through the single concurrency gate so we never create a DB
+      // row for a session that can't start. The executor performs the atomic
+      // acquire(); this check just avoids the wasted write on an obvious reject.
+      if (!defaultConcurrency.canStart()) {
+        return { session: null, accepted: false };
+      }
+    
+      const wrappedTask = `<task>\n${opts.taskDescription}\n</task>`;
+    
+      const session = await sessionService.create({
+        taskDescription: wrappedTask,
+        baseBranch: opts.baseBranch,
+        userId: opts.userId,
+        model: opts.model,
+        maxTurns: opts.maxTurns,
+        maxBudgetUsd: opts.maxBudgetUsd,
+        createPr: opts.createPr,
+        parentId: opts.parentId,
+      });
+    
+      executeSession(session)
+        .then(() => opts.onSettled?.(true))
+        .catch((err) => {
+          void opts.onSettled?.(false);
+          getServiceLogger().error({ sessionId: session.id, err }, "triggerSession execution failed");
+        });
+    
+      return { session, accepted: true };
     }
   </file>
   <file path="src/services/session.ts">
@@ -1252,6 +2481,193 @@
         createdAt: event.createdAt.toISOString(),
       };
     }
+    interface ListOptions {
+      readonly page: number;
+      readonly limit: number;
+      readonly status?: SessionStatus;
+      readonly userId?: string;
+    }
+    export const sessionService = {
+      async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
+        const { page, limit, status, userId } = options;
+        const where: Prisma.SessionWhereInput = {
+          ...(status && { status }),
+          ...(userId !== undefined && { userId }),
+        };
+    
+        const [sessions, total] = await Promise.all([
+          prisma.session.findMany({
+            where,
+            ...paginate({ page, limit }),
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.session.count({ where }),
+        ]);
+    
+        return {
+          data: sessions.map(mapPrismaSession),
+          pagination: toPaginationMeta(page, limit, total),
+        };
+      },
+    
+      async getById(id: string): Promise<AgentSession | null> {
+        const session = await prisma.session.findUnique({ where: { id } });
+        return session ? mapPrismaSession(session) : null;
+      },
+    
+      async create(data: {
+        taskDescription: string;
+        userId?: string;
+        model?: string;
+        maxTurns?: number;
+        maxBudgetUsd?: number;
+        baseBranch?: string;
+        createPr?: boolean;
+        parentId?: string;
+      }): Promise<AgentSession> {
+        const session = await prisma.session.create({
+          data: {
+            taskDescription: data.taskDescription,
+            ...(data.userId !== undefined && { userId: data.userId }),
+            ...(data.model !== undefined && { model: data.model }),
+            ...(data.maxTurns !== undefined && { maxTurns: data.maxTurns }),
+            ...(data.maxBudgetUsd !== undefined && { maxBudgetUsd: data.maxBudgetUsd }),
+            ...(data.baseBranch !== undefined && { baseBranch: data.baseBranch }),
+            ...(data.createPr !== undefined && { createPr: data.createPr }),
+            ...(data.parentId !== undefined && { parentId: data.parentId }),
+          },
+        });
+        return mapPrismaSession(session);
+      },
+    
+      async updateStatus(
+        id: string,
+        status: SessionStatus,
+        result?: {
+          branchName?: string;
+          prUrl?: string;
+          prNumber?: number;
+          resultText?: string;
+          costUsd?: number;
+          inputTokens?: number;
+          outputTokens?: number;
+          numTurns?: number;
+          durationMs?: number;
+          errors?: string[];
+          sdkSessionId?: string;
+        },
+        opts?: { fromStatus?: SessionStatus[] }
+      ): Promise<AgentSession | null> {
+        try {
+          const now = new Date();
+          const data = {
+            status,
+            ...(status === "RUNNING" && { startedAt: now }),
+            ...(["SUCCEEDED", "FAILED", "CANCELLED"].includes(status) && {
+              completedAt: now,
+            }),
+            ...(result?.branchName !== undefined && { branchName: result.branchName }),
+            ...(result?.prUrl !== undefined && { prUrl: result.prUrl }),
+            ...(result?.prNumber !== undefined && { prNumber: result.prNumber }),
+            ...(result?.resultText !== undefined && { resultText: result.resultText }),
+            ...(result?.costUsd !== undefined && { costUsd: result.costUsd }),
+            ...(result?.inputTokens !== undefined && { inputTokens: result.inputTokens }),
+            ...(result?.outputTokens !== undefined && { outputTokens: result.outputTokens }),
+            ...(result?.numTurns !== undefined && { numTurns: result.numTurns }),
+            ...(result?.durationMs !== undefined && { durationMs: result.durationMs }),
+            ...(result?.errors !== undefined && { errors: result.errors }),
+            ...(result?.sdkSessionId !== undefined && { sdkSessionId: result.sdkSessionId }),
+          };
+    
+          if (opts?.fromStatus) {
+            // Compare-and-swap: scope the update to rows still in an expected
+            // prior status so the DB enforces the transition. A 0-row update
+            // means the CAS lost the race (e.g. the session already reached a
+            // terminal state) — signal that with null instead of clobbering.
+            const { count } = await prisma.session.updateMany({
+              where: { id, status: { in: opts.fromStatus } },
+              data,
+            });
+            if (count === 0) return null;
+            const session = await prisma.session.findUnique({ where: { id } });
+            return session ? mapPrismaSession(session) : null;
+          }
+    
+          const session = await prisma.session.update({ where: { id }, data });
+          return mapPrismaSession(session);
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return null;
+          throw err;
+        }
+      },
+    
+      async delete(id: string): Promise<boolean> {
+        try {
+          await prisma.session.delete({ where: { id } });
+          return true;
+        } catch (err: unknown) {
+          if (isPrismaNotFound(err)) return false;
+          throw err;
+        }
+      },
+    
+      async findStaleSessions(thresholdMs: number): Promise<string[]> {
+        const thresholdSeconds = Math.floor(thresholdMs / 1000);
+        const rows = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT s.id
+            FROM sessions s
+           WHERE s.status = 'RUNNING'
+             AND COALESCE(
+                   (SELECT MAX(e.created_at) FROM session_events e WHERE e.session_id = s.id),
+                   s.updated_at
+                 ) < NOW() - INTERVAL '1 second' * ${thresholdSeconds}
+           ORDER BY s.updated_at ASC
+        `;
+        return rows.map((r) => r.id);
+      },
+    
+      async countCiRetries(branchName: string): Promise<number> {
+        return prisma.session.count({
+          where: { branchName, taskDescription: { contains: "[CI Retry" } },
+        });
+      },
+    
+      async addEvent(
+        sessionId: string,
+        type: string,
+        data: Record<string, unknown> = {}
+      ): Promise<AgentSessionEvent> {
+        const event = await prisma.sessionEvent.create({
+          data: { sessionId, type, data: data as Prisma.InputJsonValue },
+        });
+        const mapped = mapPrismaEvent(event);
+        // Publish on the seam so SSE subscribers receive it live, without polling.
+        getSessionEventEmitter().publish(mapped);
+        return mapped;
+      },
+    
+      async listEvents(sessionId: string, afterId?: string): Promise<AgentSessionEvent[]> {
+        const where: Prisma.SessionEventWhereInput = { sessionId };
+    
+        if (afterId) {
+          const cursor = await prisma.sessionEvent.findUnique({
+            where: { id: afterId },
+            select: { createdAt: true },
+          });
+          if (cursor) {
+            where.createdAt = { gt: cursor.createdAt };
+          }
+        }
+    
+        const events = await prisma.sessionEvent.findMany({
+          where,
+          orderBy: { createdAt: "asc" },
+          take: 100,
+        });
+    
+        return events.map(mapPrismaEvent);
+      },
+    };
   </file>
   <file path="src/services/storage-event-mapper.ts">
     function truncate(text: string, maxLen: number): string {
@@ -1279,6 +2695,45 @@
     
       return summary;
     }
+    export function mapForStorage(event: MappedEvent): { type: string; data: Record<string, unknown> } {
+      if (event.type === "session:tool_use") {
+        return {
+          type: event.type,
+          data: {
+            toolName: event.toolName,
+            toolInput: summarizeToolInput(event.toolInput),
+          },
+        };
+      }
+    
+      if (event.type === "session:assistant") {
+        // Per-event projection: agent-core emits one AssistantTextEvent per text block,
+        // so each is stored separately (no coalescing of blocks within a message). This is
+        // an intentional granularity change from the old SDK-message-level text join.
+        return {
+          type: event.type,
+          data: {
+            textPreview: truncate(event.text, 200),
+          },
+        };
+      }
+    
+      if (event.type === "session:tool_result") {
+        return {
+          type: event.type,
+          data: {
+            toolUseId: event.toolUseId,
+            isError: event.isError,
+          },
+        };
+      }
+    
+      // session:turn_metrics — pass through all fields
+      return {
+        type: event.type,
+        data: { ...event },
+      };
+    }
   </file>
   <file path="src/services/stored-spec.ts">
     export interface StoredSpecResponse {
@@ -1292,6 +2747,95 @@
       updatedAt: string;
     }
     export type StoredSpecPublicResponse = Omit<StoredSpecResponse, "userId">;
+    export function mapStoredSpec(s: StoredSpec): StoredSpecResponse {
+      return {
+        id: s.id,
+        userId: s.userId,
+        prompt: s.prompt,
+        spec: s.spec,
+        rawLines: s.rawLines,
+        isFavorite: s.isFavorite,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+      };
+    }
+    export function mapStoredSpecPublic(s: StoredSpec): StoredSpecPublicResponse {
+      const { userId: _userId, ...rest } = mapStoredSpec(s);
+      return rest;
+    }
+    async function _enforceCapForUser(userId: string): Promise<void> {
+      const unfavoritedCount = await prisma.storedSpec.count({
+        where: { userId, isFavorite: false },
+      });
+    
+      if (unfavoritedCount >= CAP_UNFAVORITED) {
+        const oldest = await prisma.storedSpec.findFirst({
+          where: { userId, isFavorite: false },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+    
+        if (oldest) {
+          await prisma.storedSpec.delete({ where: { id: oldest.id } });
+        }
+      }
+    }
+    export const storedSpecService = {
+      async list(userId: string): Promise<StoredSpec[]> {
+        return prisma.storedSpec.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        });
+      },
+    
+      async getById(id: string): Promise<StoredSpec | null> {
+        return prisma.storedSpec.findUnique({ where: { id } });
+      },
+    
+      async create(data: {
+        userId: string;
+        prompt: string;
+        spec: unknown;
+        rawLines: unknown;
+      }): Promise<StoredSpec> {
+        await _enforceCapForUser(data.userId);
+    
+        return prisma.storedSpec.create({
+          data: {
+            userId: data.userId,
+            prompt: data.prompt,
+            spec: data.spec as Prisma.InputJsonValue,
+            rawLines: data.rawLines as Prisma.InputJsonValue,
+          },
+        });
+      },
+    
+      async toggleFavorite(id: string, userId: string): Promise<StoredSpec> {
+        const existing = await prisma.storedSpec.findUnique({ where: { id } });
+    
+        if (!existing || existing.userId !== userId) {
+          throw new Error("Not found");
+        }
+    
+        return prisma.storedSpec.update({
+          where: { id },
+          data: { isFavorite: !existing.isFavorite },
+        });
+      },
+    
+      async delete(id: string, userId: string): Promise<void> {
+        const existing = await prisma.storedSpec.findUnique({ where: { id } });
+    
+        if (!existing || existing.userId !== userId) {
+          throw new Error("Not found");
+        }
+    
+        await prisma.storedSpec.delete({ where: { id } });
+      },
+    
+      _enforceCapForUser,
+    };
   </file>
   </section>
   <section priority="medium" role="src">

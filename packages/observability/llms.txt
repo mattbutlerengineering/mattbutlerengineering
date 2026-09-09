@@ -15,6 +15,58 @@
         rate: number;
       }
     </item>
+    <item priority="low">
+      interface ErrorRateSnapshot {
+        endpoints: readonly EndpointErrorRate[];
+        degraded: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface ErrorRateHealthCheckResult {
+        status: "ok" | "degraded";
+        endpoints: readonly EndpointErrorRate[];
+        message?: string;
+      }
+    </item>
+    <item priority="medium">
+      function createErrorRateTracker() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeRoute(request: FastifyRequest): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function errorRatePlugin(fastify: FastifyInstance): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const errorRatePlugin_: unknown;
+    </item>
+    <item priority="high">
+      export function createErrorRateHealthCheck(
+        snapshot: ErrorRateSnapshot
+      ): ErrorRateHealthCheckResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/otel-config.ts">
+    <item priority="low">
+      type TelemetryMode = "disabled" | "unconfigured" | "exporting";
+    </item>
+    <item priority="low">
+      interface TelemetryPlan {
+        mode: TelemetryMode;
+        exportTraces: boolean;
+        exportMetrics: boolean;
+        reason: string;
+      }
+    </item>
+    <item priority="medium">
+      function isSet(env: NodeJS.ProcessEnv, key: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDisabled(env: NodeJS.ProcessEnv): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveTelemetryPlan(env: NodeJS.ProcessEnv = process.env): TelemetryPlan { /* ... */ }
+    </item>
   </file>
   <file path="src/rate-limit-monitor.ts">
     <item priority="low">
@@ -29,6 +81,29 @@
         hits_last_hour: number;
         blocked_ips: number;
       }
+    </item>
+    <item priority="low">
+      interface RateLimitSnapshot {
+        stats: RateLimitHealthStats;
+        isDegraded: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitMonitorConfig {
+        hourWindowMs?: number;
+        degradedWindowMs?: number;
+        degradedThreshold?: number;
+      }
+    </item>
+    <item priority="low">
+      interface RateLimitMonitor {
+        recordHit: (ip: string, endpoint: string) => void;
+        getSnapshot: () => RateLimitSnapshot;
+        reset: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function createRateLimitMonitor(config: RateLimitMonitorConfig = {}): RateLimitMonitor { /* ... */ }
     </item>
   </file>
   <file path="src/readiness.ts">
@@ -46,6 +121,49 @@
         timestamp: string;
       }
     </item>
+    <item priority="low">
+      type ReadinessCheckFn = () => Promise<void>;
+    </item>
+    <item priority="high">
+      interface RegisteredCheck {
+        name: string;
+        check: ReadinessCheckFn;
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessTracker {
+        registerCheck: (name: string, check: ReadinessCheckFn) => void;
+        evaluate: () => Promise<ReadinessSnapshot>;
+      }
+    </item>
+    <item priority="high">
+      export function createReadinessTracker(): ReadinessTracker { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveAuth0Url(explicit: string | undefined): string | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PrismaLike {
+        $queryRaw: (strings: TemplateStringsArray) => Promise<unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface StandardChecksOptions {
+        prisma: PrismaLike;
+        auth0Url?: string;
+        jwksTimeoutMs?: number;
+        fetchFn?: typeof fetch;
+      }
+    </item>
+    <item priority="high">
+      export function registerStandardChecks(
+        tracker: ReadinessTracker,
+        options: StandardChecksOptions
+      ): void { /* ... */ }
+    </item>
   </file>
   <file path="src/redact.ts">
     <item priority="high">
@@ -53,6 +171,12 @@
     </item>
     <item priority="medium">
       function isSecretShaped(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPlainObject(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function redactSignal(value: unknown): unknown { /* ... */ }
     </item>
   </file>
   <file path="src/request-id.ts">
@@ -65,6 +189,17 @@
     <item priority="high">
       export function createRequestIdMiddleware(options: RequestIdOptions = {}) { /* ... */ }
     </item>
+    <item priority="high">
+      export function getRequestId(request: { id?: string }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function logWithRequestId(
+        logger: { info: (msg: string, ctx: Record<string, unknown>) => void },
+        requestId: string,
+        message: string,
+        ctx: Record<string, unknown> = {}
+      ) { /* ... */ }
+    </item>
   </file>
   <file path="src/sdk.ts">
     <item priority="low">
@@ -75,6 +210,9 @@
     </item>
     <item priority="high">
       export function shouldIgnoreRequest(req: IncomingMessage): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function initTelemetry(config: OtelConfig): NodeSDK { /* ... */ }
     </item>
   </file>
   </section>

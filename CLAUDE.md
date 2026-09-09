@@ -116,34 +116,33 @@ Claude Code loads project skills from **`.claude/skills/`** (alongside `~/.claud
 
 ## mbe CLI Commands
 
-```bash
-# Agent — local (runs directly via @mbe/agent-core)
-mbe agent run "Fix the login bug"                 # Run agent → get PR
-  --adapter <type>                                # auto, claude, gemini, opencode (default: claude)
-  --model <model>                                 # default: claude-sonnet-5
-  --max-budget <usd>                              # default: 1.00
-  --max-turns <n>                                 # default: 50
-  --no-pr                                         # skip PR, keep worktree
-  -v, --verbose                                   # stream agent events
+All top-level commands registered in `tools/cli/src/index.ts`:
 
-# Agent — API-backed (requires agent service running on :3003)
-mbe agent start "Fix the login bug"               # Create session via API
-mbe agent list                                    # List all sessions
-mbe agent status <id>                             # Get session details
-mbe agent logs <id>                               # Stream SSE events
-mbe agent cancel <id>                             # Cancel running session
-mbe agent delete <id>                             # Delete session + cleanup
-mbe agent orchestrate "Big task"                  # Decompose → parallel sessions → PRs
-mbe agent frontmatter                             # stdin issue body → mbe agent run flags (yaml agent block)
-mbe agent cost [id]                               # Show per-turn cost breakdown or summary
-
-# Model governance
-mbe check-model "<directive>"                     # Verify recommended model tier for task complexity
-
-# Development
-mbe stats                                         # Agent performance metrics
-mbe up                                           # Start dev servers
-```
+| Command             | Subcommands                                                                                                | Purpose                                                                                                                                                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agent`             | `run`, `start`, `list`, `status`, `logs`, `cancel`, `delete`, `cost`, `orchestrate`, `eval`, `frontmatter` | Run autonomous coding agents (local via `@mbe/agent-core` or API-backed via agent service)                                                                                                                                                         |
+| `check-model`       | —                                                                                                          | Resolve model selection for a directive (dry-run) or a GitHub issue (`--issue <number>`)                                                                                                                                                           |
+| `check-adr`         | —                                                                                                          | Validate codebase against active Architecture Decision Records (ADRs)                                                                                                                                                                              |
+| `check-deps`        | —                                                                                                          | Audit dependency version consistency across the monorepo                                                                                                                                                                                           |
+| `cleanup-worktrees` | —                                                                                                          | Clean up orphaned git worktrees from `.claude/worktrees/` — **note:** `/implement-queue` Phase 4 uses `scripts/reap-worktrees.mjs` instead; see [gotchas.md § Build/pnpm/turbo](./.claude/rules/gotchas.md#build--pnpm--turbo) for the safety gate |
+| `generate`          | `component`, `route`                                                                                       | Generate monorepo entities (components, routes)                                                                                                                                                                                                    |
+| `health`            | —                                                                                                          | Show system health status                                                                                                                                                                                                                          |
+| `issue`             | `transition`                                                                                               | GitHub issue coordination commands — **note:** `issue transition` cannot run in Claude Code Remote sessions (no `gh` binary); see [gotchas.md § Claude Code Remote](./.claude/rules/gotchas.md#claude-code-remote--cloud-sessions)                 |
+| `login`             | —                                                                                                          | Authenticate with the API                                                                                                                                                                                                                          |
+| `logout`            | —                                                                                                          | Clear stored credentials                                                                                                                                                                                                                           |
+| `loop`              | —                                                                                                          | Run an agent directive in an autonomous loop (Ralph Wiggum pattern)                                                                                                                                                                                |
+| `mcp`               | —                                                                                                          | Start the infrastructure MCP server                                                                                                                                                                                                                |
+| `new`               | —                                                                                                          | Scaffold a new app with Rialto provider and example page                                                                                                                                                                                           |
+| `pack`              | —                                                                                                          | Generate AI context (llms.txt) for a service or package                                                                                                                                                                                            |
+| `pack-changed`      | —                                                                                                          | Automatically run `mbe pack` on changed directories (git hook)                                                                                                                                                                                     |
+| `prime`             | —                                                                                                          | Just-In-Time context priming: Pack relevant directories for a task                                                                                                                                                                                 |
+| `stats`             | `log-session`, `audit-perf`                                                                                | Show agent performance statistics                                                                                                                                                                                                                  |
+| `sync-rules`        | —                                                                                                          | Synchronize agent rules from AGENTS.md to tool-specific files                                                                                                                                                                                      |
+| `up`                | —                                                                                                          | Launch the entire development environment (Docker, DB, Turbo)                                                                                                                                                                                      |
+| `users`             | `list`, `get`                                                                                              | User management commands                                                                                                                                                                                                                           |
+| `visual`            | —                                                                                                          | Run visual regression tests via Playwright                                                                                                                                                                                                         |
+| `wave`              | —                                                                                                          | Execute multiple tasks in parallel using git worktrees                                                                                                                                                                                             |
+| `whoami`            | —                                                                                                          | Show current user info                                                                                                                                                                                                                             |
 
 ### GitHub Labels (coordination state machine)
 
@@ -179,7 +178,7 @@ These are the labels that actually decide whether a PR merges. `tier:*` is appli
 | `tier:sensitive` | T3. **Blocks auto-merge** — reviewer + a specialist subagent + 1 human review                                                                                                                            |
 | `tier:critical`  | T4. **Blocks auto-merge** — all of T3, plus Matt personally, plus an ADR or `meta-improvement` issue documenting why                                                                                     |
 
-> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked — and `tier-classifier.yml` only triggers on `pull_request`, so it does not reliably run on `GITHUB_TOKEN`-authored automation PRs. See [gotchas.md § CI](./.claude/rules/gotchas.md#ci) for the consequences.
+> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked. `tier-classifier.yml` triggers on `pull_request` natively, and also accepts a `workflow_dispatch` escape hatch (#4070) that the four automation producers (drift-fix, production-feedback, pr-metrics, acmm-regression) call directly and wait on, so it now runs reliably on `GITHUB_TOKEN`/`AUTOMATION_PAT`-authored automation PRs too. Residual risk: `AUTOMATION_PAT` is still not configured as a repo secret (see [docs/SECRETS.md](./docs/SECRETS.md)), so the action-required-approval step those same producers rely on for their other `pull_request`-triggered checks still falls back to a `GITHUB_TOKEN` no-op. See [gotchas.md § CI](./.claude/rules/gotchas.md#ci) for the consequences.
 
 ### RemoteTriggers (scheduled background agents)
 
@@ -230,6 +229,95 @@ Only run `npm publish` from `packages/rialto` when actually cutting a registry r
 - **Semgrep:** See [AGENTS.md](./AGENTS.md#security-scanning-semgrep). Available via `.mcp.json` for scans over `@semgrep/mcp`.
 - **Playwright:** Shared browser tooling (`.mcp.json`) for `/site-audit` and E2E suite; no config needed beyond `.mcp.json` entry.
 - **Stripe (test-mode):** Set `STRIPE_SECRET_KEY` to test-mode key (`sk_test_…`) in `.mcp.json`; **never** `sk_live_…`. Prefer Restricted API Keys (RAK) scoped to read-only.
+
+## Session Learning & Feedback Loop
+
+Three `.claude/` directories work together to capture agent learning across sessions, distinguish between human-driven and loop-discovered insights, and feed them back into project guidance. See `.claude/memory/README.md` and `.claude/reflections/README.md` for local documentation.
+
+### `.claude/memory/` — Corrections and Reinforcements
+
+**Holds:**
+
+- `corrections/` — capture files when the agent makes mistakes
+- `reinforcements/` — capture files when the agent succeeds
+
+**What writes to it:**
+
+- `/reflect` skill (human-initiated at session end) writes human corrections to `corrections/`
+- `/gotcha-harvest` skill (also human-initiated, after autonomous loops) mines loop failures for **loop-discovered** gotchas and proposes them to `corrections/`
+- Manual session notes captured by the user
+
+**What reads it:**
+
+- Claude Code loads recent corrections at session start to bias against recurring mistakes
+- `/gotcha-harvest` scans it to avoid duplicate gotcha proposals
+
+**Structure:**
+Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
+
+- `date`, `session`, `trigger` (what went wrong), `correction` (fix), `root_cause` (why), `prevention` (how to avoid)
+- For reinforcements: `action`, `context`, `pattern`
+- Corrections include `feeds_back_into:` field linking to where they were promoted (e.g. `.claude/rules/gotchas.md#releases-changesets--rialto`)
+
+**Examples of promoted entries:** Four corrections became gotchas entries:
+
+- **2026-03-27** CDN-cache/Workers constraint → `gotchas.md § Deploy / static sites` ("Static sites must deploy as Cloudflare Workers...")
+- **2026-04-23** changesets push-ordering rule → `gotchas.md § Releases` ("Push before you version...")
+- **2026-04-25** zsh `$status` reserved-variable trap → `gotchas.md § Shell (zsh)` ("Never use `status` as a shell variable name...")
+- Rialto setState-in-useEffect ban → `gotchas.md § Pre-commit / lint` ("Rialto components must NOT call `setState`...")
+
+### `.claude/reflections/` — Session Summaries and Root-Cause Analysis
+
+**Holds:**
+
+- `README.md` — format documentation
+- `YYYY-MM-DD-<slug>.md` — individual reflections captured after sessions or multi-retry debugging
+
+**What writes to it:**
+
+- `/reflect` skill at session end (human-initiated) synthesizes corrections and reinforcements into actionable insights
+- `/revert-rca-loop` skill files RCA documents after AI-authored PRs are reverted (e.g. `RCA-PR-3588.md`)
+
+**What reads it:**
+
+- Claude Code loads active reflections (< 6 months old) at session start for context
+- Manual review to understand past debugging paths and architecture decisions
+
+**Distinction from memory:** Reflections are the analytical layer. A memory correction is raw ("user said X was wrong"). The reflection synthesizes it ("why that happened, what changed, what prevents recurrence").
+
+### `.claude/improvement-loop/` — Autonomous Loop Telemetry
+
+**Holds:**
+
+- `log.md` — append-only daily run log of autonomous loop sensors (ACMM score, CI health, issue feedback, etc.)
+- `revert-log.md` — append-only log of detected PR reversions
+
+**What writes to it:**
+
+- Scheduled loops (`/learning-loop`, `/ideate`, etc.) append a dated entry with sensor state, regressions detected, and verification results
+- `/revert-rca-loop` appends reversion detections to `revert-log.md`
+
+**What reads it:**
+
+- `/gotcha-harvest` mines `log.md` for "CI failed → fix applied → re-checked and passed" arcs and proposes them to `.claude/memory/corrections/`
+- `/claude-md-improver` scans `log.md` for recurring gotcha-discovery patterns (e.g. the ten separate entries on "missing `gh` in cloud sessions" before it earned a gotchas bullet)
+
+**Purpose:** Append-only record of autonomous-loop health and sensor trends. Used to detect regressions, discover repeat problems, and bootstrap new gotchas. The log does **not** contain detailed reasoning (that goes to reflections); it's a summary of facts and thresholds.
+
+### Promotion Path: Corrections → Gotchas
+
+The `.claude/rules/gotchas.md` file is the canonical source for project-specific traps. Entries come from two sources:
+
+| Source                                      | How it lands in gotchas                                                                               | Approval gate                                            | Example                                                                       |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Human error** (from `/reflect`)           | Manual PR to CLAUDE.md after user says "this should be documented"                                    | User review during PR                                    | Rialto setState-in-useEffect ban                                              |
+| **Loop discovery** (from `/gotcha-harvest`) | `/gotcha-harvest` mines session logs for failed-then-fixed arcs, proposes entries, user reviews in PR | `/gotcha-harvest` proposes (human approves in PR review) | Missing `gh` CLI in cloud sessions (discovered 10 times in logs before entry) |
+
+The top of `gotchas.md` states this:
+
+> "**Adding entries:** after an autonomous loop (`/implement-queue`, `/ship-loop`), run `/gotcha-harvest` to mine the session for `CI failed → fix → passed` arcs and recurring tool-errors — it proposes new bullets here (and cross-repo facts to memory) with human review. `/reflect` only captures _human corrections_, so loop-discovered gotchas land here via `/gotcha-harvest`, not `/reflect`."
+
+**Why the distinction?** `/reflect` is interactive (the user has your transcript) and captures intentional feedback. `/gotcha-harvest` is autonomous (runs after a session ends) and discovers patterns the user never said out loud. Both feed into corrections; only gotchas-via-gotcha-harvest entries become project traps.
 
 ## Cross-Session Memory & Knowledge Graph
 

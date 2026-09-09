@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, PublicVenueConfig } from "@mbe/types";
-import { publicVenueConfigJsonSchema } from "@mbe/types";
+import { createProblemDetails, publicVenueConfigJsonSchema } from "@mbe/types";
 import { venueService } from "../services/venue.js";
 
 export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
@@ -8,7 +8,7 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.get<{
     Params: { slug: string };
-    Reply: ApiResponse<PublicVenueConfig>;
+    Reply: ApiResponse<PublicVenueConfig> | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug",
     {
@@ -35,10 +35,9 @@ export const publicVenueRoutes: FastifyPluginAsync = async (fastify) => {
       const publicVenue = await venueService.getPublicConfigBySlug(slug);
 
       if (!publicVenue) {
-        return reply.status(404).send({
-          success: false,
-          error: "Venue not found",
-        } as never);
+        return reply
+          .status(404)
+          .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
       return reply.send({ data: publicVenue });

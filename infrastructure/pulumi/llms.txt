@@ -7,6 +7,18 @@
     <item priority="high">
       export const hospitalityApp: unknown;
     </item>
+    <item priority="high">
+      export const hospitalityApiGrant: unknown;
+    </item>
+    <item priority="high">
+      export const e2eUser: unknown;
+    </item>
+    <item priority="high">
+      export const e2eNonAdminUser: unknown;
+    </item>
+    <item priority="high">
+      export const auth0Outputs: unknown;
+    </item>
   </file>
   </section>
   <section priority="medium" role="index.ts">
@@ -22,6 +34,56 @@
         key: string,
         value: pulumi.Input<string>
       ): digitalocean.types.input.AppSpecServiceEnv { /* ... */ }
+    </item>
+    <item priority="high">
+      export const auth0ApiIdentifier: unknown;
+    </item>
+    <item priority="high">
+      export const auth0ClientId: unknown;
+    </item>
+    <item priority="high">
+      export const sessionsKvNamespaceId: unknown;
+    </item>
+    <item priority="high">
+      export const cacheKvNamespaceId: unknown;
+    </item>
+    <item priority="low">
+      interface ApiServiceArgs {
+        name: string;
+        port: number;
+        dockerfile: string;
+        extraEnvs?: digitalocean.types.input.AppSpecServiceEnv[];
+      }
+    </item>
+    <item priority="medium">
+      function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function apiService(args: ApiServiceArgs): digitalocean.types.input.AppSpecService { /* ... */ }
+    </item>
+    <item priority="high">
+      export const apiAppUrl: unknown;
+    </item>
+    <item priority="high">
+      export const apiAppDefaultDomain: unknown;
+    </item>
+    <item priority="high">
+      export const appUrl: unknown;
+    </item>
+    <item priority="high">
+      export const apiUrl: unknown;
+    </item>
+    <item priority="high">
+      export const hospitalityUrl: unknown;
+    </item>
+    <item priority="high">
+      export const rialtoUrl: unknown;
+    </item>
+    <item priority="high">
+      export const genUrl: unknown;
+    </item>
+    <item priority="high">
+      export const healthKvNamespaceId: unknown;
     </item>
   </file>
   </section>

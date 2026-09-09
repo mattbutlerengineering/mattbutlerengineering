@@ -1209,5 +1209,49 @@ describe("reservationService", () => {
       // threw afterwards the whole transaction aborts — no committed row.
       expect(tableUpdate).toHaveBeenCalledTimes(1);
     });
+
+    it("derives the walk-in date from the venue-local date, not the UTC calendar day", async () => {
+      // 2026-05-05T06:00:00Z is 2026-05-04T23:00:00 PDT (UTC-7 in May) — the
+      // venue-local date is still May 4th, a full UTC calendar day earlier.
+      // `Date.UTC(now.getUTCFullYear(), ...)` (the bug) buckets this as May 5th.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-05-05T06:00:00Z"));
+
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+        id: "venue-1",
+        settings: null,
+        ianaTimezone: "America/Los_Angeles",
+      } as never);
+      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(((
+        fn: (client: unknown) => Promise<unknown>
+      ) => {
+        const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(0),
+          reservation: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi
+              .fn()
+              .mockResolvedValue(makePrismaReservation({ date: new Date("2026-05-04") })),
+          },
+          table: {
+            update: vi.fn().mockResolvedValue(makePrismaTable()),
+          },
+        };
+        return fn(tx);
+      }) as never);
+
+      try {
+        await reservationService.createWalkIn({
+          partySize: 2,
+          tableId: "table-1",
+          venueId: "venue-1",
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(availabilityService.fetchConflictData).toHaveBeenCalledWith("venue-1", "2026-05-04");
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router";
 import { ReservationsPage } from "./ReservationsPage.js";
 
@@ -85,13 +85,16 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   EmptyState: ({
     heading,
     description,
+    action,
   }: {
     heading: React.ReactNode;
     description?: React.ReactNode;
+    action?: React.ReactNode;
   }) => (
     <div data-testid="empty-state">
       <span>{heading}</span>
       <span>{description}</span>
+      {action}
     </div>
   ),
   Input: (props: {
@@ -548,6 +551,40 @@ describe("ReservationsPage", () => {
 
       expect(screen.getByTestId("empty-state")).toBeDefined();
       expect(screen.getByText("No reservations")).toBeDefined();
+    });
+
+    it("formats the empty-state date the way the Timeline header does, not as raw ISO", () => {
+      mockDisplayHook({
+        data: [],
+        stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
+        filteredData: [],
+      });
+
+      renderPage();
+
+      const formatted = new Date(`${today}T00:00:00`).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      expect(screen.getByText(`No reservations found for ${formatted}.`)).toBeDefined();
+    });
+
+    it("offers an action inside the empty state that opens the New reservation dialog", () => {
+      mockDisplayHook({
+        data: [],
+        stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
+        filteredData: [],
+      });
+
+      renderPage();
+
+      const empty = screen.getByTestId("empty-state");
+      const actionButton = within(empty).getByRole("button");
+      fireEvent.click(actionButton);
+
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
     });
   });
 

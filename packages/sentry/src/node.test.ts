@@ -113,7 +113,53 @@ describe("initSentry (node)", () => {
     expect(callArg.serverName).toBe("my-service");
     expect(callArg.environment).toBe("production");
     expect(callArg.skipOpenTelemetrySetup).toBe(true);
-    expect(callArg.tracesSampleRate).toBe(0);
+  });
+
+  it("leaves tracing unconfigured so Sentry loads no auto-performance instrumentation", () => {
+    // This asserts an ABSENCE, and the absence is the fix. `tracesSampleRate: 0`
+    // reads to Sentry as "tracing is configured" and pulls in
+    // getAutoPerformanceIntegrations(): measured against the installed SDK,
+    // getDefaultIntegrations({}) returns 17 with no Fastify, while
+    // getDefaultIntegrations({ tracesSampleRate: 0 }) returns 44 including
+    // Fastify, Prisma, Postgres, Redis and Kafka. Sentry's Fastify
+    // instrumentation decorates the request with `opentelemetry`, which
+    // @mbe/observability's FastifyOtelInstrumentation has already decorated, so
+    // both active means FST_ERR_DEC_ALREADY_PRESENT at boot and a container that
+    // exits non-zero. Setting any number here -- including 0 -- reintroduces that.
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const callArg = mockSentryInit.mock.calls[0]?.[0];
+    expect(callArg.tracesSampleRate).toBeUndefined();
+    expect("tracesSampleRate" in callArg).toBe(false);
+  });
+
+  it("drops Sentry's own Fastify integration so it cannot double-decorate the request", () => {
+    // Regression test for a boot crash that only became reachable once a DSN
+    // actually existed. @mbe/observability registers @fastify/otel's
+    // FastifyOtelInstrumentation, which decorates the request with
+    // `opentelemetry`; Sentry's built-in Fastify integration decorates the same
+    // property, so with both active Fastify throws
+    // FST_ERR_DEC_ALREADY_PRESENT ("The decorator 'opentelemetry' has already
+    // been added!") during boot and the container exits non-zero. For the five
+    // months SENTRY_DSN was unset this was unreachable, because initSentry
+    // returned before Sentry.init ran -- the first deploy that supplied a DSN
+    // is what surfaced it (DO deployments 8472219d / c32bc32c / efae89ca,
+    // 2026-09-02).
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+
+    initSentry({ serviceName: "my-service" });
+
+    const integrations = mockSentryInit.mock.calls[0]?.[0]?.integrations;
+    expect(integrations).toBeTypeOf("function");
+
+    const defaults = [{ name: "Http" }, { name: "Fastify" }, { name: "Console" }];
+    const resolved = integrations(defaults) as { name: string }[];
+
+    // The others must survive: the fix is removing one colliding integration,
+    // not disabling Sentry's defaults wholesale.
+    expect(resolved.map((entry) => entry.name)).toEqual(["Http", "Console"]);
   });
 
   it("redacts credentials from events before they leave the process", () => {
@@ -451,6 +497,34 @@ describe("sentryFastifyPlugin", () => {
         await hook(request, reply);
         expect(mockCaptureMessage).not.toHaveBeenCalled();
       }
+    });
+
+    it("does NOT capture 503 on /ready as an error (expected not-ready state)", async () => {
+      // GET /ready legitimately returns 503 while a dependency check (DB, JWKS)
+      // is transiently failing or the service is still starting -- that's the
+      // whole point of the endpoint (@mbe/service-bootstrap's readiness-routes.ts),
+      // not an application error. Sentry issue 7708625103: reservations-api
+      // logged "HTTP 503: GET /ready" as a Sentry error with 0 affected users,
+      // i.e. every legitimate readiness-not-ready response was being reported
+      // as if it were a bug.
+      const fakeFastify = await setupPlugin("https://key@sentry.io/123");
+      const onResponseHooks = fakeFastify.getHook("onResponse");
+      const hook = onResponseHooks[0];
+      if (!hook) throw new Error("expected an onResponse hook");
+
+      const fakeScope = {
+        setTag: vi.fn(),
+        setUser: vi.fn(),
+        setLevel: vi.fn(),
+      };
+      mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
+
+      const request = buildFakeRequest({ method: "GET", url: "/ready" });
+      const reply = buildFakeReply(503);
+
+      await hook(request, reply);
+
+      expect(mockCaptureMessage).not.toHaveBeenCalled();
     });
 
     it("does NOT capture 2xx responses", async () => {

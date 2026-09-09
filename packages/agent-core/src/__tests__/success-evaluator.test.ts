@@ -104,19 +104,28 @@ describe("evaluateSuccess", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
-  it("returns inconclusive when SDK query fails", async () => {
+  // ── fail-closed when the LLM judge could not run ─────────────────────
+
+  it("fails closed (not a pass) when the SDK query throws", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(query).mockImplementation(() => {
       throw new Error("SDK error");
     });
 
     const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
 
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.confidence).toBe(0);
-    expect(result.reasoning).toContain("unavailable");
+    expect(result.evaluationFailed).toBe(true);
+    expect(result.skipped).toBeUndefined();
+    expect(result.reasoning).toContain("SDK error");
+    // The bare catch must not swallow the error silently — it's logged.
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
-  it("returns inconclusive when result has no structured output", async () => {
+  it("fails closed (not a pass) when the SDK result has no structured output", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const badResult = {
       type: "result" as const,
       subtype: "success" as const,
@@ -145,8 +154,66 @@ describe("evaluateSuccess", () => {
 
     const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
 
-    expect(result.passed).toBe(true);
+    expect(result.passed).toBe(false);
     expect(result.confidence).toBe(0);
+    expect(result.evaluationFailed).toBe(true);
+    expect(result.skipped).toBeUndefined();
+    consoleError.mockRestore();
+  });
+
+  it("fails closed (not a pass) when the SDK result is a non-success subtype", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorResult = {
+      type: "result" as const,
+      subtype: "error_max_budget_usd" as const,
+      duration_ms: 1000,
+      duration_api_ms: 900,
+      is_error: true,
+      num_turns: 1,
+      stop_reason: null,
+      session_id: "eval-session",
+      uuid: "eval-uuid",
+      total_cost_usd: 0.01,
+      usage: {
+        input_tokens: 500,
+        output_tokens: 100,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
+      modelUsage: {},
+      permission_denials: [],
+    };
+
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([errorResult]) as ReturnType<typeof query>
+    );
+
+    const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
+
+    expect(result.passed).toBe(false);
+    expect(result.confidence).toBe(0);
+    expect(result.evaluationFailed).toBe(true);
+    expect(result.skipped).toBeUndefined();
+    consoleError.mockRestore();
+  });
+
+  it("a genuine passed:true LLM result with real confidence still passes", async () => {
+    const evalResult = createMockEvalResult({
+      passed: true,
+      confidence: 0.85,
+      reasoning: "Diff addresses the task",
+      issues: [],
+    });
+
+    vi.mocked(query).mockReturnValue(
+      createMockQueryStream([evalResult]) as ReturnType<typeof query>
+    );
+
+    const result = await evaluateSuccess("Fix bug", "diff --git a/file.ts");
+
+    expect(result.passed).toBe(true);
+    expect(result.confidence).toBe(0.85);
+    expect(result.evaluationFailed).toBeUndefined();
   });
 
   it("clamps confidence to 0-1 range", async () => {
@@ -225,6 +292,8 @@ describe("evaluateSuccess", () => {
     expect(result.confidence).toBe(0);
     expect(result.skipped).toBe(true);
     expect(result.skipReason).toBe("test_only_changes");
+    // Deliberate skip is not a failure — must not carry the failure marker.
+    expect(result.evaluationFailed).toBeUndefined();
     expect(query).not.toHaveBeenCalled();
   });
 

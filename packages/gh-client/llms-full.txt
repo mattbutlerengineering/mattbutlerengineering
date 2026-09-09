@@ -19,6 +19,53 @@
       sizeInBytes: number;
       expired: boolean;
     }
+    interface RawArtifact {
+      id: number;
+      name: string;
+      size_in_bytes: number;
+      expired: boolean;
+    }
+    function resolveContext(opts: ArtifactOpsOptions): RestContext {
+      const env = opts.env ?? process.env;
+      const token = opts.token ?? resolveToken(env);
+      const { owner, repo } =
+        opts.owner && opts.repoName
+          ? { owner: opts.owner, repo: opts.repoName }
+          : resolveRepoSlug({ env, exec: opts.exec });
+      const http = opts.http ?? defaultSyncHttp;
+      return { token, owner, repo, http };
+    }
+    function mapArtifact(raw: RawArtifact): RunArtifact {
+      return { id: raw.id, name: raw.name, sizeInBytes: raw.size_in_bytes, expired: raw.expired };
+    }
+    export function listRunArtifacts(runId: number, opts: ArtifactOpsOptions = {}): RunArtifact[] {
+      const ctx = resolveContext(opts);
+      const { json } = apiRequest(
+        ctx,
+        "GET",
+        `/repos/${ctx.owner}/${ctx.repo}/actions/runs/${runId}/artifacts?per_page=100`
+      );
+      const raw = (json as { artifacts?: RawArtifact[] } | null)?.artifacts ?? [];
+      return raw.map(mapArtifact);
+    }
+    export function downloadArtifactZip(artifactId: number, opts: ArtifactOpsOptions = {}): Buffer {
+      const ctx = resolveContext(opts);
+      const binaryHttp = opts.binaryHttp ?? defaultSyncBinaryHttp;
+      const url = `https://api.github.com/repos/${ctx.owner}/${ctx.repo}/actions/artifacts/${artifactId}/zip`;
+      const res = binaryHttp({
+        method: "GET",
+        url,
+        headers: {
+          accept: "application/vnd.github+json",
+          authorization: `Bearer ${ctx.token}`,
+          "user-agent": "mbe-gh-client",
+        },
+      });
+      if (res.status !== 200) {
+        throw new Error(`gh-client: artifact ${artifactId} download failed with status ${res.status}`);
+      }
+      return Buffer.from(res.bodyBase64, "base64");
+    }
   </file>
   <file path="src/client.ts">
     export interface GhClientOptions extends TransportOptions {
@@ -34,6 +81,84 @@
       }
       return args;
     }
+    export function createGhClient(opts: GhClientOptions = {}) {
+      const run = createTransportRunner(opts);
+    
+      const issue = {
+        list(args: string[]): unknown[] {
+          const raw = run("gh", ["issue", "list", ...args]);
+          return JSON.parse(raw) as unknown[];
+        },
+    
+        view(number: number, args: string[] = []): unknown {
+          const raw = run("gh", ["issue", "view", String(number), ...args]);
+          return JSON.parse(raw);
+        },
+    
+        create(args: string[]): string {
+          return run("gh", ["issue", "create", ...args]);
+        },
+    
+        comment(number: number, body: string): void {
+          run("gh", ["issue", "comment", String(number), "--body", body]);
+        },
+    
+        reopen(number: number): void {
+          run("gh", ["issue", "reopen", String(number)]);
+        },
+    
+        close(number: number, args: string[] = []): void {
+          run("gh", ["issue", "close", String(number), ...args]);
+        },
+    
+        edit(number: number, args: string[]): void {
+          run("gh", ["issue", "edit", String(number), ...args]);
+        },
+      };
+    
+      const pr = {
+        list(args: string[]): unknown[] {
+          const raw = run("gh", ["pr", "list", ...args]);
+          return JSON.parse(raw) as unknown[];
+        },
+    
+        view(number: number, args: string[] = []): unknown {
+          const raw = run("gh", ["pr", "view", String(number), ...args]);
+          return JSON.parse(raw);
+        },
+    
+        create(args: string[]): string {
+          return run("gh", ["pr", "create", ...args]);
+        },
+    
+        close(number: number, args: string[] = []): void {
+          run("gh", ["pr", "close", String(number), ...args]);
+        },
+      };
+    
+      const label = {
+        apply(transition: LabelTransition): void {
+          const labelArgs = buildLabelArgs(transition);
+          if (labelArgs.length === 0) return;
+          run("gh", ["issue", "edit", String(transition.issueNumber), ...labelArgs]);
+        },
+    
+        list(args: string[]): unknown[] {
+          const raw = run("gh", ["label", "list", ...args]);
+          return JSON.parse(raw) as unknown[];
+        },
+      };
+    
+      const workflow = {
+        runs(args: string[]): unknown[] {
+          const raw = run("gh", ["run", "list", ...args]);
+          return JSON.parse(raw) as unknown[];
+        },
+      };
+    
+      return { issue, pr, label, workflow };
+    }
+    export type GhClient = ReturnType<typeof createGhClient>;
   </file>
   <file path="src/exec-runner.ts">
     export type ExecRunner = (
@@ -47,6 +172,14 @@
       /** Timeout in milliseconds. Defaults to 15 000. */
       timeoutMs?: number;
     }
+    export function createExecRunner(opts: ExecRunnerOptions = {}) {
+      const runner = opts.runner ?? (execFileSync as ExecRunner);
+      const timeout = opts.timeoutMs ?? 15_000;
+    
+      return function run(cmd: string, args: string[]): string {
+        return (runner(cmd, args, { encoding: "utf-8", timeout }) as string).trim();
+      };
+    }
   </file>
   <file path="src/gh-probe.ts">
     export type GhProbe = () => boolean;
@@ -57,6 +190,24 @@
         stdio: ["ignore", "ignore", "ignore"],
       });
     }
+    export function createGhProbe(probeExec: () => void = defaultProbeExec): GhProbe {
+      let cached: boolean | undefined;
+      return () => {
+        if (cached === undefined) {
+          cached = isProbeSuccessful(probeExec);
+        }
+        return cached;
+      };
+    }
+    function isProbeSuccessful(probeExec: () => void): boolean {
+      try {
+        probeExec();
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    export const probeGh: GhProbe = createGhProbe();
   </file>
   <file path="src/git-branch.ts">
     export function currentBranch(exec: (cmd: string, args: string[]) => string = defaultExec): string {
@@ -75,6 +226,55 @@
       AGENT_SKIP: "agent-skip",
     } as const;
     export type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LABELS];
+    export interface LabelTransition {
+      issueNumber: number;
+      add: string[];
+      remove: string[];
+    }
+    export function markInProgress(issueNumber: number): LabelTransition {
+      return {
+        issueNumber,
+        add: [COORDINATION_LABELS.IN_PROGRESS],
+        remove: [COORDINATION_LABELS.READY],
+      };
+    }
+    export function markHasPr(issueNumber: number): LabelTransition {
+      return {
+        issueNumber,
+        add: [COORDINATION_LABELS.HAS_PR],
+        remove: [COORDINATION_LABELS.IN_PROGRESS, COORDINATION_LABELS.READY],
+      };
+    }
+    export function markFailed(issueNumber: number): LabelTransition {
+      return {
+        issueNumber,
+        add: [COORDINATION_LABELS.AGENT_FAILED],
+        remove: [COORDINATION_LABELS.IN_PROGRESS, COORDINATION_LABELS.READY],
+      };
+    }
+    export function markSkip(issueNumber: number): LabelTransition {
+      return {
+        issueNumber,
+        add: [COORDINATION_LABELS.AGENT_SKIP],
+        remove: [
+          COORDINATION_LABELS.IN_PROGRESS,
+          COORDINATION_LABELS.READY,
+          COORDINATION_LABELS.AGENT_FAILED,
+        ],
+      };
+    }
+    export function markReady(issueNumber: number): LabelTransition {
+      return {
+        issueNumber,
+        add: [COORDINATION_LABELS.READY],
+        remove: [
+          COORDINATION_LABELS.HAS_PR,
+          COORDINATION_LABELS.IN_PROGRESS,
+          COORDINATION_LABELS.AGENT_FAILED,
+          COORDINATION_LABELS.AGENT_SKIP,
+        ],
+      };
+    }
   </file>
   <file path="src/repo-resolver.ts">
     export interface RepoSlug {
@@ -87,6 +287,33 @@
       const [, owner, repo] = match;
       if (!owner || !repo) return null;
       return { owner, repo };
+    }
+    export interface RepoResolverOptions {
+      env?: NodeJS.ProcessEnv;
+      /** Injected for tests — defaults to `git remote get-url origin`. */
+      exec?: (cmd: string, args: string[]) => string;
+    }
+    function defaultExec(cmd: string, args: string[]): string {
+      return execFileSync(cmd, args, { encoding: "utf-8", timeout: 5_000 }).trim();
+    }
+    export function resolveRepoSlug(opts: RepoResolverOptions = {}): RepoSlug {
+      const env = opts.env ?? process.env;
+      const fromEnv = env.GITHUB_REPOSITORY;
+      if (fromEnv) {
+        const [owner, repo] = fromEnv.split("/");
+        if (owner && repo) return { owner, repo };
+      }
+    
+      const exec = opts.exec ?? defaultExec;
+      const remoteUrl = exec("git", ["remote", "get-url", "origin"]);
+      const parsed = parseRepoSlug(remoteUrl);
+      if (!parsed) {
+        throw new Error(
+          "gh-client REST fallback could not determine the GitHub repo: set GITHUB_REPOSITORY=owner/repo " +
+            "or configure a github.com 'origin' remote."
+        );
+      }
+      return parsed;
     }
   </file>
   <file path="src/rest-args.ts">
@@ -105,6 +332,39 @@
       if (!token) throw new MissingGithubTokenError();
       return token;
     }
+    export interface ParsedArgs {
+      positional: string[];
+      flags: Record<string, string[]>;
+    }
+    export function parseArgs(args: string[]): ParsedArgs {
+      const positional: string[] = [];
+      const flags: Record<string, string[]> = {};
+    
+      for (let i = 0; i < args.length; i++) {
+        const token = args[i];
+        if (token === undefined) continue;
+        if (token.startsWith("--")) {
+          const key = token.slice(2);
+          const value = args[i + 1] ?? "";
+          flags[key] = [...(flags[key] ?? []), value];
+          i++;
+        } else {
+          positional.push(token);
+        }
+      }
+    
+      return { positional, flags };
+    }
+    export function flag(parsed: ParsedArgs, name: string): string | undefined {
+      return parsed.flags[name]?.[0];
+    }
+    export function flagAll(parsed: ParsedArgs, name: string): string[] {
+      return (parsed.flags[name] ?? []).flatMap((value) => value.split(",")).filter(Boolean);
+    }
+    export function wantsJsonField(parsed: ParsedArgs, field: string): boolean {
+      const fields = flag(parsed, "json") ?? "";
+      return fields.split(",").includes(field);
+    }
   </file>
   <file path="src/rest-http.ts">
     export interface RestContext {
@@ -122,6 +382,78 @@
         this.status = status;
       }
     }
+    export class GhRateLimitError extends Error {
+      readonly status: number;
+    
+      constructor(method: string, path: string, status: number, body: string) {
+        super(`gh-client REST rate limit exceeded: ${method} ${path} -> ${status}: ${body}`);
+        this.name = "GhRateLimitError";
+        this.status = status;
+      }
+    }
+    function isThrottledBody(body: string): boolean {
+      return /rate limit/i.test(body) || /abuse detection/i.test(body);
+    }
+    export function describeGhError(err: unknown): string {
+      if (err instanceof GhRateLimitError) {
+        return `GitHub API rate limit exceeded (${err.status}) — REST fallback credential is valid but throttled, retry later`;
+      }
+      if (err instanceof GhAuthError) {
+        return `GitHub auth failed (${err.status}) — REST fallback credential is not valid for direct API calls`;
+      }
+      if (err instanceof Error) return err.message;
+      return String(err);
+    }
+    export interface RestResult {
+      status: number;
+      /** Parsed JSON body, or `null` for an empty (e.g. 204) response. */
+      json: unknown;
+    }
+    export interface ApiRequestOptions {
+      /** Status codes treated as success (e.g. 404 on an idempotent label-remove DELETE). */
+      ignoreStatuses?: number[];
+    }
+    export function apiRequest(
+      ctx: RestContext,
+      method: string,
+      path: string,
+      body?: unknown,
+      opts: ApiRequestOptions = {}
+    ): RestResult {
+      const url = path.startsWith("http") ? path : `https://api.github.com${path}`;
+      const headers: Record<string, string> = {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${ctx.token}`,
+        "user-agent": "mbe-gh-client",
+      };
+      if (body !== undefined) headers["content-type"] = "application/json";
+    
+      const res = ctx.http({
+        method,
+        url,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    
+      if (res.status === 0) {
+        throw new Error(
+          `gh-client REST request failed (network error): ${method} ${path}: ${res.body}`
+        );
+      }
+      if (res.status >= 400 && !(opts.ignoreStatuses ?? []).includes(res.status)) {
+        if (res.status === 403 && isThrottledBody(res.body)) {
+          throw new GhRateLimitError(method, path, res.status, res.body);
+        }
+        if (res.status === 401 || res.status === 403) {
+          throw new GhAuthError(method, path, res.status, res.body);
+        }
+        throw new Error(
+          `gh-client REST request failed: ${method} ${path} -> ${res.status}: ${res.body}`
+        );
+      }
+    
+      return { status: res.status, json: res.body ? JSON.parse(res.body) : null };
+    }
   </file>
   <file path="src/rest-issue-ops.ts">
     function issuesPath(ctx: RestContext): string {
@@ -129,6 +461,98 @@
     }
     function isPullRequest(item: RawIssue): boolean {
       return "pull_request" in item;
+    }
+    function fetchIssuePages(ctx: RestContext, basePath: string, limit: number): RawIssue[] {
+      const results: RawIssue[] = [];
+      const separator = basePath.includes("?") ? "&" : "?";
+      const perPage = 100;
+    
+      for (let page = 1; results.length < limit; page++) {
+        const { json } = apiRequest(
+          ctx,
+          "GET",
+          `${basePath}${separator}per_page=${perPage}&page=${page}`
+        );
+        const pageItems = (json ?? []) as RawIssue[];
+        if (!Array.isArray(pageItems) || pageItems.length === 0) break;
+    
+        for (const item of pageItems) {
+          if (!isPullRequest(item)) results.push(item);
+        }
+        if (pageItems.length < perPage) break;
+      }
+    
+      return results.slice(0, limit);
+    }
+    export function issueList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
+      const limit = Number(flag(parsed, "limit") ?? "30");
+      const search = flag(parsed, "search");
+    
+      if (search !== undefined) {
+        const query = buildSearchQuery(ctx, "issue", parsed, search);
+        const items = fetchAllPages(
+          ctx,
+          `/search/issues?q=${encodeURIComponent(query)}`,
+          limit,
+          "items"
+        );
+        return (items as RawIssue[]).map(mapIssue);
+      }
+    
+      const params = new URLSearchParams({ state: flag(parsed, "state") ?? "open" });
+      const labels = flagAll(parsed, "label");
+      if (labels.length > 0) params.set("labels", labels.join(","));
+    
+      const items = fetchIssuePages(ctx, `${issuesPath(ctx)}?${params}`, limit);
+      return items.map(mapIssue);
+    }
+    export function issueView(ctx: RestContext, number: number, parsed: ParsedArgs): unknown {
+      const { json } = apiRequest(ctx, "GET", `${issuesPath(ctx)}/${number}`);
+      const mapped = mapIssue(json as RawIssue);
+      if (!wantsJsonField(parsed, "comments")) return mapped;
+    
+      const comments = fetchAllPages(ctx, `${issuesPath(ctx)}/${number}/comments`, 100);
+      if (flag(parsed, "jq") === ".comments") return comments;
+      return { ...mapped, comments };
+    }
+    export function issueCreate(ctx: RestContext, parsed: ParsedArgs): string {
+      const labels = flagAll(parsed, "label");
+      const { json } = apiRequest(ctx, "POST", issuesPath(ctx), {
+        title: flag(parsed, "title") ?? "",
+        body: flag(parsed, "body") ?? "",
+        ...(labels.length > 0 ? { labels } : {}),
+      });
+      return (json as { html_url: string }).html_url;
+    }
+    export function issueComment(ctx: RestContext, number: number, body: string): void {
+      apiRequest(ctx, "POST", `${issuesPath(ctx)}/${number}/comments`, { body });
+    }
+    export function issueReopen(ctx: RestContext, number: number): void {
+      apiRequest(ctx, "PATCH", `${issuesPath(ctx)}/${number}`, { state: "open" });
+    }
+    export function issueClose(ctx: RestContext, number: number, parsed: ParsedArgs): void {
+      const comment = flag(parsed, "comment");
+      if (comment) issueComment(ctx, number, comment);
+      apiRequest(ctx, "PATCH", `${issuesPath(ctx)}/${number}`, { state: "closed" });
+    }
+    export function issueEdit(ctx: RestContext, number: number, parsed: ParsedArgs): void {
+      const toAdd = flagAll(parsed, "add-label");
+      const toRemove = flagAll(parsed, "remove-label");
+    
+      if (toAdd.length > 0) {
+        apiRequest(ctx, "POST", `${issuesPath(ctx)}/${number}/labels`, { labels: toAdd });
+      }
+      for (const name of toRemove) {
+        apiRequest(
+          ctx,
+          "DELETE",
+          `${issuesPath(ctx)}/${number}/labels/${encodeURIComponent(name)}`,
+          undefined,
+          {
+            ignoreStatuses: [404],
+          }
+        );
+      }
     }
   </file>
   <file path="src/rest-label-run-ops.ts">
@@ -163,6 +587,105 @@
     }
     export interface RawUser {
       login: string;
+    }
+    export interface RawIssue {
+      number: number;
+      title: string;
+      body?: string | null;
+      state?: string;
+      state_reason?: string | null;
+      labels?: (RawLabel | string)[];
+      created_at?: string;
+      closed_at?: string | null;
+      user?: RawUser | null;
+    }
+    export interface RawPr {
+      number: number;
+      title: string;
+      body?: string | null;
+      state?: string;
+      head?: { ref?: string };
+      labels?: (RawLabel | string)[];
+      created_at?: string;
+      merged_at?: string | null;
+      closed_at?: string | null;
+      user?: RawUser | null;
+      additions?: number;
+      deletions?: number;
+      merge_commit_sha?: string | null;
+    }
+    export interface RawPrFile {
+      filename: string;
+      additions: number;
+      deletions: number;
+    }
+    export interface RawWorkflowRun {
+      id?: number;
+      status?: string;
+      conclusion?: string | null;
+      created_at?: string;
+      name?: string;
+      head_branch?: string;
+      head_sha?: string;
+    }
+    function mapLabelEntry(label: RawLabel | string): {
+      name: string;
+      color?: string;
+      description?: string | null;
+    } {
+      if (typeof label === "string") return { name: label };
+      return { name: label.name, color: label.color, description: label.description ?? null };
+    }
+    export function mapIssue(raw: RawIssue): Record<string, unknown> {
+      return {
+        number: raw.number,
+        title: raw.title,
+        body: raw.body ?? "",
+        state: String(raw.state ?? "").toUpperCase(),
+        stateReason: raw.state_reason ?? null,
+        labels: (raw.labels ?? []).map(mapLabelEntry),
+        createdAt: raw.created_at,
+        closedAt: raw.closed_at,
+        author: raw.user ? { login: raw.user.login } : undefined,
+      };
+    }
+    function mapPrState(raw: RawPr): string {
+      if (raw.merged_at) return "MERGED";
+      return String(raw.state ?? "").toUpperCase();
+    }
+    export function mapPr(raw: RawPr): Record<string, unknown> {
+      return {
+        number: raw.number,
+        title: raw.title,
+        body: raw.body ?? "",
+        state: mapPrState(raw),
+        headRefName: raw.head?.ref,
+        labels: (raw.labels ?? []).map(mapLabelEntry),
+        createdAt: raw.created_at,
+        mergedAt: raw.merged_at ?? null,
+        closedAt: raw.closed_at ?? null,
+        author: raw.user ? { login: raw.user.login } : undefined,
+        additions: raw.additions,
+        deletions: raw.deletions,
+        mergeCommit: raw.merge_commit_sha ? { oid: raw.merge_commit_sha } : undefined,
+      };
+    }
+    export function mapPrFile(raw: RawPrFile): Record<string, unknown> {
+      return { path: raw.filename, additions: raw.additions, deletions: raw.deletions };
+    }
+    export function mapLabel(raw: RawLabel): Record<string, unknown> {
+      return { name: raw.name, color: raw.color, description: raw.description ?? null };
+    }
+    export function mapWorkflowRun(raw: RawWorkflowRun): Record<string, unknown> {
+      return {
+        databaseId: raw.id,
+        status: raw.status,
+        conclusion: raw.conclusion,
+        createdAt: raw.created_at,
+        name: raw.name,
+        headBranch: raw.head_branch,
+        headSha: raw.head_sha,
+      };
     }
   </file>
   <file path="src/rest-paginate.ts">
@@ -200,6 +723,86 @@
     }
     function prNumberOf(item: unknown): number {
       return (item as { number: number }).number;
+    }
+    function enrichPrStats(
+      ctx: RestContext,
+      number: number,
+      mapped: Record<string, unknown>,
+      wantsCommits: boolean
+    ): Record<string, unknown> {
+      const { json } = apiRequest(ctx, "GET", `${pullsPath(ctx)}/${number}`);
+      const detail = json as RawPr;
+      const withStats = { ...mapped, additions: detail.additions, deletions: detail.deletions };
+      if (!wantsCommits) return withStats;
+    
+      const commits = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/commits`, 100);
+      return { ...withStats, commits };
+    }
+    export function prList(ctx: RestContext, parsed: ParsedArgs): unknown[] {
+      const limit = Number(flag(parsed, "limit") ?? "30");
+      const search = flag(parsed, "search");
+      const wantsCommits = wantsJsonField(parsed, "commits");
+      const wantsStats =
+        wantsCommits || wantsJsonField(parsed, "additions") || wantsJsonField(parsed, "deletions");
+    
+      let items: unknown[];
+      if (search !== undefined) {
+        const query = buildSearchQuery(ctx, "pr", parsed, search);
+        items = fetchAllPages(ctx, `/search/issues?q=${encodeURIComponent(query)}`, limit, "items");
+      } else {
+        const params = new URLSearchParams({ state: flag(parsed, "state") ?? "open" });
+        const head = flag(parsed, "head");
+        if (head) params.set("head", `${ctx.owner}:${head}`);
+        items = fetchAllPages(ctx, `${pullsPath(ctx)}?${params}`, limit);
+      }
+    
+      const mapped = (items as RawPr[]).map(mapPr);
+      if (!wantsStats) return mapped;
+    
+      return mapped.map((pr, i) => enrichPrStats(ctx, prNumberOf(items[i]), pr, wantsCommits));
+    }
+    export function prView(ctx: RestContext, number: number, parsed: ParsedArgs): unknown {
+      const { json } = apiRequest(ctx, "GET", `${pullsPath(ctx)}/${number}`);
+      let mapped = mapPr(json as RawPr);
+    
+      if (wantsJsonField(parsed, "files")) {
+        const files = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/files`, 100);
+        mapped = { ...mapped, files: (files as RawPrFile[]).map(mapPrFile) };
+      }
+      if (wantsJsonField(parsed, "commits")) {
+        const commits = fetchAllPages(ctx, `${pullsPath(ctx)}/${number}/commits`, 100);
+        mapped = { ...mapped, commits };
+      }
+    
+      return mapped;
+    }
+    function resolveDefaultBranch(ctx: RestContext): string {
+      const { json } = apiRequest(ctx, "GET", `/repos/${ctx.owner}/${ctx.repo}`);
+      return (json as { default_branch: string }).default_branch;
+    }
+    export interface PrCreateOptions {
+      exec?: (cmd: string, args: string[]) => string;
+    }
+    export function prCreate(ctx: RestContext, parsed: ParsedArgs, opts: PrCreateOptions = {}): string {
+      const labels = flagAll(parsed, "label");
+      const head = flag(parsed, "head") ?? currentBranch(opts.exec);
+      const base = flag(parsed, "base") ?? resolveDefaultBranch(ctx);
+    
+      const { json } = apiRequest(ctx, "POST", pullsPath(ctx), {
+        title: flag(parsed, "title") ?? "",
+        body: flag(parsed, "body") ?? "",
+        head,
+        base,
+      });
+      const created = json as { number: number; html_url: string };
+    
+      if (labels.length > 0) {
+        apiRequest(ctx, "POST", `/repos/${ctx.owner}/${ctx.repo}/issues/${created.number}/labels`, {
+          labels,
+        });
+      }
+    
+      return created.html_url;
     }
   </file>
   <file path="src/rest-runner.ts">
@@ -298,6 +901,59 @@
       status: number;
       body: string;
     }
+    export type SyncHttp = (req: SyncHttpRequest) => SyncHttpResponse;
+    export type SyncExecFn = (
+      cmd: string,
+      args: string[],
+      opts: {
+        input: string;
+        encoding: "utf-8";
+        timeout: number;
+        maxBuffer: number;
+        env: NodeJS.ProcessEnv;
+      }
+    ) => string;
+    export interface SyncHttpOptions {
+      /** Injected exec function — defaults to node's execFileSync. Production callers should never pass one (mirrors exec-runner.ts's `runner` option). */
+      exec?: SyncExecFn;
+    }
+    export function createSyncHttp(opts: SyncHttpOptions = {}): SyncHttp {
+      const exec = opts.exec ?? (execFileSync as SyncExecFn);
+    
+      return (req) => {
+        const out = exec(process.execPath, ["--no-warnings", "-e", FETCH_BRIDGE_SCRIPT], {
+          input: JSON.stringify(req),
+          encoding: "utf-8",
+          timeout: 15_000,
+          maxBuffer: 20 * 1024 * 1024,
+          env: { ...process.env, NODE_USE_ENV_PROXY: "1" },
+        });
+        return JSON.parse(out) as SyncHttpResponse;
+      };
+    }
+    export const defaultSyncHttp: SyncHttp = createSyncHttp();
+    export interface SyncBinaryHttpResponse {
+      /** 0 means the request never reached a server (DNS/network failure). */
+      status: number;
+      /** Base64-encoded response body — binary-safe, unlike {@link SyncHttpResponse.body}. */
+      bodyBase64: string;
+    }
+    export type SyncBinaryHttp = (req: SyncHttpRequest) => SyncBinaryHttpResponse;
+    export function createSyncBinaryHttp(opts: SyncHttpOptions = {}): SyncBinaryHttp {
+      const exec = opts.exec ?? (execFileSync as SyncExecFn);
+    
+      return (req) => {
+        const out = exec(process.execPath, ["--no-warnings", "-e", BINARY_FETCH_BRIDGE_SCRIPT], {
+          input: JSON.stringify(req),
+          encoding: "utf-8",
+          timeout: 30_000,
+          maxBuffer: 50 * 1024 * 1024,
+          env: { ...process.env, NODE_USE_ENV_PROXY: "1" },
+        });
+        return JSON.parse(out) as SyncBinaryHttpResponse;
+      };
+    }
+    export const defaultSyncBinaryHttp: SyncBinaryHttp = createSyncBinaryHttp();
   </file>
   <file path="src/transport.ts">
     export interface TransportOptions extends ExecRunnerOptions, RestRunnerOptions {

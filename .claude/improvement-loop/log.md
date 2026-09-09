@@ -1164,3 +1164,346 @@ Unchanged from 08-31/09-01 (optimize-implement-queue) above: the `gh-client` RES
 ### Skipped Issues
 
 None (`agent-skip` empty this run).
+
+## 2026-09-02 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114, prMetrics 7 entries, prCategoryMetrics 93/94 merged, ccusageCost $0/30d cache_hit 96%, ciHealth 100% pass rate 22/30, sessionLogs 0/7d, codeChurn 0% 7d, e2eStability 0 consecutive failures 6/12 non-frontend [18 CI-run head SHAs not in the local git object store, skipped harmlessly], queueEfficiency composite 0.961). domainActivity/agentCost/lighthouse/mutationScore/flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage against `metrics/ai-issue-feedback.json` budgets).
+**Sentry triage:** skipped — Sentry MCP tools connect, but every call still 403s with "Host not in allowlist: sentry.io" (confirmed again via `find_organizations`), same egress-policy block as 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4908/#4907/#4906/#4899/#4896, all needing a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint).
+**Skill proposals:** 0 (Wednesday, not the Friday extraction day).
+**Threshold notes:** `[threshold-tuner] No threshold adjustments needed` this run (verify-fixes.mjs). 30d verification log (41 entries) remains almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable in this sandbox), so false-positive and fix-effectiveness rates still aren't a meaningful signal — consistent with every prior entry back to 08-28, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403; `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
+
+## 2026-09-03
+
+**queueEfficiency:** composite 0.957 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:14, size:s:12, size:l:2
+**Issues filed:** 0
+
+## 2026-09-03 (mbe-evening / implement-queue + progress-tracker)
+
+### Metrics (7d, 2026-08-27 → 2026-09-03)
+
+| Metric                                                      | Value                                                      | Target            | Status                                                                                                                              |
+| ----------------------------------------------------------- | ---------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Created (audit+ci-fix)                                      | 51 (36 audit, 15 ci-fix)                                   | -                 | -                                                                                                                                   |
+| Closed (audit+ci-fix)                                       | 48 (34 audit, 14 ci-fix)                                   | -                 | -                                                                                                                                   |
+| Closure Rate                                                | 94.1%                                                      | >80%              | green                                                                                                                               |
+| Time-to-Close (mean, closedAt≈updatedAt proxy, n=48)        | ~8.6h (audit ~8.7h, ci-fix ~8.4h)                          | <24h              | green                                                                                                                               |
+| Agent Success (has-pr/(has-pr+agent-failed), open snapshot) | 50% (2 has-pr: #4848, #4287; 2 agent-failed: #4914, #4606) | >70%              | yellow — thin sample (n=4), snapshot not a flow rate                                                                                |
+| CI Pass (main, last 30 real-conclusion runs)                | 25 success / 2 failure (excl. 3 cancelled)                 | >95%              | yellow (92.6% — both failures pre-date tonight's head SHA, already tracked; not a live regression per gotchas.md ciHealth guidance) |
+| Queue (ready)                                               | 4                                                          | <5                | green                                                                                                                               |
+| Stale (ready>7d)                                            | 0                                                          | 0                 | green                                                                                                                               |
+| Blocked (agent-failed)                                      | 2 (#4914 nightly-compliance flake, #4606 standing)         | 0                 | yellow                                                                                                                              |
+| Skipped (agent-skip)                                        | 0                                                          | 0                 | green                                                                                                                               |
+| Reverts (7d, local shallow clone)                           | 1                                                          | >3/week flag      | green                                                                                                                               |
+| Spend (attributed, `.claude/agent-spend/sessions.jsonl`)    | 0 rows (file empty, 0 bytes)                               | <$10/day, <$50/7d | unmeasured — sink still empty; carried forward from every prior entry, deferred to `/optimize-implement-queue`                      |
+
+### This iteration (`/implement-queue`, 1 batch)
+
+- **Environment note:** this session (Claude Code Remote / cloud) has no `gh` CLI — all GitHub reads/writes this run went through `mcp__github__*` MCP tools instead of `gh`/`mbe issue transition`. `implement-queue-worker` subagents also lack `gh` and MCP tool access in their worktrees, so each was instructed to push its branch only and let the orchestrator (this session) open the PR via the GitHub API afterward. Noting this as a standing pattern for future cloud-scheduled `/implement-queue` runs.
+- Phase 0: main green (recent completed `CI` runs on `main` all `success`; the push in flight at kickoff was still `in_progress`, nothing red). Surveyed 10 open PRs: merged **#4915** (ACMM daily-audit state PR, `.claude/acmm/state.json` only, `mergeable_state: clean`, CI green — a stalled low-risk PR ahead of fresh work). **#4924** (Auth0 login branding fix) explicitly asks in its own PR body for a human `pulumi preview --stack prod` before merging (production Auth0 tenant/branding singleton) — left untouched, respecting the hold. **#4791** (29-dependency Dependabot bump, tier:critical) was CI-red on `apps/marketing#typecheck` OOM — diagnosed as a stale-branch issue already fixed on `main` via #4892; attempted `update-branch`, hit a real merge conflict (likely lockfile overlap from the grouped bump), left a diagnostic comment recommending `@dependabot rebase` rather than force-resolving unattended. **#4795** (types/react-dom bump) and **#4692** (`auto-qa-tune`, explicitly human-merge-only per its own body) both showed `mergeable_state: dirty` — left for Dependabot/human. **#4874** (a prior night's stale telemetry PR) also `dirty` — left, flagged below for cleanup. Two `chaos-audit` synthetic-bug test PRs (#4788, #4566) and one explicitly-draft-for-human infra PR (#4565) correctly left untouched — not this skill's to merge.
+- Phase 1: 7 `ready` issues surveyed, priority-sorted (ci-fix > meta-improvement) and zone-spread: **#4928** (ci-fix, deploy-health alert), **#4914** (meta-improvement/nightly-compliance, `packages/rialto` test failure), **#4882** (meta-improvement, docs — `.claude/` undocumented surfaces). Deferred #4881 (same `root` zone as #4882, selector took one), #4701/#4780/#4877 (older duplicate nightly-compliance reports with no actionable failure in their bodies).
+- Phase 2: 3 `implement-queue-worker` agents (isolation: worktree, sonnet/sonnet/haiku tiers — no `mbe check-model` available in this session type, tiers assigned by hand per the model-router heuristic). **#4928**: root cause already fixed on `main` by earlier-merged PRs #4927/#4930/#4931 (Sentry/Fastify decorator collision that broke deploys ~22:00–22:18 UTC on 09-02); worktree diff against `main` was empty — closed as resolved, no PR. **#4914**: could not reproduce as a genuine `packages/rialto` defect — the reported failure only reproduces via a non-CI-representative invocation that skips turbo's `dependsOn: ["^build"]` ordering; a clean from-scratch `turbo test --filter=@mattbutlerengineering/rialto --force` passed 148 files/2271 tests. Labeled `agent-failed` (no code change) rather than closing, since confirming the flake theory needs the actual nightly workflow's turbo log, unavailable in this environment. **#4882**: pushed `docs/undocumented-claude-surfaces`, PR #4932 opened by the orchestrator, CI green (`CI Gate` success, classified `tier:trivial`), content spot-checked against `gotchas.md`'s actual promoted-entry dates (all four cross-references verified accurate) — merged.
+- Telemetry: 3 rows appended to `metrics/queue-telemetry.jsonl` (#4928 pr_number null reviewer_verdict skipped; #4914 pr_number null reviewer_verdict skipped; #4882 pr_number 4932 merged reviewer_verdict skipped/low-risk-fast-path) via `chore/queue-telemetry-2026-09-03`, PR #4933 (tier:trivial, auto-merge enabled by automation, codecov clean as of this entry).
+- Worktree cleanup: `reap-worktrees.mjs` (live mode) examined 1 worktree (the merged #4882 worker), retained it — reaper needs `gh pr list --state all` evidence of the merged PR to reclaim, which isn't available without `gh` in this session type; fails closed as designed. Flagging as a standing cloud-session gap, not a bug to fix tonight.
+- Circuit breaker: not triggered (0 worker failures; #4928/#4914 were correct "no code change needed" outcomes, not agent failures).
+
+### Patterns
+
+- **Straggler-PR debt is accumulating faster than one iteration can drain it.** Of 10 open PRs surveyed in Phase 0, only 2 (#4915, and tonight's own #4932) were actually mergeable; the rest were either explicitly human-gated (#4924, #4692, #4565), genuinely conflicted (#4791, #4795, #4874), or deliberate test artifacts (#4788, #4566). #4874 in particular is a stale metrics PR from a prior night's run of this same routine, now conflicting — worth a human decision (merge, close as superseded, or teach the routine to detect and self-close its own superseded metrics PRs).
+- **Second night in a row where a `ci-fix`/health-alert issue turned out to already be fixed on `main` before the worker even started** (#4928, resolved by #4927/#4930/#4931 within the same ~2h window the alert covered). This is the same shape #4888/#4803 hit on 2026-09-02 (per yesterday's log entry) — a recurring pattern where fast independent remediation (a same-night manual fix, or a different automation) outpaces the `ready`-issue → worker pipeline. Not a bug in this skill's claiming logic; worth `/gotcha-harvest` or a `meta-improvement` issue if a fourth occurrence lands, to consider a pre-flight "is this already fixed on `main`" check before dispatching a worker.
+- **The reap-worktrees.mjs fail-closed gap for cloud sessions (no `gh` → no merged-PR evidence → nothing ever reclaimed) is now observed directly**, not just inferred from the gotchas.md `gh`-absence entry. Every cloud-scheduled `/implement-queue` run that merges a worktree-produced PR will leave that worktree stuck forever under the current evidence requirement. Worth a `meta-improvement` issue proposing an MCP-backed evidence path (`mcp__github__pull_request_read` `get` → `merged: true`) as an alternative to the `gh pr list` call, gated the same way the rest of this session substituted MCP tools for `gh` tonight.
+
+### Recommendations
+
+- File `meta-improvement`: teach `reap-worktrees.mjs` (or a cloud-session variant) to accept GitHub MCP tool output as merged-PR evidence, so worktree reclaim doesn't silently no-op for the lifetime of every cloud-scheduled implement-queue run.
+- `.claude/agent-spend/sessions.jsonl` empty for 9+ consecutive daily entries — same standing recommendation as every prior day, deferred to `/optimize-implement-queue` Step 0.
+- Consider a lightweight "already fixed on `main`?" pre-check (e.g. `git log --grep`/diff against the issue's stated symptom) before dispatching a worker for `ci-fix`/health-alert issues, given two independent occurrences now (#4888/#4803 on 09-02, #4928 on 09-03).
+- Human attention needed on stale PR debt: #4791 (29-dep Dependabot bump, tier:critical, real merge conflict — recommend `@dependabot rebase`), #4874 (stale metrics PR from 09-01, conflicting — recommend close-as-superseded or manual resolve), #4924 (Auth0 branding fix — needs a human `pulumi preview --stack prod` per its own PR body before merge).
+
+### Skipped Issues
+
+None (`agent-skip` empty this run). 2 issues labeled `agent-failed` this run: #4914 (see Patterns above) and #4606 (standing from a prior run, not re-triaged tonight).
+
+## 2026-09-03 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114 [1 failing gate: human-touch-ratio 73% vs <50% threshold, unchanged from prior runs], prMetrics 7 entries [latest 30d window: 92 AI PRs, 91 merged, 1 rejected, 99% acceptance], prCategoryMetrics 97/97 merged across tier:trivial/sensitive/critical/standard/docs [0 closed-without-merge — still an uninformative signal per its own note], ccusageCost $0/30d cache_hit 94%, ciHealth 100% pass rate (24/24 completed, 30 total runs), sessionLogs 0 sessions/7d, codeChurn 0.1% (315/561603 lines, 7d), e2eStability 0 consecutive failures (14/14 non-frontend runs; 16 CI-run head SHAs not in local git object store, skipped harmlessly), queueEfficiency composite 0.948 [fps 0.87, ttm 0.3h, $0/issue, no baseline yet]). domainActivity/agentCost/lighthouse/mutationScore/flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped — Sentry MCP tool connects but every call 403s with "Host not in allowlist: sentry.io" (confirmed directly via `find_organizations`), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #4928/#4905 need a completed CI run to verify against; #4908/#4907/#4906 need a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint).
+**Skill proposals:** 0 (Thursday, not the Friday extraction day).
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.106 → 1.136 (headroom). 30d verification log (46 entries, 40 in-window) is still mostly environmental `skip`s; of the 4 non-skip verifications, fix-effectiveness rate is 75% (3 verified / 1 failed) — healthy, no note triggered (>50% threshold). False-positive rate not computable this run — `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback`; `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
+
+## 2026-09-04 (mbe-evening / implement-queue + progress-tracker)
+
+### Phase 0 pre-flight: main is red — no new-issue work this iteration
+
+`main`'s CI (`ci.yml` run [33811801602](https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/33811801602), head `c22d38f` / PR #4956) failed in `Build` → `Run Full Repository Audit` → `pnpm audit --audit-level=high`, which threw `ERR_SOCKET_TIMEOUT` reaching `https://registry.npmjs.org/-/npm/v1/security/audits` after 3 retries. Confirmed this is not a real regression from #4956 (a test-config-only rialto change) two ways: (1) every other job on that run — Lint, Typecheck, Architecture Audit, Test (Node 22), all Container Security Scans — passed; (2) the auto-generated revert PR #4960 (`revert-broken-main-c22d38f...`) hit the byte-identical `ERR_SOCKET_TIMEOUT` failure on its own CI run, proving the failure is environmental (npmjs.org reachability from the runner), not code. A prior session had already reached and posted this same diagnosis as a comment on issue #4959 at 22:30:33Z, recommending against reverting #4956 and recommending a CI re-run once npmjs.org recovers instead.
+
+This session independently attempted `rerun_failed_jobs` and `run_workflow` (workflow_dispatch) on `ci.yml` — both 403'd (`Resource not accessible by integration`); this session's GitHub App token has no `actions:write`. No new commits have landed on `main` since c22d38f and no new CI runs since 22:41:34Z, so the state is unchanged from the prior session's diagnosis: main red, revert PR #4960 blocked (ironically also red for the same reason), issue #4959 (`ci-fix`, `ready`, `priority:critical`) still open. This blocks Phase 1 (claiming new `ready` issues) per green-main policy — no worktree agents were dispatched this iteration. **Needs a human with `actions:write` to manually re-run the failed `Build` job on run 33811801602** (Actions tab → Re-run failed jobs); expected to go green with zero code change once `registry.npmjs.org` is reachable again.
+
+### Metrics (7d, 2026-08-28 → 2026-09-04, via GitHub MCP tools — no `gh` CLI in this session type)
+
+| Metric                                       | Value                                                                      | Target            | Status                                                                                                                      |
+| -------------------------------------------- | -------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Created (audit+ci-fix)                       | 54 (38 audit, 16 ci-fix)                                                   | -                 | -                                                                                                                           |
+| Closed (audit+ci-fix)                        | 45 (33 audit, 12 ci-fix)                                                   | -                 | -                                                                                                                           |
+| Closure Rate                                 | 83.3%                                                                      | >80%              | green                                                                                                                       |
+| Agent Success (open snapshot)                | 50% (3 has-pr: #4952, #4848, #4287; 3 agent-failed: #4944, #4914, #4606)   | >70%              | yellow — thin sample, snapshot not a flow rate                                                                              |
+| CI Pass (main, last 20 push runs)            | 18 success / 1 failure / 1 cancelled                                       | >95%              | yellow (90%, or 94.7% excl. cancelled) — the 1 failure is tonight's live npm-registry flake, still unresolved at write time |
+| Queue (ready)                                | 0                                                                          | <5                | green                                                                                                                       |
+| Stale (ready>7d)                             | 0                                                                          | 0                 | green                                                                                                                       |
+| Blocked (agent-failed)                       | 3 (#4944 perf/memoization, #4914 nightly-compliance flake, #4606 standing) | 0                 | yellow                                                                                                                      |
+| Skipped (agent-skip)                         | 0                                                                          | 0                 | green                                                                                                                       |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty, 0 bytes)                                               | <$10/day, <$50/7d | unmeasured — sink still empty, same as every prior entry; deferred to `/optimize-implement-queue`                           |
+
+### Patterns
+
+- **PR #4791's typecheck-OOM has now re-triggered CI and a fresh triage issue three times** (#4821 08-31, #4905 09-02, #4961 09-03/04) without the root cause (the stale Dependabot PR itself, or `apps/marketing`'s missing heap headroom — #4923 only raised it for `apps/gen`) ever being fixed. Filed **#4962** (`meta-improvement`) recommending either fix so a fourth occurrence doesn't need a fourth from-scratch diagnosis.
+- **Main-red-from-infra-flake is a new shape for this routine to have hit directly** (prior entries' CI-pass dips were same-day-resolved code issues). The auto-revert-on-CI-failure automation (issue #4959 → PR #4960) worked exactly as designed to propose a fix, but has no way to distinguish "the diff broke it" from "the network broke it" — it opened a revert that, if merged, would silently regress #4956's real fix (packages/rialto's nightly-compliance test flake, #4701) for no benefit, since the revert's own CI is red for the identical unrelated reason. Worth a `meta-improvement` if this recurs: teach the auto-revert workflow to check whether the _same_ job/step fails on the revert's own CI run before treating the revert as ready to merge.
+- **This session's GitHub App token lacks `actions:write`** (`rerun_failed_jobs` and `run_workflow` both 403'd) — distinct from the already-documented `gh`-CLI-absence gap in gotchas.md. Worth confirming whether this is expected for cloud-scheduled sessions generally or an under-scoped grant, since it blocks the one action (a CI re-run) that would have resolved tonight's block without any code change.
+
+### Recommendations
+
+- Human: re-run the failed `Build` job on `ci.yml` run 33811801602 (or push any legitimate change to `main`, which will carry a fresh CI run) to clear the red state; then close #4959 and #4960 once green, per the prior session's comment on #4959.
+- Human/next session: decide #4791 per #4962 (rebase-and-merge or close), and/or raise `apps/marketing` typecheck heap headroom to match #4923's `apps/gen` fix.
+- `.claude/agent-spend/sessions.jsonl` empty for 10+ consecutive daily entries — same standing recommendation as every prior day, deferred to `/optimize-implement-queue` Step 0.
+- If a future session also finds `actions:write` unavailable, consider that a standing gap worth a gotchas.md entry (parallel to the existing `gh`-CLI-absence entry) rather than re-diagnosing per-run.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty). 3 issues carry `agent-failed`: #4944, #4914, #4606 (none re-triaged tonight — Phase 1 did not run because main was red).
+
+## 2026-09-04
+
+**queueEfficiency:** composite 0.960 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:11, size:s:8, size:l:1
+**Issues filed:** 0
+
+## 2026-09-04 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114, prMetrics 7 entries, prCategoryMetrics 92/93 merged across tier:trivial/sensitive/critical/standard/docs, ccusageCost $0/30d cache_hit 95%, ciHealth 100% pass rate (25/25), sessionLogs 0 sessions/7d 0 commits, codeChurn 0% (388/561894 lines, 7d), e2eStability 0 consecutive failures (16/16 non-frontend runs; 14 CI-run head SHAs not in local git object store, skipped harmlessly), queueEfficiency composite 0.916 [fps 0.789, ttm 0.3h, $0/issue, no baseline yet]). domainActivity/agentCost/lighthouse/mutationScore/flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped — Sentry MCP tool connects but every call 403s with "Host not in allowlist: sentry.io" (confirmed directly via `find_organizations`), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #4959/#4928 need a completed CI run to verify against; #4952/#4951 need Sentry MCP verification (blocked by the egress allowlist above); #4945 needs a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint.
+**Skill proposals:** 0 — today is the Friday extraction day, but `.claude/session-logs/` holds only `.gitkeep` (0 sessions in the last 7 days), so there is nothing to analyze.
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.136 → 1.166 (headroom). 30d verification log (51 entries, 45 in-window) is still mostly environmental `skip`s; of the 4 non-skip verifications, fix-effectiveness rate is 75% (3 verified / 1 failed) — healthy, no note triggered (>50% threshold). False-positive rate not computable this run — `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as `issues`/`issueFeedback`; `metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category (unused — no regressions this run).
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback has 403'd on every cloud-scheduled sensor run since 2026-08-11. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions covers the underlying `gh` CLI gap; MCP-backed reads remain the working alternative for manual steps).
+
+## 2026-09-05 (learning-loop)
+
+**Sensors:** 9/16 available (acmm L5 96/114 — failing gate `human-touch-ratio` 0.73 vs 0.5 threshold, unchanged from prior runs; prMetrics 7 entries, 99% acceptance (30d); prCategoryMetrics 93/94 merged across tier:trivial/sensitive/critical/standard/priority:critical/docs; ccusageCost $0 (30d/7d/today), cache_hit 96%; ciHealth 100% pass rate (26/26); sessionLogs 0 sessions/7d 0 commits; codeChurn 0% churn (404 deleted / 565481 added, 7d); e2eStability 0 consecutive failures (13/13 non-frontend runs; 17 CI-run head SHAs not in local git object store, skipped harmlessly); queueEfficiency composite 0.927 [fps 0.818, ttm 0.4h, $0/issue, no baseline yet]). domainActivity (no `DOMAIN_METRICS_VENUE_ID`), agentCost, lighthouse, mutationScore, flakyTests not available. issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 as every prior cloud-scheduled run since 2026-08-11 (fresh checkout this run: confirmed `GITHUB_TOKEN`/`GH_TOKEN` present but Search-API-backed queries still 403; plain `issue.list` calls, e.g. inside `verify-fixes.mjs`, succeed fine — the gap is Search-API-specific, not blanket).
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage).
+**Sentry triage:** skipped this run — out of the explicit scope given for today's invocation (metrics/regressions/verification/thresholds only); Sentry MCP was also mid-reconnect for most of the run.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #5017/#5003 need a completed CI run to verify against; #5011/#5008/#5001 need a Lighthouse inventory this sandbox can't produce without a live site audit (barred per issue #2920's no-egress-to-production constraint).
+**Skill proposals:** 0 — today is Saturday, not the Friday extraction day.
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.166 → 1.17 (headroom). 30d verification log (56 entries, 50 in-window): literal `verified/total` = 3/50 = 6% (below the 50% fix-effectiveness threshold on its face), but 46/50 are environmental `skip` abstentions (no completed CI run or no Lighthouse inventory), not real fix failures — among the 4 actionable (non-skip) verifications, effectiveness is 75% (3 verified / 1 failed), healthy, no note triggered. False-positive rate: `collect-ai-issue-feedback.mjs` hit the same Search-API 403 as `issues`/`issueFeedback` (`metrics/ai-issue-feedback.json` recorded the error, budget defaulted to 3/category, unused — no regressions this run); cross-checked instead via `mcp__github__search_issues` directly (properly authenticated) — of the 100 most-recently-closed sensor-labeled issues in the last 30 days (214 total), state_reason was 97 `completed`, 2 `duplicate`, 1 `not_planned` — false-positive rate ~1-3%, well under the 30% threshold, no loosening needed.
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Search-API-backed queries (`issues`, `issueFeedback`, `collect-ai-issue-feedback.mjs`) on every cloud-scheduled sensor run since 2026-08-11, while plain list/comment/reopen calls succeed. Not re-filing — already the standing tracked recommendation; `mcp__github__*` MCP tools remain the working alternative for anything needing Search-API-shaped queries.
+
+## 2026-09-06
+
+**queueEfficiency:** composite 0.948 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:15, size:s:9, size:l:1, size:m:6
+**Issues filed:** 0
+No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code Remote) — all queries below via `mcp__github__*` MCP tools instead of the skill's literal `gh` command list; `Closed`/time-to-close use `updated_at` as a proxy for `closedAt` since `list_issues` doesn't expose `closed_at`.
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                           | Target            | Status                                                                                            |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| Created (7d)                                 | audit 76, ci-fix 19 (raw label sums, some overlap on dual-labeled issues — no dedup performed)                                                                  | -                 | -                                                                                                 |
+| Closed (7d)                                  | audit 40, ci-fix 16                                                                                                                                             | -                 | -                                                                                                 |
+| Closure Rate                                 | ~56/95 ≈ 59% (raw sums, not deduped)                                                                                                                            | >80%              | yellow                                                                                            |
+| Time-to-Close                                | audit mean 11.2h, ci-fix mean 11.5h (both via `updated_at` proxy)                                                                                               | <24h              | green                                                                                             |
+| Agent Success (open snapshot)                | 4 has-pr / (4 has-pr + 2 agent-failed) = 66.7%                                                                                                                  | >70%              | yellow — see Patterns: the has-pr count is inflated by a labeling bug, not real backlog           |
+| CI Pass (main, last 30 runs)                 | 26 success / 27 non-cancelled = 96.3% (26/29 incl. 2 cancelled = 89.7%)                                                                                         | >95%              | green (cancelled excluded per the ciHealth-denominator lesson already in gotchas.md)              |
+| Queue (ready)                                | 44 (down from 51 at session start — this run's implement-queue iteration removed 7: 3 claimed-and-merged issues + 4 stale nightly-compliance duplicates closed) | <5                | red                                                                                               |
+| Stale (ready>7d)                             | 0 (oldest remaining `ready` issue is 2 days old, #4970, 2026-09-04)                                                                                             | 0                 | green                                                                                             |
+| Blocked (agent-failed)                       | 2 (#4914 nightly-compliance drift, #4606 feature backfill re-run)                                                                                               | 0                 | yellow                                                                                            |
+| Skipped (agent-skip)                         | 0                                                                                                                                                               | 0                 | green                                                                                             |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty, 0 bytes)                                                                                                                                    | <$10/day, <$50/7d | unmeasured — sink still empty, same as every prior entry; deferred to `/optimize-implement-queue` |
+
+### Patterns
+
+- **The 5-day-old duplicate-nightly-compliance-issue chain is now root-caused and fixed.** #4780 (08-31) through #5052 (09-05) all reported the identical `packages/rialto#test` timeout signature on 5 consecutive nightly runs — the same underlying bug, never fixed, because nothing recognized the reports as duplicates of each other (each nightly-compliance run files a fresh issue rather than checking for an existing open one with the same signature). Tonight's `/implement-queue` iteration traced it to `introspectComponents()` being re-parsed per-`it()` block plus an unconfigured `hookTimeout`, fixed both in PR #5068, and closed all five duplicates together. The underlying "nightly-compliance never dedupes" gap itself is unaddressed — worth a `meta-improvement` if a _different_ recurring nightly failure starts the same multi-day duplicate chain again.
+- **A concrete, confirmed labeling-integrity bug inflates the `has-pr` open count.** #4287 (open since 2026-08-17, `state_reason: reopened`) carries `has-pr` despite both of its closing PRs (#4540, #4567) being merged — `reopenIssue()` in `scripts/lib/file-issue-cli.mjs` calls only `gh issue reopen <N>`, never resetting labels, so any dedupe-matched reopen of a previously-merged-and-closed issue keeps its stale `has-pr` label forever with no real open PR behind it. Filed **#5071** (`meta-improvement`) recommending `reopenIssue()` invoke `@mbe/gh-client`'s `markReady` transition on reopen. This directly inflates tonight's "Agent Success" snapshot metric (4 has-pr counted, at least 1 of which is stale) and likely several prior entries' too, since this bug predates tonight.
+- **Queue depth (44 ready) is well over the <5 target**, but not urgent: 0 are stale (>7d), and the bulk (23 of 44) are the `[Audit] UX:` dashboard findings from the 2026-09-04 site-audit batch plus 6 `hospitality-service-ux [11-16/16]` feature issues that `/implement-queue` explicitly must not pick up while their tracking issue is open (claimed by a separate autorun) — so the _actually_ implement-queue-eligible backlog is smaller than the raw count suggests.
+
+### Recommendations
+
+- Next `/implement-queue` iteration: prioritize the 3 `ci-fix` issues still open (#5013 wrangler-version pin, #4961 dependency SIGABRT, #4706) before more `audit` issues, per the skill's own priority order — none were reachable this run because #5006/#5050/#5052 filled the zone-spread batch first.
+- Human or next session: review #5071 (has-pr label hygiene on reopen) — small, well-scoped fix with a clear regression-test shape.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing recommendation as every prior entry, deferred to `/optimize-implement-queue` Step 0.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open). 2 issues carry `agent-failed`: #4914 (nightly-compliance drift), #4606 (feature backfill re-run) — neither re-triaged tonight, out of scope for this pass.
+
+## 2026-09-07 (mbe-evening: implement-queue + progress-tracker)
+
+No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code Remote) — all queries via `mcp__github__*` MCP tools; `Closed`/time-to-close use `updated_at` as a proxy for `closedAt`.
+
+### implement-queue iteration summary
+
+Claimed a zone-spread batch of 3 (#4970 rialto/global, #4971 global, #4983 packages/rialto) — all `[Audit] UX:` findings from the 2026-09-04 site-audit batch. All three merged: #5087 (focus-trap restore, reviewer score 9), #5086 (chat page + DashboardLayout, reviewer score 8), #5085 (Select portal fix — flagged score 4/10 on first review for a substantiated Select-in-Dialog z-index regression, retried once with a fix + new regression test, re-reviewed score 9, merged). Along the way: merging #5087 broke main's push CI (`Visual Regression (Storybook)`, a stale test assertion for the intentional focus-target change) — root-caused, fixed in #5090, merged directly. Also discovered (not caused by any of tonight's PRs) that `Visual Regression (rialto-web)` has been red on main since the #5087 merge from a cascading baseline-drift class already documented in gotchas.md (same signature as #3301/#3517/#4560) — filed #5091 with the standard regeneration procedure rather than attempting a 46-screenshot baseline regen mid-session. Also filed #5089 for a real `pack.ts` truncation bug (`statementsPerFile = 2`) a specialist reviewer surfaced: a 3rd top-level export in a source file silently drops everything after it from `llms.txt`. Both non-blocking, both `ready`+`ci-fix`. Queue telemetry: 3 rows written prematurely (before the review gate ran) with `reviewer_verdict: "skipped"` and `merged: null` — the writer's `(issue_number, pr_number)` idempotency prevented a same-day correction; `merged`/`merged_at`/`ci_first_pass`/`rework_cycles` will backfill via `/optimize-implement-queue`'s `reconcile-queue-telemetry.mjs` (Step 0), `reviewer_verdict` stays wrong (cosmetic) for these 3 rows.
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                                        | Target            | Status                        |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------- |
+| Created/Closed (7d)                          | audit: 42 closed / 39 open; ci-fix: 16 closed / 10 open (raw label sums, no dedup)                                                                                           | -                 | -                             |
+| Closure Rate                                 | 58/(58+49) ≈ 54%                                                                                                                                                             | >80%              | yellow                        |
+| Time-to-Close                                | audit sample (n=23) mean 23.7h (`updated_at` proxy)                                                                                                                          | <24h              | yellow (right at the edge)    |
+| Agent Success (open snapshot)                | 4 has-pr / (4 has-pr + 2 agent-failed) = 66.7% — same stale-`has-pr` labeling bug as yesterday (#5071 open, unmerged) inflates this; today's own batch was 3/3 has-pr→merged | >70%              | yellow (see caveat)           |
+| CI Pass (main, last 20 runs)                 | 16 success / 16 non-cancelled/non-pending = 100% (2 cancelled excluded, 2 in-flight excluded)                                                                                | >95%              | green                         |
+| Queue (ready)                                | 48                                                                                                                                                                           | <5                | red                           |
+| Stale (ready>7d)                             | 0 (newest large batch is the 2026-09-04 UX audit findings, 3 days old)                                                                                                       | 0                 | green                         |
+| Blocked (agent-failed)                       | 2 (#4914 nightly-compliance drift, #4606 feature backfill re-run) — unchanged from yesterday                                                                                 | 0                 | yellow                        |
+| Skipped (agent-skip)                         | 0                                                                                                                                                                            | 0                 | green                         |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — matches tracked #4618, not re-filing                                                                                                                   | <$10/day, <$50/7d | unmeasured, same standing gap |
+
+### Patterns
+
+- **The Select-in-Dialog z-index regression on #5085 is a good signal the review gate is working as designed**, not a process failure: a worker's own TDD/gates can't catch a defect that only manifests when the component is composed with another rialto component it doesn't import or test against. First-round review caught it with a concrete repro (real production usage in 3 hospitality dialog components); the retry-with-new-regression-test loop resolved it in one cycle.
+- **Green-main policy in practice**: merging a reviewed, CI-green PR (#5087) still broke main's advisory (non-required) visual-regression job, because the PR's own tests didn't cover cross-workflow Playwright fixtures (`visual.spec.ts`) whose assumptions depended on the exact behavior being changed. Neither the universal reviewer nor the specialist reviewers are scoped to catch that class — worth a `meta-improvement` if it recurs on a future rialto behavior-change PR.
+- **Queue (48 ready) crossed further into red** since yesterday's 44, despite draining 3 tonight — net add of ~7 from other sources (today's own #5089/#5091 contribute 2; the rest is other automation). Consistent with yesterday's note that a large fraction of the raw count is the 2026-09-04 UX audit batch, not urgent backlog.
+
+### Recommendations
+
+- Next `/implement-queue` iteration: `Visual Regression (rialto-web)` baseline regen (#5091) and the `pack.ts` truncation fix (#5089) are both small, well-scoped, and already `ready`+`ci-fix` — good candidates for the next batch.
+- Review #5071 (has-pr label hygiene, filed 2026-09-06, still open/unmerged) — its absence is why the Agent Success metric keeps reading artificially low two nights running.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing recommendation, deferred to `/optimize-implement-queue` Step 0.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open). Same 2 `agent-failed` issues as yesterday, not re-triaged (out of scope for this pass).
+
+## 2026-09-07
+
+**queueEfficiency:** composite 0.972 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:12, size:m:8, size:s:8, size:l:1
+**Issues filed:** 0
+
+## 2026-09-07 (learning-loop)
+
+**Sensors:** 8/16 available (acmm L5 96/114 — failing gate `human-touch-ratio`, unchanged; prMetrics 115 AI PRs, 100% acceptance (30d); prCategoryMetrics 91/94 merged across tier:trivial/standard/sensitive/critical/dependencies; ccusageCost $0 (30d/7d/today), cache_hit 97%; ciHealth 88% pass rate (14/16, 2 failed of 29 completed); sessionLogs 0 sessions/7d 0 commits; codeChurn 0.1% churn (512 deleted / 568177 added, 7d); queueEfficiency composite 0.969 [fps 0.923, ttm 0.3h, $0/issue, no baseline yet]). domainActivity (no `DOMAIN_METRICS_VENUE_ID` — collector skipped cleanly per constraint against live-site egress, issue #2920), agentCost, lighthouse, mutationScore, flakyTests, e2eStability not available (e2eStability: 21 CI-run head SHAs not in local git object store, skipped harmlessly). issues/issueFeedback query-failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11; plain `issue.list`/`pr.create` calls are unaffected, only Search-API-shaped queries 403.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage); ciHealth's 88% sits within its self-tuned threshold (see below), not flagged as a regression.
+**Sentry triage:** skipped — Sentry MCP connects but every call still 403s with "Host not in allowlist: sentry.io" (confirmed via `find_organizations`), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #5050/#5006 need a completed CI run to verify against; #5015/#5000 need a Lighthouse inventory this sandbox can't produce without a live site audit (barred per issue #2920's no-egress-to-production constraint); #5052 has no matching verifier for its `meta-improvement` label.
+**Skill proposals:** 0 — today is Monday, not the Friday extraction day.
+
+## 2026-09-08 (learning-loop)
+
+Fresh cloud checkout — no `node_modules`, needed `pnpm install --frozen-lockfile` (41s) + `pnpm --dir packages/gh-client build` before `sensor-report.mjs` would run (`ERR_MODULE_NOT_FOUND` on `@mbe/gh-client` both times), same as every prior fresh-checkout run since 08-09.
+
+**Sensors:** 9/16 available (acmm L5 96/114 unchanged, prMetrics 8 entries, prCategoryMetrics 89/93 merged by category, ccusageCost $0, ciHealth 100% pass rate 27/27, sessionLogs 0 sessions/0 commits 7d, codeChurn 0% (616 deleted/568891 added), e2eStability 0 consecutive failures 12/12 non-frontend, queueEfficiency composite 0.948) — domainActivity (no `DOMAIN_METRICS_VENUE_ID`, expected), agentCost, lighthouse, mutationScore, flakyTests unavailable; issues + issueFeedback errored on the standing GitHub REST-fallback 403 (`GhAuthError` — session credential is git-over-HTTPS-only, not valid for direct API calls).
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage against `metrics/ai-issue-feedback.json` budgets, which itself only holds the 403 error object this run).
+**Sentry triage:** skipped — Sentry MCP tool connects but `find_organizations` 403'd ("Host not in allowlist: sentry.io. Add this host to your network egress settings"), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #5099/#5063 need a Lighthouse inventory this sandbox can't produce without a live site audit (barred per issue #2920's no-egress-to-production constraint); #5096/#5082/#5013 need a completed CI run to verify against.
+**Skill proposals:** 0 — today is Tuesday, not the Friday extraction day.
+**Threshold notes:** ci-fix auto-tuned 1.2 → 1.217 (headroom) by `verify-fixes.mjs`. 30d verification log remains almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable in this cloud sandbox), so false-positive and fix-effectiveness rates still aren't a meaningful signal — same standing gap as every prior run, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as the `issues`/`issueFeedback` sensors (unresolved since 08-11); default per-category budget (3) applies since no fresh feedback data landed.
+**Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.17 → 1.2 (headroom). 30d verification log (61 entries, 55 in-window): 51 skip abstentions (no completed CI run / no Lighthouse inventory / no matching verifier), 4 non-skip verifications — fix-effectiveness rate 75% (3 verified / 1 failed), healthy, no note triggered (>50% threshold). False-positive rate: `collect-ai-issue-feedback.mjs` hit the same Search-API 403 as `issues`/`issueFeedback` (`metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category, unused — no regressions this run); cross-checked instead via `mcp__github__search_issues` directly (properly authenticated) — of the first 100 (of 196 total) closed sensor-labeled issues in the last 30 days, state_reason was 97 `completed`, 2 `duplicate`, 1 `not_planned` — false-positive rate ~3%, well under the 30% threshold, no loosening needed.
+
+### Recommendation carried forward
+
+Unchanged from every entry since 08-31: the `gh-client` REST fallback 403s on Search-API-backed queries (`issues`, `issueFeedback`, `collect-ai-issue-feedback.mjs`) on every cloud-scheduled sensor run since 2026-08-11, while plain list/comment/create/reopen calls succeed. Not re-filing — already the standing tracked recommendation (`.claude/rules/gotchas.md` § Claude Code Remote / cloud sessions); `mcp__github__*` MCP tools remain the working alternative for anything needing Search-API-shaped queries.
+
+## 2026-09-08
+
+**queueEfficiency:** composite 0.972 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:11, size:s:11, size:l:2, size:m:5
+**Issues filed:** 0
+
+## 2026-09-08 (mbe-evening: implement-queue + progress-tracker)
+
+No `gh` CLI in this session (Claude Code Remote, per gotchas.md § Claude Code Remote) — all queries via `mcp__github__*` MCP tools; `Closed`/time-to-close use `updated_at` as a proxy for `closedAt`.
+
+### implement-queue iteration summary
+
+Claimed a zone-spread batch of 3: #5091 (ci-fix, packages/rialto visual baselines), #4975 (audit, .github+apps/hospitality Stripe key/deposit-verdict), #5096 (bug, services/reservations pacing/venue-local-date follow-up to #5000/#5095). #4975 and #5096 both merged clean (reviewer scores 9/9, plus stripe-flow-reviewer and e2e-selector-drift-reviewer PASS on #4975; adr-compliance-reviewer and generated-artifact-determinism-reviewer PASS on #5096) as PR #5120 and #5121. #5091 could not be completed: the worker (and this orchestrating session, independently) confirmed the root cause (stale baselines predating #5087/#5090/#5085) but every path to obtain CI-correct Linux pixels is blocked in this environment — `workflow_dispatch` for `visual-noise-floor.yml` is refused by a command-safety guard, artifact downloads (`visual-actuals-replica-a`, `rialto-web-visual-diffs`) redirect to blob storage the org egress-proxy denies, and this sandbox's pre-installed Chromium (`chromium_headless_shell-1194`) is a different Playwright driver revision than `@playwright/test@^1.62.1` expects (`-1234`), with `cdn.playwright.dev` not egress-allowlisted to fetch the matching one. Marked `agent-failed` with full findings documented on the issue. Along the way, found and filed #5119 (`ci-fix`, `ready`) for a genuinely separate, small, isolated Storybook baseline (`overlay-drawer--right`) distinct from #5091's cross-section cascade. One PR-level CI-red round on #5120: the pre-existing `deposit-enabled-config.spec.ts` test encoded the exact provisional-verdict bug the PR fixes (asserted Payment always shows once `deposit.enabled`, ignoring `stripePublishableKey`) — updated the test to assert the corrected behavior (Payment correctly absent under the Hospitality E2E env's real key gap, tracked separately by #4111) and pushed a second commit; CI green after.
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                                 | Target            | Status                                                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------- |
+| Created/Closed (7d)                          | audit: 31 closed / 29 open; ci-fix: 12 closed / 6 open (raw label sums, no dedup — several issues carry both labels)                                                  | -                 | -                                                                                                     |
+| Closure Rate                                 | 43/(43+35) ≈ 55%                                                                                                                                                      | >80%              | yellow                                                                                                |
+| Time-to-Close                                | audit sample (n=31) mean ≈ 30.0h; ci-fix sample (n=12) mean ≈ 18.4h (both `updated_at` proxy)                                                                         | <24h              | yellow (audit over target, ci-fix under)                                                              |
+| Agent Success (open snapshot)                | 5 has-pr / (5 has-pr + 2 agent-failed) = 71.4%                                                                                                                        | >70%              | green — first green reading in 3 nights (was 66.7% the prior two); #5071's stale-label bug still open |
+| CI Pass (main, last 30 runs)                 | 27 success / 27 non-cancelled/non-pending = 100% (2 cancelled, 1 in-flight excluded)                                                                                  | >95%              | green                                                                                                 |
+| Queue (ready)                                | 45 (down from 48 — this run's iteration removed 3, offset by ~2 new arrivals incl. today's own #5119)                                                                 | <5                | red                                                                                                   |
+| Stale (ready>7d)                             | 0 (oldest remaining `ready` issues are the 2026-09-04 UX audit batch, 4 days old)                                                                                     | 0                 | green                                                                                                 |
+| Blocked (agent-failed)                       | 2 (#5091 rialto visual baselines — new tonight, genuine environment blocker, see above; #4914 nightly-compliance drift, unchanged) — #4606 from prior nights resolved | 0                 | yellow                                                                                                |
+| Skipped (agent-skip)                         | 0                                                                                                                                                                     | 0                 | green                                                                                                 |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — matches tracked #4618, not re-filing                                                                                                            | <$10/day, <$50/7d | unmeasured, same standing gap                                                                         |
+
+### Patterns
+
+- **A third distinct class of "this repo's cloud sessions can't reach CI-rendered pixels" surfaced tonight, beyond the two already in gotchas.md (blob-storage egress, `workflow_dispatch` auth).** The pre-installed Chromium in this sandbox is pinned to a driver revision (`-1194`) older than what the repo's pinned `@playwright/test` version expects (`-1234`), and `cdn.playwright.dev` isn't egress-allowlisted to self-heal it. This closes off "just run `pnpm test:visual` locally" as a workaround for visual-regression issues in a cloud session — worth a gotchas.md entry if a future session hits the same wall (`chrome-headless-shell` executable-not-found immediately after a correct `pnpm --dir packages/rialto build`).
+- **Agent Success crossed into green (71.4%) for the first time in the last 3 tracked nights**, purely from this run's own batch (2 of 3 issues closed clean via has-pr→merged) outrunning the standing #5071 stale-label inflation rather than that bug being fixed — #5071 itself is still open and unmerged.
+- **Queue depth (45) stayed red but continued its slow drain** (48→45), consistent with the last two nights' note that a large fraction of the raw count (the 2026-09-04 UX audit batch, still 0 days into staleness) isn't urgent backlog pressure.
+
+### Recommendations
+
+- Next `/implement-queue` iteration: #5119 (Storybook `overlay-drawer--right` baseline, small/isolated) and #5099 (qs pnpm.overrides stale, mechanical) are both `ready` and well-scoped. #5091 (rialto-web visual cascade) should NOT be retried by an isolated worker until one of: `gh`/working MCP GitHub tools in the worker's own tool set, or an egress allowlist covering `*.blob.core.windows.net` / `cdn.playwright.dev` — otherwise it will burn another full session for the same documented reason.
+- Review #5071 (has-pr label hygiene on reopen, filed 2026-09-06, still open/unmerged) — same recommendation as the last two nights.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing recommendation, deferred to `/optimize-implement-queue` Step 0.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open). 1 new `agent-failed` issue tonight (#5091, environment blocker, documented on the issue and above); #4914 unchanged from prior nights, not re-triaged (out of scope for this pass).
+
+## 2026-09-09
+
+**queueEfficiency:** composite 0.952 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:13, size:m:4, size:xs:7, size:l:1
+**Issues filed:** 0
+
+## 2026-09-09 (mbe-evening)
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                       | Target            | Status                                              |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------- |
+| Created (7d)                                 | audit: 52, ci-fix: 22 (raw label sums, no dedup) = 74                                                                                                       | -                 | -                                                   |
+| Closed (7d)                                  | audit: 31, ci-fix: 11 (raw label sums, `updated_at` proxy for `closedAt`) = 42                                                                              | -                 | -                                                   |
+| Closure Rate                                 | 42/74 ≈ 57%                                                                                                                                                 | >80%              | yellow                                              |
+| Time-to-Close                                | wide variance — many same-day audit/ci-fix closures, alongside this run's own #4973/#4994/#5004 chain (created 2026-09-04, closed 2026-09-09, ~5 days each) | <24h              | mixed — not a clean single-number estimate this run |
+| Agent Success (open snapshot)                | 5 has-pr / (5 has-pr + 2 agent-failed) = 71.4%                                                                                                              | >70%              | green                                               |
+| CI Pass (main, last 20 runs)                 | 17 success / 17 non-cancelled = 100% (3 cancelled — concurrency-superseded pushes during this run's own merge train, excluded as noise)                     | >95%              | green                                               |
+| Queue (ready)                                | 43                                                                                                                                                          | <5                | red                                                 |
+| Stale (ready>7d)                             | not exhaustively verified this run (queue paginated beyond what was checked); no >7d items found in the portion reviewed                                    | 0                 | unverified                                          |
+| Blocked (agent-failed)                       | 2 (#5091 rialto visual baselines, #4914 nightly-compliance drift) — both carried over from prior nights, not re-triaged this run                            | 0                 | yellow                                              |
+| Skipped (agent-skip)                         | 0                                                                                                                                                           | 0                 | green                                               |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — matches tracked #4618, not re-filing                                                                                                  | <$10/day, <$50/7d | unmeasured, same standing gap                       |
+
+### Patterns
+
+- **This run's own implement-queue iteration closed 3 issues (#4973, #4994, #5004) via #5149/#5146/#5147, plus a same-session CI-fix (#5150, unrelated to the batch's own diffs) and a telemetry PR (#5151).** All four were blocked mid-run by a newly-published high-severity `pnpm audit` advisory (GHSA-2883-xcg3-v3hh, js-yaml) that started failing Build on every open PR — including PRs this run didn't touch — with zero code-diff relationship to any of them. This is the documented "advisory database updates live" class already in `.claude/rules/gotchas.md` § CI; no new gotcha needed, but it's the reason `ci_first_pass`/`rework_cycles` read false/1 for all three telemetry rows tonight despite the underlying diffs being clean on their first pass.
+- **Queue depth (43) stayed red**, still dominated by the 2026-09-04 `hospitality-service-ux` UX-audit batch (~19 issues, #4974–#4992) and a smaller `meta-improvement`/scripts cluster (#5012/#5014/#5016). The five sequential `[Feature] hospitality-service-ux [11–16/16]` issues (#5031–#5036) are explicitly excluded from `/implement-queue` pickup by their own "Execution note" (claimed by a dedicated autorun) — they inflate the raw `ready` count without being real queue pressure.
+- **No `gh` CLI in this cloud session** (per gotchas.md, expected) — every GitHub interaction this run went through `mcp__github__*` tools instead; `scripts/ci-gate-status.mjs`, `scripts/reap-worktrees.mjs`'s merged-PR-evidence check, and this skill's own `gh issue list`/`gh pr list` queries all needed a manual MCP-tool substitute. Worktree reaper ran but reclaimed 0 (fails closed without `gh`-sourced merge evidence, as designed).
+
+### Recommendations
+
+- Queue composition suggests the next `/implement-queue` iteration should keep picking non-hospitality-zone `audit`/`meta-improvement` issues (e.g. #5012, #5014, #5016, #4994-successors) to keep zone-spread batches diverse, since the hospitality UX batch is large but low-urgency (all filed same day, `S`/`LOW` effort+risk).
+- #5091 (rialto-web visual cascade) and #4914 (nightly-compliance drift) remain open `agent-failed` — neither was re-triaged this run; worth a dedicated pass since both are now multi-night carryovers.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing gap as #4618, deferred to `/optimize-implement-queue` Step 0 per prior nights' convention.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).

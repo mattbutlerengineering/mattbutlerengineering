@@ -97,6 +97,25 @@ describe("deploy-services.yml wiring", () => {
     expect(deployJob).toContain("actions/checkout");
   });
 
+  it("triggers on the packages whose code the deployed services boot with", () => {
+    // Found at Review of maintenance:backend-observability-blackout. The merge
+    // that ended the blackout (#4927, packages/sentry only) matched no entry in
+    // this filter, so it deployed NOTHING -- the fix sat on main, green, and
+    // unshipped until a manual `gh workflow run`. A merged fix that silently
+    // never reaches production is the same shape as the blackout it fixed.
+    //
+    // scripts/check-workflow-paths-coverage.mjs cannot catch this: it derives
+    // the exercised surface from path tokens in `run:` blocks, and explicitly
+    // does not model transitive dependencies. These packages are never NAMED by
+    // this workflow -- they arrive inside the Docker images it deploys.
+    const trigger = DEPLOY_WORKFLOW.slice(0, DEPLOY_WORKFLOW.indexOf("workflow_dispatch"));
+    for (const pkg of ["packages/observability", "packages/sentry", "packages/service-bootstrap"]) {
+      expect(trigger, `${pkg} can change without redeploying the services that run it`).toContain(
+        `"${pkg}/**"`
+      );
+    }
+  });
+
   it("runs the guard before patching the app spec", () => {
     const guardAt = DEPLOY_WORKFLOW.indexOf("require-deploy-secrets.mjs");
     const patchAt = DEPLOY_WORKFLOW.indexOf("Inject deploy metadata into app spec");

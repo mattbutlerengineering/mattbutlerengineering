@@ -5,6 +5,7 @@ import {
   useCallback,
   useId,
   useEffect,
+  useMemo,
   type InputHTMLAttributes,
 } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -63,8 +64,9 @@ export const Autocomplete = forwardRef<HTMLInputElement, AutocompleteProps>(
     const wrapperRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-    const filtered = options.filter((opt) =>
-      opt.label.toLowerCase().includes(inputValue.toLowerCase())
+    const filtered = useMemo(
+      () => options.filter((opt) => opt.label.toLowerCase().includes(inputValue.toLowerCase())),
+      [options, inputValue]
     );
 
     // Map AutocompleteOption[] to ComboboxItem[] for the hook.

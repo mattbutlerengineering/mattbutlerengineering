@@ -17,6 +17,15 @@ const PLATFORM_VARS = new Set([
   "CI",
   "OTEL_EXPORTER_OTLP_ENDPOINT",
   "OTEL_EXPORTER_OTLP_HEADERS",
+  // Signal-specific endpoint overrides, which OTel prefers over the generic
+  // key above. Pre-registered rather than currently required: the scanner
+  // only matches a literal `process.env.NAME` (see processRe below), and
+  // packages/observability reads these through resolveTelemetryPlan(env),
+  // which indexes a parameter with named constants — invisible to that
+  // regex. These entries take effect the moment any module reads them
+  // directly, and they are platform-injected either way, never hand-set.
+  "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+  "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
   "OTEL_SERVICE_NAME",
   "SENTRY_RELEASE",
   "DEV",

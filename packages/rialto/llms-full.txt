@@ -123,6 +123,130 @@
     function pad(value: number, length: number): string {
       return String(value).padStart(length, "0");
     }
+    export function parseIsoDate(iso: string): { year: number; month: number; day: number } | null {
+      const match = ISO_DATE.exec(iso);
+      if (!match) return null;
+    
+      const year = Number(match[1] ?? 0);
+      const month = Number(match[2] ?? 0); // 1-12 as authored
+      const day = Number(match[3] ?? 0);
+    
+      // Reject impossible dates (e.g. 2024-02-31) by round-tripping through UTC.
+      const utc = new Date(Date.UTC(year, month - 1, day));
+      if (
+        utc.getUTCFullYear() !== year ||
+        utc.getUTCMonth() !== month - 1 ||
+        utc.getUTCDate() !== day
+      ) {
+        return null;
+      }
+    
+      return { year, month, day };
+    }
+    export function toIsoDate(year: number, month: number, day: number): string {
+      const utc = new Date(Date.UTC(year, month, day));
+      return `${pad(utc.getUTCFullYear(), 4)}-${pad(utc.getUTCMonth() + 1, 2)}-${pad(
+        utc.getUTCDate(),
+        2
+      )}`;
+    }
+    function isoToUtc(iso: string): Date {
+      const parts = parseIsoDate(iso);
+      const safe = parts ?? { year: 1970, month: 1, day: 1 };
+      return new Date(Date.UTC(safe.year, safe.month - 1, safe.day));
+    }
+    export function addDays(iso: string, delta: number): string {
+      const utc = isoToUtc(iso);
+      return toIsoDate(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate() + delta);
+    }
+    export function daysInMonth(year: number, month: number): number {
+      return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    }
+    export function addMonthsToIso(iso: string, delta: number): string {
+      const parts = parseIsoDate(iso) ?? { year: 1970, month: 1, day: 1 };
+      const target = addMonthsToMonth({ year: parts.year, month: parts.month - 1 }, delta);
+      const day = Math.min(parts.day, daysInMonth(target.year, target.month));
+      return toIsoDate(target.year, target.month, day);
+    }
+    export function addMonthsToMonth(month: CalendarMonth, delta: number): CalendarMonth {
+      const total = month.year * 12 + month.month + delta;
+      const year = Math.floor(total / 12);
+      return { year, month: total - year * 12 };
+    }
+    export function monthOfIso(iso: string): CalendarMonth {
+      const parts = parseIsoDate(iso) ?? { year: 1970, month: 1, day: 1 };
+      return { year: parts.year, month: parts.month - 1 };
+    }
+    export function startOfWeek(iso: string, weekStartsOn: number): string {
+      const lead = (isoToUtc(iso).getUTCDay() - weekStartsOn + 7) % 7;
+      return addDays(iso, -lead);
+    }
+    export function buildWeeks(month: CalendarMonth, weekStartsOn: number): string[][] {
+      const gridStart = startOfWeek(toIsoDate(month.year, month.month, 1), weekStartsOn);
+      const weeks: string[][] = [];
+      let cursor = gridStart;
+    
+      for (let week = 0; week < 6; week += 1) {
+        const row: string[] = [];
+        for (let day = 0; day < 7; day += 1) {
+          row.push(cursor);
+          cursor = addDays(cursor, 1);
+        }
+        weeks.push(row);
+      }
+    
+      return weeks;
+    }
+    interface WeekInfoLike {
+      readonly firstDay: number;
+    }
+    export function resolveWeekStart(
+      locale: string | undefined,
+      weekStartsOn: number | undefined
+    ): number {
+      if (weekStartsOn !== undefined) return weekStartsOn;
+    
+      try {
+        const resolved = new Intl.Locale(locale ?? "en-US") as Intl.Locale & {
+          readonly weekInfo?: WeekInfoLike;
+          readonly getWeekInfo?: () => WeekInfoLike;
+        };
+        const info =
+          typeof resolved.getWeekInfo === "function" ? resolved.getWeekInfo() : resolved.weekInfo;
+        if (info && typeof info.firstDay === "number") {
+          // Intl reports 1 (Monday) … 7 (Sunday); normalise to 0 (Sunday) … 6.
+          return info.firstDay % 7;
+        }
+      } catch {
+        // Fall through to the Monday default for unsupported locales/runtimes.
+      }
+    
+      return 1; // Monday
+    }
+    export function weekdayLabels(
+      locale: string | undefined,
+      weekStartsOn: number
+    ): { short: string; long: string }[] {
+      const shortFmt = new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" });
+      const longFmt = new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" });
+      const day = 24 * 60 * 60 * 1000;
+    
+      return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(WEEKDAY_REFERENCE + ((weekStartsOn + index) % 7) * day);
+        return { short: shortFmt.format(date), long: longFmt.format(date) };
+      });
+    }
+    export function localToday(): string {
+      const now = new Date();
+      return toIsoDate(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+    export function monthLabel(month: CalendarMonth, locale: string | undefined): string {
+      return new Intl.DateTimeFormat(locale, {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(Date.UTC(month.year, month.month, 1)));
+    }
   </file>
   </section>
   <section priority="medium" role="Card">
@@ -172,6 +296,185 @@
       role: "user" | "assistant";
       content: string;
       elements?: ChatMessageElement[];
+    }
+    export interface PendingAction {
+      actionId: string;
+      toolName: string;
+      toolInput: Record<string, unknown>;
+    }
+    interface NDJSONLine {
+      type: "text" | "tool_status" | "element" | "action_request";
+      content?: string;
+      tool?: string;
+      status?: string;
+      element?: ChatMessageElement;
+      actionId?: string;
+      toolName?: string;
+      toolInput?: Record<string, unknown>;
+    }
+    export interface UseChatStreamOptions {
+      api: string;
+      domainContext: DomainContext;
+      getAccessToken: () => string | null | Promise<string | null>;
+    }
+    export interface UseChatStreamReturn {
+      messages: ChatMessage[];
+      isStreaming: boolean;
+      error: Error | null;
+      pendingAction: PendingAction | null;
+      send: (content: string) => Promise<void>;
+      stop: () => void;
+      retry: () => Promise<void>;
+      confirmAction: () => Promise<void>;
+      cancelAction: () => void;
+    }
+    export function useChatStream({ api, getAccessToken }: UseChatStreamOptions): UseChatStreamReturn {
+      const [messages, setMessages] = useState<ChatMessage[]>([]);
+      const [isStreaming, setIsStreaming] = useState(false);
+      const [error, setError] = useState<Error | null>(null);
+      const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+    
+      const abortControllerRef = useRef<AbortController | null>(null);
+      const getAccessTokenRef = useRef(getAccessToken);
+      const messagesRef = useRef(messages);
+      const pendingActionRef = useRef(pendingAction);
+      const lastRequestRef = useRef<{
+        body: Record<string, unknown>;
+        baseMessages: ChatMessage[];
+      } | null>(null);
+    
+      useEffect(() => {
+        getAccessTokenRef.current = getAccessToken;
+      }, [getAccessToken]);
+    
+      useEffect(() => {
+        messagesRef.current = messages;
+      }, [messages]);
+    
+      useEffect(() => {
+        pendingActionRef.current = pendingAction;
+      }, [pendingAction]);
+    
+      const streamRequest = useCallback(
+        async (body: Record<string, unknown>, baseMessages: ChatMessage[]): Promise<void> => {
+          abortControllerRef.current?.abort();
+          const controller = new AbortController();
+          abortControllerRef.current = controller;
+    
+          lastRequestRef.current = { body, baseMessages };
+          setIsStreaming(true);
+          setError(null);
+    
+          let assistantContent = "";
+          const elements: ChatMessageElement[] = [];
+          const currentMessages = baseMessages;
+    
+          try {
+            const token = await Promise.resolve(getAccessTokenRef.current());
+            const stream = streamNDJSON<NDJSONLine>({
+              url: api,
+              body,
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              signal: controller.signal,
+            });
+    
+            for await (const line of stream) {
+              if (line.type === "text" && line.content) {
+                assistantContent += line.content;
+                const msg: ChatMessage = { role: "assistant", content: assistantContent };
+                if (elements.length > 0) msg.elements = [...elements];
+                setMessages([...currentMessages, msg]);
+              } else if (line.type === "element" && line.element) {
+                elements.push(line.element);
+                const msg: ChatMessage = { role: "assistant", content: assistantContent };
+                if (elements.length > 0) msg.elements = [...elements];
+                setMessages([...currentMessages, msg]);
+              } else if (line.type === "action_request" && line.actionId && line.toolName) {
+                setPendingAction({
+                  actionId: line.actionId,
+                  toolName: line.toolName,
+                  toolInput: line.toolInput ?? {},
+                });
+              }
+            }
+    
+            if (assistantContent || elements.length > 0) {
+              const msg: ChatMessage = { role: "assistant", content: assistantContent };
+              if (elements.length > 0) msg.elements = [...elements];
+              setMessages([...currentMessages, msg]);
+            }
+    
+            setIsStreaming(false);
+          } catch (err) {
+            if (err instanceof Error && err.name === "AbortError") {
+              setIsStreaming(false);
+              return;
+            }
+    
+            const caughtError = err instanceof Error ? err : new Error(String(err));
+            setError(caughtError);
+            setIsStreaming(false);
+          }
+        },
+        [api]
+      );
+    
+      const send = useCallback(
+        async (content: string): Promise<void> => {
+          const userMessage: ChatMessage = { role: "user", content };
+          const updatedMessages = [...messagesRef.current, userMessage];
+          setMessages(updatedMessages);
+    
+          await streamRequest(
+            { messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })) },
+            updatedMessages
+          );
+        },
+        [streamRequest]
+      );
+    
+      const confirmAction = useCallback(async (): Promise<void> => {
+        const action = pendingActionRef.current;
+        if (!action) return;
+    
+        setPendingAction(null);
+    
+        const currentMsgs = messagesRef.current;
+        await streamRequest(
+          {
+            messages: currentMsgs.map((m) => ({ role: m.role, content: m.content })),
+            actionConfirm: { actionId: action.actionId },
+          },
+          currentMsgs
+        );
+      }, [streamRequest]);
+    
+      const cancelAction = useCallback(() => {
+        setPendingAction(null);
+      }, []);
+    
+      const stop = useCallback(() => {
+        abortControllerRef.current?.abort();
+        setIsStreaming(false);
+      }, []);
+    
+      const retry = useCallback(async (): Promise<void> => {
+        const last = lastRequestRef.current;
+        if (!last) return;
+        await streamRequest(last.body, last.baseMessages);
+      }, [streamRequest]);
+    
+      return {
+        messages,
+        isStreaming,
+        error,
+        pendingAction,
+        send,
+        stop,
+        retry,
+        confirmAction,
+        cancelAction,
+      };
     }
   </file>
   </section>
@@ -322,6 +625,102 @@
       const bitmasks = FONT[upper] ?? FONT[" "]!;
       return bitmasks.map(decodeBitmaskRow);
     }
+    export interface TextToMatrixOptions {
+      /** Columns of empty space between characters. Default 1. */
+      letterSpacing?: number;
+      /** Target row count — vertically centers the text if taller than 7. */
+      rows?: number;
+      /** Target column count — pads or truncates horizontally. */
+      cols?: number;
+      /** Horizontal alignment when cols is specified. Default "start". */
+      align?: "start" | "center" | "end";
+    }
+    export function textToMatrix(
+      text: string,
+      options: TextToMatrixOptions = {}
+    ): readonly (readonly boolean[])[] {
+      const { letterSpacing = 1, rows, cols, align = "start" } = options;
+    
+      if (text.length === 0) {
+        const h = rows ?? CHAR_HEIGHT;
+        const w = cols ?? 0;
+        return createEmptyMatrix(h, w);
+      }
+    
+      // Build raw character matrices
+      const charMatrices = [...text].map(charToMatrix);
+    
+      // Calculate total width
+      const rawWidth = charMatrices.length * CHAR_WIDTH + (charMatrices.length - 1) * letterSpacing;
+    
+      // Compose into a single matrix (CHAR_HEIGHT rows)
+      const composed: boolean[][] = Array.from({ length: CHAR_HEIGHT }, () =>
+        Array<boolean>(rawWidth).fill(false)
+      );
+    
+      let colOffset = 0;
+      for (const charMatrix of charMatrices) {
+        for (let row = 0; row < CHAR_HEIGHT; row++) {
+          for (let col = 0; col < CHAR_WIDTH; col++) {
+            composed[row]![colOffset + col] = charMatrix[row]![col]!;
+          }
+        }
+        colOffset += CHAR_WIDTH + letterSpacing;
+      }
+    
+      // Apply vertical centering if rows > CHAR_HEIGHT
+      let result: boolean[][];
+      const targetRows = rows ?? CHAR_HEIGHT;
+      if (targetRows > CHAR_HEIGHT) {
+        const topPad = Math.floor((targetRows - CHAR_HEIGHT) / 2);
+        result = Array.from({ length: targetRows }, (_, r) => {
+          const srcRow = r - topPad;
+          if (srcRow >= 0 && srcRow < CHAR_HEIGHT) {
+            return composed[srcRow]!;
+          }
+          return Array<boolean>(rawWidth).fill(false);
+        });
+      } else {
+        result = composed;
+      }
+    
+      // Apply horizontal alignment if cols specified
+      if (cols !== undefined) {
+        const currentWidth = result[0]?.length ?? 0;
+        if (currentWidth < cols) {
+          const pad = cols - currentWidth;
+          const leftPad = align === "center" ? Math.floor(pad / 2) : align === "end" ? pad : 0;
+          result = result.map((row) => [
+            ...Array<boolean>(leftPad).fill(false),
+            ...row,
+            ...Array<boolean>(pad - leftPad).fill(false),
+          ]);
+        } else if (currentWidth > cols) {
+          result = result.map((row) => row.slice(0, cols));
+        }
+      }
+    
+      return result;
+    }
+    export function createEmptyMatrix(rows: number, cols: number): readonly (readonly boolean[])[] {
+      return Array.from({ length: rows }, () => Array<boolean>(cols).fill(false));
+    }
+    export function mergeMatrices(
+      target: readonly (readonly boolean[])[],
+      source: readonly (readonly boolean[])[],
+      offsetRow: number,
+      offsetCol: number
+    ): readonly (readonly boolean[])[] {
+      return target.map((row, r) => {
+        const srcRow = r - offsetRow;
+        if (srcRow < 0 || srcRow >= source.length) return row;
+        return row.map((dot, c) => {
+          const srcCol = c - offsetCol;
+          if (srcCol < 0 || srcCol >= source[srcRow]!.length) return dot;
+          return dot || source[srcRow]![srcCol]!;
+        });
+      });
+    }
   </file>
   <file path="src/components/FlipDot/use-flip-dot-animation.ts">
     export type FlipDotAnimationMode =
@@ -344,6 +743,181 @@
       /** Start automatically on mount. @default true */
       autoStart?: boolean;
     }
+    export interface UseFlipDotAnimationReturn {
+      matrix: readonly (readonly boolean[])[];
+      start: () => void;
+      pause: () => void;
+      reset: () => void;
+      isPlaying: boolean;
+    }
+    export function useFlipDotAnimation(
+      options: UseFlipDotAnimationOptions
+    ): UseFlipDotAnimationReturn {
+      const {
+        text = "",
+        frames,
+        rows,
+        cols,
+        mode = "scroll-left",
+        speed = 150,
+        loop = false,
+        autoStart = true,
+      } = options;
+    
+      const empty = createEmptyMatrix(rows, cols);
+      const [matrix, setMatrix] = useState<readonly (readonly boolean[])[]>(empty);
+      const [isPlaying, setIsPlaying] = useState(false);
+    
+      const stepRef = useRef(0);
+      const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    
+      // Pre-compute the full text matrix (wider than the display for scrolling)
+      const fullMatrixRef = useRef<readonly (readonly boolean[])[]>(empty);
+      useEffect(() => {
+        if (text && mode !== "frames") {
+          fullMatrixRef.current = textToMatrix(text, { rows });
+        }
+      }, [text, rows, mode]);
+    
+      const clearTimer = useCallback(() => {
+        if (intervalRef.current !== null) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      }, []);
+    
+      const sliceColumns = useCallback(
+        (
+          source: readonly (readonly boolean[])[],
+          startCol: number,
+          width: number
+        ): readonly (readonly boolean[])[] => {
+          return source.map((row) => {
+            const result: boolean[] = [];
+            for (let i = 0; i < width; i++) {
+              const srcCol = startCol + i;
+              result.push(srcCol >= 0 && srcCol < row.length ? (row[srcCol] ?? false) : false);
+            }
+            return result;
+          });
+        },
+        []
+      );
+    
+      const tick = useCallback(() => {
+        const step = stepRef.current;
+        const full = fullMatrixRef.current;
+        const fullWidth = full[0]?.length ?? 0;
+    
+        switch (mode) {
+          case "typewriter": {
+            // Reveal one column at a time from the left
+            const visibleCols = Math.min(step + 1, cols, fullWidth);
+            const sliced = sliceColumns(full, 0, visibleCols);
+            // Pad to full display width
+            setMatrix(
+              sliced.map((row) => [
+                ...row,
+                ...Array<boolean>(Math.max(0, cols - row.length)).fill(false),
+              ])
+            );
+            if (visibleCols >= Math.min(cols, fullWidth)) {
+              if (loop) {
+                stepRef.current = 0;
+              } else {
+                clearTimer();
+                setIsPlaying(false);
+              }
+              return;
+            }
+            break;
+          }
+    
+          case "scroll-left": {
+            const totalWidth = fullWidth + cols; // scroll fully off-screen
+            const offset = step - cols; // start off-screen right
+            setMatrix(sliceColumns(full, offset, cols));
+            if (step >= totalWidth) {
+              if (loop) {
+                stepRef.current = 0;
+              } else {
+                clearTimer();
+                setIsPlaying(false);
+              }
+              return;
+            }
+            break;
+          }
+    
+          case "scroll-right": {
+            const totalWidth = fullWidth + cols;
+            const offset = fullWidth - step; // start off-screen left
+            setMatrix(sliceColumns(full, offset, cols));
+            if (step >= totalWidth) {
+              if (loop) {
+                stepRef.current = 0;
+              } else {
+                clearTimer();
+                setIsPlaying(false);
+              }
+              return;
+            }
+            break;
+          }
+    
+          case "blink": {
+            const show = step % 2 === 0;
+            setMatrix(show ? sliceColumns(full, 0, cols) : empty);
+            break;
+          }
+    
+          case "frames": {
+            if (!frames || frames.length === 0) return;
+            const frameIndex = loop ? step % frames.length : Math.min(step, frames.length - 1);
+            setMatrix(frames[frameIndex]!);
+            if (!loop && step >= frames.length - 1) {
+              clearTimer();
+              setIsPlaying(false);
+              return;
+            }
+            break;
+          }
+        }
+    
+        stepRef.current += 1;
+      }, [mode, cols, loop, frames, empty, sliceColumns, clearTimer]);
+    
+      const start = useCallback(() => {
+        clearTimer();
+        setIsPlaying(true);
+        intervalRef.current = setInterval(tick, speed);
+      }, [clearTimer, tick, speed]);
+    
+      const pause = useCallback(() => {
+        clearTimer();
+        setIsPlaying(false);
+      }, [clearTimer]);
+    
+      const reset = useCallback(() => {
+        clearTimer();
+        stepRef.current = 0;
+        setMatrix(empty);
+        setIsPlaying(false);
+      }, [clearTimer, empty]);
+    
+      // Auto-start on mount — setState here is intentional (sync initial state with timer)
+      useEffect(() => {
+        if (autoStart) {
+          stepRef.current = 0;
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional mount sync
+          setIsPlaying(true);
+          intervalRef.current = setInterval(tick, speed);
+        }
+        return clearTimer;
+      }, [autoStart, tick, speed, clearTimer]);
+    
+      return { matrix, start, pause, reset, isPlaying };
+    }
   </file>
   <file path="src/components/FlipDot/use-flip-dot-sound.ts">
     interface UseFlipDotSoundOptions {
@@ -355,6 +929,89 @@
       playClick: () => void;
       /** Play a composite click for multiple simultaneous flips. */
       playBatchClick: (count: number) => void;
+    }
+    export function useFlipDotSound({
+      enabled,
+      volume = 0.3,
+    }: UseFlipDotSoundOptions): UseFlipDotSoundReturn {
+      const ctxRef = useRef<AudioContext | null>(null);
+      const volumeRef = useRef(volume);
+    
+      useEffect(() => {
+        volumeRef.current = volume;
+      }, [volume]);
+    
+      const getContext = useCallback((): AudioContext => {
+        if (!ctxRef.current) {
+          ctxRef.current = new AudioContext();
+        }
+        if (ctxRef.current.state === "suspended") {
+          ctxRef.current.resume();
+        }
+        return ctxRef.current;
+      }, []);
+    
+      useEffect(() => {
+        return () => {
+          ctxRef.current?.close();
+          ctxRef.current = null;
+        };
+      }, []);
+    
+      const playClick = useCallback(() => {
+        if (!enabled) return;
+        const ctx = getContext();
+        const now = ctx.currentTime;
+    
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+    
+        osc.type = "square";
+        osc.frequency.value = 1800 + Math.random() * 400; // 1800-2200 Hz
+    
+        gain.gain.setValueAtTime(volumeRef.current * 0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+    
+        osc.start(now);
+        osc.stop(now + 0.03);
+      }, [enabled, getContext]);
+    
+      const playBatchClick = useCallback(
+        (count: number) => {
+          if (!enabled || count <= 0) return;
+          const ctx = getContext();
+          const now = ctx.currentTime;
+    
+          // Scale volume and duration with count, capped for sanity
+          const batchVolume = Math.min(volumeRef.current, volumeRef.current * (0.4 + count * 0.03));
+          const duration = Math.min(0.06, 0.025 + count * 0.001);
+          const layerCount = Math.min(count, 4);
+    
+          for (let i = 0; i < layerCount; i++) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+    
+            osc.type = "square";
+            osc.frequency.value = 1600 + Math.random() * 800;
+    
+            const layerVolume = batchVolume / layerCount;
+            gain.gain.setValueAtTime(layerVolume, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+    
+            osc.start(now + Math.random() * 0.005);
+            osc.stop(now + duration + 0.01);
+          }
+        },
+        [enabled, getContext]
+      );
+    
+      return { playClick, playBatchClick };
     }
   </file>
   </section>
@@ -392,6 +1049,11 @@
       unregisterField: (name: string) => void;
     }
     export const FormContext = createContext<FormContextValue | null>(null);
+    export function useFormContext(): FormContextValue {
+      const ctx = useContext(FormContext);
+      if (!ctx) throw new Error("FormField must be used within a <Form>");
+      return ctx;
+    }
   </file>
   </section>
   <section priority="medium" role="FormField">
@@ -492,10 +1154,214 @@
       readonly goldStyle: StrandStyle;
       readonly silkStyle: StrandStyle;
     }
+    interface Strand {
+      x: number;
+      y: number;
+      px: number;
+      py: number;
+    }
+    export function startSilkFlow(canvas: HTMLCanvasElement): () => void {
+      const ctx = canvas.getContext("2d");
+      return ctx ? runFlowField(canvas, ctx) : () => {};
+    }
+    function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): () => void {
+      const noise = createValueNoise();
+      const pointer = { x: Number.NEGATIVE_INFINITY, y: Number.NEGATIVE_INFINITY };
+    
+      let palette = readPalette(canvas);
+      let strands: Strand[] = [];
+      let silkStrands: Strand[] = [];
+      let goldStrands: Strand[] = [];
+      let width = 0;
+      let height = 0;
+      let time = 0;
+      /** The first frame paints an opaque wash so trails fade in from the surface. */
+      let washed = false;
+      let frameId = 0;
+      let onScreen = true;
+    
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        strands = Array.from({ length: silkParticleCount(width, height) }, () =>
+          respawn({ x: 0, y: 0, px: 0, py: 0 })
+        );
+        goldStrands = strands.filter((_, index) => index % GOLD_EVERY_NTH === 0);
+        silkStrands = strands.filter((_, index) => index % GOLD_EVERY_NTH !== 0);
+        washed = false;
+      }
+    
+      /** Moves a strand to a fresh random position, leaving no trailing segment. */
+      function respawn(strand: Strand): Strand {
+        strand.x = Math.random() * width;
+        strand.y = Math.random() * height;
+        strand.px = strand.x;
+        strand.py = strand.y;
+        return strand;
+      }
+    
+      function advance(strand: Strand) {
+        const angle = silkStrandAngle(noise, strand.x, strand.y, time);
+        let vx = Math.cos(angle) * SPEED;
+        let vy = Math.sin(angle) * SPEED;
+    
+        const dx = strand.x - pointer.x;
+        const dy = strand.y - pointer.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance > 0 && distance < POINTER_RADIUS) {
+          const push = (1 - distance / POINTER_RADIUS) * POINTER_PUSH;
+          vx += (dx / distance) * push;
+          vy += (dy / distance) * push;
+        }
+    
+        strand.px = strand.x;
+        strand.py = strand.y;
+        strand.x += vx;
+        strand.y += vy;
+    
+        // Respawning collapses the segment to a point, which `strokeGroup` skips —
+        // that is what stops a trail being drawn across the jump.
+        if (strand.x < 0 || strand.x > width || strand.y < 0 || strand.y > height) respawn(strand);
+      }
+    
+      /** Draws one batch of strands as a single path — one style change per frame. */
+      function strokeGroup(group: readonly Strand[], color: string, style: StrandStyle) {
+        ctx.globalAlpha = style.alpha;
+        ctx.lineWidth = style.width;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        for (const strand of group) {
+          // A collapsed segment means the strand just respawned elsewhere.
+          if (strand.px === strand.x && strand.py === strand.y) continue;
+          ctx.moveTo(strand.px, strand.py);
+          ctx.lineTo(strand.x, strand.y);
+        }
+        ctx.stroke();
+      }
+    
+      function drawFrame() {
+        ctx.globalAlpha = washed ? TRAIL_FADE_ALPHA : 1;
+        ctx.fillStyle = palette.surface;
+        ctx.fillRect(0, 0, width, height);
+        washed = true;
+    
+        time += FIELD_TIME_STEP;
+        for (const strand of strands) advance(strand);
+    
+        ctx.lineCap = "round";
+        strokeGroup(silkStrands, palette.silk, palette.silkStyle);
+        strokeGroup(goldStrands, palette.accent, palette.goldStyle);
+      }
+    
+      function tick() {
+        frameId = requestAnimationFrame(tick);
+        drawFrame();
+      }
+    
+      function play() {
+        if (!frameId) frameId = requestAnimationFrame(tick);
+      }
+    
+      function pause() {
+        if (!frameId) return;
+        cancelAnimationFrame(frameId);
+        frameId = 0;
+      }
+    
+      /** Frames are only worth spending while the canvas is both on screen and on top. */
+      function syncPlayback() {
+        if (onScreen && !document.hidden) play();
+        else pause();
+      }
+    
+      function handlePointerMove(event: PointerEvent) {
+        const rect = canvas.getBoundingClientRect();
+        pointer.x = event.clientX - rect.left;
+        pointer.y = event.clientY - rect.top;
+      }
+    
+      const intersection = new IntersectionObserver((entries) => {
+        onScreen = entries.some((entry) => entry.isIntersecting);
+        syncPlayback();
+      });
+      intersection.observe(canvas);
+    
+      const themeChange = new MutationObserver(() => {
+        palette = readPalette(canvas);
+      });
+      themeChange.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+      });
+    
+      window.addEventListener("pointermove", handlePointerMove, { passive: true });
+      window.addEventListener("resize", resize);
+      document.addEventListener("visibilitychange", syncPlayback);
+    
+      resize();
+      play();
+    
+      return () => {
+        pause();
+        intersection.disconnect();
+        themeChange.disconnect();
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("resize", resize);
+        document.removeEventListener("visibilitychange", syncPlayback);
+      };
+    }
+    function readPalette(element: Element): Palette {
+      const computed = getComputedStyle(element);
+      // Nearest theme scope, not the root — a page may nest a light and a dark
+      // sample side by side, and each canvas should honour the scope it sits in.
+      const isDark = element.closest("[data-theme]")?.getAttribute("data-theme") === "dark";
+      return {
+        surface: computed.getPropertyValue("--rialto-surface").trim(),
+        accent: computed.getPropertyValue("--rialto-accent").trim(),
+        silk: computed.getPropertyValue("--rialto-text-primary").trim(),
+        goldStyle: isDark ? GOLD_STYLE.dark : GOLD_STYLE.light,
+        silkStyle: isDark ? SILK_STYLE.dark : SILK_STYLE.light,
+      };
+    }
   </file>
   <file path="src/components/SilkFlow/silk-flow-field.ts">
     export const FIELD_SCALE = 0.0022;
     export const FIELD_TIME_STEP = 0.0035;
+    export type ValueNoise = (x: number, y: number) => number;
+    export function silkParticleCount(width: number, height: number): number {
+      const byArea = Math.floor((width * height) / AREA_PER_PARTICLE);
+      return Math.min(MAX_PARTICLES, Math.max(MIN_PARTICLES, byArea));
+    }
+    export function silkStrandAngle(noise: ValueNoise, x: number, y: number, t: number): number {
+      return noise(x * FIELD_SCALE + t, y * FIELD_SCALE - TIME_SHEAR * t) * FIELD_TURNS;
+    }
+    export function createValueNoise(): ValueNoise {
+      return (x, y) => {
+        const x0 = Math.floor(x);
+        const y0 = Math.floor(y);
+        const fx = smoothstep(x - x0);
+        const fy = smoothstep(y - y0);
+    
+        const top = lerp(latticeHash(x0, y0), latticeHash(x0 + 1, y0), fx);
+        const bottom = lerp(latticeHash(x0, y0 + 1), latticeHash(x0 + 1, y0 + 1), fx);
+        return lerp(top, bottom, fy);
+      };
+    }
+    function latticeHash(ix: number, iy: number): number {
+      let h = Math.imul(ix, 374761393) + Math.imul(iy, 668265263);
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    }
+    function smoothstep(t: number): number {
+      return t * t * (3 - 2 * t);
+    }
+    function lerp(a: number, b: number, t: number): number {
+      return a + (b - a) * t;
+    }
   </file>
   </section>
   <section priority="medium" role="SplitFlap">
@@ -507,6 +1373,15 @@
       full: FULL,
     } as const;
     export type CharsetName = keyof typeof CHARSETS;
+    export function normalizeChar(raw: string, charset: string): string {
+      const upper = raw.toUpperCase();
+      return charset.includes(upper) ? upper : " ";
+    }
+    export function nextChar(current: string, charset: string): string {
+      const idx = charset.indexOf(current);
+      if (idx < 0) return charset[0] ?? " ";
+      return charset[(idx + 1) % charset.length] ?? " ";
+    }
   </file>
   </section>
   <section priority="medium" role="Stack">
@@ -564,6 +1439,15 @@
     export function daysBetween(a: string, b: string): number {
       return Math.round((parseISOMs(b) - parseISOMs(a)) / MS_PER_DAY);
     }
+    export function addDays(iso: string, n: number): string {
+      return new Date(parseISOMs(iso) + n * MS_PER_DAY).toISOString().slice(0, 10);
+    }
+    export function parseISODate(iso: string): Date {
+      return new Date(parseISOMs(iso));
+    }
+    export function monthOf(iso: string): string {
+      return iso.slice(0, 7);
+    }
   </file>
   <file path="src/components/TapeChart/defaultStrings.ts">
     export type ResolvedStrings = Required<
@@ -610,11 +1494,171 @@
       nightsLabel: defaultNightsLabel,
       partySizeLabel: defaultPartySizeLabel,
     };
+    export function mergeStrings(overrides?: TapeChartStrings): ResolvedStrings {
+      if (!overrides) return DEFAULT_STRINGS;
+      return {
+        ...DEFAULT_STRINGS,
+        ...overrides,
+        statusLabels: { ...DEFAULT_STRINGS.statusLabels, ...overrides.statusLabels },
+        roomStatusLabels: { ...DEFAULT_STRINGS.roomStatusLabels, ...overrides.roomStatusLabels },
+        overlapLabels: { ...DEFAULT_STRINGS.overlapLabels, ...overrides.overlapLabels },
+        reservationAriaTemplate:
+          overrides.reservationAriaTemplate ?? DEFAULT_STRINGS.reservationAriaTemplate,
+        nightsLabel: overrides.nightsLabel ?? DEFAULT_STRINGS.nightsLabel,
+        partySizeLabel: overrides.partySizeLabel ?? DEFAULT_STRINGS.partySizeLabel,
+      };
+    }
   </file>
   <file path="src/components/TapeChart/types.ts">
     export type TapeChartStatus =
       "tentative" | "confirmed" | "checkedIn" | "checkedOut" | "cancelled" | "noShow";
     export type TapeChartRoomStatus = "ready" | "dirty" | "outOfOrder" | "occupied";
+    export type TapeChartDensity = "compact" | "comfortable";
+    export type TapeChartViewMode = "grid" | "list";
+    export type TapeChartOverlapKind = "conflict" | "shared";
+    export interface TapeChartReservation {
+      id: string;
+      roomId: string;
+      /** ISO date (YYYY-MM-DD), inclusive — the check-in day. */
+      start: string;
+      /** ISO date (YYYY-MM-DD), EXCLUSIVE — the check-out day (hotel convention). */
+      end: string;
+      status: TapeChartStatus;
+      guestName?: string;
+      partySize?: number;
+      /** Minor units (e.g. cents). */
+      ratePerNight?: number;
+      /** ISO 4217 currency code. */
+      currency?: string;
+      notes?: string;
+      /** When the reservation represents a block (maintenance, OOO), this is the reason. */
+      blockedReason?: string;
+      /** Free-form booking source label (e.g. "Direct", "Booking.com"). */
+      source?: string;
+    }
+    export interface TapeChartRoom {
+      id: string;
+      name: string;
+      /** Used for grouping and secondary sort. */
+      category?: string;
+      capacity?: number;
+      status?: TapeChartRoomStatus;
+    }
+    export interface TapeChartFormattedParts {
+      startLong: string;
+      endLong: string;
+      nights: number;
+      priceTotal?: string;
+      partySize?: string;
+      statusLabel: string;
+      roomName: string;
+      /** Label for the bar's overlap kind; undefined when the bar overlaps nothing. */
+      overlapLabel?: string;
+    }
+    export interface TapeChartStrings {
+      regionLabel?: string;
+      roomsColumnLabel?: string;
+      arrivalsLabel?: string;
+      departuresLabel?: string;
+      inHouseLabel?: string;
+      viewModeToggleLabel?: string;
+      viewModeGridLabel?: string;
+      viewModeListLabel?: string;
+      todayLabel?: string;
+      emptyTitle?: string;
+      emptyBody?: string;
+      errorTitle?: string;
+      errorRetryLabel?: string;
+      loadingLabel?: string;
+      moveDialogTitle?: string;
+      moveConfirmLabel?: string;
+      moveCancelLabel?: string;
+      conflictWarning?: string;
+      statusLabels?: Partial<Record<TapeChartStatus, string>>;
+      roomStatusLabels?: Partial<Record<TapeChartRoomStatus, string>>;
+      /** Spoken after the status in the default aria template. */
+      overlapLabels?: Partial<Record<TapeChartOverlapKind, string>>;
+      reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
+      nightsLabel?: (count: number) => string;
+      partySizeLabel?: (count: number) => string;
+    }
+    export interface TapeChartMovePayload {
+      id: string;
+      toRoomId: string;
+      /** New inclusive check-in date. */
+      newStart: string;
+      /** New exclusive check-out date. */
+      newEnd: string;
+    }
+    export interface TapeChartProps {
+      reservations: TapeChartReservation[];
+      rooms: TapeChartRoom[];
+      /** ISO date (inclusive). */
+      startDate: string;
+      /** ISO date (exclusive). */
+      endDate: string;
+      locale?: string;
+      /** IANA time zone (e.g. "America/Los_Angeles"). Defaults to the runtime zone. */
+      timeZone?: string;
+      /** ISO 4217 code used for rate display when reservations don't carry their own. */
+      currency?: string;
+      density?: TapeChartDensity;
+      /** Override the default day-column width in pixels. */
+      dayWidth?: number;
+      viewMode?: TapeChartViewMode;
+      defaultViewMode?: TapeChartViewMode;
+      onViewModeChange?: (mode: TapeChartViewMode) => void;
+      onReservationClick?: (r: TapeChartReservation) => void;
+      onReservationMove?: (payload: TapeChartMovePayload) => void | Promise<void>;
+      checkConflict?: (payload: TapeChartMovePayload) => Promise<boolean | string>;
+      /**
+       * Decide whether two reservations whose visible spans overlap in one room are
+       * a `"conflict"` (double-booking, drawn in the error family) or `"shared"`
+       * (legitimate co-occupancy, stacked without alarm). Called once per
+       * overlapping pair, earlier start first. Default: every overlap is a
+       * `"conflict"`. Keep the reference stable (module scope or `useCallback`) —
+       * a new function each render recomputes the layout and re-renders every row.
+       */
+      classifyOverlap?: (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;
+      selectedReservationId?: string | null;
+      loading?: boolean;
+      error?: Error | null;
+      onRetry?: () => void;
+      strings?: TapeChartStrings;
+      /** Row count above which virtualization engages. Default 50. */
+      virtualizeThreshold?: number;
+      className?: string;
+      /** Slot rendered above the grid (e.g. filter bar). */
+      toolbarSlot?: ReactNode;
+      /** Slot rendered inside the empty state. */
+      emptyAction?: ReactNode;
+    }
+    export interface TapeChartPositionedBar {
+      reservation: TapeChartReservation;
+      /** Offset in days from startDate (non-negative after clipping). */
+      startOffset: number;
+      /** Span in days (always >= 1 after clipping). */
+      span: number;
+      /** Lane within the row, 0-indexed. Overlapping reservations get separate lanes. */
+      lane: number;
+      /** Whether the reservation extends past the visible range on either end. */
+      clippedStart: boolean;
+      clippedEnd: boolean;
+      /** Worst overlap kind across every pair this bar belongs to; absent when it overlaps nothing. */
+      overlap?: TapeChartOverlapKind;
+    }
+    export interface TapeChartLayout {
+      /** Map roomId → list of positioned bars, ordered by startOffset then lane. */
+      barsByRoom: Map<string, TapeChartPositionedBar[]>;
+      /** Total visible days (endDate - startDate). */
+      dayCount: number;
+      /** Lanes in each room (≥ 1); drives that row's height. */
+      laneCountByRoom: Map<string, number>;
+      /** Highest lane count across all rooms. Informational — row height is per room. */
+      maxLanes: number;
+      /** Per-day counts for the stat pills: arrivals, departures, in-house (as of that date). */
+      dailyCounts: Array<{ date: string; arrivals: number; departures: number; inHouse: number }>;
+    }
   </file>
   <file path="src/components/TapeChart/useTapeChartI18n.ts">
     export interface TapeChartFormatters {
@@ -835,6 +1879,28 @@
         laneCount: Math.max(1, laneEnds.length),
       };
     }
+    type OverlapClassifier = (a: TapeChartReservation, b: TapeChartReservation) => TapeChartOverlapKind;
+    function worstOf(
+      current: TapeChartOverlapKind | undefined,
+      next: TapeChartOverlapKind
+    ): TapeChartOverlapKind {
+      return current === "conflict" || next === "conflict" ? "conflict" : "shared";
+    }
+    export function applyReservationEvent(
+      prev: TapeChartReservation[],
+      event:
+        | { type: "created" | "updated"; reservation: TapeChartReservation }
+        | { type: "cancelled"; id: string }
+    ): TapeChartReservation[] {
+      if (event.type === "cancelled") {
+        return prev.filter((r) => r.id !== event.id);
+      }
+      const idx = prev.findIndex((r) => r.id === event.reservation.id);
+      if (idx === -1) return [...prev, event.reservation];
+      const next = prev.slice();
+      next[idx] = event.reservation;
+      return next;
+    }
   </file>
   </section>
   <section priority="medium" role="Text">
@@ -870,6 +1936,44 @@
       const minutes = totalMinutes % 60;
       return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
     }
+    export function buildTimeSlots(stepMinutes: number): string[] {
+      const step = Math.max(1, Math.floor(stepMinutes));
+      const slots: string[] = [];
+      for (let minute = 0; minute < MINUTES_PER_DAY; minute += step) {
+        slots.push(toTimeString(minute));
+      }
+      return slots;
+    }
+    export function formatTimeDisplay(value: string, locale?: string): string {
+      const minutes = parseTime(value);
+      if (minutes === null) return "";
+      const date = new Date(Date.UTC(1970, 0, 1, Math.floor(minutes / 60), minutes % 60));
+      return new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }).format(date);
+    }
+    export interface TimeBounds {
+      /** Earliest selectable time (`HH:mm`, inclusive). */
+      min?: string;
+      /** Latest selectable time (`HH:mm`, inclusive). */
+      max?: string;
+      /**
+       * Predicate deciding whether a time is disabled. When supplied it is
+       * authoritative and wins over `min`/`max`.
+       */
+      isTimeDisabled?: (time: string) => boolean;
+    }
+    export function isTimeSlotDisabled(
+      value: string,
+      { min, max, isTimeDisabled }: TimeBounds
+    ): boolean {
+      if (isTimeDisabled) return isTimeDisabled(value);
+      if (min && value < min) return true;
+      if (max && value > max) return true;
+      return false;
+    }
   </file>
   </section>
   <section priority="medium" role="Toast">
@@ -889,6 +1993,27 @@
     export interface ToastAction {
       label: string;
       onClick: () => void;
+    }
+    export interface ToastData {
+      id: string;
+      title: string;
+      description?: string;
+      variant?: ToastVariant;
+      /** Auto-dismiss in ms. 0 = manual dismiss only. */
+      duration?: number;
+      /** Optional action button (e.g. Undo) rendered in the toast; dismisses on click. */
+      action?: ToastAction;
+    }
+    export type ToastInput = Omit<ToastData, "id">;
+    export interface ToastContextValue {
+      toast: (data: ToastInput) => void;
+      dismiss: (id: string) => void;
+    }
+    export const ToastContext = createContext<ToastContextValue | null>(null);
+    export function useToast(): ToastContextValue {
+      const ctx = useContext(ToastContext);
+      if (!ctx) throw new Error("useToast must be used within <ToastProvider>");
+      return ctx;
     }
   </file>
   </section>
@@ -916,12 +2041,67 @@
       readonly teeth?: number;
     }
     export const PLATE_RADIUS = 48;
+    export const PIVOT = { x: 50, y: 50 } as const;
+    export const TOOTH_RATIO = 0.28;
+    export const ESCAPE_TEETH = 15;
+    export const ROTOR_RADIUS = 44;
+    export const MOVEMENT = {
+      balance: { id: "balance", cx: 33, cy: 37, radius: 14 },
+      centerWheel: { id: "centerWheel", cx: 64, cy: 40, radius: 12, teeth: 12 },
+      thirdWheel: { id: "thirdWheel", cx: 50, cy: 59, radius: 8, teeth: 8 },
+      fourthWheel: { id: "fourthWheel", cx: 67, cy: 64, radius: 6, teeth: 6 },
+      escapeWheel: { id: "escapeWheel", cx: 34, cy: 68, radius: 8 },
+    } as const satisfies Record<string, MovementPart>;
+    export function toothLength(radius: number): number {
+      return radius * TOOTH_RATIO;
+    }
+    export function tipRadius(part: MovementPart): number {
+      return part.teeth === undefined ? part.radius : part.radius + toothLength(part.radius);
+    }
+    export function outerReach(part: MovementPart): number {
+      return Math.hypot(part.cx - PIVOT.x, part.cy - PIVOT.y) + tipRadius(part);
+    }
+    export function findBodyOverlaps(parts: Record<string, MovementPart>): string[] {
+      const list = Object.values(parts);
+      return list.flatMap((a, i) =>
+        list
+          .slice(i + 1)
+          .filter((b) => Math.hypot(a.cx - b.cx, a.cy - b.cy) < a.radius + b.radius)
+          .map((b) => `${a.id}↔${b.id}`)
+      );
+    }
   </file>
   </section>
   <section priority="medium" role="components">
   <file path="src/components/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
     export type CatalogAliases = Readonly<Record<string, string>>;
+    export type CatalogPropSchemas = Readonly<Record<string, string>>;
+    export interface CatalogMeta {
+      /** Component display name — must match the Rialto barrel export. */
+      readonly name: string;
+      /**
+       * Whether this component is offered to the AI for generation. Curated
+       * components with `include: false` stay in the metadata (so the generator
+       * still sees them) but are excluded from the catalog the AI consumes.
+       * Defaults to `true` when omitted.
+       */
+      readonly include?: boolean;
+      /** Usage-oriented description telling the AI WHEN to use the component. */
+      readonly description: string;
+      /** Named slot keys — use `["default"]` for a children slot. */
+      readonly slots?: readonly string[];
+      /** Per-prop character limits folded into the generated Zod schema. */
+      readonly charLimits?: CatalogCharLimits;
+      /** Declared AI prop aliases handled by a hand-written registry adapter. */
+      readonly aliases?: CatalogAliases;
+      /**
+       * Explicit Zod prop-schema source for array-of-object data props the generator
+       * cannot infer from the type (e.g. `tabs`, `options`, `columns`, `items`).
+       * Overrides the inferred schema for the named prop; see {@link CatalogPropSchemas}.
+       */
+      readonly propSchemas?: CatalogPropSchemas;
+    }
   </file>
   </section>
   <section priority="medium" role="hooks">
@@ -965,8 +2145,203 @@
       onSelect?: (value: string) => void;
       /** Wrapper element used to detect outside mousedown. */
       containerRef?: RefObject<HTMLElement | null>;
+      /**
+       * Additional element(s) also treated as "inside" for outside-press
+       * detection — e.g. a listbox portaled outside `containerRef`'s DOM
+       * subtree (see rialto `Select`, which portals its dropdown to
+       * `document.body` to escape an ancestor's stacking context).
+       */
+      extraContainerRefs?: RefObject<HTMLElement | null>[];
       /** Called after close/select so the consumer can return focus to its trigger. */
       onRequestTriggerFocus?: () => void;
+    }
+    export interface UseComboboxResult {
+      readonly open: boolean;
+      readonly focusedIndex: number;
+      /** Open the listbox, focusing the selected value (or the first item). */
+      readonly openWithFocus: () => void;
+      readonly close: () => void;
+      readonly toggle: () => void;
+      /** Commit a value: fires onSelect, closes, and requests trigger focus. */
+      readonly select: (value: string) => void;
+      readonly setFocusedIndex: (index: number) => void;
+      readonly handleKeyDown: (e: KeyboardEvent) => void;
+    }
+    export function useCombobox({
+      items,
+      value,
+      onSelect,
+      containerRef,
+      extraContainerRefs,
+      onRequestTriggerFocus,
+    }: UseComboboxOptions): UseComboboxResult {
+      const [open, setOpen] = useState(false);
+      const [focusedIndex, setFocusedIndex] = useState(-1);
+    
+      const typeaheadRef = useRef("");
+      const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+    
+      const close = useCallback(() => setOpen(false), []);
+    
+      const openWithFocus = useCallback(() => {
+        const idx = value ? items.findIndex((o) => o.value === value) : 0;
+        setFocusedIndex(idx >= 0 ? idx : 0);
+        setOpen(true);
+      }, [value, items]);
+    
+      const toggle = useCallback(() => {
+        if (open) {
+          setOpen(false);
+        } else {
+          openWithFocus();
+        }
+      }, [open, openWithFocus]);
+    
+      const select = useCallback(
+        (optionValue: string) => {
+          onSelect?.(optionValue);
+          setOpen(false);
+          onRequestTriggerFocus?.();
+        },
+        [onSelect, onRequestTriggerFocus]
+      );
+    
+      // Type-ahead: match item labels by typed characters.
+      const handleTypeahead = useCallback(
+        (char: string) => {
+          clearTimeout(typeaheadTimerRef.current);
+          typeaheadRef.current += char.toLowerCase();
+          typeaheadTimerRef.current = setTimeout(() => (typeaheadRef.current = ""), TYPEAHEAD_RESET_MS);
+    
+          const query = typeaheadRef.current;
+          const startIndex = open ? focusedIndex + 1 : 0;
+    
+          // Search from current position, then wrap around.
+          for (let i = 0; i < items.length; i++) {
+            const idx = (startIndex + i) % items.length;
+            const opt = items[idx];
+            if (opt && !opt.disabled && opt.label.toLowerCase().startsWith(query)) {
+              if (open) {
+                setFocusedIndex(idx);
+              } else {
+                // When closed, type-ahead selects directly.
+                select(opt.value);
+              }
+              return;
+            }
+          }
+        },
+        [open, focusedIndex, items, select]
+      );
+    
+      const handleKeyDown = useCallback(
+        (e: KeyboardEvent) => {
+          // Type-ahead for printable single characters.
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            handleTypeahead(e.key);
+            if (!open) openWithFocus();
+            return;
+          }
+    
+          if (!open) {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openWithFocus();
+            }
+            return;
+          }
+    
+          switch (e.key) {
+            case "ArrowDown": {
+              e.preventDefault();
+              setFocusedIndex((prev) => {
+                let next = prev + 1;
+                while (next < items.length && items[next]?.disabled) next++;
+                return next < items.length ? next : prev;
+              });
+              break;
+            }
+            case "ArrowUp": {
+              e.preventDefault();
+              setFocusedIndex((prev) => {
+                let next = prev - 1;
+                while (next >= 0 && items[next]?.disabled) next--;
+                return next >= 0 ? next : prev;
+              });
+              break;
+            }
+            case "Home": {
+              e.preventDefault();
+              const first = items.findIndex((o) => !o.disabled);
+              if (first >= 0) setFocusedIndex(first);
+              break;
+            }
+            case "End": {
+              e.preventDefault();
+              for (let i = items.length - 1; i >= 0; i--) {
+                if (!items[i]?.disabled) {
+                  setFocusedIndex(i);
+                  break;
+                }
+              }
+              break;
+            }
+            case "Enter":
+            case " ": {
+              e.preventDefault();
+              const focused = items[focusedIndex];
+              if (focused && !focused.disabled) {
+                select(focused.value);
+              }
+              break;
+            }
+            case "Tab":
+              setOpen(false);
+              break;
+            case "Escape":
+              e.preventDefault();
+              setOpen(false);
+              onRequestTriggerFocus?.();
+              break;
+          }
+        },
+        [open, focusedIndex, items, handleTypeahead, openWithFocus, select, onRequestTriggerFocus]
+      );
+    
+      // Close on outside mousedown. Effect only (de)registers the listener — the
+      // setState happens inside the event handler, never in the effect body.
+      useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+          const target = e.target as Node;
+          const wrapper = containerRef?.current;
+          if (!wrapper || wrapper.contains(target)) return;
+          const insideExtra = extraContainerRefs?.some((r) => r.current?.contains(target));
+          if (!insideExtra) {
+            setOpen(false);
+          }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+      }, [open, containerRef, extraContainerRefs]);
+    
+      // Clean up the type-ahead timer on unmount.
+      useEffect(() => {
+        const timer = typeaheadTimerRef;
+        return () => clearTimeout(timer.current);
+      }, []);
+    
+      return {
+        open,
+        focusedIndex,
+        openWithFocus,
+        close,
+        toggle,
+        select,
+        setFocusedIndex,
+        handleKeyDown,
+      };
     }
   </file>
   <file path="src/hooks/useDirection.ts">
@@ -1054,11 +2429,130 @@
     export interface FieldLabelProps {
       htmlFor: string;
     }
+    export interface FieldDescriptionProps {
+      id: string;
+    }
+    export interface FieldErrorProps {
+      readonly id: string | undefined;
+      readonly role: "alert";
+      readonly "aria-atomic": true;
+    }
+    export interface FieldControlProps {
+      id: string;
+      required: boolean | undefined;
+      "aria-invalid": true | undefined;
+      "aria-describedby": string | undefined;
+    }
+    export interface FieldLiveRegionProps {
+      readonly role: "status";
+      readonly "aria-live": "polite";
+      readonly "aria-atomic": true;
+      readonly className: string | undefined;
+    }
+    export interface UseFieldResult {
+      /** Stable control id. */
+      readonly id: string;
+      /** Props for the `<label>` element. */
+      readonly labelProps: FieldLabelProps;
+      /** Props for the hint/description element (always rendered when hint exists). */
+      readonly descriptionProps: FieldDescriptionProps;
+      /** Props for the error message element. `errorProps.id` is undefined when error=false. */
+      readonly errorProps: FieldErrorProps;
+      /** Props to spread onto the native control. */
+      readonly controlProps: FieldControlProps;
+      /** Whether to render the required asterisk (*) in the label. */
+      readonly showRequired: boolean;
+      /**
+       * Whether to render the "(optional)" suffix in the label.
+       * Always false when required=true.
+       */
+      readonly showOptional: boolean;
+      /**
+       * An `aria-hidden` required marker element (asterisk), or `null` when the
+       * field is not required. Owned by the hook so every field renders an
+       * identical marker.
+       */
+      readonly requiredMarker: ReactElement | null;
+      /**
+       * Props for a visually-hidden polite live region. Fields spread these onto
+       * a region element and supply the message to announce async state.
+       */
+      readonly liveRegionProps: FieldLiveRegionProps;
+    }
+    export function useField({
+      id: externalId,
+      hint,
+      error,
+      required,
+      showOptional: showOptionalProp,
+    }: UseFieldOptions): UseFieldResult {
+      const autoId = useId();
+      const id = externalId ?? autoId;
+    
+      // A single hint/error region id. When error=true this element serves as
+      // the error message region; when error=false it is the description region.
+      const hintId = `${id}-hint`;
+    
+      // aria-describedby is set only when the hint element will be rendered (hint text present).
+      // When error=true, aria-invalid signals the invalid state; the hint text (if any) doubles
+      // as the error message and is referenced via aria-describedby.
+      const describedBy = hint ? hintId : undefined;
+    
+      const showRequired = !!required;
+    
+      return {
+        id,
+        labelProps: { htmlFor: id },
+        descriptionProps: { id: hintId },
+        // errorProps.id is only exposed when error=true so callers know the
+        // element should receive role="alert" / be identified as the error region.
+        errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
+        controlProps: {
+          id,
+          required: required || undefined,
+          "aria-invalid": error ? true : undefined,
+          "aria-describedby": describedBy,
+        },
+        showRequired,
+        showOptional: !!showOptionalProp && !required,
+        requiredMarker: showRequired
+          ? createElement("span", { className: styles.required, "aria-hidden": "true" }, " *")
+          : null,
+        liveRegionProps: {
+          role: "status",
+          "aria-live": "polite",
+          "aria-atomic": true,
+          className: styles.srOnly,
+        },
+      };
+    }
   </file>
   <file path="src/hooks/useFocusTrap.ts">
     export const FOCUSABLE_SELECTOR =
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-    export function useFocusTrap(panelRef: RefObject<HTMLDivElement | null>, enabled: boolean): void {
+    export const FOCUS_TRAP_SKIP_INITIAL_ATTR = "data-focus-trap-skip-initial";
+    export interface UseFocusTrapOptions {
+      /** Element to focus when the trap activates, overriding the default candidate. */
+      initialFocus?: RefObject<HTMLElement | null>;
+    }
+    function resolveInitialFocus(
+      focusable: NodeListOf<HTMLElement>,
+      first: HTMLElement | undefined,
+      initialFocus?: RefObject<HTMLElement | null>
+    ): HTMLElement | undefined {
+      if (initialFocus?.current) return initialFocus.current;
+      const defaultTarget = Array.from(focusable).find(
+        (el) => !el.hasAttribute(FOCUS_TRAP_SKIP_INITIAL_ATTR)
+      );
+      return defaultTarget ?? first;
+    }
+    export function useFocusTrap(
+      panelRef: RefObject<HTMLDivElement | null>,
+      enabled: boolean,
+      options?: UseFocusTrapOptions
+    ): void {
+      const initialFocus = options?.initialFocus;
+    
       useEffect(() => {
         if (!enabled) return;
     
@@ -1069,7 +2563,7 @@
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
     
-        first?.focus();
+        resolveInitialFocus(focusable, first, initialFocus)?.focus();
     
         const trap = (e: KeyboardEvent) => {
           if (e.key !== "Tab") return;
@@ -1088,7 +2582,7 @@
     
         document.addEventListener("keydown", trap);
         return () => document.removeEventListener("keydown", trap);
-      }, [enabled, panelRef]);
+      }, [enabled, panelRef, initialFocus]);
     }
   </file>
   <file path="src/hooks/usePointerActivation.ts">
@@ -1142,15 +2636,18 @@
       const triggerRef = useRef<Element | null>(null);
     
       useEffect(() => {
-        if (open) {
-          triggerRef.current = document.activeElement;
-        } else {
+        if (!open) return;
+        triggerRef.current = document.activeElement;
+    
+        // Cleanup runs both when `open` transitions to `false` and on unmount
+        // while `open` is still `true` — so restoring focus here covers both.
+        return () => {
           const captured = triggerRef.current;
           triggerRef.current = null;
           requestAnimationFrame(() => {
             (captured as HTMLElement | null)?.focus();
           });
-        }
+        };
       }, [open]);
     }
   </file>
@@ -1223,6 +2720,44 @@
         // localStorage unavailable
       }
       return "system";
+    }
+    function storeTheme(theme: ThemePreference): void {
+      if (typeof window === "undefined") return;
+      try {
+        localStorage.setItem(STORAGE_KEY, theme);
+      } catch {
+        // Theme still works in memory
+      }
+    }
+    export function resolveTheme(pref: ThemePreference): "light" | "dark" {
+      if (pref === "system") {
+        if (typeof window === "undefined") return "light";
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      return pref;
+    }
+    export interface ThemeState {
+      readonly preference: ThemePreference;
+      readonly theme: "light" | "dark";
+      readonly setTheme: (next: ThemePreference) => void;
+      readonly toggleTheme: () => void;
+    }
+    export function useThemeState(): ThemeState {
+      const [preference, setPreferenceState] = useState<ThemePreference>(getStoredTheme);
+    
+      const setTheme = useCallback((next: ThemePreference) => {
+        storeTheme(next);
+        setPreferenceState(next);
+      }, []);
+    
+      const theme = useMemo(() => resolveTheme(preference), [preference]);
+    
+      const toggleTheme = useCallback(() => {
+        const next: ThemePreference = theme === "dark" ? "light" : "dark";
+        setTheme(next);
+      }, [theme, setTheme]);
+    
+      return { preference, theme, setTheme, toggleTheme };
     }
   </file>
   <file path="src/hooks/useTilt.ts">
@@ -1308,6 +2843,46 @@
     export interface TokenGroup {
       readonly [key: string]: DtcgToken | TokenGroup | string | undefined;
     }
+    export function isToken(node: DtcgToken | TokenGroup | string | undefined): node is DtcgToken {
+      return typeof node === "object" && node !== null && "$value" in node;
+    }
+    export interface TokenEntry {
+      /** Path segments below the file root, e.g. ["color", "semantic", "error", "muted"]. */
+      readonly path: readonly string[];
+      readonly token: DtcgToken;
+    }
+    export function walkTokens(group: TokenGroup, prefix: readonly string[] = []): TokenEntry[] {
+      return Object.entries(group)
+        .filter(([key]) => !key.startsWith("$"))
+        .flatMap(([key, node]) => {
+          if (node === undefined || typeof node === "string") return [];
+          const path = [...prefix, key];
+          return isToken(node) ? [{ path, token: node }] : walkTokens(node, path);
+        });
+    }
+    export function cssVarName(path: readonly string[]): string {
+      const segments = path.filter(
+        (seg, i) => !(i === 0 && seg === "color") && !(i === 1 && seg === "semantic")
+      );
+      const trimmed = segments.at(-1) === "default" ? segments.slice(0, -1) : segments;
+      if (trimmed.length === 0) {
+        throw new Error(`Token path [${path.join(".")}] reduces to an empty CSS variable name`);
+      }
+      return `--rialto-${trimmed.join("-")}`;
+    }
+    export function assertTokenParity(light: TokenGroup, dark: TokenGroup): void {
+      const lightPaths = new Set(walkTokens(light).map((entry) => entry.path.join(".")));
+      const darkPaths = new Set(walkTokens(dark).map((entry) => entry.path.join(".")));
+      const missing = [...lightPaths].filter((p) => !darkPaths.has(p));
+      const extra = [...darkPaths].filter((p) => !lightPaths.has(p));
+      if (missing.length > 0 || extra.length > 0) {
+        throw new Error(
+          `colors.json and colors.dark.json token paths diverge.` +
+            (missing.length > 0 ? ` Missing in dark: ${missing.join(", ")}.` : "") +
+            (extra.length > 0 ? ` Extra in dark: ${extra.join(", ")}.` : "")
+        );
+      }
+    }
   </file>
   </section>
   <section priority="medium" role="providers">
@@ -1348,6 +2923,76 @@
       matchValue: DeviceContext[keyof DeviceContext];
       noMatchValue: DeviceContext[keyof DeviceContext];
     }
+    type MqlTuple = [
+      MediaQueryList,
+      MediaQueryList,
+      MediaQueryList,
+      MediaQueryList,
+      MediaQueryList,
+      MediaQueryList,
+    ];
+    function getSnapshot(): DeviceContext {
+      return snapshot;
+    }
+    function getServerSnapshot(): DeviceContext {
+      return SSR_DEFAULTS;
+    }
+    function computeSnapshot(): DeviceContext {
+      if (!mqls) return SSR_DEFAULTS;
+      const [mPointer, mMobile, mTablet, mMotion, mScheme, mData] = mqls;
+    
+      const pointer = mPointer.matches ? "coarse" : "fine";
+    
+      // Viewport: check mobile first, then tablet, else desktop
+      let viewport: DeviceContext["viewport"] = "desktop";
+      if (mMobile.matches) viewport = "mobile";
+      else if (mTablet.matches) viewport = "tablet";
+    
+      const reducedMotion = mMotion.matches;
+      const colorScheme = mScheme.matches ? "dark" : "light";
+      const saveData = mData.matches;
+    
+      return { pointer, viewport, reducedMotion, colorScheme, saveData };
+    }
+    function handleChange() {
+      const next = computeSnapshot();
+    
+      // Only update if something actually changed
+      if (
+        next.pointer !== snapshot.pointer ||
+        next.viewport !== snapshot.viewport ||
+        next.reducedMotion !== snapshot.reducedMotion ||
+        next.colorScheme !== snapshot.colorScheme ||
+        next.saveData !== snapshot.saveData
+      ) {
+        snapshot = next;
+        listeners.forEach((cb) => cb());
+      }
+    }
+    function ensureListeners() {
+      if (mqls) return;
+      if (typeof window === "undefined") return;
+      // jsdom ships no `matchMedia`, and rialto publishes to a registry — so a
+      // consumer's test environment may render a component here without ever
+      // stubbing it. Fall back to the defaults rather than crash, the same
+      // fail-open the SSR guard above takes: no media-query support available
+      // means no signal to read, not an error.
+      if (typeof window.matchMedia !== "function") return;
+    
+      mqls = QUERIES.map((entry) => window.matchMedia(entry.query)) as MqlTuple;
+      snapshot = computeSnapshot();
+      mqls.forEach((mql) => mql.addEventListener("change", handleChange));
+    }
+    function subscribe(callback: () => void): () => void {
+      ensureListeners();
+      listeners.add(callback);
+      return () => {
+        listeners.delete(callback);
+      };
+    }
+    export function useDeviceContext(): DeviceContext {
+      return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+    }
   </file>
   <file path="src/providers/useMotionPreset.ts">
     export interface InstantTransition {
@@ -1357,6 +3002,39 @@
       duration: number;
       ease: readonly [number, number, number, number];
     }
+    export interface SpringOptions {
+      stiffness: number;
+      damping: number;
+      mass: number;
+    }
+    export interface SpringTransition {
+      type: "spring";
+      stiffness: number;
+      damping: number;
+      mass: number;
+    }
+    export interface MotionPreset {
+      /** Standard UI transitions, hover states, small movements. */
+      precision: EasedTransition | InstantTransition;
+      /** Toggles, AI elements, high-interaction components. */
+      spring: SpringTransition | InstantTransition;
+      /** Larger movements — dialog entrances, card expansions. */
+      springGentle: SpringTransition | InstantTransition;
+      /** Cursor-tracking tilt — a `useSpring` config, not a transition. */
+      tilt: SpringOptions;
+    }
+    export function useMotionPreset(): MotionPreset {
+      const device = useDeviceContext();
+      // Read the context directly rather than through useUIEnvironment(), which
+      // throws with no provider above it. Absent context simply means the default
+      // vibe — see the no-throw contract above.
+      const vibe = useContext(UIEnvironmentContext)?.vibe ?? "default";
+    
+      return useMemo(() => {
+        if (device.reducedMotion) return REDUCED_PRESET;
+        return vibe === "game" ? GAME_PRESET : STANDARD_PRESET;
+      }, [device.reducedMotion, vibe]);
+    }
   </file>
   <file path="src/providers/useUIEnvironment.ts">
     export interface UIEnvironment {
@@ -1365,10 +3043,63 @@
       theme: "light" | "dark";
     }
     export const UIEnvironmentContext = createContext<UIEnvironment | null>(null);
+    export function useUIEnvironment(): UIEnvironment {
+      const ctx = useContext(UIEnvironmentContext);
+      if (!ctx) throw new Error("useUIEnvironment must be used within <RialtoProvider>");
+      return ctx;
+    }
   </file>
   <file path="src/providers/vibes.ts">
     export type VibeName = "default" | "transacting" | "presenting" | "game";
     export type VibeOverrides = Record<string, string>;
+    export const vibes: Record<VibeName, VibeOverrides> = {
+      default: {},
+    
+      transacting: {
+        "--rialto-space-sm": "10px",
+        "--rialto-space-md": "14px",
+        "--rialto-radius-default": "4px",
+        "--rialto-radius-soft": "8px",
+        "--rialto-weight-medium": "600",
+      },
+    
+      presenting: {
+        "--rialto-space-md": "20px",
+        "--rialto-space-lg": "32px",
+        "--rialto-text-sm": "0.9375rem",
+        "--rialto-radius-soft": "14px",
+        "--rialto-radius-default": "8px",
+      },
+    
+      /**
+       * Game-UI vibe — the design language of an instrument panel rather than a
+       * document. Three shifts, no colour:
+       *
+       * 1. **Density** below every other preset (sm 12→8, md 16→12, lg 24→18), so
+       *    a lot of live state fits without the eye having to travel.
+       * 2. **Near-square corners** (default 6→2, soft 10→4) — rounding reads as
+       *    soft and document-like; instruments have edges.
+       * 3. **A duration scale inside the 100ms feedback budget** (fast 0.1→0.06,
+       *    standard 0.15→0.09, slow 0.2→0.12) with a fast-attack easing curve.
+       *    Encoding the budget in the preset means the whole catalog inherits it,
+       *    instead of every component being audited for it one at a time.
+       *
+       * Colour is deliberately absent: it stays the theme's job (`data-theme`), so
+       * this vibe composes with light and dark instead of fighting them.
+       */
+      game: {
+        "--rialto-space-sm": "8px",
+        "--rialto-space-md": "12px",
+        "--rialto-space-lg": "18px",
+        "--rialto-radius-default": "2px",
+        "--rialto-radius-soft": "4px",
+        "--rialto-weight-medium": "600",
+        "--rialto-duration-fast": "0.06s",
+        "--rialto-duration-standard": "0.09s",
+        "--rialto-duration-slow": "0.12s",
+        "--rialto-ease-precision": "cubic-bezier(0.16, 1, 0.3, 1)",
+      },
+    };
   </file>
   </section>
   <section priority="medium" role="scripts">
@@ -1560,6 +3291,344 @@
         reason: "Tooltip text; brief hint, no wrapping preferred",
       },
     ];
+    export interface CharacterLimitInfo {
+      prop: string;
+      max: number;
+      reason?: string;
+    }
+    export interface PropInfo {
+      name: string;
+      type: string;
+      resolvedType: string;
+      required: boolean;
+      default?: string;
+      description?: string;
+      declaredInRialto: boolean;
+    }
+    export interface ComponentMetadata {
+      /** Component display name (PascalCase, matching the barrel export). */
+      name: string;
+      /** Same as `name`; kept explicit for generator clarity. */
+      exportIdentifier: string;
+      /** Fixed import path for consumers: `"@mattbutlerengineering/rialto"`. */
+      importPath: string;
+      /**
+       * Package.json exports subpath segment (the directory name under
+       * `src/components/`).  For most components this equals `name`; for
+       * components where the export name differs from the directory (e.g.
+       * `ToastProvider` in `src/components/Toast/`) this is the directory name
+       * (e.g. `"Toast"`).  Used by generate-exports.ts to build the `./Toast`
+       * subpath without falling back to a filesystem scan.
+       */
+      subpath: string;
+      /** JSDoc description from the Props interface or the component symbol. */
+      description?: string;
+      /** All props except those classified as slots. */
+      props: PropInfo[];
+      /** Prop names whose type includes ReactNode (e.g. `["children"]`). */
+      slots: string[];
+      /** Merged limits: catalog `charLimits` + the static residue, sorted by prop. */
+      characterLimits: CharacterLimitInfo[];
+    }
+    function getJsDocComment(symbol: ts.Symbol): string | undefined {
+      const docs = symbol.getDocumentationComment(undefined);
+      if (docs.length === 0) return undefined;
+      return (
+        docs
+          .map((d) => d.text)
+          .join("\n")
+          .trim() || undefined
+      );
+    }
+    function typeToString(type: ts.Type, checker: ts.TypeChecker): string {
+      return checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
+    }
+    function resolveTypeAlias(prop: ts.Symbol, checker: ts.TypeChecker): string {
+      const propType = checker.getTypeOfSymbol(prop);
+    
+      if (propType.flags & ts.TypeFlags.Union) {
+        const unionType = propType as ts.UnionType;
+        const memberStrings = unionType.types.map((t) => {
+          if (t.flags & ts.TypeFlags.Union) {
+            const nested = t as ts.UnionType;
+            return nested.types
+              .map((nt) => checker.typeToString(nt, undefined, ts.TypeFormatFlags.NoTruncation))
+              .sort(byteOrder)
+              .join(" | ");
+          }
+          return checker.typeToString(t, undefined, ts.TypeFormatFlags.NoTruncation);
+        });
+        return memberStrings.sort(byteOrder).join(" | ");
+      }
+    
+      return checker.typeToString(propType, undefined, ts.TypeFormatFlags.NoTruncation);
+    }
+    function getDefaultFromInitializer(symbol: ts.Symbol): string | undefined {
+      const decl = symbol.valueDeclaration;
+      if (!decl) return undefined;
+      if (ts.isBindingElement(decl) && decl.initializer) {
+        return decl.initializer.getText();
+      }
+      return undefined;
+    }
+    function isDeclaredInRialto(prop: ts.Symbol, rialtoSrcDir: string): boolean {
+      const decl = prop.declarations?.[0];
+      if (!decl) return false;
+      const fileName = decl.getSourceFile().fileName.replace(/\\/g, "/");
+      const boundary = rialtoSrcDir.replace(/\\/g, "/");
+      // Trailing separator so `src` cannot spuriously match a sibling like
+      // `src-legacy`; every real source file is `src/<subdir>/…`.
+      return fileName.startsWith(boundary.endsWith("/") ? boundary : `${boundary}/`);
+    }
+    function getComponentSubpath(
+      resolved: ts.Symbol,
+      name: string,
+      rialtoComponentsDir: string
+    ): string {
+      const decl = resolved.declarations?.[0];
+      if (!decl) return name;
+      const declDir = path.dirname(decl.getSourceFile().fileName);
+      const relative = path.relative(rialtoComponentsDir, declDir);
+      // Take the first segment only (immediate child of componentsDir).
+      const segment = relative.split(path.sep)[0];
+      return segment && segment !== ".." ? segment : name;
+    }
+    function limitRootProp(prop: string): string {
+      const bracket = prop.indexOf("[");
+      return bracket === -1 ? prop : prop.slice(0, bracket);
+    }
+    function loadCatalogCharLimits(componentsDir: string): Map<string, Record<string, number>> {
+      const result = new Map<string, Record<string, number>>();
+      if (!fs.existsSync(componentsDir)) return result;
+    
+      const files: string[] = [];
+      const walk = (dir: string): void => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else if (entry.isFile() && entry.name.endsWith(".catalog.ts")) files.push(full);
+        }
+      };
+      walk(componentsDir);
+      files.sort(byteOrder);
+    
+      for (const file of files) {
+        const sf = ts.createSourceFile(
+          file,
+          fs.readFileSync(file, "utf8"),
+          ts.ScriptTarget.Latest,
+          true
+        );
+    
+        for (const stmt of sf.statements) {
+          if (!ts.isVariableStatement(stmt)) continue;
+          for (const decl of stmt.declarationList.declarations) {
+            let init = decl.initializer;
+            if (init && ts.isSatisfiesExpression(init)) init = init.expression;
+            if (!init || !ts.isObjectLiteralExpression(init)) continue;
+    
+            const nameProp = init.properties.find(
+              (p): p is ts.PropertyAssignment =>
+                ts.isPropertyAssignment(p) && p.name.getText(sf) === "name"
+            );
+            if (!nameProp || !ts.isStringLiteral(nameProp.initializer)) continue;
+            const componentName = nameProp.initializer.text;
+    
+            const limitsProp = init.properties.find(
+              (p): p is ts.PropertyAssignment =>
+                ts.isPropertyAssignment(p) && p.name.getText(sf) === "charLimits"
+            );
+            if (!limitsProp || !ts.isObjectLiteralExpression(limitsProp.initializer)) continue;
+    
+            const limits: Record<string, number> = {};
+            for (const p of limitsProp.initializer.properties) {
+              if (!ts.isPropertyAssignment(p)) continue;
+              const key =
+                ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) ? p.name.text : undefined;
+              if (key === undefined || !ts.isNumericLiteral(p.initializer)) continue;
+              limits[key] = Number(p.initializer.text);
+            }
+            if (Object.keys(limits).length > 0) result.set(componentName, limits);
+          }
+        }
+      }
+    
+      return result;
+    }
+    export function assertCharacterLimitsResolve(components: ComponentMetadata[]): void {
+      const violations: string[] = [];
+      for (const comp of components) {
+        const known = new Set<string>([
+          ...comp.props.filter((p) => p.declaredInRialto).map((p) => p.name),
+          ...comp.slots,
+        ]);
+        for (const limit of comp.characterLimits) {
+          if (!known.has(limitRootProp(limit.prop))) violations.push(`${comp.name}.${limit.prop}`);
+        }
+      }
+      if (violations.length > 0) {
+        throw new Error(
+          `Character limits reference props that do not exist: ${violations.join(", ")}. ` +
+            `Fix the *.catalog.ts charLimits or the static characterLimits residue so every ` +
+            `limit names a real prop (or the root array prop for nested limits).`
+        );
+      }
+    }
+    function extractComponents(
+      program: ts.Program,
+      entryFile: string,
+      rialtoComponentsDir: string,
+      rialtoSrcDir: string,
+      catalogCharLimits: Map<string, Record<string, number>>
+    ): ComponentMetadata[] {
+      const checker = program.getTypeChecker();
+      const sourceFile = program.getSourceFile(entryFile);
+      if (!sourceFile) {
+        console.error(`Could not find source file: ${entryFile}`);
+        return [];
+      }
+    
+      const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+      if (!moduleSymbol) return [];
+    
+      const exports = checker.getExportsOfModule(moduleSymbol);
+      const components: ComponentMetadata[] = [];
+    
+      for (const exp of exports) {
+        const name = exp.getName();
+    
+        // Skip non-component exports (types, hooks, lowercase utilities)
+        if (name.startsWith("use") || name[0] !== name[0].toUpperCase()) continue;
+        if (name.endsWith("Props") || name.endsWith("Context")) continue;
+    
+        // Resolve aliased symbols
+        const resolved = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+    
+        // Find the Props interface by convention: ComponentNameProps
+        const propsTypeName = `${name}Props`;
+        const propsSymbol = exports.find((e) => e.getName() === propsTypeName);
+    
+        const props: PropInfo[] = [];
+        const slots: string[] = [];
+    
+        if (propsSymbol) {
+          const propsResolved =
+            propsSymbol.flags & ts.SymbolFlags.Alias
+              ? checker.getAliasedSymbol(propsSymbol)
+              : propsSymbol;
+    
+          const propsType = checker.getDeclaredTypeOfSymbol(propsResolved);
+    
+          for (const prop of propsType.getProperties()) {
+            const propName = prop.getName();
+            const propType = checker.getTypeOfSymbol(prop);
+            const propTypeStr = typeToString(propType, checker);
+    
+            // Classify ReactNode children as a slot
+            if (propName === "children" && propTypeStr.includes("ReactNode")) {
+              slots.push("children");
+              continue;
+            }
+    
+            const isOptional = !!(prop.flags & ts.SymbolFlags.Optional);
+    
+            const propInfo: PropInfo = {
+              name: propName,
+              type: propTypeStr,
+              resolvedType: resolveTypeAlias(prop, checker),
+              required: !isOptional,
+              declaredInRialto: isDeclaredInRialto(prop, rialtoSrcDir),
+            };
+    
+            const doc = getJsDocComment(prop);
+            if (doc) propInfo.description = doc;
+    
+            const defaultVal = getDefaultFromInitializer(prop);
+            if (defaultVal) propInfo.default = defaultVal;
+    
+            props.push(propInfo);
+          }
+        }
+    
+        // Component description from Props JSDoc, falling back to component JSDoc
+        let description: string | undefined;
+        if (propsSymbol) {
+          const propsResolved =
+            propsSymbol.flags & ts.SymbolFlags.Alias
+              ? checker.getAliasedSymbol(propsSymbol)
+              : propsSymbol;
+          description = getJsDocComment(propsResolved);
+        }
+        if (!description) {
+          description = getJsDocComment(resolved);
+        }
+    
+        // Character limits: catalog charLimits (flat, per real prop) merged with the
+        // static residue (nested + slot + non-cataloged). Catalog wins on a prop
+        // conflict; the merged list is byte-sorted by prop for stable artifacts.
+        const limitsByProp = new Map<string, CharacterLimitInfo>();
+        const catalog = catalogCharLimits.get(name);
+        if (catalog) {
+          for (const [prop, max] of Object.entries(catalog)) limitsByProp.set(prop, { prop, max });
+        }
+        for (const l of characterLimits) {
+          if (l.component !== name || limitsByProp.has(l.prop)) continue;
+          limitsByProp.set(l.prop, { prop: l.prop, max: l.max, reason: l.reason });
+        }
+        const compLimits = [...limitsByProp.values()].sort((a, b) => byteOrder(a.prop, b.prop));
+    
+        components.push({
+          name,
+          exportIdentifier: name,
+          importPath: "@mattbutlerengineering/rialto",
+          subpath: getComponentSubpath(resolved, name, rialtoComponentsDir),
+          description,
+          props,
+          slots,
+          characterLimits: compLimits,
+        });
+      }
+    
+      // Byte-order comparator (NOT localeCompare): locale-sensitive sorts diverge
+      // between macOS and Linux CI, drifting the four generated artifacts. See the
+      // #2195→#2217 Integrity-failure class.
+      return components.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    }
+    export function introspectComponents(rootDir: string): ComponentMetadata[] {
+      const entryFile = path.join(rootDir, "src/components/index.ts");
+      const tsconfigPath = path.join(rootDir, "tsconfig.json");
+      // Subpath derivation keys off the components dir (immediate child = subpath).
+      const rialtoComponentsDir = path.join(rootDir, "src/components");
+      // declaredInRialto keys off the whole src root, so props authored in
+      // src/providers (e.g. RialtoProviderProps) count as rialto-authored and are
+      // not mistaken for HTMLAttributes bleed-through from node_modules/lib.dom.
+      const rialtoSrcDir = path.join(rootDir, "src");
+    
+      if (!fs.existsSync(entryFile)) {
+        throw new Error(`Entry file not found: ${entryFile}`);
+      }
+      if (!fs.existsSync(tsconfigPath)) {
+        throw new Error(`tsconfig not found: ${tsconfigPath}`);
+      }
+    
+      const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+      const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, rootDir);
+      const program = ts.createProgram([entryFile], parsedConfig.options);
+    
+      const catalogCharLimits = loadCatalogCharLimits(rialtoComponentsDir);
+      const components = extractComponents(
+        program,
+        entryFile,
+        rialtoComponentsDir,
+        rialtoSrcDir,
+        catalogCharLimits
+      );
+    
+      // Fail generation loudly on drift rather than shipping a limit for a prop that
+      // does not exist (the EmptyState `title`→`heading` class of bug).
+      assertCharacterLimitsResolve(components);
+      return components;
+    }
   </file>
   <file path="scripts/component-projection.ts">
     export interface PropInfo {
@@ -1573,6 +3642,44 @@
       prop: string;
       max: number;
       reason?: string;
+    }
+    export interface ProjectedComponent {
+      name: string;
+      description?: string;
+      importPath?: string;
+      props: PropInfo[];
+      slots: string[];
+      characterLimits?: CharacterLimitInfo[];
+    }
+    export function projectComponents(
+      components: ComponentMetadata[],
+      options: { includeImportPath: boolean }
+    ): ProjectedComponent[] {
+      return components.map((comp) => {
+        const props: PropInfo[] = [];
+        for (const p of comp.props) {
+          // Drop HTML-attribute bleed-through: keep only the real component API.
+          if (!p.declaredInRialto) continue;
+          const prop: PropInfo = { name: p.name, type: p.type, required: p.required };
+          if (p.description !== undefined) prop.description = p.description;
+          if (p.default !== undefined) prop.default = p.default;
+          props.push(prop);
+        }
+    
+        const entry: ProjectedComponent = {
+          name: comp.name,
+          description: comp.description,
+          ...(options.includeImportPath ? { importPath: comp.importPath } : {}),
+          props,
+          slots: comp.slots,
+        };
+    
+        if (comp.characterLimits.length > 0) {
+          entry.characterLimits = comp.characterLimits;
+        }
+    
+        return entry;
+      });
     }
   </file>
   <file path="scripts/generate-all.ts">
@@ -1637,6 +3744,107 @@
       const fill = "─".repeat(Math.max(1, HEADER_FILL - label.length));
       return `  /* ── ${label} ${fill} */`;
     }
+    function wrapComment(text: string): string[] {
+      const words = assertCommentSafe(text).split(/\s+/);
+      const lines: string[] = [];
+      let current = "";
+      for (const word of words) {
+        if (current.length > 0 && current.length + 1 + word.length > 64) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = current.length === 0 ? word : `${current} ${word}`;
+        }
+      }
+      if (current.length > 0) lines.push(current);
+      return lines.map((line, i) => {
+        const open = i === 0 ? "/* " : "   ";
+        const close = i === lines.length - 1 ? " */" : "";
+        return `${open}${line}${close}`;
+      });
+    }
+    function renderBlock(selector: string, fileRoot: TokenGroup, trailer?: string): string {
+      const colorGroup = fileRoot["color"];
+      if (colorGroup === undefined || typeof colorGroup === "string" || isToken(colorGroup)) {
+        throw new Error(`Expected a "color" token group at the file root`);
+      }
+    
+      // cssVarName can map distinct paths to one name (see its doc) — refuse to
+      // emit a block where a later declaration would silently shadow an earlier one.
+      const seen = new Set<string>();
+    
+      const sections = Object.entries(colorGroup)
+        .filter(([key]) => !key.startsWith("$"))
+        .map(([key, node]) => {
+          if (node === undefined || typeof node === "string") {
+            throw new Error(`Unexpected non-token entry "color.${key}"`);
+          }
+          const groupDescription =
+            !isToken(node) && typeof node.$description === "string" ? node.$description : undefined;
+          const lines = [sectionHeader(key, groupDescription)];
+          const entries = isToken(node)
+            ? [{ path: ["color", key], token: node }]
+            : walkTokens(node, ["color", key]);
+          for (const { path: tokenPath, token } of entries) {
+            const varName = cssVarName(tokenPath);
+            if (seen.has(varName)) {
+              throw new Error(
+                `Duplicate CSS variable ${varName} (from token path ${tokenPath.join(".")})`
+              );
+            }
+            seen.add(varName);
+            if (token.$description !== undefined) {
+              lines.push(`  /* ${assertCommentSafe(token.$description)} */`);
+            }
+            lines.push(`  ${varName}: ${token.$value};`);
+          }
+          return lines.join("\n");
+        });
+    
+      const body = sections.join("\n\n") + (trailer === undefined ? "" : `\n\n  ${trailer}`);
+      return `${selector} {\n${body}\n}`;
+    }
+    function main(): void {
+      const tokensDir = path.join(process.cwd(), "src/tokens");
+      const light = JSON.parse(
+        fs.readFileSync(path.join(tokensDir, "colors.json"), "utf-8")
+      ) as TokenGroup;
+      const dark = JSON.parse(
+        fs.readFileSync(path.join(tokensDir, "colors.dark.json"), "utf-8")
+      ) as TokenGroup;
+    
+      assertTokenParity(light, dark);
+    
+      const darkColor = dark["color"];
+      const darkPreamble =
+        darkColor !== undefined && typeof darkColor !== "string" && !isToken(darkColor)
+          ? darkColor.$description
+          : undefined;
+    
+      const parts = [
+        "/*",
+        " * GENERATED FILE — DO NOT EDIT.",
+        " * Authoring sources: src/tokens/colors.json (light), src/tokens/colors.dark.json (dark).",
+        " * Regenerate: pnpm --filter @mattbutlerengineering/rialto generate:tokens",
+        " * Drift-checked by `pnpm regen:check` (rialto-color-tokens family).",
+        " */",
+        "",
+        renderBlock(":root", light),
+        "",
+        "/* ── Dark Theme ──────────────────────────────── */",
+        ...(typeof darkPreamble === "string" ? wrapComment(darkPreamble) : []),
+        renderBlock('[data-theme="dark"]', dark, "color-scheme: dark;"),
+        "",
+      ];
+    
+      const outPath = path.join(tokensDir, "colors.css");
+      fs.writeFileSync(outPath, parts.join("\n"));
+    
+      const tokenCount = walkTokens(light).length;
+      console.info(
+        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`
+      );
+    }
   </file>
   <file path="scripts/generate-exports.ts">
     interface ExportEntry {
@@ -1645,6 +3853,109 @@
       default?: string;
     }
     type ExportsMap = Record<string, string | ExportEntry>;
+    export function buildExportsMap(rootDir: string): ExportsMap {
+      const exportsMap: ExportsMap = {};
+    
+      // Root barrel — preserved for back-compat.
+      exportsMap["."] = {
+        types: "./dist/lib/lib-entry.d.ts",
+        import: "./dist/lib/rialto.js",
+      };
+    
+      // Pre-existing named subpaths.
+      exportsMap["./motion"] = {
+        types: "./dist/lib/tokens/motion.d.ts",
+        import: "./dist/lib/motion.js",
+      };
+      exportsMap["./providers"] = {
+        types: "./dist/lib/providers/index.d.ts",
+        import: "./dist/lib/providers/index.js",
+      };
+      exportsMap["./hooks"] = {
+        types: "./dist/lib/hooks/index.d.ts",
+        import: "./dist/lib/hooks/index.js",
+      };
+    
+      // One subpath per component directory, derived from the canonical model.
+      // Only include subpaths that actually correspond to a directory under
+      // src/components/ with an index.ts — this excludes types and provider
+      // symbols re-exported into the components barrel (e.g. RialtoProvider,
+      // VibeName) whose declaration lives outside src/components/.
+      const componentsDir = path.join(rootDir, "src/components");
+      const components = introspectComponents(rootDir);
+      const seen = new Set<string>();
+      const componentEntries: Array<[string, ExportEntry]> = [];
+    
+      for (const comp of components) {
+        const subpath = comp.subpath;
+        if (seen.has(subpath)) continue;
+        const indexPath = path.join(componentsDir, subpath, "index.ts");
+        if (!fs.existsSync(indexPath)) continue;
+        seen.add(subpath);
+        componentEntries.push([
+          `./${subpath}`,
+          {
+            types: `./dist/lib/components/${subpath}/index.d.ts`,
+            import: `./dist/lib/components/${subpath}/index.js`,
+          },
+        ]);
+      }
+    
+      // Sort component entries by byte-order (not localeCompare) to match CI.
+      componentEntries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+      for (const [key, value] of componentEntries) {
+        exportsMap[key] = value;
+      }
+    
+      // Static, non-component subpaths.
+      exportsMap["./styles"] = {
+        types: "./dist/lib/styles.d.ts",
+        default: "./dist/lib/styles.css",
+      };
+      exportsMap["./manifest"] = "./dist/manifest.json";
+    
+      return exportsMap;
+    }
+    export function writeStylesTypeStub(rootDir: string): void {
+      const stubPath = path.join(rootDir, "dist", "lib", "styles.d.ts");
+      if (!fs.existsSync(path.dirname(stubPath))) return;
+      fs.writeFileSync(stubPath, "// Side-effect-only CSS bundle — no exported symbols.\nexport {};\n");
+    }
+    function loadPkg(rootDir: string): Record<string, unknown> {
+      return JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf8")) as Record<
+        string,
+        unknown
+      >;
+    }
+    function main(): void {
+      const checkOnly = process.argv.includes("--check");
+      if (!checkOnly) writeStylesTypeStub(SCRIPT_ROOT);
+      const desired = buildExportsMap(SCRIPT_ROOT);
+      const pkg = loadPkg(SCRIPT_ROOT);
+      const currentExports = pkg.exports;
+      const currentJson = JSON.stringify(currentExports, null, 2);
+      const desiredJson = JSON.stringify(desired, null, 2);
+    
+      if (currentJson === desiredJson) {
+        process.stdout.write("[generate-exports] exports map already in sync.\n");
+        return;
+      }
+    
+      if (checkOnly) {
+        process.stderr.write(
+          "[generate-exports] package.json exports map is out of sync. " +
+            "Run `pnpm exports` or `pnpm build` to regenerate.\n"
+        );
+        process.exit(1);
+      }
+    
+      const pkgJsonPath = path.join(SCRIPT_ROOT, "package.json");
+      pkg.exports = desired;
+      fs.writeFileSync(pkgJsonPath, JSON.stringify(pkg, null, 2) + "\n");
+      process.stdout.write(
+        `[generate-exports] wrote ${Object.keys(desired).length} export entries to package.json\n`
+      );
+    }
   </file>
   <file path="scripts/generate-figma-tokens.ts">
     interface FigmaTokenSets {
@@ -1653,6 +3964,393 @@
     function readJson(filePath: string): TokenGroup {
       const content = fs.readFileSync(filePath, "utf-8");
       return JSON.parse(content);
+    }
+    function runRegex(pattern: RegExp, input: string): RegExpMatchArray | null {
+      return pattern[Symbol.match]?.(input) ?? null;
+    }
+    function runRegexAll(pattern: RegExp, input: string): ReadonlyArray<RegExpMatchArray> {
+      return Array.from(input.matchAll(pattern));
+    }
+    function parseCssProperties(css: string): ReadonlyArray<{
+      readonly name: string;
+      readonly value: string;
+      readonly comment: string;
+    }> {
+      const results: Array<{
+        readonly name: string;
+        readonly value: string;
+        readonly comment: string;
+      }> = [];
+    
+      const lines = css.split("\n");
+      let currentName = "";
+      let currentValue = "";
+      let currentStartLine = -1;
+    
+      function flushProperty() {
+        if (!currentName) return;
+    
+        // Look backwards from the start line for the nearest comment block
+        let comment = "";
+        for (let j = currentStartLine - 1; j >= 0; j--) {
+          const prev = lines[j].trim();
+    
+          // Single-line comment: /* ... */
+          if (prev.startsWith("/*") && prev.endsWith("*/")) {
+            comment = prev.replace(/^\/\*\s*/, "").replace(/\s*\*\/$/, "");
+            // Skip section divider comments (e.g., "── Ambient glow ──")
+            if (comment.startsWith("──")) comment = "";
+            break;
+          }
+    
+          // Multi-line comment ending: find the opening /* and join lines
+          if (prev.endsWith("*/")) {
+            const commentLines: string[] = [prev.replace(/\s*\*\/$/, "").replace(/^\*?\s*/, "")];
+            for (let k = j - 1; k >= 0; k--) {
+              const cLine = lines[k].trim();
+              if (cLine.startsWith("/*")) {
+                commentLines.unshift(cLine.replace(/^\/\*\s*/, ""));
+                break;
+              }
+              commentLines.unshift(cLine.replace(/^\*?\s*/, ""));
+            }
+            comment = commentLines.join(" ").trim();
+            // Skip section divider comments
+            if (comment.startsWith("──")) comment = "";
+            break;
+          }
+    
+          // Stop at blank lines or other declarations
+          if (prev === "" || prev.startsWith("--rialto-")) break;
+        }
+    
+        results.push({
+          name: currentName,
+          value: currentValue.trim(),
+          comment,
+        });
+    
+        currentName = "";
+        currentValue = "";
+        currentStartLine = -1;
+      }
+    
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+    
+        // Check if this starts a new property declaration
+        const propStartMatch = line.match(/^(--rialto-[\w-]+)\s*:\s*(.*)$/);
+        if (propStartMatch) {
+          // Flush any previous property
+          flushProperty();
+    
+          const [, name, rest] = propStartMatch;
+          currentName = name;
+          currentStartLine = i;
+    
+          // Check if the value completes on this same line
+          if (rest.endsWith(";")) {
+            currentValue = rest.slice(0, -1).trim();
+            flushProperty();
+          } else {
+            currentValue = rest;
+          }
+          continue;
+        }
+    
+        // If we're accumulating a multi-line value, append this line
+        if (currentName) {
+          if (line.endsWith(";")) {
+            currentValue += " " + line.slice(0, -1).trim();
+            flushProperty();
+          } else {
+            currentValue += " " + line;
+          }
+        }
+      }
+    
+      // Flush any trailing property
+      flushProperty();
+    
+      return results;
+    }
+    function extractCssBlock(css: string, selector: string): string {
+      const selectorIndex = css.indexOf(selector);
+      if (selectorIndex === -1) return "";
+    
+      const openBrace = css.indexOf("{", selectorIndex);
+      if (openBrace === -1) return "";
+    
+      // Find the matching closing brace via depth counting
+      let depth = 1;
+      let pos = openBrace + 1;
+      while (pos < css.length && depth > 0) {
+        if (css[pos] === "{") depth++;
+        if (css[pos] === "}") depth--;
+        pos++;
+      }
+    
+      return css.slice(openBrace + 1, pos - 1);
+    }
+    function cssNameToPath(name: string): readonly string[] {
+      return name.replace(/^--rialto-/, "").split("-");
+    }
+    function setNestedValue(
+      obj: TokenGroup,
+      pathSegments: readonly string[],
+      value: DtcgToken
+    ): TokenGroup {
+      if (pathSegments.length === 0) return obj;
+      if (pathSegments.length === 1) {
+        return { ...obj, [pathSegments[0]]: value };
+      }
+    
+      const [head, ...tail] = pathSegments;
+      const existing = obj[head] as TokenGroup | undefined;
+      return {
+        ...obj,
+        [head]: setNestedValue(existing ?? {}, tail, value),
+      };
+    }
+    function readRadiusTokens(tokensDir: string): TokenGroup {
+      const css = fs.readFileSync(path.join(tokensDir, "radius.css"), "utf-8");
+      const rootBlock = extractCssBlock(css, ":root");
+      const props = parseCssProperties(rootBlock);
+    
+      let tokens: TokenGroup = {};
+      for (const prop of props) {
+        const segments = cssNameToPath(prop.name);
+        // Remove "radius" prefix since it's already the category
+        const key = segments.slice(1);
+        if (key.length === 0) continue;
+    
+        const token: DtcgToken = {
+          $value: prop.value,
+          $type: "dimension",
+          ...(prop.comment ? { $description: prop.comment } : {}),
+        };
+        tokens = setNestedValue(tokens, key, token);
+      }
+    
+      return { radius: tokens };
+    }
+    function readShadowTokens(tokensDir: string): {
+      readonly light: TokenGroup;
+      readonly dark: TokenGroup;
+      readonly shared: TokenGroup;
+    } {
+      const css = fs.readFileSync(path.join(tokensDir, "shadows.css"), "utf-8");
+    
+      // Parse :root block
+      const rootBlock = extractCssBlock(css, ":root");
+      const rootProps = parseCssProperties(rootBlock);
+    
+      // Parse dark theme block
+      const darkBlock = extractCssBlock(css, '[data-theme="dark"]');
+      const darkProps = parseCssProperties(darkBlock);
+    
+      let lightShadows: TokenGroup = {};
+      let darkShadows: TokenGroup = {};
+      let shared: TokenGroup = {};
+    
+      for (const prop of rootProps) {
+        const segments = cssNameToPath(prop.name);
+        const category = segments[0];
+        const key = segments.slice(1);
+    
+        // Skip alias tokens that reference other variables
+        if (prop.value.startsWith("var(")) continue;
+    
+        const baseToken: DtcgToken = {
+          $value: prop.value,
+          $type: categoryToType(category),
+          ...(prop.comment ? { $description: prop.comment } : {}),
+        };
+    
+        if (category === "shadow") {
+          const shadowKey = key.length > 0 ? key : [prop.name.replace("--rialto-shadow-", "")];
+          lightShadows = setNestedValue(lightShadows, shadowKey, baseToken);
+        } else {
+          // Easing, duration, z-index are shared (not theme-dependent)
+          shared = setNestedValue(shared, segments, baseToken);
+        }
+      }
+    
+      for (const prop of darkProps) {
+        const segments = cssNameToPath(prop.name);
+        const key = segments.slice(1); // Remove "shadow" prefix
+    
+        if (prop.value.startsWith("var(")) continue;
+    
+        const token: DtcgToken = {
+          $value: prop.value,
+          $type: "shadow",
+          ...(prop.comment ? { $description: prop.comment } : {}),
+        };
+    
+        const shadowKey = key.length > 0 ? key : [prop.name.replace("--rialto-shadow-", "")];
+        darkShadows = setNestedValue(darkShadows, shadowKey, token);
+      }
+    
+      return {
+        light: { shadow: lightShadows },
+        dark: { shadow: darkShadows },
+        shared,
+      };
+    }
+    function categoryToType(category: string): string {
+      switch (category) {
+        case "shadow":
+          return "shadow";
+        case "ease":
+          return "cubicBezier";
+        case "duration":
+          return "duration";
+        case "z":
+          return "number";
+        default:
+          return "other";
+      }
+    }
+    function readVibeOverrides(providersDir: string): {
+      readonly transacting: TokenGroup;
+      readonly presenting: TokenGroup;
+    } {
+      const vibesPath = path.join(providersDir, "vibes.ts");
+      const content = fs.readFileSync(vibesPath, "utf-8");
+    
+      interface VibeMapping {
+        readonly category: string;
+        readonly path: readonly string[];
+      }
+    
+      const vibeOverrideMap: Record<string, VibeMapping> = {
+        "--rialto-space-sm": { category: "spacing", path: ["sm"] },
+        "--rialto-space-md": { category: "spacing", path: ["md"] },
+        "--rialto-space-lg": { category: "spacing", path: ["lg"] },
+        "--rialto-radius-default": { category: "radius", path: ["default"] },
+        "--rialto-radius-soft": { category: "radius", path: ["soft"] },
+        "--rialto-weight-medium": { category: "font", path: ["weight", "medium"] },
+        "--rialto-text-sm": { category: "font", path: ["size", "sm"] },
+      };
+    
+      function extractVibeSet(vibeName: string): TokenGroup {
+        // Match the vibe block: vibeName: { ... }
+        const regex = new RegExp(`${vibeName}:\\s*\\{([^}]+)\\}`, "s");
+        const match = runRegex(regex, content);
+        if (!match) return {};
+    
+        const block = match[1];
+        let tokens: TokenGroup = {};
+    
+        // Parse each "--rialto-*": "value" pair
+        const pairRegex = /"(--rialto-[\w-]+)":\s*"([^"]+)"/g;
+        const pairs = runRegexAll(pairRegex, block);
+    
+        for (const pairMatch of pairs) {
+          const [, cssVar, value] = pairMatch;
+          const mapping = vibeOverrideMap[cssVar];
+          if (!mapping) continue;
+    
+          const tokenType = inferType(mapping.category, value);
+          const token: DtcgToken = {
+            $value: isNumericValue(value) ? Number(value) : value,
+            $type: tokenType,
+          };
+    
+          const fullPath = [mapping.category, ...mapping.path];
+          tokens = setNestedValue(tokens, fullPath, token);
+        }
+    
+        return tokens;
+      }
+    
+      return {
+        transacting: extractVibeSet("transacting"),
+        presenting: extractVibeSet("presenting"),
+      };
+    }
+    function inferType(category: string, value: string): string {
+      switch (category) {
+        case "spacing":
+        case "radius":
+          return "dimension";
+        case "font":
+          return isNumericValue(value) ? "fontWeight" : "dimension";
+        default:
+          return "other";
+      }
+    }
+    function isNumericValue(value: string): boolean {
+      return /^\d+(\.\d+)?$/.test(value);
+    }
+    function main() {
+      const rootDir = process.cwd();
+      const tokensDir = path.join(rootDir, "src/tokens");
+      const providersDir = path.join(rootDir, "src/providers");
+      const outPath = path.join(rootDir, "figma-tokens.json");
+    
+      // 1. Read DTCG JSON sources (already in correct format)
+      const colorsLight = readJson(path.join(tokensDir, "colors.json"));
+      const colorsDark = readJson(path.join(tokensDir, "colors.dark.json"));
+      assertTokenParity(colorsLight, colorsDark);
+      const typography = readJson(path.join(tokensDir, "typography.json"));
+      const spacing = readJson(path.join(tokensDir, "spacing.json"));
+    
+      // 2. Parse CSS-only tokens
+      const radius = readRadiusTokens(tokensDir);
+      const shadows = readShadowTokens(tokensDir);
+    
+      // 3. Parse vibe overrides
+      const vibes = readVibeOverrides(providersDir);
+    
+      // 4. Assemble token sets
+      const tokenSets: FigmaTokenSets = {
+        // Color modes (light/dark)
+        "rialto/light": {
+          ...colorsLight,
+          ...shadows.light,
+        },
+        "rialto/dark": {
+          ...colorsDark,
+          ...shadows.dark,
+        },
+    
+        // Base tokens (default vibe)
+        "rialto/default": {
+          ...typography,
+          ...spacing,
+          ...radius,
+          ...shadows.shared,
+        },
+    
+        // Vibe overrides (only include tokens that differ from default)
+        "rialto/transacting": vibes.transacting,
+        "rialto/presenting": vibes.presenting,
+      };
+    
+      // 5. Write output
+      const output = JSON.stringify(tokenSets, null, 2) + "\n";
+      fs.writeFileSync(outPath, output);
+    
+      // Report stats
+      const setNames = Object.keys(tokenSets);
+      const totalTokens = setNames.reduce((sum, name) => sum + countTokens(tokenSets[name]), 0);
+      console.info(`Generated figma-tokens.json: ${totalTokens} tokens across ${setNames.length} sets`);
+      for (const name of setNames) {
+        console.info(`  ${name}: ${countTokens(tokenSets[name])} tokens`);
+      }
+    }
+    function countTokens(group: TokenGroup): number {
+      let count = 0;
+      for (const value of Object.values(group)) {
+        if (value && typeof value === "object" && "$value" in value) {
+          count++;
+        } else if (value && typeof value === "object") {
+          count += countTokens(value as TokenGroup);
+        }
+      }
+      return count;
     }
   </file>
   <file path="scripts/generate-manifest.ts">
@@ -1672,6 +4370,23 @@
         components: projectComponents(components, { includeImportPath: false }),
       };
     }
+    function main() {
+      const rootDir = process.cwd();
+      const outPath = path.join(rootDir, "dist/manifest.json");
+    
+      const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")) as {
+        version: string;
+      };
+    
+      const components = introspectComponents(rootDir);
+      const manifest = buildManifest(components, pkg.version, new Date().toISOString());
+    
+      // Ensure output directory exists
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, JSON.stringify(manifest, null, 2) + "\n");
+    
+      console.log(`Generated manifest: ${components.length} components → ${outPath}`);
+    }
   </file>
   <file path="scripts/generate-registry.ts">
     interface Registry {
@@ -1683,6 +4398,21 @@
         version,
         components: projectComponents(components, { includeImportPath: true }),
       };
+    }
+    function main() {
+      const rootDir = process.cwd();
+      const outPath = path.join(rootDir, "registry.json");
+    
+      const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, "package.json"), "utf-8")) as {
+        version: string;
+      };
+    
+      const components = introspectComponents(rootDir);
+      const registry = buildRegistry(components, pkg.version);
+    
+      fs.writeFileSync(outPath, JSON.stringify(registry, null, 2) + "\n");
+    
+      console.log(`Generated registry: ${components.length} components → ${outPath}`);
     }
   </file>
   <file path="scripts/lib-entrypoints.ts">
@@ -1714,6 +4444,43 @@
       }
       entries.sort((a, b) => a.subpath.localeCompare(b.subpath));
       return entries;
+    }
+    export const libEntries: LibEntry[] = [
+      // Root barrel — preserved for back-compat with `import { x } from "@.../rialto"`.
+      {
+        subpath: ".",
+        source: path.join(repoRoot, "src/lib-entry.ts"),
+        chunkName: "rialto",
+      },
+      // Pre-existing motion subpath.
+      {
+        subpath: "motion",
+        source: path.join(repoRoot, "src/tokens/motion.ts"),
+        chunkName: "motion",
+      },
+      // Providers subpath — RialtoProvider, useDeviceContext, vibes, etc.
+      // chunkName uses /index so the emitted JS lands inside the same folder
+      // as vite-plugin-dts's d.ts output (dist/lib/providers/) and TypeScript
+      // bundler resolution finds the d.ts via folder fallback.
+      {
+        subpath: "providers",
+        source: path.join(repoRoot, "src/providers/index.ts"),
+        chunkName: "providers/index",
+      },
+      // Hooks subpath. Same /index treatment as providers.
+      {
+        subpath: "hooks",
+        source: path.join(repoRoot, "src/hooks/index.ts"),
+        chunkName: "hooks/index",
+      },
+      ...componentEntries,
+    ];
+    export function viteEntryMap(): Record<string, string> {
+      const out: Record<string, string> = {};
+      for (const entry of libEntries) {
+        out[entry.chunkName] = entry.source;
+      }
+      return out;
     }
   </file>
   <file path="scripts/lib-external.ts">
@@ -1749,12 +4516,252 @@
       "commerce",
     ] as const;
     export type IconCategory = (typeof iconCategories)[number];
+    export interface IconEntry {
+      /** Semantic concept name used for lookups (e.g. "save", "delete"). */
+      concept: string;
+      /** Human-readable label for display. */
+      label: string;
+      /** Lucide icon component. */
+      icon: LucideIcon;
+      /** Category grouping. */
+      category: IconCategory;
+    }
+    export const iconVocabulary: readonly IconEntry[] = [
+      // ── Navigation ──────────────────────────────
+      { concept: "home", label: "Home", icon: Home, category: "navigation" },
+      { concept: "back", label: "Back", icon: ArrowLeft, category: "navigation" },
+      {
+        concept: "forward",
+        label: "Forward",
+        icon: ArrowRight,
+        category: "navigation",
+      },
+      { concept: "menu", label: "Menu", icon: Menu, category: "navigation" },
+      { concept: "search", label: "Search", icon: Search, category: "navigation" },
+      {
+        concept: "external-link",
+        label: "External Link",
+        icon: ExternalLink,
+        category: "navigation",
+      },
+      {
+        concept: "expand",
+        label: "Expand",
+        icon: ChevronDown,
+        category: "navigation",
+      },
+      {
+        concept: "collapse",
+        label: "Collapse",
+        icon: ChevronRight,
+        category: "navigation",
+      },
+      {
+        concept: "more-actions",
+        label: "More Actions",
+        icon: MoreHorizontal,
+        category: "navigation",
+      },
+    
+      // ── Actions ─────────────────────────────────
+      { concept: "save", label: "Save", icon: Save, category: "actions" },
+      { concept: "delete", label: "Delete", icon: Trash2, category: "actions" },
+      { concept: "edit", label: "Edit", icon: SquarePen, category: "actions" },
+      { concept: "add", label: "Add", icon: Plus, category: "actions" },
+      { concept: "copy", label: "Copy", icon: Copy, category: "actions" },
+      { concept: "share", label: "Share", icon: Share, category: "actions" },
+      {
+        concept: "download",
+        label: "Download",
+        icon: Download,
+        category: "actions",
+      },
+      { concept: "upload", label: "Upload", icon: Upload, category: "actions" },
+      {
+        concept: "refresh",
+        label: "Refresh",
+        icon: RefreshCw,
+        category: "actions",
+      },
+      { concept: "undo", label: "Undo", icon: Undo, category: "actions" },
+      { concept: "redo", label: "Redo", icon: Redo, category: "actions" },
+    
+      // ── Communication ───────────────────────────
+      { concept: "email", label: "Email", icon: Mail, category: "communication" },
+      {
+        concept: "message",
+        label: "Message",
+        icon: MessageCircle,
+        category: "communication",
+      },
+      {
+        concept: "notification",
+        label: "Notification",
+        icon: Bell,
+        category: "communication",
+      },
+      { concept: "send", label: "Send", icon: Send, category: "communication" },
+      { concept: "phone", label: "Phone", icon: Phone, category: "communication" },
+    
+      // ── Status ──────────────────────────────────
+      {
+        concept: "success",
+        label: "Success",
+        icon: CircleCheck,
+        category: "status",
+      },
+      { concept: "error", label: "Error", icon: CircleX, category: "status" },
+      {
+        concept: "warning",
+        label: "Warning",
+        icon: AlertTriangle,
+        category: "status",
+      },
+      { concept: "info", label: "Info", icon: Info, category: "status" },
+      { concept: "loading", label: "Loading", icon: Loader, category: "status" },
+    
+      // ── Content ─────────────────────────────────
+      { concept: "file", label: "File", icon: File, category: "content" },
+      {
+        concept: "file-text",
+        label: "File Text",
+        icon: FileText,
+        category: "content",
+      },
+      { concept: "folder", label: "Folder", icon: Folder, category: "content" },
+      {
+        concept: "folder-open",
+        label: "Folder Open",
+        icon: FolderOpen,
+        category: "content",
+      },
+      { concept: "image", label: "Image", icon: Image, category: "content" },
+      { concept: "link", label: "Link", icon: Link2, category: "content" },
+      {
+        concept: "clipboard",
+        label: "Clipboard",
+        icon: Clipboard,
+        category: "content",
+      },
+    
+      // ── User ────────────────────────────────────
+      { concept: "user", label: "User", icon: User, category: "user" },
+      { concept: "users", label: "Users", icon: Users, category: "user" },
+      { concept: "user-add", label: "Add User", icon: UserPlus, category: "user" },
+      { concept: "settings", label: "Settings", icon: Settings, category: "user" },
+      { concept: "logout", label: "Log Out", icon: LogOut, category: "user" },
+    
+      // ── Data ────────────────────────────────────
+      { concept: "filter", label: "Filter", icon: Filter, category: "data" },
+      { concept: "sort", label: "Sort", icon: ArrowUpDown, category: "data" },
+      { concept: "chart", label: "Chart", icon: BarChart3, category: "data" },
+      {
+        concept: "trending-up",
+        label: "Trending Up",
+        icon: TrendingUp,
+        category: "data",
+      },
+      {
+        concept: "trending-down",
+        label: "Trending Down",
+        icon: TrendingDown,
+        category: "data",
+      },
+      {
+        concept: "checklist",
+        label: "Checklist",
+        icon: ListChecks,
+        category: "data",
+      },
+    
+      // ── Media ───────────────────────────────────
+      { concept: "play", label: "Play", icon: Play, category: "media" },
+      { concept: "pause", label: "Pause", icon: Pause, category: "media" },
+      { concept: "camera", label: "Camera", icon: Camera, category: "media" },
+      { concept: "video", label: "Video", icon: Video, category: "media" },
+    
+      // ── Commerce ────────────────────────────────
+      { concept: "cart", label: "Cart", icon: ShoppingCart, category: "commerce" },
+      {
+        concept: "credit-card",
+        label: "Credit Card",
+        icon: CreditCard,
+        category: "commerce",
+      },
+      {
+        concept: "dollar",
+        label: "Dollar",
+        icon: DollarSign,
+        category: "commerce",
+      },
+      { concept: "package", label: "Package", icon: Package, category: "commerce" },
+      { concept: "tag", label: "Tag", icon: Tag, category: "commerce" },
+    ];
+    export function getIcon(concept: string): LucideIcon | undefined {
+      return conceptMap.get(concept);
+    }
+    export function getIconsByCategory(category: IconCategory): readonly IconEntry[] {
+      return iconVocabulary.filter((entry) => entry.category === category);
+    }
   </file>
   <file path="src/tokens/motion.ts">
     export const ms = (s: React.CSSProperties): MotionStyle => s as MotionStyle;
     export const precision = {
       duration: 0.15,
       ease: [0.2, 0, 0, 1] as const,
+    };
+    export const spring = {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 28,
+      mass: 0.8,
+    };
+    export const springGentle = {
+      type: "spring" as const,
+      stiffness: 200,
+      damping: 24,
+      mass: 1,
+    };
+    export const springTilt = {
+      stiffness: 300,
+      damping: 20,
+      mass: 0.5,
+    };
+    export const boop = {
+      scale: 1.03,
+      transition: {
+        type: "spring" as const,
+        stiffness: 400,
+        damping: 15,
+        mass: 0.5,
+      },
+    };
+    export const staggerReveal = {
+      container: {
+        hidden: {},
+        visible: {
+          transition: {
+            staggerChildren: 0.06,
+            delayChildren: 0.1,
+          },
+        },
+      },
+      item: {
+        hidden: { opacity: 0, y: 16 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: {
+            type: "spring" as const,
+            stiffness: 260,
+            damping: 24,
+            mass: 0.8,
+          },
+        },
+      },
+    };
+    export const reduced = {
+      duration: 0,
     };
   </file>
   </section>

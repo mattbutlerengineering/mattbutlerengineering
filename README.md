@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](./LICENSE)
 [![codecov](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering/graph/badge.svg?token=ANNEPED1FV)](https://codecov.io/gh/mattbutlerengineering/mattbutlerengineering)
 
-<!-- acmm:begin -->[![ACMM Level 6](https://img.shields.io/badge/ACMM-Level%206-d4a030?style=flat-square)](docs/acmm.md)<!-- acmm:end -->
+<!-- acmm:begin -->[![ACMM Level 5](https://img.shields.io/badge/ACMM-Level%205-c4952c?style=flat-square)](docs/acmm.md)<!-- acmm:end -->
 
 > **Build status:** GitHub Actions runs CI checks on every PR. Verify changes locally with `pnpm lint`/`typecheck`/`test`. See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 

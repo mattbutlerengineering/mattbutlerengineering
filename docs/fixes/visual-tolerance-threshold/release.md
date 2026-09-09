@@ -2,7 +2,11 @@
 stage: ship
 run: maintenance:visual-tolerance-threshold
 date: 2026-08-27
-outcome: prepared-not-released
+outcome: released
+outcome-when-written: prepared-not-released
+corrected: 2026-09-03
+merged-at: 2026-08-28T19:49:43Z
+merge-commit: 8b252864c0f35289469761e99953453b2ba48a35
 pr: 4613
 head: 65db954503f754096715e01d91ba3b6398d802c3
 assumptions:
@@ -19,11 +23,17 @@ assumptions:
 
 # Release: the rialto-web visual suite's measured sensitivity — PREPARED, NOT RELEASED
 
-> **Status: prepared and stopped.** Every pre-flight check below was run and its
-> real result recorded. **No release action was executed.** The exact commands
-> that would ship this are written out in § Release steps and are marked, every
-> one of them, as not run. PR **#4613** is open, unmerged, with auto-merge not
-> enabled — and stays that way until a person decides otherwise.
+> **Status when written (2026-08-27): prepared and stopped.** Every pre-flight
+> check below was run and its real result recorded. **No release action was
+> executed.** The exact commands that would ship this are written out in
+> § Release steps and are marked, every one of them, as not run. PR **#4613** is
+> open, unmerged, with auto-merge not enabled — and stays that way until a person
+> decides otherwise.
+>
+> **This status is no longer current.** #4613 was merged on 2026-08-28. Read
+> [§ Correction (2026-09-03)](#correction-2026-09-03) before citing anything
+> above as the run's outcome — the title and this banner both still say NOT
+> RELEASED, and both are now wrong.
 
 ## What actually ships
 
@@ -431,3 +441,32 @@ Next stage: **Operate** (`docs/fixes/visual-tolerance-threshold/retro.md`) — a
 it should not run until the PR has actually merged and the post-release checks
 above have real answers. A retro on an unreleased change would be retrospecting
 on nothing.
+
+## Correction (2026-09-03), by `maintenance:visual-tolerance-threshold` Operate
+
+**This artifact says the change was prepared and not released. It was released
+the next day, and nothing came back to say so.**
+
+| Fact         | Value                                                                               |
+| ------------ | ----------------------------------------------------------------------------------- |
+| PR           | #4613                                                                               |
+| Merged at    | `2026-08-28T19:49:43Z`                                                              |
+| Merge commit | `8b252864c0f35289469761e99953453b2ba48a35`                                          |
+| Live on main | `apps/rialto-web/playwright.config.ts:47-48` — `threshold: 0`, `maxDiffPixels: 674` |
+
+Everything above the correction was true when written — Ship was explicitly
+authorized to "prepare and stop", and it stopped, which is why the title still
+reads PREPARED, NOT RELEASED. The staleness came from the handoff: a person
+merged the PR, and no stage owns writing that back into the artifact.
+
+That is worth naming precisely, because this run's own defect was a green check
+asserting something untrue. A release artifact whose headline says NOT RELEASED
+five days after it released is the same shape one layer up: the plausible
+reading is the wrong one, and nothing in the pipeline goes red to correct it.
+The prepare-and-stop pattern is what made it possible — a run that ships its own
+change closes the loop within Ship, whereas one that hands a PR to a human
+leaves the artifact frozen at the moment of the handoff.
+
+`docs/backlog.md`'s line for this run already reads `(done 2026-08-28 …
+PR #4613)`, so the backlog was updated and the run artifact was not — the two
+disagreed for five days.

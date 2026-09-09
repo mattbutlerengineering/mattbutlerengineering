@@ -108,6 +108,12 @@ export function extractMarkdownReferences(content, filePath) {
       const link = match[1].split("#")[0].trim();
       if (!link) continue;
       if (link.startsWith("http") || link.startsWith("mailto:")) continue;
+      // Real markdown links to project files always contain a "/" (a path)
+      // or a "." (a file extension, e.g. AGENTS.md). A bare identifier with
+      // neither (e.g. `issueNumber` from `[toState](issueNumber)` — plain
+      // source code, not a link) isn't a plausible doc reference; skip it
+      // rather than flag it as a dead link.
+      if (!/[./]/.test(link)) continue;
 
       const resolved = path.resolve(fileDir, link);
       refs.push({
