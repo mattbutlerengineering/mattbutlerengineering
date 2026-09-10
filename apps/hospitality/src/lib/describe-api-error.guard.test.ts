@@ -81,10 +81,7 @@ const ALLOWLIST: readonly AllowlistEntry[] = [
  * `components/booking-widget/`, not `hooks/`; `WaitlistJoinView.tsx` under
  * `components/booking-widget/`, not `components/booking/`.
  */
-export const PENDING_ADOPTION: readonly string[] = [
-  "components/timeline/StaffDepositSection.tsx",
-  "pages/TimelinePage.tsx",
-];
+export const PENDING_ADOPTION: readonly string[] = ["components/timeline/StaffDepositSection.tsx"];
 
 function isSourceFile(file: string): boolean {
   return /\.(ts|tsx)$/.test(file) && !/\.test\.(ts|tsx)$/.test(file);
