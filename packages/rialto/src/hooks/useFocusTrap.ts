@@ -59,14 +59,16 @@ export function useFocusTrap(
     const panel = panelRef.current;
     if (!panel) return;
 
-    const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    resolveInitialFocus(focusable, first, initialFocus)?.focus();
+    const initialFocusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+    resolveInitialFocus(initialFocusable, initialFocusable[0], initialFocus)?.focus();
 
     const trap = (e: KeyboardEvent) => {
       if (e.key !== "Tab") return;
+
+      const focusable = panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
       if (e.shiftKey) {
         if (document.activeElement === first) {
           e.preventDefault();
