@@ -3205,6 +3205,14 @@
         stack: ["React", "Fastify", "Prisma", "PostgreSQL", "Auth0", "PWA"],
         href: "/hospitality/",
       },
+      {
+        title: "Gen Playground",
+        description:
+          "An AI-assisted UI generator that streams Rialto component trees from a plain-English " +
+          "prompt, backed by a validated JSON spec format with live preview, history, and sharing.",
+        stack: ["React", "TypeScript", "Fastify", "JSON Schema", "Zod"],
+        href: `/gen/?prompt=${encodeURIComponent(GEN_DEMO_PROMPT)}`,
+      },
     ];
   </file>
   <file path="apps/marketing/src/data/repo-stats.ts">
