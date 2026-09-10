@@ -2,19 +2,18 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router";
 import { z } from "zod";
 import { useUrlParams } from "../hooks/use-url-params.js";
-import { Drawer, Button, Divider, Stack, Text, Card } from "@mattbutlerengineering/rialto";
-import type { Reservation, Table, TableStatus, UpdateReservationRequest } from "@mbe/types";
+import { Drawer, Button, Text, Card } from "@mattbutlerengineering/rialto";
+import type { Reservation, TableStatus, UpdateReservationRequest } from "@mbe/types";
 import { TimelineGrid, TimelineMobileView } from "../components/timeline";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
 import { WalkInDialog } from "../components/timeline/WalkInDialog";
-import { GuestCard } from "../components/crm/GuestCard.js";
+import { ReservationDetails } from "../components/timeline/ReservationDetails.js";
 import { OfflineBanner } from "../components/OfflineBanner.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
-import { STATUS_LABEL } from "../utils/reservation-display.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./TimelinePage.module.css";
 
@@ -44,146 +43,6 @@ function useIsMobile(): boolean {
   }, []);
 
   return isMobile;
-}
-
-function getStatusBadgeClass(status: Reservation["status"]): string {
-  switch (status) {
-    case "CONFIRMED":
-      return styles.statusConfirmed ?? "";
-    case "PENDING":
-      return styles.statusPending ?? "";
-    case "COMPLETED":
-      return styles.statusCompleted ?? "";
-    case "CANCELLED":
-      return styles.statusCancelled ?? "";
-    default:
-      return styles.statusNoShow ?? "";
-  }
-}
-
-interface ReservationDetailsProps {
-  reservation: Reservation;
-  tables: Table[];
-  onEdit: () => void;
-  onSeat: () => void;
-  onCancel: () => void;
-}
-
-function ReservationDetails({ reservation, onEdit, onSeat, onCancel }: ReservationDetailsProps) {
-  return (
-    <Stack gap="lg" className={styles.detailsStack}>
-      {reservation.guestId ? (
-        <>
-          <GuestCard guestId={reservation.guestId} />
-          <Divider />
-        </>
-      ) : (
-        <div>
-          <Text variant="label" color="secondary">
-            Guest
-          </Text>
-          <Text variant="display" as="div">
-            {reservation.guestName || "Guest"}
-          </Text>
-        </div>
-      )}
-
-      {reservation.guestEmail && (
-        <div>
-          <Text variant="label" color="secondary">
-            Email
-          </Text>
-          <Text variant="body" as="div">
-            {reservation.guestEmail}
-          </Text>
-        </div>
-      )}
-
-      {reservation.guestPhone && (
-        <div>
-          <Text variant="label" color="secondary">
-            Phone
-          </Text>
-          <Text variant="body" as="div">
-            {reservation.guestPhone}
-          </Text>
-        </div>
-      )}
-
-      <div>
-        <Text variant="label" color="secondary">
-          Time
-        </Text>
-        <Text variant="body" as="div">
-          {new Date(reservation.startTime).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          })}
-          {" - "}
-          {new Date(reservation.endTime).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          })}
-        </Text>
-      </div>
-
-      <div>
-        <Text variant="label" color="secondary">
-          Party Size
-        </Text>
-        <Text variant="body" as="div">
-          {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
-        </Text>
-      </div>
-
-      <div>
-        <Text variant="label" color="secondary">
-          Table
-        </Text>
-        <Text variant="body" as="div">
-          {reservation.table?.tableNumber || reservation.table?.name || "Unassigned"}
-        </Text>
-      </div>
-
-      <div>
-        <Text variant="label" color="secondary">
-          Status
-        </Text>
-        <Text className={`${styles.statusBadge} ${getStatusBadgeClass(reservation.status)}`}>
-          {STATUS_LABEL[reservation.status]}
-        </Text>
-      </div>
-
-      {reservation.notes && (
-        <div>
-          <Text variant="label" color="secondary">
-            Notes
-          </Text>
-          <Text variant="body" as="div" className={styles.notesValue}>
-            {reservation.notes}
-          </Text>
-        </div>
-      )}
-
-      <Stack gap="sm" className={styles.actionsDivider}>
-        <Button variant="primary" onClick={onEdit} className={styles.fullWidth}>
-          Edit Reservation
-        </Button>
-        {reservation.status === "CONFIRMED" && (
-          <Button variant="secondary" onClick={onSeat} className={styles.fullWidth}>
-            Seat Guest
-          </Button>
-        )}
-        {reservation.status !== "CANCELLED" && (
-          <Button variant="ghost" onClick={onCancel} className={styles.fullWidth}>
-            Cancel Reservation
-          </Button>
-        )}
-      </Stack>
-    </Stack>
-  );
 }
 
 export function TimelinePage() {
@@ -490,6 +349,7 @@ export function TimelinePage() {
             <ReservationDetails
               reservation={selectedReservation}
               tables={tables}
+              seated={false}
               onEdit={() => setShowEditDrawer(true)}
               onSeat={() => handleSeat(selectedReservation)}
               onCancel={() => setShowCancelDialog(true)}
@@ -511,6 +371,7 @@ export function TimelinePage() {
             <ReservationDetails
               reservation={selectedReservation}
               tables={tables}
+              seated={false}
               onEdit={() => setShowEditDrawer(true)}
               onSeat={() => handleSeat(selectedReservation)}
               onCancel={() => setShowCancelDialog(true)}

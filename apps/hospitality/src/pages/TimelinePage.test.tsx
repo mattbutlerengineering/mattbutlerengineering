@@ -79,6 +79,12 @@ vi.mock("../components/timeline", () => ({
       ))}
     </div>
   ),
+  ReservationDetails: ({ reservation }: { reservation: Reservation }) => (
+    <div data-testid="reservation-details">{reservation.guestName}</div>
+  ),
+  ReservationSheet: ({ reservation, open }: { reservation: Reservation; open: boolean }) =>
+    open ? <div data-testid="reservation-sheet">{reservation.guestName}</div> : null,
+  TimelineSkeleton: () => <div data-testid="timeline-skeleton" />,
 }));
 
 // The dialog stand-ins honour the rethrow contract (architecture § Dialog contracts): like the
@@ -614,10 +620,26 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("does not show Seat Guest button for non-CONFIRMED reservations", async () => {
+    it("shows Seat Guest for a PENDING reservation on a free table (item 13 rule)", async () => {
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({
           reservations: [{ ...defaultReservation, status: "PENDING" as const }],
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Seat Guest")).toBeDefined();
+      });
+    });
+
+    it("does not show Seat Guest button for a reservation that is neither PENDING nor CONFIRMED", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, status: "COMPLETED" as const }],
         })
       );
       renderPage();

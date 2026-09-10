@@ -1,0 +1,40 @@
+/* Summary row: party · time · table · status (ux Screen 4) */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.status {
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* Action row */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+}
+
+/* Spoken but not seen: "table unknown" beside the visible dash (ux Decision f) */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer (ux.md Screen 4). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .actions > button {
+    min-block-size: 44px;
+  }
+}
