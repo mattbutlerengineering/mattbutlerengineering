@@ -115,6 +115,30 @@ describe("useFocusTrap", () => {
     expect(e.defaultPrevented).toBe(false);
   });
 
+  it("re-queries focusable elements at Tab time so a dynamically added element becomes the new wrap boundary", () => {
+    const panel = makePanel("button", "button");
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+    const [first] = focusable;
+
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    // Panel content changes while the trap stays enabled (e.g. a new field appears).
+    const newLast = document.createElement("button");
+    panel.appendChild(newLast);
+
+    // Tab from the NEW last element should wrap to first, not escape the trap.
+    newLast.focus();
+    const tabEvent = tabKeyDown(false);
+    expect(tabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+
+    // Shift+Tab from first should now wrap to the NEW last element.
+    first!.focus();
+    const shiftTabEvent = tabKeyDown(true);
+    expect(shiftTabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(newLast);
+  });
+
   it("cleans up listeners when disabled", () => {
     const panel = makePanel("button", "button");
     const focusable = Array.from(panel.querySelectorAll<HTMLElement>("button"));
