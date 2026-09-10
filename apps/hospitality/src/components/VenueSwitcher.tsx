@@ -10,6 +10,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
   const { venues, selectedVenue, setVenueId, isMultiVenue } = useVenue();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Roving tabindex (ARIA APG listbox pattern): only `activeIndex` is a Tab
   // stop; arrow keys move it and move DOM focus with it. All option buttons
@@ -86,6 +87,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        triggerRef.current?.focus();
       }
     };
 
@@ -98,7 +100,10 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -110,6 +115,7 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
   return (
     <div ref={containerRef} className={styles.root}>
       <button
+        ref={triggerRef}
         type="button"
         className={`${styles.trigger} ${isMultiVenue ? styles.triggerInteractive : ""}`}
         onClick={handleToggle}
