@@ -112,6 +112,9 @@ vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
 vi.mock("../pages/examples/GuestDetailExamplePage.js", () => ({
   GuestDetailExamplePage: () => null,
 }));
+vi.mock("../pages/examples/AvailabilityHeatmapExamplePage.js", () => ({
+  AvailabilityHeatmapExamplePage: () => null,
+}));
 vi.mock("../pages/tokens/ColorPage.js", () => ({ ColorPage: () => null }));
 vi.mock("../pages/tokens/TypographyPage.js", () => ({ TypographyPage: () => null }));
 vi.mock("../pages/tokens/SurfacesPage.js", () => ({ SurfacesPage: () => null }));
@@ -340,6 +343,21 @@ describe("PageRegistry — invoice example", () => {
     expect(entry?.label).toBe("Invoice");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/invoice");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Availability-heatmap example (#5206)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — availability-heatmap example", () => {
+  it("registers example-availability-heatmap in the Examples category at /examples/availability-heatmap", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-availability-heatmap");
+    expect(entry, "example-availability-heatmap missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Availability Heatmap");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/availability-heatmap");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
