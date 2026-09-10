@@ -81,84 +81,127 @@ vi.mock("../components/timeline", () => ({
   ),
 }));
 
-vi.mock("../components/timeline/CancelReservationDialog", () => ({
-  CancelReservationDialog: ({
-    onConfirm,
-    onClose,
-  }: {
-    onConfirm: (reason: string, note: string) => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="cancel-dialog">
-      <button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
-        Confirm Cancel
-      </button>
-      <button data-testid="cancel-close" onClick={onClose}>
-        Close Cancel
-      </button>
-    </div>
-  ),
-}));
+// The dialog stand-ins honour the rethrow contract (architecture § Dialog contracts): like the
+// real dialogs they consume the promise the page hands back, reporting its outcome so the page's
+// rethrow can be asserted — and so a rejection never escapes as an unhandled error.
+vi.mock("../components/timeline/CancelReservationDialog", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    CancelReservationDialog: ({
+      onConfirm,
+      onClose,
+    }: {
+      onConfirm: (reason: string, note: string) => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="cancel-dialog">
+          <button
+            data-testid="cancel-confirm"
+            onClick={() =>
+              onConfirm("no_show", "test note").then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Confirm Cancel
+          </button>
+          <span data-testid="cancel-outcome">{outcome}</span>
+          <button data-testid="cancel-close" onClick={onClose}>
+            Close Cancel
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
-vi.mock("../components/timeline/EditReservationDrawer", () => ({
-  EditReservationDrawer: ({
-    reservation,
-    onSave,
-    onClose,
-  }: {
-    reservation: Reservation;
-    onSave: (id: string, data: Partial<Reservation>) => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="edit-drawer">
-      <span data-testid="edit-guest">{reservation.guestName}</span>
-      <button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
-        Save
-      </button>
-      <button data-testid="edit-close" onClick={onClose}>
-        Close Edit
-      </button>
-    </div>
-  ),
-}));
+vi.mock("../components/timeline/EditReservationDrawer", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    EditReservationDrawer: ({
+      reservation,
+      onSave,
+      onClose,
+    }: {
+      reservation: Reservation;
+      onSave: (id: string, data: Partial<Reservation>) => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="edit-drawer">
+          <span data-testid="edit-guest">{reservation.guestName}</span>
+          <button
+            data-testid="edit-save"
+            onClick={() =>
+              onSave(reservation.id, { partySize: 6 }).then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Save
+          </button>
+          <span data-testid="edit-outcome">{outcome}</span>
+          <button data-testid="edit-close" onClick={onClose}>
+            Close Edit
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
-vi.mock("../components/timeline/WalkInDialog", () => ({
-  WalkInDialog: ({
-    tables,
-    venueId,
-    onConfirm,
-    onClose,
-  }: {
-    tables?: Table[];
-    venueId?: string;
-    onConfirm: (data: {
-      partySize: number;
-      tableId: string;
+vi.mock("../components/timeline/WalkInDialog", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    WalkInDialog: ({
+      tables,
+      venueId,
+      onConfirm,
+      onClose,
+    }: {
+      tables?: Table[];
       venueId?: string;
-      guestName: string;
-    }) => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="walkin-dialog">
-      <button
-        data-testid="walkin-confirm"
-        onClick={() =>
-          onConfirm({
-            partySize: 2,
-            tableId: tables?.[0]?.id ?? "t1",
-            venueId,
-            guestName: "Walk-in Guest",
-          })
-        }
-      >
-        Confirm Walk-in
-      </button>
-      <button data-testid="walkin-close" onClick={onClose}>
-        Close Walk-in
-      </button>
-    </div>
-  ),
-}));
+      onConfirm: (data: {
+        partySize: number;
+        tableId: string;
+        venueId?: string;
+        guestName: string;
+      }) => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="walkin-dialog">
+          <button
+            data-testid="walkin-confirm"
+            onClick={() =>
+              onConfirm({
+                partySize: 2,
+                tableId: tables?.[0]?.id ?? "t1",
+                venueId,
+                guestName: "Walk-in Guest",
+              }).then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Confirm Walk-in
+          </button>
+          <span data-testid="walkin-outcome">{outcome}</span>
+          <button data-testid="walkin-close" onClick={onClose}>
+            Close Walk-in
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Drawer: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
@@ -691,6 +734,31 @@ describe("TimelinePage", () => {
       });
     });
 
+    it("rethrows a failed cancel so the dialog owns the failure (item 12 bridge)", async () => {
+      const cancelReservation = vi.fn().mockRejectedValue(new Error("Cancel failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Cancel Reservation")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Cancel Reservation"));
+      await waitFor(() => {
+        expect(screen.getByTestId("cancel-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("cancel-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("cancel-outcome")).toHaveTextContent("rejected");
+      });
+      // The dialog stays mounted for its own banner; the page has not closed it.
+      expect(screen.getByTestId("cancel-dialog")).toBeDefined();
+    });
+
     it("sets error when cancelReservation fails", async () => {
       const cancelReservation = vi.fn().mockRejectedValue(new Error("Cancel failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
@@ -781,6 +849,30 @@ describe("TimelinePage", () => {
       });
     });
 
+    it("rethrows a failed edit so the drawer owns the failure (item 12 bridge)", async () => {
+      const updateReservation = vi.fn().mockRejectedValue(new Error("Update failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Edit Reservation")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Edit Reservation"));
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-drawer")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("edit-save"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-outcome")).toHaveTextContent("rejected");
+      });
+      expect(screen.getByTestId("edit-drawer")).toBeDefined();
+    });
+
     it("sets error when updateReservation fails", async () => {
       const updateReservation = vi.fn().mockRejectedValue(new Error("Update failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
@@ -846,6 +938,26 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.queryByTestId("walkin-dialog")).toBeNull();
       });
+    });
+
+    it("rethrows a failed walk-in so the dialog owns the failure (item 12 bridge)", async () => {
+      const createWalkIn = vi.fn().mockRejectedValue(new Error("Walk-in failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ createWalkIn }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Walk-in")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Walk-in"));
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("walkin-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-outcome")).toHaveTextContent("rejected");
+      });
+      expect(screen.getByTestId("walkin-dialog")).toBeDefined();
     });
 
     it("sets error when createWalkIn fails", async () => {

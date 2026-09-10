@@ -262,6 +262,7 @@ export function TimelinePage() {
       setSelectedReservation(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to cancel reservation");
+      throw err; // item 12 bridge: the dialog owns the failure; the page catch goes in item 14
     }
   };
 
@@ -272,6 +273,7 @@ export function TimelinePage() {
       setShowEditDrawer(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update reservation");
+      throw err; // item 12 bridge: the dialog owns the failure; the page catch goes in item 14
     }
   };
 
@@ -286,6 +288,7 @@ export function TimelinePage() {
       setShowWalkInDialog(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create walk-in");
+      throw err; // item 12 bridge: the dialog owns the failure; the page catch goes in item 14
     }
   };
 

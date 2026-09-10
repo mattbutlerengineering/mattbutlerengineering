@@ -9,7 +9,7 @@ test.describe("CF-3: Walk-in creation", () => {
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
     // Dialog opens
-    const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
+    const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
     await expect(dialog).toBeVisible();
 
     // Party size buttons are visible (WalkInDialog uses buttons, not a text input)
@@ -33,7 +33,7 @@ test.describe("CF-3: Walk-in creation", () => {
     // Click "Walk-In" button
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
-    const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
+    const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
     await expect(dialog).toBeVisible();
 
     // Select party size 4
@@ -46,8 +46,8 @@ test.describe("CF-3: Walk-in creation", () => {
       await guestNameInput.fill("Test Guest");
     }
 
-    // Click "Seat Now" (the confirm action in WalkInDialog)
-    await dialog.getByRole("button", { name: /seat now/i }).click();
+    // Click "Seat now" (the confirm action in WalkInDialog)
+    await dialog.getByRole("button", { name: "Seat now" }).click();
 
     // Dialog closes
     await expect(dialog).not.toBeVisible();
@@ -68,7 +68,7 @@ test.describe("CF-3: Walk-in creation", () => {
 
     await mockedPage.getByRole("button", { name: /Walk.?In/i }).click();
 
-    const dialog = mockedPage.getByRole("dialog", { name: /walk.?in/i });
+    const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
     await expect(dialog).toBeVisible();
 
     // Click cancel

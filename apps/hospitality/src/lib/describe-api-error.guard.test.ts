@@ -82,10 +82,7 @@ const ALLOWLIST: readonly AllowlistEntry[] = [
  * `components/booking-widget/`, not `components/booking/`.
  */
 export const PENDING_ADOPTION: readonly string[] = [
-  "components/timeline/CancelReservationDialog.tsx",
-  "components/timeline/EditReservationDrawer.tsx",
   "components/timeline/StaffDepositSection.tsx",
-  "components/timeline/WalkInDialog.tsx",
   "pages/TimelinePage.tsx",
 ];
 

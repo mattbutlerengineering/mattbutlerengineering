@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import {
   Drawer,
@@ -11,11 +11,15 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table, UpdateReservationRequest } from "@mbe/types";
 import { GuestCard } from "../crm/GuestCard.js";
+import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
+import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import styles from "./EditReservationDrawer.module.css";
 
 interface EditReservationDrawerProps {
   reservation: Reservation;
   tables: Table[];
+  /** Rejects on failure — the drawer owns showing it (architecture § Dialog contracts). */
   onSave: (id: string, data: UpdateReservationRequest) => Promise<void>;
   onClose: () => void;
 }
@@ -34,6 +38,11 @@ function toTimeInputValue(isoString: string): string {
   return `${hours}:${minutes}`;
 }
 
+/**
+ * The drawer owns its failure and nothing else: a rejected `onSave` becomes an `ErrorRetryBanner`
+ * above the actions, Save Changes returns to rest, the edited values stay, and focus lands back on
+ * Save Changes — pressing again is the retry. Form validation keeps its own line.
+ */
 export function EditReservationDrawer({
   reservation,
   tables,
@@ -42,7 +51,9 @@ export function EditReservationDrawer({
 }: EditReservationDrawerProps) {
   const [tableId, setTableId] = useState(reservation.tableId);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
+  const { focusAfter } = useFocusAfter();
 
   const {
     register,
@@ -79,17 +90,19 @@ export function EditReservationDrawer({
     };
 
     setIsLoading(true);
-    setError(null);
+    setFailure(null);
     try {
       await onSave(reservation.id, payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save changes.");
+      setFailure(describeApiError(err));
+      if (saveRef.current) focusAfter({ kind: "element", element: saveRef.current });
+    } finally {
       setIsLoading(false);
     }
   };
 
   const validationError =
-    errors.partySize?.message ?? errors.startTime?.message ?? errors.endTime?.message ?? error;
+    errors.partySize?.message ?? errors.startTime?.message ?? errors.endTime?.message;
 
   return (
     <Drawer open={true} onClose={onClose} title="Edit Reservation" size="default">
@@ -159,6 +172,14 @@ export function EditReservationDrawer({
               <TextArea label="Notes" rows={4} disabled={isLoading} {...register("notes")} />
             </Stack>
 
+            {failure && (
+              <ErrorRetryBanner
+                title="Changes not saved."
+                error={failure.detail}
+                details={failure.raw}
+              />
+            )}
+
             <div className={styles.drawerActions}>
               <Button
                 variant="secondary"
@@ -170,6 +191,7 @@ export function EditReservationDrawer({
                 Cancel
               </Button>
               <Button
+                ref={saveRef}
                 variant="primary"
                 type="submit"
                 isLoading={isLoading}
