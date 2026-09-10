@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Spec } from "@json-render/react";
 import { useGenStream } from "../hooks/useGenStream.js";
 import { useSpecsApi } from "../hooks/useSpecsApi.js";
@@ -126,22 +126,6 @@ export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): Pla
     },
     [mode, displaySpec, send]
   );
-
-  // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
-  // link: `/gen/?prompt=<text>`) by submitting it once on mount. Guarded by a
-  // ref rather than an empty dependency array so it still fires exactly once
-  // even though `submit` is recreated whenever `mode`/`displaySpec`/`send`
-  // change. Absent or blank param -> no-op, identical to today's behavior.
-  // `submit` itself calls setState, so — like useSpecsApi's mount-fetch above
-  // it — the call is deferred to a microtask to avoid a synchronous setState
-  // inside the effect body (react-hooks/set-state-in-effect).
-  const initialPromptHandledRef = useRef(false);
-  useEffect(() => {
-    if (initialPromptHandledRef.current) return;
-    initialPromptHandledRef.current = true;
-    const initialPrompt = new URLSearchParams(window.location.search).get("prompt")?.trim();
-    if (initialPrompt) queueMicrotask(() => submit(initialPrompt));
-  }, [submit]);
 
   const replay = useCallback(
     (id: string) => {
