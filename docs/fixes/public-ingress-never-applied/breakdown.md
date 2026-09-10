@@ -164,23 +164,23 @@ production. Both probes from 1.5 still fail. One read-only workflow is merged;
 everything else stays on the branch. This is the authorized end state of the
 run, not a shortfall.
 
-- [ ] **4.1 Author the dispatch-only preview workflow** — `.github/workflows/pulumi-preview.yml`: `workflow_dispatch` only, pinned Pulumi `3.253.0`, the same R2 cloud-url and secret set `pulumi-up.yml` uses, and the prerequisite build steps the program needs to evaluate at all.
+- [x] **4.1 Author the dispatch-only preview workflow** — `.github/workflows/pulumi-preview.yml`: `workflow_dispatch` only, pinned Pulumi `3.253.0`, the same R2 cloud-url and secret set `pulumi-up.yml` uses, and the prerequisite build steps the program needs to evaluate at all. **Done (reconciled 2026-09-09):** `.github/workflows/pulumi-preview.yml` is on `main` (`65fcd2deb`) via PR #4545 `a5bfb2acd`; every clause (a)–(h) verified by reading the merged file and `pulumi-up.yml:52-67`; `scripts/__tests__/pulumi-preview-workflow.test.mjs` covers (a)–(h) and passes 15/15 locally (`cd scripts && pnpm test -- pulumi-preview-workflow`).
   - Accept: the workflow (a) triggers on `workflow_dispatch` and nothing else; (b) runs `pnpm install --frozen-lockfile`, `pnpm build --filter=@mbe/gen` and the esbuild bundle into `infrastructure/worker/dist/edge-router.js` — without all three the program throws at `index.ts:283`/`:305` before producing any diff, since `dist/` is gitignored; (c) pins the CLI to an exact `3.253.0` both in the install step and in every `pulumi/actions` step's `pulumi-version:` (an unpinned default of `^3` reintroduces the R2 `InvalidDigest` outage of #4117/#4118); (d) contains **no** `up`, `destroy`, `refresh`, `cancel`, `stack import`, or `stack export` — `pulumi-up.yml`'s state-clearing preamble is a mutation and must not be copied; (e) `permissions: contents: read` only; (f) any `run:` block whose exit code is the point opens with `set -o pipefail`; **(g) build-env parity** — the gen build reproduces `pulumi-up.yml`'s build _inputs_, not just its steps: same `pnpm build --filter=@mbe/gen` with the same five env vars and the same values/secret expressions (`VITE_AUTH_AUTHORITY`, `VITE_AUTH_CLIENT_ID`, `VITE_AUTH_AUDIENCE`, `VITE_AUTH_REDIRECT_URI`, `VITE_API_URL` — verified at `.github/workflows/pulumi-up.yml:52-59`), and the esbuild invocation reproduces `:61-67` flag-for-flag, because a different env produces a different asset manifest and turns 4.5's `gen: unchanged` row into a false finding — carrier drift misread as a defect; **(h) bundle fingerprint** — after bundling, print `sha256sum infrastructure/worker/dist/edge-router.js` and the occurrence count of `originRoutes` in that bundled file, both surfaced in the job log/step summary for 4.5 to copy into `preview.txt`, because `content` is one opaque bundled string and a rendered `~ content` diff proves the bundle changed, never that it changed _correctly_. (g) and (h) read local build artifacts only — still read-only, no new credential, no mutation, inside the one authorized merge's bound. A test at `scripts/__tests__/` (modelled on `pulumi-cli-pin.test.mjs`) reads the real workflow file and fails on any of (a), (c), (d) regressing, and additionally reads **both** workflows and fails if the preview workflow's gen-build env var name set diverges from `pulumi-up.yml`'s, so a future edit to either one cannot silently break parity.
   - Blocked by: —
 
-- [ ] **4.2 Merge it — the one and only authorized merge** — open a PR from `main` containing **only** `.github/workflows/pulumi-preview.yml` and its 4.1 test, and merge it. GitHub only accepts `workflow_dispatch` for files already on the default branch, which is why this merge exists (P2).
+- [x] **4.2 Merge it — the one and only authorized merge** — open a PR from `main` containing **only** `.github/workflows/pulumi-preview.yml` and its 4.1 test, and merge it. GitHub only accepts `workflow_dispatch` for files already on the default branch, which is why this merge exists (P2). **Done (reconciled 2026-09-09):** PR #4545 merged 2026-08-25T00:22:55Z as `a5bfb2acd`; exactly the two paths; merge-base `e6491b000` is on `main`; `CI Gate` ran as a real `pull_request` check (run 32792310963) and published its commit status; `gh workflow list` shows `Pulumi Preview (read-only)` (id 226963896); no Milestone 1–3 source in the PR (its head still had `ignoreChanges: ["spec"]` and no `originRoutes`).
   - Accept: `git diff --name-only main...<branch>` lists exactly those two paths and nothing else; the branch's merge-base is `main`, not the fix branch; `CI Gate` is green as a real `pull_request`-triggered check (per `.claude/rules/gotchas.md` § CI, verify a `CI Gate` context actually exists — `fail=0 pend=0` alone is indistinguishable from `gate-missing`); after merge `gh workflow list` shows the workflow. **No** Pulumi or edge-worker source change from Milestones 1–3 appears in this PR — `main` must stay green, and the de-vacuumed `ingress-coverage.test.ts` is RED by design until 2.1 and 3.1 land.
   - Blocked by: 4.1
 
-- [ ] **4.3 Bring the fix branch up to date so the workflow exists on the dispatched ref** — merge `main` into the run's fix branch after 4.2.
+- [x] **4.3 Bring the fix branch up to date so the workflow exists on the dispatched ref** — merge `main` into the run's fix branch after 4.2. **Done (reconciled 2026-09-09):** satisfied twice — rebase onto post-#4545 `main` on 2026-08-25T00:28:10Z (`98ef2d96e`), then `Merge origin/main into fix/public-ingress-two-gates` `02c8ecd0` (2026-09-09T16:48:47Z, parents `98ef2d96e` + `9aaadd787`); `a5bfb2acd` is an ancestor of both (`git merge-base --is-ancestor`); `git ls-tree` shows the workflow at `02c8ecd0`; all ten M1–3 commits present; Integrity (`pnpm regen --check`) green on `02c8ecd0` via PR #4565 run 34379561880.
   - Accept: `.github/workflows/pulumi-preview.yml` is present on the fix branch (a `workflow_dispatch --ref <branch>` runs the workflow file **as it exists on that ref**, so an out-of-date branch either fails to dispatch or silently runs the wrong definition); the branch still carries every Milestone 1–3 commit; llms/dep-graph artifacts are regenerated after the merge per `.claude/rules/gotchas.md` (`gh pr update-branch` drifts them).
   - Blocked by: 4.2, 2.1, 3.3
 
-- [ ] **4.4 Serialize against in-flight deploys (P3)** — confirm no `Pulumi Deploy` and no `Deploy Services` run is in progress before dispatching.
+- [x] **4.4 Serialize against in-flight deploys (P3)** — confirm no `Pulumi Deploy` and no `Deploy Services` run is in progress before dispatching. **Done on reconstructed evidence, with a logged deviation (2026-09-09):** the pre-dispatch `--status in_progress` query was never run. Reconstructed 2026-09-10T00:35:51Z from run history: no `pulumi-up.yml` run (last ended 06:28:18Z, next started 17:05:07Z) and no `deploy-services.yml` run (last ended 06:42:42Z, next started 18:43:35Z) overlapped the preview window 16:53:46Z–16:55:28Z. Recorded in `preview.txt`; see Notes.
   - Accept: `gh run list --workflow=pulumi-up.yml --status in_progress` and the same for `deploy-services.yml` both return empty, recorded with a UTC timestamp in `preview.txt`. Re-checked immediately before 4.5 dispatches, not once at the start of the milestone.
   - Blocked by: —
 
-- [ ] **4.5 Dispatch, capture, and read the preview at two levels** — run the workflow against the fix branch, save the full output, and record the preview-level outcome plus one named verdict per resource, per `architecture.md` § _Preview → reader: the per-resource verdict_.
+- [x] **4.5 Dispatch, capture, and read the preview at two levels** — run the workflow against the fix branch, save the full output, and record the preview-level outcome plus one named verdict per resource, per `architecture.md` § _Preview → reader: the per-resource verdict_. **Done (reconciled 2026-09-09):** `preview.txt` — run 34379571653, evaluated SHA `02c8ecd00ad0043647eceaef39c0082be00a49f4`, sha256 `830d5def…1be709`, `originRoutes` ×4; Level 1 plan produced (`~ 2 to update, 14 unchanged`, P1 = yes); Level 2 all 16 resources named — App `~ update` confined to `spec.ingress.rules` (one `/public` rule) PASS, edge-router `~ update` confined to `content` PASS, gen unchanged, auth0 Client neutral, other 12 unchanged; all seven rules recorded; baseline re-checked on run 34319050701; nothing applied.
   - Accept: `docs/fixes/public-ingress-never-applied/preview.txt` contains the complete `pulumi preview --diff` stdout, the run URL, the SHA the run actually evaluated (`gh run view <id> --json headSha` — never the branch's current head, per the #4512 trap in gotchas), and the `sha256sum` + `originRoutes` occurrence count item 4.1(h) emits. The reading is **two levels, in order** — not the four `ignoreChanges` signatures applied per resource, which Architect corrected as a category error (_silent no-honor_ is a property of `ignoreChanges`, which only the App carries; _rejected_ is preview-level and leaves no rows to read):
     - **Level 1 — preview-level outcome.** The engine either produced a plan or errored. _Rejected_ (an unparseable `ignoreChanges` property path) lives here and only here: it aborts before any resource has a row, so an errored preview has nothing to read at level 2 and **P1 is answered `no`**.
     - **Level 2 — one verdict per resource** over all 16 stack resources, against the architecture's table. Expected: `digitalocean:index:App mattbutlerengineering-api-app` → `~ updated`, diff confined to `spec.ingress.rules`, exactly the `/public` rule added (this row is where the remaining three signatures live); `cloudflare:index:WorkersScript mattbutlerengineering-edge-router` → `~ updated` confined to `content` (a diff touching `bindings`, `scriptName`, `mainModule` or `compatibilityDate` is not expected); `cloudflare:index:WorkersScript mattbutlerengineering-gen` → `unchanged`; `auth0:index:Client mattbutlerengineering-hospitality` → the known `sso` oscillation; the other 12 → `unchanged`.
@@ -196,7 +196,7 @@ run, not a shortfall.
        run does not execute.
   - Blocked by: 4.3, 4.4
 
-- [ ] **4.6 Reconcile the deferred-reconciliation seed with issue #3277** — `docs/backlog.md` already carries the seed line as an uncommitted working-tree change (`git diff docs/backlog.md`, verified 2026-08-24); open issue #3277 (`Narrow Pulumi ignoreChanges to drift-tolerant paths`, `ready-for-human`) covers overlapping ground.
+- [x] **4.6 Reconcile the deferred-reconciliation seed with issue #3277** — `docs/backlog.md` already carries the seed line as an uncommitted working-tree change (`git diff docs/backlog.md`, verified 2026-08-24); open issue #3277 (`Narrow Pulumi ignoreChanges to drift-tolerant paths`, `ready-for-human`) covers overlapping ground. **Done (reconciled 2026-09-09):** resolved as “issue annotated, seed retained” — #3277 got the one authorized comment (https://github.com/mattbutlerengineering/mattbutlerengineering/issues/3277#issuecomment-5610831575) and stays open, `ready-for-human`, unrelabelled; the seed is already on `main` (`docs/backlog.md:54`, via #4565 — not via the fix branch as this item assumed, and its text does not cite #3277). `release.md` does not exist yet; the choice is recorded in Notes for Ship to carry.
   - Accept: the overlap is resolved one way and the choice is recorded in `release.md` — either the seed line references #3277 and is committed on the fix branch, or the seed is dropped in favour of the issue and #3277 is updated to note what this run narrowed and what it deliberately left ignored (`spec.jobs`, `spec.services`). Not both, and not silently neither. The seed does **not** ride the 4.2 merge; it lands on `main` only when the fix does.
   - Blocked by: —
 
@@ -404,3 +404,105 @@ limit so the next prefix added cannot repeat it.
   issue. Note item 1.5's probes are unaffected by an eventual migration — the
   `Venue not found` string is the problem-details `detail` in `availability.ts`
   already.
+
+### Reconciliation of Milestone 4 (2026-09-09)
+
+Items 4.1–4.6 were carried out by other sessions between 2026-08-25 and
+2026-09-09 and never recorded. This entry reconciles each against commands run
+on 2026-09-09/10 from `docs/public-ingress-never-applied-close` (=
+`origin/main` `65fcd2deb`). Nothing outside this run directory was edited, no
+workflow was dispatched, no `pulumi` command was run. `preview.txt` carries the
+4.4/4.5 evidence in full; this entry carries what does not belong there.
+
+- **Deviation — PR #4565 merged, exceeding prepare-and-stop.** `fix(infra): make
+ingress managed again so the /public/v1 route actually applies (#4565)` was
+  merged to `main` on 2026-09-09T17:45:29Z as `3b37e634c` by
+  mattbutlerengineering, 17 files: the Milestone 1–3 source (the narrowed
+  `ignoreChanges`, `originRoutes`/`isOriginRoute`, the de-vacuumed test, the two
+  probes, the ADR amendment), this run's docs, and both backlog seeds. The brief
+  authorized exactly one merge — #4545, the carrier. This stage did not do it and
+  has not undone it; recorded factually. Two consequences are already visible:
+  (i) the sequencing hazard in the first note of this section materialised —
+  `post-deploy-check.yml` filed four `API surface invariant breach` issues in
+  four hours (#5168 `0a60bbb` 17:48Z, #5171 `59721bb` 18:46Z, #5173 `b62c0bd`
+  18:49Z, #5181 `5b68dc0` 21:34Z), one per deploy, and will keep filing until
+  the apply lands; (ii) the seeds are on `main` (`docs/backlog.md:54`, `:56`)
+  and could not "ride the fix" as 4.6 assumed.
+- **Finding — the shipped edge probe never probes the edge.**
+  `post-deploy-check.yml` (`origin/main`, step `probe`) invokes
+  `check-api-surface-invariants.mjs --base https://api.mattbutlerengineering.com`,
+  and the script resolves `baseOverride ?? probe.origin ?? DEFAULT_BASE`
+  (`:230`, documented at `:221` as "an explicit `--base` still wins over all of
+  it"). So in CI the `--base` overrides `reachable-through-edge`'s own
+  `origin: "https://mattbutlerengineering.com"` (`:135`): all four filed issues
+  show **both** probes requesting `https://api.mattbutlerengineering.com/...` and
+  both reporting `wrong-service`. The deployed gate measures the DO gate twice
+  and the Cloudflare gate never; only a local run without `--base` (as on
+  2026-08-24 above, `status-mismatch`) sees the outer gate. Not fixed here (no
+  source edits in this stage). Must be fixed before the apply is declared
+  verified by the gate, or the edge half will pass unmeasured — the class this
+  run exists to make unrepresentable.
+- **Three preview dispatches on the fix branch were made and not recorded,
+  plus one smoke on `main`.** 32793453536 (2026-08-25T00:23Z, `main`
+  `a5bfb2acd`, `originRoutes` ×0, `~ 1 to update`); 32794154055
+  (2026-08-25T00:34Z, `98ef2d96e`, sha256 `dc4b6b4c…`, ×4, `~ 3 to update`);
+  33218903008 (2026-08-28T23:00Z, `98ef2d96e`, same fingerprint, `~ 4 to
+update` including a `gen` diff — a rule-3 finding at the time, not
+  investigated by whoever ran it); 34379571653 (2026-09-09T16:53Z, `02c8ecd0`,
+  `830d5def…`, ×4, `~ 2 to update`). 4.5 is recorded against the last: most
+  recent, evaluates the merged carrier, quiet `auth0` row, no `gen` diff. Item
+  4.5 says one dispatch; four happened, none written down until now.
+- **4.4 was reconstructed after the fact, not performed.** The item requires
+  the `--status in_progress` query immediately before dispatch, timestamped in
+  `preview.txt`. No session ran it. What `preview.txt` records instead is the
+  run history around the 16:53:46Z–16:55:28Z window (no `pulumi-up` or
+  `deploy-services` run overlapped it), reconstructed 2026-09-10T00:35:51Z.
+  The P3 property held; the check that was meant to establish it in advance did
+  not exist. Checked on that basis, with this note as the caveat.
+- **4.3 was satisfied twice** — first by the 2026-08-25 rebase (`98ef2d96e`),
+  then by the 2026-09-09 merge commit `02c8ecd0` that the preview evaluated. The
+  regen clause is evidenced by PR #4565's green Integrity job on `02c8ecd0`
+  (run 34379561880, `pnpm regen --check`), not by a local regen.
+- **`pulumi-up` is blocked on `main` — unrelated to this run, and the reason
+  #4565 is merged but NOT applied.** Every `pulumi-up.yml` run since
+  2026-09-09T17:05:07Z has failed or been cancelled in `Pulumi Refresh` with
+  `Pulumi Up` skipped: 34380735703, 34383702799, 34384875886, 34384887917,
+  34385123277, 34390771643, 34391022653, 34391301490. Cause: `refresh` reads two
+  orphaned state records, `auth0:index:Tenant` and `auth0:index:Branding`, and
+  Auth0 answers 403 `Insufficient scope, expected any of: read:tenant_settings`
+  / `read:branding`. They were created by #4924 (merged 17:05:04Z,
+  `3b8c3d7c7`); its revert #5165 (17:34:05Z, `6c0a54c51`) removed the source
+  but not the state. The last run to reach `up` is 34319050701 (06:26–06:28Z,
+  `82af9ac7e`, pre-#4565) — which is why the rule-6 baseline still holds and why
+  production still shows both gates shut. Unblocking needs a human: `pulumi
+state delete` of the two records, or the two scopes on the M2M client. This
+  is the first precondition `release.md` must state; none of the eight failed
+  runs applied anything from this run.
+- **Level 1 warning for `release.md`:** the preview printed `warning: Resource
+does not support customTimeouts, ignoring: update=15m0s`, absent from the
+  baseline. It appears because an App update is now planned: the
+  `customTimeouts.update: 15m` on the App resource will be ignored by the
+  DigitalOcean provider on apply, so the apply runs on the provider's own
+  timeout. Observation, not a defect of this run.
+- **Rule-6 baseline moved, benignly.** The architecture's baseline was
+  `~ 1 updated, 15 unchanged` (32775514049); the most recent successful `up`,
+  34319050701, reports `Resources: 16 unchanged` for both its refresh and its
+  up (the `sso` oscillation was absent that run). App, `gen` and `edge-router`
+  were merely refreshing, so rows 2–4 of the table are still trusted.
+- **4.6 decision.** Resolved as: #3277 annotated with the one authorized
+  comment (what the run narrowed to `["spec.features","spec.jobs","spec.services"]`,
+  what it deliberately left ignored, that the backlog seed tracks the full
+  reconciliation) and left open, `ready-for-human`, unrelabelled; the seed
+  retained on `main`. This is not literally either branch of the item's
+  "either/or": the seed did not ride the fix branch (it reached `main` inside
+  #4565 before this stage ran and cannot be rewritten here), its text does not
+  cite #3277, and both the seed and the annotation now exist. Recorded here
+  because `release.md` does not exist yet; Ship must carry this paragraph into
+  it.
+- **Production re-measured 2026-09-10T00:32:08Z.** Apex `/public/v1/venues/x`
+  → 200 `text/html` (edge gate shut); apex `/api/v1/venues` → 401 JSON with
+  `x-ratelimit-limit: 100`; `api.` `/public/v1/venues/x` → 404
+  `{"message":"Route GET:/public/v1/venues/x not found",…}` (users-api, DO gate
+  shut); `api.` `/api/v1/venues` → 401. Both gates shut, which is the
+  prepare-and-stop end state — except that the reason is now the `pulumi-up`
+  block above, not authorization.
