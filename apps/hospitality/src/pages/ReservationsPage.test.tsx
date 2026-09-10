@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { ReservationsPage } from "./ReservationsPage.js";
 
@@ -648,6 +648,34 @@ describe("ReservationsPage", () => {
 
       expect(screen.getByText("No reservations")).toBeDefined();
       expect(screen.queryByText(/^Nothing on the book for /)).toBeNull();
+    });
+
+    it("formats the filter empty-state date with the service-date formatter, not as raw ISO", () => {
+      mockDisplayHook({ filteredData: [] });
+
+      renderAt("/reservations?status=CONFIRMED");
+
+      const empty = screen.getByTestId("empty-state");
+      expect(empty).toHaveTextContent(
+        `No confirmed reservations found for ${formatServiceDate(today)}.`
+      );
+      expect(empty).not.toHaveTextContent(today);
+    });
+
+    it("offers an action inside the empty state that opens the New reservation dialog", () => {
+      mockDisplayHook({
+        data: [],
+        stats: { total: 0, confirmed: 0, pending: 0, cancelled: 0 },
+        filteredData: [],
+      });
+
+      renderPage();
+
+      const empty = screen.getByTestId("empty-state");
+      const actionButton = within(empty).getByRole("button");
+      fireEvent.click(actionButton);
+
+      expect(screen.getByTestId("new-reservation-dialog")).toBeDefined();
     });
   });
 

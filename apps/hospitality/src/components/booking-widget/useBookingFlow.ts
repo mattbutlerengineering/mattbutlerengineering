@@ -87,7 +87,7 @@ type BookingFlowAction =
   | { type: "GO_BACK_TO_GUEST_DETAILS" }
   | { type: "EXPIRE_HOLD" }
   | { type: "RESET" }
-  | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null }
+  | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "GO_TO_WAITLIST_JOIN" }
   | { type: "WAITLIST_JOINED"; result: WaitlistResult };
@@ -267,16 +267,18 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
       return INITIAL_STATE;
 
     case "SET_DEPOSIT_CONFIG":
-      // Provisional pre-confirm guess from the venue's general policy alone
-      // (risk isn't known yet); CONFIRM_SUCCESS_* overwrites this with the
-      // final, risk-aware outcome. Delegates to the shared deposit-verdict
-      // module so this can never independently drift from it.
+      // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
+      // overwrites this with the final, risk-aware outcome. `depositRequired`
+      // is computed by the caller via `provisionalDepositRequired` — the
+      // shared deposit-verdict module — so it can never independently drift
+      // from it, and it agrees with the confirm-time verdict on whether
+      // Stripe is configured for this venue.
       return {
         ...state,
         data: {
           ...state.data,
           depositConfig: action.config,
-          depositRequired: provisionalDepositRequired(action.config),
+          depositRequired: action.depositRequired,
         },
       };
 
@@ -429,7 +431,11 @@ export function useBookingFlow({
             lateCancellationFeePercent: venueConfig.deposit.lateCancellationFeePercent,
             noShowFeePercent: venueConfig.deposit.noShowFeePercent,
           };
-          dispatch({ type: "SET_DEPOSIT_CONFIG", config });
+          dispatch({
+            type: "SET_DEPOSIT_CONFIG",
+            config,
+            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+          });
         }
       } catch {
         // Non-fatal — proceed without deposit
@@ -437,7 +443,7 @@ export function useBookingFlow({
     };
 
     fetchDepositConfig();
-  }, [venueSlug, api]);
+  }, [venueSlug, stripePublishableKey, api]);
 
   const goToTimeSlot = useCallback(() => {
     const holdId = flowState.data.hold?.id;
@@ -555,9 +561,16 @@ export function useBookingFlow({
     dispatch({ type: "RESET" });
   }, []);
 
-  const setDepositConfig = useCallback((config: DepositConfig | null) => {
-    dispatch({ type: "SET_DEPOSIT_CONFIG", config });
-  }, []);
+  const setDepositConfig = useCallback(
+    (config: DepositConfig | null) => {
+      dispatch({
+        type: "SET_DEPOSIT_CONFIG",
+        config,
+        depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+      });
+    },
+    [venueSlug, stripePublishableKey]
+  );
 
   const goToWaitlistJoin = useCallback(() => {
     dispatch({ type: "GO_TO_WAITLIST_JOIN" });

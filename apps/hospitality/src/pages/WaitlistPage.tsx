@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import {
@@ -394,6 +394,12 @@ export function WaitlistPage() {
   const { toast } = useToast();
   const { status, announce } = useStatusMessage();
   const { focusAfter } = useFocusAfter();
+  const addToWaitlistFormRef = useRef<HTMLDivElement>(null);
+  const focusAddToWaitlistForm = () => {
+    const container = addToWaitlistFormRef.current;
+    container?.scrollIntoView({ behavior: "smooth", block: "center" });
+    container?.querySelector("input")?.focus();
+  };
   const {
     data: entries,
     isLoading,
@@ -483,7 +489,7 @@ export function WaitlistPage() {
       )}
 
       {selectedVenueId && (
-        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
+        <div ref={addToWaitlistFormRef} style={{ marginBlock: "var(--rialto-space-md)" }}>
           <AddToWaitlistForm venueId={selectedVenueId} onAdded={handleAdded} />
         </div>
       )}
@@ -491,7 +497,15 @@ export function WaitlistPage() {
       {!isLoading && !loadFailure && displayEntries.length === 0 && (
         // tabIndex={-1}: the focus target after the last entry is seated or removed (rule (d)).
         <div tabIndex={-1} data-testid="waitlist-empty">
-          <EmptyState heading="No one waiting" description="The waitlist is currently empty." />
+          <EmptyState
+            heading="No one waiting"
+            description="The waitlist is currently empty."
+            action={
+              <Button variant="primary" onClick={focusAddToWaitlistForm}>
+                Add a Guest
+              </Button>
+            }
+          />
         </div>
       )}
 

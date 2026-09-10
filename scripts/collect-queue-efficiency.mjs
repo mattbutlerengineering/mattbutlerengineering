@@ -139,24 +139,30 @@ function computeComposite(fps, cost, ttm) {
 const REAL_VERDICTS = new Set(["pass", "flag"]);
 
 /**
- * Share of the window's telemetry rows carrying a real `pass`/`flag` verdict.
+ * Share of the window's PRs that carry a real `pass`/`flag` review verdict.
  *
- * `skipped` (low-risk fast path) and `error` (reviewer could not run) both
- * count as uncovered — the point of the metric is to make a review gate that
- * stops firing visible as a falling number rather than as a flattering pass
- * rate. Returns null when no window PR has a row at all, so "no telemetry"
- * stays distinguishable from "zero coverage".
+ * The denominator is `windowPrs.length` — the PRs that *should* have gone
+ * through the review gate — not `windowRows.length`. A gate that stops
+ * writing telemetry rows produces no rows for those PRs, and a rows-based
+ * denominator made that indistinguishable from full coverage (`reviewed /
+ * windowRows.length` = 1/1 = 1 even when only 1 of 3 window PRs had a row at
+ * all) or, when zero rows existed for the whole window, `null` — a number
+ * that never falls even though the thing it measures completely stopped
+ * (#5005, the same denominator-scoping class as ciHealth's #4687). `skipped`
+ * (low-risk fast path) and `error` (reviewer could not run) both count as
+ * uncovered, same as before.
  *
+ * @param {Array<object>} windowPrs
  * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
  * @returns {number|null}
  */
-function reviewCoverage(windowRows) {
-  if (windowRows.length === 0) {
+function reviewCoverage(windowPrs, windowRows) {
+  if (windowPrs.length === 0) {
     return null;
   }
 
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
-  return Math.round((reviewed / windowRows.length) * 1000) / 1000;
+  return Math.round((reviewed / windowPrs.length) * 1000) / 1000;
 }
 
 /**
@@ -208,7 +214,7 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
     median_time_to_merge_hours: Math.round(medianTtmHours * 10) / 10,
     median_rework_cycles: Math.round(medianReworkCycles * 10) / 10,
     cost_per_issue_usd: Math.round(costPerIssue * 1000) / 1000,
-    review_coverage: reviewCoverage(windowRows),
+    review_coverage: reviewCoverage(windowPrs, windowRows),
   };
 }
 

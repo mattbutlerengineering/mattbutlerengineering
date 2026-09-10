@@ -1,12 +1,7 @@
-import {
-  deriveTableDisplayStatus,
-  toDateString,
-  type Reservation,
-  type TableStatusDelta,
-} from "@mbe/types";
+import { deriveTableDisplayStatus, type Reservation, type TableStatusDelta } from "@mbe/types";
 import { prisma } from "./database.js";
 import { toReservation } from "./serializers.js";
-import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
+import { NOT_BOOKED_STATUSES, venueLocalDateString } from "./slot-rules.js";
 
 /**
  * Picks the reservation that represents "now" for a table's derived display
@@ -54,7 +49,14 @@ export function selectCurrentReservation(
  * next occupying" a table right now.
  */
 async function getSnapshot(venueId: string, now: Date = new Date()): Promise<TableStatusDelta[]> {
-  const today = new Date(toDateString(now));
+  // "Today" must be the venue-local calendar date, not `now`'s UTC calendar
+  // date — near local midnight for a venue west of UTC those two disagree
+  // (#5096, same class as #5000's getAvailableDates bucketing bug).
+  const venue = await prisma.venue.findUnique({
+    where: { id: venueId },
+    select: { ianaTimezone: true },
+  });
+  const today = new Date(venueLocalDateString(now, venue?.ianaTimezone ?? "UTC"));
 
   const [tables, reservationRows] = await Promise.all([
     prisma.table.findMany({ where: { venueId }, select: { id: true } }),

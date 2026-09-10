@@ -50,12 +50,24 @@ export function guestRiskMatters(
 
 /**
  * Provisional deposit-required guess used before guest risk is known — e.g.
- * right after the venue's deposit config is fetched, pre-confirm. Keys off
- * the venue's general policy alone, matching `effectiveDepositPolicy` called
- * with `guestIsRisky: false`. `CONFIRM_SUCCESS_WITH_DEPOSIT` /
- * `CONFIRM_SUCCESS_NO_DEPOSIT` later overwrite this with the final,
- * risk-aware verdict from `effectiveDepositPolicy`.
+ * right after the venue's deposit config is fetched, pre-confirm. Delegates
+ * to `effectiveDepositPolicy` with `guestIsRisky: false` so it can never
+ * independently drift from the final, risk-aware verdict — in particular, it
+ * accounts for `stripePublishableKey` being absent, not just the venue's
+ * general `.enabled` flag. `CONFIRM_SUCCESS_WITH_DEPOSIT` /
+ * `CONFIRM_SUCCESS_NO_DEPOSIT` later overwrite this with the final verdict.
  */
-export function provisionalDepositRequired(depositConfig: DepositConfig | null): boolean {
-  return Boolean(depositConfig?.enabled);
+export function provisionalDepositRequired(
+  depositConfig: DepositConfig | null,
+  venueSlug: string | undefined,
+  stripePublishableKey: string | undefined
+): boolean {
+  return (
+    effectiveDepositPolicy({
+      depositConfig,
+      venueSlug,
+      stripePublishableKey,
+      guestIsRisky: false,
+    }) !== null
+  );
 }

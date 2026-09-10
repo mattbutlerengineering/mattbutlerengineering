@@ -51,6 +51,18 @@ export default defineVitestConfig({
       // the cold-doubled estimate 2.2x, on the repo's established 15s tier
       // (gotchas.md; tools/cli and service route-test precedent).
       testTimeout: 15000,
+      // `beforeAll`/`beforeEach` hooks run under a SEPARATE budget
+      // (`hookTimeout`, vitest default 10s) that `testTimeout` above never
+      // covers. generate-registry.test.ts/generate-manifest.test.ts now cache
+      // a single introspectComponents() call (a full TS Compiler API
+      // program+typecheck) in `beforeAll` instead of re-running it per-test —
+      // but under CI's real turbo-parallel contention (~50 concurrent test
+      // tasks), even one such call measured hitting the unconfigured 10s
+      // hookTimeout wall (nightly-compliance #4701/#4780/#4877/#4947/#4997/
+      // #5052 — the prior fix in #4956 bumped testTimeout only, missing this
+      // separate budget entirely). 30s matches the generous per-test override
+      // already used for the subprocess-based drift test below.
+      hookTimeout: 30000,
       css: {
         modules: {
           classNameStrategy: "non-scoped",

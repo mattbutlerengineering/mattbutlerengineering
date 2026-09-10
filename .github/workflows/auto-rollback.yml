@@ -166,6 +166,22 @@ jobs:
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
 
+      # Follow-up to #5006: this workflow's trigger is only
+      # `github.event.workflow_run.conclusion == 'failure'`, which does not
+      # distinguish "smoke tests genuinely ran and failed" from "the deploy
+      # could not be confirmed live within the poll budget, so smoke tests
+      # were skipped" (post-deploy-check.yml's "Poll for deploy to land"
+      # step now fails the job on timeout instead of warning and falling
+      # through). Without this check, a slow-but-healthy deploy would open a
+      # false-positive revert PR against a commit that introduced no defect.
+      # See scripts/rollback-smoke-test-gate.mjs for the pure decision logic.
+      - name: Check whether smoke tests genuinely ran and failed
+        id: smoke-gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: node scripts/rollback-smoke-test-gate.mjs --run-id "$RUN_ID" >> "$GITHUB_OUTPUT"
+
       - name: Identify agent commits
         id: agent-check
         env:
@@ -208,7 +224,7 @@ jobs:
           echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
 
       - name: Create revert PR
-        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true'
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.smoke_tests_ran_and_failed == 'true'
         env:
           # AUTOMATION_PAT (#3684): see checkout step above.
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
@@ -255,6 +271,14 @@ jobs:
               --label "agent-regression,urgent" \
               --dedupe-key "manual-rollback-${SHORT_SHA}"
           fi
+
+      # Deliberately no further action here -- post-deploy-check.yml already
+      # files a "could not confirm deploy" issue for this exact case (its
+      # "Create issue when deploy could not be verified" step), so filing a
+      # second one here would just duplicate it.
+      - name: Skip rollback (deploy unverified, not a genuine smoke-test failure)
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.smoke_tests_ran_and_failed != 'true'
+        run: echo "Post-Deploy Check failed without a genuine smoke-test failure (deploy likely unverified, not a proven regression) — skipping auto-rollback."
 
       - name: Skip non-agent or opted-out failures
         if: steps.agent-check.outputs.is_agent != 'true' || steps.agent-check.outputs.no_rollback == 'true'

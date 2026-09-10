@@ -24,6 +24,27 @@ async function* mockStream<T>(items: T[]): AsyncGenerator<T> {
   }
 }
 
+/** An async generator whose first `next()` rejects — simulates a fetch failure. */
+function erroringStream<T>(error: Error): AsyncGenerator<T> {
+  return {
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    next(): Promise<IteratorResult<T>> {
+      return Promise.reject(error);
+    },
+    return(): Promise<IteratorResult<T>> {
+      return Promise.resolve({ done: true, value: undefined as unknown as T });
+    },
+    throw(): Promise<IteratorResult<T>> {
+      return Promise.reject(error);
+    },
+    [Symbol.asyncDispose](): Promise<void> {
+      return Promise.resolve();
+    },
+  };
+}
+
 describe("useChatStream", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -210,6 +231,48 @@ describe("useChatStream", () => {
     });
 
     expect(result.current.pendingAction).toBeNull();
+  });
+
+  it("exposes a human-readable error when the stream fails", async () => {
+    vi.mocked(streamNDJSON).mockReturnValueOnce(
+      erroringStream(new Error("Request failed: Internal Server Error"))
+    );
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("book a table");
+    });
+
+    expect(result.current.error?.message).toBe("Request failed: Internal Server Error");
+    expect(result.current.isStreaming).toBe(false);
+  });
+
+  it("retry resends the last request and clears the error on success", async () => {
+    vi.mocked(streamNDJSON)
+      .mockReturnValueOnce(erroringStream(new Error("Request failed: Internal Server Error")))
+      .mockReturnValueOnce(mockStream([{ type: "text", content: "Got it" }]));
+
+    const { result } = renderHook(() => useChatStream(createMockProps()));
+
+    await act(async () => {
+      await result.current.send("book a table");
+    });
+
+    expect(result.current.error).not.toBeNull();
+
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.messages.at(-1)).toEqual({
+      role: "assistant",
+      content: "Got it",
+    });
+
+    const [firstCall, secondCall] = vi.mocked(streamNDJSON).mock.calls;
+    expect(secondCall![0].body).toEqual(firstCall![0].body);
   });
 
   it("sets isStreaming true during streaming", async () => {

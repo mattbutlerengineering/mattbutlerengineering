@@ -114,13 +114,16 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
     EmptyState: ({
       heading,
       description,
+      action,
     }: {
       heading: React.ReactNode;
       description?: React.ReactNode;
+      action?: React.ReactNode;
     }) => (
       <div data-testid="empty-state">
         <span>{heading}</span>
         <span>{description}</span>
+        {action}
       </div>
     ),
     Input: forwardRef<
@@ -358,6 +361,24 @@ describe("WaitlistPage", () => {
 
     renderPage();
     expect(screen.getByTestId("empty-state")).toHaveTextContent("No one waiting");
+  });
+
+  it("offers an action inside the empty state that focuses the add-to-waitlist form", () => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.mocked(useWaitlist).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    const empty = screen.getByTestId("empty-state");
+    const actionButton = within(empty).getByRole("button");
+    fireEvent.click(actionButton);
+
+    expect(screen.getByLabelText(/guest name/i)).toHaveFocus();
   });
 
   it('a load failure shows "Couldn\'t load the waitlist." with the house sentence and a Retry — never the request line', () => {

@@ -129,6 +129,17 @@ beforeEach(() => {
 });
 
 describe("PublicBookingPage", () => {
+  describe("document title (#4973)", () => {
+    it("sets a venue-specific booking title once the venue resolves", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(document.title).toBe("Book a table — The Grand Table");
+      });
+    });
+  });
+
   describe("loading state", () => {
     it("shows loading text while fetching venue", () => {
       // Never-resolving promise keeps the query pending.

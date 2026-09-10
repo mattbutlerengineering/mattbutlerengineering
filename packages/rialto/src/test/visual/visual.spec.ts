@@ -106,10 +106,12 @@ async function interactDialog(page: Page): Promise<void> {
 
 async function interactDrawer(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Open Drawer" }).click();
-  // useFocusTrap focuses the first focusable descendant (the close button)
-  // in a passive effect, which can run after the click's own microtask —
-  // wait for it explicitly instead of racing the screenshot against it.
-  await expect(page.getByRole("button", { name: "Close" })).toBeFocused();
+  // useFocusTrap focuses the first focusable descendant that isn't marked
+  // data-focus-trap-skip-initial (the Close button opts out, per #4970) in
+  // a passive effect, which can run after the click's own microtask — wait
+  // for it explicitly instead of racing the screenshot against it. In this
+  // story that's the "Display Name" input, the first field in the body.
+  await expect(page.getByLabel("Display Name")).toBeFocused();
   await makeFocusVisible(page);
 }
 

@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { FastifyRequest } from "fastify";
-import { venueIdFromQuery, venueIdFromBody, venueIdFromParams } from "./venue-access.js";
+import {
+  venueIdFromQuery,
+  venueIdFromBody,
+  venueIdFromParams,
+  venueIdFromEntity,
+} from "./venue-access.js";
 
 describe("venueIdFromQuery", () => {
   it("returns the venueId when a valid string is present in the query", () => {
@@ -131,5 +136,43 @@ describe("venueIdFromParams", () => {
     const request = { params: undefined } as unknown as FastifyRequest;
 
     expect(venueIdFromParams(request)).toBe(null);
+  });
+});
+
+describe("venueIdFromEntity", () => {
+  const getKey = (request: FastifyRequest) => (request.params as { id?: unknown }).id;
+
+  it("returns null without loading when the key is missing", async () => {
+    const load = vi.fn();
+    const resolver = venueIdFromEntity(getKey, load);
+    const request = { params: {} } as unknown as FastifyRequest;
+
+    await expect(resolver(request)).resolves.toBe(null);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("returns null when the entity is not found", async () => {
+    const load = vi.fn().mockResolvedValue(null);
+    const resolver = venueIdFromEntity(getKey, load);
+    const request = { params: { id: "entity-1" } } as unknown as FastifyRequest;
+
+    await expect(resolver(request)).resolves.toBe(null);
+    expect(load).toHaveBeenCalledWith("entity-1");
+  });
+
+  it("returns the entity's venueId when found", async () => {
+    const load = vi.fn().mockResolvedValue({ venueId: "venue-1" });
+    const resolver = venueIdFromEntity(getKey, load);
+    const request = { params: { id: "entity-1" } } as unknown as FastifyRequest;
+
+    await expect(resolver(request)).resolves.toBe("venue-1");
+  });
+
+  it("returns null when the entity is found with a null venueId", async () => {
+    const load = vi.fn().mockResolvedValue({ venueId: null });
+    const resolver = venueIdFromEntity(getKey, load);
+    const request = { params: { id: "entity-1" } } as unknown as FastifyRequest;
+
+    await expect(resolver(request)).resolves.toBe(null);
   });
 });

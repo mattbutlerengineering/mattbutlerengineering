@@ -243,6 +243,132 @@ describe("ApiClient", () => {
       await expect(client.get("/users")).rejects.toThrow(ApiClientError);
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
+
+    it("consumes the body of a retried failed response before the next attempt", async () => {
+      const failResponse = jsonResponse(
+        { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+        503
+      );
+      const cancelSpy = vi.spyOn(failResponse.body!, "cancel");
+      mockFetch
+        .mockResolvedValueOnce(failResponse)
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      await client.get<{ data: string }>("/users");
+
+      expect(cancelSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe("method-based retry gating (non-idempotent methods)", () => {
+    it("issues a POST exactly once on 503 and surfaces the error", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.post("/reservations", { tableId: "1" })).rejects.toThrow(ApiClientError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not replay a POST on a network TypeError", async () => {
+      mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.post("/reservations", { tableId: "1" })).rejects.toThrow(TypeError);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("issues a PATCH exactly once on 503 and surfaces the error", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.patch("/reservations/1", { partySize: 4 })).rejects.toThrow(
+        ApiClientError
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("still retries GET on 503 then resolves on 200", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      const result = await client.get<{ data: string }>("/reservations");
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ data: "ok" });
+    });
+
+    it("still retries PUT and DELETE on 503 by default", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      await client.put("/reservations/1", { partySize: 4 });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      mockFetch.mockReset();
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        )
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      await client.delete("/reservations/1");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("gates on the method actually sent to request(), not the wrapper used to call it", async () => {
+      mockFetch.mockResolvedValue(
+        jsonResponse({ error: "Unavailable", message: "Service Unavailable", statusCode: 503 }, 503)
+      );
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+
+      await expect(client.request("/reservations", { method: "POST", body: "{}" })).rejects.toThrow(
+        ApiClientError
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries a POST when the caller opts in via idempotentRetry", async () => {
+      mockFetch
+        .mockResolvedValueOnce(
+          jsonResponse(
+            { error: "Unavailable", message: "Service Unavailable", statusCode: 503 },
+            503
+          )
+        )
+        .mockResolvedValueOnce(jsonResponse({ data: "ok" }));
+
+      const client = new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 3 });
+      const result = await client.post("/reservations", { tableId: "1" }, undefined, {
+        idempotentRetry: true,
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ data: "ok" });
+    });
   });
 
   describe("timeout via AbortController", () => {

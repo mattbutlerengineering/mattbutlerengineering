@@ -11,6 +11,12 @@
     <item priority="medium">
       function computeSunsetDate(monthsFromNow: number): string { /* ... */ }
     </item>
+    <item priority="high">
+      export function applyVersioning(
+        fastify: FastifyInstance,
+        config?: Partial<ApiVersioningConfig>
+      ): void { /* ... */ }
+    </item>
   </file>
   <file path="src/classify-error.ts">
     <item priority="high">
@@ -33,6 +39,18 @@
         extensions: Record<string, unknown>;
       }
     </item>
+    <item priority="high">
+      export function classifyError(err: unknown): ErrorClassification { /* ... */ }
+    </item>
+    <item priority="medium">
+      function classifyPrismaError(e: CustomError): ErrorClassification { /* ... */ }
+    </item>
+    <item priority="medium">
+      function classifyValidationError(e: CustomError): ErrorClassification { /* ... */ }
+    </item>
+    <item priority="medium">
+      function classifyHttpError(e: CustomError): ErrorClassification { /* ... */ }
+    </item>
   </file>
   <file path="src/create-service-app.ts">
     <item priority="low">
@@ -49,6 +67,23 @@
         apiVersioning?: ApiVersioningConfig;
         registerSchemas?: (fastify: FastifyInstance) => void;
       }
+    </item>
+    <item priority="low">
+      interface AppOptions {
+        logger?: boolean | object;
+      }
+    </item>
+    <item priority="high">
+      export function validateCorsOrigins(origins: string[]): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createServiceApp(
+        config: ServiceAppConfig,
+        options: AppOptions = {}
+      ): Promise<FastifyInstance> { /* ... */ }
     </item>
   </file>
   <file path="src/error-handler.ts">
@@ -68,6 +103,30 @@
         
       }
     </item>
+    <item priority="high">
+      type FeatureFlagMap = Record<string, FeatureFlag>;
+    </item>
+    <item priority="high">
+      export const FEATURE_FLAGS_HEADER: unknown;
+    </item>
+    <item priority="medium">
+      function isEnabled(flags: FeatureFlagMap | null, flagName: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isEnabledForSeed(flags: FeatureFlagMap | null, flagName: string, seed: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hashCode(str: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseFeatureFlags(header: string | null | undefined): FeatureFlagMap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createFeatureContext(header: string | null | undefined): FeatureContext { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createFeatureFlagsPlugin(): FastifyPluginAsync { /* ... */ }
+    </item>
   </file>
   <file path="src/health-routes.ts">
     <item priority="low">
@@ -85,6 +144,16 @@
         operationId: string;
       }
     </item>
+    <item priority="low">
+      interface HealthRoutesOptions {
+        db: HealthDb;
+        routes: readonly HealthRouteConfig[];
+        checkAuth0?: () => Promise<Auth0CheckResult>;
+      }
+    </item>
+    <item priority="high">
+      export const registerHealthRoutes: unknown;
+    </item>
   </file>
   <file path="src/health.ts">
     <item priority="low">
@@ -98,6 +167,22 @@
         record: (ms: number) => void;
         checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
       }
+    </item>
+    <item priority="low">
+      interface Auth0CheckResult {
+        status: "ok" | "degraded";
+        latency: number;
+        message?: string;
+      }
+    </item>
+    <item priority="high">
+      export function createLatencyTracker(): LatencyTracker { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveJwksUrl(jwksUrl?: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> { /* ... */ }
     </item>
   </file>
   <file path="src/readiness-routes.ts">
@@ -117,6 +202,9 @@
         beforeShutdown?: () => void | Promise<void>;
       }
     </item>
+    <item priority="medium">
+      function delayReject(ms: number, message: string): Promise<never> { /* ... */ }
+    </item>
     <item priority="high">
       export async function startServiceServer(options: StartServiceServerOptions): Promise<void> { /* ... */ }
     </item>
@@ -127,6 +215,9 @@
     </item>
     <item priority="medium">
       function parseUrlOrNull(value: string): URL | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): void { /* ... */ }
     </item>
   </file>
   </section>

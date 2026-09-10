@@ -279,7 +279,7 @@ export function ReservationsPage() {
           description={
             searchQuery.trim()
               ? `No reservations matching '${searchQuery.trim()}'.`
-              : `No ${statusFilter.toLowerCase()} reservations found for ${selectedDate}.`
+              : `No ${statusFilter.toLowerCase()} reservations found for ${dateLabel}.`
           }
         />
       )}

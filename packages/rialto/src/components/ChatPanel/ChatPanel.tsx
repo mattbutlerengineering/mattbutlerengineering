@@ -35,13 +35,12 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
   { onClose, api, domainContext, getAccessToken, standalone, registry },
   ref
 ) {
-  const { messages, isStreaming, pendingAction, send, confirmAction, cancelAction } = useChatStream(
-    {
+  const { messages, isStreaming, error, pendingAction, send, retry, confirmAction, cancelAction } =
+    useChatStream({
       api,
       domainContext,
       getAccessToken,
-    }
-  );
+    });
 
   const [inputValue, setInputValue] = useState("");
 
@@ -81,6 +80,16 @@ export const ChatPanel = forwardRef<HTMLDivElement, ChatPanelProps>(function Cha
         {isStreaming && messages.length === 0 && (
           <div className={styles.loading} aria-label="Loading">
             ...
+          </div>
+        )}
+        {error && (
+          <div className={styles.assistantMessage} role="alert">
+            {error.message}
+            <div className={styles.confirmActions}>
+              <button className={styles.confirmButton} onClick={retry} aria-label="Try again">
+                Try again
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-04T00:26:48.921Z",
+  "generated_at": "2026-09-09T18:10:08.312Z",
   "period": {
-    "start": "2026-08-28",
-    "end": "2026-09-04"
+    "start": "2026-09-02",
+    "end": "2026-09-09"
   },
   "sensors": {
     "acmm": {
@@ -11,7 +11,7 @@
       "level_name": "Semi-Automated",
       "criteria_met": 96,
       "criteria_total": 114,
-      "last_run": "2026-09-02T16:05:57.886Z",
+      "last_run": "2026-09-09T16:06:34.054Z",
       "capped": false,
       "failing_gates": [
         {
@@ -26,6 +26,14 @@
     "prMetrics": {
       "available": true,
       "latest": {
+        "date": "2026-09-07",
+        "window_days": 30,
+        "total_ai_prs": 115,
+        "merged": 115,
+        "rejected": 0,
+        "acceptance_rate": 1
+      },
+      "previous": {
         "date": "2026-08-31",
         "window_days": 30,
         "total_ai_prs": 92,
@@ -33,74 +41,91 @@
         "rejected": 1,
         "acceptance_rate": 0.99
       },
-      "previous": {
-        "date": "2026-08-24",
-        "window_days": 30,
-        "total_ai_prs": 87,
-        "merged": 85,
-        "rejected": 2,
-        "acceptance_rate": 0.98
-      },
-      "entry_count": 7
+      "entry_count": 8
     },
     "domainActivity": {
       "available": false
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 93,
-      "total_merged": 93,
-      "total_closed_without_merge": 0,
+      "total_prs": 99,
+      "total_merged": 91,
+      "total_closed_without_merge": 8,
       "by_category": {
+        "tier:critical": {
+          "merged": 8,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.89
+        },
         "tier:standard": {
-          "merged": 24,
+          "merged": 12,
+          "closed_without_merge": 3,
+          "acceptance_rate": 0.8
+        },
+        "tier:trivial": {
+          "merged": 52,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:trivial": {
-          "merged": 42,
+        "ci-fix": {
+          "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 14,
+          "merged": 17,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:critical": {
-          "merged": 12,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "docs": {
+        "dependencies": {
           "merged": 1,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
+          "closed_without_merge": 3,
+          "acceptance_rate": 0.25
+        },
+        "audit": {
+          "merged": 0,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0
         }
-      },
-      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
+      }
     },
     "agentCost": {
       "available": false
     },
     "ccusageCost": {
-      "available": false
+      "available": true,
+      "spend_today_usd": 0,
+      "spend_7d_usd": 0,
+      "spend_30d_usd": 0,
+      "cache_read_tokens": 1283450,
+      "output_tokens": 2283,
+      "cache_creation_tokens": 70739,
+      "cache_hit_rate": 0.9477,
+      "by_model": {
+        "claude-sonnet-5": {
+          "cost": 0,
+          "input_tokens": 24,
+          "output_tokens": 2283,
+          "cache_read_tokens": 1283450,
+          "cache_creation_tokens": 70739
+        }
+      }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
       "completed": 29,
-      "passed": 18,
-      "failed": 0,
-      "pass_rate_pct": 100,
+      "passed": 15,
+      "failed": 1,
+      "pass_rate_pct": 94,
       "most_recent": {
-        "databaseId": 33821843999,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-09-04T00:27:06Z",
-        "name": "Push on main",
+        "databaseId": 34387033236,
+        "status": "completed",
+        "conclusion": "success",
+        "createdAt": "2026-09-09T18:06:53Z",
+        "name": "Revert Watchdog",
         "headBranch": "main",
-        "headSha": "6cfa61dc13596467438824b43bce896c21eaaad8"
+        "headSha": "0a60bbb089a27568ad193c0a36446af6399527d3"
       }
     },
     "lighthouse": {
@@ -113,22 +138,22 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-03T18:13:28.750Z",
+      "collected_at": "2026-09-08T18:13:27.983Z",
       "stale": false
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 1,
-      "logs_7d": 1,
-      "total_commits_7d": 6,
-      "unique_branches_7d": 1,
-      "branches_7d": ["metrics/progress-tracker-2026-09-04"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 561838,
-      "lines_churned_7d": 383,
+      "total_lines_added_7d": 571451,
+      "lines_churned_7d": 659,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -140,38 +165,44 @@
       "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
     },
     "e2eStability": {
-      "available": true,
-      "consecutive_failures": 0,
-      "total_runs": 27,
-      "total_non_frontend_runs": 13,
-      "summary": "E2E stable: no consecutive failures on non-frontend runs (13 runs checked)"
+      "available": false
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.96,
+      "composite": 0.933,
       "sub_metrics": {
-        "issues_merged": 20,
-        "first_pass_success_rate": 0.9,
-        "median_time_to_merge_hours": 0.3,
+        "issues_merged": 24,
+        "first_pass_success_rate": 0.833,
+        "median_time_to_merge_hours": 0.4,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.6
+        "review_coverage": 0.333
       },
       "distribution": {
         "size:xs": {
-          "count": 11,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 1.1
+          "count": 8,
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 0.3
         },
         "size:s": {
-          "count": 8,
-          "avg_commits": 1.9,
-          "avg_ttm_hours": 0.9
+          "count": 12,
+          "avg_commits": 1.8,
+          "avg_ttm_hours": 0.8
+        },
+        "size:m": {
+          "count": 2,
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 0.5
+        },
+        "size:xl": {
+          "count": 1,
+          "avg_commits": 3,
+          "avg_ttm_hours": 33.7
         },
         "size:l": {
           "count": 1,
           "avg_commits": 1,
-          "avg_ttm_hours": 0.3
+          "avg_ttm_hours": 0.2
         }
       },
       "baseline": null,
@@ -188,11 +219,20 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [],
+  "regressions": [
+    {
+      "sensor": "ciHealth",
+      "metric": "pass_rate_pct",
+      "current": 94,
+      "previous": 100,
+      "delta": -6,
+      "severity": "high"
+    }
+  ],
   "summary": {
     "sensors_available": 8,
     "sensors_total": 16,
-    "regressions_detected": 0,
-    "status": "healthy"
+    "regressions_detected": 1,
+    "status": "regressions_detected"
   }
 }

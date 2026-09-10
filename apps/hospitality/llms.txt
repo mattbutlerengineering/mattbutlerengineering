@@ -17,6 +17,20 @@
         guestIsRisky,
       }: EffectiveDepositPolicyParams): DepositConfig | null { /* ... */ }
     </item>
+    <item priority="high">
+      export function guestRiskMatters(
+        depositConfig: DepositConfig | null,
+        venueSlug: string | undefined,
+        stripePublishableKey: string | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function provisionalDepositRequired(
+        depositConfig: DepositConfig | null,
+        venueSlug: string | undefined,
+        stripePublishableKey: string | undefined
+      ): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/components/booking-widget/formatDepositCancellationTerms.ts">
     <item priority="high">
@@ -41,6 +55,72 @@
         estimatedWaitMinutes: number;
       }
     </item>
+    <item priority="low">
+      interface BookingFlowData {
+        selectedDate: string | null;
+        selectedEndDate: string | null;
+        partySize: number;
+        slots: TimeSlot[];
+        selectedSlot: TimeSlot | null;
+      }
+    </item>
+    <item priority="high">
+      interface BookingFlowState {
+        step: BookingStep;
+        data: BookingFlowData;
+      }
+    </item>
+    <item priority="high">
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "GO_BACK_TO_GUEST_DETA | { type: "EXPIRE_HOLD" } | { type: "RESET" } | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res;
+    </item>
+    <item priority="high">
+      export const STEP_KEYS_NO_DEPOSIT: BookingStep[];
+    </item>
+    <item priority="high">
+      export const STEP_KEYS_WITH_DEPOSIT: BookingStep[];
+    </item>
+    <item priority="high">
+      export function deriveStepKeys(depositRequired: boolean): BookingStep[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlowState { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BookingFlowActions {
+        setSelectedDate: (date: string | null) => void;
+        setSelectedEndDate: (date: string | null) => void;
+        setPartySize: (size: number) => void;
+        goToTimeSlot: () => void;
+        goToDateParty: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface BookingFlowResult {
+        state: BookingStep;
+        data: BookingFlowData;
+        actions: BookingFlowActions;
+        stepKeys: BookingStep[];
+        currentStepIndex: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseBookingFlowDeps {
+        api: BookingWidgetApiClient;
+        venueId: string;
+        venueSlug?: string;
+        stripePublishableKey?: string;
+        holdDurationMinutes?: number;
+      }
+    </item>
+    <item priority="high">
+      export function useBookingFlow({
+        api,
+        venueId,
+        venueSlug,
+        stripePublishableKey,
+        holdDurationMinutes = 10,
+      }: UseBookingFlowDeps): BookingFlowResult { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="constants">
@@ -58,6 +138,9 @@
         valid: false;
         missing: readonly string[];
       }
+    </item>
+    <item priority="high">
+      export function validateAuthConfig(): AuthConfigResult | AuthConfigFailure { /* ... */ }
     </item>
   </file>
   <file path="src/constants/copilotContext.ts">
@@ -79,6 +162,18 @@
     <item priority="low">
       type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     </item>
+    <item priority="low">
+      type GuestSegmentVariant = "accent" | "success" | "neutral";
+    </item>
+    <item priority="high">
+      export function isAllergyTag(tag: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getSegmentLabel(visitCount: number, tags: readonly string[] | null): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getSegmentVariant(label: string): GuestSegmentVariant { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="e2e">
@@ -88,6 +183,24 @@
     </item>
     <item priority="medium">
       function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emptyPaginated(route: Route): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function jsonOk(route: Route, data: unknown): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPublicVenueFixture(): PublicVenue { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPublicVenueConfigFixture(): PublicVenueConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockApi(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="e2e/auth-helpers.ts">
@@ -105,6 +218,52 @@
         env: Record<string, string | undefined> = process.env
       ): Auth0Config { /* ... */ }
     </item>
+    <item priority="medium">
+      function getAuth0Config(): Auth0Config { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TokenResponse {
+        access_token: string;
+        id_token: string;
+        token_type: string;
+        expires_in: number;
+      }
+    </item>
+    <item priority="high">
+      type FetchFn = typeof fetch;
+    </item>
+    <item priority="low">
+      async function fetchAuth0Tokens(
+        config: Auth0Config,
+        fetchFn: FetchFn = fetch
+      ): Promise<TokenResponse> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RetryOptions {
+        maxAttempts?: number;
+        baseDelayMs?: number;
+      }
+    </item>
+    <item priority="high">
+      export async function fetchAuth0TokensWithRetry(
+        config: Auth0Config,
+        fetchFn: FetchFn = fetch,
+        { maxAttempts = 3, baseDelayMs = 1000 }: RetryOptions = {}
+      ): Promise<TokenResponse> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function decodeJwtPayload(token: string): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildOidcUserEntry(
+        config: Auth0Config,
+        tokens: TokenResponse,
+        storageClientId: string = config.clientId
+      ): { key: string; value: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
   </file>
   <file path="e2e/fixtures.ts">
     <item priority="high">
@@ -120,6 +279,18 @@
     <item priority="high">
       export const CANVAS_HEIGHT: unknown;
     </item>
+    <item priority="high">
+      export const GRID_SIZE: unknown;
+    </item>
+    <item priority="high">
+      export const CANVAS_CENTER: unknown;
+    </item>
+    <item priority="high">
+      export const SHAPE_DEFAULTS: unknown;
+    </item>
+    <item priority="high">
+      export function snapToGrid(value: number, gridSize: number = GRID_SIZE): number { /* ... */ }
+    </item>
   </file>
   <file path="src/components/floor-plan/table-status.ts">
     <item priority="high">
@@ -131,6 +302,15 @@
         hasActiveHold: boolean;
         now: Date;
       }
+    </item>
+    <item priority="low">
+      interface TableStatusResult {
+        status: TableDisplayStatus;
+        colorToken: string;
+      }
+    </item>
+    <item priority="high">
+      export function deriveTableStatus(input: TableStatusInput): TableStatusResult { /* ... */ }
     </item>
   </file>
   </section>
@@ -152,6 +332,11 @@
         isError: boolean;
       }
     </item>
+    <item priority="high">
+      export function createMutationHook<TVariables, TData = unknown>(
+        options: CreateMutationHookOptions<TVariables, TData>
+      ): () => MutationHookResult<TVariables, TData> { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/create-query-hook.ts">
     <item priority="low">
@@ -170,6 +355,22 @@
         select?: (data: TData | undefined) => TResult;
       }
     </item>
+    <item priority="high">
+      export function createQueryHook<TData, TParams = undefined, TResult = TData>(
+        options: CreateQueryHookOptions<TData, TParams, TResult>
+      ): (params?: (TParams & { enabled?: boolean }) | undefined) => QueryHookResult<TResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveEnabled<TParams>(
+        params: (TParams & { enabled?: boolean }) | undefined,
+        getEnabled: ((p: (TParams & { enabled?: boolean }) | undefined) => boolean) | undefined
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stripEnabled<TParams>(
+        params: (TParams & { enabled?: boolean }) | undefined
+      ): TParams | undefined { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/use-command-palette.ts">
     <item priority="high">
@@ -187,6 +388,33 @@
         items: CommandItem[];
         groups: string[];
       }
+    </item>
+    <item priority="medium">
+      function sectionGroupName(section: NavSection): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildNavItems(
+        sections: readonly NavSection[],
+        navigate: (path: string) => void
+      ): CommandItem[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildActionItems(
+        navigate: (path: string) => void,
+        toggleTheme: () => void,
+        signOut: () => void
+      ): CommandItem[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildGroups(sections: readonly NavSection[]): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useCommandPalette({
+        sections,
+        navigate,
+        toggleTheme,
+        signOut,
+      }: UseCommandPaletteOptions): UseCommandPaletteResult { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/use-form-state.ts">
@@ -217,6 +445,12 @@
     <item priority="high">
       export const ThemeContext: unknown;
     </item>
+    <item priority="high">
+      export function useTheme(): ThemeContextValue { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useThemeState(): ThemeContextValue { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/use-url-params.ts">
     <item priority="high">
@@ -227,6 +461,12 @@
         params: SchemaOutput<S>;
         setParam: <K extends keyof SchemaOutput<S>>(key: K, value: SchemaOu...;
       }
+    </item>
+    <item priority="high">
+      export function useUrlParams<S extends ZodObject<ZodRawShape>>(
+        schema: S,
+        defaults: SchemaOutput<S>
+      ): UseUrlParamsResult<S> { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useApiClient.ts">
@@ -241,6 +481,19 @@
     <item priority="low">
       type BriefingGuest = ApiBriefingGuest;
     </item>
+    <item priority="low">
+      type BriefingEntry = ApiBriefingEntry;
+    </item>
+    <item priority="low">
+      interface UseBriefingParams {
+        date: string;
+        venueId: string;
+        enabled?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const useBriefing: unknown;
+    </item>
   </file>
   <file path="src/hooks/useCancellationQuote.ts">
     <item priority="low">
@@ -252,6 +505,34 @@
     </item>
     <item priority="medium">
       function buildFeeLabel(fee: CancellationFeeResult, currency: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function evaluateCancellationQuote(
+        policy: CancellationPolicy | null,
+        reservationTime: Date,
+        currency = "usd",
+        now: Date = new Date()
+      ): CancellationQuote | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withQuotedFeeNote(note: string, quote: CancellationQuote | null): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseCancellationQuoteParams {
+        slug: string | undefined;
+        reservationTime: Date | undefined;
+        currency?: string;
+      }
+    </item>
+    <item priority="high">
+      export function useCancellationQuote({
+        slug,
+        reservationTime,
+        currency = "usd",
+      }: UseCancellationQuoteParams): {
+        quote: CancellationQuote | null;
+        isLoading: boolean;
+      } { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useDashboardStatsQuery.ts">
@@ -273,10 +554,38 @@
         refetch: () => void;
       }
     </item>
+    <item priority="high">
+      type ReservationStats = Omit<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    </item>
+    <item priority="high">
+      type WaitlistStats = Pick<DashboardStats, "waitlistCount" | "longestWaitMinutes">;
+    </item>
+    <item priority="medium">
+      function getTodayString(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function computeUpcoming(reservations: readonly Reservation[]): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeStatsFromReservations(
+        reservations: readonly Reservation[]
+      ): ReservationStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeWaitlistStats(entries: readonly WaitlistEntry[]): WaitlistStats { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useDashboardStatsQuery(): UseDashboardStatsQueryResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useDeposits.ts">
     <item priority="high">
       export const useCreateDeposit: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useDocumentTitle.ts">
+    <item priority="high">
+      export function useDocumentTitle(title: string): void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useFloorPlans.ts">
@@ -285,6 +594,56 @@
     </item>
     <item priority="high">
       export const FLOOR_PLAN_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseFloorPlansParams {
+        venueId?: string | null;
+        limit?: number;
+        enabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseFloorPlansResult {
+        data: FloorPlan[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export const useFloorPlans: unknown;
+    </item>
+    <item priority="low">
+      interface UseFloorPlanResult {
+        data: FloorPlan | null | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useFloorPlan(id: string | undefined): UseFloorPlanResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useCloneFloorPlan: unknown;
+    </item>
+    <item priority="high">
+      export const useActivateFloorPlan: unknown;
+    </item>
+    <item priority="low">
+      interface BulkUpdatePositionsPayload {
+        floorPlanId: string;
+        positions: Parameters<ReturnType<typeof useApiClient>["floorPlans"][...;
+      }
+    </item>
+    <item priority="high">
+      export const useBulkUpdatePositions: unknown;
+    </item>
+    <item priority="high">
+      export const useAddTable: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteTable: unknown;
     </item>
   </file>
   <file path="src/hooks/useFocusAfter.ts">
@@ -295,6 +654,12 @@
       interface FocusAfterApi {
         focusAfter: (target: FocusTarget) => void;
       }
+    </item>
+    <item priority="medium">
+      function resolveTarget(target: FocusTarget): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useFocusAfter(): FocusAfterApi { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useGuestDirectory.ts">
@@ -312,6 +677,9 @@
         refetch: () => void;
       }
     </item>
+    <item priority="high">
+      export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGuestDirectoryResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useGuestRecognition.ts">
     <item priority="low">
@@ -327,6 +695,20 @@
         api: BookingWidgetApiClient;
       }
     </item>
+    <item priority="low">
+      interface UseGuestRecognitionReturn {
+        result: GuestRecognitionResult | null;
+        isLoading: boolean;
+        error: Error | null;
+        recognize: (email: string) => void;
+      }
+    </item>
+    <item priority="high">
+      export function useGuestRecognition({
+        venueSlug,
+        api,
+      }: UseGuestRecognitionParams): UseGuestRecognitionReturn { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useGuests.ts">
     <item priority="high">
@@ -334,6 +716,64 @@
     </item>
     <item priority="high">
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseGuestsParams {
+        venueId?: string | null;
+        limit?: number;
+        enabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestsResult {
+        data: Guest[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export const useGuests: unknown;
+    </item>
+    <item priority="low">
+      interface UseGuestSearchParams {
+        venueId?: string | null;
+        query: string;
+        enabled?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useGuestSearch(params: UseGuestSearchParams): UseGuestsResult { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseGuestSegmentsResult {
+        data: GuestSegment[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+      }
+    </item>
+    <item priority="high">
+      export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseGuestResult {
+        data: Guest | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useGuest(guestId: string | null | undefined): UseGuestResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useAddGuest: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateGuest: unknown;
+    </item>
+    <item priority="high">
+      export const useAddStaffNote: unknown;
     </item>
   </file>
   <file path="src/hooks/useIsAdmin.ts">
@@ -370,6 +810,32 @@
         limit?: number;
       }
     </item>
+    <item priority="low">
+      interface ReservationDisplayStats {
+        total: number;
+        confirmed: number;
+        pending: number;
+        cancelled: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseReservationDisplayResult {
+        data: Reservation[] | undefined;
+        stats: ReservationDisplayStats;
+        filteredData: Reservation[];
+        isLoading: boolean;
+        error: Error | null;
+      }
+    </item>
+    <item priority="high">
+      export function useReservationDisplay({
+        date,
+        venueId,
+        statusFilter,
+        searchQuery,
+        limit = 50,
+      }: UseReservationDisplayParams): UseReservationDisplayResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useReservations.ts">
     <item priority="high">
@@ -380,6 +846,33 @@
         enabled?: boolean;
       }
     </item>
+    <item priority="low">
+      interface UseReservationsResult {
+        data: Reservation[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<{ error: Error | null }>;
+        isFromCache: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface KeyedCacheEntry {
+        key: string;
+        reservations: Reservation[];
+        cachedAt: number;
+      }
+    </item>
+    <item priority="medium">
+      function fallbackKey(venueId: string, date: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useReservations(
+        params?: (UseReservationsParams & { enabled?: boolean }) | undefined
+      ): UseReservationsResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useCreateReservation: unknown;
+    </item>
   </file>
   <file path="src/hooks/useSessionClock.ts">
     <item priority="high">
@@ -387,6 +880,25 @@
     </item>
     <item priority="low">
       type SessionPhase = "fresh" | "refresh-window" | "expired";
+    </item>
+    <item priority="low">
+      type SessionClock = { remainingMs: null; phase: nu | { remainingMs: number; phase: ;
+    </item>
+    <item priority="high">
+      export function classifySessionPhase(remainingMs: number): SessionPhase { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readEpochClaim(claims: unknown, key: string): number | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function computeElapsedPercent(
+        issuedAt: number | undefined,
+        expiresAt: number | undefined,
+        remainingMs: number | null
+      ): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useSessionClock(expiresAt: number | undefined): SessionClock { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useStatusMessage.ts">
@@ -402,6 +914,9 @@
         announce: (text: string) => void;
       }
     </item>
+    <item priority="high">
+      export function useStatusMessage(): StatusMessageApi { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useTables.ts">
     <item priority="high">
@@ -411,6 +926,17 @@
       interface UseTablesParams {
         enabled?: boolean;
       }
+    </item>
+    <item priority="low">
+      interface UseTablesResult {
+        data: Table[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export const useTables: unknown;
     </item>
   </file>
   <file path="src/hooks/useTimelineData.ts">
@@ -427,6 +953,26 @@
         quote: CancellationQuote | null;
       }
     </item>
+    <item priority="low">
+      interface TimelineStats {
+        confirmed: number;
+        pending: number;
+        totalCovers: number;
+        total: number;
+      }
+    </item>
+    <item priority="low">
+      interface UseTimelineDataResult {
+        reservations: Reservation[];
+        tables: Table[];
+        isLoading: boolean;
+        fetchError: Error | null;
+        stats: TimelineStats;
+      }
+    </item>
+    <item priority="high">
+      export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTimelineDataResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useTimelineKeyboard.ts">
     <item priority="low">
@@ -441,6 +987,19 @@
         onActivate?: (reservationId: string) => void;
       }
     </item>
+    <item priority="low">
+      interface UseTimelineKeyboardResult {
+        focusedId: string | null;
+        setFocusedId: (id: string | null) => void;
+        handleKeyDown: (e: React.KeyboardEvent) => void;
+      }
+    </item>
+    <item priority="high">
+      export function useTimelineKeyboard({
+        entries,
+        onActivate,
+      }: UseTimelineKeyboardParams): UseTimelineKeyboardResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useUsers.ts">
     <item priority="high">
@@ -448,6 +1007,45 @@
     </item>
     <item priority="high">
       export const USERS_QUERY_KEY: unknown;
+    </item>
+    <item priority="low">
+      interface UseCurrentUserResult {
+        data: User | null | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useCurrentUser(): UseCurrentUserResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useUpdateCurrentUser() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useUpdatePreferences() { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseUsersParams {
+        page?: number;
+        limit?: number;
+        enabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseUsersResult {
+        data: User[] | undefined;
+        pagination: | {
+              total: number;
+              totalPages: number;
+        ...;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useUsers(params: UseUsersParams = {}): UseUsersResult { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useVenuePolicy.ts">
@@ -473,6 +1071,19 @@
         progress: number;
       }
     </item>
+    <item priority="high">
+      export const STEP_ORDER: readonly SetupStep[];
+    </item>
+    <item priority="high">
+      export function computeReadiness(
+        venue: Venue | null,
+        floorPlans: readonly FloorPlan[],
+        isError = false
+      ): VenueReadiness { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useVenueReadiness(): VenueReadiness { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useVenues.ts">
     <item priority="high">
@@ -481,6 +1092,36 @@
     <item priority="high">
       export const VENUE_BY_SLUG_QUERY_KEY: unknown;
     </item>
+    <item priority="low">
+      interface UseVenuesParams {
+        limit?: number;
+        enabled?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface UseVenuesResult {
+        data: Venue[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export const useVenues: unknown;
+    </item>
+    <item priority="high">
+      export const useUpdateVenue: unknown;
+    </item>
+    <item priority="low">
+      interface UseVenueBySlugResult {
+        data: PublicVenue | null | undefined;
+        isLoading: boolean;
+        error: Error | null;
+      }
+    </item>
+    <item priority="high">
+      export function useVenueBySlug(slug: string | undefined): UseVenueBySlugResult { /* ... */ }
+    </item>
   </file>
   <file path="src/hooks/useViewport.ts">
     <item priority="low">
@@ -488,6 +1129,9 @@
     </item>
     <item priority="medium">
       function readViewport(): Viewport { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useViewport(): Viewport { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useWaitlist.ts">
@@ -498,6 +1142,21 @@
       interface UseWaitlistParams {
         venueId: string;
       }
+    </item>
+    <item priority="high">
+      export const useWaitlist: unknown;
+    </item>
+    <item priority="high">
+      export const useCreateWaitlistEntry: unknown;
+    </item>
+    <item priority="high">
+      export const useSeatWaitlistEntry: unknown;
+    </item>
+    <item priority="high">
+      export const useNotifyWaitlistEntry: unknown;
+    </item>
+    <item priority="high">
+      export const useCancelWaitlistEntry: unknown;
     </item>
   </file>
   </section>
@@ -511,6 +1170,63 @@
         id: string;
         name: string;
       }
+    </item>
+    <item priority="high">
+      export async function authenticateAgainstLiveSite(page: Page): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isNonAdminAuthConfigured(
+        env: Record<string, string | undefined> = process.env
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveNonAdminAuthEnv(
+        env: Record<string, string | undefined> = process.env
+      ): Record<string, string | undefined> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readTokenPermissions(accessToken: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function authenticateNonAdmin(): Promise<{
+        accessToken: string;
+        permissions: string[];
+      }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createVenueAs(
+        accessToken: string,
+        name: string
+      ): Promise<{ status: number; id?: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function apiRequest(
+        accessToken: string,
+        path: string,
+        method: string,
+        body?: unknown
+      ): Promise<Response> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function listSyntheticVenues(accessToken: string): Promise<VenueSummary[]> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface DeleteVenueResult {
+        ok: boolean;
+        status: number;
+      }
+    </item>
+    <item priority="low">
+      async function deleteVenueFloorPlans(accessToken: string, venueId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function deleteVenue(
+        accessToken: string,
+        venueId: string
+      ): Promise<DeleteVenueResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function sweepSyntheticVenues(accessToken: string): Promise<string[]> { /* ... */ }
     </item>
   </file>
   <file path="e2e/journeys/journey-recorder.ts">
@@ -526,6 +1242,27 @@
         pageError?: string;
       }
     </item>
+    <item priority="low">
+      interface JourneyReport {
+        runId: string;
+        runUrl: string;
+        startedAt: string;
+        venueName: string;
+        steps: JourneyStepResult[];
+      }
+    </item>
+    <item priority="low">
+      async function capturePageError(page: Page): Promise<string | undefined> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function slugify(name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveRunContext(): { runId: string; runUrl: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createJourneyRecorder(page: Page, venueName: string) { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="lib">
@@ -535,6 +1272,48 @@
     </item>
     <item priority="low">
       type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
+    </item>
+    <item priority="low">
+      interface ApiErrorDescription {
+        category: ApiErrorCategory;
+        detail: string;
+        retryable: boolean;
+        recovery: ErrorRecovery;
+        raw: string;
+      }
+    </item>
+    <item priority="high">
+      type CopyRow = Pick<ApiErrorDescription, "detail" | "retryable" | "recov...;
+    </item>
+    <item priority="high">
+      export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>>;
+    </item>
+    <item priority="high">
+      interface ApiClientErrorLike {
+        category: ErrorCategory;
+        problemDetails: { readonly detail?: unknown };
+      }
+    </item>
+    <item priority="medium">
+      function isRecord(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isApiClientError(error: unknown): error is ApiClientErrorLike { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isTimeout(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rawMessage(error: unknown): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function humanProblemDetail(problemDetails: ApiClientErrorLike["problemDetails"]): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeApiError(error: unknown): ApiErrorDescription { /* ... */ }
     </item>
   </file>
   <file path="src/lib/describe-auth-error.ts">
@@ -547,6 +1326,9 @@
     </item>
     <item priority="medium">
       function oidcErrorCode(error: Error): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeAuthError(error: Error): AuthErrorDescription { /* ... */ }
     </item>
   </file>
   <file path="src/lib/offline-cache.ts">
@@ -561,6 +1343,77 @@
         cachedAt: number;
       }
     </item>
+    <item priority="low">
+      interface CachedReservations {
+        reservations: Reservation[];
+        cachedAt: number;
+      }
+    </item>
+    <item priority="high">
+      interface FloorPlanCacheEntry {
+        venueId: string;
+        date: string;
+        snapshot: FloorPlanSnapshot;
+      }
+    </item>
+    <item priority="high">
+      interface OfflineCacheSchema {
+        reservations: {
+          key: string;
+          value: ReservationsCacheEntry;
+        };
+        floorPlanSnapshots: {
+          key: string;
+          value: FloorPlanCacheEntry;
+        };
+      }
+    </item>
+    <item priority="high">
+      export const DB_NAME: unknown;
+    </item>
+    <item priority="medium">
+      function getDb(): Promise<IDBPDatabase<OfflineCacheSchema>> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reservationsKey(venueId: string, date: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function todayDateKey(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCachedReservations(
+        venueId: string,
+        date: string
+      ): Promise<CachedReservations | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setCachedReservations(
+        venueId: string,
+        date: string,
+        reservations: Reservation[]
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCachedFloorPlanSnapshot(
+        venueId: string
+      ): Promise<FloorPlanSnapshot | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setCachedFloorPlanSnapshot(
+        venueId: string,
+        snapshot: FloorPlanSnapshot
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function evictStaleEntries(today: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function evictStaleFromStore(
+        db: IDBPDatabase<OfflineCacheSchema>,
+        storeName: "reservations" | "floorPlanSnapshots",
+        today: string
+      ): Promise<void> { /* ... */ }
+    </item>
   </file>
   <file path="src/lib/sse-client.ts">
     <item priority="low">
@@ -573,6 +1426,21 @@
         onEvent: (type: string, payload: unknown) => void;
         onError: (error: Error) => void;
         onConnected?: () => void;
+      }
+    </item>
+    <item priority="medium">
+      class ConnectionClosed {
+        
+      }
+    </item>
+    <item priority="high">
+      class SseClient {
+        options: Required<
+          Pick<SseClientOptions, "onConnected" | "onD...;
+        abortController: AbortController | null;
+        reconnectTimer: ReturnType<typeof setTimeout> | null;
+        reconnectAttempts: unknown;
+        lastEventId: string | null;
       }
     </item>
   </file>
@@ -593,6 +1461,18 @@
         label?: string;
         items: NavItem[];
       }
+    </item>
+    <item priority="medium">
+      function buildSetupSections(readiness: VenueReadiness, isAdmin: boolean): readonly NavSection[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildOperationalSections(isAdmin: boolean): readonly NavSection[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildNavSections(
+        readiness: VenueReadiness,
+        isAdmin: boolean
+      ): readonly NavSection[] { /* ... */ }
     </item>
   </file>
   <file path="src/return-to-store.ts">
@@ -634,6 +1514,13 @@
         width: number;
       }
     </item>
+    <item priority="high">
+      export function computeReservationLayout(
+        startTime: string,
+        endTime: string,
+        { startHour, hourWidth, isMobile }: ReservationLayoutParams
+      ): ReservationLayoutResult { /* ... */ }
+    </item>
   </file>
   <file path="src/components/timeline/useGridFocus.ts">
     <item priority="low">
@@ -649,6 +1536,25 @@
         initial?: GridCoordinate;
       }
     </item>
+    <item priority="low">
+      interface UseGridFocusResult {
+        active: GridCoordinate;
+        setActive: (coord: GridCoordinate) => void;
+        moveUp: () => void;
+        moveDown: () => void;
+        moveLeft: () => void;
+      }
+    </item>
+    <item priority="medium">
+      function clamp(value: number, count: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useGridFocus({
+        rowCount,
+        colCount,
+        initial = { row: 0, col: 0 },
+      }: UseGridFocusParams): UseGridFocusResult { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="utils">
@@ -661,6 +1567,32 @@
     <item priority="medium">
       function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildGoogleCalendarUrl(
+        reservation: Reservation,
+        venue: PublicVenueConfig,
+        opts: BuildCalendarLinkOptions = {}
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pad2(value: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatUtcOffset(offsetMinutes: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIsoWithOffset(isoInstant: string, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildOutlookCalendarUrl(
+        reservation: Reservation,
+        venue: PublicVenueConfig,
+        opts: BuildCalendarLinkOptions = {}
+      ): string { /* ... */ }
+    </item>
   </file>
   <file path="src/utils/format.ts">
     <item priority="high">
@@ -668,6 +1600,18 @@
     </item>
     <item priority="high">
       export function formatLongDateWithYear(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatServiceDate(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTime(isoString: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatLocalTime(hhmm: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatCurrencyFromCents(amountCents: number, currency: string): string { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ics.ts">
@@ -681,6 +1625,28 @@
     <item priority="medium">
       function escapeIcsText(value: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function isContinuationByte(byte: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function foldLine(line: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIcsUtcTimestamp(date: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatIcsLocalDateTime(isoInstant: string, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildDescription(reservation: Reservation, cancellationUrl?: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildReservationIcs(
+        reservation: Reservation,
+        venue: PublicVenueConfig,
+        opts: BuildReservationIcsOptions = {}
+      ): string { /* ... */ }
+    </item>
   </file>
   <file path="src/utils/local-clock.ts">
     <item priority="medium">
@@ -688,6 +1654,12 @@
     </item>
     <item priority="high">
       export function localDateString(now: Date): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function localHour(now: Date): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isLocalToday(date: string, now: Date): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ordinal.ts">
@@ -704,6 +1676,9 @@
     <item priority="high">
       export const STATUS_LABEL: Record<ReservationStatus, string>;
     </item>
+    <item priority="high">
+      export function formatReservationTime(isoString: string): string { /* ... */ }
+    </item>
   </file>
   <file path="src/utils/seated.ts">
     <item priority="high">
@@ -712,6 +1687,20 @@
     <item priority="high">
       type SeatedReservation = Pick<Reservation, "status" | "startTime" | "endTime">;
     </item>
+    <item priority="high">
+      export function isSeated(
+        reservation: SeatedReservation,
+        tableStatus: TableStatus | undefined,
+        now: Date
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedReservationIds(
+        reservations: readonly (SeatedReservation & Pick<Reservation, "id" | "tableId">)[],
+        tables: readonly Pick<Table, "id" | "status">[],
+        now: Date
+      ): ReadonlySet<string> { /* ... */ }
+    </item>
   </file>
   <file path="src/utils/timeline-intent.ts">
     <item priority="high">
@@ -719,6 +1708,32 @@
     </item>
     <item priority="high">
       export const SELECTED_PARAM: unknown;
+    </item>
+    <item priority="low">
+      interface TimelineIntent {
+        walkIn: boolean;
+        selectedId: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function parseTimelineIntent(params: URLSearchParams): TimelineIntent { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stripTimelineIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NEW_RESERVATION_PARAM: unknown;
+    </item>
+    <item priority="low">
+      interface ReservationsIntent {
+        newReservation: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function parseReservationsIntent(params: URLSearchParams): ReservationsIntent { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stripReservationsIntent(params: URLSearchParams): URLSearchParams { /* ... */ }
     </item>
   </file>
   <file path="src/utils/venueOpenLabel.ts">
@@ -736,6 +1751,51 @@
     <item priority="low">
       type LocalTime = string;
     </item>
+    <item priority="low">
+      type VenueOpenState = { readonly state: "open"; read | { readonly state: "opening-soo | {
+            readonly state: "close | { readonly state: "unset" };
+    </item>
+    <item priority="low">
+      interface DeriveVenueOpenStateInput {
+        operatingHours: OperatingHours | null | undefined;
+        ianaTimezone: string | null | undefined;
+        now: Date;
+        openingSoonMinutes?: number;
+      }
+    </item>
+    <item priority="high">
+      interface DayWindow {
+        open: number;
+        close: number;
+        overnight: boolean;
+        opensAt: LocalTime;
+        closesAt: LocalTime;
+      }
+    </item>
+    <item priority="high">
+      interface VenueDay {
+        weekday: Weekday;
+        window: DayWindow | null;
+      }
+    </item>
+    <item priority="high">
+      interface VenueClock {
+        day: number;
+        nowMin: number;
+      }
+    </item>
+    <item priority="medium">
+      function readVenueClock(timeZone: string, now: Date): VenueClock | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toMinutes(hhmm: string): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toWindow(schedule: DaySchedule | undefined): DayWindow | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function deriveVenueOpenState(input: DeriveVenueOpenStateInput): VenueOpenState | null { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="venue-onboarding">
@@ -752,6 +1812,49 @@
         shape: DraftTableShape;
       }
     </item>
+    <item priority="low">
+      interface FloorPlanDraft {
+        templateId: string | null;
+        planName: string;
+        tables: readonly DraftTable[];
+        pristine: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const DRAFT_ID: unknown;
+    </item>
+    <item priority="high">
+      export const DUPLICATE_TABLE_NAME_MESSAGE: unknown;
+    </item>
+    <item priority="high">
+      export const EMPTY_FLOOR_PLAN_DRAFT: FloorPlanDraft;
+    </item>
+    <item priority="high">
+      export function draftToCanvasTables(draft: FloorPlanDraft): Table[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftToCanvasFloorPlan(draft: FloorPlanDraft): FloorPlan { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftTableFromCreateRequest(
+        request: CreateTableRequest,
+        localId: string
+      ): DraftTable { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftTableToCreateRequest(
+        table: DraftTable,
+        venueId: string,
+        floorPlanId: string
+      ): CreateTableRequest { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findDuplicateName(
+        tables: readonly DraftTable[],
+        name: string,
+        ignoreLocalId?: string
+      ): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/components/venue-onboarding/floor-plan-templates.ts">
     <item priority="low">
@@ -766,6 +1869,27 @@
         origin: { x: number; y: number };
       }
     </item>
+    <item priority="low">
+      interface FloorPlanTemplate {
+        id: TemplateId;
+        name: string;
+        planName: string;
+        summary: string;
+        zoneLine: string;
+      }
+    </item>
+    <item priority="medium">
+      function tablesForZone(zone: Zone): DraftTable[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tablesForTemplate(template: FloorPlanTemplate): DraftTable[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[];
+    </item>
+    <item priority="high">
+      export function templateById(id: TemplateId): FloorPlanTemplate { /* ... */ }
+    </item>
   </file>
   <file path="src/components/venue-onboarding/generate-slug.ts">
     <item priority="high">
@@ -778,6 +1902,112 @@
     </item>
     <item priority="low">
       type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
+    </item>
+    <item priority="low">
+      interface LaunchProgress {
+        venueId: string | null;
+        floorPlanId: string | null;
+        createdTableNames: readonly string[];
+        activated: boolean;
+        inFlightStage: LaunchStageId | null;
+      }
+    </item>
+    <item priority="high">
+      export const INITIAL_LAUNCH_PROGRESS: LaunchProgress;
+    </item>
+    <item priority="high">
+      export const DEFAULT_LAYOUT: FloorPlanLayout;
+    </item>
+    <item priority="high">
+      export function stagesFor(draft: FloorPlanDraft): readonly LaunchStageId[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isStageDone(
+        progress: LaunchProgress,
+        stage: LaunchStageId,
+        draft: FloorPlanDraft
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): LaunchStageId | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isDoneWithoutDraft(progress: LaunchProgress, stage: LaunchStageId): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stageStateOf(progress: LaunchProgress, stage: LaunchStageId): LaunchStageState { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tablesDoneCount(progress: LaunchProgress): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isAlreadyCreatedError(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface LaunchApi {
+        venues: { create(data: CreateVenueRequest): Promise<Venue> };
+        floorPlans: {
+          create(data: CreateFloorPlanRequest): Promise<Floor...;
+        tables: { create(data: CreateTableRequest): Promise<Table> };
+      }
+    </item>
+    <item priority="medium">
+      function withFallback(err: unknown, fallback: string): Error { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runVenueStage(
+        api: LaunchApi,
+        venuePayload: CreateVenueRequest,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runFloorPlanStage(
+        api: LaunchApi,
+        draft: FloorPlanDraft,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="medium">
+      class LaunchStageError {
+        partialProgress: LaunchProgress;
+      }
+    </item>
+    <item priority="low">
+      async function runTablesStage(
+        api: LaunchApi,
+        draft: FloorPlanDraft,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runActivateStage(
+        api: LaunchApi,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runStage(
+        api: LaunchApi,
+        stage: LaunchStageId,
+        draft: FloorPlanDraft,
+        venuePayload: CreateVenueRequest,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runLaunchSequence(
+        api: LaunchApi,
+        draft: FloorPlanDraft,
+        venuePayload: CreateVenueRequest,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
     </item>
   </file>
   <file path="src/components/venue-onboarding/onboarding-steps.ts">
@@ -803,6 +2033,65 @@
         settings: SettingsData;
         floorPlan: FloorPlanDraft;
       }
+    </item>
+    <item priority="low">
+      interface OnboardingWizardErrors {
+        basicInfo: Partial<Record<keyof BasicInfoData, string>>;
+        locationTime: Partial<Record<keyof LocationTimeData, string>>;
+        operatingHours: OperatingHoursValidationErrors | null;
+        settings: Partial<Record<keyof SettingsData, string>>;
+        floorPlan: string | null;
+      }
+    </item>
+    <item priority="high">
+      interface OnboardingWizardState {
+        step: number;
+        data: OnboardingWizardData;
+        errors: OnboardingWizardErrors;
+        highestStepReached: number;
+        slugStatus: SlugStatus;
+      }
+    </item>
+    <item priority="high">
+      type OnboardingWizardAction = { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "SET_STEP_DATA"; step: | { type: "NEXT" } | { type: "BACK" } | { type: "GO_TO_STEP"; step: nu | { type: "VALIDATE" } | { type: "SLUG_CHECK_START" } | { type: "SLUG_CHECK_RESULT"; s | { type: "SET_TEMPLATE"; templa | { type: "ADD_DRAFT_TABLE"; req | { type: "MOVE_DRAFT_TABLE"; lo | { type: "REMOVE_DRAFT_TABLE";  | { type: "SET_LAUNCH_PROGRESS";;
+    </item>
+    <item priority="medium">
+      function runStepValidation(state: OnboardingWizardState): {
+        state: OnboardingWizardState;
+        valid: boolean;
+      } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reducer(
+        state: OnboardingWizardState,
+        action: OnboardingWizardAction
+      ): OnboardingWizardState { /* ... */ }
+    </item>
+    <item priority="low">
+      interface OnboardingWizardActions {
+        setStepData: <K extends keyof OnboardingWizardData>(
+          step: K,
+          ...;
+        next: () => void;
+        back: () => void;
+        goToStep: (step: number) => void;
+        validateStep: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface OnboardingWizardResult {
+        step: number;
+        data: OnboardingWizardData;
+        errors: OnboardingWizardErrors;
+        highestStepReached: number;
+        slugStatus: SlugStatus;
+      }
+    </item>
+    <item priority="high">
+      export function useOnboardingWizard(): OnboardingWizardResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildOnboardingPayload(data: OnboardingWizardData): CreateVenueRequest { /* ... */ }
     </item>
   </file>
   </section>
