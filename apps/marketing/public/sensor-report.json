@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-09T18:10:08.312Z",
+  "generated_at": "2026-09-10T04:07:58.405Z",
   "period": {
-    "start": "2026-09-02",
-    "end": "2026-09-09"
+    "start": "2026-09-03",
+    "end": "2026-09-10"
   },
   "sensors": {
     "acmm": {
@@ -48,39 +48,44 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 99,
-      "total_merged": 91,
-      "total_closed_without_merge": 8,
+      "total_prs": 97,
+      "total_merged": 87,
+      "total_closed_without_merge": 10,
       "by_category": {
-        "tier:critical": {
-          "merged": 8,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.89
+        "tier:trivial": {
+          "merged": 51,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         },
         "tier:standard": {
           "merged": 12,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0.8
+          "closed_without_merge": 2,
+          "acceptance_rate": 0.86
         },
-        "tier:trivial": {
-          "merged": 52,
+        "agent-regression": {
+          "merged": 0,
+          "closed_without_merge": 3,
+          "acceptance_rate": 0
+        },
+        "tier:sensitive": {
+          "merged": 16,
           "closed_without_merge": 0,
           "acceptance_rate": 1
+        },
+        "dependencies": {
+          "merged": 2,
+          "closed_without_merge": 3,
+          "acceptance_rate": 0.4
+        },
+        "tier:critical": {
+          "merged": 5,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.83
         },
         "ci-fix": {
           "merged": 1,
           "closed_without_merge": 0,
           "acceptance_rate": 1
-        },
-        "tier:sensitive": {
-          "merged": 17,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "dependencies": {
-          "merged": 1,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0.25
         },
         "audit": {
           "merged": 0,
@@ -97,35 +102,42 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 1283450,
-      "output_tokens": 2283,
-      "cache_creation_tokens": 70739,
-      "cache_hit_rate": 0.9477,
+      "cache_read_tokens": 48011563,
+      "output_tokens": 79018,
+      "cache_creation_tokens": 1218508,
+      "cache_hit_rate": 0.9752,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 24,
-          "output_tokens": 2283,
-          "cache_read_tokens": 1283450,
-          "cache_creation_tokens": 70739
+          "input_tokens": 502,
+          "output_tokens": 79010,
+          "cache_read_tokens": 47974502,
+          "cache_creation_tokens": 1140540
+        },
+        "claude-haiku-4-5-20251001": {
+          "cost": 0,
+          "input_tokens": 18,
+          "output_tokens": 8,
+          "cache_read_tokens": 37061,
+          "cache_creation_tokens": 77968
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 15,
-      "failed": 1,
-      "pass_rate_pct": 94,
+      "completed": 28,
+      "passed": 22,
+      "failed": 0,
+      "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 34387033236,
+        "databaseId": 34435767481,
         "status": "completed",
         "conclusion": "success",
-        "createdAt": "2026-09-09T18:06:53Z",
-        "name": "Revert Watchdog",
+        "createdAt": "2026-09-10T04:04:49Z",
+        "name": "Tracking Checklist",
         "headBranch": "main",
-        "headSha": "0a60bbb089a27568ad193c0a36446af6399527d3"
+        "headSha": "6c488206d5a9c5016df0343ded5b282be5e5781b"
       }
     },
     "lighthouse": {
@@ -138,7 +150,7 @@
     "issueFeedback": {
       "available": false,
       "error": "GitHub auth failed (403) — REST fallback credential is not valid for direct API calls",
-      "collected_at": "2026-09-08T18:13:27.983Z",
+      "collected_at": "2026-09-09T18:13:20.893Z",
       "stale": false
     },
     "sessionLogs": {
@@ -151,9 +163,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.001,
-      "total_lines_added_7d": 571451,
-      "lines_churned_7d": 659,
+      "churn_rate": 0.002,
+      "total_lines_added_7d": 576874,
+      "lines_churned_7d": 884,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -169,40 +181,35 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.933,
+      "composite": 0.927,
       "sub_metrics": {
-        "issues_merged": 24,
-        "first_pass_success_rate": 0.833,
+        "issues_merged": 22,
+        "first_pass_success_rate": 0.818,
         "median_time_to_merge_hours": 0.4,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.333
+        "review_coverage": 0.364
       },
       "distribution": {
         "size:xs": {
-          "count": 8,
-          "avg_commits": 1.5,
+          "count": 7,
+          "avg_commits": 1.4,
           "avg_ttm_hours": 0.3
         },
         "size:s": {
-          "count": 12,
-          "avg_commits": 1.8,
-          "avg_ttm_hours": 0.8
+          "count": 11,
+          "avg_commits": 1.7,
+          "avg_ttm_hours": 1
         },
         "size:m": {
-          "count": 2,
-          "avg_commits": 1.5,
-          "avg_ttm_hours": 0.5
+          "count": 3,
+          "avg_commits": 1.7,
+          "avg_ttm_hours": 0.4
         },
         "size:xl": {
           "count": 1,
-          "avg_commits": 3,
-          "avg_ttm_hours": 33.7
-        },
-        "size:l": {
-          "count": 1,
-          "avg_commits": 1,
-          "avg_ttm_hours": 0.2
+          "avg_commits": 4,
+          "avg_ttm_hours": 1
         }
       },
       "baseline": null,
@@ -219,20 +226,11 @@
     "queue_efficiency_composite_drop": 0.05,
     "queue_efficiency_fps_drop": 0.1
   },
-  "regressions": [
-    {
-      "sensor": "ciHealth",
-      "metric": "pass_rate_pct",
-      "current": 94,
-      "previous": 100,
-      "delta": -6,
-      "severity": "high"
-    }
-  ],
+  "regressions": [],
   "summary": {
     "sensors_available": 8,
     "sensors_total": 16,
-    "regressions_detected": 1,
-    "status": "regressions_detected"
+    "regressions_detected": 0,
+    "status": "healthy"
   }
 }
