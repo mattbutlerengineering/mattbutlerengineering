@@ -1557,6 +1557,20 @@
       export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
     </item>
   </file>
+  <file path="src/components/timeline/table-status-menu.ts">
+    <item priority="low">
+      interface TableStatusMenuItem {
+        id: TableStatus;
+        label: string;
+      }
+    </item>
+    <item priority="high">
+      export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tableStatusWord(status: TableStatus): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/timeline/useGridFocus.ts">
     <item priority="low">
       interface GridCoordinate {
@@ -1589,6 +1603,18 @@
         colCount,
         initial = { row: 0, col: 0 },
       }: UseGridFocusParams): UseGridFocusResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/timeline/useScrollToNow.ts">
+    <item priority="high">
+      export const NOW_LINE_VIEWPORT_FRACTION: unknown;
+    </item>
+    <item priority="high">
+      export function useScrollToNow(
+        scrollRef: RefObject<HTMLElement | null>,
+        currentTimeOffset: number | null,
+        tableColumnWidth: number
+      ): void { /* ... */ }
     </item>
   </file>
   </section>

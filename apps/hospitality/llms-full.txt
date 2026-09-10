@@ -4341,6 +4341,23 @@
       return { seating, failure, seatRef, seat };
     }
   </file>
+  <file path="src/components/timeline/table-status-menu.ts">
+    export interface TableStatusMenuItem {
+      id: TableStatus;
+      label: string;
+    }
+    export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] {
+      if (!(status in TABLE_VALID_TRANSITIONS)) return [];
+      return TABLE_VALID_TRANSITIONS[status].map((next) => ({
+        id: next,
+        label: `Mark ${next.toLowerCase()}`,
+      }));
+    }
+    export function tableStatusWord(status: TableStatus): string {
+      const lower = status.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }
+  </file>
   <file path="src/components/timeline/useGridFocus.ts">
     export interface GridCoordinate {
       row: number;
@@ -4412,6 +4429,44 @@
       );
     
       return { active, setActive, moveUp, moveDown, moveLeft, moveRight, handleKeyDown };
+    }
+  </file>
+  <file path="src/components/timeline/useScrollToNow.ts">
+    export const NOW_LINE_VIEWPORT_FRACTION = 0.25;
+    export function useScrollToNow(
+      scrollRef: RefObject<HTMLElement | null>,
+      currentTimeOffset: number | null,
+      tableColumnWidth: number
+    ): void {
+      const { precision } = useMotionPreset();
+      const behavior: ScrollBehavior = precision.duration === 0 ? "instant" : "smooth";
+      const hasNowLine = currentTimeOffset !== null;
+    
+      // The scroll effect keys on hasNowLine alone; it reads the rest here so the
+      // minute tick (a new offset every minute) never re-scrolls the host.
+      const latestRef = useRef({ currentTimeOffset, tableColumnWidth, behavior });
+      useEffect(() => {
+        latestRef.current = { currentTimeOffset, tableColumnWidth, behavior };
+      });
+    
+      useEffect(() => {
+        if (!hasNowLine) return;
+        const element = scrollRef.current;
+        const {
+          currentTimeOffset: offset,
+          tableColumnWidth: column,
+          behavior: how,
+        } = latestRef.current;
+        if (!element || offset === null) return;
+    
+        const left = Math.max(0, column + offset - element.clientWidth * NOW_LINE_VIEWPORT_FRACTION);
+        if (typeof element.scrollTo === "function") {
+          element.scrollTo({ left, behavior: how });
+        } else {
+          // jsdom has no Element.scrollTo; the instant path is a plain assignment.
+          element.scrollLeft = left;
+        }
+      }, [hasNowLine, scrollRef]);
     }
   </file>
   </section>
