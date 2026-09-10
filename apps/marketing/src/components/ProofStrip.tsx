@@ -27,25 +27,27 @@ const COUNTERS = [
   formatOptions: { minimumIntegerDigits: String(counter.value).length },
 }));
 
-const NARROW_VIEWPORT_QUERY = "(max-width: 640px)";
+const NARROW_ODOMETER_QUERY = "(max-width: 900px)";
 
 /**
- * Tracks whether the viewport is phone-narrow. The odometer's flip-board cells
- * are em-sized boxes that cannot wrap or shrink, so the `size` prop is the only
- * lever that keeps the figures inside a phone viewport — CSS alone can't reach
- * it. State updates only from the media-query change event.
+ * Tracks whether the viewport is too narrow for `lg` flip-board reels. Those
+ * cells are em-sized boxes that cannot wrap or shrink, so the `size` prop is
+ * the only lever that keeps a figure inside its card — CSS alone can't reach
+ * it. Below 900px a two-up card is narrower than the 315px an `lg` grouped
+ * four-digit figure needs, so the reels drop to `md`, which needs 214px. State
+ * updates only from the media-query change event.
  */
 function useIsNarrowViewport(): boolean {
   const [isNarrow, setIsNarrow] = useState(
     () =>
       typeof window !== "undefined" &&
       typeof window.matchMedia === "function" &&
-      window.matchMedia(NARROW_VIEWPORT_QUERY).matches
+      window.matchMedia(NARROW_ODOMETER_QUERY).matches
   );
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return undefined;
-    const mediaQuery = window.matchMedia(NARROW_VIEWPORT_QUERY);
+    const mediaQuery = window.matchMedia(NARROW_ODOMETER_QUERY);
     const onChange = (event: MediaQueryListEvent) => setIsNarrow(event.matches);
     mediaQuery.addEventListener("change", onChange);
     return () => mediaQuery.removeEventListener("change", onChange);
@@ -84,7 +86,11 @@ export function ProofStrip() {
             animate={controls}
           >
             {COUNTERS.map((counter) => (
-              <motion.div key={counter.label} variants={staggerReveal.item}>
+              <motion.div
+                key={counter.label}
+                className={styles.metricCard}
+                variants={staggerReveal.item}
+              >
                 <Card variant="flat">
                   <Stack gap="2xs" align="center">
                     <div className={styles.metricValue}>

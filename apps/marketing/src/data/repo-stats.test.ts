@@ -27,12 +27,24 @@ describe("isRepoStats", () => {
     }
   });
 
-  it("rejects counters that are not non-negative integers", () => {
+  it("rejects counters that are not positive integers", () => {
     expect(isRepoStats({ ...VALID, testFiles: -1 })).toBe(false);
     expect(isRepoStats({ ...VALID, testFiles: 1.5 })).toBe(false);
     expect(isRepoStats({ ...VALID, testFiles: "833" })).toBe(false);
     expect(isRepoStats({ ...VALID, testFiles: Number.NaN })).toBe(false);
   });
+
+  // Zero is the shape a failed measurement takes: the collector's search
+  // returned nothing and wrote it out as a number. Every counter here measures
+  // something the repo demonstrably has, so zero can only mean "not measured" —
+  // and a zero rendered under "Measured, not claimed" is worse than an older
+  // number that is true.
+  it.each(["agentPrsMerged", "totalPrsMerged", "rialtoComponents", "testFiles"] as const)(
+    "rejects a zero %s, which is a failed measurement rather than a figure",
+    (key) => {
+      expect(isRepoStats({ ...VALID, [key]: 0 })).toBe(false);
+    }
+  );
 
   it("rejects a missing or unparseable measuredAt stamp", () => {
     expect(isRepoStats({ ...VALID, measuredAt: undefined })).toBe(false);
@@ -49,6 +61,12 @@ describe("selectRepoStats", () => {
 
   it("falls back when the build produced no generated snapshot", () => {
     expect(selectRepoStats(undefined, FALLBACK_REPO_STATS)).toBe(FALLBACK_REPO_STATS);
+  });
+
+  it("falls back when the generated snapshot counts zero merged PRs", () => {
+    const zeroed = { ...VALID, agentPrsMerged: 0, totalPrsMerged: 0 };
+
+    expect(selectRepoStats(zeroed, FALLBACK_REPO_STATS)).toBe(FALLBACK_REPO_STATS);
   });
 
   it("falls back when the generated snapshot is malformed", () => {

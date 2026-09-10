@@ -34,9 +34,13 @@ export function isRepoStats(value: unknown): value is RepoStats {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
 
+  // Positive, not merely non-negative: every counter on this strip measures
+  // something the repository demonstrably has, so a zero is a failed
+  // measurement rather than a figure — and rendering it under "Measured, not
+  // claimed" is worse than rendering the older committed snapshot.
   const countersValid = COUNTER_KEYS.every((key) => {
     const count = candidate[key];
-    return typeof count === "number" && Number.isInteger(count) && count >= 0;
+    return typeof count === "number" && Number.isInteger(count) && count > 0;
   });
   if (!countersValid) return false;
 

@@ -125,6 +125,50 @@ describe("createSearchPrCount", () => {
       createSearchPrCount("t0ken", async () => malformed)(TOTAL_MERGED_QUERY)
     ).rejects.toThrow(/total_count/);
   });
+
+  // GitHub Actions' GITHUB_TOKEN is an installation token, and the
+  // issues-search index answers it with total_count 0 for this repo rather
+  // than an error — which is how "0 agent-authored PRs merged" reached
+  // production under a heading reading "Measured, not claimed".
+  it("retries a zero count without the token, since the repo is public", async () => {
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      calls.push(init.headers.authorization);
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({ total_count: init.headers.authorization ? 0 : 2417 }),
+      };
+    };
+
+    const count = await createSearchPrCount("t0ken", fetchImpl)(TOTAL_MERGED_QUERY);
+
+    expect(count).toBe(2417);
+    expect(calls).toEqual(["Bearer t0ken", undefined]);
+  });
+
+  it("does not retry when the first, authenticated count is real", async () => {
+    const calls = [];
+    const count = await createSearchPrCount(
+      "t0ken",
+      recordingFetch(calls, okResponse)
+    )(TOTAL_MERGED_QUERY);
+
+    expect(count).toBe(1426);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("leaves a genuine zero at zero after the anonymous retry", async () => {
+    const empty = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({ total_count: 0 }),
+    };
+
+    expect(await createSearchPrCount("t0ken", async () => empty)(AGENT_MERGED_QUERY)).toBe(0);
+  });
 });
 
 describe("collectRepoStats", () => {
@@ -173,6 +217,23 @@ describe("collectRepoStats", () => {
     expect(TOTAL_MERGED_QUERY).toContain("is:pr is:merged");
     expect(AGENT_MERGED_QUERY).toContain("is:pr is:merged");
     expect(AGENT_MERGED_QUERY).toContain("label:agent-authored");
+  });
+
+  // A repo that has shipped thousands of merged PRs cannot measure zero of
+  // them: a zero means the search index did not see the repository, and the
+  // committed fallback is the honest thing to render instead.
+  it.each([
+    ["total", { [TOTAL_MERGED_QUERY]: 0, [AGENT_MERGED_QUERY]: 1420 }],
+    ["agent", { [TOTAL_MERGED_QUERY]: 2417, [AGENT_MERGED_QUERY]: 0 }],
+    ["both", { [TOTAL_MERGED_QUERY]: 0, [AGENT_MERGED_QUERY]: 0 }],
+  ])("reports unavailable when the %s PR count comes back zero", async (_which, counts) => {
+    const result = await collectRepoStats(
+      fakeDeps({ searchPrCount: async (query) => counts[query] })
+    );
+
+    expect(result.available).toBe(false);
+    expect(result.stats).toBeUndefined();
+    expect(result.reason).toContain("no merged pull requests");
   });
 
   it("reports unavailable instead of throwing when the GitHub call fails", async () => {

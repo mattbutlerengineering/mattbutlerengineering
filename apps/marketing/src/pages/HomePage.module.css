@@ -86,9 +86,33 @@
 }
 
 .metricsGrid {
+  /* Two-up, not four-up, and that is a measurement rather than a taste call. A
+     flip-board reel is an em-sized box: it cannot wrap, shrink, or ellipsize,
+     so a column narrower than its figure spills the reels over the card border
+     onto the neighbouring card instead of reflowing. At `lg` a grouped
+     four-digit figure ("1,426") renders 315px of reels and Card adds 50px of
+     padding and border, so a card needs 365px — while four columns of this
+     1080px section leave 252px. Three of the four counters are already
+     four-digit figures. Column count is stated rather than left to `auto-fit`
+     because with exactly four cards an in-between width resolves to three
+     columns, stranding the fourth alone on its own row. */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Equal-height cards on both rows: one counter's label wraps to two lines and
+     would otherwise make its card taller than the one beside it. */
+  grid-auto-rows: 1fr;
   gap: var(--rialto-space-lg);
+}
+
+/* The reveal-stagger wrapper is the grid item, so the Card inside it has to be
+   told to fill the cell — without this the cards size to their own content and
+   the equal rows above buy nothing. */
+.metricCard {
+  display: flex;
+}
+
+.metricCard > * {
+  flex: 1;
 }
 
 .metricValue {
@@ -130,8 +154,8 @@
 
   .metricsGrid {
     /* Single column on phones: even the md odometer's flip-board cells are
-       em-sized boxes (~200px for a 4-digit figure) that cannot shrink, so a
-       two-up grid overflows the viewport on 360-412px screens. */
+       em-sized boxes (214px for a grouped four-digit figure) that cannot
+       shrink, so a two-up grid overflows the viewport on 360-412px screens. */
     grid-template-columns: 1fr;
     row-gap: var(--rialto-space-md);
   }

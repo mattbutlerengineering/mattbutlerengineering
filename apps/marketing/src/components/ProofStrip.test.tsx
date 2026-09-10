@@ -90,18 +90,29 @@ describe("ProofStrip", () => {
 
 describe("ProofStrip odometer sizing", () => {
   function stubMatchMedia(matches: boolean) {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockReturnValue({
-        matches,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      })
-    );
+    const matchMedia = vi.fn().mockReturnValue({
+      matches,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    vi.stubGlobal("matchMedia", matchMedia);
+    return matchMedia;
   }
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  // The reels are em-sized boxes that cannot shrink, so the size prop and the
+  // stylesheet's column count are one decision split across two files. At `lg`
+  // a grouped four-digit figure needs 315px of reels plus 50px of card, which
+  // a two-up column stops providing below roughly 900px. If this breakpoint
+  // moves, HomePage.module.css's .metricsGrid comment moves with it.
+  it("switches size at the width where a two-up card stops fitting lg reels", () => {
+    const matchMedia = stubMatchMedia(false);
+    render(<ProofStrip />);
+
+    expect(matchMedia).toHaveBeenCalledWith("(max-width: 900px)");
   });
 
   it("renders lg odometers on wide viewports", () => {
@@ -111,7 +122,7 @@ describe("ProofStrip odometer sizing", () => {
     expect(odometer).toHaveAttribute("data-size", "lg");
   });
 
-  it("drops to md odometers on phone-narrow viewports, where lg flip-board cells overflow", () => {
+  it("drops to md odometers below that width, where lg flip-board cells overflow the card", () => {
     stubMatchMedia(true);
     render(<ProofStrip />);
     const odometer = screen.getByText(String(REPO_STATS.agentPrsMerged));

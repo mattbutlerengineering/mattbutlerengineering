@@ -111,6 +111,22 @@ export async function collectRepoStats({
     const totalPrsMerged = await searchPrCount(TOTAL_MERGED_QUERY);
     const agentPrsMerged = await searchPrCount(AGENT_MERGED_QUERY);
 
+    // A zero here is a failed measurement wearing a number's clothes. The
+    // queries are pinned to this repository, which has thousands of merged
+    // pull requests and applies `agent-authored` on every automated one, so
+    // the search index answering "none" means it did not see the repo — the
+    // shape that shipped "0 agent-authored PRs merged" under a heading
+    // reading "Measured, not claimed". Degrade to the committed fallback.
+    if (totalPrsMerged === 0 || agentPrsMerged === 0) {
+      return {
+        available: false,
+        reason:
+          `search returned no merged pull requests ` +
+          `(total=${totalPrsMerged}, agent=${agentPrsMerged}) — ` +
+          `treating as an unauthorized or unindexed query, not a count`,
+      };
+    }
+
     return {
       available: true,
       stats: {
@@ -140,19 +156,40 @@ export async function collectRepoStats({
  */
 export function createSearchPrCount(token, fetchImpl = fetch) {
   return async (query) => {
-    const url = `https://api.github.com/search/issues?per_page=1&q=${encodeURIComponent(query)}`;
-    const response = await fetchImpl(url, {
-      headers: {
-        accept: "application/vnd.github+json",
-        authorization: `Bearer ${token}`,
-        "user-agent": "mbe-collect-repo-stats",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`GitHub search failed: ${response.status} ${response.statusText}`);
-    }
-    return parseSearchCount(await response.json());
+    const count = await runSearch(query, token, fetchImpl);
+    // GitHub Actions' `GITHUB_TOKEN` is a GitHub App installation token, and
+    // the issues-search index answers those with `total_count: 0` for this
+    // repository instead of an error — measured 2026-09-09, where the deployed
+    // site carried 0 merged PRs while the same query sent with no
+    // Authorization header returned 2,417. The repository is public, so the
+    // anonymous retry is a real measurement rather than a workaround, and it
+    // runs at most twice per deploy. A repository that genuinely has none
+    // stays at zero, and `collectRepoStats` rejects that above.
+    return count === 0 ? runSearch(query, undefined, fetchImpl) : count;
   };
+}
+
+/**
+ * One `total_count` search request.
+ *
+ * @param {string} query
+ * @param {string | undefined} token - Omitted for the anonymous retry.
+ * @param {typeof fetch} fetchImpl
+ * @returns {Promise<number>}
+ */
+async function runSearch(query, token, fetchImpl) {
+  const url = `https://api.github.com/search/issues?per_page=1&q=${encodeURIComponent(query)}`;
+  const response = await fetchImpl(url, {
+    headers: {
+      accept: "application/vnd.github+json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      "user-agent": "mbe-collect-repo-stats",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub search failed: ${response.status} ${response.statusText}`);
+  }
+  return parseSearchCount(await response.json());
 }
 
 /** @returns {string[]} Directory names under packages/rialto/src/components. */
