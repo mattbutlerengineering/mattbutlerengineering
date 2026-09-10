@@ -1560,3 +1560,12 @@ None this run (`agent-skip` empty, 0 open).
 **queueEfficiency:** composite 0.927 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:7, size:s:11, size:m:3, size:xl:1
 **Issues filed:** 0
+
+## 2026-09-10 (learning-loop)
+
+**Sensors:** 8/16 available (acmm L5 96/114; prMetrics 8 entries; prCategoryMetrics 88/97 merged by category; ccusageCost $0 (30d/7d/today), cache_hit 94%; ciHealth 100% pass rate (22/22); sessionLogs 0 sessions/0 commits (7d); codeChurn 0% churn (847 deleted / 576875 added, 7d); queueEfficiency composite 0.964 [fps 0.909, ttm 0.4h, $0/issue, no baseline yet]). domainActivity (no `DOMAIN_METRICS_VENUE_ID` — collector skipped cleanly per no-egress-to-production constraint, issue #2920), agentCost, lighthouse, mutationScore, flakyTests, e2eStability not available. issues/issueFeedback query failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage against `metrics/ai-issue-feedback.json` budgets).
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #5158/#5157 need a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint; #5156/#5098/#5089 need a completed CI run to verify against). Threshold auto-tuner applied 1 adjustment: ci-fix 1.22 → 1.248 (headroom).
+**AI issue feedback:** query failed (GitHub REST fallback 403, same auth limitation as `issues`/`issueFeedback` sensors) — no feedback-derived budgets available this run; moot since no regressions needed triaging.
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Threshold notes:** false-positive / fix-effectiveness rates not cleanly computable this run — 30-day verification log is dominated by environment-limited skips (66/70 `confidence: skip`, needing Lighthouse or completed-CI data this sandbox can't produce) rather than real wontfix/invalid outcomes, so no reliable loosen/tighten signal either way.
