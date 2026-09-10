@@ -1522,6 +1522,41 @@
       ): ReservationLayoutResult { /* ... */ }
     </item>
   </file>
+  <file path="src/components/timeline/seat-guest.ts">
+    <item priority="high">
+      export function findReservationTable(
+        reservation: Reservation,
+        tables: readonly Table[]
+      ): Table | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function statusWord(reservation: Reservation, seated: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isSeatableStatus(reservation: Reservation): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function occupiedCaption(
+        reservation: Reservation,
+        table: Table | undefined,
+        seated: boolean
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SeatGuestState {
+        seating: boolean;
+        failure: ApiErrorDescription | null;
+        seatRef: RefObject<HTMLButtonElement | null>;
+        seat: () => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/timeline/useGridFocus.ts">
     <item priority="low">
       interface GridCoordinate {

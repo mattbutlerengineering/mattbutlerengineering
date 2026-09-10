@@ -4285,6 +4285,62 @@
       return { left, width };
     }
   </file>
+  <file path="src/components/timeline/seat-guest.ts">
+    export function findReservationTable(
+      reservation: Reservation,
+      tables: readonly Table[]
+    ): Table | undefined {
+      return tables.find((table) => table.id === reservation.tableId);
+    }
+    export function statusWord(reservation: Reservation, seated: boolean): string {
+      return seated ? "Seated" : STATUS_LABEL[reservation.status];
+    }
+    function isSeatableStatus(reservation: Reservation): boolean {
+      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
+    }
+    export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
+      return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
+    }
+    export function occupiedCaption(
+      reservation: Reservation,
+      table: Table | undefined,
+      seated: boolean
+    ): string | null {
+      if (seated || !isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      return `${table.name} is still occupied — turn it or move the party.`;
+    }
+    export interface SeatGuestState {
+      /** True while `onSeat` is pending — Seat Guest reads "Seating…" and the other actions rest. */
+      readonly seating: boolean;
+      /** The last rejection, rendered as "Guest not seated." until the next attempt. */
+      readonly failure: ApiErrorDescription | null;
+      /** Attach to the Seat Guest button so focus can return to it after a failure. */
+      readonly seatRef: RefObject<HTMLButtonElement | null>;
+      readonly seat: () => Promise<void>;
+    }
+    export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
+      const [seating, setSeating] = useState(false);
+      const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+      const seatRef = useRef<HTMLButtonElement>(null);
+      const { focusAfter } = useFocusAfter();
+    
+      const seat = useCallback(async () => {
+        setSeating(true);
+        setFailure(null);
+        try {
+          await onSeat();
+        } catch (err) {
+          setFailure(describeApiError(err));
+          const element = seatRef.current;
+          if (element) focusAfter({ kind: "element", element });
+        } finally {
+          setSeating(false);
+        }
+      }, [onSeat, focusAfter]);
+    
+      return { seating, failure, seatRef, seat };
+    }
+  </file>
   <file path="src/components/timeline/useGridFocus.ts">
     export interface GridCoordinate {
       row: number;
