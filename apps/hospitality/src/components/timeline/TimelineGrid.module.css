@@ -1,9 +1,20 @@
+/* The frame holds the scroller and the quiet-night overlay side by side (ux.md Screen 7). */
+.gridFrame {
+  position: relative;
+}
+
 .gridWrapper {
   position: relative;
   overflow: auto;
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-soft);
   background: var(--rialto-surface);
+}
+
+/* `overflow-x: auto` forces `overflow-y: auto`, so the last row's menu would be clipped and scrolled
+   to; while any status menu is open the frame grows by one menu's height instead. */
+.gridWrapper:has([role="menu"]) {
+  padding-block-end: var(--rialto-space-xl);
 }
 
 /* Sticky header row */
@@ -61,6 +72,35 @@
   flex-shrink: 0;
 }
 
+/* Name + capacity on one line, the status control beneath (ux.md Screen 2 / Screen 6). */
+.tableMeta {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.tableNameLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rialto-space-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+/* The 44 px trigger's breakpoint (TableStatusMenu.module.css): a 1-line name plus 44 fits the 60 px row. */
+@media (pointer: coarse), (max-width: 1024px) {
+  .tableNameLine {
+    line-height: 1;
+  }
+}
+
+/* Sibling sticky cells stack in DOM order, so the row whose status menu is open rises above the
+   rows below it — the menu must not be painted over by the next row's cell. */
+.tableNameCell:has([aria-expanded="true"]) {
+  z-index: 11;
+}
+
 .tableName {
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
@@ -99,12 +139,13 @@
 }
 
 /* Current time indicator */
+/* Gold is the in-flight/active use (ux.md Conventions): the one gold line on the read surface. */
 .currentTimeIndicator {
   position: absolute;
   inset-block-start: 0;
   inset-block-end: 0;
   inline-size: 2px;
-  background: var(--rialto-error);
+  background: var(--rialto-accent);
   z-index: 30;
   pointer-events: none;
 }
@@ -115,8 +156,20 @@
   inset-inline-start: -4px;
   inline-size: 10px;
   block-size: 10px;
-  background: var(--rialto-error);
+  background: var(--rialto-accent);
   border-radius: 50%;
+}
+
+/* "8:04 PM" beside the dot, in the header band (ux.md Screen 2). */
+.currentTimeLabel {
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  line-height: 1;
+  color: var(--rialto-accent);
+  white-space: nowrap;
 }
 
 .mobileNavHint {

@@ -21,7 +21,11 @@ test.describe("Timeline URL intent: ?walkin=true opens the Seat walk-in dialog",
     await expect(dialog).toHaveCount(0);
     // A URL-opened dialog has no opener to restore, so the page lands focus where a click-open
     // would have — the Walk-in button (ux.md Decision (d)).
-    await expect(mockedPage.getByRole("button", { name: "Walk-in", exact: true })).toBeFocused();
+    await expect(
+      mockedPage
+        .getByTestId("date-navigation")
+        .getByRole("button", { name: "Walk-in", exact: true })
+    ).toBeFocused();
     // Back or a reload must not replay the intent.
     await expect(mockedPage).not.toHaveURL(/[?&]walkin=/);
   });

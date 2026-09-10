@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
@@ -48,16 +48,40 @@ vi.mock("../components/timeline", () => ({
     onReservationClick,
     onTableStatusChange,
     selectedReservationId,
+    seatedIds,
+    bottomInset,
+    emptyNight,
+    pendingTableId,
   }: {
     tables?: Table[];
     reservations?: Reservation[];
     onReservationClick?: (r: Reservation) => void;
     onTableStatusChange?: (id: string, status: string) => void;
     selectedReservationId?: string | null;
+    seatedIds?: ReadonlySet<string>;
+    bottomInset?: number;
+    emptyNight?: {
+      variant: "today" | "otherDate";
+      dateLabel: string;
+      onWalkIn: () => void;
+      onToday: () => void;
+    } | null;
+    pendingTableId?: string | null;
   }) => (
     <div data-testid="timeline-grid">
       <span data-testid="table-count">{tables?.length ?? 0}</span>
       <span data-testid="res-count">{reservations?.length ?? 0}</span>
+      {/* Item 16's grid props, echoed so the page's derivations can be asserted. */}
+      <span data-testid="seated-ids">{[...(seatedIds ?? [])].join(",")}</span>
+      <span data-testid="bottom-inset">{bottomInset ?? ""}</span>
+      <span data-testid="pending-table-id">{pendingTableId ?? ""}</span>
+      {emptyNight && (
+        <div data-testid="timeline-empty-night" data-variant={emptyNight.variant}>
+          {emptyNight.dateLabel}
+          <button onClick={emptyNight.onWalkIn}>Walk-in (quiet night)</button>
+          <button onClick={emptyNight.onToday}>Back to today</button>
+        </div>
+      )}
       {reservations?.map((r) => (
         <React.Fragment key={r.id}>
           <button data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
@@ -1186,6 +1210,200 @@ describe("TimelinePage", () => {
       // The 409's own sentence is never the surface text — it sits in the details block.
       expect(screen.getByRole("alert")).toHaveTextContent(/Invalid table transition/);
       expect(screen.getByTestId("timeline-grid")).toBeDefined();
+    });
+
+    it("marks the table pending while the change is in flight, then clears it (item 16)", async () => {
+      let settle: () => void = () => {};
+      const updateTableStatus = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            settle = resolve;
+          })
+      );
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      await waitFor(() => {
+        expect(screen.getByTestId("pending-table-id")).toHaveTextContent("t1");
+      });
+
+      await act(async () => settle());
+      await waitFor(() => {
+        expect(screen.getByTestId("pending-table-id")).toHaveTextContent("");
+      });
+    });
+
+    it("announces 'Table 1 is now occupied.' and focuses the trigger on success (item 16)", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent("Table 1 is now occupied.");
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("table-status-t1"));
+      });
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("on failure: clears pending, focuses the trigger, and Retry re-sends the same transition (item 16)", async () => {
+      const updateTableStatus = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Invalid table transition"))
+        .mockResolvedValueOnce(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      const alert = await waitFor(() => screen.getByRole("alert"));
+      expect(alert).toHaveTextContent("Table status not changed.");
+      expect(screen.getByTestId("pending-table-id")).toHaveTextContent("");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("table-status-t1"));
+      });
+
+      fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+      await waitFor(() => {
+        expect(updateTableStatus).toHaveBeenCalledTimes(2);
+      });
+      expect(updateTableStatus).toHaveBeenNthCalledWith(1, "t1", "OCCUPIED");
+      expect(updateTableStatus).toHaveBeenNthCalledWith(2, "t1", "OCCUPIED");
+      await waitFor(() => {
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Table 1 is now occupied.");
+    });
+
+    it("the failure banner is dismissible (item 16)", async () => {
+      const updateTableStatus = vi.fn().mockRejectedValue(new Error("nope"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      const alert = await waitFor(() => screen.getByRole("alert"));
+      fireEvent.click(within(alert).getByRole("button", { name: "Dismiss" }));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+    });
+  });
+
+  describe("grid props (item 16)", () => {
+    it("passes the derived seated set to the grid", async () => {
+      const now = Date.now();
+      const iso = (ms: number) => new Date(ms).toISOString();
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [
+            makeReservation({
+              status: "CONFIRMED",
+              startTime: iso(now - 30 * 60_000),
+              endTime: iso(now + 90 * 60_000),
+            }),
+          ],
+          tables: [makeTable({ status: "OCCUPIED" })],
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("seated-ids")).toHaveTextContent("r1");
+      });
+    });
+
+    it("tonight with tables and zero reservations: the quiet night, and its Walk-in opens the dialog", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage();
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      expect(quiet).toHaveAttribute("data-variant", "today");
+      expect(quiet).toHaveTextContent(
+        new Date(`${todayStr}T00:00:00`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        })
+      );
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+
+      fireEvent.click(within(quiet).getByRole("button", { name: "Walk-in (quiet night)" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+    });
+
+    it("another date with zero reservations: the other-date variant, and Back to today returns to today", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage(["/timeline?date=2026-05-20"]);
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      expect(quiet).toHaveAttribute("data-variant", "otherDate");
+      expect(quiet).toHaveTextContent("Wednesday, May 20");
+
+      fireEvent.click(within(quiet).getByRole("button", { name: "Back to today" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("location-search")).toHaveTextContent(`date=${todayStr}`);
+      });
+    });
+
+    it("no quiet night when the reservations fetch failed — an empty grid is not an empty book", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], fetchError: new Error("500") })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.queryByTestId("timeline-empty-night")).toBeNull();
+    });
+
+    it("no quiet night while reservations exist", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.queryByTestId("timeline-empty-night")).toBeNull();
+    });
+
+    it("reserves the sheet's height as the grid's bottom inset on tablet with a selection, nothing on desktop", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+      const { unmount } = renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => {
+        expect(screen.getByText("Reservation Details")).toBeDefined();
+      });
+      expect(screen.getByTestId("bottom-inset")).toHaveTextContent("");
+      unmount();
+
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        matches: query === "(max-width: 1024px)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      try {
+        renderPage();
+        expect(screen.getByTestId("bottom-inset")).toHaveTextContent("");
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        await waitFor(() => {
+          expect(screen.getByTestId("reservation-sheet")).toBeDefined();
+        });
+        expect(screen.getByTestId("bottom-inset")).toHaveTextContent("240");
+      } finally {
+        vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        }));
+      }
     });
   });
 

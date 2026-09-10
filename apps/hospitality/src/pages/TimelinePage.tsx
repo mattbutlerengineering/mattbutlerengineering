@@ -48,6 +48,15 @@ const TIMELINE_DEFAULTS = timelineFilterSchema.parse({});
 /* ── Sentences (ux.md § Copy, `role=status` column) ── */
 
 const WALK_IN_DISABLED_CAPTION = "Walk-ins need the tables loaded — Retry above.";
+/** The tablet sheet's height (rialto `Drawer size="compact"`: `min(40vh, 240px)`), kept clear of the grid. */
+const SHEET_INSET_PX = 240;
+
+/** A status change the API refused — the banner's Retry re-sends exactly this transition. */
+interface TableStatusFailure {
+  readonly tableId: string;
+  readonly next: TableStatus;
+  readonly error: ApiErrorDescription;
+}
 
 function atTable(tableName: string | undefined): string {
   return tableName ? ` at ${tableName}` : "";
@@ -134,8 +143,8 @@ export function TimelinePage() {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const [dismissedLoadError, setDismissedLoadError] = useState<Error | null>(null);
-  // Bridge until the grid item (#5035) gives the status menu its own failure surface.
-  const [tableStatusFailure, setTableStatusFailure] = useState<ApiErrorDescription | null>(null);
+  const [pendingTableId, setPendingTableId] = useState<string | null>(null);
+  const [tableStatusFailure, setTableStatusFailure] = useState<TableStatusFailure | null>(null);
   const walkInButtonRef = useRef<HTMLButtonElement>(null);
   // Captured at event time (architecture § Decisions): the Edit button that opened the drawer.
   const editOpenerRef = useRef<HTMLElement | null>(null);
@@ -282,12 +291,18 @@ export function TimelinePage() {
     focusAfter({ kind: "testId", testId: blockTestId(created.id) });
   };
 
-  const handleTableStatusChange = async (tableId: string, nextStatus: TableStatus) => {
+  const handleTableStatusChange = async (tableId: string, next: TableStatus) => {
     setTableStatusFailure(null);
+    setPendingTableId(tableId);
     try {
-      await updateTableStatus(tableId, nextStatus);
+      await updateTableStatus(tableId, next);
+      announce(`${tableName(tableId) ?? "Table"} is now ${next.toLowerCase()}.`);
     } catch (err) {
-      setTableStatusFailure(describeApiError(err));
+      setTableStatusFailure({ tableId, next, error: describeApiError(err) });
+    } finally {
+      // The trigger is disabled while pending; focus lands in the commit that re-enables it.
+      setPendingTableId(null);
+      focusAfter({ kind: "testId", testId: `table-status-${tableId}` });
     }
   };
 
@@ -310,6 +325,8 @@ export function TimelinePage() {
   const kpi = (value: number): number | null => (statsReady ? value : null);
   const walkInDisabled = nothingLoaded;
   const walkInDialogOpen = (intent.walkIn || showWalkInDialog) && !isLoading && !!selectedVenueId;
+  // An empty book is only a quiet night when the fetch succeeded (ux.md Screen 7).
+  const quietNight = reservations.length === 0 && fetchError === null;
 
   const detailSurface = selectedReservation && (
     <ReservationDetails
@@ -371,6 +388,19 @@ export function TimelinePage() {
         onReservationClick={selectReservation}
         selectedReservationId={selectedId ?? undefined}
         onTableStatusChange={handleTableStatusChange}
+        seatedIds={seatedIds}
+        pendingTableId={pendingTableId}
+        bottomInset={viewport === "tablet" && selectedReservation ? SHEET_INSET_PX : undefined}
+        emptyNight={
+          quietNight
+            ? {
+                variant: isToday ? "today" : "otherDate",
+                dateLabel: formatServiceDate(selectedDate),
+                onWalkIn: () => setShowWalkInDialog(true),
+                onToday: handleToday,
+              }
+            : null
+        }
       />
     );
   }
@@ -476,8 +506,11 @@ export function TimelinePage() {
           {tableStatusFailure && (
             <ErrorRetryBanner
               title="Table status not changed."
-              error={tableStatusFailure.detail}
-              details={tableStatusFailure.raw}
+              error={tableStatusFailure.error.detail}
+              details={tableStatusFailure.error.raw}
+              onRetry={() =>
+                void handleTableStatusChange(tableStatusFailure.tableId, tableStatusFailure.next)
+              }
               onDismiss={() => setTableStatusFailure(null)}
             />
           )}
