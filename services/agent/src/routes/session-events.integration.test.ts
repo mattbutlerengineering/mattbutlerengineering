@@ -266,6 +266,106 @@ describe("Session Events SSE Integration", () => {
     expect(vi.mocked(prisma.sessionEvent.findMany).mock.calls.length).toBe(readsAfterConnect);
   });
 
+  it("drains catch-up history past a single page via the afterId cursor (150 events)", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({
+      id: "session-150",
+      status: "SUCCEEDED",
+      taskDescription: "test",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as unknown as never);
+
+    const totalEvents = 150;
+    const makePage = (start: number, count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        id: `evt-${start + i}`,
+        sessionId: "session-150",
+        type: `type-${start + i}`,
+        data: {},
+        createdAt: new Date(2026, 0, 1, 0, 0, start + i),
+      }));
+
+    // Page 1: events 0-99 (a full page, so the route must fetch again).
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce(
+      makePage(0, 100) as unknown as never
+    );
+    // The cursor lookup for the second page's afterId ("evt-99").
+    vi.mocked(prisma.sessionEvent.findUnique).mockResolvedValueOnce({
+      createdAt: new Date(2026, 0, 1, 0, 0, 99),
+    } as never);
+    // Page 2: events 100-149 (a short page — signals end of history).
+    vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce(
+      makePage(100, 50) as unknown as never
+    );
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/v1/sessions/session-150/events",
+      headers: { "x-auth-bypass": "true" },
+    });
+
+    for (let i = 0; i < totalEvents; i++) {
+      expect(response.body).toContain(`event: type-${i}`);
+    }
+    expect(response.body).not.toContain("event: events:truncated");
+    expect(response.body).toContain("event: stream:end");
+    // Two pages fetched: the full first page forced a second fetch.
+    expect(prisma.sessionEvent.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits a distinct events:truncated marker when catch-up history exceeds the bound", async () => {
+    vi.mocked(prisma.session.findUnique).mockResolvedValue({
+      id: "session-huge",
+      status: "RUNNING",
+      taskDescription: "test",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as unknown as never);
+
+    // 10 full pages of 100 (=1000 events) hits the catch-up bound with every
+    // page still full, so the loop must stop itself rather than run forever.
+    const pageCount = 10;
+    const makePage = (page: number) =>
+      Array.from({ length: 100 }, (_, i) => ({
+        id: `evt-${page * 100 + i}`,
+        sessionId: "session-huge",
+        type: `type-${page * 100 + i}`,
+        data: {},
+        createdAt: new Date(2026, 0, 1, 0, 0, page * 100 + i),
+      }));
+
+    for (let page = 0; page < pageCount; page++) {
+      if (page > 0) {
+        vi.mocked(prisma.sessionEvent.findUnique).mockResolvedValueOnce({
+          createdAt: new Date(2026, 0, 1, 0, 0, page * 100 - 1),
+        } as never);
+      }
+      vi.mocked(prisma.sessionEvent.findMany).mockResolvedValueOnce(
+        makePage(page) as unknown as never
+      );
+    }
+
+    const reply = app.inject({
+      method: "GET",
+      url: "/v1/sessions/session-huge/events",
+      headers: { "x-auth-bypass": "true" },
+    });
+
+    await tick();
+
+    // Terminate the still-open live stream deterministically.
+    getSessionEventEmitter().publish(
+      makeLiveEvent("session-huge", "live-end", "session:complete", { status: "SUCCEEDED" })
+    );
+
+    const response = await reply;
+
+    expect(response.body).toContain("event: events:truncated");
+    expect(response.body).toContain("event: stream:end");
+    // The loop stopped at the bound instead of fetching an 11th page.
+    expect(prisma.sessionEvent.findMany).toHaveBeenCalledTimes(pageCount);
+  });
+
   it("emits a stream:error if catch-up read fails", async () => {
     vi.mocked(prisma.session.findUnique).mockResolvedValue({
       id: "session-err",
