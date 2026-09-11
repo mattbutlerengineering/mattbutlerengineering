@@ -174,8 +174,19 @@ jobs:
       # step now fails the job on timeout instead of warning and falling
       # through). Without this check, a slow-but-healthy deploy would open a
       # false-positive revert PR against a commit that introduced no defect.
+      #
+      # Second half (2026-09-11): a genuine failure is still not proof that
+      # THIS commit caused it. `API Surface Invariants` had been red on every
+      # deploy since 2026-09-07 -- the /public/v1 ingress defect, which is
+      # Pulumi state, not application code -- and each new deploy inherited
+      # that standing red, so the newest commit was blamed. Five false-
+      # positive revert PRs followed (#5200, #5221, #5230, #5238, #5263),
+      # including one that would have reverted the fix to post-deploy-check's
+      # own dedupe logic (#5236). The gate now also requires a success ->
+      # failure transition against the previous completed run on this branch;
+      # `should_auto_revert` is the conjunction.
       # See scripts/rollback-smoke-test-gate.mjs for the pure decision logic.
-      - name: Check whether smoke tests genuinely ran and failed
+      - name: Check whether this deploy newly broke something
         id: smoke-gate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -224,7 +235,7 @@ jobs:
           echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
 
       - name: Create revert PR
-        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.smoke_tests_ran_and_failed == 'true'
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.should_auto_revert == 'true'
         env:
           # AUTOMATION_PAT (#3684): see checkout step above.
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
