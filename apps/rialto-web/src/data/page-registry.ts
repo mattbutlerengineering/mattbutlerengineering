@@ -286,6 +286,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-booking-wizard", label: "Booking Wizard", category: "Examples" },
   { id: "example-onboarding", label: "Onboarding", category: "Examples" },
   { id: "example-availability-heatmap", label: "Availability Heatmap", category: "Examples" },
+  { id: "example-guest-checkin", label: "Guest Checkin", category: "Examples" },
   { id: "notification-center", label: "Notification Center", category: "Examples" },
   { id: "invoice", label: "Invoice", category: "Examples" },
   { id: "checkout", label: "Checkout", category: "Examples" },
