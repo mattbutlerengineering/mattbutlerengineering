@@ -12,6 +12,7 @@ import {
   ISSUE_JSON_FIELDS,
   STALE_METRICS_PATH,
   LABEL_ONLY_EVENTS,
+  HUMAN_TOUCH_EVENTS,
 } from "../stale-human-blocked.mjs";
 
 // ---------------------------------------------------------------------------
@@ -261,6 +262,103 @@ describe("lastHumanTouchAt", () => {
     expect(lastHumanTouchAt({ number: 1 }, [])).toBeNull();
     expect(lastHumanTouchAt(null)).toBeNull();
   });
+
+  // -------------------------------------------------------------------------
+  // #5083: allowlist, not denylist — a bot cross-reference must NOT reset the
+  // clock. This is the #3277 case (59 days idle, reported as 6).
+  // -------------------------------------------------------------------------
+
+  it("does not treat a `cross-referenced` event as a human touch (the #3277 bug)", () => {
+    const issue = { number: 3277, createdAt: at(60 * DAY), comments: [] };
+    const timeline = [{ event: "cross-referenced", created_at: at(0) }];
+
+    expect(lastHumanTouchAt(issue, timeline)).toBe(new Date(NOW - 60 * DAY).toISOString());
+  });
+
+  it("counts a real `commented` timeline event as a human touch", () => {
+    const issue = { number: 1, createdAt: at(60 * DAY), comments: [] };
+    const timeline = [{ event: "commented", created_at: at(0), actor: { login: "a-human" } }];
+
+    expect(lastHumanTouchAt(issue, timeline)).toBe(new Date(NOW).toISOString());
+  });
+
+  it.each(["mentioned", "referenced", "subscribed", "connected", "converted_note_to_issue"])(
+    "does not treat a `%s` event as a human touch",
+    (event) => {
+      const issue = { number: 1, createdAt: at(60 * DAY), comments: [] };
+      const timeline = [{ event, created_at: at(0) }];
+
+      expect(lastHumanTouchAt(issue, timeline)).toBe(new Date(NOW - 60 * DAY).toISOString());
+    }
+  );
+
+  it("does not treat a comment authored by github-actions[bot] as a human touch", () => {
+    const issue = {
+      number: 1,
+      createdAt: at(60 * DAY),
+      comments: [{ createdAt: at(0), author: { login: "github-actions[bot]" } }],
+    };
+
+    expect(lastHumanTouchAt(issue, [])).toBe(new Date(NOW - 60 * DAY).toISOString());
+  });
+
+  it("does not treat a comment authored by any other [bot]-suffixed login as a human touch", () => {
+    const issue = {
+      number: 1,
+      createdAt: at(60 * DAY),
+      comments: [{ createdAt: at(0), author: { login: "dependabot[bot]" } }],
+    };
+
+    expect(lastHumanTouchAt(issue, [])).toBe(new Date(NOW - 60 * DAY).toISOString());
+  });
+
+  it("treats a comment authored by a human login as a human touch", () => {
+    const issue = {
+      number: 1,
+      createdAt: at(60 * DAY),
+      comments: [{ createdAt: at(0), author: { login: "mattbutlerengineering" } }],
+    };
+
+    expect(lastHumanTouchAt(issue, [])).toBe(new Date(NOW).toISOString());
+  });
+
+  it("does not treat a `commented` timeline event actor'd by a bot as a human touch", () => {
+    const issue = { number: 1, createdAt: at(60 * DAY), comments: [] };
+    const timeline = [
+      { event: "commented", created_at: at(0), actor: { login: "github-actions[bot]" } },
+    ];
+
+    expect(lastHumanTouchAt(issue, timeline)).toBe(new Date(NOW - 60 * DAY).toISOString());
+  });
+});
+
+describe("HUMAN_TOUCH_EVENTS", () => {
+  it("is the allowlist of genuine human-engagement timeline event types", () => {
+    expect(HUMAN_TOUCH_EVENTS).toEqual([
+      "commented",
+      "assigned",
+      "unassigned",
+      "closed",
+      "reopened",
+      "renamed",
+      "milestoned",
+      "demilestoned",
+      "marked_as_duplicate",
+    ]);
+  });
+
+  it.each([
+    "cross-referenced",
+    "mentioned",
+    "referenced",
+    "subscribed",
+    "labeled",
+    "unlabeled",
+    "connected",
+    "converted_note_to_issue",
+  ])("deliberately excludes %s", (event) => {
+    expect(HUMAN_TOUCH_EVENTS).not.toContain(event);
+  });
 });
 
 describe("daysStale", () => {
@@ -363,7 +461,8 @@ describe("runStaleHumanBlocked metrics", () => {
         fetched.push(n);
         return [
           { event: "labeled", created_at: at(0) },
-          { event: "cross-referenced", created_at: at(9 * DAY) },
+          { event: "cross-referenced", created_at: at(1) }, // must not reset the clock (#5083)
+          { event: "assigned", created_at: at(9 * DAY), actor: { login: "a-human" } },
         ];
       },
       recordMetric: async (row) => rows.push(row),

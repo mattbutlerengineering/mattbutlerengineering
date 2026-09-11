@@ -1,10 +1,11 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { type ProblemDetails, createProblemDetails } from "@mbe/types";
 import { extractIssueIntent, intentToRoutingContext, routeModelWithReason } from "@mbe/agent-core";
 import type { IssueInput } from "@mbe/agent-core";
 import { sessionService } from "../services/session.js";
 import { triggerSession } from "../services/session-trigger.js";
 import { createRawBodyCaptureHook, createVerifiedBodyPreHandler } from "../lib/verified-webhook.js";
+import { defaultDeliveryDedupStore } from "../services/webhook-delivery-dedup.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const REQUIRED_PERMISSION = "write";
@@ -172,32 +173,57 @@ export const webhookRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const eventType = request.headers["x-github-event"] as string | undefined;
+      const deliveryId = request.headers["x-github-delivery"] as string | undefined;
 
-      switch (eventType) {
-        case "issues":
-          await handleIssueEvent(fastify, request.body as GitHubIssueEvent, githubToken);
-          break;
-
-        case "issue_comment":
-          await handleIssueCommentEvent(
-            fastify,
-            request.body as GitHubIssueCommentEvent,
-            githubToken
-          );
-          break;
-
-        case "check_run":
-          await handleCheckRunEvent(fastify, request.body as GitHubCheckRunEvent);
-          break;
-
-        default:
-          fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+      // Redeliveries carry the same x-github-delivery id as the original
+      // attempt. Claim it before doing any work so a replay is a synchronous
+      // no-op — it never reaches dispatchGitHubEvent, let alone triggerSession.
+      if (deliveryId && !defaultDeliveryDedupStore.claim(deliveryId)) {
+        fastify.log.info({ deliveryId, eventType }, "Duplicate GitHub webhook delivery — skipping");
+        return { received: true };
       }
+
+      // Acknowledge inside GitHub's 10s delivery window. The work below
+      // (extractIssueIntent's Haiku call, checkCollaboratorPermission's REST
+      // round trip, triggerSession) can exceed that window on its own, which
+      // is what causes GitHub to mark the delivery failed and redeliver it.
+      // Dispatch fire-and-forget — the same shape triggerSession itself uses
+      // for executeSession() in services/session-trigger.ts — and log any
+      // failure via the structured (pino) fastify.log instead of losing it.
+      dispatchGitHubEvent(fastify, eventType, request.body, githubToken).catch((err) => {
+        fastify.log.error({ err, eventType, deliveryId }, "GitHub webhook event handling failed");
+      });
 
       return { received: true };
     }
   );
 };
+
+// ── Event dispatch ───────────────────────────────────────────────────
+
+async function dispatchGitHubEvent(
+  fastify: FastifyInstance,
+  eventType: string | undefined,
+  body: unknown,
+  githubToken: string
+): Promise<void> {
+  switch (eventType) {
+    case "issues":
+      await handleIssueEvent(fastify, body as GitHubIssueEvent, githubToken);
+      return;
+
+    case "issue_comment":
+      await handleIssueCommentEvent(fastify, body as GitHubIssueCommentEvent, githubToken);
+      return;
+
+    case "check_run":
+      await handleCheckRunEvent(fastify, body as GitHubCheckRunEvent);
+      return;
+
+    default:
+      fastify.log.debug({ eventType }, "Ignoring unhandled GitHub event");
+  }
+}
 
 // ── Event handlers ───────────────────────────────────────────────────
 

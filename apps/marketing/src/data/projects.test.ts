@@ -3,7 +3,7 @@ import { PROJECTS } from "./projects.js";
 
 describe("PROJECTS", () => {
   it("has the correct number of projects", () => {
-    expect(PROJECTS).toHaveLength(2);
+    expect(PROJECTS).toHaveLength(3);
   });
 
   it("each project has required fields", () => {
@@ -42,5 +42,13 @@ describe("PROJECTS", () => {
     expect(hospitality!.stack).toContain("Auth0");
     expect(hospitality!.stack).toContain("PWA");
     expect(hospitality!.href).toBe("/hospitality/");
+  });
+
+  it("Gen project has a deep-linking href with a pre-loaded prompt", () => {
+    const gen = PROJECTS.find((p) => p.title.includes("Gen"));
+    expect(gen).toBeDefined();
+    expect(gen!.href).toMatch(/^\/gen\/\?prompt=/);
+    const promptParam = new URL(gen!.href!, "https://example.com").searchParams.get("prompt");
+    expect(promptParam).toBeTruthy();
   });
 });

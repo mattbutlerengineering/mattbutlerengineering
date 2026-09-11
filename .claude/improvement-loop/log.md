@@ -1406,6 +1406,17 @@ None this run (`agent-skip` empty, 0 open). Same 2 `agent-failed` issues as yest
 **Sentry triage:** skipped — Sentry MCP connects but every call still 403s with "Host not in allowlist: sentry.io" (confirmed via `find_organizations`), same egress-policy block as every prior entry since 09-01.
 **Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #5050/#5006 need a completed CI run to verify against; #5015/#5000 need a Lighthouse inventory this sandbox can't produce without a live site audit (barred per issue #2920's no-egress-to-production constraint); #5052 has no matching verifier for its `meta-improvement` label.
 **Skill proposals:** 0 — today is Monday, not the Friday extraction day.
+
+## 2026-09-08 (learning-loop)
+
+Fresh cloud checkout — no `node_modules`, needed `pnpm install --frozen-lockfile` (41s) + `pnpm --dir packages/gh-client build` before `sensor-report.mjs` would run (`ERR_MODULE_NOT_FOUND` on `@mbe/gh-client` both times), same as every prior fresh-checkout run since 08-09.
+
+**Sensors:** 9/16 available (acmm L5 96/114 unchanged, prMetrics 8 entries, prCategoryMetrics 89/93 merged by category, ccusageCost $0, ciHealth 100% pass rate 27/27, sessionLogs 0 sessions/0 commits 7d, codeChurn 0% (616 deleted/568891 added), e2eStability 0 consecutive failures 12/12 non-frontend, queueEfficiency composite 0.948) — domainActivity (no `DOMAIN_METRICS_VENUE_ID`, expected), agentCost, lighthouse, mutationScore, flakyTests unavailable; issues + issueFeedback errored on the standing GitHub REST-fallback 403 (`GhAuthError` — session credential is git-over-HTTPS-only, not valid for direct API calls).
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage against `metrics/ai-issue-feedback.json` budgets, which itself only holds the 403 error object this run).
+**Sentry triage:** skipped — Sentry MCP tool connects but `find_organizations` 403'd ("Host not in allowlist: sentry.io. Add this host to your network egress settings"), same egress-policy block as every prior entry since 09-01.
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped) — #5099/#5063 need a Lighthouse inventory this sandbox can't produce without a live site audit (barred per issue #2920's no-egress-to-production constraint); #5096/#5082/#5013 need a completed CI run to verify against.
+**Skill proposals:** 0 — today is Tuesday, not the Friday extraction day.
+**Threshold notes:** ci-fix auto-tuned 1.2 → 1.217 (headroom) by `verify-fixes.mjs`. 30d verification log remains almost entirely environmental `skip`s (no CI-run/Lighthouse data reachable in this cloud sandbox), so false-positive and fix-effectiveness rates still aren't a meaningful signal — same standing gap as every prior run, not re-flagging. `collect-ai-issue-feedback.mjs` hit the same GitHub REST-fallback 403 as the `issues`/`issueFeedback` sensors (unresolved since 08-11); default per-category budget (3) applies since no fresh feedback data landed.
 **Threshold notes:** `[threshold-tuner] Applied 1 adjustment` this run (verify-fixes.mjs): `ci-fix` 1.17 → 1.2 (headroom). 30d verification log (61 entries, 55 in-window): 51 skip abstentions (no completed CI run / no Lighthouse inventory / no matching verifier), 4 non-skip verifications — fix-effectiveness rate 75% (3 verified / 1 failed), healthy, no note triggered (>50% threshold). False-positive rate: `collect-ai-issue-feedback.mjs` hit the same Search-API 403 as `issues`/`issueFeedback` (`metrics/ai-issue-feedback.json` recorded the error, issue-creation budget defaulted to 3/category, unused — no regressions this run); cross-checked instead via `mcp__github__search_issues` directly (properly authenticated) — of the first 100 (of 196 total) closed sensor-labeled issues in the last 30 days, state_reason was 97 `completed`, 2 `duplicate`, 1 `not_planned` — false-positive rate ~3%, well under the 30% threshold, no loosening needed.
 
 ### Recommendation carried forward
@@ -1456,3 +1467,105 @@ Claimed a zone-spread batch of 3: #5091 (ci-fix, packages/rialto visual baseline
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open). 1 new `agent-failed` issue tonight (#5091, environment blocker, documented on the issue and above); #4914 unchanged from prior nights, not re-triaged (out of scope for this pass).
+
+## 2026-09-09
+
+**queueEfficiency:** composite 0.952 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:13, size:m:4, size:xs:7, size:l:1
+**Issues filed:** 0
+
+## 2026-09-09 (mbe-evening)
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                       | Target            | Status                                              |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------- |
+| Created (7d)                                 | audit: 52, ci-fix: 22 (raw label sums, no dedup) = 74                                                                                                       | -                 | -                                                   |
+| Closed (7d)                                  | audit: 31, ci-fix: 11 (raw label sums, `updated_at` proxy for `closedAt`) = 42                                                                              | -                 | -                                                   |
+| Closure Rate                                 | 42/74 ≈ 57%                                                                                                                                                 | >80%              | yellow                                              |
+| Time-to-Close                                | wide variance — many same-day audit/ci-fix closures, alongside this run's own #4973/#4994/#5004 chain (created 2026-09-04, closed 2026-09-09, ~5 days each) | <24h              | mixed — not a clean single-number estimate this run |
+| Agent Success (open snapshot)                | 5 has-pr / (5 has-pr + 2 agent-failed) = 71.4%                                                                                                              | >70%              | green                                               |
+| CI Pass (main, last 20 runs)                 | 17 success / 17 non-cancelled = 100% (3 cancelled — concurrency-superseded pushes during this run's own merge train, excluded as noise)                     | >95%              | green                                               |
+| Queue (ready)                                | 43                                                                                                                                                          | <5                | red                                                 |
+| Stale (ready>7d)                             | not exhaustively verified this run (queue paginated beyond what was checked); no >7d items found in the portion reviewed                                    | 0                 | unverified                                          |
+| Blocked (agent-failed)                       | 2 (#5091 rialto visual baselines, #4914 nightly-compliance drift) — both carried over from prior nights, not re-triaged this run                            | 0                 | yellow                                              |
+| Skipped (agent-skip)                         | 0                                                                                                                                                           | 0                 | green                                               |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — matches tracked #4618, not re-filing                                                                                                  | <$10/day, <$50/7d | unmeasured, same standing gap                       |
+
+### Patterns
+
+- **This run's own implement-queue iteration closed 3 issues (#4973, #4994, #5004) via #5149/#5146/#5147, plus a same-session CI-fix (#5150, unrelated to the batch's own diffs) and a telemetry PR (#5151).** All four were blocked mid-run by a newly-published high-severity `pnpm audit` advisory (GHSA-2883-xcg3-v3hh, js-yaml) that started failing Build on every open PR — including PRs this run didn't touch — with zero code-diff relationship to any of them. This is the documented "advisory database updates live" class already in `.claude/rules/gotchas.md` § CI; no new gotcha needed, but it's the reason `ci_first_pass`/`rework_cycles` read false/1 for all three telemetry rows tonight despite the underlying diffs being clean on their first pass.
+- **Queue depth (43) stayed red**, still dominated by the 2026-09-04 `hospitality-service-ux` UX-audit batch (~19 issues, #4974–#4992) and a smaller `meta-improvement`/scripts cluster (#5012/#5014/#5016). The five sequential `[Feature] hospitality-service-ux [11–16/16]` issues (#5031–#5036) are explicitly excluded from `/implement-queue` pickup by their own "Execution note" (claimed by a dedicated autorun) — they inflate the raw `ready` count without being real queue pressure.
+- **No `gh` CLI in this cloud session** (per gotchas.md, expected) — every GitHub interaction this run went through `mcp__github__*` tools instead; `scripts/ci-gate-status.mjs`, `scripts/reap-worktrees.mjs`'s merged-PR-evidence check, and this skill's own `gh issue list`/`gh pr list` queries all needed a manual MCP-tool substitute. Worktree reaper ran but reclaimed 0 (fails closed without `gh`-sourced merge evidence, as designed).
+
+### Recommendations
+
+- Queue composition suggests the next `/implement-queue` iteration should keep picking non-hospitality-zone `audit`/`meta-improvement` issues (e.g. #5012, #5014, #5016, #4994-successors) to keep zone-spread batches diverse, since the hospitality UX batch is large but low-urgency (all filed same day, `S`/`LOW` effort+risk).
+- #5091 (rialto-web visual cascade) and #4914 (nightly-compliance drift) remain open `agent-failed` — neither was re-triaged this run; worth a dedicated pass since both are now multi-night carryovers.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing gap as #4618, deferred to `/optimize-implement-queue` Step 0 per prior nights' convention.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).
+
+## 2026-09-09 (learning-loop)
+
+**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency; domainActivity/agentCost/lighthouse/mutationScore/flakyTests/e2eStability unavailable this run; issues/issueFeedback query failed — GitHub REST fallback credential not valid for direct API calls, per gotchas.md § Claude Code Remote)
+**Regressions:** 1 detected, 1 issue created — ciHealth.pass_rate_pct: 100 → 94 (-6, high). Root-caused during triage (not left as a bare metric): the single failure in the 30-run/main window is "Pulumi Deploy" (`34385123277` at `0a60bbb`), failing `pulumi refresh` with `403 Forbidden: Insufficient scope` on `auth0:index:Branding` (`read:branding`) and `auth0:index:Tenant` (`read:tenant_settings`) — confirmed recurring on the prior main run too (`34383702799` at `6c0a54c`), not a one-off flake. Filed #5169 (`ready`, `ci-fix`, `bug`) with the Auth0 M2M scope hypothesis and repro evidence; no open duplicate found (searched by root-cause terms and by sensor/metric name).
+**Verifications:** 5 checked, 0 verified, 0 failed — all 5 skipped (Lighthouse inventory / completed-CI-run lookups unavailable in this session), consistent with prior nights' environment limits. Threshold auto-tuner applied 1 adjustment: ci-fix 1.217 → 1.22 (headroom).
+**AI issue feedback:** query failed (GitHub REST fallback 403, same auth limitation as `issues`/`issueFeedback` sensors) — no feedback-derived budgets available; used skill default budget (3) for the `ci-fix` category regression above.
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Threshold notes:** false-positive / fix-effectiveness rates not computable this run — all 5 recent verifications were environment-limited skips, not real wontfix/invalid outcomes, so no signal either way.
+
+## 2026-09-10 (mbe-evening)
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                                          | Target            | Status                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------- | ----------------------------- |
+| Created (7d)                                 | audit: 52, ci-fix: 29 (raw label sums, 4 issues carry both labels and are double-counted) = 81                                                                                 | -                 | -                             |
+| Closed (7d)                                  | audit: 27, ci-fix: 11 (same double-count caveat) = 38                                                                                                                          | -                 | -                             |
+| Closure Rate                                 | 38/81 ≈ 47%                                                                                                                                                                    | >80%              | red                           |
+| Time-to-Close                                | not computed exactly this run (would need per-issue closedAt vs createdAt); qualitatively wide, same-day for most audit fixes, multi-day for the ci-fix duplicate chains below | <24h              | unverified                    |
+| Agent Success (open snapshot)                | 0 has-pr / (0 has-pr + 0 agent-failed) — undefined, both currently 0 open                                                                                                      | >70%              | N/A this snapshot             |
+| CI Pass (main, last 20 runs)                 | 16 success / 16 non-cancelled = 100% (4 cancelled, concurrency-superseded pushes, excluded as noise)                                                                           | >95%              | green                         |
+| Queue (ready)                                | 47 (50 at pre-flight, minus 3 claimed into this run's implement-queue batch)                                                                                                   | <5                | red                           |
+| Stale (ready>7d)                             | 0 — oldest open `ready` issue is #4974, created 2026-09-04 (6 days old)                                                                                                        | 0                 | green                         |
+| Blocked (agent-failed)                       | 0 open — improved from 2 the last two nights (#5091, #4914 no longer carry `agent-failed`; both still open under `ci-fix`/`meta-improvement` respectively)                     | 0                 | green                         |
+| Skipped (agent-skip)                         | 0                                                                                                                                                                              | 0                 | green                         |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — same standing gap as #4618, deferred to `/optimize-implement-queue` Step 0                                                                               | <$10/day, <$50/7d | unmeasured, same standing gap |
+| Reverts (7d)                                 | 1 (`git log --grep=Revert --since="7 days ago"`)                                                                                                                               | <3/week           | green                         |
+
+### Patterns
+
+- **Closure rate dropped from yesterday's 57% (yellow) to 47% (red).** The dominant driver: 10 of the 18 open `ci-fix` issues created in the last 7 days are two duplicate chains sharing a single root cause each — `Post-deploy verification could not confirm deploy` (#5123/#5124/#5133/#5134/#5153, deploy-propagation poll-timeout, explicitly self-flagged "NOT proof of a regression") and `API surface invariant breach` (#5168/#5171/#5173/#5181, all the same pre-existing `/public/v1/venues/:id` routing defect documented in `docs/fixes/public-ingress-never-applied/`, broken since 2026-05-16). Neither chain is 10 independent bugs; both inflate `Created`/`Queue` and depress `Closure Rate` as if they were.
+- **Root cause of the duplication, found this run:** `post-deploy-check.yml` calls `scripts/lib/file-issue-cli.mjs` with `--dedupe-key "<check-name>-${SHORT_SHA}"` — the dedupe key includes the commit SHA, so the _same_ underlying failure across different commits can never dedupe against itself. This is the identical systemic gap #5084 already documented for `nightly-compliance` (dedupe key/absence tied to a volatile identifier instead of a stable failure signature), now confirmed in a second automation. Filed #5189 (`meta-improvement`, `ready`) to key both dedupe keys in `post-deploy-check.yml` off the failure signature (probe name / verification-timeout class) instead of the SHA, mirroring #5084's proposed fix shape. Did not touch the workflow file itself this run (scope discipline — this session's slot was already spent on the `/implement-queue` batch below).
+- **Triggered separately by the user mid-run:** investigated 3 auto-rollback revert PRs (#5182/#5174/#5172) that were sitting open on `main` requesting human review. All three were false positives — root cause was the deploy-propagation timeout and the pre-existing routing bug above, not the reverted commits. Closed all three with explanation; commented on #5181 linking the four duplicate routing-bug issues to the existing fix-in-progress doc. The actual production fix for that routing bug is already merged to `main` at the source level; only the production `pulumi up` apply remains, gated on a human-reviewed `pulumi preview` diff per the documented prepare-and-stop policy in `docs/fixes/public-ingress-never-applied/breakdown.md`. This session's GitHub App token got `403 Resource not accessible by integration` dispatching `pulumi-preview.yml`, so that step needs a session/user with broader Actions permissions.
+- **Blocked (agent-failed) cleared to 0** — #5091 and #4914, carried as `agent-failed` the last two nights, no longer carry that label (now `ci-fix` and `meta-improvement` respectively, still open). Not re-triaged this run; worth confirming intentionally relabeled vs. label drift.
+- **No `gh` CLI in this cloud session** (per gotchas.md, expected) — every GitHub interaction this run went through `mcp__github__*` tools instead, including the PR-close and workflow-dispatch actions above.
+
+### Recommendations
+
+- File a `meta-improvement` issue (or extend #5084's scope) for `check-api-surface-invariants.mjs`'s underlying probe: `wrong-service` on a routing defect that's already diagnosed and fix-merged should not keep re-filing — once #5189 lands, confirm the 4-issue #5168/#5171/#5173/#5181 chain collapses to comments-on-one-issue on the next production probe failure.
+- Someone with `gh`/broader Actions permissions should dispatch `pulumi-preview.yml` on `main`, read the diff per `docs/fixes/public-ingress-never-applied/breakdown.md` Milestone 4, and decide on the `pulumi up` apply — this is the only remaining step to actually fix the production `/public/v1/**` outage.
+- `.claude/agent-spend/sessions.jsonl` empty — same standing recommendation, deferred to `/optimize-implement-queue` Step 0.
+- Next iteration: continue picking non-hospitality-zone issues for zone-spread (root/scripts and packages/rialto both had good candidates this run); the `[Feature] hospitality-service-ux [11-16/16]` issues (#5031-#5036) remain excluded from pickup by their own autorun claim.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).
+
+## 2026-09-10
+
+**queueEfficiency:** composite 0.927 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:7, size:s:11, size:m:3, size:xl:1
+**Issues filed:** 0
+
+## 2026-09-10 (learning-loop)
+
+**Sensors:** 8/16 available (acmm L5 96/114; prMetrics 8 entries; prCategoryMetrics 88/97 merged by category; ccusageCost $0 (30d/7d/today), cache_hit 94%; ciHealth 100% pass rate (22/22); sessionLogs 0 sessions/0 commits (7d); codeChurn 0% churn (847 deleted / 576875 added, 7d); queueEfficiency composite 0.964 [fps 0.909, ttm 0.4h, $0/issue, no baseline yet]). domainActivity (no `DOMAIN_METRICS_VENUE_ID` — collector skipped cleanly per no-egress-to-production constraint, issue #2920), agentCost, lighthouse, mutationScore, flakyTests, e2eStability not available. issues/issueFeedback query failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage against `metrics/ai-issue-feedback.json` budgets).
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #5158/#5157 need a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress-to-production constraint; #5156/#5098/#5089 need a completed CI run to verify against). Threshold auto-tuner applied 1 adjustment: ci-fix 1.22 → 1.248 (headroom).
+**AI issue feedback:** query failed (GitHub REST fallback 403, same auth limitation as `issues`/`issueFeedback` sensors) — no feedback-derived budgets available this run; moot since no regressions needed triaging.
+**Skill proposals:** 0 (Thursday — Friday-only)
+**Threshold notes:** false-positive / fix-effectiveness rates not cleanly computable this run — 30-day verification log is dominated by environment-limited skips (66/70 `confidence: skip`, needing Lighthouse or completed-CI data this sandbox can't produce) rather than real wontfix/invalid outcomes, so no reliable loosen/tighten signal either way.

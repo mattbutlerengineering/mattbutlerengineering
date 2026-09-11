@@ -178,7 +178,7 @@ These are the labels that actually decide whether a PR merges. `tier:*` is appli
 | `tier:sensitive` | T3. **Blocks auto-merge** — reviewer + a specialist subagent + 1 human review                                                                                                                            |
 | `tier:critical`  | T4. **Blocks auto-merge** — all of T3, plus Matt personally, plus an ADR or `meta-improvement` issue documenting why                                                                                     |
 
-> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked — and `tier-classifier.yml` only triggers on `pull_request`, so it does not reliably run on `GITHUB_TOKEN`-authored automation PRs. See [gotchas.md § CI](./.claude/rules/gotchas.md#ci) for the consequences.
+> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked. `tier-classifier.yml` triggers on `pull_request` natively, and also accepts a `workflow_dispatch` escape hatch (#4070) that the four automation producers (drift-fix, production-feedback, pr-metrics, acmm-regression) call directly and wait on, so it now runs reliably on `GITHUB_TOKEN`/`AUTOMATION_PAT`-authored automation PRs too. Residual risk: `AUTOMATION_PAT` is still not configured as a repo secret (see [docs/SECRETS.md](./docs/SECRETS.md)), so the action-required-approval step those same producers rely on for their other `pull_request`-triggered checks still falls back to a `GITHUB_TOKEN` no-op. See [gotchas.md § CI](./.claude/rules/gotchas.md#ci) for the consequences.
 
 ### RemoteTriggers (scheduled background agents)
 

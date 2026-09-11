@@ -6,6 +6,13 @@ export interface Project {
   href?: string; // undefined = no live link
 }
 
+/**
+ * A short, demonstrative prompt for the Gen playground deep link — showcases
+ * breadth by asking for several distinct component types in one generation.
+ */
+const GEN_DEMO_PROMPT =
+  "A pricing card with a heading, a description, a badge, and a primary button";
+
 export const PROJECTS: Project[] = [
   {
     title: "Rialto Design System",
@@ -22,5 +29,13 @@ export const PROJECTS: Project[] = [
       "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
     stack: ["React", "Fastify", "Prisma", "PostgreSQL", "Auth0", "PWA"],
     href: "/hospitality/",
+  },
+  {
+    title: "Gen Playground",
+    description:
+      "An AI-assisted UI generator that streams Rialto component trees from a plain-English " +
+      "prompt, backed by a validated JSON spec format with live preview, history, and sharing.",
+    stack: ["React", "TypeScript", "Fastify", "JSON Schema", "Zod"],
+    href: `/gen/?prompt=${encodeURIComponent(GEN_DEMO_PROMPT)}`,
   },
 ];

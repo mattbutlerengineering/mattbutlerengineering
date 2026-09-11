@@ -13,6 +13,217 @@
       readonly ttm_median: number | null;
       readonly cost_per_issue_median: number | null;
     }
+    export interface QueueEfficiencySensor {
+      readonly available: boolean;
+      readonly composite?: number;
+      readonly sub_metrics?: {
+        readonly issues_merged: number;
+        readonly first_pass_success_rate: number;
+        readonly median_time_to_merge_hours: number;
+        readonly median_rework_cycles: number;
+        readonly cost_per_issue_usd: number;
+        readonly review_coverage: number | null;
+      };
+      readonly distribution?: Record<string, QueueEfficiencyTierStats>;
+      readonly baseline?: QueueEfficiencyBaseline | null;
+    }
+    export interface DomainActivitySensor {
+      readonly available: boolean;
+      readonly date?: string | null;
+      readonly venueId?: string | null;
+      readonly reservations_created?: number;
+      readonly reservations_cancelled?: number;
+      readonly reservations_completed?: number;
+      readonly reservations_no_show?: number;
+      readonly deposits_held?: number;
+      readonly deposits_applied?: number;
+      readonly deposits_refunded?: number;
+      readonly deposits_forfeited?: number;
+    }
+    export interface AcmmFailingGate {
+      readonly name: string;
+      readonly description: string;
+      readonly value: number | null;
+      readonly threshold: number | null;
+      readonly direction: string | null;
+    }
+    export interface AcmmSensor {
+      readonly available: boolean;
+      readonly level?: number | null;
+      readonly level_name?: string | null;
+      readonly criteria_met?: number;
+      readonly criteria_total?: number;
+      readonly last_run?: string | null;
+      readonly capped?: boolean;
+      readonly failing_gates?: readonly AcmmFailingGate[];
+    }
+    export interface SensorReport {
+      readonly generated_at: string;
+      readonly period?: {
+        readonly start: string;
+        readonly end: string;
+      };
+      readonly sensors: Record<string, unknown> & {
+        readonly queueEfficiency?: QueueEfficiencySensor;
+        readonly domainActivity?: DomainActivitySensor;
+        readonly acmm?: AcmmSensor;
+      };
+      readonly thresholds?: Record<string, number>;
+      readonly regressions: readonly unknown[];
+      readonly summary: {
+        readonly sensors_available: number;
+        readonly sensors_total: number;
+        readonly regressions_detected: number;
+        readonly status?: string;
+      };
+    }
+    export interface QueueEfficiencyMetrics {
+      readonly available: boolean;
+      readonly composite: number | null;
+      readonly firstPassSuccessRate: number | null;
+      readonly costPerIssue: number | null;
+      readonly medianTimeToMergeHours: number | null;
+      readonly distribution: ReadonlyArray<readonly [string, number]>;
+    }
+    export interface DomainActivityMetrics {
+      readonly available: boolean;
+      readonly date: string | null;
+      readonly venueId: string | null;
+      readonly reservationsCreated: number | null;
+      readonly reservationsCancelled: number | null;
+      readonly reservationsCompleted: number | null;
+      readonly reservationsNoShow: number | null;
+      readonly depositsHeld: number | null;
+      readonly depositsApplied: number | null;
+      readonly depositsRefunded: number | null;
+      readonly depositsForfeited: number | null;
+    }
+    export interface AcmmMetrics {
+      readonly available: boolean;
+      readonly level: number | null;
+      readonly levelName: string | null;
+      readonly criteriaMet: number | null;
+      readonly criteriaTotal: number | null;
+      readonly lastRun: string | null;
+      readonly capped: boolean;
+      readonly failingGates: ReadonlyArray<AcmmFailingGate>;
+    }
+    export interface HealthMetrics {
+      readonly timestamp: string | null;
+      readonly ciPassRate: number | null;
+      readonly ciRecentRuns: number | null;
+      readonly prsMerged: number | null;
+      readonly issuesReady: number | null;
+      readonly issuesOpen: number | null;
+      readonly sensorsAvailable: number | null;
+      readonly sensorsTotal: number | null;
+      readonly sensorEntries: ReadonlyArray<readonly [string, Record<string, unknown>]>;
+      readonly regressionLabels: readonly string[];
+      readonly queueEfficiency: QueueEfficiencyMetrics;
+      readonly domainActivity: DomainActivityMetrics;
+      readonly acmm: AcmmMetrics;
+    }
+    function asRecord(value: unknown): Record<string, unknown> {
+      return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+    }
+    function readNumber(value: unknown): number | null {
+      return typeof value === "number" ? value : null;
+    }
+    function readString(value: unknown): string | null {
+      return typeof value === "string" ? value : null;
+    }
+    function formatRegressionLabel(regression: unknown): string {
+      if (typeof regression === "string") return regression;
+      const r = asRecord(regression);
+      const sensor = readString(r.sensor);
+      const metric = readString(r.metric);
+      return sensor && metric ? `${sensor}.${metric}` : JSON.stringify(regression);
+    }
+    function normalizeQueueEfficiency(sensors: Record<string, unknown>): QueueEfficiencyMetrics {
+      const queueEfficiency = asRecord(sensors.queueEfficiency);
+      const subMetrics = asRecord(queueEfficiency.sub_metrics);
+      const distribution = asRecord(queueEfficiency.distribution);
+    
+      return {
+        available: queueEfficiency.available === true,
+        composite: readNumber(queueEfficiency.composite),
+        firstPassSuccessRate: readNumber(subMetrics.first_pass_success_rate),
+        costPerIssue: readNumber(subMetrics.cost_per_issue_usd),
+        medianTimeToMergeHours: readNumber(subMetrics.median_time_to_merge_hours),
+        distribution: Object.entries(distribution).map(
+          ([tier, stats]) => [tier, readNumber(asRecord(stats).count) ?? 0] as const
+        ),
+      };
+    }
+    function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivityMetrics {
+      const domainActivity = asRecord(sensors.domainActivity);
+    
+      return {
+        available: domainActivity.available === true,
+        date: readString(domainActivity.date),
+        venueId: readString(domainActivity.venueId),
+        reservationsCreated: readNumber(domainActivity.reservations_created),
+        reservationsCancelled: readNumber(domainActivity.reservations_cancelled),
+        reservationsCompleted: readNumber(domainActivity.reservations_completed),
+        reservationsNoShow: readNumber(domainActivity.reservations_no_show),
+        depositsHeld: readNumber(domainActivity.deposits_held),
+        depositsApplied: readNumber(domainActivity.deposits_applied),
+        depositsRefunded: readNumber(domainActivity.deposits_refunded),
+        depositsForfeited: readNumber(domainActivity.deposits_forfeited),
+      };
+    }
+    function normalizeFailingGate(gate: unknown): AcmmFailingGate {
+      const g = asRecord(gate);
+      return {
+        name: readString(g.name) ?? "",
+        description: readString(g.description) ?? "",
+        value: readNumber(g.value),
+        threshold: readNumber(g.threshold),
+        direction: readString(g.direction),
+      };
+    }
+    function normalizeAcmm(sensors: Record<string, unknown>): AcmmMetrics {
+      const acmm = asRecord(sensors.acmm);
+      const failingGates = Array.isArray(acmm.failing_gates) ? acmm.failing_gates : [];
+    
+      return {
+        available: acmm.available === true,
+        level: readNumber(acmm.level),
+        levelName: readString(acmm.level_name),
+        criteriaMet: readNumber(acmm.criteria_met),
+        criteriaTotal: readNumber(acmm.criteria_total),
+        lastRun: readString(acmm.last_run),
+        capped: acmm.capped === true,
+        failingGates: failingGates.map(normalizeFailingGate),
+      };
+    }
+    export function normalizeSensorReport(report: unknown): HealthMetrics {
+      const raw = asRecord(report);
+      const sensors = asRecord(raw.sensors);
+      const summary = asRecord(raw.summary);
+      const ci = asRecord(sensors.ci);
+      const ciHealth = asRecord(sensors.ciHealth);
+      const prMetrics = asRecord(sensors.prMetrics);
+      const prMetricsLatest = asRecord(prMetrics.latest);
+      const issues = asRecord(sensors.issues);
+      const regressions = Array.isArray(raw.regressions) ? raw.regressions : [];
+    
+      return {
+        timestamp: readString(raw.timestamp) ?? readString(raw.generated_at),
+        ciPassRate: readNumber(ci.passRate) ?? readNumber(ciHealth.pass_rate_pct),
+        ciRecentRuns: readNumber(ci.recentRuns) ?? readNumber(ciHealth.completed),
+        prsMerged: readNumber(prMetrics.merged30d) ?? readNumber(prMetricsLatest.merged),
+        issuesReady: readNumber(issues.ready) ?? readNumber(issues.queue_depth),
+        issuesOpen: readNumber(issues.open),
+        sensorsAvailable: readNumber(summary.available) ?? readNumber(summary.sensors_available),
+        sensorsTotal: readNumber(summary.total) ?? readNumber(summary.sensors_total),
+        sensorEntries: Object.entries(sensors).map(([key, value]) => [key, asRecord(value)] as const),
+        regressionLabels: regressions.map(formatRegressionLabel),
+        queueEfficiency: normalizeQueueEfficiency(sensors),
+        domainActivity: normalizeDomainActivity(sensors),
+        acmm: normalizeAcmm(sensors),
+      };
+    }
   </file>
   <file path="src/data/projects.ts">
     export interface Project {
@@ -38,6 +249,14 @@
           "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
         stack: ["React", "Fastify", "Prisma", "PostgreSQL", "Auth0", "PWA"],
         href: "/hospitality/",
+      },
+      {
+        title: "Gen Playground",
+        description:
+          "An AI-assisted UI generator that streams Rialto component trees from a plain-English " +
+          "prompt, backed by a validated JSON spec format with live preview, history, and sharing.",
+        stack: ["React", "TypeScript", "Fastify", "JSON Schema", "Zod"],
+        href: `/gen/?prompt=${encodeURIComponent(GEN_DEMO_PROMPT)}`,
       },
     ];
   </file>
@@ -67,6 +286,14 @@
       const { measuredAt } = candidate;
       return typeof measuredAt === "string" && !Number.isNaN(Date.parse(measuredAt));
     }
+    export const FALLBACK_REPO_STATS: RepoStats = fallbackSnapshot;
+    export function selectRepoStats(generated: unknown, fallback: RepoStats): RepoStats {
+      return isRepoStats(generated) ? generated : fallback;
+    }
+    export const REPO_STATS: RepoStats = selectRepoStats(
+      Object.values(generatedSnapshots)[0]?.default,
+      FALLBACK_REPO_STATS
+    );
   </file>
   <file path="src/data/weekly-intake.ts">
     export interface WeeklyResource {
@@ -148,6 +375,48 @@
       readonly fail: Rgb;
       /** Nearest `data-theme` scope, so the scene can bias its contrast. */
       readonly isDark: boolean;
+    }
+    export function parseCssColor(value: string, fallback: Rgb): Rgb {
+      const trimmed = value.trim();
+    
+      const short = HEX_SHORT.exec(trimmed);
+      if (short) {
+        return [
+          parseInt(`${short[1]}${short[1]}`, 16) / 255,
+          parseInt(`${short[2]}${short[2]}`, 16) / 255,
+          parseInt(`${short[3]}${short[3]}`, 16) / 255,
+        ];
+      }
+    
+      const full = HEX_FULL.exec(trimmed);
+      if (full) {
+        return [
+          parseInt(full[1]!, 16) / 255,
+          parseInt(full[2]!, 16) / 255,
+          parseInt(full[3]!, 16) / 255,
+        ];
+      }
+    
+      const rgb = RGB_FUNCTION.exec(trimmed);
+      if (rgb) {
+        return [Number(rgb[1]) / 255, Number(rgb[2]) / 255, Number(rgb[3]) / 255];
+      }
+    
+      return fallback;
+    }
+    export function readFactoryPalette(element: Element): FactoryPalette {
+      const computed = getComputedStyle(element);
+      const token = (name: string, fallback: Rgb): Rgb =>
+        parseCssColor(computed.getPropertyValue(name), fallback);
+    
+      return {
+        surface: token("--rialto-surface", FALLBACKS.surface),
+        line: token("--rialto-text-primary", FALLBACKS.line),
+        accent: token("--rialto-accent", FALLBACKS.accent),
+        pass: token("--rialto-success", FALLBACKS.pass),
+        fail: token("--rialto-error", FALLBACKS.fail),
+        isDark: element.closest("[data-theme]")?.getAttribute("data-theme") === "dark",
+      };
     }
   </file>
   <file path="src/components/factory/factory-scene.ts">
@@ -307,6 +576,28 @@
         renderer.dispose();
       };
     }
+    function buildParticleGeometry(count: number): BufferGeometry {
+      const positions = new Float32Array(count * 3);
+      const phases = new Float32Array(count);
+      const lanes = new Float32Array(count);
+      const speeds = new Float32Array(count);
+      const rolls = new Float32Array(count);
+    
+      for (let index = 0; index < count; index++) {
+        phases[index] = Math.random();
+        lanes[index] = LANES[index % LANES.length]!;
+        speeds[index] = 0.82 + Math.random() * 0.42;
+        rolls[index] = Math.random();
+      }
+    
+      const geometry = new BufferGeometry();
+      geometry.setAttribute("position", new BufferAttribute(positions, 3));
+      geometry.setAttribute("aPhase", new BufferAttribute(phases, 1));
+      geometry.setAttribute("aLane", new BufferAttribute(lanes, 1));
+      geometry.setAttribute("aSpeed", new BufferAttribute(speeds, 1));
+      geometry.setAttribute("aRoll", new BufferAttribute(rolls, 1));
+      return geometry;
+    }
   </file>
   <file path="src/components/factory/factory-shaders.ts">
     export const BACKDROP_VERTEX_SHADER = /* glsl */ `
@@ -383,6 +674,101 @@
         gl_FragColor = vec4(color, alpha);
       }
     `;
+    export const PARTICLE_VERTEX_SHADER = /* glsl */ `
+      attribute float aPhase;
+      attribute float aLane;
+      attribute float aSpeed;
+      attribute float aRoll;
+    
+      uniform float uTime;
+      uniform float uAgentShare;
+      uniform float uPixelRatio;
+      uniform vec3 uLine;
+      uniform vec3 uAccent;
+      uniform vec3 uPass;
+      uniform vec3 uFail;
+      uniform float uIsDark;
+    
+      varying vec3 vColor;
+      varying float vAlpha;
+    
+      ${COMMON}
+    
+      /* Seconds for one issue to travel the whole line at nominal speed. */
+      const float TRAVEL = 13.0;
+      /* Share of work a review gate turns back. */
+      const float REJECT_RATE = 0.09;
+      /* How hard work queues at each gate before being released. */
+      const float QUEUE_DEPTH = 0.026;
+    
+      void main() {
+        float progress = fract(aPhase + uTime / TRAVEL * aSpeed);
+        float lane = mix(-1.08, 1.08, progress);
+        /* Work slows into every gate and accelerates out of it, so it visibly
+           queues where the pipeline actually makes a decision. */
+        float x = lane - QUEUE_DEPTH * sin(2.0 * PI * (lane - GATE_0) / GATE_STEP);
+    
+        float agents = gateX(1);
+        float tdd = gateX(2);
+        float review = gateX(3);
+        float merge = gateX(4);
+        float deploy = gateX(5);
+    
+        /* Lanes open at the agents gate — parallel worktrees — and converge again
+           as green work funnels into auto-merge. */
+        float fan =
+          smoothstep(agents - 0.16, agents + 0.04, x) *
+          (1.0 - smoothstep(merge - 0.14, merge + 0.04, x));
+        float y = RAIL_Y + aLane * 0.105 * fan;
+        y += sin(x * 7.0 + aPhase * 6.2831853) * 0.003;
+    
+        /* Decorrelated from the agent draw — gates turn back agent and human work
+           alike. */
+        float rejected = step(1.0 - REJECT_RATE, fract(aRoll * 7.3 + aPhase));
+        float turnedBack = rejected * smoothstep(review - 0.02, review + 0.03, x);
+        y -= turnedBack * (x - review + 0.02) * 1.3;
+    
+        float agentAuthored = step(aRoll, uAgentShare);
+    
+        /* Raw, untested work is neutral; the TDD gate turns it red, then green. */
+        vec3 color = mix(uLine, mix(uLine, uAccent, 0.3), agentAuthored);
+        float red = smoothstep(tdd - 0.15, tdd - 0.03, x) * (1.0 - smoothstep(tdd, tdd + 0.045, x));
+        float green = smoothstep(tdd + 0.01, tdd + 0.09, x);
+        color = mix(color, uFail, red);
+        color = mix(color, uPass, green * 0.92);
+        color = mix(color, uFail, turnedBack);
+    
+        /* The only other gold on screen: the pulse washing over the stream. */
+        float touched = bell(x - pulseX(uTime), 0.055);
+        color = mix(color, uAccent, touched * 0.9);
+    
+        float size = mix(4.2, 5.8, agentAuthored);
+        size *= 1.0 + touched * 1.4;
+        size *= 1.0 + bell(x - deploy, 0.07) * 1.0;
+    
+        float alpha = smoothstep(-1.08, -0.9, x) * (1.0 - smoothstep(0.95, 1.08, x));
+        alpha *= 1.0 - turnedBack;
+        alpha *= mix(0.9, 0.92, uIsDark) * mix(0.72, 1.0, agentAuthored);
+    
+        vColor = color;
+        vAlpha = alpha;
+    
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(x, y, 0.0, 1.0);
+        gl_PointSize = size * uPixelRatio;
+      }
+    `;
+    export const PARTICLE_FRAGMENT_SHADER = /* glsl */ `
+      varying vec3 vColor;
+      varying float vAlpha;
+    
+      void main() {
+        vec2 offset = (gl_PointCoord - 0.5) * vec2(2.0, 4.0);
+        float radius = min(length(offset), 1.0);
+        float core = 1.0 - radius;
+        float shape = core * core * 0.85 + pow(core, 0.45) * 0.3;
+        gl_FragColor = vec4(vColor, shape * vAlpha);
+      }
+    `;
   </file>
   <file path="src/components/factory/pipeline-stages.ts">
     export interface StageMetric {
@@ -397,6 +783,70 @@
       readonly detail: string;
       /** Present only where the repo actually counts something for this stage. */
       readonly metric?: StageMetric;
+    }
+    export function buildPipelineStages(stats: RepoStats): readonly PipelineStage[] {
+      return [
+        {
+          id: "issues",
+          step: "01",
+          name: "Issues",
+          detail: "Audits, sensors and error triage file the work.",
+        },
+        {
+          id: "agents",
+          step: "02",
+          name: "Agents",
+          detail: "Claimed one at a time, each in its own worktree.",
+          metric: { value: stats.agentPrsMerged, label: "agent PRs merged" },
+        },
+        {
+          id: "tdd",
+          step: "03",
+          name: "TDD",
+          detail: "A failing test first, then the smallest code that passes.",
+          metric: { value: stats.testFiles, label: "test files" },
+        },
+        {
+          id: "review",
+          step: "04",
+          name: "Review gates",
+          detail: "Lint, typecheck, tests, architecture audit.",
+          metric: { value: 4, label: "blocking gates" },
+        },
+        {
+          id: "merge",
+          step: "05",
+          name: "Auto-merge",
+          detail: "Green pull requests merge themselves. Red ones wait.",
+          metric: { value: stats.totalPrsMerged, label: "pull requests merged" },
+        },
+        {
+          id: "deploy",
+          step: "06",
+          name: "Deploy",
+          detail: "Cloudflare for the sites, DigitalOcean for the APIs.",
+          metric: { value: stats.rialtoComponents, label: "components shipped" },
+        },
+      ];
+    }
+    export const PIPELINE_STAGES = buildPipelineStages(REPO_STATS);
+    export interface FactorySceneInputs {
+      /** Fraction of merged work that agents authored, 0–1. */
+      readonly agentShare: number;
+      /** Particles on the line — more merged work, busier floor. */
+      readonly particleCount: number;
+    }
+    export function factorySceneInputs(stats: RepoStats): FactorySceneInputs {
+      const agentShare =
+        stats.totalPrsMerged > 0 ? Math.min(1, stats.agentPrsMerged / stats.totalPrsMerged) : 0;
+    
+      return {
+        agentShare,
+        particleCount: Math.min(
+          MAX_PARTICLES,
+          MIN_PARTICLES + Math.round(stats.totalPrsMerged / PRS_PER_PARTICLE)
+        ),
+      };
     }
   </file>
   </section>
@@ -422,6 +872,89 @@
           return "neutral";
       }
     }
+    export function statusLabel(status: string): string {
+      switch (status) {
+        case "ok":
+          return "Operational";
+        case "degraded":
+          return "Degraded";
+        case "error":
+          return "Down";
+        case "loading":
+          return "Checking...";
+        default:
+          return "Unknown";
+      }
+    }
+    export function overallStatus(statuses: ServiceStatus[]): "ok" | "degraded" | "error" | "loading" {
+      if (statuses.some((s) => s.status === "loading")) return "loading";
+      if (statuses.every((s) => s.status === "ok")) return "ok";
+      if (statuses.some((s) => s.status === "error")) return "error";
+      return "degraded";
+    }
+    export function formatSensorStatus(available: boolean): string {
+      return available ? "Available" : "Unavailable";
+    }
+    export function getSensorColor(available: boolean): "green" | "red" {
+      return available ? "green" : "red";
+    }
+    export function formatPercent(value: number): string {
+      const rounded = Math.round(value * 10) / 10;
+      return `${rounded}%`;
+    }
+    export function formatRatio(value: number): string {
+      return `${(value * 100).toFixed(1)}%`;
+    }
+    export function formatDate(iso: string): string {
+      return new Date(iso).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+    export function formatMeasuredAt(iso: string): string {
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(iso));
+    }
+    export function formatTimestamp(value: string | null | undefined): string {
+      if (value == null) return "Never";
+      return new Date(value).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+    export function isStale(generatedAt: string, now: Date = new Date()): boolean {
+      const ageDays = (now.getTime() - new Date(generatedAt).getTime()) / MS_PER_DAY;
+      return ageDays > STALE_THRESHOLD_DAYS;
+    }
+    export function isReportStale(
+      generatedAt: string,
+      thresholdHours: number = DEFAULT_REPORT_STALE_THRESHOLD_HOURS,
+      now: Date = new Date()
+    ): boolean {
+      const ageHours = (now.getTime() - new Date(generatedAt).getTime()) / MS_PER_HOUR;
+      return ageHours > thresholdHours;
+    }
+    export const SOURCE_COLORS: Record<
+      WeeklyResource["source"],
+      "yellow" | "blue" | "purple" | "neutral"
+    > = {
+      "js-weekly": "yellow",
+      "react-weekly": "blue",
+      "ai-weekly": "purple",
+      other: "neutral",
+    };
+    export const SOURCE_LABELS: Record<WeeklyResource["source"], string> = {
+      "js-weekly": "JS Weekly",
+      "react-weekly": "React Weekly",
+      "ai-weekly": "AI Weekly",
+      other: "Other",
+    };
   </file>
   </section>
 </codebase>
