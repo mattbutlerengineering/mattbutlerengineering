@@ -334,6 +334,7 @@ export function TimelineGrid({
           scrolls away with the now-line; the two custom properties place it over the hour columns. */}
       {emptyNight && (
         <div
+          className={styles.emptyNightAnchor}
           style={
             {
               "--timeline-header-height": `${HEADER_HEIGHT}px`,

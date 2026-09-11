@@ -216,3 +216,17 @@
     display: block;
   }
 }
+
+/*
+ * The empty-night overlay's anchor. Its two custom properties are declared here,
+ * not only inline on the element, for two reasons: the desktop geometry belongs
+ * beside the rest of the grid's geometry, and the monorepo phantom-token guard
+ * (scripts/__tests__/phantom-tokens.test.mjs) reads stylesheets, so a property
+ * that only ever exists in a React `style` prop reads to it as undefined. The
+ * element's own inline style still wins, which is what narrows the column on
+ * mobile. Values track HEADER_HEIGHT and TABLE_COLUMN_WIDTH in TimelineGrid.tsx.
+ */
+.emptyNightAnchor {
+  --timeline-header-height: 40px;
+  --timeline-table-column-width: 120px;
+}
