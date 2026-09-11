@@ -60,23 +60,40 @@ export interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   items: CommandItem[];
   placeholder?: string;
-  /** Ordered list of group names — ungrouped items appear first */
+  /**
+   * Ordered list of group names — ungrouped items appear first. With a query,
+   * groups reorder by the strongest match they contain (see `rankCommandMatch`);
+   * this order only breaks ties.
+   */
   groups?: string[];
 }
 
 /* ── Search helper ───────────────────────────── */
-function matchesQuery(label: string, query: string): boolean {
+/** How well a label matches a query — lower is stronger. */
+export type CommandMatchRank = 0 | 1 | 2 | 3;
+
+/**
+ * Ranks `label` against a non-empty `query`, case-insensitively:
+ * - `0` — the label starts with the query
+ * - `1` — a later word starts with the query
+ * - `2` — the query appears anywhere in the label
+ * - `3` — strict initials: every query character opens the next word, so the
+ *   query can be no longer than the label has words
+ * - `null` — no match
+ *
+ * Words split on whitespace: `"wg"` ranks `"Walk-in guest"` at 3, while
+ * `"walk"` does not match `"Waitlist"` at all.
+ */
+export function rankCommandMatch(label: string, query: string): CommandMatchRank | null {
   const lower = label.toLowerCase();
   const q = query.toLowerCase();
-  // Substring match
-  if (lower.includes(q)) return true;
-  // Simple initial-letter match: each query char matches the start of a word
-  const words = lower.split(/\s+/);
-  let wi = 0;
-  for (let qi = 0; qi < q.length && wi < words.length; qi++) {
-    if (words[wi]?.[0] === q[qi]) wi++;
-  }
-  return wi === words.length && q.length >= words.length;
+  if (lower.startsWith(q)) return 0;
+  const words = lower.split(/\s+/).filter(Boolean);
+  if (words.slice(1).some((word) => word.startsWith(q))) return 1;
+  if (lower.includes(q)) return 2;
+  const opensEachWord =
+    q.length <= words.length && Array.from(q).every((ch, i) => words[i]?.startsWith(ch));
+  return opensEachWord ? 3 : null;
 }
 
 /* ── Component ──────────────────────────────── */
@@ -104,39 +121,48 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
       return () => document.removeEventListener("keydown", handler);
     }, [open, onOpenChange]);
 
-    /* ── Filter items ────────────────────────── */
-    const filtered = useMemo(() => {
-      if (!query.trim()) return items;
-      return items.filter((item) => matchesQuery(item.label, query));
-    }, [items, query]);
+    /* ── Filter + rank items ─────────────────── */
+    const trimmedQuery = query.trim();
+    const ranked = useMemo(() => {
+      if (!trimmedQuery) return items.map((item) => ({ item, rank: 0 as CommandMatchRank }));
+      return (
+        items
+          .flatMap((item) => {
+            const rank = rankCommandMatch(item.label, trimmedQuery);
+            return rank === null ? [] : [{ item, rank }];
+          })
+          // Array.prototype.sort is stable: equal ranks keep `items` order.
+          .sort((a, b) => a.rank - b.rank)
+      );
+    }, [items, trimmedQuery]);
 
     /* ── Group items ─────────────────────────── */
     const grouped = useMemo(() => {
-      const map = new Map<string, CommandItem[]>();
-      const ungrouped: CommandItem[] = [];
+      type Section = { group: string | null; items: CommandItem[]; best: CommandMatchRank };
+      const sections = new Map<string | null, Section>();
 
-      for (const item of filtered) {
-        if (item.group) {
-          const arr = map.get(item.group) ?? [];
-          arr.push(item);
-          map.set(item.group, arr);
-        } else {
-          ungrouped.push(item);
-        }
+      // `ranked` is rank-ordered, so the first item seen for a section carries its best rank.
+      for (const { item, rank } of ranked) {
+        const key = item.group ?? null;
+        const section = sections.get(key);
+        if (section) section.items.push(item);
+        else sections.set(key, { group: key, items: [item], best: rank });
       }
 
-      const result: { group: string | null; items: CommandItem[] }[] = [];
-      if (ungrouped.length) result.push({ group: null, items: ungrouped });
+      const groupOrder = groups.length
+        ? groups
+        : Array.from(sections.keys()).filter((key): key is string => key !== null);
 
-      const orderedGroups = groups.length ? groups : Array.from(map.keys());
+      const result = [null, ...groupOrder].flatMap((key) => {
+        const section = sections.get(key);
+        return section ? [section] : [];
+      });
 
-      for (const g of orderedGroups) {
-        const arr = map.get(g);
-        if (arr?.length) result.push({ group: g, items: arr });
-      }
+      // With a query, the section holding the strongest match leads; ties keep the order above.
+      if (trimmedQuery) result.sort((a, b) => a.best - b.best);
 
-      return result;
-    }, [filtered, groups]);
+      return result.map(({ group, items: sectionItems }) => ({ group, items: sectionItems }));
+    }, [ranked, groups, trimmedQuery]);
 
     /* ── Flat list for keyboard nav ──────────── */
     const flatItems = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);

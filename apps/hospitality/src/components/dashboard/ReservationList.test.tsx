@@ -106,8 +106,11 @@ describe("ReservationList", () => {
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
 
-    expect(screen.getByText("PENDING")).toBeDefined();
-    expect(screen.getByText("CONFIRMED")).toBeDefined();
+    // Human labels from STATUS_LABEL, never the raw enum (ux.md Screen 8).
+    expect(screen.getByText("Pending")).toBeDefined();
+    expect(screen.getByText("Confirmed")).toBeDefined();
+    expect(screen.queryByText("PENDING")).toBeNull();
+    expect(screen.queryByText("CONFIRMED")).toBeNull();
   });
 
   it("should filter out CANCELLED reservations", () => {
@@ -117,6 +120,7 @@ describe("ReservationList", () => {
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
 
+    expect(screen.queryByText("Cancelled")).toBeNull();
     expect(screen.queryByText("CANCELLED")).toBeNull();
   });
 
@@ -127,6 +131,7 @@ describe("ReservationList", () => {
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
 
+    expect(screen.queryByText("No Show")).toBeNull();
     expect(screen.queryByText("NO_SHOW")).toBeNull();
   });
 
@@ -137,7 +142,7 @@ describe("ReservationList", () => {
     ];
     render(<ReservationList reservations={reservations} isLoading={false} />);
 
-    expect(screen.getByText("PENDING")).toBeDefined();
-    expect(screen.getByText("COMPLETED")).toBeDefined();
+    expect(screen.getByText("Pending")).toBeDefined();
+    expect(screen.getByText("Completed")).toBeDefined();
   });
 });

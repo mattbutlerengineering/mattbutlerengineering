@@ -1,0 +1,24 @@
+/* The trigger lives inside the 60 px grid row: compact at rest, 44 × 44 under a coarse pointer. */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-xs);
+}
+
+.chevron {
+  line-height: 1;
+}
+
+/* In flight — the row's one gold surface (ux.md Screen 6): the LED pulses, the word turns accent. */
+.pending {
+  color: var(--rialto-accent);
+}
+
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer (ux.md Screen 6; A8.3). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .trigger {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+}

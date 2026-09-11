@@ -1,5 +1,6 @@
 import { Card, Text, Badge, Skeleton } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
+import { STATUS_LABEL } from "../../utils/reservation-display.js";
 import styles from "../../pages/HomePage.module.css";
 
 const STATUS_VARIANT: Record<string, "neutral" | "success" | "warning" | "error"> = {
@@ -62,7 +63,7 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
               <div className={styles.reservationMeta}>Party of {r.partySize}</div>
             </div>
             <Badge variant={STATUS_VARIANT[r.status] ?? "neutral"} size="sm">
-              {r.status}
+              {STATUS_LABEL[r.status]}
             </Badge>
           </li>
         ))}

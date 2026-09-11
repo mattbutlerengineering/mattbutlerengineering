@@ -34,14 +34,6 @@
   margin: 0;
 }
 
-.errorBanner {
-  background: var(--rialto-error-muted);
-  color: var(--rialto-error);
-  padding: var(--rialto-space-sm) var(--rialto-space-md);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-}
-
 .form {
   display: flex;
   flex-direction: column;
@@ -193,4 +185,16 @@
 .confirmButton:disabled {
   background: color-mix(in srgb, var(--rialto-success) 40%, transparent);
   cursor: not-allowed;
+}
+
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer (ux.md Screen 3). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .partySizeRow > button {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+
+  .actions > button {
+    min-block-size: 44px;
+  }
 }

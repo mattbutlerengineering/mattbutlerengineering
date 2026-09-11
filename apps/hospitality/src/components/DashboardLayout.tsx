@@ -38,6 +38,7 @@ const ROUTE_LABELS: Record<string, string> = {
   reservations: "Reservations",
   guests: "Guests",
   waitlist: "Waitlist",
+  briefing: "Tonight's Service",
   "floor-plans": "Floor Plans",
   "booking-widget": "Booking Widget",
   onboarding: "New Venue",

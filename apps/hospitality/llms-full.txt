@@ -460,8 +460,7 @@
         fetchSlots()
           .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
           .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : "Failed to load availability";
-            dispatch({ type: "SET_SLOTS_ERROR", error: msg });
+            dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
           });
       }, [flowState.data.hold, releaseHold, fetchSlots]);
     
@@ -495,8 +494,7 @@
             });
             dispatch({ type: "HOLD_SUCCESS", hold, slot });
           } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to hold time slot";
-            dispatch({ type: "HOLD_ERROR", error: msg });
+            dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
           }
         },
         [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
@@ -544,8 +542,7 @@
               dispatch({ type: "CONFIRM_SUCCESS_NO_DEPOSIT", reservation });
             }
           } catch (err) {
-            const msg = err instanceof Error ? err.message : "Failed to confirm reservation";
-            dispatch({ type: "CONFIRM_ERROR", error: msg });
+            dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
           }
         },
         [
@@ -709,6 +706,28 @@
       action: "Sign back in",
       actionBusy: "Heading to sign-in",
     });
+  </file>
+  </section>
+  <section priority="medium" role="crm">
+  <file path="src/components/crm/guest-signals.ts">
+    export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
+    export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
+    export type GuestSegmentVariant = "accent" | "success" | "neutral";
+    export function isAllergyTag(tag: string): boolean {
+      const lower = tag.toLowerCase();
+      return ALLERGY_KEYWORDS.some((keyword) => lower.includes(keyword));
+    }
+    export function getSegmentLabel(visitCount: number, tags: readonly string[] | null): string {
+      const tagList = (tags ?? []).map((tag) => tag.toLowerCase());
+      if (tagList.includes("vip") || visitCount >= 10) return "VIP";
+      if (visitCount >= 2) return "Repeat";
+      return "New";
+    }
+    export function getSegmentVariant(label: string): GuestSegmentVariant {
+      if (label === "VIP") return "accent";
+      if (label === "Repeat") return "success";
+      return "neutral";
+    }
   </file>
   </section>
   <section priority="medium" role="e2e">
@@ -886,6 +905,20 @@
       // Plans section's GET-by-id handler so the editor the wizard lands on
       // renders the tables Launch just created, not the static fixture.
       const createdTables: Array<Record<string, unknown>> = [];
+      // Per-context table-status store (#5023). PATCH /tables/:id/status writes here; the tables
+      // list, the table-by-id route and every reservation's embedded `table` read through it, so a
+      // party seated in one request reads OCCUPIED on the next refetch instead of the static fixture.
+      const tableUpdates = new Map<string, Record<string, unknown>>();
+    
+      function allTables(): Array<Record<string, unknown>> {
+        const tables = JSON.parse(loadFixture("tables-list")) as {
+          data: Array<Record<string, unknown>>;
+        };
+        return [...tables.data, ...createdTables].map((table) => ({
+          ...table,
+          ...(tableUpdates.get(table.id as string) ?? {}),
+        }));
+      }
       await page.route("**/api/v1/tables", (route) => {
         if (route.request().method() !== "POST") return route.fallback();
         const tables = JSON.parse(loadFixture("tables-list"));
@@ -919,7 +952,7 @@
           data: Array<Record<string, unknown>>;
           pagination: Record<string, unknown>;
         };
-        const allData = [...tables.data, ...createdTables];
+        const allData = allTables();
         return route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -930,16 +963,35 @@
           }),
         });
       });
+      // PATCH /api/v1/tables/:id/status — stores the new status so later reads reflect it.
       await page.route(/\/api\/v1\/tables\/[^/?]+\/status$/, (route) => {
-        const tables = JSON.parse(loadFixture("tables-list"));
-        return jsonOk(route, { ...tables.data[0], status: "OCCUPIED" });
+        const id =
+          route
+            .request()
+            .url()
+            .replace(/\?.*$/, "")
+            .replace(/\/status$/, "")
+            .split("/")
+            .pop() ?? "";
+        let body: Record<string, unknown> = {};
+        try {
+          const parsed = route.request().postDataJSON();
+          if (parsed !== null && typeof parsed === "object") {
+            body = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // no body — leave empty
+        }
+        if (typeof body.status === "string") {
+          tableUpdates.set(id, { status: body.status, updatedAt: new Date().toISOString() });
+        }
+        const tables = allTables();
+        return jsonOk(route, tables.find((table) => table.id === id) ?? { ...tables[0], id });
       });
       await page.route(/\/api\/v1\/tables\/[^/?]+$/, (route) => {
         const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
-        const created = createdTables.find((table) => table.id === id);
-        if (created) return jsonOk(route, created);
-        const tables = JSON.parse(loadFixture("tables-list"));
-        return jsonOk(route, tables.data[0]);
+        const tables = allTables();
+        return jsonOk(route, tables.find((table) => table.id === id) ?? tables[0]);
       });
     
       // Reservations
@@ -950,8 +1002,11 @@
     
       // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
       // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
+      // "Today" is the browser-local calendar day (en-CA formats as YYYY-MM-DD) — the twin of
+      // `src/utils/local-clock.ts` `localDateString`, the clock the app filters on. A UTC slice rolls
+      // to tomorrow at 17:00 Pacific and emptied the grid for the whole evening service (A1 / P01).
       function todayReservations(): string {
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local day
         const fixture = JSON.parse(loadFixture("reservations-list")) as {
           data: Array<Record<string, unknown>>;
           pagination: unknown;
@@ -967,16 +1022,24 @@
         });
       }
     
+      // Embed the store's view of a reservation's table once a PATCH has touched it (#5023).
+      // Untouched reservations keep the fixture shape, embedded table or not; an unknown tableId
+      // is left alone rather than given a partial `table` the client's schema would reject.
+      function withTableStatus(r: Record<string, unknown>): Record<string, unknown> {
+        if (!tableUpdates.has(r.tableId as string)) return r;
+        const table = allTables().find((t) => t.id === r.tableId);
+        return table ? { ...r, table } : r;
+      }
+    
       // Stateful list: base fixture + walk-ins created this session + applied edits.
       function buildReservationsList(): string {
         const base = JSON.parse(todayReservations()) as {
           data: Array<Record<string, unknown>>;
           pagination: Record<string, unknown>;
         };
-        const allData = [...base.data, ...extraReservations].map((r) => ({
-          ...r,
-          ...(reservationUpdates.get(r.id as string) ?? {}),
-        }));
+        const allData = [...base.data, ...extraReservations].map((r) =>
+          withTableStatus({ ...r, ...(reservationUpdates.get(r.id as string) ?? {}) })
+        );
         return JSON.stringify({
           ...base,
           data: allData,
@@ -1018,7 +1081,8 @@
         return jsonOk(route, { ...baseItem, ...(reservationUpdates.get(id) ?? {}) });
       });
     
-      // Walk-in — registered LAST so LIFO gives it highest priority over the generic regex above.
+      // Walk-in — registered after the generic regex above so LIFO gives it priority there; the
+      // `me*` / `?*` globs below cannot match this path (`?` is a literal in Playwright globs).
       // POST /api/v1/reservations/walk-in adds the new reservation to the stateful store so the
       // subsequent GET /api/v1/reservations?* returns count+1.
       await page.route("**/api/v1/reservations/walk-in", (route) => {
@@ -1032,12 +1096,16 @@
         } catch {
           // no body — leave empty
         }
+        const first = fixture.data[0] ?? {};
+        const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
         const newRes: Record<string, unknown> = {
-          ...fixture.data[0],
+          ...first,
           ...body,
           id: `res_e2e_walkin_${Date.now()}`,
           status: "CONFIRMED",
           notes: "Walk-in",
+          tableId,
+          table: allTables().find((t) => t.id === tableId) ?? first.table,
         };
         extraReservations.push(newRes);
         return jsonOk(route, newRes);
@@ -1658,7 +1726,8 @@
       data: TData | undefined;
       isLoading: boolean;
       error: Error | null;
-      refetch: () => void;
+      /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
+      refetch: () => Promise<{ error: Error | null }>;
     }
     export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TData> {
       /** Base query key string */
@@ -1776,11 +1845,13 @@
           id: "action-new-reservation",
           label: "New Reservation",
           group: "Actions",
-          onSelect: () => navigate("/timeline"),
+          // Carries the intent the Reservations page reads on arrival (architecture § Amendment
+          // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
+          onSelect: () => navigate("/reservations?new=true"),
         },
         {
           id: "action-walkin",
-          label: "Walk-in Guest",
+          label: "Walk-in guest",
           group: "Actions",
           onSelect: () => navigate("/timeline?walkin=true"),
         },
@@ -1806,9 +1877,10 @@
     }
     function buildGroups(sections: readonly NavSection[]): string[] {
       const sectionNames = sections.map(sectionGroupName);
-      // Deduplicate while preserving order, then append "Actions"
+      // "Actions" leads: on an empty query the palette opens on what a Host does, not where they go
+      // (ux.md Flow 5). Section names follow, deduplicated in nav order.
       const unique = Array.from(new Set(sectionNames));
-      return [...unique, "Actions"];
+      return ["Actions", ...unique];
     }
     export function useCommandPalette({
       sections,
@@ -1876,11 +1948,8 @@
         try {
           await onSubmit(parsed.data);
         } catch (err) {
-          if (err instanceof ApiClientError) {
-            setError(err.problemDetails.detail);
-          } else {
-            setError(err instanceof Error ? err.message : "An error occurred");
-          }
+          // 422/409 keep the server's own detail (written for the person); everything else is a house sentence.
+          setError(describeApiError(err).detail);
         } finally {
           setIsPending(false);
         }
@@ -2231,6 +2300,50 @@
       mutationFn: (api, tableId) => api.tables.delete(tableId),
     });
   </file>
+  <file path="src/hooks/useFocusAfter.ts">
+    export type FocusTarget =
+      | { readonly kind: "element"; readonly element: HTMLElement }
+      | { readonly kind: "testId"; readonly testId: string }
+      /** The `PageHeader` h1, which carries `tabIndex={-1}` for this purpose. */
+      | { readonly kind: "pageHeading" };
+    export interface FocusAfterApi {
+      readonly focusAfter: (target: FocusTarget) => void;
+    }
+    function resolveTarget(target: FocusTarget): HTMLElement | null {
+      switch (target.kind) {
+        case "element":
+          return target.element;
+        case "testId":
+          return document.querySelector<HTMLElement>(
+            `[data-testid="${target.testId.replace(/["\\]/g, "\\$&")}"]`
+          );
+        case "pageHeading":
+          return document.querySelector<HTMLElement>("h1");
+      }
+    }
+    export function useFocusAfter(): FocusAfterApi {
+      const pendingRef = useRef<FocusTarget | null>(null);
+      // A request re-renders the owner so the effect below runs even when nothing else changed.
+      const [, requestRender] = useReducer((count: number) => count + 1, 0);
+    
+      const focusAfter = useCallback((target: FocusTarget) => {
+        pendingRef.current = target;
+        requestRender();
+      }, []);
+    
+      // After every commit: resolve the pending target, focus it once, forget it. No state is set here.
+      useEffect(() => {
+        const target = pendingRef.current;
+        if (!target) return;
+        const element = resolveTarget(target);
+        if (!element) return;
+        element.focus();
+        pendingRef.current = null;
+      });
+    
+      return { focusAfter };
+    }
+  </file>
   <file path="src/hooks/useGuestDirectory.ts">
     export interface UseGuestDirectoryParams {
       venueId?: string | null;
@@ -2544,6 +2657,8 @@
       filteredData: Reservation[];
       isLoading: boolean;
       error: Error | null;
+      /** Re-runs the list query; resolves with `error: null` on success so Retry can speak. */
+      refetch: () => Promise<{ error: Error | null }>;
     }
     export function useReservationDisplay({
       date,
@@ -2552,7 +2667,7 @@
       searchQuery,
       limit = 50,
     }: UseReservationDisplayParams): UseReservationDisplayResult {
-      const { data, isLoading, error } = useReservations({
+      const { data, isLoading, error, refetch } = useReservations({
         date,
         venueId,
         limit,
@@ -2587,7 +2702,7 @@
         return result;
       }, [allReservations, statusFilter, searchQuery]);
     
-      return { data, stats, filteredData, isLoading, error };
+      return { data, stats, filteredData, isLoading, error, refetch };
     }
   </file>
   <file path="src/hooks/useReservations.ts">
@@ -2599,7 +2714,8 @@
       data: Reservation[] | undefined;
       isLoading: boolean;
       error: Error | null;
-      refetch: () => void;
+      /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
+      refetch: () => Promise<{ error: Error | null }>;
       /** True when `data` was served from the offline cache after a fetch failure. */
       isFromCache: boolean;
       /**
@@ -2764,6 +2880,26 @@
       return { remainingMs, phase: classifySessionPhase(remainingMs) };
     }
   </file>
+  <file path="src/hooks/useStatusMessage.ts">
+    export interface StatusMessage {
+      readonly seq: number;
+      readonly text: string;
+    }
+    export interface StatusMessageApi {
+      readonly status: StatusMessage | null;
+      readonly announce: (text: string) => void;
+    }
+    export function useStatusMessage(): StatusMessageApi {
+      const [status, setStatus] = useState<StatusMessage | null>(null);
+    
+      // Functional update: two calls in one tick each see the previous seq and the last text wins.
+      const announce = useCallback((text: string) => {
+        setStatus((previous) => ({ seq: (previous?.seq ?? 0) + 1, text }));
+      }, []);
+    
+      return { status, announce };
+    }
+  </file>
   <file path="src/hooks/useTables.ts">
     export const TABLES_QUERY_KEY = "tables" as const;
     export interface UseTablesParams extends ListTablesParams {
@@ -2813,6 +2949,8 @@
       /** Epoch ms `reservations` was last confirmed synced with the server —
        * see `useReservations().lastSyncedAt`. */
       lastSyncedAt: number | undefined;
+      /** Refetches both queries; resolves once both have settled, rejects with the first failure. */
+      refetch: () => Promise<void>;
       seatGuest: (reservation: Reservation) => Promise<Reservation>;
       cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
       updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
@@ -2821,7 +2959,7 @@
         tableId: string;
         venueId: string;
         guestName?: string;
-      }) => Promise<void>;
+      }) => Promise<Reservation>;
       updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
     }
     export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTimelineDataResult {
@@ -2836,6 +2974,7 @@
         error: reservationsError,
         isFromCache,
         lastSyncedAt,
+        refetch: refetchReservations,
       } = useReservations({
         venueId,
         date,
@@ -2847,6 +2986,7 @@
         data: rawTables,
         isLoading: tablesLoading,
         error: tablesError,
+        refetch: refetchTables,
       } = useTables({
         venueId,
         limit: 100,
@@ -2877,6 +3017,18 @@
           .reduce((sum, r) => sum + r.partySize, 0);
         return { confirmed, pending, totalCovers, total: reservations.length };
       }, [reservations]);
+    
+      // Both queries settle before this resolves, so a Retry handler speaks about the whole grid.
+      // A refetch failure rejects (react-query's own `refetch` never does) — the caller can then
+      // leave the surface to `fetchError` without reading it back out of a stale closure.
+      const refetch = async (): Promise<void> => {
+        const [reservationsResult, tablesResult] = await Promise.all([
+          refetchReservations(),
+          refetchTables(),
+        ]);
+        const error = reservationsResult.error ?? tablesResult.error;
+        if (error) throw error;
+      };
     
       const invalidateAll = () => {
         queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
@@ -2915,9 +3067,10 @@
         tableId: string;
         venueId: string;
         guestName?: string;
-      }): Promise<void> => {
-        await api.reservations.walkIn(data);
+      }): Promise<Reservation> => {
+        const created = await api.reservations.walkIn(data);
         invalidateAll();
+        return created;
       };
     
       const updateTableStatus = async (tableId: string, status: TableStatus): Promise<void> => {
@@ -2933,6 +3086,7 @@
         stats,
         isFromCache,
         lastSyncedAt,
+        refetch,
         seatGuest,
         cancelReservation,
         updateReservation,
@@ -3270,6 +3424,30 @@
       return useVenueBySlugQuery({ slug }) as QueryHookResult<PublicVenue | null>;
     }
   </file>
+  <file path="src/hooks/useViewport.ts">
+    export type Viewport = "phone" | "tablet" | "desktop";
+    function readViewport(): Viewport {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "desktop";
+      if (window.matchMedia(PHONE_QUERY).matches) return "phone";
+      if (window.matchMedia(TABLET_QUERY).matches) return "tablet";
+      return "desktop";
+    }
+    export function useViewport(): Viewport {
+      const [viewport, setViewport] = useState<Viewport>(readViewport);
+    
+      useEffect(() => {
+        if (typeof window.matchMedia !== "function") return;
+        const lists = [window.matchMedia(PHONE_QUERY), window.matchMedia(TABLET_QUERY)];
+        const handleChange = () => setViewport(readViewport());
+        for (const list of lists) list.addEventListener("change", handleChange);
+        return () => {
+          for (const list of lists) list.removeEventListener("change", handleChange);
+        };
+      }, []);
+    
+      return viewport;
+    }
+  </file>
   <file path="src/hooks/useWaitlist.ts">
     export const WAITLIST_QUERY_KEY = "waitlist" as const;
     export interface UseWaitlistParams {
@@ -3290,7 +3468,7 @@
       }
     );
     export const useSeatWaitlistEntry = createMutationHook<string, WaitlistEntry>({
-      invalidateKeys: WAITLIST_QUERY_KEY,
+      invalidateKeys: [WAITLIST_QUERY_KEY, RESERVATIONS_QUERY_KEY],
       mutationFn: (api, id) => api.waitlist.seat(id),
     });
     export const useNotifyWaitlistEntry = createMutationHook<string, WaitlistEntry>({
@@ -3585,6 +3763,113 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/describe-api-error.ts">
+    export type ApiErrorCategory = ErrorCategory | "network" | "timeout";
+    export type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
+    export interface ApiErrorDescription {
+      readonly category: ApiErrorCategory;
+      /** The sentence shown to a person — never a request line, never `undefined`, never a bare code. */
+      readonly detail: string;
+      readonly retryable: boolean;
+      readonly recovery: ErrorRecovery;
+      /** The original message (`error.message`, or `String(error)`), for the details block only. */
+      readonly raw: string;
+    }
+    type CopyRow = Pick<ApiErrorDescription, "detail" | "retryable" | "recovery">;
+    export const ERROR_COPY: Readonly<Record<ApiErrorCategory, CopyRow>> = {
+      network: {
+        detail: "Can't reach the reservations service. Check the venue's connection, then try again.",
+        ...RETRY,
+      },
+      timeout: {
+        detail: "That took too long. The service didn't answer in time — try again.",
+        ...RETRY,
+      },
+      serverError: {
+        detail: "The reservations service hit a snag — nothing was changed. Try again in a moment.",
+        ...RETRY,
+      },
+      rateLimited: {
+        detail: "Too many requests at once. Give it a few seconds, then try again.",
+        ...RETRY,
+      },
+      conflict: {
+        detail: "Someone got there first — that table or time was just taken. Pick another.",
+        ...EDIT,
+      },
+      validationError: {
+        detail: "Something in the form didn't pass. Check party size, time and table.",
+        ...EDIT,
+      },
+      badRequest: {
+        detail: "Something in the form didn't pass. Check party size, time and table.",
+        ...EDIT,
+      },
+      unauthorized: {
+        detail: "Your session ended. Sign in again to keep working.",
+        retryable: false,
+        recovery: "sign-in",
+      },
+      forbidden: {
+        detail: "That's above your role. Ask a manager to make this change.",
+        retryable: false,
+        recovery: "none",
+      },
+      notFound: {
+        detail: "That reservation's gone — it may have been cancelled or moved. Refreshing the grid.",
+        retryable: false,
+        recovery: "refresh",
+      },
+      unknown: {
+        detail: "That didn't go through. Try again — if it keeps happening, tell your manager.",
+        ...RETRY,
+      },
+    };
+    interface ApiClientErrorLike {
+      readonly category: ErrorCategory;
+      readonly problemDetails: { readonly detail?: unknown };
+    }
+    function isRecord(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null;
+    }
+    function isApiClientError(error: unknown): error is ApiClientErrorLike {
+      return (
+        isRecord(error) &&
+        typeof error.category === "string" &&
+        API_CATEGORIES.has(error.category) &&
+        isRecord(error.problemDetails)
+      );
+    }
+    function isTimeout(error: unknown): boolean {
+      return isRecord(error) && (error.name === "TimeoutError" || error.name === "AbortError");
+    }
+    function rawMessage(error: unknown): string {
+      if (isRecord(error) && typeof error.message === "string") return error.message;
+      return String(error);
+    }
+    function humanProblemDetail(problemDetails: ApiClientErrorLike["problemDetails"]): string | null {
+      const detail = typeof problemDetails.detail === "string" ? problemDetails.detail.trim() : "";
+      if (detail === "" || detail === "undefined" || /^\d{3}$/.test(detail)) return null;
+      return detail;
+    }
+    function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription {
+      const row = ERROR_COPY[category];
+      return { category, ...row, detail: detail ?? row.detail, raw };
+    }
+    export function describeApiError(error: unknown): ApiErrorDescription {
+      const raw = rawMessage(error);
+    
+      if (isApiClientError(error)) {
+        const shown = SHOWS_PROBLEM_DETAIL.has(error.category)
+          ? humanProblemDetail(error.problemDetails)
+          : null;
+        return describe(error.category, raw, shown ?? undefined);
+      }
+      if (isTimeout(error)) return describe("timeout", raw);
+      if (error instanceof TypeError) return describe("network", raw);
+      return describe("unknown", raw);
+    }
+  </file>
   <file path="src/lib/describe-auth-error.ts">
     export interface AuthErrorDescription {
       /** Short, human headline for the error screen. */
@@ -3661,6 +3946,7 @@
         value: FloorPlanCacheEntry;
       };
     }
+    export const DB_NAME = "mbe-hospitality-offline";
     function getDb(): Promise<IDBPDatabase<OfflineCacheSchema>> {
       dbPromise ??= openDB<OfflineCacheSchema>(DB_NAME, DB_VERSION, {
         upgrade(db) {
@@ -4017,6 +4303,79 @@
       return { left, width };
     }
   </file>
+  <file path="src/components/timeline/seat-guest.ts">
+    export function findReservationTable(
+      reservation: Reservation,
+      tables: readonly Table[]
+    ): Table | undefined {
+      return tables.find((table) => table.id === reservation.tableId);
+    }
+    export function statusWord(reservation: Reservation, seated: boolean): string {
+      return seated ? "Seated" : STATUS_LABEL[reservation.status];
+    }
+    function isSeatableStatus(reservation: Reservation): boolean {
+      return reservation.status === "PENDING" || reservation.status === "CONFIRMED";
+    }
+    export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
+      return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
+    }
+    export function occupiedCaption(
+      reservation: Reservation,
+      table: Table | undefined,
+      seated: boolean
+    ): string | null {
+      if (seated || !isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      return `${table.name} is still occupied — turn it or move the party.`;
+    }
+    export interface SeatGuestState {
+      /** True while `onSeat` is pending — Seat Guest reads "Seating…" and the other actions rest. */
+      readonly seating: boolean;
+      /** The last rejection, rendered as "Guest not seated." until the next attempt. */
+      readonly failure: ApiErrorDescription | null;
+      /** Attach to the Seat Guest button so focus can return to it after a failure. */
+      readonly seatRef: RefObject<HTMLButtonElement | null>;
+      readonly seat: () => Promise<void>;
+    }
+    export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState {
+      const [seating, setSeating] = useState(false);
+      const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+      const seatRef = useRef<HTMLButtonElement>(null);
+      const { focusAfter } = useFocusAfter();
+    
+      const seat = useCallback(async () => {
+        setSeating(true);
+        setFailure(null);
+        try {
+          await onSeat();
+        } catch (err) {
+          setFailure(describeApiError(err));
+          const element = seatRef.current;
+          if (element) focusAfter({ kind: "element", element });
+        } finally {
+          setSeating(false);
+        }
+      }, [onSeat, focusAfter]);
+    
+      return { seating, failure, seatRef, seat };
+    }
+  </file>
+  <file path="src/components/timeline/table-status-menu.ts">
+    export interface TableStatusMenuItem {
+      id: TableStatus;
+      label: string;
+    }
+    export function tableStatusMenuItems(status: TableStatus): TableStatusMenuItem[] {
+      if (!(status in TABLE_VALID_TRANSITIONS)) return [];
+      return TABLE_VALID_TRANSITIONS[status].map((next) => ({
+        id: next,
+        label: `Mark ${next.toLowerCase()}`,
+      }));
+    }
+    export function tableStatusWord(status: TableStatus): string {
+      const lower = status.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }
+  </file>
   <file path="src/components/timeline/useGridFocus.ts">
     export interface GridCoordinate {
       row: number;
@@ -4088,6 +4447,44 @@
       );
     
       return { active, setActive, moveUp, moveDown, moveLeft, moveRight, handleKeyDown };
+    }
+  </file>
+  <file path="src/components/timeline/useScrollToNow.ts">
+    export const NOW_LINE_VIEWPORT_FRACTION = 0.25;
+    export function useScrollToNow(
+      scrollRef: RefObject<HTMLElement | null>,
+      currentTimeOffset: number | null,
+      tableColumnWidth: number
+    ): void {
+      const { precision } = useMotionPreset();
+      const behavior: ScrollBehavior = precision.duration === 0 ? "instant" : "smooth";
+      const hasNowLine = currentTimeOffset !== null;
+    
+      // The scroll effect keys on hasNowLine alone; it reads the rest here so the
+      // minute tick (a new offset every minute) never re-scrolls the host.
+      const latestRef = useRef({ currentTimeOffset, tableColumnWidth, behavior });
+      useEffect(() => {
+        latestRef.current = { currentTimeOffset, tableColumnWidth, behavior };
+      });
+    
+      useEffect(() => {
+        if (!hasNowLine) return;
+        const element = scrollRef.current;
+        const {
+          currentTimeOffset: offset,
+          tableColumnWidth: column,
+          behavior: how,
+        } = latestRef.current;
+        if (!element || offset === null) return;
+    
+        const left = Math.max(0, column + offset - element.clientWidth * NOW_LINE_VIEWPORT_FRACTION);
+        if (typeof element.scrollTo === "function") {
+          element.scrollTo({ left, behavior: how });
+        } else {
+          // jsdom has no Element.scrollTo; the instant path is a plain assignment.
+          element.scrollLeft = left;
+        }
+      }, [hasNowLine, scrollRef]);
     }
   </file>
   </section>
@@ -4179,6 +4576,13 @@
         month: "long",
         day: "numeric",
         year: "numeric",
+      });
+    }
+    export function formatServiceDate(dateStr: string): string {
+      return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
       });
     }
     export function formatTime(isoString: string): string {
@@ -4297,6 +4701,21 @@
       return properties.map(foldLine).join(CRLF);
     }
   </file>
+  <file path="src/utils/local-clock.ts">
+    function isValidDate(now: Date): boolean {
+      return !Number.isNaN(now.getTime());
+    }
+    export function localDateString(now: Date): string {
+      return isValidDate(now) ? now.toLocaleDateString(LOCAL_DAY_LOCALE) : "";
+    }
+    export function localHour(now: Date): number {
+      return now.getHours();
+    }
+    export function isLocalToday(date: string, now: Date): boolean {
+      const today = localDateString(now);
+      return today !== "" && date === today;
+    }
+  </file>
   <file path="src/utils/ordinal.ts">
     export function ordinalVisit(n: number): string {
       const suffix = ["th", "st", "nd", "rd"];
@@ -4327,6 +4746,70 @@
         hour: "2-digit",
         minute: "2-digit",
       });
+    }
+  </file>
+  <file path="src/utils/seated.ts">
+    export const SEATED_EARLY_WINDOW_MS = 15 * 60_000;
+    type SeatedReservation = Pick<Reservation, "status" | "startTime" | "endTime">;
+    export function isSeated(
+      reservation: SeatedReservation,
+      tableStatus: TableStatus | undefined,
+      now: Date
+    ): boolean {
+      if (reservation.status !== "CONFIRMED" || tableStatus !== "OCCUPIED") return false;
+      const start = new Date(reservation.startTime).getTime();
+      const end = new Date(reservation.endTime).getTime();
+      const at = now.getTime();
+      if (Number.isNaN(start) || Number.isNaN(end) || Number.isNaN(at)) return false;
+      return at >= start - SEATED_EARLY_WINDOW_MS && at <= end;
+    }
+    export function seatedReservationIds(
+      reservations: readonly (SeatedReservation & Pick<Reservation, "id" | "tableId">)[],
+      tables: readonly Pick<Table, "id" | "status">[],
+      now: Date
+    ): ReadonlySet<string> {
+      const statusByTableId = new Map(tables.map((table) => [table.id, table.status]));
+      return new Set(
+        reservations
+          .filter((reservation) => isSeated(reservation, statusByTableId.get(reservation.tableId), now))
+          .map((reservation) => reservation.id)
+      );
+    }
+  </file>
+  <file path="src/utils/timeline-intent.ts">
+    export const WALK_IN_PARAM = "walkin";
+    export const SELECTED_PARAM = "selected";
+    export interface TimelineIntent {
+      /** Exactly `walkin=true` — any other spelling is no intent. */
+      readonly walkIn: boolean;
+      /** `selected=<id>`, trimmed; blank or absent is `null`. */
+      readonly selectedId: string | null;
+    }
+    export function parseTimelineIntent(params: URLSearchParams): TimelineIntent {
+      const selected = params.get(SELECTED_PARAM)?.trim() ?? "";
+      return {
+        walkIn: params.get(WALK_IN_PARAM) === "true",
+        selectedId: selected === "" ? null : selected,
+      };
+    }
+    export function stripTimelineIntent(params: URLSearchParams): URLSearchParams {
+      const next = new URLSearchParams(params);
+      next.delete(WALK_IN_PARAM);
+      next.delete(SELECTED_PARAM);
+      return next;
+    }
+    export const NEW_RESERVATION_PARAM = "new";
+    export interface ReservationsIntent {
+      /** Exactly `new=true` — any other spelling is no intent. */
+      readonly newReservation: boolean;
+    }
+    export function parseReservationsIntent(params: URLSearchParams): ReservationsIntent {
+      return { newReservation: params.get(NEW_RESERVATION_PARAM) === "true" };
+    }
+    export function stripReservationsIntent(params: URLSearchParams): URLSearchParams {
+      const next = new URLSearchParams(params);
+      next.delete(NEW_RESERVATION_PARAM);
+      return next;
     }
   </file>
   <file path="src/utils/venueOpenLabel.ts">

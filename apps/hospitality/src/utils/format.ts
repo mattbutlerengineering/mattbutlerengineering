@@ -35,6 +35,21 @@ export function formatLongDateWithYear(dateStr: string): string {
 }
 
 /**
+ * Format a YYYY-MM-DD date string as "Weekday, Mon Day" (e.g. "Tuesday, Sep 3") — the
+ * service-night label ux.md uses in empty states and load announcements.
+ * Appends T00:00:00 before constructing the Date to avoid UTC-offset date shifts.
+ *
+ * Used by: BriefingPage, ReservationsPage
+ */
+export function formatServiceDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(LOCALE, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
  * Format an ISO datetime string as 12-hour time with minutes (e.g. "2:30 PM").
  *
  * Used by: TimeSlotPicker, GuestDetailsForm, ConfirmationView,

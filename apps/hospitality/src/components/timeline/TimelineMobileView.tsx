@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Reservation, Table } from "@mbe/types";
-import { Button, Card, Stack, Text, Tag } from "@mattbutlerengineering/rialto";
+import { Button, Card, Stack, StatusLED, Text, Tag } from "@mattbutlerengineering/rialto";
 import { formatTime } from "../../utils/format.js";
 import styles from "./TimelineMobileView.module.css";
 
@@ -8,7 +8,7 @@ export type StatusFilter = "ALL" | "CONFIRMED" | "PENDING" | "CANCELLED";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "ALL", label: "All" },
-  { value: "CONFIRMED", label: "Seated" },
+  { value: "CONFIRMED", label: "Confirmed" },
   { value: "PENDING", label: "Upcoming" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
@@ -77,9 +77,17 @@ interface ReservationCardProps {
   table: Table | undefined;
   onClick: (reservation: Reservation) => void;
   isSelected: boolean;
+  /** A fact about the floor, not the booking (ux Decision a): the page derives it. */
+  seated: boolean;
 }
 
-function ReservationCard({ reservation, table, onClick, isSelected }: ReservationCardProps) {
+function ReservationCard({
+  reservation,
+  table,
+  onClick,
+  isSelected,
+  seated,
+}: ReservationCardProps) {
   const tableLabel = table?.tableNumber || table?.name || "Unassigned";
   const timeLabel = `${formatTime(reservation.startTime)} – ${formatTime(reservation.endTime)}`;
 
@@ -87,7 +95,7 @@ function ReservationCard({ reservation, table, onClick, isSelected }: Reservatio
     <Button
       className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
       onClick={() => onClick(reservation)}
-      aria-label={`${reservation.guestName || "Guest"}, party of ${reservation.partySize}, ${timeLabel}, table ${tableLabel}`}
+      aria-label={`${reservation.guestName || "Guest"}, party of ${reservation.partySize}, ${timeLabel}, table ${tableLabel}${seated ? ", seated" : ""}`}
       type="button"
     >
       <Stack direction="row" align="center" justify="between" gap="sm" className={styles.cardRow}>
@@ -113,7 +121,10 @@ function ReservationCard({ reservation, table, onClick, isSelected }: Reservatio
             </Text>
           </Stack>
         </Stack>
-        <Tag variant={statusVariant(reservation.status)}>{statusLabel(reservation.status)}</Tag>
+        <Stack direction="row" gap="xs" align="center">
+          {seated && <StatusLED variant="success" size="xs" label="Seated" />}
+          <Tag variant={statusVariant(reservation.status)}>{statusLabel(reservation.status)}</Tag>
+        </Stack>
       </Stack>
     </Button>
   );
@@ -124,6 +135,8 @@ export interface TimelineMobileViewProps {
   tables: Table[];
   onReservationClick: (reservation: Reservation) => void;
   selectedReservationId?: string | null;
+  /** Ids of the parties seated right now (`seatedReservationIds`); a card is marked only when listed. */
+  seatedIds?: ReadonlySet<string>;
 }
 
 export function TimelineMobileView({
@@ -131,6 +144,7 @@ export function TimelineMobileView({
   tables,
   onReservationClick,
   selectedReservationId,
+  seatedIds,
 }: TimelineMobileViewProps) {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("ALL");
 
@@ -202,6 +216,7 @@ export function TimelineMobileView({
                   table={tableMap.get(r.tableId)}
                   onClick={onReservationClick}
                   isSelected={r.id === selectedReservationId}
+                  seated={seatedIds?.has(r.id) ?? false}
                 />
               ))}
             </Stack>

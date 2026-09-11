@@ -7,7 +7,8 @@ export interface QueryHookResult<TData> {
   data: TData | undefined;
   isLoading: boolean;
   error: Error | null;
-  refetch: () => void;
+  /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
+  refetch: () => Promise<{ error: Error | null }>;
 }
 
 export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TData> {
