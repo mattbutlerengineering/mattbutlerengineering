@@ -71,18 +71,6 @@ const ALLOWLIST: readonly AllowlistEntry[] = [
   },
 ];
 
-/**
- * Sites still reading `.message` directly when this guard was written (item 5, 2026-09-04) —
- * derived from a grep of the pattern over `src/**` minus tests minus the allowlist: 27 − 7 = 20.
- * Each later item deletes the entries it adopts `describeApiError` for; item 16 deletes the list.
- * An entry that no longer hits fails the guard, so the list cannot go stale.
- *
- * Two paths differ from breakdown.md's spelling: `useBookingFlow.ts` lives under
- * `components/booking-widget/`, not `hooks/`; `WaitlistJoinView.tsx` under
- * `components/booking-widget/`, not `components/booking/`.
- */
-export const PENDING_ADOPTION: readonly string[] = ["components/timeline/StaffDepositSection.tsx"];
-
 function isSourceFile(file: string): boolean {
   return /\.(ts|tsx)$/.test(file) && !/\.test\.(ts|tsx)$/.test(file);
 }
@@ -101,10 +89,8 @@ const isAllowlisted = (file: string) => ALLOWLIST.some((entry) => entry.matches(
 describe("B1 guard: no rendered text may be a raw request line", () => {
   const hits = filesReadingRawMessage();
 
-  it("every raw `.message` read outside the allowlist is a PENDING_ADOPTION entry", () => {
-    const unexpected = hits.filter(
-      (file) => !isAllowlisted(file) && !PENDING_ADOPTION.includes(file)
-    );
+  it("no file outside the allowlist reads `.message` raw", () => {
+    const unexpected = hits.filter((file) => !isAllowlisted(file));
 
     expect(
       unexpected,
@@ -112,17 +98,7 @@ describe("B1 guard: no rendered text may be a raw request line", () => {
     ).toEqual([]);
   });
 
-  it("every PENDING_ADOPTION entry still hits — a converted site must delete its entry", () => {
-    const stale = PENDING_ADOPTION.filter((file) => !hits.includes(file));
-
-    expect(
-      stale,
-      `Stale PENDING_ADOPTION entr(y/ies) — the site no longer reads \`.message\`; delete:\n  ${stale.join("\n  ")}`
-    ).toEqual([]);
-  });
-
-  it("PENDING_ADOPTION and the allowlist do not overlap, and every allowlist entry states a reason", () => {
-    expect(PENDING_ADOPTION.filter(isAllowlisted)).toEqual([]);
+  it("every allowlist entry states a reason", () => {
     expect(ALLOWLIST.every((entry) => entry.reason.trim().length > 0)).toBe(true);
   });
 });
