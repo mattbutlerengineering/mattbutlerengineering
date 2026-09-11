@@ -204,7 +204,10 @@ describe("PublicBookingPage", () => {
         });
 
         const link = screen.getByRole("link");
-        expect(link.getAttribute("href")).toBeTruthy();
+        // Pin the destination, not just its existence: a truthy href is equally
+        // satisfied by a link into the auth-gated staff dashboard, which is not
+        // an exit for a guest.
+        expect(link.getAttribute("href")).toBe("https://mattbutlerengineering.com/");
         expect(screen.queryByRole("button")).toBeNull();
       } finally {
         historyLengthSpy.mockRestore();
