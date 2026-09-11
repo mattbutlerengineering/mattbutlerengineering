@@ -16,6 +16,11 @@ const NOT_FOUND_HEADING = "Venue not found";
 const NOT_FOUND_DESCRIPTION =
   "We couldn't find the booking page you're looking for. Double-check the link, or contact the venue directly to make your reservation.";
 
+// A guest arriving from an external link (email, social bio, QR code) has no
+// browser history to go back to — window.history.back() on an empty stack
+// lands them on about:blank. Fall back to a real, navigable link in that case.
+const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/hospitality";
+
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
   // Guests resolve the venue through the unauthenticated by-slug read
@@ -59,22 +64,34 @@ export function PublicBookingPage() {
   // Branded, deliberately generic not-found. The raw transport error carries
   // the internal endpoint path (e.g. "GET /api/v1/venues/by-slug/... failed: 404")
   // and must never be surfaced to the guest.
-  const renderNotFound = () => (
-    <div className={styles.page}>
-      <div className={styles.errorCenter}>
-        <EmptyState
-          variant="elevated"
-          heading={NOT_FOUND_HEADING}
-          description={NOT_FOUND_DESCRIPTION}
-          action={
-            <Button variant="primary" onClick={() => window.history.back()}>
-              Go Back
-            </Button>
-          }
-        />
+  const renderNotFound = () => {
+    // An empty history stack (history.length <= 1) means the guest arrived
+    // directly — history.back() would strand them on about:blank. Offer a
+    // real navigable link instead of a JS-only back action in that case.
+    const canGoBack = window.history.length > 1;
+    return (
+      <div className={styles.page}>
+        <div className={styles.errorCenter}>
+          <EmptyState
+            variant="elevated"
+            heading={NOT_FOUND_HEADING}
+            description={NOT_FOUND_DESCRIPTION}
+            action={
+              canGoBack ? (
+                <Button variant="primary" onClick={() => window.history.back()}>
+                  Go Back
+                </Button>
+              ) : (
+                <a className={styles.notFoundLink} href={FALLBACK_HOME_URL}>
+                  Back to Matt Butler Engineering
+                </a>
+              )
+            }
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (!venueSlug) return renderNotFound();
 
