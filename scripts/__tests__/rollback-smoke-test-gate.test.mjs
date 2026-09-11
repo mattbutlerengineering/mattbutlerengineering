@@ -254,3 +254,38 @@ describe("auto-rollback.yml wiring", () => {
     expect(workflow).toContain("node scripts/rollback-smoke-test-gate.mjs --run-id");
   });
 });
+
+describe("auto-rollback.yml skip branches are exhaustive", () => {
+  const workflow = readFileSync(
+    new URL("../../.github/workflows/auto-rollback.yml", import.meta.url),
+    "utf-8"
+  );
+
+  /** Every `if:` on a step inside the check-and-rollback job. */
+  const conditions = workflow
+    .split("\n")
+    .filter((line) => line.trimStart().startsWith("if:"))
+    .map((line) => line.trim());
+
+  it("explains the standing-red case instead of silently doing nothing", () => {
+    // smoke_tests_ran_and_failed == true && should_auto_revert != true is a
+    // reachable state (it is the whole point of the transition gate). If no
+    // step matches it, the job runs, reverts nothing, and says nothing.
+    const standingRed = conditions.find(
+      (condition) =>
+        condition.includes("smoke_tests_ran_and_failed == 'true'") &&
+        condition.includes("should_auto_revert != 'true'")
+    );
+    expect(standingRed).toBeDefined();
+  });
+
+  it("keeps the unverified-deploy skip scoped to its own case", () => {
+    const unverified = conditions.find((condition) =>
+      condition.includes("smoke_tests_ran_and_failed != 'true'")
+    );
+    expect(unverified).toBeDefined();
+    // It must NOT also claim the standing-red case, or the two notices overlap
+    // and the log stops distinguishing "never ran" from "was already red".
+    expect(unverified).not.toContain("should_auto_revert");
+  });
+});
