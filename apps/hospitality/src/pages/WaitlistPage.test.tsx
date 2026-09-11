@@ -534,7 +534,12 @@ describe("WaitlistPage", () => {
         );
       });
       expect(screen.getAllByRole("status")).toHaveLength(1);
-      expect(document.activeElement).toBe(screen.getByLabelText("Guest Name"));
+      // useFocusAfter focuses in an effect after the commit in which the target
+      // resolves — a later commit than the one that renders the status sentence
+      // above. Synchronize on focus itself, not on a different signal.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByLabelText("Guest Name"));
+      });
     });
   });
 
@@ -652,7 +657,12 @@ describe("WaitlistPage", () => {
         expect(screen.getByRole("status")).toHaveTextContent(/^Notified Jordan Lee\.$/);
       });
       expect(screen.getAllByRole("status")).toHaveLength(1);
-      expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+      // useFocusAfter focuses in an effect after the commit in which the target
+      // resolves — a later commit than the one that renders the status sentence
+      // above. Synchronize on focus itself, not on a different signal.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+      });
     });
 
     it('notifying the only entry focuses the "No one waiting" block once the refetch empties the list', async () => {
@@ -707,7 +717,12 @@ describe("WaitlistPage", () => {
       await waitFor(() => {
         expect(screen.getByRole("status")).toHaveTextContent(/^Removed Alice from the waitlist\.$/);
       });
-      expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+      // useFocusAfter focuses in an effect after the commit in which the target
+      // resolves — a later commit than the one that renders the status sentence
+      // above. Synchronize on focus itself, not on a different signal.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+      });
     });
 
     it('cancelling the last entry focuses the "No one waiting" block once it renders', async () => {
@@ -761,7 +776,12 @@ describe("WaitlistPage", () => {
       await waitFor(() => {
         expect(screen.getByRole("status")).toHaveTextContent(/^Removed Bob/);
       });
-      expect(document.activeElement).toBe(screen.getByTestId("page-header"));
+      // useFocusAfter focuses in an effect after the commit in which the target
+      // resolves — a later commit than the one that renders the status sentence
+      // above. Synchronize on focus itself, not on a different signal.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("page-header"));
+      });
     });
   });
 
@@ -821,7 +841,12 @@ describe("WaitlistPage", () => {
         expect(screen.getByRole("status")).toHaveTextContent(/^Seated Jordan Lee at Table 1\.$/);
       });
       expect(screen.getAllByRole("status")).toHaveLength(1);
-      expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+      // useFocusAfter focuses in an effect after the commit in which the target
+      // resolves — a later commit than the one that renders the status sentence
+      // above. Synchronize on focus itself, not on a different signal.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("waitlist-entry-wl-2"));
+      });
 
       expect(mockToast).toHaveBeenCalledTimes(1);
       const toastInput = mockToast.mock.calls[0]![0] as {
