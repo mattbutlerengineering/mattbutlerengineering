@@ -194,7 +194,7 @@ describe("TemplateGallery", () => {
   it("renders the All button with total template count", () => {
     render(<TemplateGallery {...defaultProps} />);
     const allButton = screen.getByRole("button", { name: /^All/ });
-    expect(allButton.textContent).toContain("29");
+    expect(allButton.textContent).toContain("30");
   });
 
   it("resets to All category and clears search when reopened", () => {
@@ -209,7 +209,7 @@ describe("TemplateGallery", () => {
 
     const newSearchInput = screen.getByRole("textbox", { name: /search templates/i });
     expect((newSearchInput as HTMLInputElement).value).toBe("");
-    // All 29 templates should show again
+    // All 30 templates should show again
     expect(screen.getByText("Analytics Dashboard")).toBeDefined();
     expect(screen.getByText("Registration Form")).toBeDefined();
   });
