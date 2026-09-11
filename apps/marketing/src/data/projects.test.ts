@@ -33,7 +33,9 @@ describe("PROJECTS", () => {
     expect(rialto).toBeDefined();
     expect(rialto!.stack).toContain("React");
     expect(rialto!.stack).toContain("TypeScript");
-    expect(rialto!.href).toBe("/rialto/");
+    // Deep-links to a composed showcase page (Booking Wizard example) rather than
+    // the /rialto/ landing page, so a first-time visitor sees breadth in one view.
+    expect(rialto!.href).toBe("/rialto/examples/booking-wizard");
   });
 
   it("Hospitality Platform project has correct data", () => {
