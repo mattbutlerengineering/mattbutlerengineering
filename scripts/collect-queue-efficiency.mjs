@@ -66,10 +66,14 @@ export function classifyUnavailableReason(err) {
  *   - `has-pr` label (legacy coordination label), OR
  *   - a `worktree-agent-*` branch name (matches implement-queue worktree pattern).
  *
+ * This is the repo's canonical three-leg AI-PR predicate — `pr-metrics.mjs`
+ * imports it directly, and `.github/workflows/ai-audit.yml`'s inline jq
+ * mirrors it (#5012; both used to carry independent, divergent copies).
+ *
  * @param {{ headRefName?: string, labels?: Array<{ name: string }> }} pr
  * @returns {boolean}
  */
-function isAiPr(pr) {
+export function isAiPr(pr) {
   const labels = pr.labels ?? [];
   if (labels.some((l) => l.name === "agent-authored")) return true;
   if (labels.some((l) => l.name === "has-pr")) return true;
