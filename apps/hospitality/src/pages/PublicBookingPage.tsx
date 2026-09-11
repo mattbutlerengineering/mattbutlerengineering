@@ -19,7 +19,12 @@ const NOT_FOUND_DESCRIPTION =
 // A guest arriving from an external link (email, social bio, QR code) has no
 // browser history to go back to — window.history.back() on an empty stack
 // lands them on about:blank. Fall back to a real, navigable link in that case.
-const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/hospitality";
+//
+// This must be a PUBLIC page. /hospitality is the authenticated staff dashboard
+// (main.tsx routes its index through DashboardLayout), so sending a guest there
+// swaps one dead end for an Auth0 login wall they have no account for. The
+// marketing root is the only guest-readable destination this product has.
+const FALLBACK_HOME_URL = "https://mattbutlerengineering.com/";
 
 export function PublicBookingPage() {
   const { venueSlug } = useParams<{ venueSlug: string }>();
