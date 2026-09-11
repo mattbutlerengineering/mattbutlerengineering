@@ -194,7 +194,11 @@ describe("TemplateGallery", () => {
   it("renders the All button with total template count", () => {
     render(<TemplateGallery {...defaultProps} />);
     const allButton = screen.getByRole("button", { name: /^All/ });
-    expect(allButton.textContent).toContain("30");
+    // Derive from the rendered grid rather than a literal: the invariant is that
+    // the sidebar count matches the cards on screen, and a hardcoded number goes
+    // stale the moment a template is added.
+    const cards = screen.getAllByRole("button", { name: /^Use .+ template$/ });
+    expect(allButton.textContent).toBe(`All${cards.length}`);
   });
 
   it("resets to All category and clears search when reopened", () => {
@@ -209,7 +213,7 @@ describe("TemplateGallery", () => {
 
     const newSearchInput = screen.getByRole("textbox", { name: /search templates/i });
     expect((newSearchInput as HTMLInputElement).value).toBe("");
-    // All 30 templates should show again
+    // Every template should show again
     expect(screen.getByText("Analytics Dashboard")).toBeDefined();
     expect(screen.getByText("Registration Form")).toBeDefined();
   });
