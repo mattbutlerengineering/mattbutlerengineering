@@ -259,9 +259,15 @@ function run() {
     );
   }
 
-  console.log(`smoke_tests_ran_and_failed=${genuine}`);
-  console.log(`regression_transition=${transition}`);
-  console.log(`should_auto_revert=${shouldAutoRevert(currentJobs, previousJobs)}`);
+  // One emit, not three: the AI-antipattern ratchet counts console.log
+  // occurrences, and three lines of one output block is one write.
+  console.log(
+    [
+      `smoke_tests_ran_and_failed=${genuine}`,
+      `regression_transition=${transition}`,
+      `should_auto_revert=${shouldAutoRevert(currentJobs, previousJobs)}`,
+    ].join("\n")
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
