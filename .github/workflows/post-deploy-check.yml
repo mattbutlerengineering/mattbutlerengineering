@@ -230,17 +230,6 @@ jobs:
           TRIGGER_NAME: ${{ github.event.workflow_run.name }}
         run: |
           SHORT_SHA="${HEAD_SHA:0:7}"
-
-          # Dedupe on *which probes failed and how*, not the commit SHA -- the
-          # routing/guard defects this job catches are properties of deployed
-          # config, not of a single commit, so a SHA-keyed identity could
-          # never match itself on the next deploy (#5189; see #5168-#5231 for
-          # the duplicate chain this produced). scripts/lib/deploy-check-dedupe.mjs
-          # is the pure, unit-tested derivation.
-          SIGNATURE_JSON=$(node scripts/lib/deploy-check-dedupe.mjs api-surface /tmp/api-surface.log)
-          SIGNATURE=$(echo "$SIGNATURE_JSON" | jq -r '.signature')
-          DEDUPE_KEY=$(echo "$SIGNATURE_JSON" | jq -r '.dedupeKey')
-
           {
             echo "## API Surface Invariant Breach"
             echo
@@ -269,34 +258,15 @@ jobs:
             echo "*Auto-created by post-deploy-check workflow*"
           } > /tmp/api-surface-body.md
 
-          TITLE="API surface invariant breach: ${SIGNATURE}"
-
-          # --search-state open (not all) is deliberate: a match against a
-          # *closed* issue must file a fresh issue, not reopen the old one --
-          # reopenIssue() doesn't reset labels (#5071) -- and restricting the
-          # search to open issues routes that case through create instead.
-          RESULT=$(node scripts/lib/file-issue-cli.mjs \
-            --title "$TITLE" \
+          node scripts/lib/file-issue-cli.mjs \
+            --title "API surface invariant breach (${SHORT_SHA:-unknown})" \
             --label "ci-fix" \
             --label "ready" \
             --body-file /tmp/api-surface-body.md \
-            --dedupe-key "$DEDUPE_KEY" \
+            --dedupe-key "api-surface-invariants-${SHORT_SHA:-unknown}" \
             --search-label "ci-fix" \
-            --search-state open \
-            --contains "$SIGNATURE")
-          echo "$RESULT"
-
-          ACTION=$(echo "$RESULT" | jq -r '.action')
-          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
-
-          # A dedupe match against an already-open issue means this is the
-          # same failure recurring on a new commit -- comment with the new
-          # occurrence instead of filing a duplicate.
-          if [ "$ACTION" = "skip" ]; then
-            printf 'Recurred on a new commit.\n\n**Commit:** `%s`\n**Run:** %s\n' \
-              "${SHORT_SHA:-unknown}" "$RUN_URL" > /tmp/api-surface-comment.md
-            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/api-surface-comment.md
-          fi
+            --search-state all \
+            --contains "(${SHORT_SHA:-unknown})"
 
   playwright-smoke:
     name: Playwright Smoke Tests
@@ -552,36 +522,15 @@ jobs:
             echo "*Auto-created by post-deploy-check workflow*"
           } > /tmp/unverified-body.md
 
-          # A propagation-poll timeout carries no commit-specific information
-          # worth splitting duplicates on (see the body text above), so the
-          # dedupe key is a fixed string with no SHA -- otherwise every commit
-          # refiles a "new" issue for the same timeout (#5189; see #5123-#5153
-          # for the duplicate chain this produced).
-          DEDUPE_KEY=$(node scripts/lib/deploy-check-dedupe.mjs post-deploy-unverified-key)
-          TITLE="Post-deploy verification could not confirm deploy"
-
-          # --search-state open (not all): a match against a closed issue
-          # files fresh rather than reopening it (reopenIssue() doesn't reset
-          # labels -- #5071).
-          RESULT=$(node scripts/lib/file-issue-cli.mjs \
-            --title "$TITLE" \
+          node scripts/lib/file-issue-cli.mjs \
+            --title "Post-deploy verification could not confirm deploy (${SHORT_SHA:-unknown})" \
             --label "ci-fix" \
             --label "ready" \
             --body-file /tmp/unverified-body.md \
-            --dedupe-key "$DEDUPE_KEY" \
+            --dedupe-key "post-deploy-check-unverified-${SHORT_SHA:-unknown}" \
             --search-label "ci-fix" \
-            --search-state open \
-            --contains "$TITLE")
-          echo "$RESULT"
-
-          ACTION=$(echo "$RESULT" | jq -r '.action')
-          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
-
-          if [ "$ACTION" = "skip" ]; then
-            printf 'Recurred on a new commit.\n\n**Commit:** `%s`\n**Run:** %s\n' \
-              "${SHORT_SHA:-unknown}" "$RUN_URL" > /tmp/unverified-comment.md
-            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/unverified-comment.md
-          fi
+            --search-state all \
+            --contains "(${SHORT_SHA:-unknown})"
 
       - name: Log verification result for learning-loop
         if: always()
