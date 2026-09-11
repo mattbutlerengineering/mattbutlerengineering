@@ -80,6 +80,7 @@ vi.mock("./PublicBookingPage.module.css", () => ({
     header: "header",
     widgetWrapper: "widgetWrapper",
     footer: "footer",
+    notFoundLink: "notFoundLink",
   },
 }));
 
@@ -179,6 +180,41 @@ describe("PublicBookingPage", () => {
         expect(screen.getByText("Venue not found")).toBeDefined();
       });
       expect(mockGetBySlug).not.toHaveBeenCalled();
+    });
+
+    it("offers a real navigable link, not a bare history.back() action, when there is no browser history", async () => {
+      const historyLengthSpy = vi.spyOn(window.history, "length", "get").mockReturnValue(1);
+      try {
+        mockGetBySlug.mockRejectedValue(new Error(LEAKY_404_MESSAGE));
+        renderPage();
+
+        await waitFor(() => {
+          expect(screen.getByText("Venue not found")).toBeDefined();
+        });
+
+        const link = screen.getByRole("link");
+        expect(link.getAttribute("href")).toBeTruthy();
+        expect(screen.queryByRole("button")).toBeNull();
+      } finally {
+        historyLengthSpy.mockRestore();
+      }
+    });
+
+    it("keeps the Go Back button when real browser history is available", async () => {
+      const historyLengthSpy = vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+      try {
+        mockGetBySlug.mockRejectedValue(new Error(LEAKY_404_MESSAGE));
+        renderPage();
+
+        await waitFor(() => {
+          expect(screen.getByText("Venue not found")).toBeDefined();
+        });
+
+        expect(screen.getByRole("button", { name: "Go Back" })).toBeDefined();
+        expect(screen.queryByRole("link")).toBeNull();
+      } finally {
+        historyLengthSpy.mockRestore();
+      }
     });
   });
 
