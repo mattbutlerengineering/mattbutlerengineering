@@ -38,7 +38,7 @@ This document defines how changes are classified by risk level, who reviews each
 
 **Review requirement:** 1 human reviewer approval + all CI checks.
 
-**Who reviews:** Code owner (@mattbutlerengineering). The `code-reviewer` agent provides an initial review applying Tier 1 and 2 criteria from `docs/review-criteria.md`.
+**Who reviews:** Code owner (@mattbutlerengineering). The `reviewer` agent provides an initial review applying Tier 1 and 2 criteria from `docs/review-criteria.md`.
 
 ---
 
@@ -61,7 +61,6 @@ This document defines how changes are classified by risk level, who reviews each
 
 - `migration-reviewer` — for database schema changes
 - `adr-compliance-reviewer` — for architectural decisions
-- `silent-failure-hunter` — for error handling changes
 
 ---
 
