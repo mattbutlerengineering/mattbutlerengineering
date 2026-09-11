@@ -90,7 +90,7 @@ describe("TemplateGallery", () => {
     expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("8");
     expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("8");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("5");
-    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("5");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("6");
   });
 
   it("renders template cards with titles", () => {
@@ -98,6 +98,11 @@ describe("TemplateGallery", () => {
     expect(screen.getByText("Analytics Dashboard")).toBeDefined();
     expect(screen.getByText("Registration Form")).toBeDefined();
     expect(screen.getByText("Landing Page")).toBeDefined();
+  });
+
+  it("renders the Delete Confirmation Flow template", () => {
+    render(<TemplateGallery {...defaultProps} />);
+    expect(screen.getByText("Delete Confirmation Flow")).toBeDefined();
   });
 
   it("renders template card descriptions", () => {

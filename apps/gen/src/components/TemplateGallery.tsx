@@ -279,6 +279,15 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       "Command search palette overlay for quickly jumping to actions and pages, with hover cards previewing extra detail on each result, and disabled-state tooltips explaining why an unavailable command can't be run",
   },
+  {
+    id: "delete-confirmation-flow",
+    title: "Delete Confirmation Flow",
+    description:
+      "Delete button disabled behind an explanatory tooltip until acknowledged, then a confirmation dialog before removal",
+    category: "Feedback",
+    prompt:
+      "Delete-item flow where the delete button starts disabled with a tooltip explaining that you must check an acknowledgment checkbox first, and once checked the button becomes enabled and opens a confirmation dialog warning that the action is permanent before the item is actually removed",
+  },
 ] as const;
 
 // ---------------------------------------------------------------------------
