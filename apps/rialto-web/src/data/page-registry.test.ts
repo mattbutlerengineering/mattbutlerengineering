@@ -153,6 +153,9 @@ vi.mock("../pages/examples/BookingWizardExamplePage.js", () => ({
 vi.mock("../pages/examples/OnboardingExamplePage.js", () => ({
   OnboardingExamplePage: () => null,
 }));
+vi.mock("../pages/examples/GuestCheckinExamplePage.js", () => ({
+  GuestCheckinExamplePage: () => null,
+}));
 vi.mock("../pages/examples/NotificationCenterExamplePage.js", () => ({
   NotificationCenterExamplePage: () => null,
 }));
@@ -331,6 +334,21 @@ describe("PageRegistry — onboarding example", () => {
     expect(entry?.label).toBe("Onboarding");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/onboarding");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Guest-checkin example (#5208)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — guest-checkin example", () => {
+  it("registers example-guest-checkin in the Examples category at /examples/guest-checkin", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-guest-checkin");
+    expect(entry, "example-guest-checkin missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Guest Checkin");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/guest-checkin");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
