@@ -109,6 +109,9 @@ vi.mock("../pages/examples/FormStatesExamplePage.js", () => ({
 vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
   ReservationsListExamplePage: () => null,
 }));
+vi.mock("../pages/examples/ReservationTimelineExamplePage.js", () => ({
+  ReservationTimelineExamplePage: () => null,
+}));
 vi.mock("../pages/examples/GuestDetailExamplePage.js", () => ({
   GuestDetailExamplePage: () => null,
 }));
@@ -358,6 +361,21 @@ describe("PageRegistry — availability-heatmap example", () => {
     expect(entry?.label).toBe("Availability Heatmap");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/availability-heatmap");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reservation-timeline example (#5207)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — reservation-timeline example", () => {
+  it("registers example-reservation-timeline in the Examples category at /examples/reservation-timeline", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-reservation-timeline");
+    expect(entry, "example-reservation-timeline missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Reservation Timeline");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/reservation-timeline");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });
