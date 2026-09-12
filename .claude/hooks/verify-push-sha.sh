@@ -30,7 +30,8 @@ cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
 # shell separator. The old test was a bare substring (`*"git push"*`), so ANY
 # command whose TEXT merely contained the words fired the hook: a heredoc
 # writing a test fixture, a comment mentioning the command, an `echo`. Two of
-# seven false firings in one session were this.
+# one session's ten false firings were this — one of them the commit that
+# wrote the test for the bug below, another the `gh pr create` that shipped it.
 #
 # A hook cannot parse shell, so this stays a heuristic, and it deliberately
 # errs toward firing: a spurious verification is cheap, a push that silently
@@ -50,8 +51,9 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 # from a linked git worktree has an entirely unrelated HEAD — so
 # `rev-parse --abbrev-ref HEAD` here answers for the wrong tree and the hook
 # reports "branch '<main-checkout-branch>' not found on origin" after a push
-# that landed perfectly. Measured six times in one session against
-# `docs/hospitality-animations-retro`, a branch none of those pushes touched.
+# that landed perfectly. Measured ten times in one session, every firing
+# naming `docs/hospitality-animations-retro` — a branch none of those pushes
+# touched, and simply the branch the main checkout happened to sit on.
 # A guard that cries wolf on every worktree push trains people to ignore it.
 #
 # Refs, unlike HEAD, ARE shared across linked worktrees, so once the branch
@@ -83,8 +85,16 @@ fi
 branch="${branch#refs/heads/}"
 local_ref="${local_ref#refs/heads/}"
 
-# Bare `git push`, or an explicit `HEAD` refspec: the current tree's HEAD is
-# the right answer, and it is also the only case where it ever was.
+# Bare `git push`, or an explicit `HEAD` refspec: no branch name was given,
+# so HEAD is the only answer available.
+#
+# KNOWN RESIDUAL: this is still the HOOK's HEAD — the main checkout's — so a
+# *bare* push from a linked worktree can mis-resolve exactly as described
+# above. Only the named form is fully fixed, and that is the form everything
+# in this repo actually uses. Measured while fixing this: the hook payload
+# carries a top-level `cwd` (alongside `session_id`, `transcript_path`,
+# `scratchpad_dir`, `permission_mode`), which would let a later change resolve
+# HEAD in the session's own tree and close this case too.
 if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
   local_ref="HEAD"
