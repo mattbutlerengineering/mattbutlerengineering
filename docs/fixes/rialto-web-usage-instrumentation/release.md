@@ -359,14 +359,35 @@ reverts with the same commit plus a `Deploy Static Sites` run.
    clean merge, artifacts current; merge aborted, tree byte-identical.
 4. Two seeds appended to `docs/backlog.md` (`review.md` Minor 3 and Minor 5).
 5. `pnpm exec prettier --check docs/fixes/rialto-web-usage-instrumentation/ docs/backlog.md`
-   → recorded below in § Outcome.
-6. Commit + push to `fix/rialto-web-usage-instrumentation`, verified by
-   `git ls-remote` SHA comparison rather than the `verify-push-sha.sh` hook —
-   that hook false-alarms on worktree pushes and did so again during this stage,
-   on a command whose text merely _contained_ the words it matches on (see the
-   Minor 5 seed).
-7. `gh pr create --base main` → the pull request recorded in § Outcome.
-8. **No merge, no auto-merge, no deploy, no tag, no publish, no apply.**
+   → `All matched files use Prettier code style!`, exit 0. (It failed once first,
+   on a prettier idempotency quirk where a wrapped inline-code span inside a
+   checklist item re-indented on every pass; the sentence was reworded so the
+   span no longer wraps, rather than the check being skipped.)
+6. `git commit` → `6617fb077`, then
+   `git push origin fix/rialto-web-usage-instrumentation` →
+   `bdf95bcc7..6617fb077`. **Verified by SHA, not by the hook:**
+
+   ```
+   local : 6617fb077e2a07b595e90a0d40c3e24388f47d45
+   remote: 6617fb077e2a07b595e90a0d40c3e24388f47d45
+   ```
+
+   `.claude/hooks/verify-push-sha.sh` false-alarmed three times during this
+   stage — every time naming `docs/hospitality-animations-retro`, a branch none
+   of this stage's commands went near, and twice on commands that performed no
+   push at all and merely _contained_ the words it matches on. That is the
+   Minor 5 seed, observed live while writing it.
+
+7. `gh pr create --base main` → **[#5315](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5315)**,
+   head `6617fb077`, base `main`, `MERGEABLE`, `autoMergeRequest: null`, no
+   labels. CI fired on the real `pull_request` event (runs `34723622561` CI,
+   `34723622593` tier-classifier, and three others at `6617fb077`) — not the
+   `GITHUB_TOKEN` anti-recursion trap, because the PR was authored by
+   `mattbutlerengineering`, not by automation.
+8. This artifact amended to record the PR number, and pushed again. Two Ship
+   commits, not one; recorded rather than squashed out of the log.
+9. **No merge, no auto-merge, no deploy, no tag, no publish, no apply.**
+   `gh pr merge` was never invoked in any form.
 
 ## Post-release checks
 
@@ -411,10 +432,12 @@ To be run by a human **after** the steps above, in this order. None has been run
 
 ## Outcome
 
-**PREPARED, NOT RELEASED.** A pull request is open against `main`; every gate
-this repo runs is green on the branch and on the merge ref; and **no merge,
-deploy, tag, publish or apply was performed by this stage.** The release steps
-above are written for a human and were not executed.
+**PREPARED, NOT RELEASED.**
+[PR #5315](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5315)
+is open against `main` at `6617fb077` (SHA-verified against `git ls-remote`);
+every gate this repo runs is green on the branch and on the merge ref; and **no
+merge, auto-merge, deploy, tag, publish or apply was performed by this stage.**
+The release steps above are written for a human and were not executed.
 
 Two things a reader should carry away rather than infer: merging this PR does
 not produce a single row of data while #5169 holds, and no one has yet read this
