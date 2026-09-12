@@ -1671,3 +1671,12 @@ None this run (`agent-skip` empty, 0 open).
 **queueEfficiency:** composite 0.952 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:11, size:s:7, size:m:6, size:l:1
 **Issues filed:** 0
+
+## 2026-09-12 (learning-loop)
+
+**Sensors:** 8/16 available (acmm L5 96/114; prMetrics 8 entries; prCategoryMetrics 87/98 merged by category [tier:trivial, tier:standard, tier:sensitive, tier:critical, agent-regression, unlabeled, dependencies, ci-fix]; ccusageCost $0 (30d/7d/today), cache_hit 95%; ciHealth 100% pass rate (25/25); sessionLogs 0 sessions/0 commits (7d); codeChurn 0% churn (2051 deleted / 597164 added, 7d); queueEfficiency composite 0.952 [fps 0.88, ttm 0.3h, $0/issue, no baseline yet]). domainActivity skipped cleanly (no `DOMAIN_METRICS_VENUE_ID`, per no-egress-to-production constraint, issue #2920). agentCost, lighthouse, mutationScore, flakyTests, e2eStability not available. issues/issueFeedback query failed — same standing `gh-client` REST-fallback 403 ("credential is not valid for direct API calls") as every prior cloud-scheduled run since 2026-08-11. Sentry MCP reconnected mid-run but calls still 403 ("Host not in allowlist: sentry.io") — same no-egress constraint as issue #2920, so Step 1b was skipped.
+**Regressions:** 0 detected — `metrics/sensor-report.json` regressions array empty. No issues created this run (nothing to triage against `metrics/ai-issue-feedback.json` budgets).
+**Verifications:** 5 checked, 0 verified, 0 failed (5 skipped — #5241/#5240/#5239/#5201 need a Lighthouse inventory this sandbox can't produce without a live site audit, barred per issue #2920's no-egress constraint; #5287 needs a completed CI run to verify against). Threshold auto-tuner found no per-sensor metrics to tune — skipped.
+**AI issue feedback:** query failed (GitHub REST fallback 403, same auth limitation as `issues`/`issueFeedback` sensors, persistent since at least 2026-09-09) — no feedback-derived budgets available this run; moot since no regressions needed triaging.
+**Skill proposals:** 0 (Saturday, not the Friday skill-extraction day)
+**Threshold notes:** false-positive / fix-effectiveness rates not cleanly computable this run — all 75 verifications in the 30-day window carry `confidence: skip` (Lighthouse or completed-CI data this sandbox can't produce), so there is no wontfix/invalid or verified/unverified signal to compute either rate from. Identical standing condition to 2026-09-11's learning-loop run — no change, no action needed.
