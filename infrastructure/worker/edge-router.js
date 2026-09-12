@@ -33,6 +33,7 @@ import { handleHealthUptime } from "./health/uptime.js";
 import { handleHealthPerformance } from "./health/performance.js";
 import { handleHealthLighthouse } from "./health/lighthouse.js";
 import { handleHealthDeps } from "./health/deps.js";
+import { ANALYTICS_BINDING, toDataPoint } from "./analytics-schema.js";
 
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
@@ -84,15 +85,34 @@ function isOriginRoute(pathname) {
 // import it from edge-router.js.
 export { AUTH0_ORIGIN };
 
+// Column layout lives in analytics-schema.js, shared with the reader
+// (scripts/edge-usage.mjs). The early return on a missing binding is kept
+// deliberately — the Pulumi test and scripts/check-analytics-bindings.mjs are
+// what make absence loud, not a runtime error on every request.
 function writeAnalytics(env, request, route, statusCode, startTime) {
-  if (!env.ANALYTICS) return;
-  const country = request.headers.get("CF-IPCountry") || "unknown";
-  const elapsed = Date.now() - startTime;
-  env.ANALYTICS.writeDataPoint({
-    blobs: [route, request.method, country, new URL(request.url).pathname],
-    doubles: [statusCode, elapsed],
-    indexes: [route],
-  });
+  const analytics = env[ANALYTICS_BINDING];
+  if (!analytics) return;
+  try {
+    analytics.writeDataPoint(
+      toDataPoint({
+        route,
+        method: request.method,
+        country: request.headers.get("CF-IPCountry") || "unknown",
+        pathname: new URL(request.url).pathname,
+        status: statusCode,
+        elapsedMs: Date.now() - startTime,
+      })
+    );
+  } catch (error) {
+    // Telemetry must never fail the request. Both call sites run AFTER the
+    // upstream response was fetched successfully, and `fetch` has no top-level
+    // catch — an escaping throw would replace a good response with
+    // Cloudflare's 1101 page. Cloudflare documents per-data-point limits
+    // (blobs, doubles, index bytes) without documenting the behaviour on
+    // breach, and `pathname` is caller-supplied, so this is contained rather
+    // than assumed safe. Same fail-open shape as the HEALTH_STATE reads.
+    console.error("Analytics write failed:", error.message);
+  }
 }
 
 export default {
