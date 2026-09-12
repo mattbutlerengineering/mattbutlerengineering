@@ -13,6 +13,10 @@ assumptions:
   - "The drift guard's finding kinds follow architecture.md's `missing-in-<source>` family; the schema source gets `missing-in-schema`. A label, not a design decision."
   - "`scripts/edge-usage.mjs`'s `main()` RETURNS its exit code and the entry guard calls `process.exit` — the seam that makes the missing-env path unit-testable without spawning. Architecture.md specifies the codes and messages but not the seam; this follows `scripts/lib/fitness-check.mjs`'s runCheck convention."
   - "Showing the guard FAIL against a live mutation (delete the Pulumi entry, watch exit 1) is Verify's, per defect.md § Verify shape. Implement proves the same thing mechanically with a tmp-dir fixture reproducing the pre-fix production state verbatim."
+  - "Reconciled with origin/main by MERGE, not rebase (2026-09-12, commit 3c3fe2306). No live user and no skill-supplied default: the implement skill is silent on how a stale branch catches up. Chosen because the branch and main both changed docs/backlog.md and package.json — a rebase replays those conflicts across all six commits, a merge resolves each once. Consequence for later stages: origin/main..HEAD now lists a merge commit alongside the run's six, so item 7's 'lists only this run's commits' is read as 'this run's commits plus its own reconciliation merge'."
+  - "docs/backlog.md's merge conflict was resolved by keeping BOTH sides in full (append-only, per protocol § Seed backlog), with this run's single seed placed before main's 29 later ones. Ordering is prioritization in that file, so the position is a choice: chronological append order was used, and no pre-existing line was reordered, reworded or dropped."
+  - "package.json's repo-audit conflict was resolved as a union on top of main's version — main's new check-ci-gate-coverage.mjs and its removal of 'pnpm audit --audit-level=high' from the chain (now the standalone audit:security script, #4993) both kept, with this run's check-analytics-bindings.mjs re-inserted in its original slot after check-service-bindings.js."
+  - "Item 6's runbook gained one bullet not in the written scope: a dated, measured statement that pulumi-up.yml currently fails on main at 'Pulumi Refresh (Sync state with cloud)', so the section that tells a reader rows appear after that workflow completes does not mislead. Judgement call flagged by the orchestrator, taken because the section's whole purpose is telling a reader what zero rows means."
 ---
 
 # Breakdown: bind the counter that already exists, then make its number readable
@@ -319,7 +323,7 @@ Demonstrable at the boundary: someone closing a run against a static route opens
 `docs/runbooks/edge-usage.md` from the weekly-review checklist, runs one command,
 and knows what "0 rows" means on the day of the deploy versus a week later.
 
-- [ ] **6. Runbook `docs/runbooks/edge-usage.md`, two pointers, and the line-13
+- [x] **6. Runbook `docs/runbooks/edge-usage.md`, two pointers, and the line-13
       claim** — sibling format (`# Runbook: Edge usage`, Quick Diagnosis, Common
       Causes, Recovery Steps — cf. `docs/runbooks/deploys-unhealthy.md`) plus
       the architecture's five: **When to run this** (Operate stage of any run
@@ -541,6 +545,74 @@ analytics"` pricing copy). Both are showcase demo content with no relation to
   asserts `marketing: true` (was `analytics: true`). _Adjacent smell (not
   fixed):_ `PrivacyPage.tsx:48,72,95` still tells visitors analytics cookies
   may be set — already carried as a seed below.
+- **Implement log — branch reconciliation before item 6 (2026-09-12).** Items
+  0–5 landed on 2026-09-03 and the branch then sat untouched for nine days:
+  `git rev-list --left-right --count origin/main...HEAD` → `165	6`, never
+  pushed. Reconciled by **merge**, not rebase (`3c3fe2306`) — the branch and
+  `main` both changed `docs/backlog.md` and `package.json`, and a rebase would
+  replay those conflicts across all six commits while a merge resolves each
+  once. Two conflicts, both content: (1) `docs/backlog.md` — append-only, so
+  BOTH sides' additions were kept and no existing line was reordered (this
+  run's one seed first, then `main`'s 29; file is now 130 lines); (2)
+  `package.json` `repo-audit` — `main` had added
+  `node scripts/check-ci-gate-coverage.mjs` and moved `pnpm audit
+--audit-level=high` out of the chain into its own `audit:security` script
+  (gotchas § Dependencies, #4993), while this branch had inserted
+  `node scripts/check-analytics-bindings.mjs`; resolved as the union on top of
+  `main`'s version, our guard kept in its original slot after
+  `check-service-bindings.js`. All four run artifacts and all six commits
+  survived. Every file:line citation in item 6 was then re-verified by content
+  in the merged tree and **all four still resolve exactly as written**:
+  `docs/backlog.md:13` is still the cookie-banner seed, `docs/README.md:19` is
+  still the runbooks row, `docs/PLAYBOOK.md:972` is still the "Check
+  analytics…" line, and `docs/SECRETS.md:18`/`:29` still carry the
+  `MBE_CLOUDFLARE_API_TOKEN` (Pages deploys, KV, DNS, Pulumi) and
+  `CLOUDFLARE_ACCOUNT_ID` ("not a secret per se") rows the runbook quotes. No
+  discrepancy to record.
+- **Implement log — item 6 (2026-09-12).** No RED — documentation. Prove, run
+  in the merged tree: `pnpm exec prettier --check` over the four files plus the
+  run directory → `All matched files use Prettier code style!`, exit 0;
+  `sed -n '13p' docs/backlog.md` ends
+  `…(from: feature:rialto-game-ui) (claimed: maintenance:rialto-web-usage-instrumentation)`;
+  `git diff --stat origin/main -- docs/backlog.md` → `1 file changed, 3
+insertions(+), 2 deletions(-)` (lines 12 and 13's claim markers plus this
+  run's appended seed — nothing else);
+  `grep -c "edge-usage.md" docs/PLAYBOOK.md` → `1`;
+  `sed -n '19p' docs/README.md` contains `usage`;
+  `grep -c "^## " docs/runbooks/edge-usage.md` → `9` (≥ 8);
+  `grep -cF` in the runbook: `CLOUDFLARE_API_TOKEN` 4, `CLOUDFLARE_ACCOUNT_ID`
+  3, `SUM(_sample_interval)` 2, `scripts/edge-usage.mjs` 3. Every message the
+  runbook quotes was verified by **running** the script, not by transcription:
+  `node scripts/edge-usage.mjs --days 0` →
+  `Invalid --days "0": expected an integer from 1 to 90`, exit 1;
+  `env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID node
+scripts/edge-usage.mjs` → `Missing required environment variable:
+CLOUDFLARE_API_TOKEN`, exit 1; `ZERO_ROWS_MESSAGE`, `SCOPE_HINT`,
+  `--days <n>`, `--route <name>`, `JSONEachRow`, `DEFAULT_DAYS = 7`,
+  `MAX_DAYS = 90` and `ROUTE_PATTERN = /^[a-z][a-z0-9_-]*$/` all matched
+  `scripts/edge-usage.mjs` verbatim, and the runbook's column table matched
+  `infrastructure/worker/analytics-schema.js` field-for-field. The four
+  `routeName` values it names (`hospitality`, `rialto`, `gen`, `marketing`)
+  come from `infrastructure/worker/routes-config.json`; `"api"` is
+  `edge-router.js:246`. ⛔ **`node scripts/audit-markdown.mjs` exits 1, and it
+  is NOT this run's doing** — the single finding is
+  `packages/rialto-plugin/skills/rialto/SKILL.md:104 [broken-link]
+"../../generated/component-reference.md"`, which is present on `origin/main`
+  unchanged since #1397 and which this branch does not touch
+  (`git diff --name-only origin/main...HEAD | grep -c rialto-plugin` → `0`).
+  Zero findings against any file this item wrote. Recorded as an honest
+  failure of the Prove line's global exit code rather than forced to match.
+  _Deviation from the written scope, one sentence of judgement:_ the runbook's
+  "What zero rows means" section told a reader rows appear after the
+  `pulumi-up.yml` run carrying the binding completes on `main` — true in
+  design, false today. Measured 2026-09-12: every recent `pulumi-up.yml` run on
+  `main` ends `failure` at `Pulumi Refresh (Sync state with cloud)` in the
+  `Deploy Infrastructure` job (runs `34676613113`, `34675873114`,
+  `34674259495`, `34665165637`), so merging the binding will not produce a
+  single row until that is fixed. A bullet saying exactly that, with the run
+  ids, was added to the section, and the section's `gh run list` example gained
+  `--branch main` so it answers the question the new bullet asks. Nothing else
+  in the runbook was changed.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still
