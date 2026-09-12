@@ -46,6 +46,8 @@ export interface UseTimelineDataResult {
   /** Epoch ms `reservations` was last confirmed synced with the server —
    * see `useReservations().lastSyncedAt`. */
   lastSyncedAt: number | undefined;
+  /** Refetches both queries; resolves once both have settled, rejects with the first failure. */
+  refetch: () => Promise<void>;
   seatGuest: (reservation: Reservation) => Promise<Reservation>;
   cancelReservation: (id: string, args: CancelArgs) => Promise<void>;
   updateReservation: (id: string, data: UpdateReservationRequest) => Promise<Reservation>;
@@ -54,7 +56,7 @@ export interface UseTimelineDataResult {
     tableId: string;
     venueId: string;
     guestName?: string;
-  }) => Promise<void>;
+  }) => Promise<Reservation>;
   updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
 }
 
@@ -72,6 +74,7 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     error: reservationsError,
     isFromCache,
     lastSyncedAt,
+    refetch: refetchReservations,
   } = useReservations({
     venueId,
     date,
@@ -83,6 +86,7 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     data: rawTables,
     isLoading: tablesLoading,
     error: tablesError,
+    refetch: refetchTables,
   } = useTables({
     venueId,
     limit: 100,
@@ -113,6 +117,18 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
       .reduce((sum, r) => sum + r.partySize, 0);
     return { confirmed, pending, totalCovers, total: reservations.length };
   }, [reservations]);
+
+  // Both queries settle before this resolves, so a Retry handler speaks about the whole grid.
+  // A refetch failure rejects (react-query's own `refetch` never does) — the caller can then
+  // leave the surface to `fetchError` without reading it back out of a stale closure.
+  const refetch = async (): Promise<void> => {
+    const [reservationsResult, tablesResult] = await Promise.all([
+      refetchReservations(),
+      refetchTables(),
+    ]);
+    const error = reservationsResult.error ?? tablesResult.error;
+    if (error) throw error;
+  };
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: [RESERVATIONS_QUERY_KEY] });
@@ -151,9 +167,10 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     tableId: string;
     venueId: string;
     guestName?: string;
-  }): Promise<void> => {
-    await api.reservations.walkIn(data);
+  }): Promise<Reservation> => {
+    const created = await api.reservations.walkIn(data);
     invalidateAll();
+    return created;
   };
 
   const updateTableStatus = async (tableId: string, status: TableStatus): Promise<void> => {
@@ -169,6 +186,7 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     stats,
     isFromCache,
     lastSyncedAt,
+    refetch,
     seatGuest,
     cancelReservation,
     updateReservation,

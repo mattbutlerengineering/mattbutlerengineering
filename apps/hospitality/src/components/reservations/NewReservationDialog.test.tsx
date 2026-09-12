@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { NewReservationDialog } from "./NewReservationDialog.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { Table } from "@mbe/types";
 
 // Mock scrollIntoView for JSDOM (rialto Select uses it)
@@ -187,8 +189,40 @@ describe("NewReservationDialog", () => {
     expect(defaultProps.onClose).toHaveBeenCalledOnce();
   });
 
-  it("should display the error envelope message when onConfirm rejects", async () => {
-    const onConfirm = vi.fn().mockRejectedValue(new Error("Table is not available"));
+  it("shows the house serverError sentence, never the raw message, when onConfirm rejects with a 500", async () => {
+    const onConfirm = vi.fn().mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Internal Server Error",
+          status: 500,
+          detail: "Internal Server Error",
+        },
+        "POST",
+        "/api/v1/reservations"
+      )
+    );
+    render(<NewReservationDialog {...defaultProps} onConfirm={onConfirm} />);
+    fillRequiredFields();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+    });
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
+  });
+
+  it("shows the server's own detail for a 409 conflict — that one is written for the person", async () => {
+    const onConfirm = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiClientError(
+          { type: "about:blank", title: "Conflict", status: 409, detail: "Table is not available" },
+          "POST",
+          "/api/v1/reservations"
+        )
+      );
     render(<NewReservationDialog {...defaultProps} onConfirm={onConfirm} />);
     fillRequiredFields();
 
@@ -197,6 +231,7 @@ describe("NewReservationDialog", () => {
     await waitFor(() => {
       expect(screen.getByText("Table is not available")).toBeDefined();
     });
+    expect(screen.queryByText(/failed: 409/)).toBeNull();
   });
 
   it("should display a fallback error when onConfirm rejects with a non-Error", async () => {
@@ -207,7 +242,7 @@ describe("NewReservationDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Failed to create reservation.")).toBeDefined();
+      expect(screen.getByText(ERROR_COPY.unknown.detail)).toBeDefined();
     });
   });
 

@@ -23,6 +23,28 @@
     <item priority="medium">
       function isSentryUser(value: unknown): value is SentryUser { /* ... */ }
     </item>
+    <item priority="medium">
+      function getRequestUser(request: FastifyRequest): SentryUser | undefined { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InitOptions {
+        serviceName: string;
+      }
+    </item>
+    <item priority="high">
+      interface SentryReplyMeta {
+        __sentryErrorCaptured?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function initSentry(options: InitOptions): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const sentryFastifyPlugin: unknown;
+    </item>
   </file>
   <file path="src/react.ts">
     <item priority="low">
@@ -38,6 +60,15 @@
         appName: string;
         dsn: string;
       }
+    </item>
+    <item priority="high">
+      export function initSentry(options: InitOptions): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function handleErrorBoundary(error: Error, errorInfo: ErrorInfo): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function reportApiError(error: ReportableApiError): void { /* ... */ }
     </item>
   </file>
   </section>

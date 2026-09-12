@@ -187,8 +187,39 @@ export function runFileIssueCli(argv, deps) {
   return { action: result.action, issueNumber: result.issueNumber };
 }
 
+/**
+ * Gh CLI args resetting coordination labels back to `ready` on reopen.
+ *
+ * Mirrors @mbe/gh-client's `markReady()` re-queue transition (has-pr /
+ * in-progress / agent-failed / agent-skip -> ready) without importing the
+ * package: this CLI is deliberately dependency-free so it keeps running in
+ * workflows that never `pnpm install` (see the module doc above). A
+ * regression test cross-checks this literal against the real `markReady()`
+ * output so the two can't silently drift (#5071).
+ *
+ * Without this, `reopenIssue()` left a reopened issue exactly as labeled at
+ * closure time — e.g. still `has-pr` from the PR that closed the prior
+ * occurrence, even though no PR exists for the new one.
+ *
+ * @returns {string[]}
+ */
+export function buildReopenLabelArgs() {
+  return [
+    "--add-label",
+    "ready",
+    "--remove-label",
+    "has-pr",
+    "--remove-label",
+    "in-progress",
+    "--remove-label",
+    "agent-failed",
+    "--remove-label",
+    "agent-skip",
+  ];
+}
+
 /** Real deps: raw `gh` CLI via execFileSync — no npm dependencies. */
-function createRealDeps() {
+export function createRealDeps() {
   const run = (args) => execFileSync("gh", args, { encoding: "utf-8", timeout: 30_000 }).trim();
 
   return {
@@ -222,6 +253,7 @@ function createRealDeps() {
 
     reopenIssue(issueNumber) {
       run(["issue", "reopen", String(issueNumber)]);
+      run(["issue", "edit", String(issueNumber), ...buildReopenLabelArgs()]);
     },
 
     commentOnIssue(issueNumber, body) {

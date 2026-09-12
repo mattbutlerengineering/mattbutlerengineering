@@ -769,7 +769,11 @@ describe("sensors-registry", () => {
       expect(result.error).toMatch(/auth/i);
     });
 
-    it("e2eStability collects runs via ghClient.workflow.runs", () => {
+    // #5005: e2eStability used to query every workflow on every branch —
+    // the same denominator/scoping class ciHealth had (#4538, unscoped
+    // branch). Pins the fixed query so an unscoped regression fails the
+    // suite instead of silently producing a plausible-looking number again.
+    it("e2eStability scopes ghClient.workflow.runs to main-branch runs of the E2E workflow only (#5005)", () => {
       const ghClient = {
         workflow: {
           runs: vi.fn().mockReturnValue([
@@ -795,6 +799,10 @@ describe("sensors-registry", () => {
       expect(ghClient.workflow.runs).toHaveBeenCalledWith([
         "--limit",
         "30",
+        "--branch",
+        "main",
+        "--workflow",
+        "E2E Tests",
         "--json",
         "conclusion,createdAt,headBranch,headSha",
       ]);

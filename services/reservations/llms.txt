@@ -12,6 +12,9 @@
         secret: string | undefined;
       }
     </item>
+    <item priority="high">
+      export function getManageTokenConfig(input: ManageTokenConfigInput): ManageTokenConfig { /* ... */ }
+    </item>
   </file>
   <file path="src/config/stripe.ts">
     <item priority="low">
@@ -27,6 +30,9 @@
         webhookSecret: string | undefined;
       }
     </item>
+    <item priority="high">
+      export function getStripeConfig(input: StripeConfigInput): StripeConfig { /* ... */ }
+    </item>
   </file>
   <file path="src/config/unsubscribe-token.ts">
     <item priority="low">
@@ -40,6 +46,11 @@
         secret: string | undefined;
       }
     </item>
+    <item priority="high">
+      export function getUnsubscribeTokenConfig(
+        input: UnsubscribeTokenConfigInput
+      ): UnsubscribeTokenConfig { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="middleware">
@@ -52,6 +63,24 @@
     </item>
     <item priority="medium">
       function getKey(ip: string, venueSlug: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isRateLimited(ip: string, venueSlug: string): { limited: boolean; retryAfter: number } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getActiveHoldCount(ip: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function incrementHoldCount(ip: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decrementHoldCount(ip: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const publicRateLimitHook: preHandlerAsyncHookHandler;
+    </item>
+    <item priority="high">
+      export function resetRateLimitState(): void { /* ... */ }
     </item>
   </file>
   <file path="src/middleware/raw-body-capture.ts">
@@ -75,6 +104,9 @@
     </item>
     <item priority="medium">
       function todayDate(): Date { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main() { /* ... */ }
     </item>
   </file>
   </section>
@@ -134,6 +166,12 @@
         config?: Partial<SseConnectionConfig>
       ): SseConnectionManager { /* ... */ }
     </item>
+    <item priority="medium">
+      function deriveTableStatusDelta(event: ReservationEvent): TableStatusDelta[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function eventRoutes(fastify: FastifyInstance): Promise<void> { /* ... */ }
+    </item>
   </file>
   <file path="src/routes/floor-plans.ts">
     <item priority="high">
@@ -164,6 +202,28 @@
     </item>
     <item priority="high">
       export async function loadReservationForManage(id: string): Promise<ManagePreambleResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      type ManageAction = "cancel" | "modify";
+    </item>
+    <item priority="high">
+      interface ProblemMessage {
+        title: string;
+        detail: string;
+        code: string;
+      }
+    </item>
+    <item priority="medium">
+      function problemFromMessage(status: number, message: ProblemMessage) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function reservationNotFoundProblem(): ReturnType<typeof createProblemDetails> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function manageProblemDetails(
+        preamble: Extract<ManagePreambleResult, { ok: false }>,
+        action: ManageAction
+      ): ReturnType<typeof createProblemDetails> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/manage-reservation.ts">
@@ -206,6 +266,9 @@
         currency: string;
       }
     </item>
+    <item priority="high">
+      export const publicDepositRoutes: FastifyPluginAsync;
+    </item>
   </file>
   <file path="src/routes/public-guest-recognition.ts">
     <item priority="high">
@@ -228,6 +291,23 @@
     </item>
     <item priority="high">
       export function secureCompareHex(actual: string, expected: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function verifyManageToken(token: string): {
+        valid: boolean;
+        expired?: boolean;
+        reservationId?: string;
+        guestEmail?: string;
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PublicReservationResponse {
+        reservation: Reservation;
+        manageToken: string;
+      }
+    </item>
+    <item priority="high">
+      export const publicReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/public-unsubscribe.ts">
@@ -278,6 +358,12 @@
     <item priority="low">
       async function onPaymentIntentCanceled(event: Stripe.Event): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      async function onChargeRefunded(event: Stripe.Event): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const stripeWebhookRoutes: FastifyPluginAsync;
+    </item>
   </file>
   <file path="src/routes/tables.ts">
     <item priority="high">
@@ -291,6 +377,15 @@
     <item priority="high">
       export const venueIdFromBody: VenueIdResolver;
     </item>
+    <item priority="high">
+      export const venueIdFromParams: VenueIdResolver;
+    </item>
+    <item priority="high">
+      export function venueIdFromEntity<T extends { venueId: string | null }>(
+        getKey: (request: FastifyRequest) => unknown,
+        load: (key: string) => Promise<T | null | undefined>
+      ): VenueIdResolver { /* ... */ }
+    </item>
   </file>
   <file path="src/routes/venues.ts">
     <item priority="high">
@@ -298,6 +393,9 @@
     </item>
     <item priority="medium">
       function isWriteConflict(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const venueRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/waitlist.ts">
@@ -326,6 +424,36 @@
     <item priority="high">
       export const TableSchema: unknown;
     </item>
+    <item priority="high">
+      export const ReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PaginationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ErrorSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueGroupSchema: unknown;
+    </item>
+    <item priority="high">
+      export const VenueSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestSegmentSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanLayoutSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSchema: unknown;
+    </item>
+    <item priority="high">
+      export function registerSchemas(fastify: FastifyInstance) { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="services">
@@ -342,6 +470,9 @@
         reservations: ReservationSlim[];
       }
     </item>
+    <item priority="high">
+      export function assertBookable(opts: AssertBookableOptions): BookableError | undefined { /* ... */ }
+    </item>
   </file>
   <file path="src/services/availability.ts">
     <item priority="high">
@@ -356,6 +487,46 @@
     <item priority="medium">
       function parseTimeToMinutes(time: string): number { /* ... */ }
     </item>
+    <item priority="high">
+      export async function generateTimeSlots(
+        venueId: string,
+        date: string,
+        partySize: number,
+        durationOverride?: number
+      ): Promise<TimeSlot[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getAvailableDates(
+        venueId: string,
+        startDate: string,
+        endDate: string,
+        partySize: number
+      ): Promise<DateAvailability[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function findBestTable(
+        venueId: string,
+        date: string,
+        startTime: Date,
+        endTime: Date,
+        partySize: number
+      ): Promise<Table | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function findSuitableTables(venueId: string, partySize: number): Promise<Table[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function fetchConflictData(
+        venueId: string,
+        date: string
+      ): Promise<{ reservations: ReservationSlim[]; holds: HoldSlim[] }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createDateTimeFromMinutes(dateStr: string, minutes: number, timezone: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export const availabilityService: unknown;
+    </item>
   </file>
   <file path="src/services/book-slot.ts">
     <item priority="high">
@@ -363,6 +534,27 @@
     </item>
     <item priority="low">
       type SlotConflictCode = "CONFLICT" | "PACING_EXCEEDED" | "EXPIRED";
+    </item>
+    <item priority="low">
+      interface SlotConflict {
+        code: SlotConflictCode;
+        message: string;
+      }
+    </item>
+    <item priority="low">
+      type SlotWriteResult = { ok: true; value: T } | { ok: false; conflict: SlotCon;
+    </item>
+    <item priority="low">
+      interface BookSlotIntent {
+        tableId: string;
+        venueId?: string | null;
+        date: Date;
+        window: { startTime: Date; endTime: Date };
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteResult<T>> { /* ... */ }
     </item>
   </file>
   <file path="src/services/booking-metrics.ts">
@@ -383,6 +575,28 @@
         forfeited: number;
       }
     </item>
+    <item priority="low">
+      interface DailyBookingMetrics {
+        date: string;
+        venueId: string;
+        reservations: ReservationStatusCounts;
+        deposits: DepositTransitionCounts;
+      }
+    </item>
+    <item priority="low">
+      interface GetDailyBookingMetricsParams {
+        date: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      async function getDailyBookingMetrics(
+        params: GetDailyBookingMetricsParams
+      ): Promise<DailyBookingMetrics> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const bookingMetricsService: unknown;
+    </item>
   </file>
   <file path="src/services/booking-notifications.ts">
     <item priority="medium">
@@ -390,6 +604,29 @@
     </item>
     <item priority="low">
       type CancelInitiator = "guest" | "staff";
+    </item>
+    <item priority="low">
+      interface BookingNotifierDeps {
+        notificationAdapter: NotificationDispatcher;
+        scheduler: NotifierScheduler;
+        getVenue: (venueId: string) => Promise<Venue | null>;
+        logger?: FastifyBaseLogger;
+      }
+    </item>
+    <item priority="low">
+      interface BookingNotifier {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createBookingNotifier(deps: BookingNotifierDeps): BookingNotifier { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createDefaultBookingNotifier(
+        notificationAdapter: NotificationDispatcher,
+        runtime: NotifierRuntime,
+        logger?: FastifyBaseLogger
+      ): BookingNotifier { /* ... */ }
     </item>
   </file>
   <file path="src/services/briefing.ts">
@@ -407,6 +644,18 @@
         dietaryRestrictions: string[] | null;
       }
     </item>
+    <item priority="low">
+      interface GetBriefingParams {
+        date: string;
+        venueId: string;
+      }
+    </item>
+    <item priority="low">
+      async function getBriefing(params: GetBriefingParams): Promise<BriefingEntry[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const briefingService: unknown;
+    </item>
   </file>
   <file path="src/services/confirm-hold.ts">
     <item priority="high">
@@ -420,6 +669,12 @@
         userId?: string;
       }
     </item>
+    <item priority="low">
+      type ConfirmHoldResult = { success: true; reservation:  | { success: false; error: strin;
+    </item>
+    <item priority="high">
+      export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/contact-policy.ts">
     <item priority="low">
@@ -430,6 +685,14 @@
         unsubscribed: boolean;
         communicationPreference?: CommunicationPreference | null;
       }
+    </item>
+    <item priority="high">
+      export function resolveChannel(
+        preference: CommunicationPreference | null | undefined
+      ): CommunicationPreference { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canContact(state: ContactState, messageClass: MessageClass): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/services/database.ts">
@@ -459,6 +722,37 @@
         
       }
     </item>
+    <item priority="high">
+      class DepositConcurrentUpdateError {
+        
+      }
+    </item>
+    <item priority="low">
+      interface CreateDepositOptions {
+        reservationId: string;
+        amountCents: number;
+        currency?: string;
+        stripePaymentIntentId?: string;
+        stripeCustomerId?: string;
+      }
+    </item>
+    <item priority="high">
+      class DepositService {
+        async create(): Promise<unknown>;
+        async getById(): Promise<unknown>;
+        async getByReservationId(): Promise<unknown>;
+        async getByPaymentIntentId(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      export const depositService: unknown;
+    </item>
+    <item priority="high">
+      export function calculateDepositAmount(
+        venue: { depositType: string | null; depositAmountCents: number | null },
+        partySize: number
+      ): number { /* ... */ }
+    </item>
   </file>
   <file path="src/services/domain-services.ts">
     <item priority="low">
@@ -486,6 +780,47 @@
         data: Reservation | Table | ReservationHold | FloorPlan | Lapsi...;
       }
     </item>
+    <item priority="high">
+      class ReservationEventEmitter {
+        connectionCount: unknown;
+        async getConnectionCount(): Promise<unknown>;
+        async emitChange(): Promise<unknown>;
+        async onChange(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      export const reservationEvents: unknown;
+    </item>
+    <item priority="high">
+      export function emitReservationCreated(reservation: Reservation): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitReservationUpdated(reservation: Reservation): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitReservationCancelled(reservation: Reservation): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitHoldCreated(hold: ReservationHold): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitHoldReleased(hold: ReservationHold): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitHoldConfirmed(reservation: Reservation): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitTableUpdated(table: Table): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitFloorPlanCreated(floorPlan: FloorPlan): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitLapsingGuests(venueId: string, guests: LapsingGuest[]): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function emitTableStatusChanged(venueId: string, changes: TableStatusDelta[]): void { /* ... */ }
+    </item>
   </file>
   <file path="src/services/floor-plan.ts">
     <item priority="high">
@@ -500,6 +835,15 @@
         id: string;
         name: string;
         tableNumber: string | n...;
+    </item>
+    <item priority="medium">
+      function mapPrismaTable(table: PrismaTable): Table { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
+    </item>
+    <item priority="high">
+      export const floorPlanService: unknown;
     </item>
   </file>
   <file path="src/services/guest-identity.ts">
@@ -517,6 +861,18 @@
         phone?: string;
         d...;
     </item>
+    <item priority="high">
+      export function applyDietaryRestrictions(
+        existing: string[] | null | undefined,
+        incoming: string[] | null | undefined
+      ): string[] | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildGuestUpdateData(
+        existing: GuestSnapshot,
+        incoming: IncomingGuestData
+      ): Prisma.GuestUpdateInput { /* ... */ }
+    </item>
   </file>
   <file path="src/services/guest-recognition.ts">
     <item priority="medium">
@@ -524,6 +880,9 @@
     </item>
     <item priority="medium">
       function hasGuestPreferences(guest: { notes: string | null; tags: unknown }): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recognizeGuest(venueId: string, email: string): Promise<GuestRecognition> { /* ... */ }
     </item>
   </file>
   <file path="src/services/guest-reliability.ts">
@@ -549,6 +908,20 @@
       interface GuestRiskOptions {
         riskyThreshold?: number;
       }
+    </item>
+    <item priority="high">
+      export function computeGuestRisk(
+        noShowCount: number,
+        _totalReservations: number,
+        lastNoShowDate: Date | null,
+        options: GuestRiskOptions = {}
+      ): GuestRiskScore { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveNoShowThreshold(venueSettings: unknown): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyDecay(noShowCount: number, lastNoShowDate: Date | null): number { /* ... */ }
     </item>
   </file>
   <file path="src/services/guest.ts">
@@ -589,6 +962,9 @@
         error?: string;
       }
     </item>
+    <item priority="high">
+      export const holdService: unknown;
+    </item>
   </file>
   <file path="src/services/job-worker.ts">
     <item priority="low">
@@ -600,6 +976,26 @@
       interface ReservationJobHandlerDeps {
         dispatcher: ReminderDispatcher;
       }
+    </item>
+    <item priority="high">
+      export function createReservationJobHandlers(deps: ReservationJobHandlerDeps): JobHandlerMap { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ReservationJobWorkerConfig {
+        redisUrl: string;
+        handlers: JobHandlerMap;
+        queueName?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationJobRuntime {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createReservationJobWorker(
+        config: ReservationJobWorkerConfig
+      ): ReservationJobRuntime { /* ... */ }
     </item>
   </file>
   <file path="src/services/lapse-detector.ts">
@@ -630,6 +1026,27 @@
         intervalMs?: number;
       }
     </item>
+    <item priority="low">
+      type LapsedGuestMonitorConfig = LapsedGuestMonitorPrismaConfig | LapsedGuestMonitorCallbackConf;
+    </item>
+    <item priority="low">
+      interface LapsedGuestMonitor {
+        
+      }
+    </item>
+    <item priority="medium">
+      function isPrismaConfig(
+        config: LapsedGuestMonitorConfig
+      ): config is LapsedGuestMonitorPrismaConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildPrismaCallbacks(
+        prisma: PrismaClient
+      ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createLapsedGuestMonitor(config: LapsedGuestMonitorConfig): LapsedGuestMonitor { /* ... */ }
+    </item>
   </file>
   <file path="src/services/lapsed-guest-scan.ts">
     <item priority="high">
@@ -647,6 +1064,12 @@
         emitLapsingGuests: (venueId: string, guests: LapsingGuest[]) => void;
       }
     </item>
+    <item priority="high">
+      export async function runLapsedGuestScan(
+        venueId: string,
+        deps: LapsedGuestScanDeps
+      ): Promise<LapsingGuest[]> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
@@ -659,6 +1082,9 @@
         smsAdapter: SmsPort | null;
       }
     </item>
+    <item priority="high">
+      export function createNotifierRuntime(): NotifierRuntime { /* ... */ }
+    </item>
   </file>
   <file path="src/services/post-visit-notifier.ts">
     <item priority="high">
@@ -666,6 +1092,36 @@
     </item>
     <item priority="high">
       export function verifyUnsubscribeToken(token: string): { valid: boolean; guestId?: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PostVisitNotifierDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      interface PostVisitEmailInput {
+        reservationId: string;
+        guestId: string | null;
+        guestEmail: string | null;
+        guestFirstName: string | null;
+        unsubscribed: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface PostVisitNotifier {
+        
+      }
+    </item>
+    <item priority="high">
+      interface ThankYouSender {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createDefaultPostVisitNotifier(notifier: ThankYouSender): PostVisitNotifier { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createPostVisitNotifier(deps: PostVisitNotifierDeps): PostVisitNotifier { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-cancellation.ts">
@@ -681,6 +1137,33 @@
         cancellationReason?: string;
         cancellationNote?: string;
       }
+    </item>
+    <item priority="low">
+      type CancelReservationResult = { success: true; reservation:  | { success: false; status: numb;
+    </item>
+    <item priority="high">
+      type DepositStripeOp = "refund" | "forfeit" | "refund_partial";
+    </item>
+    <item priority="high">
+      type ResolvedDeposit = { depositId: string; stripeOp: DepositStripeOp };
+    </item>
+    <item priority="high">
+      type ResolveDepositOutcome = { ok: false; failure: CancelRe | { ok: true; resolved: Resolved;
+    </item>
+    <item priority="low">
+      async function resolveDeposit(
+        reservation: Reservation,
+        logger: FastifyBaseLogger,
+        initiator: CancelInitiator
+      ): Promise<ResolveDepositOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function cancelReservationWithDeposit(
+        reservation: Reservation,
+        manageToken: string,
+        deps: CancelReservationDeps,
+        options: CancelReservationOptions = {}
+      ): Promise<CancelReservationResult> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-modification.ts">
@@ -699,6 +1182,43 @@
         partySize?: number;
         specialRequests?: string;
       }
+    </item>
+    <item priority="low">
+      type ModifyReservationResult = { success: true; reservation:  | { success: false; status: numb;
+    </item>
+    <item priority="medium">
+      function hasAnyChange(changes: ReservationChanges): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isTimeChange(changes: ReservationChanges): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function isPartySizeDepositBlocked(
+        reservation: Reservation,
+        newPartySize: number | undefined
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkPartySizeDepositGuard(
+        reservation: Reservation,
+        changes: ReservationChanges
+      ): Promise<ModifyReservationResult | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function notifyModification(
+        updated: Reservation,
+        manageToken: string,
+        timeChanged: boolean,
+        deps: ModifyReservationDeps
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function modifyReservationWithNotifications(
+        reservation: Reservation,
+        changes: ReservationChanges,
+        manageToken: string,
+        deps: ModifyReservationDeps
+      ): Promise<ModifyReservationResult> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-no-show.ts">
@@ -742,6 +1262,17 @@
         conflict?: ConflictCheckResult;
       }
     </item>
+    <item priority="low">
+      interface UpdateReservationResult {
+        success: boolean;
+        reservation?: Reservation;
+        error?: string;
+        conflict?: ConflictCheckResult;
+      }
+    </item>
+    <item priority="high">
+      export const reservationService: unknown;
+    </item>
   </file>
   <file path="src/services/serializers.ts">
     <item priority="low">
@@ -762,6 +1293,24 @@
         partySize: number;
       }
     </item>
+    <item priority="high">
+      export function toTable(row: PrismaTableRow): Table { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ManagedReservationView {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      export function serializeManagedReservation(reservation: Reservation): ManagedReservationView { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
+    </item>
   </file>
   <file path="src/services/slot-rules.ts">
     <item priority="high">
@@ -769,6 +1318,100 @@
     </item>
     <item priority="medium">
       function scheduleForDay(operatingHours: OperatingHours, dayIndex: number): DaySchedule | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TableFilter {
+        id: string;
+        capacity: number;
+        minCovers: number;
+        maxCovers: number | null;
+        isActive: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface TableCandidate {
+        id: string;
+        capacity: number;
+        priority: number;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationSlim {
+        id: string;
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface HoldSlim {
+        id: string;
+        tableId: string;
+        startTime: Date;
+        endTime: Date;
+        partySize: number;
+      }
+    </item>
+    <item priority="high">
+      export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseOperatingHours(
+        operatingHours: OperatingHours | null,
+        date: string
+      ): DaySchedule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NOT_BOOKED_STATUSES: readonly ReservationStatus[];
+    </item>
+    <item priority="high">
+      export function venueLocalDateString(instant: Date, ianaTimezone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      type DateThreshold = { lt: Date } | { gt: Date };
+    </item>
+    <item priority="medium">
+      function passesThreshold(value: Date, threshold: DateThreshold): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlapWindow(
+        startTime: Date,
+        endTime: Date
+      ): { startTime: DateThreshold; endTime: DateThreshold } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function activeHoldWindow(now: Date): DateThreshold { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkTableConflict(
+        tableId: string,
+        startTime: Date,
+        endTime: Date,
+        reservations: ReservationSlim[],
+        holds: HoldSlim[]
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkPacingForSlot(
+        startTime: Date,
+        partySize: number,
+        settings: VenueSettings | null | undefined,
+        reservations: ReservationSlim[],
+        holds: HoldSlim[]
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectBestTable(
+        candidates: TableCandidate[],
+        startTime: Date,
+        endTime: Date,
+        reservations: ReservationSlim[],
+        holds: HoldSlim[]
+      ): TableCandidate | null { /* ... */ }
     </item>
   </file>
   <file path="src/services/sse-connection-manager.ts">
@@ -780,6 +1423,17 @@
         id: string;
         ip: string;
         connectedAt: number;
+      }
+    </item>
+    <item priority="low">
+      type ConnectionResult = { readonly allowed: true; read | { readonly allowed: false; rea;
+    </item>
+    <item priority="high">
+      class SseConnectionManager {
+        config: SseConnectionConfig;
+        connections: ReadonlyMap<string, SseConnectionRecord>;
+        nextId: unknown;
+        async getConfig(): Promise<unknown>;
       }
     </item>
   </file>
@@ -795,6 +1449,22 @@
         buffer: readonly ReservationEvent[];
         _droppedCount: unknown;
         async push(): Promise<unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface RequestLike {
+        ip: string;
+        log: Pick<FastifyRequest["log"], "info" | "warn">;
+        raw: Pick<FastifyRequest["raw"], "on">;
+      }
+    </item>
+    <item priority="high">
+      class SseConnection {
+        id: string;
+        raw: ReplyRaw;
+        buffer: EventBuffer;
+        heartbeatTimer: ReturnType<typeof setInterval>;
+        timeoutTimer: ReturnType<typeof setTimeout>;
       }
     </item>
   </file>
@@ -822,6 +1492,12 @@
         entityType: string | undefined;
       }
     </item>
+    <item priority="high">
+      export function createStateMachine<State extends string>(
+        transitions: Partial<Record<State, State[]>>,
+        entityType?: string
+      ): StateMachine<State> { /* ... */ }
+    </item>
   </file>
   <file path="src/services/stripe.ts">
     <item priority="high">
@@ -833,6 +1509,48 @@
     </item>
     <item priority="medium">
       function wrapStripeError(err: unknown): never { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CreatePaymentIntentOptions {
+        amountCents: number;
+        currency: string;
+        customerId?: string;
+        reservationId: string;
+        metadata?: Record<string, string>;
+      }
+    </item>
+    <item priority="low">
+      interface PaymentIntentResult {
+        id: string;
+        status: string;
+        clientSecret: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface CreateCustomerOptions {
+        email?: string;
+        name?: string;
+        metadata?: Record<string, string>;
+        idempotencyKey?: string;
+      }
+    </item>
+    <item priority="low">
+      interface CustomerResult {
+        id: string;
+        email: string | null;
+        name: string | null;
+      }
+    </item>
+    <item priority="high">
+      class StripeService {
+        stripe: Stripe;
+        async createPaymentIntent(): Promise<unknown>;
+        async capturePaymentIntent(): Promise<unknown>;
+        async cancelPaymentIntent(): Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      export const stripeService: unknown;
     </item>
   </file>
   <file path="src/services/table-state-machine.ts">
@@ -852,6 +1570,9 @@
     </item>
     <item priority="low">
       async function getSnapshot(venueId: string, now: Date = new Date()): Promise<TableStatusDelta[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const tableStatusService: unknown;
     </item>
   </file>
   <file path="src/services/table.ts">
@@ -899,6 +1620,60 @@
         depositType: DepositType | null;
       }
     </item>
+    <item priority="medium">
+      function mapVenuePolicy(row: {
+        id: string;
+        slug: string;
+        currencyCode: string;
+        depositEnabled: boolean;
+        depositType: DepositType | null;
+        depositAmountCents: number | null;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+        noShowFeePercent: number | null;
+      }): VenuePolicy { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaVenueGroup(group: {
+        id: string;
+        name: string;
+        slug: string;
+        settings: unknown;
+        createdAt: Date;
+      }): VenueGroup { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrismaVenue(venue: {
+        id: string;
+        venueGroupId: string | null;
+        venueGroup?: {
+          id: string;
+          name: string;
+          slug: string;
+          settings: unknown;
+          createdAt: Date;
+        } | null;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        currencyCode: string;
+        operatingHours: unknown;
+        settings: unknown;
+        createdAt: Date;
+        updatedAt: Date;
+      }): Venue { /* ... */ }
+    </item>
+    <item priority="high">
+      class VenueBootstrapForbiddenError {
+        
+      }
+    </item>
+    <item priority="high">
+      export const venueGroupService: unknown;
+    </item>
+    <item priority="high">
+      export const venueService: unknown;
+    </item>
   </file>
   <file path="src/services/waitlist-notifier.ts">
     <item priority="low">
@@ -915,6 +1690,57 @@
         position?: number;
       }
     </item>
+    <item priority="low">
+      interface WaitlistNotifierDeps {
+        smsAdapter: SmsPort | null;
+        scheduler: Pick<NotifierScheduler, "schedule">;
+        logger: WaitlistNotifierLogger;
+      }
+    </item>
+    <item priority="low">
+      interface NotifyAddedInput {
+        id: string;
+        guestPhone: string;
+        guestName: string | null;
+        position: number;
+        estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface NotifyPositionUpdateInput {
+        id: string;
+        guestPhone: string;
+        guestName: string | null;
+        previousPosition: number;
+        newPosition: number;
+      }
+    </item>
+    <item priority="low">
+      interface NotifyTableReadyInput {
+        id: string;
+        guestPhone: string;
+        guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface HandleExpiryInput {
+        waitlistEntryId: string;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistNotifier {
+        
+      }
+    </item>
+    <item priority="high">
+      export function validatePhone(phone: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNotifier { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createDefaultWaitlistNotifier(runtime: NotifierRuntime): WaitlistNotifier { /* ... */ }
+    </item>
   </file>
   <file path="src/services/waitlist-utils.ts">
     <item priority="high">
@@ -922,6 +1748,11 @@
     </item>
     <item priority="high">
       export function estimateWaitMinutes(position: number, avgTurnTimeMinutes: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function recalculatePositions(
+        entries: { id: string; position: number }[]
+      ): { id: string; position: number }[] { /* ... */ }
     </item>
   </file>
   <file path="src/services/waitlist.ts">
@@ -942,6 +1773,12 @@
         guestPhone: string;
         avgTurnTimeMinutes?: number;
       }
+    </item>
+    <item priority="low">
+      async function recalculateVenuePositions(venueId: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const waitlistService: unknown;
     </item>
   </file>
   <file path="src/services/win-back.ts">

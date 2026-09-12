@@ -384,6 +384,73 @@ describe("useTimelineData", () => {
 
       expect(mockReservationsWalkIn).toHaveBeenCalledWith(walkInData);
     });
+
+    it("resolves to the created reservation so the page can select and focus it (item 15)", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      const created = makeReservation({ id: "r-walkin", guestName: "Walkin", partySize: 2 });
+      mockReservationsWalkIn.mockResolvedValue(created);
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      let returnValue: Reservation | undefined;
+      await act(async () => {
+        returnValue = await result.current.createWalkIn({
+          partySize: 2,
+          tableId: "t1",
+          venueId: "venue-1",
+          guestName: "Walkin",
+        });
+      });
+
+      expect(returnValue).toEqual(created);
+    });
+  });
+
+  describe("refetch", () => {
+    it("refetches reservations and tables and resolves once both have settled", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(mockReservationsList).toHaveBeenCalledTimes(1);
+      expect(mockTablesList).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      expect(mockReservationsList).toHaveBeenCalledTimes(2);
+      expect(mockTablesList).toHaveBeenCalledTimes(2);
+      expect(result.current.fetchError).toBeNull();
+    });
+
+    it("rejects when either query fails on refetch, so a Retry handler can stay silent", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      mockTablesList.mockRejectedValue(new Error("Tables down"));
+
+      await expect(
+        act(async () => {
+          await result.current.refetch();
+        })
+      ).rejects.toThrow("Tables down");
+      await waitFor(() => expect(result.current.fetchError?.message).toBe("Tables down"));
+    });
   });
 
   describe("mutation: updateTableStatus", () => {

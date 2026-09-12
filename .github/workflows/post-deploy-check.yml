@@ -230,6 +230,17 @@ jobs:
           TRIGGER_NAME: ${{ github.event.workflow_run.name }}
         run: |
           SHORT_SHA="${HEAD_SHA:0:7}"
+
+          # Dedupe on *which probes failed and how*, not the commit SHA -- the
+          # routing/guard defects this job catches are properties of deployed
+          # config, not of a single commit, so a SHA-keyed identity could
+          # never match itself on the next deploy (#5189; see #5168-#5231 for
+          # the duplicate chain this produced). scripts/lib/deploy-check-dedupe.mjs
+          # is the pure, unit-tested derivation.
+          SIGNATURE_JSON=$(node scripts/lib/deploy-check-dedupe.mjs api-surface /tmp/api-surface.log)
+          SIGNATURE=$(echo "$SIGNATURE_JSON" | jq -r '.signature')
+          DEDUPE_KEY=$(echo "$SIGNATURE_JSON" | jq -r '.dedupeKey')
+
           {
             echo "## API Surface Invariant Breach"
             echo
@@ -258,21 +269,43 @@ jobs:
             echo "*Auto-created by post-deploy-check workflow*"
           } > /tmp/api-surface-body.md
 
-          node scripts/lib/file-issue-cli.mjs \
-            --title "API surface invariant breach (${SHORT_SHA:-unknown})" \
+          TITLE="API surface invariant breach: ${SIGNATURE}"
+
+          # --search-state open (not all) is deliberate: a match against a
+          # *closed* issue must file a fresh issue, not reopen the old one --
+          # reopenIssue() doesn't reset labels (#5071) -- and restricting the
+          # search to open issues routes that case through create instead.
+          RESULT=$(node scripts/lib/file-issue-cli.mjs \
+            --title "$TITLE" \
             --label "ci-fix" \
             --label "ready" \
             --body-file /tmp/api-surface-body.md \
-            --dedupe-key "api-surface-invariants-${SHORT_SHA:-unknown}" \
+            --dedupe-key "$DEDUPE_KEY" \
             --search-label "ci-fix" \
-            --search-state all \
-            --contains "(${SHORT_SHA:-unknown})"
+            --search-state open \
+            --contains "$SIGNATURE")
+          echo "$RESULT"
+
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
+
+          # A dedupe match against an already-open issue means this is the
+          # same failure recurring on a new commit -- comment with the new
+          # occurrence instead of filing a duplicate.
+          if [ "$ACTION" = "skip" ]; then
+            printf 'Recurred on a new commit.\n\n**Commit:** `%s`\n**Run:** %s\n' \
+              "${SHORT_SHA:-unknown}" "$RUN_URL" > /tmp/api-surface-comment.md
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/api-surface-comment.md
+          fi
 
   playwright-smoke:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 15
+    # 18 min covers setup (~1 min) + the poll budget below (12 min) + room for
+    # the smoke tests themselves once confirmed. See "Poll for deploy to
+    # land"'s MAX_ATTEMPTS/SLEEP_SECS comment for why the poll budget grew.
+    timeout-minutes: 18
     permissions:
       contents: read
       issues: write
@@ -298,13 +331,16 @@ jobs:
         id: poll-deploy
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
-          # 24x15s = 6 minutes. Was 12x15s (3 min): four consecutive real runs
-          # (#5006 -- ids 33920189903, 33927436459, 33948920980, 33993498356)
-          # all confirmed on attempt 11/12, i.e. the poll step consistently
-          # took ~166-167s against a 180s budget -- essentially zero margin.
-          # Doubling the budget gives real headroom instead of running at the
-          # edge of the observed propagation time on every single deploy.
-          MAX_ATTEMPTS: 24
+          # 48x15s = 12 minutes. Was 24x15s (6 min, #5006). That 6-minute
+          # budget itself started timing out routinely: #5098/#5123/#5124/
+          # #5133/#5134 all auto-filed "could not confirm deploy" within one
+          # ~24h window, and job logs for those runs show the "Poll for
+          # deploy to land" step consistently burning the *entire* 6-minute
+          # budget (e.g. runs 34193374786, 34192473847, 34176995119 -- all
+          # 5m47s-5m48s, i.e. exactly 24 attempts). Doubling again gives real
+          # headroom instead of re-running at the edge of a budget that's
+          # already proven too tight once. See scripts/check-deploy-sha.mjs.
+          MAX_ATTEMPTS: 48
           SLEEP_SECS: 15
         run: |
           # scripts/check-deploy-sha.mjs's exit code IS the gate (#5006): it
@@ -516,15 +552,36 @@ jobs:
             echo "*Auto-created by post-deploy-check workflow*"
           } > /tmp/unverified-body.md
 
-          node scripts/lib/file-issue-cli.mjs \
-            --title "Post-deploy verification could not confirm deploy (${SHORT_SHA:-unknown})" \
+          # A propagation-poll timeout carries no commit-specific information
+          # worth splitting duplicates on (see the body text above), so the
+          # dedupe key is a fixed string with no SHA -- otherwise every commit
+          # refiles a "new" issue for the same timeout (#5189; see #5123-#5153
+          # for the duplicate chain this produced).
+          DEDUPE_KEY=$(node scripts/lib/deploy-check-dedupe.mjs post-deploy-unverified-key)
+          TITLE="Post-deploy verification could not confirm deploy"
+
+          # --search-state open (not all): a match against a closed issue
+          # files fresh rather than reopening it (reopenIssue() doesn't reset
+          # labels -- #5071).
+          RESULT=$(node scripts/lib/file-issue-cli.mjs \
+            --title "$TITLE" \
             --label "ci-fix" \
             --label "ready" \
             --body-file /tmp/unverified-body.md \
-            --dedupe-key "post-deploy-check-unverified-${SHORT_SHA:-unknown}" \
+            --dedupe-key "$DEDUPE_KEY" \
             --search-label "ci-fix" \
-            --search-state all \
-            --contains "(${SHORT_SHA:-unknown})"
+            --search-state open \
+            --contains "$TITLE")
+          echo "$RESULT"
+
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
+
+          if [ "$ACTION" = "skip" ]; then
+            printf 'Recurred on a new commit.\n\n**Commit:** `%s`\n**Run:** %s\n' \
+              "${SHORT_SHA:-unknown}" "$RUN_URL" > /tmp/unverified-comment.md
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/unverified-comment.md
+          fi
 
       - name: Log verification result for learning-loop
         if: always()

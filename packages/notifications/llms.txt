@@ -26,6 +26,32 @@
         manageBaseUrl: string;
       }
     </item>
+    <item priority="high">
+      interface BookingEmailTemplate {
+        subject: string;
+        html: string;
+      }
+    </item>
+    <item priority="high">
+      interface EventCopy {
+        heading: string;
+        subject: string;
+        includeAddress: boolean;
+        includeManageLink: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function eventCopy(venueName: string, event: NotificationEventType): EventCopy { /* ... */ }
+    </item>
+    <item priority="medium">
+      function manageLinkHtml(manageBaseUrl: string, manageToken: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBookingEmail(
+        input: BookingEmailTemplateInput,
+        event: NotificationEventType
+      ): BookingEmailTemplate { /* ... */ }
+    </item>
   </file>
   <file path="src/ical.ts">
     <item priority="low">
@@ -39,6 +65,21 @@
     </item>
     <item priority="low">
       type IcalMethod = "REQUEST" | "CANCEL";
+    </item>
+    <item priority="high">
+      export function escapeIcalText(value: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function assertSafeIcalToken(value: string, fieldName: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toIcalDateTime(date: string, time: string, _timezone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIcalDate(date: Date): string { /* ... */ }
     </item>
   </file>
   <file path="src/notification-dispatcher.ts">
@@ -75,6 +116,20 @@
         venueName: string;
       }
     </item>
+    <item priority="low">
+      interface ThankYouEmailInput {
+        guestEmail: string;
+        guestFirstName: string | null;
+        venueName: string;
+        visitDate: string;
+        feedbackUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface NotificationPort {
+        
+      }
+    </item>
   </file>
   <file path="src/resend-adapter.ts">
     <item priority="high">
@@ -88,6 +143,14 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
+      }
+    </item>
+    <item priority="high">
+      class ResendNotificationAdapter {
+        resend: ResendClient | null;
+        fromAddress: string;
+        manageBaseUrl: string;
+        async sendBookingConfirmation(): Promise<unknown>;
       }
     </item>
   </file>
@@ -118,6 +181,41 @@
         partySize: number;
       }
     </item>
+    <item priority="low">
+      interface WinbackMessageInput {
+        guestName: string | null;
+        guestPhone: string;
+        venueName: string;
+        manageBaseUrl: string;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistAddedInput {
+        guestPhone: string;
+        guestName: string | null;
+        position: number;
+        estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistPositionUpdateInput {
+        guestPhone: string;
+        guestName: string | null;
+        position: number;
+        estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface WaitlistTableReadyInput {
+        guestPhone: string;
+        guestName: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface SmsPort {
+        
+      }
+    </item>
   </file>
   <file path="src/twilio-sms-adapter.ts">
     <item priority="high">
@@ -128,6 +226,24 @@
     <item priority="high">
       interface TwilioClient {
         messages: TwilioMessages;
+      }
+    </item>
+    <item priority="low">
+      interface TwilioSmsAdapterConfig {
+        client: TwilioClient | null;
+        fromNumber: string;
+        retryDelayMs?: number;
+      }
+    </item>
+    <item priority="medium">
+      function formatDate(dateStr: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      class TwilioSmsAdapter {
+        client: TwilioClient | null;
+        fromNumber: string;
+        retryDelayMs: number;
+        async sendBookingReminder(): Promise<unknown>;
       }
     </item>
   </file>

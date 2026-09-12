@@ -9,6 +9,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import topologyConfig from "./routes-config.json" with { type: "json" };
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 // ── HTMLRewriter mock (Cloudflare Workers API, not available in Node) ─
 // Simulates the HTMLRewriter transform by doing a regex-based nonce
@@ -276,6 +282,143 @@ describe("Edge Router", () => {
         expect(forwardedRequest.headers.get("x-feature-flags")).toBeNull();
       } finally {
         globalThis.fetch = originalFetch;
+      }
+    });
+
+    // ── Origin routes read from the registry ─────────────────────────
+    // The prefix table moved from a hardcoded startsWith("/api/") into
+    // routes-config.json's originRoutes. For /api that is a pure refactor —
+    // every test above passes unmodified — and /public is the addition that
+    // opens the outer of the two gates that made /public/v1/** unreachable.
+    const PUBLIC_TEST_PATHS = ["/public", "/public/v1/venues/x", "/public/v1/guests/unsubscribe"];
+
+    /** Run one request with global fetch stubbed; returns the forwarded Request or null. */
+    async function forwarded(path, testEnv = env) {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+      try {
+        await edgeRouter.fetch(makeRequest(path), testEnv);
+        return globalThis.fetch.mock.calls[0]?.[0] ?? null;
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    }
+
+    it.each(PUBLIC_TEST_PATHS)("proxies %s to API_ORIGIN with the path preserved", async (path) => {
+      const request = await forwarded(path);
+      expect(request).not.toBeNull();
+      // preservePathPrefix on the DO side re-matches this exact string, so a
+      // rewrite here would arrive at a service that does not serve it.
+      expect(request.url).toBe(`https://api.mattbutlerengineering.com${path}`);
+      expect(env.MARKETING.fetch).not.toHaveBeenCalled();
+    });
+
+    it("gives /public the same forwarded headers and flag stripping as /api", async () => {
+      // Not asserted for its own sake: this is what proves /public takes the
+      // same branch as /api, and therefore inherits the circuit breaker, the
+      // forwarded header set and X-Feature-Flags stripping. The edge rate
+      // limiter is NOT inherited this way — it runs before this branch off its
+      // own table; rate-limiter.test.js owns that coupling.
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+      try {
+        await edgeRouter.fetch(
+          makeRequest("/public/v1/venues/x", {
+            headers: { "X-Feature-Flags": '{"enhanced-validation":true}' },
+          }),
+          env
+        );
+        const request = globalThis.fetch.mock.calls[0][0];
+        expect(request.headers.get("x-forwarded-host")).toBe("mattbutlerengineering.com");
+        expect(request.headers.get("x-request-id")).toBeTruthy();
+        expect(request.headers.get("x-feature-flags")).toBeNull();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it.each(["/publicity", "/apiary"])(
+      "does not proxy %s — it stays a static route",
+      async (path) => {
+        // Measured at the apex 2026-08-24: /apiary and /publicity both answer
+        // 200 text/html, 7130 bytes (the marketing SPA). A bare
+        // startsWith(prefix) would newly proxy both, and a refactor that changes
+        // what a live path returns is not a refactor.
+        expect(await forwarded(path)).toBeNull();
+        expect(env.MARKETING.fetch).toHaveBeenCalled();
+      }
+    );
+
+    it("matches on the pathname only, so a query string cannot affect routing", async () => {
+      const request = await forwarded("/public/v1/venues/x?slug=%2Fapi");
+      expect(request.url).toBe(
+        "https://api.mattbutlerengineering.com/public/v1/venues/x?slug=%2Fapi"
+      );
+    });
+
+    it("is case-sensitive — /Public is not /public", async () => {
+      expect(await forwarded("/Public/v1/venues/x")).toBeNull();
+      expect(env.MARKETING.fetch).toHaveBeenCalled();
+    });
+
+    it("routes identically when originRoutes is reversed — the array is a set", async () => {
+      // The branch is a single boolean (does ANY prefix match), so no entry
+      // can shadow another and order carries no contract. Pinned as a test
+      // rather than a comment, because the sibling staticRoutes table in the
+      // same file IS order-dependent and the two are easy to conflate.
+      const reversed = [...topologyConfig.originRoutes].reverse();
+      const original = topologyConfig.originRoutes;
+      topologyConfig.originRoutes = reversed;
+      try {
+        for (const path of [...PUBLIC_TEST_PATHS, API_TEST_PATH, "/api"]) {
+          const request = await forwarded(path);
+          expect(request?.url, `${path} under reversed originRoutes`).toBe(
+            `https://api.mattbutlerengineering.com${path}`
+          );
+        }
+        for (const path of ["/publicity", "/apiary"]) {
+          expect(await forwarded(path), `${path} under reversed originRoutes`).toBeNull();
+        }
+      } finally {
+        topologyConfig.originRoutes = original;
+      }
+    });
+
+    it("reads the origin table rather than any literal — a prefix absent from source still routes", async () => {
+      // ADR-011: topology lives in routes-config.json. The /api branch had
+      // been violating that since it was written, which is why the coverage
+      // check had no source of truth to read on the edge side.
+      //
+      // Asserting the source does not CONTAIN "/api/" is too weak to encode
+      // that rule: a reintroduced startsWith("/api") or === "/public" passes
+      // such a check unchanged. So drive the matcher with a prefix that
+      // appears nowhere in edge-router.js — it can only route if the branch
+      // genuinely reads the registry.
+      const invented = "/zzz-not-in-source";
+      const source = readFileSync(resolve(__dirname, "edge-router.js"), "utf-8");
+      expect(source).not.toContain(invented);
+
+      const original = topologyConfig.originRoutes;
+      topologyConfig.originRoutes = [...original, invented];
+      try {
+        const request = await forwarded(`${invented}/probe`);
+        expect(request?.url).toBe(`https://api.mattbutlerengineering.com${invented}/probe`);
+      } finally {
+        topologyConfig.originRoutes = original;
+      }
+    });
+
+    it("stops routing a prefix the moment it leaves the registry", async () => {
+      // The other direction, and the one that catches a leftover literal: if
+      // any hardcoded /api test survived alongside the registry read, removing
+      // /api from the table would not stop it proxying.
+      const original = topologyConfig.originRoutes;
+      topologyConfig.originRoutes = original.filter((p) => p !== "/api");
+      try {
+        expect(await forwarded(API_TEST_PATH)).toBeNull();
+        expect(env.MARKETING.fetch).toHaveBeenCalled();
+      } finally {
+        topologyConfig.originRoutes = original;
       }
     });
 

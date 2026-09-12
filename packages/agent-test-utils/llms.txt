@@ -13,6 +13,109 @@
     <item priority="high">
       export const MODEL_PRICING: Record<string, ModelPricing>;
     </item>
+    <item priority="high">
+      export function estimateTokenCount(text: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimatePromptTokens(taskDescription: string, systemPromptOverhead = 2000): number { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TokenUsageInput {
+        inputTokens: number;
+        outputTokens: number;
+        cacheWriteTokens?: number;
+        cacheReadTokens?: number;
+      }
+    </item>
+    <item priority="low">
+      interface CostBreakdown {
+        model: string;
+        inputCostUsd: number;
+        outputCostUsd: number;
+        cacheWriteCostUsd: number;
+        cacheReadCostUsd: number;
+      }
+    </item>
+    <item priority="high">
+      export function calculateCost(usage: TokenUsageInput, model = DEFAULT_MODEL): CostBreakdown { /* ... */ }
+    </item>
+    <item priority="high">
+      export function estimateSessionCost(
+        taskDescription: string,
+        options: {
+          readonly model?: string;
+          readonly expectedOutputTokens?: number;
+          readonly numTurns?: number;
+          readonly systemPromptOverhead?: number;
+        } = {}
+      ): CostBreakdown { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SessionCostProfile {
+        sessionId: string;
+        model: string;
+        usage: TokenUsageInput;
+        breakdown: CostBreakdown;
+        durationMs: number;
+      }
+    </item>
+    <item priority="low">
+      interface CostProfilerSummary {
+        totalSessions: number;
+        totalCostUsd: number;
+        averageCostUsd: number;
+        totalInputTokens: number;
+        totalOutputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface CostProfiler {
+        record: (
+          sessionId: string,
+          usage: TokenUsageInput,
+          ...;
+        summary: () => CostProfilerSummary;
+        profiles: () => readonly SessionCostProfile[];
+        reset: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function createCostProfiler(): CostProfiler { /* ... */ }
+    </item>
+    <item priority="high">
+      export function wouldExceedBudget(
+        taskDescription: string,
+        maxBudgetUsd: number,
+        options: {
+          readonly model?: string;
+          readonly expectedOutputTokens?: number;
+          readonly numTurns?: number;
+        } = {}
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface LatencyProfile {
+        baseMs: number;
+        msPerKInputTokens: number;
+        msPerHundredOutputTokens: number;
+        jitterMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_LATENCY_PROFILE: LatencyProfile;
+    </item>
+    <item priority="high">
+      export function estimateLatency(
+        usage: TokenUsageInput,
+        profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function simulateLatency(
+        usage: TokenUsageInput,
+        profile: LatencyProfile = DEFAULT_LATENCY_PROFILE
+      ): Promise<number> { /* ... */ }
+    </item>
   </file>
   <file path="src/mock-claude-client.ts">
     <item priority="low">
@@ -25,6 +128,59 @@
         cache_creation_input_tokens: number;
         cache_read_input_tokens: number;
       }
+    </item>
+    <item priority="low">
+      interface MockResultMessage {
+        type: "result";
+        subtype: "success" | "error_max_turns" | "error_during_turn";
+        uuid: string;
+        session_id: string;
+        duration_ms: number;
+      }
+    </item>
+    <item priority="low">
+      interface MockClientOptions {
+        mode?: MockMode;
+        fixtures?: readonly (readonly SDKMessage[])[];
+        errorOnCall?: number;
+        errorToInject?: Error;
+        simulatedLatencyMs?: number;
+      }
+    </item>
+    <item priority="low">
+      interface MockCallRecord {
+        callIndex: number;
+        prompt: string;
+        model: string;
+        timestamp: string;
+      }
+    </item>
+    <item priority="medium">
+      function buildDeterministicResult(
+        callIndex: number,
+        tokens: Readonly<{ input: number; output: number }>,
+        costUsd: number
+      ): MockResultMessage { /* ... */ }
+    </item>
+    <item priority="low">
+      interface MockClaudeClient {
+        query: (options: {
+          prompt: string;
+          model?: string;
+          [...;
+        calls: readonly MockCallRecord[];
+        reset: () => void;
+        totalCostUsd: () => number;
+        totalTokenUsage: () => Readonly<{ input: number; output: number }>;
+      }
+    </item>
+    <item priority="high">
+      export async function* createMockQueryStream(
+        messages: unknown[]
+      ): AsyncGenerator<SDKMessage | SDKResultMessage> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockClaudeClient(options: MockClientOptions = {}): MockClaudeClient { /* ... */ }
     </item>
   </file>
   <file path="src/session-fixtures.ts">
@@ -44,6 +200,68 @@
         outputTokens?: number;
       }
     </item>
+    <item priority="medium">
+      function makeTimestamp(offsetMs = 0): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildStartEvent(sessionId: string): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildAssistantEvent(text: string, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolUseEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildToolResultEvent(call: ToolCallRecord, offsetMs = 0): SessionEvent { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildResultEvent(opts: Required<FixtureOptions>): SessionEvent { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildMinimalSuccessFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildBugFixFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildFailureFixture(opts: FixtureOptions = {}): readonly SessionEvent[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface FixturePlayer {
+        next: () => SessionEvent | undefined;
+        hasMore: () => boolean;
+        reset: () => void;
+        drainAll: () => readonly SessionEvent[];
+        position: () => number;
+      }
+    </item>
+    <item priority="high">
+      export function createFixturePlayer(events: readonly SessionEvent[]): FixturePlayer { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ToolCallDiff {
+        matched: readonly ToolCallRecord[];
+        missing: readonly ToolCallRecord[];
+        unexpected: readonly ToolCallRecord[];
+        passed: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function extractToolCalls(events: readonly SessionEvent[]): readonly ToolCallRecord[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function compareToolCalls(
+        expected: readonly ToolCallRecord[],
+        actual: readonly ToolCallRecord[]
+      ): ToolCallDiff { /* ... */ }
+    </item>
+    <item priority="high">
+      export function loadFixtureFromFile(filePath: string): readonly SessionEvent[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serializeFixture(events: readonly SessionEvent[]): string { /* ... */ }
+    </item>
   </file>
   <file path="src/worktree-simulator.ts">
     <item priority="low">
@@ -55,6 +273,65 @@
         content: string;
         status?: "modified" | "added" | "deleted" | "conflicted";
       }
+    </item>
+    <item priority="low">
+      interface WorktreeSimulatorOptions {
+        repoPath?: string;
+        baseBranch?: string;
+        branchName?: string;
+        state?: RepoState;
+        files?: readonly SimulatedFile[];
+      }
+    </item>
+    <item priority="low">
+      interface VerificationResult {
+        passed: boolean;
+        lintOk: boolean;
+        typecheckOk: boolean;
+        testsOk: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const CLEAN_REPO_FILES: readonly SimulatedFile[];
+    </item>
+    <item priority="high">
+      export const DIRTY_REPO_FILES: readonly SimulatedFile[];
+    </item>
+    <item priority="high">
+      export const CONFLICTED_REPO_FILES: readonly SimulatedFile[];
+    </item>
+    <item priority="medium">
+      function getDefaultFiles(state: RepoState): readonly SimulatedFile[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WorktreeCallRecord {
+        operation: string;
+        args: readonly unknown[];
+        timestamp: string;
+      }
+    </item>
+    <item priority="low">
+      interface WorktreeSimulator {
+        createWorktree: (repoPath: string, taskDescription: string) => Promise<Wo...;
+        removeWorktree: (repoPath: string, worktreePath: string) => Promise<void>;
+        hasChanges: (worktreePath: string) => Promise<boolean>;
+        commitChanges: (worktreePath: string, message?: string) => Promise<string>;
+        pushBranch: (repoPath: string, branchName: string) => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function createWorktreeSimulator(options: WorktreeSimulatorOptions = {}): WorktreeSimulator { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createWorktreeMocks(
+        simulator: WorktreeSimulator = createWorktreeSimulator()
+      ): Record<string, (...args: unknown[]) => unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function assertOperationCalled(simulator: WorktreeSimulator, operation: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function assertOperationNotCalled(simulator: WorktreeSimulator, operation: string): void { /* ... */ }
     </item>
   </file>
   </section>

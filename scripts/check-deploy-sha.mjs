@@ -86,7 +86,7 @@ async function fetchBuildId(url, fetchFn) {
 export async function pollForDeploy({
   url,
   expectedShortSha,
-  maxAttempts = 24,
+  maxAttempts = 48,
   sleepSecs = 15,
   fetchFn = fetch,
   sleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -119,7 +119,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const url = readFlag(args, "--url");
   const expectedShortSha = readFlag(args, "--expected-sha") || null;
-  const maxAttempts = Number(readFlag(args, "--max-attempts") ?? 24);
+  const maxAttempts = Number(readFlag(args, "--max-attempts") ?? 48);
   const sleepSecs = Number(readFlag(args, "--sleep-secs") ?? 15);
 
   if (!url) {

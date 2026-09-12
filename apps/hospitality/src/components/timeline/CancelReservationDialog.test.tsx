@@ -1,8 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
+import { ApiClientError } from "@mbe/api-client";
 import { CancelReservationDialog } from "./CancelReservationDialog.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -92,13 +108,14 @@ describe("CancelReservationDialog", () => {
     });
   });
 
-  it("should display error when onConfirm throws", async () => {
+  it("speaks the house sentence for a plain Error, never its debug message", async () => {
     const onConfirm = vi.fn().mockRejectedValue(new Error("Network error"));
     render(<CancelReservationDialog {...defaultProps} onConfirm={onConfirm} />);
     fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
-    await waitFor(() => {
-      expect(screen.getByText("Network error")).toBeDefined();
-    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(ERROR_COPY.unknown.detail);
+    expect(screen.queryByText("Network error")).toBeNull();
   });
 
   it("should use default guest name when guestName is null", () => {
@@ -187,7 +204,64 @@ describe("CancelReservationDialog", () => {
     });
   });
 
-  describe("accessibility (focus trap + return focus)", () => {
+  describe("owns its failure (item 12, #5031)", () => {
+    const failure = serverError("PATCH", "/api/v1/reservations/res-123");
+
+    it("renders 'Reservation not cancelled.' with the house sentence, the raw line behind Show details, and stays open", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(failure);
+      render(<CancelReservationDialog {...defaultProps} onConfirm={onConfirm} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
+
+      const alert = await screen.findByRole("alert");
+      expect(
+        alert.textContent?.startsWith(`Reservation not cancelled.${ERROR_COPY.serverError.detail}`)
+      ).toBe(true);
+      expect(screen.queryByText(failure.message)).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+      expect(screen.getByRole("region", { name: "Show details" })).toHaveTextContent(
+        failure.message
+      );
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+
+    it("returns the buttons to rest in the same commit as the banner and keeps reason and note", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(failure);
+      render(<CancelReservationDialog {...defaultProps} onConfirm={onConfirm} />);
+      fireEvent.click(screen.getByRole("combobox", { name: /reason/i }));
+      fireEvent.click(screen.getByRole("option", { name: "No Show" }));
+      fireEvent.change(screen.getByLabelText(/note/i), {
+        target: { value: "Guest never arrived" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
+
+      await screen.findByRole("alert");
+      expect(screen.getByRole("button", { name: "Cancel Reservation" })).not.toBeDisabled();
+      expect(screen.queryByText("Cancelling…")).toBeNull();
+      expect(screen.getByRole("button", { name: "Keep Reservation" })).not.toBeDisabled();
+      expect(screen.getByRole("combobox", { name: /reason/i })).toHaveTextContent("No Show");
+      expect((screen.getByLabelText(/note/i) as HTMLTextAreaElement).value).toBe(
+        "Guest never arrived"
+      );
+    });
+
+    it("leaves focus on Cancel Reservation after the failure, so pressing again is the retry", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(failure);
+      render(<CancelReservationDialog {...defaultProps} onConfirm={onConfirm} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel Reservation" }));
+
+      await screen.findByRole("alert");
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Cancel Reservation" })).toHaveFocus();
+      });
+    });
+  });
+
+  describe("accessibility (focus trap; focus return belongs to the page)", () => {
     it("traps Tab focus within the dialog", () => {
       const { container } = render(<CancelReservationDialog {...defaultProps} />);
       const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
@@ -202,42 +276,28 @@ describe("CancelReservationDialog", () => {
       expect(document.activeElement).toBe(last);
     });
 
-    it("returns focus to the trigger element when closed via Keep Reservation", () => {
+    // The page owns focus return (`useFocusAfter`, captured at event time) — the dialog no longer
+    // restores the opener itself, so closing must call `onClose` and leave focus where it is.
+    it.each([
+      [
+        "Keep Reservation",
+        () => fireEvent.click(screen.getByRole("button", { name: "Keep Reservation" })),
+      ],
+      ["Escape", () => fireEvent.keyDown(document, { key: "Escape" })],
+      [
+        "backdrop click",
+        () => fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement),
+      ],
+    ])("closing via %s calls onClose without moving focus back to the opener", (_label, close) => {
       const trigger = document.createElement("button");
       document.body.appendChild(trigger);
       trigger.focus();
 
       render(<CancelReservationDialog {...defaultProps} />);
-      fireEvent.click(screen.getByRole("button", { name: "Keep Reservation" }));
-
-      expect(document.activeElement).toBe(trigger);
-      document.body.removeChild(trigger);
-    });
-
-    it("closes and returns focus on Escape key", () => {
-      const trigger = document.createElement("button");
-      document.body.appendChild(trigger);
-      trigger.focus();
-
-      render(<CancelReservationDialog {...defaultProps} />);
-      fireEvent.keyDown(document, { key: "Escape" });
+      close();
 
       expect(defaultProps.onClose).toHaveBeenCalledOnce();
-      expect(document.activeElement).toBe(trigger);
-      document.body.removeChild(trigger);
-    });
-
-    it("returns focus when closed via backdrop click", () => {
-      const trigger = document.createElement("button");
-      document.body.appendChild(trigger);
-      trigger.focus();
-
-      const { container } = render(<CancelReservationDialog {...defaultProps} />);
-      const overlay = container.firstChild as HTMLElement;
-      fireEvent.click(overlay);
-
-      expect(defaultProps.onClose).toHaveBeenCalledOnce();
-      expect(document.activeElement).toBe(trigger);
+      expect(document.activeElement).not.toBe(trigger);
       document.body.removeChild(trigger);
     });
   });

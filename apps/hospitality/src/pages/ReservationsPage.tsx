@@ -1,10 +1,9 @@
-import { useState, useReducer, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useRef, useState, useReducer, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
 import type { CreateReservationRequest } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -12,21 +11,27 @@ import {
   Input,
   SegmentedControl,
   Skeleton,
-  SkeletonGroup,
-  Stat,
   Text,
 } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useReservationDisplay } from "../hooks/useReservationDisplay.js";
 import { useTables } from "../hooks/useTables.js";
 import { useCreateReservation } from "../hooks/useReservations.js";
+import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { useStatusMessage } from "../hooks/useStatusMessage.js";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { NewReservationDialog } from "../components/reservations/NewReservationDialog.js";
 import {
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
   formatReservationTime,
 } from "../utils/reservation-display.js";
+import { formatServiceDate } from "../utils/format.js";
+import { parseReservationsIntent, stripReservationsIntent } from "../utils/timeline-intent.js";
 import { ordinalVisit } from "../utils/ordinal.js";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
+import { KpiStat } from "../components/KpiStat.js";
+import { LiveStatus } from "../components/LiveStatus.js";
 import { PageHeader } from "../components/PageHeader";
 import styles from "./ReservationsPage.module.css";
 
@@ -51,15 +56,20 @@ const STATUS_SEGMENTS = [
   { id: "CANCELLED", label: "Cancelled" },
 ] as const;
 
-/* ── Loading skeleton ───────────────────────── */
+/* ── Loading rows ───────────────────────────── */
 
-function ReservationsLoadingSkeleton() {
+const SKELETON_ROW_COUNT = 5;
+
+/** ux.md Screen 8 loading: five text rows in the table region, one `role=status` sentence. */
+function ReservationsLoadingRows() {
   return (
-    <div className={styles.container}>
-      <PageHeader title="Reservations" description="View and manage reservations" />
-      <SkeletonGroup>
-        <Skeleton variant="card" width="100%" height={300} />
-      </SkeletonGroup>
+    <div className={styles.loading} role="status" aria-busy="true">
+      <Text as="span" className={styles.srOnly}>
+        Loading reservations…
+      </Text>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+        <Skeleton key={index} variant="text" width="100%" />
+      ))}
     </div>
   );
 }
@@ -87,6 +97,13 @@ export function ReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showNewReservationDialog, setShowNewReservationDialog] = useState(false);
+  // ⌘K "New Reservation" lands here as `?new=true` (architecture § Amendment 2026-09-04): the
+  // intent is derived on render — no state, no effect — and stripped when the dialog closes.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const intent = parseReservationsIntent(searchParams);
+  const newReservationButtonRef = useRef<HTMLButtonElement>(null);
+  const { status, announce } = useStatusMessage();
+  const { focusAfter } = useFocusAfter();
 
   const {
     data,
@@ -94,6 +111,7 @@ export function ReservationsPage() {
     filteredData: filteredReservations,
     isLoading,
     error: queryError,
+    refetch,
   } = useReservationDisplay({
     date: selectedDate,
     venueId: selectedVenueId ?? undefined,
@@ -101,18 +119,43 @@ export function ReservationsPage() {
     searchQuery,
   });
 
-  const { data: tables } = useTables({
+  const { data: tables, isLoading: tablesLoading } = useTables({
     venueId: selectedVenueId ?? undefined,
     limit: 100,
     enabled: !!selectedVenueId,
   });
   const { mutateAsync: createReservation } = useCreateReservation();
 
-  const error = queryError?.message ?? null;
+  const errorDescription = queryError ? describeApiError(queryError) : null;
+  const dateLabel = formatServiceDate(selectedDate);
+
+  const handleRetry = useCallback(async () => {
+    const result = await refetch();
+    if (result.error) return;
+    announce(`Reservations for ${dateLabel} loaded.`);
+    focusAfter({ kind: "pageHeading" });
+  }, [refetch, announce, focusAfter, dateLabel]);
+
+  const closeNewReservationDialog = useCallback(() => {
+    setShowNewReservationDialog(false);
+    setSearchParams((prev) => stripReservationsIntent(prev), { replace: true });
+  }, [setSearchParams]);
 
   const handleCreateReservation = async (reservationData: CreateReservationRequest) => {
     await createReservation(reservationData);
-    setShowNewReservationDialog(false);
+    closeNewReservationDialog();
+    focusAfter({ kind: "pageHeading" });
+  };
+
+  const handleCloseNewReservation = () => {
+    const openedFromUrl = intent.newReservation;
+    closeNewReservationDialog();
+    // A URL-opened dialog captured `body` as the element to restore, so its own restore would
+    // drop focus; land it where a click-open would have — the New reservation button (ux.md
+    // Decision (d)). A click-opened dialog keeps its own restore.
+    if (openedFromUrl && newReservationButtonRef.current) {
+      focusAfter({ kind: "element", element: newReservationButtonRef.current });
+    }
   };
 
   /* Keep the "Updated Xs ago" display current by forcing re-render every 5s */
@@ -131,22 +174,17 @@ export function ReservationsPage() {
 
   const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated) : "";
 
-  // Matches TimelinePage's date formatting so the empty-state description
-  // reads as a date a manager would say out loud, not a raw ISO string.
-  const formattedSelectedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
-  if (isLoading && (data === undefined || data.length === 0)) {
-    return <ReservationsLoadingSkeleton />;
-  }
+  const showLoading = isLoading && (data === undefined || data.length === 0);
+  const loaded = !isLoading && !errorDescription;
+  // KPIs are honest about not knowing: "—" (spoken "unavailable") until data lands, never 0.
+  const kpisUnknown = showLoading || errorDescription !== null;
+  const kpi = (value: number) => (kpisUnknown ? null : value);
+  const dayIsEmpty = loaded && (data ?? []).length === 0;
 
   return (
     <div className={styles.container}>
       <PageHeader title="Reservations" description="View and manage reservations" />
+      <LiveStatus status={status} />
 
       {lastUpdatedDisplay && (
         <div className={styles.statusBar}>
@@ -156,11 +194,11 @@ export function ReservationsPage() {
         </div>
       )}
 
-      <div className={styles.statsRow} aria-live="polite" role="status">
-        <Stat label="Total" value={stats.total} size="sm" />
-        <Stat label="Confirmed" value={stats.confirmed} size="sm" />
-        <Stat label="Pending" value={stats.pending} size="sm" />
-        <Stat label="Cancelled" value={stats.cancelled} size="sm" />
+      <div className={styles.statsRow}>
+        <KpiStat label="Total" value={kpi(stats.total)} />
+        <KpiStat label="Confirmed" value={kpi(stats.confirmed)} />
+        <KpiStat label="Pending" value={kpi(stats.pending)} />
+        <KpiStat label="Cancelled" value={kpi(stats.cancelled)} />
       </div>
 
       <div className={styles.toolbar}>
@@ -187,6 +225,7 @@ export function ReservationsPage() {
           }}
         />
         <Button
+          ref={newReservationButtonRef}
           variant="primary"
           size="sm"
           onClick={() => setShowNewReservationDialog(true)}
@@ -196,43 +235,56 @@ export function ReservationsPage() {
         </Button>
       </div>
 
-      {error && (
-        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <Alert variant="error">{error}</Alert>
-        </div>
-      )}
-
-      <Text className={styles.srOnly} aria-live="polite" role="status">
-        {`${filteredReservations.length} reservation${
-          filteredReservations.length !== 1 ? "s" : ""
-        } shown`}
-      </Text>
-
-      {!isLoading && !error && filteredReservations.length === 0 && (
-        <div aria-live="polite" role="status">
-          <EmptyState
-            heading="No reservations"
-            description={
-              searchQuery.trim()
-                ? `No reservations matching '${searchQuery.trim()}'.`
-                : statusFilter === "all"
-                  ? `No reservations found for ${formattedSelectedDate}.`
-                  : `No ${statusFilter.toLowerCase()} reservations found for ${formattedSelectedDate}.`
-            }
-            action={
-              <Button
-                variant="primary"
-                onClick={() => setShowNewReservationDialog(true)}
-                disabled={!selectedVenueId}
-              >
-                Create Reservation
-              </Button>
-            }
+      {errorDescription && (
+        <div className={styles.banner}>
+          <ErrorRetryBanner
+            title="Couldn't load reservations."
+            error={errorDescription.detail}
+            details={errorDescription.raw}
+            onRetry={handleRetry}
           />
         </div>
       )}
 
-      {!isLoading && !error && filteredReservations.length > 0 && (
+      {showLoading && <ReservationsLoadingRows />}
+
+      {loaded && (
+        <Text className={styles.srOnly} aria-live="polite" role="status">
+          {`${filteredReservations.length} reservation${
+            filteredReservations.length !== 1 ? "s" : ""
+          } shown`}
+        </Text>
+      )}
+
+      {dayIsEmpty && (
+        <EmptyState
+          variant="flat"
+          heading={`Nothing on the book for ${dateLabel}.`}
+          description="New bookings show here as they land."
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => setShowNewReservationDialog(true)}
+              disabled={!selectedVenueId}
+            >
+              New reservation
+            </Button>
+          }
+        />
+      )}
+
+      {loaded && !dayIsEmpty && filteredReservations.length === 0 && (
+        <EmptyState
+          heading="No reservations"
+          description={
+            searchQuery.trim()
+              ? `No reservations matching '${searchQuery.trim()}'.`
+              : `No ${statusFilter.toLowerCase()} reservations found for ${dateLabel}.`
+          }
+        />
+      )}
+
+      {loaded && filteredReservations.length > 0 && (
         <Card>
           <div className={styles.tableWrapper}>
             {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
@@ -298,13 +350,14 @@ export function ReservationsPage() {
         </Card>
       )}
 
-      {showNewReservationDialog && selectedVenueId && (
+      {/* The dialog seeds its table from `tables` once, at mount — a URL-open must not race the query. */}
+      {(intent.newReservation || showNewReservationDialog) && selectedVenueId && !tablesLoading && (
         <NewReservationDialog
           tables={tables ?? []}
           venueId={selectedVenueId}
           defaultDate={selectedDate}
           onConfirm={handleCreateReservation}
-          onClose={() => setShowNewReservationDialog(false)}
+          onClose={handleCloseNewReservation}
         />
       )}
     </div>

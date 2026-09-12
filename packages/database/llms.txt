@@ -7,6 +7,68 @@
     <item priority="high">
       export function isPrismaForeignKeyViolation(err: unknown): boolean { /* ... */ }
     </item>
+    <item priority="high">
+      interface SlowQuery {
+        model: string;
+        operation: string;
+        duration: number;
+        timestamp: number;
+      }
+    </item>
+    <item priority="low">
+      interface SlowQueryStats {
+        count5min: number;
+        slowestMs: number;
+      }
+    </item>
+    <item priority="low">
+      interface PoolStats {
+        total: number;
+        active: number;
+        waiting: number;
+        idle: number;
+        utilization: number;
+      }
+    </item>
+    <item priority="low">
+      interface PoolMetrics {
+        total: number;
+        busy: number;
+        idle: number;
+        waiting: number;
+        utilization: number;
+      }
+    </item>
+    <item priority="low">
+      type ServiceStatus = "ok" | "degraded";
+    </item>
+    <item priority="low">
+      interface DatabaseInstance {
+        prisma: T;
+        getSlowQueryStats: () => SlowQueryStats;
+        getPoolMetrics: () => PoolMetrics;
+        getServiceStatus: () => ServiceStatus;
+        shutdown: () => Promise<void>;
+      }
+    </item>
+    <item priority="low">
+      interface PrismaLike {
+        $extends: (extension: unknown) => unknown;
+        $disconnect: () => Promise<void>;
+        $queryRaw: (...args: unknown[]) => Promise<unknown>;
+      }
+    </item>
+    <item priority="high">
+      interface PrismaConstructor {
+        
+      }
+    </item>
+    <item priority="high">
+      export function createDatabase<T extends PrismaLike>(
+        PrismaClient: PrismaConstructor,
+        databaseUrl?: string
+      ): DatabaseInstance<T> { /* ... */ }
+    </item>
   </file>
   <file path="src/list-utils.ts">
     <item priority="high">
@@ -17,6 +79,35 @@
     </item>
     <item priority="high">
       export function paginate(query: { page: number; limit: number }): { skip: number; take: number } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PaginationMeta {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function toPaginationMeta(page: number, limit: number, total: number): PaginationMeta { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PaginatedResponse {
+        data: T[];
+        pagination: PaginationMeta;
+      }
+    </item>
+    <item priority="high">
+      export function buildPaginatedResponse<T>(
+        data: T[],
+        page: number,
+        limit: number,
+        total: number
+      ): PaginatedResponse<T> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createListResponseSchema(entityRef: string) { /* ... */ }
     </item>
   </file>
   <file path="src/prisma-config.ts">
@@ -44,6 +135,32 @@
         getPoolMetrics: ReturnType<typeof vi.fn>;
       }
     </item>
+    <item priority="low">
+      interface MockDatabaseServiceOverrides {
+        prisma?: Record<string, unknown>;
+        getSlowQueryStats?: ReturnType<typeof vi.fn>;
+        getServiceStatus?: ReturnType<typeof vi.fn>;
+        getPoolMetrics?: ReturnType<typeof vi.fn>;
+      }
+    </item>
+    <item priority="high">
+      export function createMockDatabaseService(
+        overrides?: MockDatabaseServiceOverrides
+      ): MockDatabaseService { /* ... */ }
+    </item>
+    <item priority="low">
+      interface MockDatabaseModule {
+        db: {
+          prisma: MockPrisma;
+          getSlowQueryStats: ReturnTy...;
+        prisma: MockPrisma;
+      }
+    </item>
+    <item priority="high">
+      export function createMockDatabaseModule(
+        overrides?: MockDatabaseServiceOverrides
+      ): MockDatabaseModule { /* ... */ }
+    </item>
   </file>
   <file path="src/validators.ts">
     <item priority="low">
@@ -59,6 +176,28 @@
         value?: never;
         error: string;
       }
+    </item>
+    <item priority="low">
+      type ValidationResult = ValidResult<T> | InvalidResult;
+    </item>
+    <item priority="high">
+      export function validateDateString(value: string | undefined): ValidationResult<Date> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validatePartySize(value: string | undefined): ValidationResult<number> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateDateRange(
+        startDate: string,
+        endDate: string,
+        maxDays?: number
+      ): { valid: boolean; error?: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateEnum<T extends string>(
+        value: string | undefined,
+        allowed: ReadonlyArray<T>
+      ): ValidationResult<T> { /* ... */ }
     </item>
   </file>
   </section>

@@ -1,0 +1,6 @@
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: baseline;
+}

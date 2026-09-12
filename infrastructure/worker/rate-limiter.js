@@ -15,6 +15,18 @@ const RATE_LIMITS = Object.freeze([
   { pattern: "/api/flags/", maxRequests: 5, windowSeconds: 60 },
   { pattern: "/health/system", maxRequests: 10, windowSeconds: 60 },
   { pattern: "/api/", maxRequests: 100, windowSeconds: 60 },
+  // Same bound as its /api/ sibling, deliberately — /public/ is the
+  // unauthenticated guest surface (booking widget, guest self-service), so it
+  // is the one that most needs edge shedding.
+  //
+  // This limiter runs BEFORE the origin-proxy branch and is keyed by this
+  // table, NOT by routes-config.json's originRoutes — so a prefix added there
+  // does not become rate limited by being proxied. Measured before this entry
+  // existed: /api/v1/venues -> {allowed:false, limit:100} while
+  // /public/v1/venues/x -> {allowed:true, limit:-1}. rate-limiter.test.js
+  // asserts every originRoutes prefix has an entry here, so the next prefix
+  // added cannot repeat that.
+  { pattern: "/public/", maxRequests: 100, windowSeconds: 60 },
 ]);
 
 /**

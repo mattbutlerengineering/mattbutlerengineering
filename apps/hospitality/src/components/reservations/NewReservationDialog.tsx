@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CreateReservationRequest, Table } from "@mbe/types";
+import { describeApiError } from "../../lib/describe-api-error.js";
 import styles from "./NewReservationDialog.module.css";
 
 interface NewReservationDialogProps {
@@ -137,7 +138,7 @@ export function NewReservationDialog({
         guestPhone: guestPhone || undefined,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create reservation.");
+      setError(describeApiError(err).detail);
       setIsLoading(false);
     }
   };

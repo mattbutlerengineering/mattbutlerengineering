@@ -188,6 +188,56 @@ describe("ReservationBlock", () => {
     expect(renderCount).toBe(countAfterMount);
   });
 
+  describe("seated mark (ux.md Screen 2)", () => {
+    it("shows the success LED before the name and ends the accessible name with ', seated'", () => {
+      render(<ReservationBlock reservation={makeReservation()} style={defaultStyle} isSeated />);
+      const button = screen.getByRole("button");
+      const led = button.querySelector(".seatedLed");
+      expect(led).not.toBeNull();
+      expect(led).toHaveAttribute("aria-hidden", "true");
+      // The LED precedes the name in reading order.
+      const name = screen.getByText("Jane Doe");
+      expect(led!.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(button.getAttribute("aria-label")).toMatch(/confirmed, seated$/);
+    });
+
+    it("renders no LED and no suffix when not seated", () => {
+      render(<ReservationBlock reservation={makeReservation()} style={defaultStyle} />);
+      const button = screen.getByRole("button");
+      expect(button.querySelector(".seatedLed")).toBeNull();
+      expect(button.getAttribute("aria-label")).toMatch(/confirmed$/);
+    });
+
+    it("re-renders when isSeated flips (memo comparator sees it)", () => {
+      let renderCount = 0;
+      const reservation = makeReservation();
+      Object.defineProperty(reservation, "id", {
+        get() {
+          renderCount++;
+          return "res-1";
+        },
+      });
+
+      function Harness() {
+        const [seated, setSeated] = useState(false);
+        return (
+          <>
+            <button data-testid="seat" onClick={() => setSeated(true)}>
+              seat
+            </button>
+            <ReservationBlock reservation={reservation} style={defaultStyle} isSeated={seated} />
+          </>
+        );
+      }
+
+      render(<Harness />);
+      const countAfterMount = renderCount;
+      fireEvent.click(screen.getByTestId("seat"));
+      expect(renderCount).toBeGreaterThan(countAfterMount);
+      expect(screen.getByRole("button", { name: /seated$/ })).toBeInTheDocument();
+    });
+  });
+
   describe("returning guest visit count", () => {
     it("shows visit count in details when guest.visitCount > 1", () => {
       render(
