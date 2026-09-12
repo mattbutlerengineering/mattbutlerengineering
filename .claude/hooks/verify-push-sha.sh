@@ -25,30 +25,86 @@ cmd=$(node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" command)
 [ -n "$cmd" ] || exit 0
 
 # Only intercept git push; skip non-pushing / destructive / dry forms.
-case "$cmd" in
-  *"git push"*) ;;
-  *) exit 0 ;;
-esac
+#
+# Match in COMMAND position — at the start of the command, or right after a
+# shell separator. The old test was a bare substring (`*"git push"*`), so ANY
+# command whose TEXT merely contained the words fired the hook: a heredoc
+# writing a test fixture, a comment mentioning the command, an `echo`. Two of
+# one session's ten false firings were this — one of them the commit that
+# wrote the test for the bug below, another the `gh pr create` that shipped it.
+#
+# A hook cannot parse shell, so this stays a heuristic, and it deliberately
+# errs toward firing: a spurious verification is cheap, a push that silently
+# failed is not. `(` is in the class so `x=$(git push ...)` still matches.
+push_re=$'(^|[;&|(){}\n])[[:space:]]*git[[:space:]]+push([[:space:]]|$)'
+[[ "$cmd" =~ $push_re ]] || exit 0
 case "$cmd" in
   *"--dry-run"*|*"--delete"*|*" :"*) exit 0 ;;  # dry run or branch deletion
 esac
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
-branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+# Resolve the remote and the branch being pushed, in one pass over the command.
+#
+# The branch MUST come from the command when the command names one. This hook
+# runs with CWD = $CLAUDE_PROJECT_DIR (the main checkout), but a push issued
+# from a linked git worktree has an entirely unrelated HEAD — so
+# `rev-parse --abbrev-ref HEAD` here answers for the wrong tree and the hook
+# reports "branch '<main-checkout-branch>' not found on origin" after a push
+# that landed perfectly. Measured ten times in one session, every firing
+# naming `docs/hospitality-animations-retro` — a branch none of those pushes
+# touched, and simply the branch the main checkout happened to sit on.
+# A guard that cries wolf on every worktree push trains people to ignore it.
+#
+# Refs, unlike HEAD, ARE shared across linked worktrees, so once the branch
+# NAME is known its SHA resolves correctly from any tree in the repo.
+remote="origin"
+branch=""
+seen_remote=""
+for tok in $cmd; do
+  # Skip flags (`-u`, `--force-with-lease`, ...) — never a remote or a ref.
+  [[ "$tok" == -* ]] && continue
+  if [[ -z "$seen_remote" ]]; then
+    # -F/-- so flag tokens are matched literally rather than parsed as
+    # grep options.
+    if git remote 2>/dev/null | grep -qxF -- "$tok"; then
+      remote="$tok"; seen_remote=1
+    fi
+    continue
+  fi
+  branch="$tok"; break   # first non-flag token after the remote is the refspec
+done
+
+# A `src:dst` refspec pushes local ref `src` to remote branch `dst`; verify the
+# remote side against the local side rather than assuming they share a name.
+local_ref="$branch"
+if [[ "$branch" == *:* ]]; then
+  local_ref="${branch%%:*}"
+  branch="${branch##*:}"
+fi
+branch="${branch#refs/heads/}"
+local_ref="${local_ref#refs/heads/}"
+
+# Bare `git push`, or an explicit `HEAD` refspec: no branch name was given,
+# so HEAD is the only answer available.
+#
+# KNOWN RESIDUAL: this is still the HOOK's HEAD — the main checkout's — so a
+# *bare* push from a linked worktree can mis-resolve exactly as described
+# above. Only the named form is fully fixed, and that is the form everything
+# in this repo actually uses. Measured while fixing this: the hook payload
+# carries a top-level `cwd` (alongside `session_id`, `transcript_path`,
+# `scratchpad_dir`, `permission_mode`), which would let a later change resolve
+# HEAD in the session's own tree and close this case too.
+if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  local_ref="HEAD"
+fi
+
 # Detached HEAD or unknown — can't map to a remote branch reliably; skip.
 [[ -z "$branch" || "$branch" == "HEAD" ]] && exit 0
 
-local_sha=$(git rev-parse HEAD 2>/dev/null || true)
+local_sha=$(git rev-parse "$local_ref" 2>/dev/null || true)
 [[ -z "$local_sha" ]] && exit 0
-
-# Determine the remote (push target if named in the command, else origin).
-remote="origin"
-for tok in $cmd; do
-  # -F/-- so flag tokens (`-u`, `--force-with-lease`) are matched literally
-  # rather than parsed as grep options.
-  if git remote 2>/dev/null | grep -qxF -- "$tok"; then remote="$tok"; break; fi
-done
 
 remote_sha=$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null | awk '{print $1}')
 
