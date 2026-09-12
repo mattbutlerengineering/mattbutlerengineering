@@ -846,6 +846,7 @@
       id: z.string(),
       name: z.string(),
       slug: z.string(),
+      ianaTimezone: z.string(),
       operatingHours: VenueSchema.shape.operatingHours,
     });
     export const PublicVenueDepositSchema = z.object({
