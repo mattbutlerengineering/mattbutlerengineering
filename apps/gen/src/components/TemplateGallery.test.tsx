@@ -87,7 +87,7 @@ describe("TemplateGallery", () => {
   it("renders per-category sidebar counts matching the template catalog", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
-    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("8");
+    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("9");
     expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("8");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("5");
     expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("6");
@@ -199,6 +199,20 @@ describe("TemplateGallery", () => {
     // stale the moment a template is added.
     const cards = screen.getAllByRole("button", { name: /^Use .+ template$/ });
     expect(allButton.textContent).toBe(`All${cards.length}`);
+  });
+
+  it("includes a Secure Verification template that elicits PinInput usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "verification" } });
+
+    const card = screen.getByRole("button", { name: /use secure verification template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Forms");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/PinInput/));
   });
 
   it("resets to All category and clears search when reopened", () => {
