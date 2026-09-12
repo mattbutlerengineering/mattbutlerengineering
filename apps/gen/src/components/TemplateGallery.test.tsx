@@ -89,7 +89,7 @@ describe("TemplateGallery", () => {
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
     expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("9");
     expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("8");
-    expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("5");
+    expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("6");
     expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("6");
   });
 
@@ -213,6 +213,21 @@ describe("TemplateGallery", () => {
 
     fireEvent.click(card);
     expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/PinInput/));
+  });
+
+  it("includes an App Shell template that elicits Accordion and GlobalNav usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "app shell" } });
+
+    const card = screen.getByRole("button", { name: /use app shell template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Marketing");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/GlobalNav/));
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Accordion/));
   });
 
   it("resets to All category and clears search when reopened", () => {
