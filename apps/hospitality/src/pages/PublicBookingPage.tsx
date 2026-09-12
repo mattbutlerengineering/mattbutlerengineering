@@ -103,6 +103,7 @@ export function PublicBookingPage() {
           venueSlug={venue.slug}
           apiBaseUrl={BASE_URL}
           hasOperatingHours={hasOperatingHours(venue.operatingHours)}
+          venueTimezone={venue.ianaTimezone}
           onCancellation={() => {
             activeHoldIdRef.current = null;
           }}

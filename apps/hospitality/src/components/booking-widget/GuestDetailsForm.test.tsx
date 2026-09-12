@@ -173,6 +173,20 @@ describe("GuestDetailsForm", () => {
     expect(screen.getByText("4 guests")).toBeDefined();
   });
 
+  it("displays the reservation summary time in the venue's timezone, not the device's (#4976)", () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      // mockSlot.time is 18:00Z on 2025-01-01: 1:00 PM in New York (EST,
+      // UTC-5) but 10:00 AM on a Los Angeles device (PST, UTC-8).
+      render(<GuestDetailsForm {...defaultProps} venueTimezone="America/New_York" />);
+      expect(screen.getByText("1:00 PM")).toBeDefined();
+      expect(screen.queryByText("10:00 AM")).toBeNull();
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
+
   it("should display error when provided", () => {
     render(<GuestDetailsForm {...defaultProps} error="Test error message" />);
     expect(screen.getByText("Test error message")).toBeDefined();

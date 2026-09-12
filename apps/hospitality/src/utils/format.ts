@@ -49,6 +49,43 @@ export function formatTime(isoString: string): string {
 }
 
 /**
+ * Format an ISO datetime string as 12-hour time with minutes, in the given
+ * IANA timezone (e.g. "2:30 PM"). Sibling to `formatTime`, which uses the
+ * viewer's device timezone — use this wherever the *venue's* clock is what
+ * matters, e.g. guest-facing booking flows (#4976), never mutating
+ * `formatTime` itself since Timeline/ReservationBlock intentionally want
+ * device-local.
+ *
+ * Used by: TimeSlotPicker, TimeSlotListbox, GuestDetailsForm, ConfirmationView
+ */
+export function formatTimeIn(isoString: string, timeZone: string): string {
+  return new Date(isoString).toLocaleTimeString(LOCALE, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone,
+  });
+}
+
+/**
+ * Hour-of-day (0-23) for an ISO datetime string in the given IANA timezone.
+ * Used by TimeSlotPicker to group slots into Lunch/Dinner/Late buckets by
+ * the venue's clock rather than the guest's device.
+ *
+ * Used by: TimeSlotPicker
+ */
+export function getHourIn(isoString: string, timeZone: string): number {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(new Date(isoString))
+    .find((part) => part.type === "hour")?.value;
+  return hour ? Number(hour) : 0;
+}
+
+/**
  * Format a venue-local "HH:MM" wall-clock string as 12-hour time with minutes
  * (e.g. "17:00" → "5:00 PM"). The value is a wall-clock, not an instant, so it
  * is pinned to UTC and formats identically on every machine.

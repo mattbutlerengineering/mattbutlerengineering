@@ -38,6 +38,12 @@ export interface BookingWidgetProps {
   audience?: "staff" | "guest";
   /** Staff-only: called when the "Set Operating Hours" prompt is clicked. */
   onSetHours?: () => void;
+  /**
+   * IANA timezone the venue operates in (e.g. "America/New_York"). Threaded
+   * into every step that displays a slot/reservation time so it renders in
+   * the venue's clock rather than the guest's device timezone (#4976).
+   */
+  venueTimezone?: string;
 }
 
 const BOOKING_STEPS_NO_DEPOSIT: StepItem[] = [
@@ -70,6 +76,7 @@ export function BookingWidget({
   hasOperatingHours = true,
   audience = "guest",
   onSetHours,
+  venueTimezone,
 }: BookingWidgetProps) {
   // API client - no auth token for public booking
   const api = usePublicApiClient({ baseUrl: apiBaseUrl });
@@ -150,6 +157,7 @@ export function BookingWidget({
           hasOperatingHours={hasOperatingHours}
           audience={audience}
           onSetHours={onSetHours}
+          venueTimezone={venueTimezone}
         />
       )}
 
@@ -165,6 +173,7 @@ export function BookingWidget({
           onBack={actions.goToTimeSlot}
           venueSlug={venueSlug}
           api={api}
+          venueTimezone={venueTimezone}
         />
       )}
 
@@ -204,6 +213,7 @@ export function BookingWidget({
           cancellationUrl={cancellationUrl}
           onCancellation={onCancellation}
           venueConfig={data.venueConfig}
+          venueTimezone={venueTimezone}
         />
       )}
 

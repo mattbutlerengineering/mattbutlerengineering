@@ -216,6 +216,7 @@ export function BookingWidgetDemoPage() {
                     venueId={effectiveVenueId}
                     audience="staff"
                     hasOperatingHours={hasOperatingHours(selectedVenue?.operatingHours)}
+                    venueTimezone={selectedVenue?.ianaTimezone}
                     onSetHours={handleSetHours}
                   />
                 ) : (
