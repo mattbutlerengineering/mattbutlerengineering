@@ -399,6 +399,21 @@ describe("PageRegistry — reservation-timeline example", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Reservation Kanban example (#5209)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — reservation-kanban example", () => {
+  it("registers example-reservation-kanban in the Examples category at /examples/reservation-kanban", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-reservation-kanban");
+    expect(entry, "example-reservation-kanban missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Reservation Kanban");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/reservation-kanban");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Load function tests — call every entry's load() to exercise the factories
 // ---------------------------------------------------------------------------
 
