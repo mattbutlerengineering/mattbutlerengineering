@@ -458,10 +458,17 @@ is open against `main`. Its head advanced after the PR was opened — this
 artifact's own amendments, release log step 8 — so the authoritative head is
 `git ls-remote origin refs/heads/fix/rialto-web-usage-instrumentation`, which
 was compared against local `HEAD` and found equal after every push this stage
-made. Every gate this repo runs is green on the branch and on the merge ref,
-and **no merge, auto-merge, deploy, tag, publish or apply was performed by this
-stage.**
-The release steps above are written for a human and were not executed.
+made. **No merge, auto-merge, deploy, tag, publish or apply was performed by
+this stage**; the release steps above are written for a human and were not
+executed.
+
+On gates, precisely: every gate **this stage ran** — locally at `bdf95bcc7`, on
+the branch and on a trial merge with `origin/main` — is green, with the one
+pre-existing non-gating `audit-markdown.mjs` FAIL named in Pre-flight. **CI's own
+verdict is the PR's to give, not this file's.** At the moment this line was
+written #5315 showed 12 passing, 4 pending, 0 failing, and `CI Gate` had not yet
+reported. Read `gh pr checks 5315` rather than this sentence, and treat an absent
+`CI Gate` as `gate-missing` — a fourth state, never as green.
 
 Two things a reader should carry away rather than infer: merging this PR does
 not produce a single row of data while #5169 holds, and no one has yet read this
