@@ -166,6 +166,33 @@ jobs:
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
 
+      # Follow-up to #5006: this workflow's trigger is only
+      # `github.event.workflow_run.conclusion == 'failure'`, which does not
+      # distinguish "smoke tests genuinely ran and failed" from "the deploy
+      # could not be confirmed live within the poll budget, so smoke tests
+      # were skipped" (post-deploy-check.yml's "Poll for deploy to land"
+      # step now fails the job on timeout instead of warning and falling
+      # through). Without this check, a slow-but-healthy deploy would open a
+      # false-positive revert PR against a commit that introduced no defect.
+      #
+      # Second half (2026-09-11): a genuine failure is still not proof that
+      # THIS commit caused it. `API Surface Invariants` had been red on every
+      # deploy since 2026-09-07 -- the /public/v1 ingress defect, which is
+      # Pulumi state, not application code -- and each new deploy inherited
+      # that standing red, so the newest commit was blamed. Five false-
+      # positive revert PRs followed (#5200, #5221, #5230, #5238, #5263),
+      # including one that would have reverted the fix to post-deploy-check's
+      # own dedupe logic (#5236). The gate now also requires a success ->
+      # failure transition against the previous completed run on this branch;
+      # `should_auto_revert` is the conjunction.
+      # See scripts/rollback-smoke-test-gate.mjs for the pure decision logic.
+      - name: Check whether this deploy newly broke something
+        id: smoke-gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: node scripts/rollback-smoke-test-gate.mjs --run-id "$RUN_ID" >> "$GITHUB_OUTPUT"
+
       - name: Identify agent commits
         id: agent-check
         env:
@@ -208,7 +235,7 @@ jobs:
           echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
 
       - name: Create revert PR
-        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true'
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.should_auto_revert == 'true'
         env:
           # AUTOMATION_PAT (#3684): see checkout step above.
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
@@ -255,6 +282,29 @@ jobs:
               --label "agent-regression,urgent" \
               --dedupe-key "manual-rollback-${SHORT_SHA}"
           fi
+
+      # Deliberately no further action here -- post-deploy-check.yml already
+      # files a "could not confirm deploy" issue for this exact case (its
+      # "Create issue when deploy could not be verified" step), so filing a
+      # second one here would just duplicate it.
+      - name: Skip rollback (deploy unverified, not a genuine smoke-test failure)
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.smoke_tests_ran_and_failed != 'true'
+        run: echo "Post-Deploy Check failed without a genuine smoke-test failure (deploy likely unverified, not a proven regression) — skipping auto-rollback."
+
+      # The third branch. Without this step the standing-red case -- a genuine
+      # failure that was ALREADY failing on the baseline run -- matches neither
+      # "Create revert PR" (should_auto_revert is false) nor the skip above
+      # (smoke_tests_ran_and_failed is true), so the job would do nothing and
+      # say nothing about why. The gate script explains itself on stderr, but a
+      # buried stderr line is not the same as a named step in the job summary,
+      # and "silence looks identical to health" is the exact failure this whole
+      # interlock exists to prevent.
+      - name: Skip rollback (standing failure, not a regression this commit introduced)
+        if: steps.agent-check.outputs.is_agent == 'true' && steps.agent-check.outputs.no_rollback != 'true' && steps.smoke-gate.outputs.smoke_tests_ran_and_failed == 'true' && steps.smoke-gate.outputs.should_auto_revert != 'true'
+        run: |
+          echo "Post-Deploy Check failed genuinely, but the same job was already red on the"
+          echo "previous completed run — this commit did not introduce it. Skipping auto-rollback."
+          echo "Fix the underlying failure; reverting this commit would not clear it."
 
       - name: Skip non-agent or opted-out failures
         if: steps.agent-check.outputs.is_agent != 'true' || steps.agent-check.outputs.no_rollback == 'true'

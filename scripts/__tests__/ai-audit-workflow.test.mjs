@@ -25,6 +25,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { isAiPr } from "../collect-queue-efficiency.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const WORKFLOW_PATH = join(REPO_ROOT, ".github/workflows/ai-audit.yml");
@@ -113,6 +114,33 @@ describe("ai-audit.yml AI predicate", () => {
       pr(4283, { labels: ["has-pr", "tier:trivial"], headRefName: "chore/queue-telemetry" }),
     ];
     expect(selectAiPrs(prs)).toEqual([4267, 4283]);
+  });
+});
+
+describe("ai-audit.yml jq predicate vs. the canonical isAiPr predicate (#5012)", () => {
+  // The jq's label legs (agent-authored, has-pr) are meant to be identical to
+  // `isAiPr` (collect-queue-efficiency.mjs) — pin them to the same answer for
+  // the same fixture input, per #5012's acceptance criteria, rather than
+  // trusting the header comment alone.
+  //
+  // The jq's branch leg intentionally does NOT get the same pin: it matches
+  // `^(worktree-agent-|agent-|fix/agent-|feat/agent-)`, inherited from the
+  // pre-#5012 `pr-metrics.mjs` branch patterns (also used by
+  // `auto-rollback.yml` and `process-a11y-results.mjs`), while `isAiPr`'s
+  // branch leg matches only `^worktree-agent-`. That breadth divergence
+  // predates #5012, is out of this fix's scope, and reconciling it is a
+  // separate, deliberate decision (which pattern is actually correct) rather
+  // than a copy-paste drift bug.
+  const labelOnlyPrs = [
+    pr(100, { labels: ["agent-authored"], headRefName: "some/human-looking-branch" }),
+    pr(101, { labels: ["has-pr"], headRefName: "some/human-looking-branch" }),
+    pr(102, { labels: ["tier:standard"], headRefName: "fix/typo" }),
+    pr(103, { labels: [], headRefName: "worktree-agent-xyz" }),
+  ];
+
+  it.each(labelOnlyPrs)("agrees with isAiPr for PR #$number", (fixture) => {
+    const selected = selectAiPrs([fixture]).length === 1;
+    expect(selected).toBe(isAiPr(fixture));
   });
 });
 

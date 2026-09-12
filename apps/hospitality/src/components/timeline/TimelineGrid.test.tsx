@@ -1,11 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TimelineGrid } from "./TimelineGrid.js";
-import type { Table, Reservation } from "@mbe/types";
+import { localDateString } from "../../utils/local-clock.js";
+import type { Table, Reservation, TableStatus } from "@mbe/types";
 
 // Mock CSS modules
 vi.mock("./TimelineGrid.module.css", () => ({
   default: {
+    gridFrame: "gridFrame",
     gridWrapper: "gridWrapper",
     gridWrapperMobile: "gridWrapperMobile",
     headerRow: "headerRow",
@@ -13,6 +18,8 @@ vi.mock("./TimelineGrid.module.css", () => ({
     hourHeader: "hourHeader",
     tableRow: "tableRow",
     tableNameCell: "tableNameCell",
+    tableMeta: "tableMeta",
+    tableNameLine: "tableNameLine",
     tableName: "tableName",
     tableCapacity: "tableCapacity",
     reservationArea: "reservationArea",
@@ -21,6 +28,7 @@ vi.mock("./TimelineGrid.module.css", () => ({
     hourGridLineActive: "hourGridLineActive",
     currentTimeIndicator: "currentTimeIndicator",
     currentTimeDot: "currentTimeDot",
+    currentTimeLabel: "currentTimeLabel",
     mobileNavHint: "mobileNavHint",
   },
 }));
@@ -31,18 +39,21 @@ vi.mock("./ReservationBlock", () => ({
     style,
     isSelected,
     isFocused,
+    isSeated,
     onClick,
   }: {
     reservation: Reservation;
     style: { left: number; width: number };
     isSelected?: boolean;
     isFocused?: boolean;
+    isSeated?: boolean;
     onClick?: (reservation: Reservation) => void;
   }) => (
     <button
       data-testid={`reservation-${reservation.id}`}
       data-selected={isSelected}
       data-focused={isFocused}
+      data-seated={isSeated}
       style={{ left: style.left, width: style.width }}
       onClick={() => onClick?.(reservation)}
     >
@@ -51,26 +62,39 @@ vi.mock("./ReservationBlock", () => ({
   ),
 }));
 
-vi.mock("../TableStatusBadge.js", () => ({
-  TableStatusBadge: ({
+// The menu owns the transitions (item 14); the grid only wires it up, so the mock
+// exposes exactly what the grid hands it: id, name, status, pending, onChange(next).
+vi.mock("./TableStatusMenu.js", () => ({
+  TableStatusMenu: ({
+    tableId,
+    tableName,
     status,
-    onClick,
+    pending,
+    onChange,
   }: {
-    status: string;
-    size?: string;
-    onClick?: () => void;
+    tableId: string;
+    tableName: string;
+    status: TableStatus;
+    pending?: boolean;
+    onChange: (next: TableStatus) => void;
   }) => (
-    <span
-      role="button"
-      tabIndex={0}
-      data-testid={`status-badge-${status}`}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onClick?.();
-      }}
-    >
-      {status}
-    </span>
+    <div>
+      <button
+        type="button"
+        data-testid={`table-status-${tableId}`}
+        data-pending={pending ? "true" : "false"}
+        aria-haspopup="menu"
+      >
+        {tableName}: {status}. Change status
+      </button>
+      <button
+        type="button"
+        data-testid={`table-status-item-${tableId}`}
+        onClick={() => onChange("DIRTY")}
+      >
+        Mark dirty
+      </button>
+    </div>
   ),
 }));
 
@@ -259,53 +283,43 @@ describe("TimelineGrid", () => {
     });
   });
 
-  describe("table status badges", () => {
-    it("renders a status badge for each table", () => {
-      render(<TimelineGrid {...defaultProps} />);
-      expect(screen.getAllByTestId(/status-badge-/)).toHaveLength(2);
+  describe("table status menu", () => {
+    it("renders a status trigger for each table, named by the row's table name", () => {
+      render(<TimelineGrid {...defaultProps} onTableStatusChange={vi.fn()} />);
+      expect(screen.getByTestId("table-status-table-1")).toHaveTextContent(
+        "Table 1: AVAILABLE. Change status"
+      );
+      expect(screen.getByTestId("table-status-table-2")).toHaveTextContent(
+        "Table 2: AVAILABLE. Change status"
+      );
+      expect(screen.queryByTestId(/status-badge-/)).toBeNull();
     });
 
-    it("cycles table status on click when handler provided", () => {
+    it("forwards the menu's chosen status as onTableStatusChange(tableId, next)", () => {
       const onTableStatusChange = vi.fn();
       render(<TimelineGrid {...defaultProps} onTableStatusChange={onTableStatusChange} />);
 
-      const badges = screen.getAllByTestId("status-badge-AVAILABLE");
-      fireEvent.click(badges[0]);
+      fireEvent.click(screen.getByTestId("table-status-item-table-2"));
 
-      expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "OCCUPIED");
+      expect(onTableStatusChange).toHaveBeenCalledTimes(1);
+      expect(onTableStatusChange).toHaveBeenCalledWith("table-2", "DIRTY");
     });
 
-    it("cycles OCCUPIED to DIRTY", () => {
+    it("does not pick the next status itself — the menu does", () => {
       const onTableStatusChange = vi.fn();
-      const tables = [makeTable({ id: "table-1", status: "OCCUPIED" })];
-      render(
-        <TimelineGrid {...defaultProps} tables={tables} onTableStatusChange={onTableStatusChange} />
-      );
+      render(<TimelineGrid {...defaultProps} onTableStatusChange={onTableStatusChange} />);
 
-      fireEvent.click(screen.getByTestId("status-badge-OCCUPIED"));
-      expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "DIRTY");
+      fireEvent.click(screen.getByTestId("table-status-table-1"));
+
+      expect(onTableStatusChange).not.toHaveBeenCalled();
     });
 
-    it("cycles DIRTY to READY (not AVAILABLE — state machine: DIRTY → READY → AVAILABLE)", () => {
-      const onTableStatusChange = vi.fn();
-      const tables = [makeTable({ id: "table-1", status: "DIRTY" })];
+    it("marks only the pending table's trigger as pending", () => {
       render(
-        <TimelineGrid {...defaultProps} tables={tables} onTableStatusChange={onTableStatusChange} />
+        <TimelineGrid {...defaultProps} onTableStatusChange={vi.fn()} pendingTableId="table-2" />
       );
-
-      fireEvent.click(screen.getByTestId("status-badge-DIRTY"));
-      expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "READY");
-    });
-
-    it("cycles READY to AVAILABLE", () => {
-      const onTableStatusChange = vi.fn();
-      const tables = [makeTable({ id: "table-1", status: "READY" })];
-      render(
-        <TimelineGrid {...defaultProps} tables={tables} onTableStatusChange={onTableStatusChange} />
-      );
-
-      fireEvent.click(screen.getByTestId("status-badge-READY"));
-      expect(onTableStatusChange).toHaveBeenCalledWith("table-1", "AVAILABLE");
+      expect(screen.getByTestId("table-status-table-1")).toHaveAttribute("data-pending", "false");
+      expect(screen.getByTestId("table-status-table-2")).toHaveAttribute("data-pending", "true");
     });
   });
 
@@ -553,12 +567,202 @@ describe("TimelineGrid", () => {
     });
   });
 
-  describe("current time indicator", () => {
-    it("does not render current time indicator for non-today dates", () => {
+  describe("now-line", () => {
+    // Local wall-clock: P01 fixes the clock at 20:00 / 14:00 local, and the sweep walks
+    // every service hour. `date` is the browser-local day of that clock (ux.md decision (a)).
+    function atLocal(hour: number, minute = 0) {
+      const now = new Date(2026, 4, 14, hour, minute, 0, 0);
+      vi.setSystemTime(now);
+      return { now, today: localDateString(now) };
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("renders the now-line at 20:00 local on today's date", () => {
+      const { today } = atLocal(20);
+      render(<TimelineGrid {...defaultProps} date={today} />);
+      const line = screen.getByTestId("now-line");
+      // left = tableColumn (120) + ((20 - 11) * 60 / 60) * 120 = 1200
+      expect(parseFloat(line.style.left)).toBe(1200);
+    });
+
+    it("renders the now-line at 14:00 local on today's date", () => {
+      const { today } = atLocal(14);
+      render(<TimelineGrid {...defaultProps} date={today} />);
+      expect(parseFloat(screen.getByTestId("now-line").style.left)).toBe(120 + 3 * 120);
+    });
+
+    it.each([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])(
+      "renders the now-line for local hour %i and keeps it inside the grid width",
+      (hour) => {
+        const { today } = atLocal(hour, 30);
+        render(<TimelineGrid {...defaultProps} date={today} />);
+        const line = screen.getByTestId("now-line");
+        const left = parseFloat(line.style.left);
+        expect(left).toBeGreaterThanOrEqual(120);
+        // 13 hour columns (11..23) × 120 + the 120 table column
+        expect(left).toBeLessThan(120 + 13 * 120);
+      }
+    );
+
+    it("labels the now-line with the local clock time, hidden from assistive tech", () => {
+      const { now, today } = atLocal(20, 4);
+      render(<TimelineGrid {...defaultProps} date={today} />);
+      const line = screen.getByTestId("now-line");
+      const label = line.querySelector("[aria-hidden='true']");
+      expect(label).not.toBeNull();
+      expect(label).toHaveTextContent(
+        now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      );
+    });
+
+    it("does not render the now-line for another date, even at 20:00 local", () => {
+      atLocal(20);
       render(<TimelineGrid {...defaultProps} date="2020-01-01" />);
+      expect(screen.queryByTestId("now-line")).toBeNull();
+      expect(screen.getByRole("grid").querySelector(".currentTimeIndicator")).toBeNull();
+    });
+
+    it("does not render the now-line outside service hours", () => {
+      const { today } = atLocal(9);
+      render(<TimelineGrid {...defaultProps} date={today} />);
+      expect(screen.queryByTestId("now-line")).toBeNull();
+    });
+
+    it("scrolls the grid so the now-line sits a quarter of the way across on mount (A5.1)", () => {
+      const { today } = atLocal(20);
+      const scrollTo = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+        value: scrollTo,
+        configurable: true,
+      });
+      Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+        value: 800,
+        configurable: true,
+      });
+      try {
+        render(<TimelineGrid {...defaultProps} date={today} />);
+        // left = 120 + 1080 - 800 * 0.25 = 1000
+        expect(scrollTo).toHaveBeenCalledWith({ left: 1000, behavior: expect.any(String) });
+      } finally {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
+        Reflect.deleteProperty(HTMLElement.prototype, "clientWidth");
+      }
+    });
+
+    it("paints the now-line and its dot with the accent token, never the error token (xcut G)", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "TimelineGrid.module.css"),
+        "utf8"
+      );
+      const block = (name: string) => {
+        const match = css.match(new RegExp(`\\.${name}\\s*\\{[^}]*\\}`));
+        expect(match, `.${name} block`).not.toBeNull();
+        return match?.[0] ?? "";
+      };
+      for (const name of ["currentTimeIndicator", "currentTimeDot"]) {
+        expect(block(name)).toContain("var(--rialto-accent)");
+        expect(block(name)).not.toContain("--rialto-error");
+      }
+    });
+  });
+
+  describe("table status menu stacking (browser-found, item 16)", () => {
+    const css = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "TimelineGrid.module.css"),
+      "utf8"
+    );
+
+    it("raises the open row's sticky cell above the rows after it", () => {
+      expect(css).toMatch(/\.tableNameCell:has\(\[aria-expanded="true"\]\)\s*\{[^}]*z-index:\s*11/);
+    });
+
+    it("gives the scroller room for the last row's open menu", () => {
+      expect(css).toMatch(/\.gridWrapper:has\(\[role="menu"\]\)\s*\{[^}]*padding-block-end/);
+    });
+  });
+
+  describe("seated blocks", () => {
+    it("marks a block seated when its id is in seatedIds", () => {
+      render(<TimelineGrid {...defaultProps} seatedIds={new Set(["res-1"])} />);
+      expect(screen.getByTestId("reservation-res-1")).toHaveAttribute("data-seated", "true");
+      expect(screen.getByTestId("reservation-res-2")).toHaveAttribute("data-seated", "false");
+      expect(screen.getByTestId("reservation-res-3")).toHaveAttribute("data-seated", "false");
+    });
+
+    it("marks nothing seated when seatedIds is absent", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      expect(screen.getByTestId("reservation-res-1")).toHaveAttribute("data-seated", "false");
+    });
+  });
+
+  describe("empty night", () => {
+    const emptyNight = (variant: "today" | "otherDate") => ({
+      variant,
+      dateLabel: "Thursday, May 14",
+      onWalkIn: vi.fn(),
+      onToday: vi.fn(),
+    });
+
+    it("overlays the quiet-night card while keeping every table row rendered (P02)", () => {
+      render(<TimelineGrid {...defaultProps} reservations={[]} emptyNight={emptyNight("today")} />);
+      const overlay = screen.getByTestId("timeline-empty-night");
+      expect(overlay).toHaveTextContent("Quiet so far.");
+      expect(screen.getByTestId("table-row-table-1")).toBeInTheDocument();
+      expect(screen.getByTestId("table-row-table-2")).toBeInTheDocument();
+      // Beside the grid, not inside it: role="grid" admits only rows, and the scroller
+      // would carry the card away with the now-line scroll.
       const grid = screen.getByRole("grid");
-      const indicator = grid.querySelector(".currentTimeIndicator");
-      expect(indicator).toBeNull();
+      expect(grid).not.toContainElement(overlay);
+      expect(overlay.closest(".gridFrame")).toBe(grid.parentElement);
+    });
+
+    it("offers Walk-in tonight and Back to today on another date", () => {
+      const tonight = emptyNight("today");
+      const { unmount } = render(
+        <TimelineGrid {...defaultProps} reservations={[]} emptyNight={tonight} />
+      );
+      fireEvent.click(
+        within(screen.getByTestId("timeline-empty-night")).getByRole("button", {
+          name: "Walk-in",
+        })
+      );
+      expect(tonight.onWalkIn).toHaveBeenCalledTimes(1);
+      unmount();
+
+      const other = emptyNight("otherDate");
+      render(
+        <TimelineGrid {...defaultProps} reservations={[]} date="2026-05-20" emptyNight={other} />
+      );
+      fireEvent.click(
+        within(screen.getByTestId("timeline-empty-night")).getByRole("button", {
+          name: "Back to today",
+        })
+      );
+      expect(other.onToday).toHaveBeenCalledTimes(1);
+    });
+
+    it("renders no overlay when emptyNight is null even with zero reservations", () => {
+      render(<TimelineGrid {...defaultProps} reservations={[]} emptyNight={null} />);
+      expect(screen.queryByTestId("timeline-empty-night")).toBeNull();
+    });
+  });
+
+  describe("bottom inset", () => {
+    it("reserves the sheet's height as scroll padding so a scrolled-to block clears it", () => {
+      render(<TimelineGrid {...defaultProps} bottomInset={240} />);
+      expect(screen.getByRole("grid").style.scrollPaddingBlockEnd).toBe("240px");
+    });
+
+    it("reserves nothing when no sheet is open", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      expect(screen.getByRole("grid").style.scrollPaddingBlockEnd).toBe("");
     });
   });
 

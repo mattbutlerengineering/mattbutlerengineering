@@ -6,6 +6,7 @@ import type { UseChatStreamReturn } from "./useChatStream.js";
 
 const mockSend = vi.fn();
 const mockStop = vi.fn();
+const mockRetry = vi.fn();
 const mockConfirmAction = vi.fn();
 const mockCancelAction = vi.fn();
 
@@ -16,6 +17,7 @@ let mockHookReturn: UseChatStreamReturn = {
   pendingAction: null,
   send: mockSend,
   stop: mockStop,
+  retry: mockRetry,
   confirmAction: mockConfirmAction,
   cancelAction: mockCancelAction,
 };
@@ -44,6 +46,7 @@ describe("ChatPanel", () => {
       pendingAction: null,
       send: mockSend,
       stop: mockStop,
+      retry: mockRetry,
       confirmAction: mockConfirmAction,
       cancelAction: mockCancelAction,
     };
@@ -253,6 +256,37 @@ describe("ChatPanel", () => {
 
     expect(screen.getByText(/partySize/)).toBeInTheDocument();
     expect(screen.getByText(/Jones/)).toBeInTheDocument();
+  });
+
+  it("shows a visible error with a Try again action when the send fails", async () => {
+    const user = userEvent.setup();
+    mockHookReturn = {
+      ...mockHookReturn,
+      messages: [{ role: "user", content: "book a table" }],
+      error: new Error("Request failed: Internal Server Error"),
+    };
+
+    render(<ChatPanel {...defaultProps} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Request failed: Internal Server Error");
+
+    const retryButton = screen.getByRole("button", { name: /try again/i });
+    expect(retryButton).toBeEnabled();
+    await user.click(retryButton);
+    expect(mockRetry).toHaveBeenCalledOnce();
+  });
+
+  it("re-enables the composer after a send failure", () => {
+    mockHookReturn = {
+      ...mockHookReturn,
+      isStreaming: false,
+      error: new Error("Request failed: Internal Server Error"),
+    };
+
+    render(<ChatPanel {...defaultProps} />);
+
+    const input = screen.getByRole("textbox", { name: /chat input/i });
+    expect(input).toBeEnabled();
   });
 
   it("passes axe", async () => {

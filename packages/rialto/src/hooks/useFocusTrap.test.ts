@@ -1,5 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
+import type { RefObject } from "react";
 import { useFocusTrap } from "./useFocusTrap";
 
 function makePanel(...tagNames: string[]) {
@@ -76,6 +77,28 @@ describe("useFocusTrap", () => {
 
     expect(e.defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(last);
+  });
+
+  it("skips an element marked data-focus-trap-skip-initial when choosing initial focus", () => {
+    const panel = makePanel("button", "button");
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>("button"));
+    const [close, other] = focusable;
+    close!.setAttribute("data-focus-trap-skip-initial", "true");
+
+    renderHook(() => useFocusTrap(makeRef(panel), true));
+
+    expect(document.activeElement).toBe(other);
+  });
+
+  it("focuses the explicit initialFocus target when provided", () => {
+    const panel = makePanel("button", "button", "input");
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>("button, input"));
+    const target = focusable[2];
+    const initialFocus = { current: target } as RefObject<HTMLElement>;
+
+    renderHook(() => useFocusTrap(makeRef(panel), true, { initialFocus }));
+
+    expect(document.activeElement).toBe(target);
   });
 
   it("does not intercept Tab when focus is not at boundary", () => {

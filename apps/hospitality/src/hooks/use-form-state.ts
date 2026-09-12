@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import type { ZodSchema } from "zod";
-import { ApiClientError } from "@mbe/api-client";
+import { describeApiError } from "../lib/describe-api-error.js";
 
 export interface UseFormStateResult<T extends Record<string, unknown>> {
   fields: T;
@@ -43,11 +43,8 @@ export function useFormState<T extends Record<string, unknown>>(
     try {
       await onSubmit(parsed.data);
     } catch (err) {
-      if (err instanceof ApiClientError) {
-        setError(err.problemDetails.detail);
-      } else {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      }
+      // 422/409 keep the server's own detail (written for the person); everything else is a house sentence.
+      setError(describeApiError(err).detail);
     } finally {
       setIsPending(false);
     }

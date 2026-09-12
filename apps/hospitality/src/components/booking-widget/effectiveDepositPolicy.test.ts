@@ -132,15 +132,25 @@ describe("guestRiskMatters", () => {
 });
 
 describe("provisionalDepositRequired", () => {
-  it("is true when the venue's general deposit policy is enabled", () => {
-    expect(provisionalDepositRequired(makeConfig({ enabled: true }))).toBe(true);
+  it("is true when the venue's general deposit policy is enabled and Stripe is configured", () => {
+    expect(
+      provisionalDepositRequired(makeConfig({ enabled: true }), "the-oak-table", "pk_test_abc")
+    ).toBe(true);
   });
 
   it("is false when the venue's general deposit policy is disabled (risk not yet known)", () => {
-    expect(provisionalDepositRequired(makeConfig({ enabled: false }))).toBe(false);
+    expect(
+      provisionalDepositRequired(makeConfig({ enabled: false }), "the-oak-table", "pk_test_abc")
+    ).toBe(false);
   });
 
   it("is false when there is no deposit config at all", () => {
-    expect(provisionalDepositRequired(null)).toBe(false);
+    expect(provisionalDepositRequired(null, "the-oak-table", "pk_test_abc")).toBe(false);
+  });
+
+  it("is false when the venue's policy is enabled but the Stripe publishable key is missing", () => {
+    expect(
+      provisionalDepositRequired(makeConfig({ enabled: true }), "the-oak-table", undefined)
+    ).toBe(false);
   });
 });

@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { useState, useMemo, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
-  Alert,
   Badge,
+  Button,
   Card,
   EmptyState,
   Input,
@@ -16,8 +16,19 @@ import {
 import { useVenue } from "../contexts/VenueContext.js";
 import { useBriefing, type BriefingEntry } from "../hooks/useBriefing.js";
 import { useSSEEventFeed } from "../hooks/useSSESync.js";
+import { useStatusMessage } from "../hooks/useStatusMessage.js";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { ordinalVisit } from "../utils/ordinal.js";
-import { PageHeader } from "../components/PageHeader";
+import { formatServiceDate, formatTime } from "../utils/format.js";
+import { localDateString, localHour } from "../utils/local-clock.js";
+import {
+  getSegmentLabel,
+  getSegmentVariant,
+  isAllergyTag,
+} from "../components/crm/guest-signals.js";
+import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
+import { LiveStatus } from "../components/LiveStatus.js";
+import { PageHeader } from "../components/PageHeader.js";
 import styles from "./BriefingPage.module.css";
 
 /* ── Time slot segments ─────────────────────────── */
@@ -31,28 +42,31 @@ const TIME_SEGMENTS = [
 
 type TimeSegmentId = (typeof TIME_SEGMENTS)[number]["id"];
 
-function getSegmentForTime(isoString: string): "early" | "dinner" | "late" {
-  const hour = new Date(isoString).getUTCHours();
+export type BriefingSegment = "early" | "dinner" | "late";
+
+/**
+ * Bucket a local hour of day (0–23) into the door's vocabulary: Early before 18:00,
+ * Dinner 18:00–20:59, Late from 21:00 (ux.md Screen 1). Pure; the caller supplies
+ * `localHour(startTime)` so segment and printed time read the same clock (audit A2).
+ */
+export function segmentForHour(hour: number): BriefingSegment {
   if (hour < 18) return "early";
-  if (hour < 20) return "dinner";
+  if (hour < 21) return "dinner";
   return "late";
 }
 
-/* ── Time formatter ──────────────────────────────── */
-
-function formatTime(isoString: string): string {
-  return new Date(isoString).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function segmentForEntry(entry: BriefingEntry): BriefingSegment {
+  return segmentForHour(localHour(new Date(entry.startTime)));
 }
 
 /* ── Loading skeleton ────────────────────────────── */
 
 function BriefingLoadingSkeleton() {
   return (
-    <div className={styles.container}>
-      <PageHeader title="Tonight's Service" description="Service briefing for your team" />
+    <div role="status" aria-busy="true">
+      <Text as="span" className={styles.srOnly}>
+        Loading tonight&apos;s briefing…
+      </Text>
       <SkeletonGroup>
         <Skeleton variant="card" width="100%" height={120} />
         <Skeleton variant="card" width="100%" height={120} />
@@ -66,14 +80,7 @@ function BriefingLoadingSkeleton() {
 
 function BriefingCard({ entry }: { entry: BriefingEntry }) {
   const { guest } = entry;
-  const hasAllergy =
-    guest?.dietaryRestrictions &&
-    guest.dietaryRestrictions.some(
-      (d) =>
-        d.toLowerCase().includes("allergy") ||
-        d.toLowerCase().includes("nut") ||
-        d.toLowerCase().includes("shellfish")
-    );
+  const segmentLabel = guest ? getSegmentLabel(guest.visitCount, guest.tags) : null;
 
   return (
     <Card>
@@ -98,9 +105,16 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
         </div>
 
         <div className={styles.cardBody}>
-          <Text variant="body" color="primary">
-            {entry.guestName ?? guest?.name ?? "Guest"}
-          </Text>
+          <div className={styles.cardHeader}>
+            <Text variant="body" color="primary">
+              {entry.guestName ?? guest?.name ?? "Guest"}
+            </Text>
+            {segmentLabel && (
+              <Badge variant={getSegmentVariant(segmentLabel)} size="sm">
+                {segmentLabel}
+              </Badge>
+            )}
+          </div>
           {guest && guest.visitCount > 1 && (
             <Text variant="caption" color="secondary">
               {ordinalVisit(guest.visitCount)}
@@ -116,11 +130,17 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
         {guest?.dietaryRestrictions && guest.dietaryRestrictions.length > 0 && (
           <div className={styles.dietary}>
             <Stack direction="row" gap="xs" wrap>
-              {guest.dietaryRestrictions.map((d) => (
-                <Tag key={d} variant={hasAllergy ? "error" : "accent"}>
-                  {d}
-                </Tag>
-              ))}
+              {guest.dietaryRestrictions.map((restriction) =>
+                isAllergyTag(restriction) ? (
+                  <Tag key={restriction} variant="error">
+                    {`Allergy: ${restriction}`}
+                  </Tag>
+                ) : (
+                  <Tag key={restriction} variant="default">
+                    {restriction}
+                  </Tag>
+                )
+              )}
             </Stack>
           </div>
         )}
@@ -145,9 +165,11 @@ function BriefingCard({ entry }: { entry: BriefingEntry }) {
 
 export function BriefingPage() {
   const { selectedVenueId } = useVenue();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = searchParams.get("date") ?? new Date().toLocaleDateString("en-CA");
+  const selectedDate = searchParams.get("date") ?? localDateString(new Date());
   const [timeSlot, setTimeSlot] = useState<TimeSegmentId>("all");
+  const { status, announce } = useStatusMessage();
 
   // Subscribe to SSE so reservation events auto-refresh the query via React Query invalidation
   useSSEEventFeed({ maxItems: 0 });
@@ -156,28 +178,35 @@ export function BriefingPage() {
     data: entries,
     isLoading,
     error: queryError,
+    refetch,
   } = useBriefing({
     date: selectedDate,
     venueId: selectedVenueId ?? "",
     enabled: Boolean(selectedVenueId),
   });
 
-  const error = queryError?.message ?? null;
+  const errorDescription = queryError ? describeApiError(queryError) : null;
+  const dateLabel = formatServiceDate(selectedDate);
+
+  const handleRetry = useCallback(async () => {
+    const result = await refetch();
+    if (!result.error) announce(`Briefing for ${dateLabel} loaded.`);
+  }, [refetch, announce, dateLabel]);
 
   const displayEntries = entries ?? [];
 
   const filtered = useMemo(() => {
     if (timeSlot === "all") return displayEntries;
-    return displayEntries.filter((e) => getSegmentForTime(e.startTime) === timeSlot);
+    return displayEntries.filter((entry) => segmentForEntry(entry) === timeSlot);
   }, [displayEntries, timeSlot]);
 
-  if (isLoading && displayEntries.length === 0) {
-    return <BriefingLoadingSkeleton />;
-  }
+  const showLoading = isLoading && displayEntries.length === 0;
+  const loaded = !isLoading && !errorDescription;
 
   return (
     <div className={styles.container}>
       <PageHeader title="Tonight's Service" description="Service briefing for your team" />
+      <LiveStatus status={status} />
 
       <div className={styles.toolbar}>
         <SegmentedControl
@@ -200,23 +229,38 @@ export function BriefingPage() {
         />
       </div>
 
-      {error && (
-        <div style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <Alert variant="error">{error}</Alert>
-        </div>
-      )}
-
-      {!isLoading && !error && filtered.length === 0 && (
-        <div aria-live="polite" role="status">
-          <EmptyState
-            heading="No reservations"
-            description={`No reservations for ${selectedDate}.`}
+      {errorDescription && (
+        <div className={styles.banner}>
+          <ErrorRetryBanner
+            title="Couldn't load tonight's briefing."
+            error={errorDescription.detail}
+            details={errorDescription.raw}
+            onRetry={handleRetry}
           />
         </div>
       )}
 
-      {!isLoading && !error && filtered.length > 0 && (
-        <div className={styles.cards} aria-live="polite">
+      {showLoading && <BriefingLoadingSkeleton />}
+
+      {loaded && displayEntries.length === 0 && (
+        <EmptyState
+          variant="flat"
+          heading={`Nothing on the book for ${dateLabel}.`}
+          description="Change the date, or seat walk-ins from the Timeline."
+          action={
+            <Button variant="secondary" onClick={() => navigate("/timeline")}>
+              Open Timeline
+            </Button>
+          }
+        />
+      )}
+
+      {loaded && displayEntries.length > 0 && filtered.length === 0 && timeSlot !== "all" && (
+        <EmptyState size="sm" variant="flat" heading={`No ${timeSlot} seatings tonight.`} />
+      )}
+
+      {loaded && filtered.length > 0 && (
+        <div className={styles.cards}>
           {filtered.map((entry) => (
             <BriefingCard key={entry.id} entry={entry} />
           ))}

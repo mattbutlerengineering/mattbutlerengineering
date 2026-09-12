@@ -208,6 +208,14 @@ const TEMPLATES: readonly Template[] = [
 
   // Marketing (continued)
   {
+    id: "app-shell",
+    title: "App Shell",
+    description: "Full site shell with a global navigation header and an FAQ accordion",
+    category: "Marketing",
+    prompt:
+      "Marketing site app shell with a GlobalNav header for primary site navigation across the top of the page, a hero section below it, and an FAQ section built from an Accordion where each question expands to reveal its answer",
+  },
+  {
     id: "docs-wiki-page",
     title: "Docs / Wiki Page",
     description: "Documentation page with a breadcrumb trail, page header, and site footer",
@@ -251,6 +259,14 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       "Compact toolbar with icon buttons for quick actions, a combobox field for searching and selecting an item, and an accordion panel below for grouped advanced filter options",
   },
+  {
+    id: "secure-verification",
+    title: "Secure Verification",
+    description: "Two-factor sign-in step with a 6-digit PIN entry and a resend code link",
+    category: "Forms",
+    prompt:
+      "Two-factor authentication verification screen with a 6-digit PinInput for entering the one-time passcode sent by SMS, plus a resend code link and a countdown timer before it can be clicked again",
+  },
 
   // Data Display (continued)
   {
@@ -278,6 +294,15 @@ const TEMPLATES: readonly Template[] = [
     category: "Feedback",
     prompt:
       "Command search palette overlay for quickly jumping to actions and pages, with hover cards previewing extra detail on each result, and disabled-state tooltips explaining why an unavailable command can't be run",
+  },
+  {
+    id: "delete-confirmation-flow",
+    title: "Delete Confirmation Flow",
+    description:
+      "Delete button disabled behind an explanatory tooltip until acknowledged, then a confirmation dialog before removal",
+    category: "Feedback",
+    prompt:
+      "Delete-item flow where the delete button starts disabled with a tooltip explaining that you must check an acknowledgment checkbox first, and once checked the button becomes enabled and opens a confirmation dialog warning that the action is permanent before the item is actually removed",
   },
 ] as const;
 

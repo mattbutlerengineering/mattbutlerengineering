@@ -33,6 +33,7 @@ service bindings diverge from the config's `staticRoutes[*].binding` list.
 | Pattern          | Target                    | Mechanism                           |
 | ---------------- | ------------------------- | ----------------------------------- |
 | `/api/*`         | DigitalOcean App Platform | HTTP proxy to `API_ORIGIN`          |
+| `/public/*`      | DigitalOcean App Platform | HTTP proxy to `API_ORIGIN`          |
 | `/hospitality/*` | Hospitality Worker        | Service Binding (`env.HOSPITALITY`) |
 | `/rialto/*`      | Rialto Worker             | Service Binding (`env.RIALTO`)      |
 | `/gen/*`         | Gen Worker                | Service Binding (`env.GEN`)         |
@@ -65,6 +66,33 @@ API requests are forwarded via standard `fetch()` to the DigitalOcean App Platfo
 > `services/` and `apps/`. Removing it reclaims a hot-path KV read on every API
 > request and eliminates a divergent edge error shape. The `X-Feature-Flags` name
 > is preserved in this note for historical context only; it is no longer emitted.
+
+> **Amendment (2026-08-24, `docs/fixes/public-ingress-never-applied/`):** origin
+> path prefixes are now owned by `routes-config.json`'s **`originRoutes`** key,
+> and `/public/*` proxies to `API_ORIGIN` alongside `/api/*`. This closes a
+> standing violation of this ADR's own "no topology is hardcoded in
+> `edge-router.js`" rule: the origin branch tested a literal
+> `startsWith("/api/")`, which is why the public booking-widget and
+> guest-self-service surface (`/public/v1/**`) died at the edge — measured
+> 2026-08-24, `GET https://mattbutlerengineering.com/public/v1/venues/x`
+> answered `200 text/html`, the marketing SPA, and never left Cloudflare. The
+> shipped `apps/hospitality` bundle is built with `VITE_API_URL` set to the
+> apex, so the edge is in the path for every real guest request.
+>
+> `originRoutes` and `staticRoutes` deliberately keep **separate matchers**.
+> An `originRoutes` prefix is a path segment on a shared origin: matched
+> **exact-or-slash** (`path === prefix || path.startsWith(prefix + "/")`, on
+> `url.pathname` only, case-sensitive) and forwarded verbatim for DO ingress to
+> re-match under `preservePathPrefix: true`. Order carries no meaning — the
+> branch is one boolean, so the array is a set and no entry can shadow another.
+> A `staticRoutes` prefix is a mount point: stripped before forwarding, ordered
+> first-match-wins, and total (it ends in a catch-all). Converging them would
+> change what `/hospitality-anything` returns today and is a recorded non-goal.
+>
+> The edge is one of **two gates in series**. The DO app spec's ingress rules
+> are the other, and `infrastructure/pulumi/ingress-coverage.test.ts` now
+> asserts every served prefix is covered on both sides — reading only the DO
+> side is what let this gate hide.
 
 ### Security Headers
 

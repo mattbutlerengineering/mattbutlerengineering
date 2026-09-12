@@ -14,7 +14,8 @@ export function PageHeader({ title, description, aside }: PageHeaderProps) {
   return (
     <div className={className}>
       <Stack gap="xs">
-        <Text as="h1" variant="display" color="primary">
+        {/* tabIndex={-1}: useFocusAfter's pageHeading target lands here after a load or Retry. */}
+        <Text as="h1" variant="display" color="primary" tabIndex={-1}>
           {title}
         </Text>
         {description && (

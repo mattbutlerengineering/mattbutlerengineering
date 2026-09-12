@@ -230,6 +230,17 @@ jobs:
           TRIGGER_NAME: ${{ github.event.workflow_run.name }}
         run: |
           SHORT_SHA="${HEAD_SHA:0:7}"
+
+          # Dedupe on *which probes failed and how*, not the commit SHA -- the
+          # routing/guard defects this job catches are properties of deployed
+          # config, not of a single commit, so a SHA-keyed identity could
+          # never match itself on the next deploy (#5189; see #5168-#5231 for
+          # the duplicate chain this produced). scripts/lib/deploy-check-dedupe.mjs
+          # is the pure, unit-tested derivation.
+          SIGNATURE_JSON=$(node scripts/lib/deploy-check-dedupe.mjs api-surface /tmp/api-surface.log)
+          SIGNATURE=$(echo "$SIGNATURE_JSON" | jq -r '.signature')
+          DEDUPE_KEY=$(echo "$SIGNATURE_JSON" | jq -r '.dedupeKey')
+
           {
             echo "## API Surface Invariant Breach"
             echo
@@ -258,21 +269,43 @@ jobs:
             echo "*Auto-created by post-deploy-check workflow*"
           } > /tmp/api-surface-body.md
 
-          node scripts/lib/file-issue-cli.mjs \
-            --title "API surface invariant breach (${SHORT_SHA:-unknown})" \
+          TITLE="API surface invariant breach: ${SIGNATURE}"
+
+          # --search-state open (not all) is deliberate: a match against a
+          # *closed* issue must file a fresh issue, not reopen the old one --
+          # reopenIssue() doesn't reset labels (#5071) -- and restricting the
+          # search to open issues routes that case through create instead.
+          RESULT=$(node scripts/lib/file-issue-cli.mjs \
+            --title "$TITLE" \
             --label "ci-fix" \
             --label "ready" \
             --body-file /tmp/api-surface-body.md \
-            --dedupe-key "api-surface-invariants-${SHORT_SHA:-unknown}" \
+            --dedupe-key "$DEDUPE_KEY" \
             --search-label "ci-fix" \
-            --search-state all \
-            --contains "(${SHORT_SHA:-unknown})"
+            --search-state open \
+            --contains "$SIGNATURE")
+          echo "$RESULT"
+
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
+
+          # A dedupe match against an already-open issue means this is the
+          # same failure recurring on a new commit -- comment with the new
+          # occurrence instead of filing a duplicate.
+          if [ "$ACTION" = "skip" ]; then
+            printf 'Recurred on a new commit.\n\n**Commit:** `%s`\n**Run:** %s\n' \
+              "${SHORT_SHA:-unknown}" "$RUN_URL" > /tmp/api-surface-comment.md
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/api-surface-comment.md
+          fi
 
   playwright-smoke:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 15
+    # 18 min covers setup (~1 min) + the poll budget below (12 min) + room for
+    # the smoke tests themselves once confirmed. See "Poll for deploy to
+    # land"'s MAX_ATTEMPTS/SLEEP_SECS comment for why the poll budget grew.
+    timeout-minutes: 18
     permissions:
       contents: read
       issues: write
@@ -298,50 +331,65 @@ jobs:
         id: poll-deploy
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          # 48x15s = 12 minutes. Was 24x15s (6 min, #5006). That 6-minute
+          # budget itself started timing out routinely: #5098/#5123/#5124/
+          # #5133/#5134 all auto-filed "could not confirm deploy" within one
+          # ~24h window, and job logs for those runs show the "Poll for
+          # deploy to land" step consistently burning the *entire* 6-minute
+          # budget (e.g. runs 34193374786, 34192473847, 34176995119 -- all
+          # 5m47s-5m48s, i.e. exactly 24 attempts). Doubling again gives real
+          # headroom instead of re-running at the edge of a budget that's
+          # already proven too tight once. See scripts/check-deploy-sha.mjs.
+          MAX_ATTEMPTS: 48
+          SLEEP_SECS: 15
         run: |
-          # Only poll when triggered by a real workflow_run (not manual dispatch)
-          if [ -z "$EXPECTED_SHA" ]; then
-            echo "Manual dispatch — skipping SHA poll"
-            echo "sha_confirmed=skipped" >> "$GITHUB_OUTPUT"
-            exit 0
+          # scripts/check-deploy-sha.mjs's exit code IS the gate (#5006): it
+          # exits 1 on "timeout", which this step must NOT swallow. The old
+          # inline loop warned on timeout and fell through to run smoke tests
+          # against whatever build happened to be live -- a green
+          # "Post-Deploy Check" that had verified nothing. Using the `if` form
+          # (never a bare statement + `$?`) is required under GitHub Actions'
+          # default `bash -e` shell -- see gotchas.md § CI.
+          if RESULT=$(node scripts/check-deploy-sha.mjs \
+            --url "https://mattbutlerengineering.com/" \
+            --expected-sha "$EXPECTED_SHA" \
+            --max-attempts "$MAX_ATTEMPTS" \
+            --sleep-secs "$SLEEP_SECS"); then
+            SCRIPT_EXIT=0
+          else
+            SCRIPT_EXIT=$?
           fi
 
-          SHORT_SHA="${EXPECTED_SHA:0:7}"
-          echo "Waiting for marketing site to serve build-id=${SHORT_SHA}"
+          echo "$RESULT"
+          CONFIRMED=$(echo "$RESULT" | jq -r '.confirmed')
+          LIVE_BUILD=$(echo "$RESULT" | jq -r '.liveBuildId')
+          ATTEMPTS=$(echo "$RESULT" | jq -r '.attempts')
 
-          MAX_ATTEMPTS=12
-          SLEEP_SECS=15
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            LIVE_BUILD=$(curl -sf --max-time 10 "https://mattbutlerengineering.com/" 2>/dev/null \
-              | grep -oP '(?<=<meta name="build-id" content=")[^"]+' || true)
-
-            echo "Attempt ${i}/${MAX_ATTEMPTS}: live build-id='${LIVE_BUILD}', expected='${SHORT_SHA}'"
-
-            if [ "${LIVE_BUILD:0:7}" = "$SHORT_SHA" ]; then
-              echo "Deploy confirmed on production"
-              echo "sha_confirmed=true" >> "$GITHUB_OUTPUT"
-              echo "live_build_id=$LIVE_BUILD" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-
-            if [ "$i" -lt "$MAX_ATTEMPTS" ]; then
-              sleep "$SLEEP_SECS"
-            fi
-          done
-
-          echo "::warning::Deploy SHA not confirmed after $((MAX_ATTEMPTS * SLEEP_SECS))s — proceeding with tests anyway"
-          echo "sha_confirmed=timeout" >> "$GITHUB_OUTPUT"
+          echo "sha_confirmed=$CONFIRMED" >> "$GITHUB_OUTPUT"
           echo "live_build_id=$LIVE_BUILD" >> "$GITHUB_OUTPUT"
+
+          if [ "$SCRIPT_EXIT" -ne 0 ]; then
+            echo "::error::Deploy SHA not confirmed after ${ATTEMPTS} attempts (~$((MAX_ATTEMPTS * SLEEP_SECS))s budget) — smoke tests will be SKIPPED. This run does NOT mean the deploy is healthy; it means it could not be verified. See scripts/check-deploy-sha.mjs."
+            exit 1
+          fi
+
+          echo "Deploy confirmed on production after ${ATTEMPTS} attempt(s): build-id=${LIVE_BUILD}"
 
       - name: Run smoke tests
         id: run-tests
         env:
           SMOKE_BASE_URL: "https://mattbutlerengineering.com"
           SMOKE_API_URL: "https://api.mattbutlerengineering.com"
+        # No explicit `if:` needed -- a step's default condition is
+        # success(), so poll-deploy failing (sha_confirmed=timeout) already
+        # skips this step. Running smoke tests against an unconfirmed build
+        # would only reproduce the bug this fixes: a pass proves nothing
+        # (could be the *old* build), and a fail is not attributable to this
+        # deploy either.
         run: npx playwright test --config tests/smoke/playwright.config.ts
 
       - name: Upload failure artifacts
-        if: failure()
+        if: failure() && steps.run-tests.outcome == 'failure'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: smoke-test-results
@@ -351,7 +399,7 @@ jobs:
           retention-days: 7
 
       - name: Find originating issue from merge commit
-        if: failure()
+        if: failure() && steps.run-tests.outcome == 'failure'
         id: find-issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -374,7 +422,7 @@ jobs:
           echo "Originating issues from commit: ${ISSUE_NUMBERS:-none}"
 
       - name: Reopen originating issues
-        if: failure() && steps.find-issue.outputs.issue_numbers != ''
+        if: failure() && steps.run-tests.outcome == 'failure' && steps.find-issue.outputs.issue_numbers != ''
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBERS: ${{ steps.find-issue.outputs.issue_numbers }}
@@ -397,7 +445,7 @@ jobs:
           done
 
       - name: Create regression issue on failure
-        if: failure()
+        if: failure() && steps.run-tests.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -457,6 +505,83 @@ jobs:
             --search-label "ci-fix" \
             --search-state all \
             --contains "(${SHORT_SHA:-unknown})"
+
+      # Deliberately separate from "Create regression issue on failure" above
+      # (#5006): that step fires only when smoke tests actually ran and
+      # failed -- real evidence of a problem. This one fires when the deploy
+      # could never be confirmed live, so smoke tests were skipped entirely --
+      # there is no evidence either way. Conflating the two would misreport an
+      # unverified deploy as a proven regression (wrongly reopening the
+      # originating issue, or reading as "smoke tests failed" when none ran).
+      - name: Create issue when deploy could not be verified
+        if: failure() && steps.poll-deploy.outputs.sha_confirmed == 'timeout'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          LIVE_BUILD_ID: ${{ steps.poll-deploy.outputs.live_build_id }}
+        run: |
+          SHORT_SHA="${HEAD_SHA:0:7}"
+
+          {
+            echo "## Post-Deploy Verification Could Not Confirm the Deploy"
+            echo
+            echo "The live site never started serving this commit's build-id"
+            echo "within the polling budget. Smoke tests were **skipped** --"
+            echo "this is NOT a smoke test failure and NOT proof of a"
+            echo "regression. It means the deploy's health is unknown."
+            echo
+            echo "### Deploy Details"
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| **Date** | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| **Trigger** | ${TRIGGER_NAME:-manual} |"
+            echo "| **Commit SHA** | \`${SHORT_SHA:-unknown}\` |"
+            echo "| **Live Build ID (last seen)** | \`${LIVE_BUILD_ID:-unknown}\` |"
+            echo
+            echo "### Run"
+            echo "[View logs](${RUN_URL})"
+            echo
+            echo "### Next Steps"
+            echo "1. Check whether the deploy actually landed (Cloudflare/DO dashboards)"
+            echo "2. Re-run this workflow manually once it has; a pass then means healthy"
+            echo "3. If propagation is now routinely exceeding the poll budget, widen it further in post-deploy-check.yml"
+            echo
+            echo "---"
+            echo "*Auto-created by post-deploy-check workflow*"
+          } > /tmp/unverified-body.md
+
+          # A propagation-poll timeout carries no commit-specific information
+          # worth splitting duplicates on (see the body text above), so the
+          # dedupe key is a fixed string with no SHA -- otherwise every commit
+          # refiles a "new" issue for the same timeout (#5189; see #5123-#5153
+          # for the duplicate chain this produced).
+          DEDUPE_KEY=$(node scripts/lib/deploy-check-dedupe.mjs post-deploy-unverified-key)
+          TITLE="Post-deploy verification could not confirm deploy"
+
+          # --search-state open (not all): a match against a closed issue
+          # files fresh rather than reopening it (reopenIssue() doesn't reset
+          # labels -- #5071).
+          RESULT=$(node scripts/lib/file-issue-cli.mjs \
+            --title "$TITLE" \
+            --label "ci-fix" \
+            --label "ready" \
+            --body-file /tmp/unverified-body.md \
+            --dedupe-key "$DEDUPE_KEY" \
+            --search-label "ci-fix" \
+            --search-state open \
+            --contains "$TITLE")
+          echo "$RESULT"
+
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          ISSUE_NUMBER=$(echo "$RESULT" | jq -r '.issueNumber')
+
+          if [ "$ACTION" = "skip" ]; then
+            printf 'Recurred on a new commit.\n\n**Commit:** `%s`\n**Run:** %s\n' \
+              "${SHORT_SHA:-unknown}" "$RUN_URL" > /tmp/unverified-comment.md
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/unverified-comment.md
+          fi
 
       - name: Log verification result for learning-loop
         if: always()

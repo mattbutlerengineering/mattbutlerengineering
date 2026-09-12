@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,16 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
+const CLI = resolve(ROOT, "scripts/merge-queue-eligibility.mjs");
+
+/**
+ * Runs the CLI as a real subprocess and parses its single-line JSON stdout —
+ * matching how a workflow's `run:` block actually calls this script.
+ */
+function runCli(args) {
+  const stdout = execFileSync("node", [CLI, ...args], { encoding: "utf8" });
+  return JSON.parse(stdout);
+}
 const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml"), "utf8");
 const AUTO_MERGE_WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/auto-merge.yml"), "utf8");
 const SKILL_MD = readFileSync(resolve(ROOT, ".claude/skills/implement-queue/SKILL.md"), "utf8");
@@ -380,6 +391,96 @@ describe("isAutomationMergeAllowed", () => {
 });
 
 // ---------------------------------------------------------------------------
+// `check-merge` CLI subcommand (#5016) — routes through isAutomationMergeAllowed
+// so a workflow can run one command instead of hand-rolling the two-call
+// (check --mode automation, then check-author) sequence. Exit-code/output
+// semantics must match the existing `check`/`check-author` subcommands: a
+// single line of JSON on stdout, exit 0 regardless of eligibility (the
+// caller decides whether to skip vs. merge from the `eligible` field).
+// ---------------------------------------------------------------------------
+
+describe("check-merge CLI subcommand", () => {
+  it("is eligible for auto-merge + tier:trivial from the trusted author", () => {
+    const result = runCli([
+      "check-merge",
+      "--labels",
+      "auto-merge,tier:trivial",
+      "--login",
+      "app/github-actions",
+    ]);
+    expect(result).toEqual({
+      eligible: true,
+      reason: "auto-merge label present, classified, no blocking tier label",
+    });
+  });
+
+  it("is ineligible when no tier:* label is present, regardless of author", () => {
+    const result = runCli([
+      "check-merge",
+      "--labels",
+      "auto-merge",
+      "--login",
+      "app/github-actions",
+    ]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/tier:\*/);
+  });
+
+  it("is ineligible when the auto-merge label is missing", () => {
+    const result = runCli([
+      "check-merge",
+      "--labels",
+      "tier:trivial",
+      "--login",
+      "app/github-actions",
+    ]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/auto-merge/);
+  });
+
+  it("is ineligible for a blocking tier label even from the trusted author", () => {
+    const result = runCli([
+      "check-merge",
+      "--labels",
+      "auto-merge,tier:critical",
+      "--login",
+      "app/github-actions",
+    ]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/tier:critical/);
+  });
+
+  it("is ineligible when tier/label passes but the author is untrusted", () => {
+    const result = runCli([
+      "check-merge",
+      "--labels",
+      "auto-merge,tier:trivial",
+      "--login",
+      "mattbutlerengineering",
+    ]);
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toMatch(/not in TRUSTED_AUTOMATION_AUTHORS/);
+  });
+
+  it("treats a missing --login as ineligible, matching isAutomationMergeAllowed's default", () => {
+    const result = runCli(["check-merge", "--labels", "auto-merge,tier:trivial"]);
+    expect(result.eligible).toBe(false);
+  });
+
+  it("treats a missing --labels as ineligible", () => {
+    const result = runCli(["check-merge", "--login", "app/github-actions"]);
+    expect(result.eligible).toBe(false);
+  });
+
+  it("exits 0 even when ineligible — the caller, not the process exit code, decides skip vs. fail", () => {
+    // execFileSync throws on a non-zero exit; reaching this line at all is
+    // the assertion for the ineligible cases above too, but this test makes
+    // the exit-code contract explicit and would fail loudly if it changed.
+    expect(() => runCli(["check-merge", "--labels", "", "--login", ""])).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // auto-merge.yml wiring (#3857) — must call the shared, tested eligibility
 // script instead of re-deriving a bespoke sensitive-path regex that drifts
 // from tier-classifier.yml.
@@ -512,11 +613,10 @@ describe("auto-merge.yml author-check wiring (#3871)", () => {
 // ---------------------------------------------------------------------------
 
 describe.each(Object.entries(PRODUCER_WORKFLOWS))(
-  "%s Enable auto-merge wiring (#3972)",
+  "%s Enable auto-merge wiring (#5016)",
   (name, content) => {
-    it("invokes merge-queue-eligibility.mjs in automation mode before merging", () => {
-      expect(content).toMatch(/node scripts\/merge-queue-eligibility\.mjs check/);
-      expect(content).toMatch(/--mode automation/);
+    it("invokes the combined check-merge subcommand instead of hand-rolling the two-call check/check-author sequence", () => {
+      expect(content).toMatch(/node scripts\/merge-queue-eligibility\.mjs check-merge/);
     });
 
     it("gates gh pr merge --auto on the eligibility result, not an unconditional call", () => {
@@ -525,17 +625,22 @@ describe.each(Object.entries(PRODUCER_WORKFLOWS))(
       // invocation (`gh pr merge "$PR_NUMBER"`) specifically, not any
       // occurrence of the substring "gh pr merge".
       const mergeAt = content.indexOf('gh pr merge "$PR_NUMBER"');
-      const eligibilityAt = content.indexOf("merge-queue-eligibility.mjs");
+      const eligibilityAt = content.indexOf("merge-queue-eligibility.mjs check-merge");
       expect(mergeAt).toBeGreaterThan(-1);
       expect(eligibilityAt).toBeGreaterThan(-1);
       expect(mergeAt).toBeGreaterThan(eligibilityAt);
     });
 
-    it("also consults the trusted-author check before merging", () => {
-      const checkAuthorAt = content.indexOf("merge-queue-eligibility.mjs check-author");
-      const mergeAt = content.indexOf('gh pr merge "$PR_NUMBER"');
-      expect(checkAuthorAt).toBeGreaterThan(-1);
-      expect(mergeAt).toBeGreaterThan(checkAuthorAt);
+    it("passes both the PR's labels and author login to check-merge in a single call", () => {
+      const enableStepAt = content.indexOf("- name: Enable auto-merge");
+      const nextStepAt = content.indexOf("\n      - name:", enableStepAt + 1);
+      const step = content.slice(enableStepAt, nextStepAt === -1 ? undefined : nextStepAt);
+      expect(step).toMatch(/--labels "\$LABELS_CSV"/);
+      expect(step).toMatch(/--login "\$AUTHOR"/);
+    });
+
+    it("no longer hand-rolls a separate check-author call — check-merge already covers authorship", () => {
+      expect(content).not.toMatch(/merge-queue-eligibility\.mjs check-author/);
     });
 
     it("skips (does not fail the job) when ineligible", () => {

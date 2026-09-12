@@ -8,7 +8,12 @@ import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
 import { SESSION_LAPSE_COPY } from "../constants/session-lapse-copy.js";
 import { DashboardLayout } from "./DashboardLayout.js";
+import { ChatPage } from "../pages/ChatPage.js";
 import React from "react";
+
+vi.mock("../pages/ChatPage.js", () => ({
+  ChatPage: () => <h1>Chat</h1>,
+}));
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
@@ -134,9 +139,11 @@ describe("DashboardLayout", () => {
               <Route path="floor-plans" element={<div>Floor Plans Content</div>} />
               <Route path="floor-plans/:id" element={<div>Floor Plan Editor</div>} />
               <Route path="reservations" element={<div>Reservations Content</div>} />
+              <Route path="briefing" element={<div>Briefing Content</div>} />
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
+              <Route path="chat" element={<ChatPage />} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -273,6 +280,32 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
+  describe("document title (#4973)", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("sets a route-specific title on the timeline route", () => {
+      renderLayout("/timeline");
+      expect(document.title).toBe("Timeline · Hospitality");
+    });
+
+    it("sets a different title on the guests route", () => {
+      renderLayout("/guests");
+      expect(document.title).toBe("Guests · Hospitality");
+    });
+
+    it("sets a different title on the settings route", () => {
+      renderLayout("/settings");
+      expect(document.title).toBe("Settings · Hospitality");
+    });
+  });
+
   it("renders breadcrumbs and sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
@@ -284,6 +317,21 @@ describe("DashboardLayout", () => {
     expect(screen.getByTestId("breadcrumb")).toBeDefined();
     // Breadcrumb shows "Home" on the timeline route; sidebar shows "Timeline" nav item
     expect(screen.getByTestId("breadcrumb")).toHaveTextContent("Home");
+  });
+
+  it("renders the chat route with a heading inside the main landmark (#4971)", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+      progress: 100,
+    });
+    renderLayout("/chat");
+    const heading = screen.getByRole("heading", { level: 1, name: "Chat" });
+    expect(screen.getByRole("main")).toContainElement(heading);
+    // The sidebar (and its nav items) must still be visible — this is what
+    // gives the user a way back, unlike the pre-fix standalone /chat route.
+    expect(screen.getByTestId("breadcrumb")).toBeInTheDocument();
   });
 
   it("has no Copilot nav item in sidebar", () => {
@@ -342,6 +390,15 @@ describe("DashboardLayout", () => {
       // Middle item is clickable, last is current page
       expect(items[1]!.querySelector("button")).not.toBeNull();
       expect(items[2]!.querySelector("[aria-current='page']")).not.toBeNull();
+    });
+
+    it("shows Home > Tonight's Service on the briefing route (A10.4)", () => {
+      renderLayout("/briefing");
+      const items = screen.getAllByTestId(/^breadcrumb-item-/);
+      expect(items).toHaveLength(2);
+      expect(items[0]).toHaveTextContent("Home");
+      expect(items[1]).toHaveTextContent("Tonight's Service");
+      expect(items[1]!.querySelector("[aria-current='page']")).not.toBeNull();
     });
 
     it("shows Home > Settings on the settings route", () => {

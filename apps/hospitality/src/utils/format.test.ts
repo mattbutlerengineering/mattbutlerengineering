@@ -5,6 +5,7 @@ import {
   formatTime,
   formatLocalTime,
   formatCurrencyFromCents,
+  formatServiceDate,
 } from "./format.js";
 
 describe("formatLongDate", () => {
@@ -111,5 +112,17 @@ describe("formatCurrencyFromCents", () => {
   it("handles odd-cent amounts", () => {
     const result = formatCurrencyFromCents(199, "usd");
     expect(result).toBe("$1.99");
+  });
+});
+
+describe("formatServiceDate", () => {
+  it("formats a YYYY-MM-DD as long weekday, short month, day (ux.md 'Tuesday, Sep 3')", () => {
+    // 2026-09-03 is a Thursday; the ux.md sample day-of-week is illustrative
+    expect(formatServiceDate("2026-09-03")).toBe("Thursday, Sep 3");
+  });
+
+  it("does not shift the calendar day across the UTC boundary (T00:00:00 local)", () => {
+    // 2024-01-01 is a Monday
+    expect(formatServiceDate("2024-01-01")).toBe("Monday, Jan 1");
   });
 });

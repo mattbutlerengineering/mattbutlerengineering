@@ -123,7 +123,7 @@ test.describe("CancelReservationDialog fee banner — deposit-enabled venue", ()
 });
 
 test.describe("Booking widget deposit step — deposit-enabled venue", () => {
-  test("includes Payment in the step indicator once the deposit config loads", async ({
+  test("omits Payment from the step indicator when no Stripe key is configured (#4975)", async ({
     mockedPage,
   }) => {
     await mockedPage.route("**/public/v1/venues/*", (route) =>
@@ -138,19 +138,21 @@ test.describe("Booking widget deposit step — deposit-enabled venue", () => {
     await expect(mockedPage.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
 
     // BookingWidget derives its step list purely from useBookingFlow's
-    // `depositRequired`, which is set the moment SET_DEPOSIT_CONFIG
-    // dispatches (useBookingFlow.ts:421-431, BookingWidget.tsx:93-95) — a
-    // "Payment" step appearing here is direct, observable evidence that the
-    // dispatch fired with `enabled: true`.
+    // `depositRequired`, computed by `provisionalDepositRequired` (#4975),
+    // which now delegates to `effectiveDepositPolicy` — requiring
+    // `stripePublishableKey`, not just the venue's `deposit.enabled` flag
+    // (useBookingFlow.ts, effectiveDepositPolicy.ts). Prior to #4975 this
+    // test asserted the opposite (Payment shown from `.enabled` alone),
+    // which was exactly the provisional/confirm-time verdict drift that
+    // issue fixed: the step indicator promised a Payment step the confirm
+    // path would then retract once it noticed no Stripe key.
     //
-    // The flow can't go further than this under CI: reaching the actual
-    // `state === "payment"` render (PaymentStep.tsx, real Stripe Elements)
-    // additionally requires VITE_STRIPE_PUBLISHABLE_KEY
-    // (effectiveDepositPolicy.ts), which .github/workflows/e2e.yml does not
-    // set for the Hospitality E2E job — there is no Stripe test key
-    // configured for this environment. That's a CI environment gap, not
-    // something to work around with an invented test affordance.
+    // .github/workflows/e2e.yml does not set VITE_STRIPE_PUBLISHABLE_KEY for
+    // the Hospitality E2E job (tracked separately by #4111) — there is no
+    // Stripe test key configured for this environment, so the corrected,
+    // key-aware verdict is "no deposit" here. That's a CI environment gap,
+    // not something to work around with an invented test affordance.
     const stepsList = mockedPage.getByRole("list", { name: "Progress steps" });
-    await expect(stepsList.getByText("Payment")).toBeVisible();
+    await expect(stepsList.getByText("Payment")).not.toBeVisible();
   });
 });

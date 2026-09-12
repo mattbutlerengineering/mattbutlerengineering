@@ -18,6 +18,26 @@
         expired: boolean;
       }
     </item>
+    <item priority="high">
+      interface RawArtifact {
+        id: number;
+        name: string;
+        size_in_bytes: number;
+        expired: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function resolveContext(opts: ArtifactOpsOptions): RestContext { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapArtifact(raw: RawArtifact): RunArtifact { /* ... */ }
+    </item>
+    <item priority="high">
+      export function listRunArtifacts(runId: number, opts: ArtifactOpsOptions = {}): RunArtifact[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function downloadArtifactZip(artifactId: number, opts: ArtifactOpsOptions = {}): Buffer { /* ... */ }
+    </item>
   </file>
   <file path="src/client.ts">
     <item priority="low">
@@ -27,6 +47,12 @@
     </item>
     <item priority="medium">
       function buildLabelArgs(transition: LabelTransition): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createGhClient(opts: GhClientOptions = {}) { /* ... */ }
+    </item>
+    <item priority="low">
+      type GhClient = ReturnType<typeof createGhClient>;
     </item>
   </file>
   <file path="src/exec-runner.ts">
@@ -42,6 +68,9 @@
         timeoutMs?: number;
       }
     </item>
+    <item priority="high">
+      export function createExecRunner(opts: ExecRunnerOptions = {}) { /* ... */ }
+    </item>
   </file>
   <file path="src/gh-probe.ts">
     <item priority="low">
@@ -49,6 +78,15 @@
     </item>
     <item priority="medium">
       function defaultProbeExec(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createGhProbe(probeExec: () => void = defaultProbeExec): GhProbe { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isProbeSuccessful(probeExec: () => void): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const probeGh: GhProbe;
     </item>
   </file>
   <file path="src/git-branch.ts">
@@ -66,6 +104,28 @@
     <item priority="low">
       type CoordinationLabel = (typeof COORDINATION_LABELS)[keyof typeof COORDINATION_LA...;
     </item>
+    <item priority="low">
+      interface LabelTransition {
+        issueNumber: number;
+        add: string[];
+        remove: string[];
+      }
+    </item>
+    <item priority="high">
+      export function markInProgress(issueNumber: number): LabelTransition { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markHasPr(issueNumber: number): LabelTransition { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markFailed(issueNumber: number): LabelTransition { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markSkip(issueNumber: number): LabelTransition { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markReady(issueNumber: number): LabelTransition { /* ... */ }
+    </item>
   </file>
   <file path="src/repo-resolver.ts">
     <item priority="low">
@@ -77,6 +137,18 @@
     <item priority="high">
       export function parseRepoSlug(remoteUrl: string): RepoSlug | null { /* ... */ }
     </item>
+    <item priority="low">
+      interface RepoResolverOptions {
+        env?: NodeJS.ProcessEnv;
+        exec?: (cmd: string, args: string[]) => string;
+      }
+    </item>
+    <item priority="medium">
+      function defaultExec(cmd: string, args: string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveRepoSlug(opts: RepoResolverOptions = {}): RepoSlug { /* ... */ }
+    </item>
   </file>
   <file path="src/rest-args.ts">
     <item priority="high">
@@ -86,6 +158,24 @@
     </item>
     <item priority="high">
       export function resolveToken(env: NodeJS.ProcessEnv = process.env): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ParsedArgs {
+        positional: string[];
+        flags: Record<string, string[]>;
+      }
+    </item>
+    <item priority="high">
+      export function parseArgs(args: string[]): ParsedArgs { /* ... */ }
+    </item>
+    <item priority="high">
+      export function flag(parsed: ParsedArgs, name: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function flagAll(parsed: ParsedArgs, name: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function wantsJsonField(parsed: ParsedArgs, field: string): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/rest-http.ts">
@@ -102,6 +192,37 @@
         status: number;
       }
     </item>
+    <item priority="high">
+      class GhRateLimitError {
+        status: number;
+      }
+    </item>
+    <item priority="medium">
+      function isThrottledBody(body: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeGhError(err: unknown): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RestResult {
+        status: number;
+        json: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface ApiRequestOptions {
+        ignoreStatuses?: number[];
+      }
+    </item>
+    <item priority="high">
+      export function apiRequest(
+        ctx: RestContext,
+        method: string,
+        path: string,
+        body?: unknown,
+        opts: ApiRequestOptions = {}
+      ): RestResult { /* ... */ }
+    </item>
   </file>
   <file path="src/rest-issue-ops.ts">
     <item priority="medium">
@@ -109,6 +230,30 @@
     </item>
     <item priority="medium">
       function isPullRequest(item: RawIssue): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fetchIssuePages(ctx: RestContext, basePath: string, limit: number): RawIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueList(ctx: RestContext, parsed: ParsedArgs): unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueView(ctx: RestContext, number: number, parsed: ParsedArgs): unknown { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueCreate(ctx: RestContext, parsed: ParsedArgs): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueComment(ctx: RestContext, number: number, body: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueReopen(ctx: RestContext, number: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueClose(ctx: RestContext, number: number, parsed: ParsedArgs): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueEdit(ctx: RestContext, number: number, parsed: ParsedArgs): void { /* ... */ }
     </item>
   </file>
   <file path="src/rest-label-run-ops.ts">
@@ -132,6 +277,65 @@
         login: string;
       }
     </item>
+    <item priority="low">
+      interface RawIssue {
+        number: number;
+        title: string;
+        body?: string | null;
+        state?: string;
+        state_reason?: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface RawPr {
+        number: number;
+        title: string;
+        body?: string | null;
+        state?: string;
+        head?: { ref?: string };
+      }
+    </item>
+    <item priority="low">
+      interface RawPrFile {
+        filename: string;
+        additions: number;
+        deletions: number;
+      }
+    </item>
+    <item priority="low">
+      interface RawWorkflowRun {
+        id?: number;
+        status?: string;
+        conclusion?: string | null;
+        created_at?: string;
+        name?: string;
+      }
+    </item>
+    <item priority="medium">
+      function mapLabelEntry(label: RawLabel | string): {
+        name: string;
+        color?: string;
+        description?: string | null;
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapIssue(raw: RawIssue): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapPrState(raw: RawPr): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapPr(raw: RawPr): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapPrFile(raw: RawPrFile): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapLabel(raw: RawLabel): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapWorkflowRun(raw: RawWorkflowRun): Record<string, unknown> { /* ... */ }
+    </item>
   </file>
   <file path="src/rest-paginate.ts">
     <item priority="high">
@@ -149,6 +353,31 @@
     </item>
     <item priority="medium">
       function prNumberOf(item: unknown): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function enrichPrStats(
+        ctx: RestContext,
+        number: number,
+        mapped: Record<string, unknown>,
+        wantsCommits: boolean
+      ): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function prList(ctx: RestContext, parsed: ParsedArgs): unknown[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function prView(ctx: RestContext, number: number, parsed: ParsedArgs): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
+      function resolveDefaultBranch(ctx: RestContext): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PrCreateOptions {
+        exec?: (cmd: string, args: string[]) => string;
+      }
+    </item>
+    <item priority="high">
+      export function prCreate(ctx: RestContext, parsed: ParsedArgs, opts: PrCreateOptions = {}): string { /* ... */ }
     </item>
   </file>
   <file path="src/rest-runner.ts">
@@ -191,6 +420,42 @@
         status: number;
         body: string;
       }
+    </item>
+    <item priority="low">
+      type SyncHttp = (req: SyncHttpRequest) => SyncHttpResponse;
+    </item>
+    <item priority="low">
+      type SyncExecFn = (
+        cmd: string,
+        args: string[],
+        opts: {
+          input: s...;
+    </item>
+    <item priority="low">
+      interface SyncHttpOptions {
+        exec?: SyncExecFn;
+      }
+    </item>
+    <item priority="high">
+      export function createSyncHttp(opts: SyncHttpOptions = {}): SyncHttp { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultSyncHttp: SyncHttp;
+    </item>
+    <item priority="low">
+      interface SyncBinaryHttpResponse {
+        status: number;
+        bodyBase64: string;
+      }
+    </item>
+    <item priority="low">
+      type SyncBinaryHttp = (req: SyncHttpRequest) => SyncBinaryHttpResponse;
+    </item>
+    <item priority="high">
+      export function createSyncBinaryHttp(opts: SyncHttpOptions = {}): SyncBinaryHttp { /* ... */ }
+    </item>
+    <item priority="high">
+      export const defaultSyncBinaryHttp: SyncBinaryHttp;
     </item>
   </file>
   <file path="src/transport.ts">

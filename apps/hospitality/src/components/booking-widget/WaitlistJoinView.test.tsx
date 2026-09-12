@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ApiClientError } from "@mbe/api-client";
 import { WaitlistJoinView } from "./WaitlistJoinView.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import React from "react";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -159,8 +160,11 @@ describe("WaitlistJoinView", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("alert")).toBeDefined();
-      expect(screen.getByText("Server error")).toBeDefined();
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
     });
+    // Neither the server's 500 detail nor the raw request line reaches the guest.
+    expect(screen.queryByText("Server error")).toBeNull();
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
   });
 
   it("shows loading state while submitting", async () => {

@@ -11,6 +11,45 @@
       date.setMonth(date.getMonth() + monthsFromNow);
       return date.toUTCString();
     }
+    export function applyVersioning(
+      fastify: FastifyInstance,
+      config?: Partial<ApiVersioningConfig>
+    ): void {
+      const { currentVersion = "v1", sunsetMonthsFromNow = 6 } = config ?? {};
+    
+      // Auto-compute successor (e.g. v1 → v2) unless the caller explicitly
+      // provides successorVersion (including undefined to opt out of the Link header).
+      const successorVersion =
+        "successorVersion" in (config ?? {})
+          ? config!.successorVersion
+          : (() => {
+              const match = currentVersion.match(/^v(\d+)$/);
+              return match?.[1] ? `v${parseInt(match[1], 10) + 1}` : undefined;
+            })();
+    
+      const sunsetDate = computeSunsetDate(sunsetMonthsFromNow);
+    
+      fastify.addHook("onSend", async (request, reply) => {
+        reply.header("API-Version", currentVersion);
+        if (successorVersion) {
+          const path = request.url.replace(/\/v\d+/, `/${successorVersion}`);
+          reply.header("Link", `<${path}>; rel="successor-version"`);
+        }
+      });
+    
+      fastify.decorate("addDeprecationHeaders", (reply: FastifyReply) => {
+        reply.header("Deprecation", "true");
+        reply.header("Sunset", sunsetDate);
+        if (successorVersion) {
+          const path = reply.request.url.replace(/\/v\d+/, `/${successorVersion}`);
+          reply.header("Link", `<${path}>; rel="successor-version"`);
+        }
+      });
+    
+      fastify.decorate("apiVersion", currentVersion);
+      fastify.decorate("successorVersion", successorVersion);
+      fastify.decorate("sunsetDate", sunsetDate);
+    }
   </file>
   <file path="src/classify-error.ts">
     interface CustomError extends Error {
@@ -34,6 +73,119 @@
       detail: string;
       extensions: Record<string, unknown>;
     }
+    export function classifyError(err: unknown): ErrorClassification {
+      const e = err as CustomError;
+    
+      // AppError (@mbe/types): a deliberately-thrown domain error carrying a
+      // machine-readable `code` plus an explicit HTTP status. Emit the code as an
+      // RFC 9457 extension member so clients keep a stable discriminator that does
+      // not collapse into the generic HTTP status title. Guarded on the AppError
+      // name so generic Fastify errors (FST_ERR_*) never leak their internal codes.
+      if (e.name === "AppError" && typeof e.code === "string" && typeof e.statusCode === "number") {
+        return {
+          status: e.statusCode,
+          title: titleForStatus(e.statusCode),
+          detail: e.message,
+          extensions: { code: e.code },
+        };
+      }
+    
+      const isPrisma =
+        e.name === "PrismaClientKnownRequestError" ||
+        e.constructor?.name === "PrismaClientKnownRequestError" ||
+        (typeof e.code === "string" && e.code.startsWith("P2"));
+    
+      if (isPrisma) {
+        return classifyPrismaError(e);
+      }
+    
+      if (e.validation) {
+        return classifyValidationError(e);
+      }
+    
+      if (typeof e.statusCode === "number" && e.statusCode >= 400 && e.statusCode < 600) {
+        return classifyHttpError(e);
+      }
+    
+      const status = e.statusCode || e.status || 500;
+      return {
+        status,
+        title: titleForStatus(status),
+        detail: e.message || "An unexpected error occurred",
+        extensions: {},
+      };
+    }
+    function classifyPrismaError(e: CustomError): ErrorClassification {
+      const prismaCode = e.code || "";
+      const extensions: Record<string, unknown> = { prismaCode };
+      if (e.meta) {
+        extensions.prismaMeta = e.meta;
+      }
+    
+      if (prismaCode === "P2025") {
+        return {
+          status: 404,
+          title: "Not Found",
+          detail: (e.meta?.cause as string) || e.message || "Record not found",
+          extensions,
+        };
+      }
+    
+      if (prismaCode === "P2002") {
+        const target = Array.isArray(e.meta?.target) ? e.meta.target.join(", ") : "field";
+        return {
+          status: 409,
+          title: "Conflict",
+          detail: `Unique constraint failed: ${target}`,
+          extensions,
+        };
+      }
+    
+      if (prismaCode === "P2003") {
+        return {
+          status: 409,
+          title: "Conflict",
+          detail: `Foreign key constraint failed on field: ${(e.meta?.field_name as string) || "field"}`,
+          extensions,
+        };
+      }
+    
+      return {
+        status: 500,
+        title: "Database Error",
+        detail: "A database error occurred",
+        extensions,
+      };
+    }
+    function classifyValidationError(e: CustomError): ErrorClassification {
+      const validationMsgs = (e.validation ?? []).map((v) => {
+        const path = v.instancePath || v.dataPath || "";
+        const field = path.startsWith("/")
+          ? path.slice(1)
+          : (v.params?.missingProperty as string) || "";
+        const fieldPrefix = field ? `'${field}' ` : "";
+        return `${fieldPrefix}${v.message || ""}`;
+      });
+      return {
+        status: 400,
+        title: "Bad Request",
+        detail: `Validation failed: ${validationMsgs.join(", ")}`,
+        extensions: { details: { validation: e.validation } },
+      };
+    }
+    function classifyHttpError(e: CustomError): ErrorClassification {
+      const status = e.statusCode as number;
+      const extensions: Record<string, unknown> = {};
+      if (e.details) {
+        extensions.details = e.details;
+      }
+      return {
+        status,
+        title: titleForStatus(status),
+        detail: e.message,
+        extensions,
+      };
+    }
   </file>
   <file path="src/create-service-app.ts">
     export interface SwaggerConfig {
@@ -49,6 +201,202 @@
       readonly apiVersioning?: ApiVersioningConfig;
       /** Optional hook to register service-specific JSON schemas before plugins */
       readonly registerSchemas?: (fastify: FastifyInstance) => void;
+    }
+    export interface AppOptions {
+      logger?: boolean | object;
+    }
+    export function validateCorsOrigins(origins: string[]): string[] {
+      const validPatterns = [
+        /^https:\/\/([a-z-]+\.)?mattbutlerengineering\.com$/,
+        ...(process.env.NODE_ENV === "development" ? [/^http:\/\/localhost:\d+$/] : []),
+      ];
+    
+      const validated: string[] = [];
+      for (const origin of origins) {
+        const trimmed = origin.trim();
+        if (validPatterns.some((p) => p.test(trimmed))) {
+          validated.push(trimmed);
+        } else {
+          console.warn(`[CORS] Rejected invalid origin from CORS_ORIGINS: ${trimmed}`);
+        }
+      }
+      return validated;
+    }
+    function resolveSwaggerServerUrl(fallbackUrl: string, log: FastifyInstance["log"]): string {
+      const base = process.env.API_BASE_URL;
+      if (process.env.NODE_ENV !== "production" || !base) return fallbackUrl;
+      try {
+        return new URL(base).origin;
+      } catch {
+        log.warn({ apiBaseUrl: base, fallbackUrl }, "API_BASE_URL is not a valid URL; using fallback");
+        return fallbackUrl;
+      }
+    }
+    export async function createServiceApp(
+      config: ServiceAppConfig,
+      options: AppOptions = {}
+    ): Promise<FastifyInstance> {
+      // Fail fast on malformed startup config (e.g. a typo'd AUTH_AUTHORITY) so a
+      // bad deploy crashes loudly instead of serving traffic behind a red readiness
+      // probe. One place, one schema for every service. See ADR-021.
+      validateStartupConfig();
+    
+      const fastify = Fastify({
+        logger: options.logger ?? true,
+        disableRequestLogging: true,
+        ajv: { customOptions: { strict: false } },
+      });
+    
+      // Register service-specific schemas (if provided)
+      if (config.registerSchemas) {
+        config.registerSchemas(fastify);
+      }
+    
+      // --- CORS ---
+      const defaultDevOrigins = [
+        "http://localhost:3000",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:3004",
+        "http://localhost:5173",
+        "http://localhost:5174",
+      ];
+      const prodOrigins = [
+        "https://mattbutlerengineering.com",
+        "https://hospitality.mattbutlerengineering.com",
+        "https://gen.mattbutlerengineering.com",
+      ];
+    
+      const defaultOrigins = [
+        ...prodOrigins,
+        ...(process.env.NODE_ENV === "development" ? defaultDevOrigins : []),
+      ];
+    
+      const envOrigins = process.env.CORS_ORIGINS?.split(",");
+      const validatedEnv = envOrigins ? validateCorsOrigins(envOrigins) : null;
+    
+      if (validatedEnv && validatedEnv.length === 0) {
+        console.warn("[CORS] All CORS_ORIGINS were rejected; falling back to defaults");
+      }
+    
+      const corsOrigins = validatedEnv && validatedEnv.length > 0 ? validatedEnv : defaultOrigins;
+    
+      await fastify.register(cors, {
+        origin: corsOrigins,
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization"],
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      });
+    
+      // --- Observability ---
+      // Propagate X-Request-ID from edge router for distributed tracing
+      await fastify.register(createRequestIdMiddleware());
+    
+      // Track per-endpoint error rates (exposed via health check)
+      await fastify.register(errorRatePlugin_);
+    
+      // Parse x-feature-flags once per request; routes use request.features
+      await fastify.register(createFeatureFlagsPlugin());
+    
+      const rateLimitMonitor = createRateLimitMonitor();
+      fastify.decorate("rateLimitMonitor", rateLimitMonitor);
+    
+      // Latency tracker for DB ping anomaly detection — shared via fastify decorator
+      // so health routes don't need it passed as a parameter
+      fastify.decorate("latencyTracker", createLatencyTracker());
+    
+      // --- Rate limiting ---
+      await fastify.register(rateLimit, {
+        max: 100,
+        timeWindow: "1 minute",
+        onExceeded: (req) => {
+          const ip = req.ip;
+          const endpoint = req.url;
+          rateLimitMonitor.recordHit(ip, endpoint);
+          req.log.warn({ ip, endpoint, timestamp: new Date().toISOString() }, "Rate limit exceeded");
+        },
+      });
+    
+      // Fastify's default not-found handler runs outside the route pipeline, so
+      // the limiter's onRoute hook (which attaches to every *registered* route)
+      // never sees an unmatched path — 404s were completely unbounded. Passing
+      // fastify.rateLimit() with no options reuses the exact global
+      // pluginComponent/store above (same 100/min-per-IP bucket, same key), so
+      // path-scanning counts against the identical budget every real endpoint uses.
+      // The handler body below deliberately reproduces Fastify's own default
+      // 404 response verbatim (fastify/lib/four-oh-four.js `basic404`) — this
+      // fix is scoped to adding rate limiting, not to changing the shape of an
+      // already-live response body, so the RFC 7807 envelope (ADR-002) is not
+      // applied here. TS requires a handler for the (opts, handler) overload,
+      // though the JS API also accepts opts-only with the identical body.
+      fastify.setNotFoundHandler({ preHandler: fastify.rateLimit() }, (request, reply) => {
+        // eslint-disable-next-line mbe-local/require-rfc-7807-errors -- intentionally mirrors Fastify's existing default 404 body; see comment above
+        reply.code(404).send({
+          message: `Route ${request.method}:${request.url} not found`,
+          error: "Not Found",
+          statusCode: 404,
+        });
+      });
+    
+      // --- Swagger / OpenAPI ---
+      const swaggerVersion = config.swagger.version ?? "1.0.0";
+      await fastify.register(swagger, {
+        openapi: {
+          info: {
+            title: config.swagger.title,
+            description: config.swagger.description,
+            version: swaggerVersion,
+          },
+          servers: [{ url: resolveSwaggerServerUrl(config.swagger.serverUrl, fastify.log) }],
+          components: {
+            securitySchemes: {
+              bearerAuth: {
+                type: "http",
+                scheme: "bearer",
+                bearerFormat: "JWT",
+              },
+            },
+          },
+        },
+      });
+    
+      await fastify.register(swaggerUi, {
+        routePrefix: "/docs",
+        uiConfig: {
+          docExpansion: "list",
+          deepLinking: false,
+        },
+      });
+    
+      await fastify.register(ScalarApiReference, {
+        routePrefix: "/reference",
+        configuration: {
+          content: () => fastify.swagger(),
+        },
+      });
+    
+      // --- Auth ---
+      if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
+        await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+      } else if (process.env.NODE_ENV === "production") {
+        throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
+      } else {
+        fastify.log.warn("Skipping Auth0 plugin registration (dev/test mode)");
+      }
+    
+      // --- Sentry ---
+      // Register Sentry error handler (no-op without SENTRY_DSN)
+      await fastify.register(sentryFastifyPlugin);
+    
+      // --- Error Handler (RFC 7807) ---
+      await fastify.register(errorHandlerPlugin);
+    
+      // --- API Versioning ---
+      // Policy (successor computation, sunset headers, deprecation decorators) is
+      // governed by ADR-002 and lives in apply-versioning.ts.
+      applyVersioning(fastify, config.apiVersioning);
+    
+      return fastify;
     }
   </file>
   <file path="src/error-handler.ts">
@@ -80,6 +428,68 @@
       check(flagName: string): boolean;
       checkForUser(flagName: string, userId: string): boolean;
     }
+    type FeatureFlagMap = Record<string, FeatureFlag>;
+    export const FEATURE_FLAGS_HEADER = "x-feature-flags";
+    function isEnabled(flags: FeatureFlagMap | null, flagName: string): boolean {
+      if (!flags || !flags[flagName]) return false;
+      const flag = flags[flagName];
+      if (!flag.enabled) return false;
+      if (flag.percentage >= 100) return true;
+      return false;
+    }
+    function isEnabledForSeed(flags: FeatureFlagMap | null, flagName: string, seed: string): boolean {
+      if (!flags || !flags[flagName]) return false;
+      const flag = flags[flagName];
+      if (!flag.enabled) return false;
+      if (flag.percentage >= 100) return true;
+      if (!seed || flag.percentage <= 0) return false;
+      const hash = hashCode(seed);
+      return hash % 100 < flag.percentage;
+    }
+    function hashCode(str: string): number {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash);
+    }
+    function parseFeatureFlags(header: string | null | undefined): FeatureFlagMap {
+      if (!header) return {};
+      try {
+        return JSON.parse(header);
+      } catch {
+        return {};
+      }
+    }
+    export function createFeatureContext(header: string | null | undefined): FeatureContext {
+      const flags = parseFeatureFlags(header);
+      return {
+        check(flagName: string): boolean {
+          return isEnabled(flags, flagName);
+        },
+        checkForUser(flagName: string, userId: string): boolean {
+          return isEnabledForSeed(flags, flagName, userId);
+        },
+      };
+    }
+    export function createFeatureFlagsPlugin(): FastifyPluginAsync {
+      return fp(
+        async function featureFlagsPlugin(fastify) {
+          fastify.decorateRequest("features");
+          fastify.addHook("onRequest", async (request) => {
+            const raw = request.headers[FEATURE_FLAGS_HEADER];
+            // Headers are typed string | string[]; Node joins repeated headers
+            // into one comma-separated string (invalid JSON → flags disabled),
+            // the array branch only guards exotic clients
+            const header = Array.isArray(raw) ? raw[0] : raw;
+            request.features = createFeatureContext(header);
+          });
+        },
+        { name: "feature-flags" }
+      );
+    }
   </file>
   <file path="src/health-routes.ts">
     export interface HealthDb {
@@ -94,6 +504,22 @@
       readonly path: string;
       readonly operationId: string;
     }
+    export interface HealthRoutesOptions {
+      /** Database instance — prisma + stats are derived from it internally */
+      readonly db: HealthDb;
+      /** Routes to register — each gets the same health handler */
+      readonly routes: readonly HealthRouteConfig[];
+      /**
+       * Auth0 JWKS check — defaults to the shared checkAuth0 from @mbe/service-bootstrap.
+       * Overrideable for testing without real network calls.
+       */
+      readonly checkAuth0?: () => Promise<Auth0CheckResult>;
+    }
+    export const registerHealthRoutes = fp(healthRoutesPlugin, {
+      name: "health-routes",
+      fastify: "5.x",
+      decorators: { fastify: ["latencyTracker", "rateLimitMonitor", "getErrorRates"] },
+    });
   </file>
   <file path="src/health.ts">
     export interface LatencyAnomalyResult {
@@ -103,6 +529,72 @@
     export interface LatencyTracker {
       readonly record: (ms: number) => void;
       readonly checkAnomaly: (currentMs: number) => LatencyAnomalyResult;
+    }
+    export interface Auth0CheckResult {
+      readonly status: "ok" | "degraded";
+      readonly latency: number;
+      readonly message?: string;
+    }
+    export function createLatencyTracker(): LatencyTracker {
+      const history: number[] = [];
+    
+      function record(ms: number): void {
+        history.push(ms);
+        if (history.length > LATENCY_WINDOW) {
+          history.shift();
+        }
+      }
+    
+      function checkAnomaly(currentMs: number): LatencyAnomalyResult {
+        if (history.length < 5) {
+          return { isAnomaly: false, rollingAvg: 0 };
+        }
+        const sum = history.reduce((a, b) => a + b, 0);
+        const rollingAvg = sum / history.length;
+        return {
+          isAnomaly: rollingAvg > 0 && currentMs > LATENCY_ANOMALY_THRESHOLD * rollingAvg,
+          rollingAvg: Math.round(rollingAvg),
+        };
+      }
+    
+      return { record, checkAnomaly };
+    }
+    function resolveJwksUrl(jwksUrl?: string): string | null {
+      const configured =
+        jwksUrl ?? process.env.AUTH0_JWKS_URL ?? buildJwksUrl(process.env.AUTH_AUTHORITY);
+      if (configured) {
+        return configured;
+      }
+      return process.env.NODE_ENV === "production" ? null : DEV_AUTH0_JWKS_URL;
+    }
+    export async function checkAuth0(jwksUrl?: string): Promise<Auth0CheckResult> {
+      const url = resolveJwksUrl(jwksUrl);
+      if (url === null) {
+        return {
+          status: "degraded",
+          latency: 0,
+          message: "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)",
+        };
+      }
+      const start = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), AUTH0_TIMEOUT_MS);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+        const latency = Date.now() - start;
+        if (!response.ok) {
+          return { status: "degraded", latency, message: `Auth0 JWKS returned ${response.status}` };
+        }
+        return { status: "ok", latency };
+      } catch (error) {
+        const latency = Date.now() - start;
+        const message =
+          error instanceof Error && error.name === "AbortError"
+            ? "Auth0 JWKS unreachable (timeout >2s)"
+            : `Auth0 JWKS unreachable: ${error instanceof Error ? error.message : String(error)}`;
+        return { status: "degraded", latency, message };
+      }
     }
   </file>
   <file path="src/readiness-routes.ts">
@@ -118,6 +610,12 @@
       port: number;
       buildApp: () => Promise<FastifyInstance>;
       beforeShutdown?: () => void | Promise<void>;
+    }
+    function delayReject(ms: number, message: string): Promise<never> {
+      return new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error(message)), ms);
+        timer.unref?.();
+      });
     }
     export async function startServiceServer(options: StartServiceServerOptions): Promise<void> {
       const { initTelemetry } = await import("@mbe/observability");
@@ -135,15 +633,32 @@
         fastify.log.info(`Server running at http://${host}:${options.port}`);
         fastify.log.info(`API docs at http://${host}:${options.port}/docs`);
     
-        const shutdown = async () => {
+        let shutdownStarted = false;
+    
+        const runShutdown = async () => {
           await options.beforeShutdown?.();
-          await sdk.shutdown();
           await fastify.close();
+          await sdk.shutdown();
         };
     
-        process.on("SIGTERM", () => {
-          shutdown().then(() => process.exit(0));
-        });
+        const handleShutdownSignal = (signal: NodeJS.Signals): Promise<void> => {
+          if (shutdownStarted) return Promise.resolve();
+          shutdownStarted = true;
+    
+          return Promise.race([
+            runShutdown(),
+            delayReject(SHUTDOWN_TIMEOUT_MS, `shutdown timed out after ${SHUTDOWN_TIMEOUT_MS}ms`),
+          ]).then(
+            () => process.exit(0),
+            (err: unknown) => {
+              fastify.log.error(err, `graceful shutdown on ${signal} failed`);
+              process.exit(1);
+            }
+          );
+        };
+    
+        process.on("SIGTERM", () => handleShutdownSignal("SIGTERM"));
+        process.on("SIGINT", () => handleShutdownSignal("SIGINT"));
       } catch (err) {
         console.error(err);
         process.exit(1);
@@ -160,6 +675,60 @@
         return new URL(value);
       } catch {
         return null;
+      }
+    }
+    export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): void {
+      // SENTRY_DSN is required in production, and unlike AUTH_AUTHORITY its ABSENCE
+      // is the fail-fast condition. `initSentry` returns early and silently when the
+      // DSN is missing, so a service reporting nothing because it is unconfigured
+      // and one reporting nothing because it has not errored yet are byte-identical
+      // from outside. That is what let backend errors go unreported for five months.
+      // Boot is the last moment the distinction is still observable, so it is made
+      // here. Dev and test are deliberately unaffected: local runs and the test
+      // suite must not need a DSN.
+      if (env.NODE_ENV === "production" && (env.SENTRY_DSN ?? "").trim() === "") {
+        throw new Error(
+          "Missing SENTRY_DSN in production: the service would boot with error " +
+            "reporting silently disabled. Set it in the deploy environment."
+        );
+      }
+    
+      const authority = env.AUTH_AUTHORITY;
+    
+      // Absent/empty is "not configured", handled by the fail-closed auth gate.
+      // Only a value that is present-but-malformed is a fail-fast condition here.
+      if (authority === undefined || authority === "") {
+        return;
+      }
+    
+      const parsed = parseUrlOrNull(authority);
+      if (parsed === null) {
+        throw new Error(
+          `Invalid AUTH_AUTHORITY: value is not a parseable URL (${describeShape(authority)}). ` +
+            `Expected ${EXPECTED_SHAPE}.`
+        );
+      }
+    
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error(
+          `Invalid AUTH_AUTHORITY: URL scheme must be http or https, got "${parsed.protocol}" ` +
+            `(${describeShape(authority)}). Expected ${EXPECTED_SHAPE}.`
+        );
+      }
+    
+      if (parsed.hostname === "") {
+        throw new Error(
+          `Invalid AUTH_AUTHORITY: URL has no host (${describeShape(authority)}). ` +
+            `Expected ${EXPECTED_SHAPE}.`
+        );
+      }
+    
+      const jwksUrl = buildJwksUrl(authority);
+      if (jwksUrl === undefined || parseUrlOrNull(jwksUrl) === null) {
+        throw new Error(
+          `Invalid AUTH_AUTHORITY: does not yield a well-formed JWKS URL (${describeShape(authority)}). ` +
+            `Expected ${EXPECTED_SHAPE}.`
+        );
       }
     }
   </file>

@@ -4,7 +4,7 @@ The committed rubric Claude reviewers (and humans) follow when evaluating a pull
 
 > **Why this exists.** ACMM L3 ("Measured / Enforced") gates on a written-down rubric: "the quality criteria for _is this PR ok_ are now in source control, not in someone's head." This file is that rubric. It's referenced by:
 >
-> - `pr-review-toolkit` plugin → `code-reviewer` agent
+> - `.claude/agents/reviewer.md`
 > - `.claude/agents/adr-compliance-reviewer.md`
 > - `.claude/agents/migration-reviewer.md`
 > - `claude-code-review` workflow (when re-enabled)
@@ -68,14 +68,13 @@ Different areas of the monorepo have different failure modes. Lean on these in a
 
 ## How agents apply this rubric
 
-`pr-review-toolkit:code-reviewer` reads this file at session start. It's expected to:
+The `reviewer` subagent (`.claude/agents/reviewer.md`) reads this file at session start. It's expected to:
 
 1. Run `git diff <base>..HEAD` to scope the review.
 2. For each file in the diff, identify which Tier 1 categories could plausibly apply and check.
 3. Use specialist agents in parallel where appropriate:
    - `adr-compliance-reviewer` for any change to `services/`, `packages/`, `apps/`
    - `migration-reviewer` for changes touching `prisma/migrations/` or `prisma/schema.prisma`
-   - `silent-failure-hunter` for diffs that add `try`/`catch`, default values, or retry logic
 4. Group findings by tier in the review summary. Skip Tier 3 unless asked.
 5. End with a verdict: `approve` / `comment` / `request changes`.
 

@@ -30,8 +30,12 @@ export interface DrawerProps {
   footer?: ReactNode;
   /** Which edge the drawer slides from */
   side?: "right" | "left" | "bottom";
-  /** Panel width/height */
-  size?: "default" | "wide" | "full";
+  /**
+   * Panel width/height. `compact` is a sheet that sits beside a working
+   * surface rather than replacing it: bottom `min(40vh, 240px)`,
+   * right/left `min(320px, calc(100vw - 48px))`.
+   */
+  size?: "default" | "wide" | "full" | "compact";
 }
 
 /* ── Slide direction helpers ──────────────────── */
@@ -142,6 +146,7 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                     className={styles.close}
                     onClick={onClose}
                     aria-label="Close"
+                    data-focus-trap-skip-initial="true"
                   >
                     <svg className={styles.closeIcon} viewBox="0 0 14 14" aria-hidden="true">
                       <line x1="3" y1="3" x2="11" y2="11" />

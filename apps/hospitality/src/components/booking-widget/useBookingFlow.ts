@@ -13,6 +13,7 @@ import {
   effectiveDepositPolicy,
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
+import { describeApiError } from "../../lib/describe-api-error.js";
 
 export type BookingStep =
   | "date-party"
@@ -86,7 +87,7 @@ type BookingFlowAction =
   | { type: "GO_BACK_TO_GUEST_DETAILS" }
   | { type: "EXPIRE_HOLD" }
   | { type: "RESET" }
-  | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null }
+  | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "GO_TO_WAITLIST_JOIN" }
   | { type: "WAITLIST_JOINED"; result: WaitlistResult };
@@ -266,16 +267,18 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
       return INITIAL_STATE;
 
     case "SET_DEPOSIT_CONFIG":
-      // Provisional pre-confirm guess from the venue's general policy alone
-      // (risk isn't known yet); CONFIRM_SUCCESS_* overwrites this with the
-      // final, risk-aware outcome. Delegates to the shared deposit-verdict
-      // module so this can never independently drift from it.
+      // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
+      // overwrites this with the final, risk-aware outcome. `depositRequired`
+      // is computed by the caller via `provisionalDepositRequired` — the
+      // shared deposit-verdict module — so it can never independently drift
+      // from it, and it agrees with the confirm-time verdict on whether
+      // Stripe is configured for this venue.
       return {
         ...state,
         data: {
           ...state.data,
           depositConfig: action.config,
-          depositRequired: provisionalDepositRequired(action.config),
+          depositRequired: action.depositRequired,
         },
       };
 
@@ -428,7 +431,11 @@ export function useBookingFlow({
             lateCancellationFeePercent: venueConfig.deposit.lateCancellationFeePercent,
             noShowFeePercent: venueConfig.deposit.noShowFeePercent,
           };
-          dispatch({ type: "SET_DEPOSIT_CONFIG", config });
+          dispatch({
+            type: "SET_DEPOSIT_CONFIG",
+            config,
+            depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+          });
         }
       } catch {
         // Non-fatal — proceed without deposit
@@ -436,7 +443,7 @@ export function useBookingFlow({
     };
 
     fetchDepositConfig();
-  }, [venueSlug, api]);
+  }, [venueSlug, stripePublishableKey, api]);
 
   const goToTimeSlot = useCallback(() => {
     const holdId = flowState.data.hold?.id;
@@ -447,8 +454,7 @@ export function useBookingFlow({
     fetchSlots()
       .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : "Failed to load availability";
-        dispatch({ type: "SET_SLOTS_ERROR", error: msg });
+        dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
       });
   }, [flowState.data.hold, releaseHold, fetchSlots]);
 
@@ -482,8 +488,7 @@ export function useBookingFlow({
         });
         dispatch({ type: "HOLD_SUCCESS", hold, slot });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to hold time slot";
-        dispatch({ type: "HOLD_ERROR", error: msg });
+        dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
       }
     },
     [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
@@ -531,8 +536,7 @@ export function useBookingFlow({
           dispatch({ type: "CONFIRM_SUCCESS_NO_DEPOSIT", reservation });
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to confirm reservation";
-        dispatch({ type: "CONFIRM_ERROR", error: msg });
+        dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
       }
     },
     [
@@ -557,9 +561,16 @@ export function useBookingFlow({
     dispatch({ type: "RESET" });
   }, []);
 
-  const setDepositConfig = useCallback((config: DepositConfig | null) => {
-    dispatch({ type: "SET_DEPOSIT_CONFIG", config });
-  }, []);
+  const setDepositConfig = useCallback(
+    (config: DepositConfig | null) => {
+      dispatch({
+        type: "SET_DEPOSIT_CONFIG",
+        config,
+        depositRequired: provisionalDepositRequired(config, venueSlug, stripePublishableKey),
+      });
+    },
+    [venueSlug, stripePublishableKey]
+  );
 
   const goToWaitlistJoin = useCallback(() => {
     dispatch({ type: "GO_TO_WAITLIST_JOIN" });
