@@ -208,6 +208,14 @@ const TEMPLATES: readonly Template[] = [
 
   // Marketing (continued)
   {
+    id: "app-shell",
+    title: "App Shell",
+    description: "Full site shell with a global navigation header and an FAQ accordion",
+    category: "Marketing",
+    prompt:
+      "Marketing site app shell with a GlobalNav header for primary site navigation across the top of the page, a hero section below it, and an FAQ section built from an Accordion where each question expands to reveal its answer",
+  },
+  {
     id: "docs-wiki-page",
     title: "Docs / Wiki Page",
     description: "Documentation page with a breadcrumb trail, page header, and site footer",
