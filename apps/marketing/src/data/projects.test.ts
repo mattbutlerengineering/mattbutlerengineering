@@ -43,7 +43,7 @@ describe("PROJECTS", () => {
     expect(hospitality).toBeDefined();
     expect(hospitality!.stack).toContain("Auth0");
     expect(hospitality!.stack).toContain("PWA");
-    expect(hospitality!.href).toBe("/hospitality/");
+    expect(hospitality!.href).toBe("/hospitality/?ref=marketing");
   });
 
   it("Gen project has a deep-linking href with a pre-loaded prompt", () => {

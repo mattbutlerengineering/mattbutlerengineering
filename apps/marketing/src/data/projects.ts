@@ -32,7 +32,10 @@ export const PROJECTS: Project[] = [
       "A full-stack restaurant management app with Auth0 authentication, dark mode, " +
       "offline-capable PWA support, and route-level code splitting. Built on the Rialto design system.",
     stack: ["React", "Fastify", "Prisma", "PostgreSQL", "Auth0", "PWA"],
-    href: "/hospitality/",
+    // ?ref=marketing lets LoginGate show a "you came from the portfolio site"
+    // tagline — the app is fully auth-gated, so this is the only context a
+    // visitor from this card can carry through to the login screen.
+    href: "/hospitality/?ref=marketing",
   },
   {
     title: "Gen Playground",
