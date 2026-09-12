@@ -1622,6 +1622,7 @@
       id: string;
       name: string;
       slug: string;
+      ianaTimezone: string;
       operatingHours: OperatingHours | null;
     }
     export interface Venue {

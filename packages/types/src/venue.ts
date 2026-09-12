@@ -12,14 +12,17 @@ export interface VenueGroup {
  * `venueGroup`/`venueGroupId`, the raw `settings` blob, and timestamps — an
  * anonymous caller must never see them (#4022). Carries only what the public
  * booking page actually reads: `id` (needed for the widget's venue-scoped
- * calls), display `name`, `slug`, and `operatingHours` (checked via
- * `hasOperatingHours`). Widget-specific settings (max party size, advance
- * booking windows, etc.) come from the separate `PublicVenueConfig` endpoint.
+ * calls), display `name`, `slug`, `ianaTimezone` (so guest-facing slot times
+ * render in the venue's clock rather than the guest's device — #4976), and
+ * `operatingHours` (checked via `hasOperatingHours`). Widget-specific
+ * settings (max party size, advance booking windows, etc.) come from the
+ * separate `PublicVenueConfig` endpoint.
  */
 export interface PublicVenue {
   id: string;
   name: string;
   slug: string;
+  ianaTimezone: string;
   operatingHours: OperatingHours | null;
 }
 

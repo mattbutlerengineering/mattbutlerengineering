@@ -299,6 +299,7 @@ export const venueService = {
         id: true,
         name: true,
         slug: true,
+        ianaTimezone: true,
         operatingHours: true,
       },
     });
@@ -308,6 +309,7 @@ export const venueService = {
       id: venue.id,
       name: venue.name,
       slug: venue.slug,
+      ianaTimezone: venue.ianaTimezone,
       operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
     };
   },
