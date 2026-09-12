@@ -241,6 +241,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-form", label: "Form States", category: "Examples" },
   { id: "example-reservations", label: "Reservations List", category: "Examples" },
   { id: "example-reservation-timeline", label: "Reservation Timeline", category: "Examples" },
+  { id: "example-reservation-kanban", label: "Reservation Kanban", category: "Examples" },
   // Module predates the "Guest Profile" label (originally "guest detail").
   {
     id: "example-guest-profile",
