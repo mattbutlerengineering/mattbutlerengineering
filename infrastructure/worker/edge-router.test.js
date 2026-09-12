@@ -982,5 +982,28 @@ describe("Edge Router", () => {
       const response = await edgeRouter.fetch(makeRequest("/"), envWithoutAnalytics);
       expect(response.status).toBe(200);
     });
+
+    // The ANALYTICS counterpart to response-formatter's "falls back to
+    // hardcoded defaults when KV read throws". writeDataPoint is the second
+    // external binding read on the request path, it runs after the upstream
+    // response was already fetched successfully, and Cloudflare documents
+    // per-data-point limits without documenting what happens when one is
+    // exceeded. Containment lives in writeAnalytics itself, so this covers the
+    // API passthrough call site as well as the static one exercised here.
+    it("still serves the response when writeDataPoint throws", async () => {
+      const envWithBrokenAnalytics = {
+        ...env,
+        ANALYTICS: {
+          writeDataPoint: vi.fn(() => {
+            throw new Error("Analytics Engine unavailable");
+          }),
+        },
+      };
+
+      // Should NOT throw — an analytics failure must never reach the visitor
+      const response = await edgeRouter.fetch(makeRequest("/"), envWithBrokenAnalytics);
+      expect(response.status).toBe(200);
+      expect(envWithBrokenAnalytics.ANALYTICS.writeDataPoint).toHaveBeenCalledTimes(1);
+    });
   });
 });

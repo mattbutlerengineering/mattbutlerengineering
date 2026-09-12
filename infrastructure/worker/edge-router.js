@@ -92,16 +92,27 @@ export { AUTH0_ORIGIN };
 function writeAnalytics(env, request, route, statusCode, startTime) {
   const analytics = env[ANALYTICS_BINDING];
   if (!analytics) return;
-  analytics.writeDataPoint(
-    toDataPoint({
-      route,
-      method: request.method,
-      country: request.headers.get("CF-IPCountry") || "unknown",
-      pathname: new URL(request.url).pathname,
-      status: statusCode,
-      elapsedMs: Date.now() - startTime,
-    })
-  );
+  try {
+    analytics.writeDataPoint(
+      toDataPoint({
+        route,
+        method: request.method,
+        country: request.headers.get("CF-IPCountry") || "unknown",
+        pathname: new URL(request.url).pathname,
+        status: statusCode,
+        elapsedMs: Date.now() - startTime,
+      })
+    );
+  } catch (error) {
+    // Telemetry must never fail the request. Both call sites run AFTER the
+    // upstream response was fetched successfully, and `fetch` has no top-level
+    // catch — an escaping throw would replace a good response with
+    // Cloudflare's 1101 page. Cloudflare documents per-data-point limits
+    // (blobs, doubles, index bytes) without documenting the behaviour on
+    // breach, and `pathname` is caller-supplied, so this is contained rather
+    // than assumed safe. Same fail-open shape as the HEALTH_STATE reads.
+    console.error("Analytics write failed:", error.message);
+  }
 }
 
 export default {

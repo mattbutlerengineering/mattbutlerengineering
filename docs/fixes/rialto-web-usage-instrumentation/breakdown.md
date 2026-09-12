@@ -18,6 +18,11 @@ assumptions:
   - "package.json's repo-audit conflict was resolved as a union on top of main's version — main's new check-ci-gate-coverage.mjs and its removal of 'pnpm audit --audit-level=high' from the chain (now the standalone audit:security script, #4993) both kept, with this run's check-analytics-bindings.mjs re-inserted in its original slot after check-service-bindings.js."
   - "metrics/ai-antipattern-baselines.json was updated (hardcodedRoutes 693 → 694, consoleLogs 711 → 717) to let the branch push. No live user and no skill-supplied default; the script's own failure message offers exactly two options (fix, or --update after intentional work) and both remaining hits are the rule's known false-positive shape in a CLI check script and a test fixture. The third regression (anyType) was fixed in code rather than accepted. Verified that origin/main scores exactly baseline on all eight patterns first, so the update accepts these two deltas and nothing else. Flagged for human review — see the Notes entry."
   - "Item 6's runbook gained one bullet not in the written scope: a dated, measured statement that pulumi-up.yml currently fails on main at 'Pulumi Refresh (Sync state with cloud)', so the section that tells a reader rows appear after that workflow completes does not mislead. Judgement call flagged by the orchestrator, taken because the section's whole purpose is telling a reader what zero rows means."
+  - "Return to Implement (2026-09-12), scope-limited to review.md's Major 1 and Major 2 plus the gates they require. Authority is Matt's explicit 'fix both, then Ship', relayed by the orchestrator; Review had routed both findings to Implement rather than deferring them. Nothing else in review.md was acted on — Major 3 and Minors 1-5 stay routed where Review put them."
+  - "Major 1's catch logs via console.error and swallows, rather than the bare silent catch of health/kv-access.js, circuit-breaker.js and rate-limiter.js. No skill-supplied default, and both are house idioms — but edge-router.js itself uses the logging form in its other two catches (:225, :294), and a silently dropped data point is undiagnosable from outside, which is this run's own defect shape. Verified first that console.error is not counted by the consoleLogs scanner (its regex requires the literal token log), so the choice costs the ratchet nothing."
+  - "The consoleLogs target is 712, NOT the 711 named in the fix-up dispatch. origin/main moved while this branch sat in review: PR #5309 added scripts/print-drift-signature.mjs (1 console.log) and legitimately took main's baseline 711 to 712. Restoring 711 would set this branch's baseline below main's real count and red main after merge. metrics/ai-antipattern-baselines.json is therefore restored from origin/main — not from the merge-base, which carries the stale 711 — leaving it byte-identical to main's file so the merge cannot conflict on it."
+  - "Review's claim that folding the 6 console.logs into runCheck yields byte-identical output holds for 5 of them, not 6. The PASS path is byte-identical (diff-proven). The 6th is the post-findings hint at the old :160, which runCheck cannot reproduce in place because it has no post-findings hook; the hint moved INTO failMessage above the findings, the order check-ci-gate-coverage.mjs already uses. No text was dropped — only the FAIL path's ordering changed."
+  - "analytics-schema.test.js's shape fixture changed route/pathname from 'api' plus the /api/v1/... literal to 'hospitality' plus /hospitality/reservations, rather than deleting the field or splitting the literal. The test asserts only three toHaveLength calls so no value is read, and a coherent route/pathname pair matches the sibling positional test's fixture ('rialto' plus /rialto/components/button). Splitting the string to dodge the regex would game the ratchet instead of improving anything."
 ---
 
 # Breakdown: bind the counter that already exists, then make its number readable
@@ -735,3 +740,144 @@ Analytics Engine binding (ANALYTICS → edge_requests).`; its
   adding a binding there ships nothing; `csp.js:84-89` lets the KV key
   `security/csp` override any directive at runtime, so a CSP claim read from
   source is only a claim about the default.
+
+### Implement log — Review fix-up pass, Majors 1 and 2 (2026-09-12)
+
+A scoped return to Implement after `review.md` raised two Majors and Matt chose
+"fix both, then Ship". Branch `fix/rialto-web-usage-instrumentation`, worktree
+`.claude/worktrees/docs+readme-world-class`, from HEAD `8ffaeb894`.
+
+**Major 1 — `writeDataPoint` contained, with the throwing-mock test it lacked.**
+RED first, at the seam Review named. `infrastructure/worker/edge-router.test.js`
+gains `still serves the response when writeDataPoint throws`, modelled on the
+`HEALTH_STATE` precedent at `:822` (`falls back to hardcoded defaults when KV
+read throws`): a binding whose method throws, asserting the response is still 200. It failed for exactly the right reason —
+
+```
+$ pnpm --dir infrastructure/worker exec vitest run edge-router.test.js
+ × still serves the response when writeDataPoint throws 6ms
+Error: Analytics Engine unavailable
+ ❯ writeAnalytics edge-router.js:95:13
+ ❯ Object.fetch edge-router.js:327:5
+ Tests  1 failed | 70 passed (71)
+```
+
+— the throw escaped the writer and rejected the handler, which is Cloudflare's
+1101 page in production, after the upstream response had already been fetched
+successfully. GREEN after wrapping the single `analytics.writeDataPoint(...)`
+call in `try`/`catch`: `Tests 71 passed (71)`, with the catch's own line visible
+on stderr (`Analytics write failed: Analytics Engine unavailable`). Containment
+lives inside `writeAnalytics`, so it covers both call sites (`:246` API
+passthrough, `:327` static) without either being touched.
+
+**The interaction the dispatch flagged, measured rather than assumed:
+`console.error` does NOT count toward `consoleLogs`.** The scanner's rule is
+`const RE = /\bconsole\.log\s*\(/g` at `scripts/check-ai-antipatterns.mjs:171`
+— it requires the literal token `log` — and `infrastructure/worker/` _is_
+scanned (it appears in no ignore list in `scripts/lib/repo-scan.mjs`). Proven
+end-to-end, not by reading: `consoleLogs` moved `717 → 711`, exactly the −6 that
+Major 2 removed and nothing added back. Three neighbouring patterns held, which
+is the rest of the claim: `emptyCatch` stayed 5 (the new catch has a body),
+`noopTestAssertions` stayed 19 and `mockShapeMismatch` stayed 18.
+
+**Major 2 — both deltas fixed at source; the ratchet is no longer loosened.**
+Both were attributed to one file each before anything was touched, by counting
+each changed file at the merge-base and at HEAD:
+
+```
+$ (per-file console.log / "/api/..." counts, merge-base b6fb1ed6b vs HEAD)
+infrastructure/worker/analytics-schema.test.js  consoleLog:0->0  apiRoutes:0->1
+scripts/check-analytics-bindings.mjs            consoleLog:0->6  apiRoutes:0->0
+```
+
+So the `+6` and the `+1` each had exactly one home, and Review's "both deltas
+had zero-cost honest fixes" is confirmed.
+
+- The 6 `console.log`s folded into `runCheck`'s `passMessage`/`failMessage`;
+  `scripts/check-analytics-bindings.mjs` now matches `check-ci-gate-coverage.mjs`
+  and `check-orphaned-tests.mjs` at zero. One deviation from Review's prediction,
+  recorded as an assumption: **5 of the 6 fold byte-identically, not 6.** The
+  PASS path — the one `repo-audit` runs — is byte-identical, proven by diffing
+  captured output across the refactor (`diff before after` → `BYTE-IDENTICAL`).
+  The 6th is the trailing hint that printed _after_ the findings; `runCheck` has
+  no post-findings hook, so it moved into `failMessage` above the findings,
+  which is the guidance-then-findings order `check-ci-gate-coverage.mjs` already
+  uses. No text was lost.
+- The 1 hardcoded route in `infrastructure/worker/analytics-schema.test.js:66`
+  is gone: the fixture's `route`/`pathname` pair became `hospitality` /
+  `/hospitality/reservations`. The test's three assertions are `toHaveLength`
+  calls, so no value in the fixture is read.
+
+**The baseline number the dispatch gave was wrong, and the corrected target is
+693 / 712.** `origin/main` moved while this branch was in review: PR #5309
+(merged 21:10Z) added `scripts/print-drift-signature.mjs`, which carries exactly
+one `console.log`, taking main's baseline `711 → 712` legitimately. Reverting
+this branch to 711 would have put its baseline _below_ main's real count, and
+the ratchet fails when count exceeds baseline — so main would have gone red at
+`712 > 711` after merge. `metrics/ai-antipattern-baselines.json` was therefore
+restored from `origin/main` (not from the merge-base, which carries the stale
+711), which also makes it byte-identical to main's copy — the merge cannot
+conflict on that file at all.
+
+```
+$ node scripts/check-ai-antipatterns.mjs        # in this worktree
+  OK       hardcodedRoutes: 693 (baseline: 693)
+  OK       anyType:         291 (baseline: 291)
+  IMPROVED consoleLogs:     711 (baseline: 712)
+All patterns within baseline. No regressions detected.
+```
+
+`consoleLogs` reads 711 here only because this worktree predates main's new
+script. Simulated post-merge by copying that one file in, then removing it
+again:
+
+```
+$ git show origin/main:scripts/print-drift-signature.mjs > scripts/print-drift-signature.mjs
+$ node scripts/check-ai-antipatterns.mjs | grep -E "hardcodedRoutes|consoleLogs"
+  OK       hardcodedRoutes: 693 (baseline: 693)
+  OK       consoleLogs:     712 (baseline: 712)
+$ rm scripts/print-drift-signature.mjs
+```
+
+**The guard's proof was re-established, not inherited.** Folding the preamble
+changed this script's output path, so `verification.md` T2's three primary
+mutations were re-run against the refactored script. All three still exit 1 with
+the same finding kinds, each restored with `git checkout --`:
+
+| mutation                               | exit | finding kinds                                   |
+| -------------------------------------- | ---- | ----------------------------------------------- |
+| Pulumi binding line deleted            | 1    | `[no-entries:pulumi]` `[missing-in-pulumi]`     |
+| `wrangler.toml` table deleted          | 1    | `[no-entries:wrangler]` `[missing-in-wrangler]` |
+| schema `EDGE_REQUESTS_DATASET` changed | 1    | `[dataset-mismatch]`                            |
+
+Baseline after all three restores: `exit=0`, and `git status --short --
+infrastructure/` listed only this pass's own three edited files.
+
+**Gates (all 2026-09-12, in this worktree).**
+
+| gate                                           | result                                                                                                                                                                                               |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck --force`                       | `Tasks: 48 successful, 48 total` / `Cached: 0 cached` / `33.341s`, exit 0                                                                                                                            |
+| `pnpm repo-audit`                              | exit 0 — includes `All matched files use Prettier code style!` and `PASS: wrangler.toml, pulumi/index.ts and analytics-schema.js agree on the Analytics Engine binding (ANALYTICS → edge_requests).` |
+| `pnpm regen --check`                           | `All generated artifacts are up to date.`, exit 0                                                                                                                                                    |
+| `pnpm --dir infrastructure/worker test`        | `Test Files 16 passed (16)` / `Tests 270 passed (270)`                                                                                                                                               |
+| `pnpm --dir infrastructure/pulumi test`        | `Test Files 2 passed (2)` / `Tests 88 passed (88)`                                                                                                                                                   |
+| `pnpm --dir scripts test`                      | `Test Files 166 passed (166)` / `Tests 3211 passed (3211)`                                                                                                                                           |
+| `pnpm --dir apps/rialto-web test`              | `Test Files 66 passed (66)` / `Tests 767 passed (767)`                                                                                                                                               |
+| `pnpm exec prettier --check` (5 touched files) | `All matched files use Prettier code style!`                                                                                                                                                         |
+
+`pnpm typecheck` first returned `FULL TURBO` (48/48 cached) — meaningless as
+evidence for this change, since none of the five files this pass touched belongs
+to a package with a `typecheck` task — so it was re-run with `--force` and the
+forced result is the one quoted. The `@mbe/cli` build was also a cache hit;
+`node scripts/agent-core-build-freshness.mjs check` reported
+`{"trusted":true,"state":"fresh"}`, so `regen --check` ran against a dist that
+is genuinely current rather than the stale-dist trap in
+`.claude/rules/gotchas.md § Build / pnpm / turbo`.
+
+**Still flagged for human review**, narrowed from the pre-existing flag: the
+ratchet loosening is withdrawn, so nothing in this run now moves a repo-wide
+floor. What remains for Ship is only that `metrics/ai-antipattern-baselines.json`
+is deliberately byte-identical to `origin/main` rather than regenerated here —
+if `main` moves again before merge, re-take main's copy rather than running
+`--update`.

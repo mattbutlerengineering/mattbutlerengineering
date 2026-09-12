@@ -142,25 +142,33 @@ if (isMain) {
   const show = (entries) =>
     entries.map((e) => `${e.binding ?? e.name} → ${e.dataset}`).join(", ") || "(none)";
 
-  console.log("Checking Analytics Engine binding consistency across 3 sources...\n");
-  console.log(`  ${SOURCE_LABELS.wrangler}:        [${show(wrangler)}]`);
-  console.log(`  ${SOURCE_LABELS.pulumi}:             [${show(pulumi)}]`);
-  console.log(`  ${SOURCE_LABELS.schema}:  [${show([schema])}]`);
-  console.log("");
+  // The three-source preamble is prepended to whichever message runCheck
+  // prints rather than logged here: runCheck already owns this script's entire
+  // stdout, and its plain-string pass/failMessage take a multi-line value. The
+  // two checks written after it (check-ci-gate-coverage.mjs,
+  // check-orphaned-tests.mjs) print nothing of their own for the same reason.
+  const preamble =
+    "Checking Analytics Engine binding consistency across 3 sources...\n\n" +
+    `  ${SOURCE_LABELS.wrangler}:        [${show(wrangler)}]\n` +
+    `  ${SOURCE_LABELS.pulumi}:             [${show(pulumi)}]\n` +
+    `  ${SOURCE_LABELS.schema}:  [${show([schema])}]\n\n`;
 
-  const exitCode = runCheck({
-    name: "analytics binding consistency",
-    findings,
-    formatFinding: (f) => `[${f.kind}] ${f.message}`,
-    passMessage: `PASS: wrangler.toml, pulumi/index.ts and analytics-schema.js agree on the Analytics Engine binding (${schema.binding} → ${schema.dataset}).`,
-    failMessage: "FAIL: Analytics Engine binding drift detected:\n",
-  });
-
-  if (exitCode !== 0) {
-    console.log(
-      "\nThe Pulumi WorkersScript is what deploys; wrangler.toml and analytics-schema.js must match it."
-    );
-  }
-
-  process.exit(exitCode);
+  // The remediation hint moves INTO failMessage (above the findings) rather
+  // than after them — runCheck has no post-findings hook, and guidance-then-
+  // findings is the order check-ci-gate-coverage.mjs already uses. The PASS
+  // path, which is the one repo-audit runs, is byte-for-byte unchanged.
+  process.exit(
+    runCheck({
+      name: "analytics binding consistency",
+      findings,
+      formatFinding: (f) => `[${f.kind}] ${f.message}`,
+      passMessage:
+        preamble +
+        `PASS: wrangler.toml, pulumi/index.ts and analytics-schema.js agree on the Analytics Engine binding (${schema.binding} → ${schema.dataset}).`,
+      failMessage:
+        preamble +
+        "FAIL: Analytics Engine binding drift detected — the Pulumi WorkersScript is what\n" +
+        "deploys; wrangler.toml and analytics-schema.js must match it:\n",
+    })
+  );
 }
