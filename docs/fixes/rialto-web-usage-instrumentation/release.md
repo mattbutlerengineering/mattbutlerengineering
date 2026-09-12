@@ -242,7 +242,18 @@ gh pr view <N> --json mergeStateStatus,statusCheckRollup
 `Hospitality E2E` are advisory. A PR with no `CI Gate` at all is a known repo
 state (`gate-missing`), not a green one.
 
-**Step 2 — merge.** The repo allows squash only.
+**Step 2 — clear the T4 gate, then merge.** `tier-classifier.yml` labelled
+#5315 **`tier:critical`** — its rule
+`{ tier: T4, when: (f) => /^infrastructure\/pulumi\//.test(f), why: 'pulumi infra change' }`
+fires on this diff. Per [`docs/change-tiers.md`](../../change-tiers.md) that is
+the strictest tier: reviewer agent **plus** a specialist subagent, **plus** one
+human review, **plus** Matt personally, **plus** an ADR or a `meta-improvement`
+issue documenting why. It **blocks auto-merge by design**, which is the correct
+outcome for this change and not an obstacle to route around.
+
+This run's brief forbids tracker interaction, so **no such issue was filed by
+this stage** — filing it (or writing the ADR) is part of step 2. The repo allows
+squash only:
 
 ```bash
 gh pr merge <N> --squash --delete-branch
@@ -432,6 +443,12 @@ To be run by a human **after** the steps above, in this order. None has been run
    `origin/main`'s copy rather than regenerated on this branch.** If `main` moves
    again before merge and that file changes, re-take main's copy verbatim; never
    run the antipattern script with `--update`.
+5. **#5315 is `tier:critical` (T4)** and therefore cannot auto-merge: it needs a
+   specialist reviewer, a human review, Matt personally, and an ADR or
+   `meta-improvement` issue documenting why. **This stage filed neither** — the
+   brief's tracker policy is "no issues created, edited, or referenced". The
+   paperwork is release step 2, and the label is correct: a Pulumi binding on the
+   Worker that fronts every route on the domain is exactly what T4 is for.
 
 ## Outcome
 
