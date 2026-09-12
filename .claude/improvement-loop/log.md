@@ -1611,6 +1611,46 @@ None this run (`agent-skip` empty, 0 open).
 
 None this run (`agent-skip` empty, 0 open).
 
+## 2026-09-12 (mbe-evening)
+
+### Metrics
+
+| Metric                                       | Value                                                                                                                                                                   | Target            | Status                        |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------------------- |
+| Created (7d)                                 | audit: 22, ci-fix: 33 (raw label sums, several issues carry both and are double-counted) = 55                                                                           | -                 | -                             |
+| Closed (7d)                                  | audit: 8, ci-fix: 7 (proxy: closed among those created in the 7d window — not a true closedAt-in-window count) = 15                                                     | -                 | -                             |
+| Closure Rate                                 | 15/55 ≈ 27%                                                                                                                                                             | >80%              | red                           |
+| Time-to-Close                                | not computed exactly this run (needs per-issue closedAt-createdAt)                                                                                                      | <24h              | unverified                    |
+| Agent Success (open snapshot)                | 5 has-pr / (5 has-pr + 3 agent-failed) = 62.5%                                                                                                                          | >70%              | yellow                        |
+| CI Pass (main, last 20 runs)                 | 17 success / 17 non-cancelled = 100% (3 cancelled, concurrency-superseded, excluded as noise)                                                                           | >95%              | green                         |
+| Queue (ready)                                | 67 (up from 56 last night)                                                                                                                                              | <5                | red                           |
+| Stale (ready>7d)                             | ~16 — the 2026-09-04 UX audit batch (#4976–#4992 range, `audit`+`ready`), now 8 days old                                                                                | 0                 | red                           |
+| Blocked (agent-failed)                       | 3, unchanged from last night (#5091 now day 5, #5055, #4914)                                                                                                            | 0                 | red                           |
+| Skipped (agent-skip)                         | 0                                                                                                                                                                       | 0                 | green                         |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — same standing gap as #4618, not re-filing                                                                                                         | <$10/day, <$50/7d | unmeasured, same standing gap |
+| Reverts (7d)                                 | grep matched 5, but 4 are false positives (substrings like "auto-reverting" in unrelated fix titles) — actual revert commits: 1 (`2ccf995`, already counted last night) | <3/week           | green (grep itself is noisy)  |
+
+### Patterns
+
+- **Closure rate worse than last night (27% vs. 48%)**, and `Queue` grew (56 → 67) despite this run merging 3 issues. Same root causes as last night, now larger: the `API surface invariant breach` chain is the single biggest contributor to `ci-fix` `Created` — confirmed today (see below) that all ~13 instances since #5168 (2026-09-09) share **one** root cause, not many. `Blocked` (agent-failed) is flat at 3 — #5091 is now a 5-night carryover.
+- **Root cause of the `API surface invariant breach` chain fully diagnosed this run, and it is NOT code-fixable by an agent**: PR #4565 (the actual fix) is merged on `main` but has never been _applied_ — every `pulumi-up.yml` run since 2026-09-09T17:05Z fails in `Pulumi Refresh` on two orphaned Auth0 state records from #4924. This needs a human to clean up Pulumi state before the next `pulumi-up` can apply it (see `docs/fixes/public-ingress-never-applied/release.md`). Surfaced to the user via push notification at the start of this run rather than filed as a new issue (already tracked in #5091 + the four originating breach issues #5168/#5171/#5173/#5181). Recommend: do not re-triage or attempt to fix any new `API surface invariant breach` issue until this is confirmed applied — they will keep firing on every deploy regardless of code changes.
+- **This run's `/implement-queue` iteration claimed and merged 3 issues** (#5071, #5257, #5209 via PRs #5291/#5289/#5290), plus a telemetry PR (#5293, low-risk fast path). One major finding, escalated to its own meta-improvement issue (#5296) rather than summarized only here:
+  - **2 of 3 worker worktrees (issues #5257, #5209) had zero common git ancestor with `main`** — not merely stale (last night's #5207 finding, ~3 days behind), but a hard `fatal: refusing to merge unrelated histories`, rooted in a 4-day-old/50-commit-stale disconnected snapshot. Both PRs had to be manually rebuilt from scratch on fresh `origin/main` and force-pushed before they were mergeable. This is the same class of problem as last night's stale-worktree finding but a full degree worse (no shared history at all, not just behind), and it's now 2 nights running — filed as #5296 rather than re-describing the mechanism here.
+  - The third worker (#5071) also could not open its own PR (`gh` absent, no `create_pull_request` tool in its subagent context) — same gap flagged last night for 2 of 3 workers; the orchestrator opened the PR on its behalf. Still unresolved; not re-filing, already implicit in last night's recommendation.
+- **No `gh` CLI in this cloud session** (expected). Worktree reaper ran, reclaimed 0 of 3 examined worktrees (fails closed without `gh`-sourced merge evidence, as designed).
+- **PR auto-merge behavior observed directly this run**: PR #5290 and the telemetry PR #5293 both merged without the orchestrator calling merge itself — the repo's own tier-classifier + auto-merge automation enabled and completed the merge once CI Gate went green. Worth noting for anyone re-reading `/implement-queue`'s "No tier hold" section: in practice, low-risk/tier:trivial and some tier:standard agent-authored PRs merge via repo automation before the orchestrator's own enqueue step runs, not only via the skill's own `gh pr merge --auto` call.
+
+### Recommendations
+
+- Still: prioritize #5189 (post-deploy-check dedupe fix) — unimplemented for a third night, and the single highest-leverage fix for the `Closure Rate`/`Queue` metrics given how much of both is one duplicate chain.
+- Escalate #5296 (disconnected-worktree-history) — now a 2-night-running pattern (last night: stale-but-connected; tonight: fully disconnected) that costs 15-40 minutes of manual rebuild per affected PR and risks a much worse silent failure if a session doesn't happen to check `git merge-base` before trusting a PR's stated `base.sha`.
+- Do not re-triage `API surface invariant breach` issues as independent bugs — they are fully diagnosed (see Patterns above) and blocked on human Pulumi-state cleanup, not code.
+- `.claude/agent-spend/sessions.jsonl` still empty — same standing gap as #4618, deferred to `/optimize-implement-queue` Step 0.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).
+
 ## 2026-09-11
 
 **queueEfficiency:** composite 0.967 (baseline n/a) — healthy
