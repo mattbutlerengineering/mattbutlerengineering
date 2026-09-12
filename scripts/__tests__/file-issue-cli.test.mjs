@@ -1,5 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
-import { parseArgs, findPriorIssueNumber, runFileIssueCli } from "../lib/file-issue-cli.mjs";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { execFileSync } from "node:child_process";
+import { markReady } from "@mbe/gh-client";
+import {
+  parseArgs,
+  findPriorIssueNumber,
+  runFileIssueCli,
+  buildReopenLabelArgs,
+  createRealDeps,
+} from "../lib/file-issue-cli.mjs";
+
+// createRealDeps().reopenIssue shells out via execFileSync — mock it so the
+// regression test below never touches a real `gh` binary.
+vi.mock("node:child_process", () => ({
+  execFileSync: vi.fn(),
+}));
+
+const mockExecFileSync = vi.mocked(execFileSync);
 
 describe("parseArgs", () => {
   it("parses a minimal request", () => {
@@ -237,5 +253,60 @@ describe("runFileIssueCli", () => {
     );
 
     expect(result).toEqual({ action: "create", issueNumber: 55 });
+  });
+});
+
+describe("buildReopenLabelArgs", () => {
+  it("matches @mbe/gh-client's markReady() re-queue transition exactly", () => {
+    // file-issue-cli.mjs is deliberately dependency-free (runs in workflows
+    // that never `pnpm install`), so it can't import markReady() at runtime —
+    // this cross-checks the hand-written gh args against the real transition
+    // so the two can't silently drift (#5071).
+    const { add, remove } = markReady(999); // issue number is irrelevant here
+    const expected = [];
+    for (const label of add) expected.push("--add-label", label);
+    for (const label of remove) expected.push("--remove-label", label);
+
+    expect(buildReopenLabelArgs()).toEqual(expected);
+  });
+
+  it("adds ready and removes the stale-on-reopen coordination labels", () => {
+    const args = buildReopenLabelArgs();
+
+    expect(args).toEqual(
+      expect.arrayContaining([
+        "--add-label",
+        "ready",
+        "--remove-label",
+        "has-pr",
+        "--remove-label",
+        "agent-failed",
+        "--remove-label",
+        "agent-skip",
+      ])
+    );
+  });
+});
+
+describe("createRealDeps().reopenIssue", () => {
+  beforeEach(() => {
+    mockExecFileSync.mockReset();
+    mockExecFileSync.mockReturnValue("");
+  });
+
+  it("reopens the issue and resets coordination labels back to ready", () => {
+    const deps = createRealDeps();
+    deps.reopenIssue(12);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      "gh",
+      ["issue", "reopen", "12"],
+      expect.anything()
+    );
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      "gh",
+      ["issue", "edit", "12", ...buildReopenLabelArgs()],
+      expect.anything()
+    );
   });
 });
