@@ -384,8 +384,11 @@ reverts with the same commit plus a `Deploy Static Sites` run.
    `34723622593` tier-classifier, and three others at `6617fb077`) — not the
    `GITHUB_TOKEN` anti-recursion trap, because the PR was authored by
    `mattbutlerengineering`, not by automation.
-8. This artifact amended to record the PR number, and pushed again. Two Ship
-   commits, not one; recorded rather than squashed out of the log.
+8. This artifact amended to record the PR number, and pushed again — that push
+   verified the same way, `git rev-parse HEAD` against `git ls-remote`. Three
+   Ship commits, not one, recorded rather than squashed out of the log; the
+   commit carrying a line cannot quote its own SHA, so read the current head off
+   the PR rather than off this file.
 9. **No merge, no auto-merge, no deploy, no tag, no publish, no apply.**
    `gh pr merge` was never invoked in any form.
 
@@ -434,9 +437,13 @@ To be run by a human **after** the steps above, in this order. None has been run
 
 **PREPARED, NOT RELEASED.**
 [PR #5315](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5315)
-is open against `main` at `6617fb077` (SHA-verified against `git ls-remote`);
-every gate this repo runs is green on the branch and on the merge ref; and **no
-merge, auto-merge, deploy, tag, publish or apply was performed by this stage.**
+is open against `main`. Its head advanced after the PR was opened — this
+artifact's own amendments, release log step 8 — so the authoritative head is
+`git ls-remote origin refs/heads/fix/rialto-web-usage-instrumentation`, which
+was compared against local `HEAD` and found equal after every push this stage
+made. Every gate this repo runs is green on the branch and on the merge ref,
+and **no merge, auto-merge, deploy, tag, publish or apply was performed by this
+stage.**
 The release steps above are written for a human and were not executed.
 
 Two things a reader should carry away rather than infer: merging this PR does
