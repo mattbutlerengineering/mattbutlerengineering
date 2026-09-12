@@ -251,6 +251,14 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       "Compact toolbar with icon buttons for quick actions, a combobox field for searching and selecting an item, and an accordion panel below for grouped advanced filter options",
   },
+  {
+    id: "secure-verification",
+    title: "Secure Verification",
+    description: "Two-factor sign-in step with a 6-digit PIN entry and a resend code link",
+    category: "Forms",
+    prompt:
+      "Two-factor authentication verification screen with a 6-digit PinInput for entering the one-time passcode sent by SMS, plus a resend code link and a countdown timer before it can be clicked again",
+  },
 
   // Data Display (continued)
   {
