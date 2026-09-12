@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useAuth } from "@mbe/auth/react";
 import { LoginGate } from "./LoginGate.js";
@@ -169,6 +169,38 @@ describe("LoginGate", () => {
           name: "Reservations, guests, floor plans, waitlist, and timeline",
         })
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("when ?ref=marketing is present", () => {
+    afterEach(() => {
+      window.history.pushState(null, "", "/");
+    });
+
+    it("renders the referred-from tagline instead of the default tagline", () => {
+      window.history.pushState(null, "", "/?ref=marketing");
+      render(<LoginGate />);
+      expect(
+        screen.getByText("You came from the portfolio site — take a look inside.")
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Restaurant management, simplified.")).not.toBeInTheDocument();
+    });
+
+    it("leaves the default tagline unchanged for an unrelated ref value", () => {
+      window.history.pushState(null, "", "/?ref=somewhere-else");
+      render(<LoginGate />);
+      expect(screen.getByText("Restaurant management, simplified.")).toBeInTheDocument();
+    });
+
+    it("prefers the signed-out tagline when both signedOut and ?ref=marketing apply", () => {
+      window.history.pushState(null, "", "/?ref=marketing");
+      render(<LoginGate signedOut />);
+      expect(
+        screen.getByText("You're signed out. Sign in again whenever you're ready.")
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("You came from the portfolio site — take a look inside.")
+      ).not.toBeInTheDocument();
     });
   });
 });
