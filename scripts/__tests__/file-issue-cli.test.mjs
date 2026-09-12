@@ -22,6 +22,8 @@ describe("parseArgs", () => {
       searchState: "open",
       contains: null,
       searchText: null,
+      commentBody: null,
+      commentBodyFile: null,
     });
   });
 
@@ -71,6 +73,34 @@ describe("parseArgs", () => {
     expect(opts.searchState).toBe("all");
     expect(opts.contains).toBe("2026-W31");
     expect(opts.searchText).toBe("some query");
+  });
+
+  it("accepts --comment-body and --comment-body-file", () => {
+    const withInline = parseArgs([
+      "--title",
+      "t",
+      "--body",
+      "b",
+      "--dedupe-key",
+      "k",
+      "--comment-body",
+      "comment text",
+    ]);
+    expect(withInline.commentBody).toBe("comment text");
+    expect(withInline.commentBodyFile).toBeNull();
+
+    const withFile = parseArgs([
+      "--title",
+      "t",
+      "--body",
+      "b",
+      "--dedupe-key",
+      "k",
+      "--comment-body-file",
+      "/tmp/comment.md",
+    ]);
+    expect(withFile.commentBodyFile).toBe("/tmp/comment.md");
+    expect(withFile.commentBody).toBeNull();
   });
 
   it("throws when --title is missing", () => {
@@ -127,6 +157,7 @@ function fakeDeps(overrides = {}) {
     getIssueState: vi.fn(() => "missing"),
     createIssue: vi.fn(() => 101),
     reopenIssue: vi.fn(),
+    commentOnIssue: vi.fn(),
     ...overrides,
   };
 }
@@ -221,6 +252,104 @@ describe("runFileIssueCli", () => {
     );
 
     expect(result).toEqual({ action: "create", issueNumber: 55 });
+  });
+
+  it("comments on the prior open issue instead of silently skipping when --comment-body is given (#5084)", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [
+        { number: 7, title: "[nightly-compliance 2026-09-01] Drift detected" },
+      ]),
+      getIssueState: vi.fn(() => "open"),
+    });
+
+    const result = runFileIssueCli(
+      [
+        "--title",
+        "[nightly-compliance 2026-09-02] Drift detected",
+        "--body",
+        "b",
+        "--dedupe-key",
+        "nightly-compliance-drift-abc123",
+        "--search-label",
+        "meta-improvement",
+        "--search-text",
+        "abc123",
+        "--comment-body",
+        "Drift also detected on 2026-09-02 — see run.",
+      ],
+      deps
+    );
+
+    expect(result).toEqual({ action: "skip", issueNumber: 7, commented: true });
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(
+      7,
+      "Drift also detected on 2026-09-02 — see run."
+    );
+    expect(deps.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("reads the comment body from --comment-body-file when given", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [{ number: 7, title: "t" }]),
+      getIssueState: vi.fn(() => "open"),
+      readFile: vi.fn((path) =>
+        path === "/tmp/comment.md" ? "comment from file" : "body from file"
+      ),
+    });
+
+    runFileIssueCli(
+      [
+        "--title",
+        "t",
+        "--body",
+        "b",
+        "--dedupe-key",
+        "k",
+        "--search-label",
+        "meta-improvement",
+        "--comment-body-file",
+        "/tmp/comment.md",
+      ],
+      deps
+    );
+
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(7, "comment from file");
+  });
+
+  it("does not comment when the result is a fresh create, even if --comment-body is given", () => {
+    const deps = fakeDeps({ createIssue: vi.fn(() => 55) });
+
+    const result = runFileIssueCli(
+      [
+        "--title",
+        "t",
+        "--body",
+        "b",
+        "--dedupe-key",
+        "k",
+        "--comment-body",
+        "should not be posted",
+      ],
+      deps
+    );
+
+    expect(result).toEqual({ action: "create", issueNumber: 55 });
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+  });
+
+  it("does not comment when no --comment-body/--comment-body-file is given, even on a skip", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [{ number: 7, title: "t" }]),
+      getIssueState: vi.fn(() => "open"),
+    });
+
+    const result = runFileIssueCli(
+      ["--title", "t", "--body", "b", "--dedupe-key", "k", "--search-label", "meta-improvement"],
+      deps
+    );
+
+    expect(result).toEqual({ action: "skip", issueNumber: 7 });
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
   });
 
   it("treats a search failure as 'no prior found' and still creates — every original inline dedup implementation failed open (bash's default non-strict error handling on a failed `gh issue list`), not closed", () => {
