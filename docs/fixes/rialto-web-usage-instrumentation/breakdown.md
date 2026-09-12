@@ -16,6 +16,7 @@ assumptions:
   - "Reconciled with origin/main by MERGE, not rebase (2026-09-12, commit 3c3fe2306). No live user and no skill-supplied default: the implement skill is silent on how a stale branch catches up. Chosen because the branch and main both changed docs/backlog.md and package.json — a rebase replays those conflicts across all six commits, a merge resolves each once. Consequence for later stages: origin/main..HEAD now lists a merge commit alongside the run's six, so item 7's 'lists only this run's commits' is read as 'this run's commits plus its own reconciliation merge'."
   - "docs/backlog.md's merge conflict was resolved by keeping BOTH sides in full (append-only, per protocol § Seed backlog), with this run's single seed placed before main's 29 later ones. Ordering is prioritization in that file, so the position is a choice: chronological append order was used, and no pre-existing line was reordered, reworded or dropped."
   - "package.json's repo-audit conflict was resolved as a union on top of main's version — main's new check-ci-gate-coverage.mjs and its removal of 'pnpm audit --audit-level=high' from the chain (now the standalone audit:security script, #4993) both kept, with this run's check-analytics-bindings.mjs re-inserted in its original slot after check-service-bindings.js."
+  - "metrics/ai-antipattern-baselines.json was updated (hardcodedRoutes 693 → 694, consoleLogs 711 → 717) to let the branch push. No live user and no skill-supplied default; the script's own failure message offers exactly two options (fix, or --update after intentional work) and both remaining hits are the rule's known false-positive shape in a CLI check script and a test fixture. The third regression (anyType) was fixed in code rather than accepted. Verified that origin/main scores exactly baseline on all eight patterns first, so the update accepts these two deltas and nothing else. Flagged for human review — see the Notes entry."
   - "Item 6's runbook gained one bullet not in the written scope: a dated, measured statement that pulumi-up.yml currently fails on main at 'Pulumi Refresh (Sync state with cloud)', so the section that tells a reader rows appear after that workflow completes does not mislead. Judgement call flagged by the orchestrator, taken because the section's whole purpose is telling a reader what zero rows means."
 ---
 
@@ -658,6 +659,45 @@ Analytics Engine binding (ANALYTICS → edge_requests).`; its
   six, the reconciliation merge `3c3fe2306`, item 6 `2d74b59a6`, and the llms
   regen `119a82c4a`. Nothing foreign.
 
+- **Implement log — the gate item 7 did not name: `.husky/pre-push`'s
+  AI-antipattern ratchet (2026-09-12).** The push after item 7 was rejected by
+  `scripts/check-ai-antipatterns.mjs` with three regressions —
+  `hardcodedRoutes 693 → 694`, `anyType 291 → 292`, `consoleLogs 711 → 717`.
+  The branch had never been pushed, so this was the ratchet's first sight of
+  items 1–5; nothing in items 0–7's Prove lines runs it, which is why it
+  surfaced only here. Attribution was measured, not assumed: `origin/main`
+  checked out into a throwaway worktree scores **exactly** baseline on all
+  eight patterns, and a per-file recount across both trees named three files
+  and only three. Resolution:
+  1. **`anyType` +1 — fixed, and it was not what it looked like.** The new
+     `index.test.ts` assertion had copied the sibling tests' escape-hatch cast
+     on `edgeRouter!.inputs.bindings`; it now narrows inline to
+     `Array<{ name?: string; type?: string; dataset?: string }>` with `!` on
+     the two reads, which is both stricter and drops an eslint-disable.
+     `typecheck`, `lint` and `test` (88 passed) all still green. The first
+     attempt at that fix did **not** move the count, because the explanatory
+     comment I wrote contained the literal two-word cast — the scanner is a
+     flat regex over file text with no comment stripping, so prose about a
+     pattern counts as the pattern. Reworded; count back to 291.
+  2. **`consoleLogs` +6 and `hardcodedRoutes` +1 — accepted, baseline updated**
+     (`node scripts/check-ai-antipatterns.mjs --update`, which moved exactly
+     those two counts and nothing else). The six are
+     `check-analytics-bindings.mjs`'s three-source preamble — a CLI check
+     script printing its own diagnosis, the same shape and the same count as
+     its closest sibling `check-service-bindings.js`, whose six are already
+     inside the 711. The one route literal is
+     `analytics-schema.test.js:66`'s `pathname: "/api/v1/reservations"`
+     fixture, which pairs with that case's `route: "api"`; `edge-router.test.js`
+     already carries three of the same kind inside the baseline. Both are the
+     rule's known false-positive shape (it targets route strings in production
+     code), and neither has an honest fix — the only way to make either stop
+     matching is to split or reword the literal, which games a regex rather
+     than improving anything. ⛔ **Flagged for human review at Review/Ship:**
+     this is a repo-wide ratchet being loosened by +7 for one run's
+     convenience, and a reviewer may reasonably prefer the preamble be folded
+     into `runCheck`'s pass/fail messages (the convention the newer
+     `check-ci-gate-coverage.mjs` / `check-orphaned-tests.mjs` follow, both at
+     zero `console.log`) instead.
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still

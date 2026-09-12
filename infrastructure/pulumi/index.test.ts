@@ -620,13 +620,20 @@ describe("Configuration Validation", () => {
         name.includes("edge-router")
       );
       expect(edgeRouter).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bindings = edgeRouter!.inputs.bindings as any[];
+      // Narrowed inline rather than widened to the escape-hatch cast the
+      // sibling binding tests above use: that cast is on the AI-antipattern
+      // ratchet (scripts/check-ai-antipatterns.mjs, `anyType`), and this
+      // assertion only needs three string fields.
+      const bindings = edgeRouter!.inputs.bindings as Array<{
+        name?: string;
+        type?: string;
+        dataset?: string;
+      }>;
       const analytics = bindings.find((b) => b.type === "analytics_engine");
 
       expect(analytics).toBeDefined();
-      expect(analytics.name).toBe("ANALYTICS");
-      expect(analytics.dataset).toBe("edge_requests");
+      expect(analytics!.name).toBe("ANALYTICS");
+      expect(analytics!.dataset).toBe("edge_requests");
     });
 
     it("root DNS record is proxied AAAA 100::", () => {
