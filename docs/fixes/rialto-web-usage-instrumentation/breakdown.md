@@ -367,7 +367,7 @@ docs/fixes/rialto-web-usage-instrumentation/` → exit 0 (docs-only diffs skip
     and `scripts/edge-usage.mjs` verbatim; every flag and message it quotes
     exists in the script (spot-check by grep).
   - Blocked by: 4 (write the runbook after the CLI it describes exists)
-- [ ] **7. Implement exit gates** — the brief's "`pnpm typecheck` before
+- [x] **7. Implement exit gates** — the brief's "`pnpm typecheck` before
       declaring any stage done" and the architecture's "`pnpm repo-audit` still
       green", run on the whole tree after items 1–6. A chained `&&` audit
       reports only its first failure, so re-run to green rather than reasoning
@@ -613,6 +613,51 @@ CLOUDFLARE_API_TOKEN`, exit 1; `ZERO_ROWS_MESSAGE`, `SCOPE_HINT`,
   ids, was added to the section, and the section's `gh run list` example gained
   `--branch main` so it answers the question the new bullet asks. Nothing else
   in the runbook was changed.
+- **Implement log — item 7 (2026-09-12).** Every gate re-run on the merged
+  tree, after `pnpm install --frozen-lockfile`,
+  `pnpm build --filter @mbe/cli...` and
+  `pnpm build --filter @mattbutlerengineering/rialto --filter @mbe/api-client`
+  (the last is the item-0 environment step, still required — rialto-web's
+  vitest config resolves `@mattbutlerengineering/rialto/styles` and
+  `@mbe/api-client/streaming` from `dist/`). Exit codes and the lines Verify
+  can diff against:
+
+  | Gate                                    | Exit | Output                                                                       |
+  | --------------------------------------- | ---- | ---------------------------------------------------------------------------- |
+  | `pnpm typecheck`                        | 0    | `Tasks:    48 successful, 48 total` / `Time:    31.426s`                     |
+  | `pnpm repo-audit`                       | 0    | `✔ no dependency violations found (2434 modules, 5747 dependencies cruised)` |
+  | `pnpm regen --check`                    | 0    | `All generated artifacts are up to date.`                                    |
+  | `pnpm --dir infrastructure/worker test` | 0    | `Test Files  16 passed (16)` / `Tests  269 passed (269)`                     |
+  | `pnpm --dir infrastructure/pulumi test` | 0    | `Test Files  2 passed (2)` / `Tests  88 passed (88)`                         |
+  | `pnpm --dir scripts test`               | 0    | `Test Files  166 passed (166)` / `Tests  3211 passed (3211)`                 |
+  | `pnpm --dir apps/rialto-web test`       | 0    | `Test Files  66 passed (66)` / `Tests  767 passed (767)`                     |
+
+  Counts moved from the item 1–5 baselines because the merge brought 165
+  commits of `main` with it, not because anything here changed: worker
+  254 → 269 (16 files, was 15), pulumi 84 → 88, scripts 3064 → 3211 (166
+  files, was 158), rialto-web 732 → 767 (66 files, was 62). This run's own
+  new suites all executed inside those totals —
+  `check-analytics-bindings.test.mjs (14 tests)`,
+  `edge-usage.test.mjs (23 tests)`, `analytics-schema.test.js (4 tests)` —
+  and `check-fitness-check-wiring.test.mjs` is in the scripts run, green.
+  `repo-audit` carried the new guard in its chain and printed
+  `PASS: wrangler.toml, pulumi/index.ts and analytics-schema.js agree on the
+Analytics Engine binding (ANALYTICS → edge_requests).`; its
+  `pnpm check:prettier` step over the whole tree printed
+  `All matched files use Prettier code style!`. Note for anyone re-running
+  this: `main` moved `pnpm audit --audit-level=high` out of `repo-audit` into
+  a standalone `audit:security` script (#4993), so `repo-audit` no longer
+  makes a network call and no longer fails on registry flake.
+  `pnpm regen` was run and committed (`119a82c4a`) before `--check` — the
+  root and `apps/rialto-web` llms bundles still embedded the pre-item-5
+  `CookiePreferences` shape.
+  `git status --short` → exactly ` M README.md` and `?? docs/autonomous-loop.svg`,
+  nothing staged (`git diff --cached --name-only | wc -l` → `0`) — the
+  2026-09-03 expectation held verbatim nine days later.
+  `git log --oneline origin/main..HEAD` → nine commits: the run's original
+  six, the reconciliation merge `3c3fe2306`, item 6 `2d74b59a6`, and the llms
+  regen `119a82c4a`. Nothing foreign.
+
 - **Seeds for Operate to append to `docs/backlog.md` at run close** (Implement
   does not write them; the protocol's producers are Capture and Operate):
   1. Reword `apps/rialto-web/src/pages/PrivacyPage.tsx:48,72,95` — it still
