@@ -14961,6 +14961,12 @@
       export function formatTime(isoString: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export function formatTimeIn(isoString: string, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getHourIn(isoString: string, timeZone: string): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function formatLocalTime(hhmm: string): string { /* ... */ }
     </item>
     <item priority="high">

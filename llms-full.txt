@@ -25384,6 +25384,7 @@
       id: z.string(),
       name: z.string(),
       slug: z.string(),
+      ianaTimezone: z.string(),
       operatingHours: VenueSchema.shape.operatingHours,
     });
     export const PublicVenueDepositSchema = z.object({
@@ -33834,6 +33835,7 @@
             id: true,
             name: true,
             slug: true,
+            ianaTimezone: true,
             operatingHours: true,
           },
         });
@@ -33843,6 +33845,7 @@
           id: venue.id,
           name: venue.name,
           slug: venue.slug,
+          ianaTimezone: venue.ianaTimezone,
           operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
         };
       },
@@ -53208,6 +53211,24 @@
         minute: "2-digit",
         hour12: true,
       });
+    }
+    export function formatTimeIn(isoString: string, timeZone: string): string {
+      return new Date(isoString).toLocaleTimeString(LOCALE, {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone,
+      });
+    }
+    export function getHourIn(isoString: string, timeZone: string): number {
+      const hour = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        hour: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(new Date(isoString))
+        .find((part) => part.type === "hour")?.value;
+      return hour ? Number(hour) : 0;
     }
     export function formatLocalTime(hhmm: string): string {
       const [hours = 0, minutes = 0] = hhmm.split(":").map(Number);
