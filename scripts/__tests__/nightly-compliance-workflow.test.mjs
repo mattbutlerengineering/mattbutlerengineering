@@ -135,13 +135,18 @@ describe("nightly-compliance.yml Run gating scripts step", () => {
       );
     }
 
-    // The two scripts known (measured, not assumed) to be nightly-inappropriate
+    // The scripts known (measured, not assumed) to be nightly-inappropriate
     // must stay named here — check-endpoint.mjs is a library CLI that exits 1
     // on a bare invocation with no args (always "fails" without checking
-    // anything), and check-dep-sync.mjs shells to unpinned `npx depcheck` per
-    // workspace package, measured at 4m33s wall time for a single full run.
+    // anything), check-dep-sync.mjs shells to unpinned `npx depcheck` per
+    // workspace package (measured at 4m33s wall time for a single full run),
+    // and check-deploy-sha.mjs requires --url/--expected-sha runtime args
+    // from a real deploy event with no bare invocation (#5076/#5102 — it
+    // failed every nightly run with a usage error before being added here).
     const excludedNames = [...excludedBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-    expect(excludedNames).toEqual(expect.arrayContaining(["check-endpoint", "check-dep-sync"]));
+    expect(excludedNames).toEqual(
+      expect.arrayContaining(["check-endpoint", "check-dep-sync", "check-deploy-sha"])
+    );
   });
 
   it("still captures each script's exit status via if, not a masked bare call", () => {
