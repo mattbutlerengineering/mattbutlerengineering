@@ -593,3 +593,9 @@ eeeda7a9`), none this run's — worktree hygiene, outside scope;
   `excludeInput()` does; (3) the marker comment's first line is 87
   characters after indentation and the two URN lines are 108/110 — prettier
   accepts both (comments and literal block scalars are never reflowed).
+- **2026-09-13 — Review fix (Minor, docs-only):** `gotchas.md:106` said the guard
+  refuses re-declarations "under `infrastructure/pulumi/`"; invariant 6 in
+  `pulumi-orphan-exclude-bypass.test.mjs` scans only the top-level
+  `infrastructure/pulumi/*.ts` files (`readdirSync`, non-recursive). The claim was
+  narrowed to match the test; the test is unchanged (a recursive scan would walk
+  `infrastructure/pulumi/node_modules`). Recorded in `review.md`.
