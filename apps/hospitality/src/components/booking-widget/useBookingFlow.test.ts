@@ -756,6 +756,30 @@ describe("useBookingFlow", () => {
       expect(fakeApi.availability.getTimeSlots).not.toHaveBeenCalled();
       expect(result.current.state).toBe("date-party");
     });
+
+    it("EXPIRE_HOLD preserves guestDetails so the guest doesn't have to retype them", async () => {
+      const fakeApi = makeFakeApi();
+      const soonToExpireHold: ReservationHold = {
+        ...mockHold,
+        expiresAt: new Date(Date.now() + 5_000).toISOString(),
+      };
+      fakeApi.holds.create.mockResolvedValue({ hold: soonToExpireHold, sessionId: "s1" });
+      const { result } = renderBookingFlow(fakeApi);
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      act(() => result.current.actions.setGuestDetails(guestDetails));
+      expect(result.current.data.guestDetails).toEqual(guestDetails);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6_000);
+      });
+
+      expect(result.current.state).toBe("time-slot");
+      expect(result.current.data.guestDetails).toEqual(guestDetails);
+    });
   });
 
   describe("headless orchestration: slots -> Hold -> confirm through the hook (no component render)", () => {
