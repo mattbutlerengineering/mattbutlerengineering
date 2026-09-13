@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text, Heading } from "@mattbutlerengineering/rialto";
-import { ApiClientError } from "@mbe/api-client";
+import { describeApiError } from "../../lib/describe-api-error.js";
 import { formatLongDate } from "../../utils/format.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./WaitlistJoinView.module.css";
@@ -67,13 +67,7 @@ export function WaitlistJoinView({
         });
         onJoined(result);
       } catch (err) {
-        const message =
-          err instanceof ApiClientError
-            ? err.problemDetails.detail
-            : err instanceof Error
-              ? err.message
-              : "Failed to join waitlist.";
-        setSubmitError(message);
+        setSubmitError(describeApiError(err).detail);
       } finally {
         setIsLoading(false);
       }

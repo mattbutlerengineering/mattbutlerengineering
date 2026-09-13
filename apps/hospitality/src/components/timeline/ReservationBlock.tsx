@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { StatusLED } from "@mattbutlerengineering/rialto";
 import type { Reservation, ReservationStatus } from "@mbe/types";
 import { ordinalVisit } from "../../utils/ordinal.js";
 import { formatTime } from "../../utils/format.js";
@@ -9,6 +10,8 @@ export interface ReservationBlockProps {
   style: { left: number; width: number };
   isSelected?: boolean;
   isFocused?: boolean;
+  /** The party is on its table now (derived by the page, ux.md Decision (a)). */
+  isSeated?: boolean;
   onClick?: (reservation: Reservation) => void;
 }
 
@@ -25,6 +28,7 @@ function ReservationBlockComponent({
   style,
   isSelected = false,
   isFocused = false,
+  isSeated = false,
   onClick,
 }: ReservationBlockProps) {
   const statusClass = STATUS_CLASS[reservation.status];
@@ -53,11 +57,14 @@ function ReservationBlockComponent({
         width: style.width,
       }}
       title={`${guestName} - ${reservation.partySize} guests at ${startTime}${visitLabel ? ` · ${visitLabel}` : ""}`}
-      aria-label={`${guestName}, party of ${reservation.partySize}, ${startTime}, ${reservation.status.toLowerCase()}${visitLabel ? `, ${visitLabel}` : ""}`}
+      aria-label={`${guestName}, party of ${reservation.partySize}, ${startTime}, ${reservation.status.toLowerCase()}${isSeated ? ", seated" : ""}${visitLabel ? `, ${visitLabel}` : ""}`}
       aria-pressed={isSelected}
     >
       <div className={styles.content}>
-        <div className={styles.guestName}>{guestName}</div>
+        <div className={styles.guestName}>
+          {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
+          <span>{guestName}</span>
+        </div>
         <div className={styles.details}>
           {reservation.partySize} · {startTime}
           {visitLabel !== null && ` · ${visitLabel}`}
@@ -75,6 +82,7 @@ function arePropsEqual(prev: ReservationBlockProps, next: ReservationBlockProps)
     prev.style.width === next.style.width &&
     prev.isSelected === next.isSelected &&
     prev.isFocused === next.isFocused &&
+    prev.isSeated === next.isSeated &&
     prev.onClick === next.onClick
   );
 }

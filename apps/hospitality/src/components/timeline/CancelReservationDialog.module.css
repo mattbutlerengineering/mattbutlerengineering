@@ -40,14 +40,6 @@
   margin: 0;
 }
 
-.errorBanner {
-  background: var(--rialto-error-muted);
-  color: var(--rialto-error);
-  padding: var(--rialto-space-sm) var(--rialto-space-md);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-}
-
 .form {
   display: flex;
   flex-direction: column;

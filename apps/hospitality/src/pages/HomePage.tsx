@@ -4,6 +4,7 @@ import { useAuth } from "@mbe/auth/react";
 import { Button, NeonSign, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { ReservationList, ActivityFeed, StatRow } from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
@@ -27,6 +28,7 @@ export function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { reservations, stats, isLoading, error, refetch } = useDashboardStatsQuery();
+  const loadFailure = error ? describeApiError(error) : null;
   const { isConnected } = useSSEStatus();
   const feedEvents = useSSEEventFeed({ maxItems: 5 });
   const { selectedVenue } = useVenue();
@@ -56,13 +58,20 @@ export function HomePage() {
         }
       />
 
-      {error && <ErrorRetryBanner error={error.message} onRetry={handleRetry} />}
+      {loadFailure && (
+        <ErrorRetryBanner
+          title="Couldn't load the dashboard."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
+          onRetry={handleRetry}
+        />
+      )}
 
       {isLoading ? <StatsLoading /> : <StatRow stats={stats} />}
 
       <div className={styles.actionsRow}>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline")}>
-          New Walk-In
+        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
+          Walk-in
         </Button>
         <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
           View Floor Plan

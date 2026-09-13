@@ -51,8 +51,36 @@ export const STALE_METRICS_PATH = "metrics/stale-human-blocked.jsonl";
  * Timeline event types that are label writes and nothing else. A run of this
  * workflow emits exactly these, so counting them as activity would make the
  * detector erase the staleness it just measured (#4274).
+ *
+ * Superseded by {@link HUMAN_TOUCH_EVENTS} as the filter `lastHumanTouchAt()`
+ * actually applies (#5083) — kept exported because it still documents the
+ * events a labeling run itself produces, and existing callers/tests read it.
  */
 export const LABEL_ONLY_EVENTS = ["labeled", "unlabeled"];
+
+/**
+ * ALLOWLIST of timeline event types that represent genuine human engagement
+ * with an issue. Used by {@link lastHumanTouchAt} in place of the denylist
+ * this replaced (#5083) — see that function's docstring for why a denylist
+ * cannot be made safe here: GitHub's timeline API has more machine-generated
+ * event types than human ones (`cross-referenced`, `mentioned`, `referenced`,
+ * `subscribed`, `connected`, `converted_note_to_issue`, plus the two label
+ * writes above), and every one of them defaults to "counts as a human touch"
+ * under a denylist unless someone remembers to add it. An allowlist inverts
+ * that default: an event type has to be explicitly vetted as human-authored
+ * before it can reset the staleness clock.
+ */
+export const HUMAN_TOUCH_EVENTS = [
+  "commented",
+  "assigned",
+  "unassigned",
+  "closed",
+  "reopened",
+  "renamed",
+  "milestoned",
+  "demilestoned",
+  "marked_as_duplicate",
+];
 
 /** Fields required for `gh issue list --json`. */
 export const ISSUE_JSON_FIELDS = "number,title,state,updatedAt,labels,createdAt,comments";
@@ -103,25 +131,67 @@ function eventTimeMs(record) {
 }
 
 /**
+ * Extracts an actor's login from either shape this module receives: a
+ * timeline event (`actor.login`) or a `gh issue list --json comments` comment
+ * (`author.login`).
+ */
+function actorLogin(record) {
+  return record?.actor?.login ?? record?.author?.login ?? null;
+}
+
+/**
+ * True when `login` denotes a bot actor (GitHub Actions or any GitHub App) —
+ * never a human touch, regardless of event type. `github-actions[bot]` is
+ * checked by name (it also matches the suffix check below, but the issue's
+ * acceptance criteria calls it out explicitly, so it stays literal).
+ */
+function isBotActor(login) {
+  if (!login) return false;
+  return login === "github-actions[bot]" || login.endsWith("[bot]");
+}
+
+/**
  * Pure: the most recent timestamp at which a *human* touched `issue`.
  *
  * Deliberately blind to label activity. `updatedAt` cannot be used for this:
  * applying `ready-for-human` bumps it, so a detector that read `updatedAt`
  * would report every issue it labeled as touched-today on the next run and
- * rank the most-ignored issues last (#4274). Derived instead from the latest
- * of: issue creation, the last comment, and the last timeline event whose
- * type is not in {@link LABEL_ONLY_EVENTS}.
+ * rank the most-ignored issues last (#4274).
+ *
+ * Filtering is ALLOWLIST-based (#5083), not denylist-based. The prior
+ * implementation excluded exactly `LABEL_ONLY_EVENTS` (`labeled`/`unlabeled`)
+ * and counted every other timeline event type as a human touch — including
+ * machine-generated ones GitHub emits constantly (`cross-referenced`,
+ * `mentioned`, `referenced`, `subscribed`, `connected`,
+ * `converted_note_to_issue`). In a repo that merges ~27 automation PRs a day,
+ * any one of them referencing an issue silently reset that issue's staleness
+ * clock — a real 59-day-idle issue (#3277) was reported as 6 days old and
+ * never surfaced. A denylist defaults new/overlooked event types to "counts
+ * as human"; the wrong default for a detector whose entire job is surfacing
+ * neglect. {@link HUMAN_TOUCH_EVENTS} inverts that: an event type must be
+ * explicitly vetted as human-authored to reset the clock.
+ *
+ * Actor filtering is applied on top of, and independent from, the event-type
+ * allowlist: a `commented` event or an `issue.comments` entry authored by a
+ * bot (login `github-actions[bot]`, or any `[bot]`-suffixed login) is also
+ * never a human touch, even though `commented` itself is allowlisted.
+ *
+ * Derived from the latest of: issue creation, the last human-authored
+ * comment, and the last allowlisted, human-actor'd timeline event.
  *
  * @param {{createdAt?:string, comments?:Array}} issue
- * @param {Array<{event?:string, created_at?:string, createdAt?:string}>} [timelineEvents]
+ * @param {Array<{event?:string, created_at?:string, createdAt?:string, actor?:{login?:string}}>} [timelineEvents]
  * @returns {string|null} ISO 8601 timestamp, or null if nothing parseable
  */
 export function lastHumanTouchAt(issue, timelineEvents = []) {
+  const isHumanAuthored = (record) => !isBotActor(actorLogin(record));
+
   const candidates = [
     Date.parse(issue?.createdAt ?? ""),
-    ...(issue?.comments ?? []).map(eventTimeMs),
+    ...(issue?.comments ?? []).filter(isHumanAuthored).map(eventTimeMs),
     ...(timelineEvents ?? [])
-      .filter((e) => !LABEL_ONLY_EVENTS.includes(String(e?.event ?? "")))
+      .filter((e) => HUMAN_TOUCH_EVENTS.includes(String(e?.event ?? "")))
+      .filter(isHumanAuthored)
       .map(eventTimeMs),
   ].filter((ms) => Number.isFinite(ms));
 

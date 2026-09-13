@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useReducer } from "react";
 import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
-import { formatLongDate, formatTime } from "../../utils/format.js";
+import { formatLongDate, formatTime, formatTimeIn } from "../../utils/format.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./GuestDetailsForm.module.css";
@@ -36,6 +36,8 @@ export interface GuestDetailsFormProps {
    * longer-lived state (survives this component unmounting on hold expiry).
    */
   onDetailsChange?: (details: GuestDetails) => void;
+  /** IANA timezone to display the reservation summary time in; falls back to device-local (#4976). */
+  venueTimezone?: string;
 }
 
 function computeHoldTimeRemaining(hold: ReservationHold): string {
@@ -67,6 +69,7 @@ export function GuestDetailsForm({
   api,
   initialDetails,
   onDetailsChange,
+  venueTimezone,
 }: GuestDetailsFormProps) {
   const [nameInput, setNameInput] = useState(initialDetails?.name ?? "");
   const [email, setEmail] = useState(initialDetails?.email ?? "");
@@ -109,7 +112,9 @@ export function GuestDetailsForm({
   );
 
   const formattedDate = formatLongDate(date);
-  const formattedTime = formatTime(slot.time);
+  const formattedTime = venueTimezone
+    ? formatTimeIn(slot.time, venueTimezone)
+    : formatTime(slot.time);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {

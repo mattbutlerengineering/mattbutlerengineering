@@ -188,18 +188,41 @@ jobs:
         if: steps.drift.outputs.drift == 'true' && (github.event_name == 'schedule' || inputs.file_issue == true)
         env:
           REPORT_PATH: /tmp/report.md
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           today=$(date -u +%Y-%m-%d)
           title="[nightly-compliance ${today}] Drift detected"
-          # --body-file passes report content directly; no shell interpolation of untrusted text.
+
+          # Stable signature derived from *which checks failed*, not the
+          # date (#5084) — a persistent failure gets one issue across many
+          # nights instead of a fresh one every run. See
+          # scripts/lib/nightly-compliance-signature.mjs.
+          signature=$(node scripts/print-drift-signature.mjs "$REPORT_PATH")
+
+          # Embed the signature as a machine-readable marker so lookup does
+          # not depend on title/date parsing.
+          {
+            echo "<!-- nightly-compliance-signature: ${signature} -->"
+            echo
+            cat "$REPORT_PATH"
+          } > /tmp/report-with-marker.md
+
+          echo "Drift also detected on ${today} — see ${RUN_URL}." > /tmp/drift-comment.md
+
+          # --search-text matches only issues whose body contains this run's
+          # signature; --search-label + the default open-only search state
+          # mean a match against a *closed* issue is never found here, so a
+          # recurrence after a fix files fresh rather than silently
+          # commenting on stale, closed history.
           node scripts/lib/file-issue-cli.mjs \
             --title "$title" \
-            --body-file "$REPORT_PATH" \
+            --body-file /tmp/report-with-marker.md \
             --label meta-improvement \
             --label ready \
-            --dedupe-key "nightly-compliance-drift-${today}" \
+            --dedupe-key "nightly-compliance-drift-${signature}" \
             --search-label meta-improvement \
-            --search-text "$title"
+            --search-text "$signature" \
+            --comment-body-file /tmp/drift-comment.md
 
       - name: File issue on scan failure
         if: failure()

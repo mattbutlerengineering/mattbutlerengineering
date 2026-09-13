@@ -17,7 +17,7 @@ const meta: Meta<typeof Drawer> = {
     },
     size: {
       control: { type: "select" },
-      options: ["default", "wide", "full"],
+      options: ["default", "wide", "full", "compact"],
     },
   },
 };
@@ -74,4 +74,9 @@ export const Bottom: Story = {
 
 export const Wide: Story = {
   render: () => <Template size="wide" />,
+};
+
+export const BottomCompact: Story = {
+  name: "Bottom sheet, compact",
+  render: () => <Template side="bottom" size="compact" />,
 };

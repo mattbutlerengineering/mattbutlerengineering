@@ -8,7 +8,7 @@ import {
   Heading,
   Text,
 } from "@mattbutlerengineering/rialto";
-import { formatLongDate, formatTime } from "../../utils/format.js";
+import { formatLongDate, formatTime, formatTimeIn, getHourIn } from "../../utils/format.js";
 import { TimeSlotListbox } from "./TimeSlotListbox.js";
 import styles from "./TimeSlotPicker.module.css";
 
@@ -35,6 +35,13 @@ export interface TimeSlotPickerProps {
   audience?: "staff" | "guest";
   /** Staff-only: navigates to the operating-hours setup page. */
   onSetHours?: () => void;
+  /**
+   * IANA timezone the venue operates in (e.g. "America/New_York"). When
+   * provided, slot times are grouped and displayed in this zone rather than
+   * the guest's device timezone (#4976). Omit only when unknown — falls
+   * back to device-local.
+   */
+  venueTimezone?: string;
 }
 
 const SKELETON_SLOT_COUNT = 8;
@@ -53,12 +60,14 @@ export function TimeSlotPicker({
   hasOperatingHours = true,
   audience = "guest",
   onSetHours,
+  venueTimezone,
 }: TimeSlotPickerProps) {
   const formattedDate = formatLongDate(date);
 
-  // Get hour from ISO datetime for grouping
+  // Get hour from ISO datetime for grouping — in the venue's timezone when
+  // known, otherwise the device's (#4976).
   const getHour = (isoTime: string) => {
-    return new Date(isoTime).getHours();
+    return venueTimezone ? getHourIn(isoTime, venueTimezone) : new Date(isoTime).getHours();
   };
 
   // Group slots by meal period
@@ -182,6 +191,7 @@ export function TimeSlotPicker({
                   selectedSlot={selectedSlot}
                   onSelectSlot={onSelectSlot}
                   label={`Available ${periodLabels[period].toLowerCase()} times`}
+                  venueTimezone={venueTimezone}
                 />
               </div>
             );
@@ -192,7 +202,12 @@ export function TimeSlotPicker({
       {selectedSlot && (
         <div className={styles.selectedSummary}>
           <Text className={styles.selectedSummaryText}>
-            Selected: <strong>{formatTime(selectedSlot.time)}</strong>
+            Selected:{" "}
+            <strong>
+              {venueTimezone
+                ? formatTimeIn(selectedSlot.time, venueTimezone)
+                : formatTime(selectedSlot.time)}
+            </strong>
             {selectedSlot.tables && selectedSlot.tables.length > 0 && (
               <Text className={styles.selectedSummaryNote}>
                 {" "}

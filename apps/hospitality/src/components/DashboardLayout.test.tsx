@@ -139,6 +139,7 @@ describe("DashboardLayout", () => {
               <Route path="floor-plans" element={<div>Floor Plans Content</div>} />
               <Route path="floor-plans/:id" element={<div>Floor Plan Editor</div>} />
               <Route path="reservations" element={<div>Reservations Content</div>} />
+              <Route path="briefing" element={<div>Briefing Content</div>} />
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
@@ -279,6 +280,32 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
+  describe("document title (#4973)", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("sets a route-specific title on the timeline route", () => {
+      renderLayout("/timeline");
+      expect(document.title).toBe("Timeline · Hospitality");
+    });
+
+    it("sets a different title on the guests route", () => {
+      renderLayout("/guests");
+      expect(document.title).toBe("Guests · Hospitality");
+    });
+
+    it("sets a different title on the settings route", () => {
+      renderLayout("/settings");
+      expect(document.title).toBe("Settings · Hospitality");
+    });
+  });
+
   it("renders breadcrumbs and sidebar", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
@@ -363,6 +390,15 @@ describe("DashboardLayout", () => {
       // Middle item is clickable, last is current page
       expect(items[1]!.querySelector("button")).not.toBeNull();
       expect(items[2]!.querySelector("[aria-current='page']")).not.toBeNull();
+    });
+
+    it("shows Home > Tonight's Service on the briefing route (A10.4)", () => {
+      renderLayout("/briefing");
+      const items = screen.getAllByTestId(/^breadcrumb-item-/);
+      expect(items).toHaveLength(2);
+      expect(items[0]).toHaveTextContent("Home");
+      expect(items[1]).toHaveTextContent("Tonight's Service");
+      expect(items[1]!.querySelector("[aria-current='page']")).not.toBeNull();
     });
 
     it("shows Home > Settings on the settings route", () => {

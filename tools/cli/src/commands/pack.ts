@@ -182,20 +182,20 @@ async function packDirectory(
 
   const sections: Map<string, { skeleton: string; full: string }> = new Map();
 
-  const statementsPerFile = 2;
-
   for (const file of files) {
     const sourceFile = project.addSourceFileAtPath(join(fullPath, file));
     const sectionName = getSectionName(file);
 
     let fileSkeleton = "";
     let fileFull = "";
-    let itemCount = 0;
 
+    // No per-file statement cap: a flat count silently drops later top-level
+    // declarations (including exported ones) from llms.txt/llms-full.txt with
+    // no warning and no CI failure (#5089). The overall size/token budgets
+    // below already warn (without truncating) when a pack grows large — that
+    // is the intended control point, not a per-file item count.
     const statements = sourceFile.getStatements();
     for (const statement of statements) {
-      if (itemCount >= statementsPerFile) break;
-
       if (
         Node.isClassDeclaration(statement) ||
         Node.isInterfaceDeclaration(statement) ||
@@ -211,7 +211,6 @@ async function packDirectory(
         if (skeleton) {
           fileSkeleton += `    <item priority="${priority}">\n      ${skeleton.replace(/\n/g, "\n      ")}\n    </item>\n`;
           fileFull += `    ${full.replace(/\n/g, "\n    ")}\n`;
-          itemCount++;
         }
       }
     }

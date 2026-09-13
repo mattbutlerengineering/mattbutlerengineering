@@ -9,6 +9,22 @@ import type {
 } from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import { useBookingFlow, deriveStepKeys } from "./useBookingFlow.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
+
+/** A 5xx the way `@mbe/api-client` raises it; the guest must see the house sentence, never `raw`. */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 const mockSlot: TimeSlot = { time: "2026-05-20T18:00:00", available: true };
 const mockSlot2: TimeSlot = { time: "2026-05-20T19:00:00", available: true };
@@ -224,13 +240,16 @@ describe("useBookingFlow", () => {
 
     it("goToTimeSlot sets slotsError when the fetch rejects", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.availability.getTimeSlots.mockRejectedValue(new Error("API Down"));
+      fakeApi.availability.getTimeSlots.mockRejectedValue(
+        serverError("GET", "/api/v1/availability/v1")
+      );
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
       await act(async () => result.current.actions.goToTimeSlot());
 
-      expect(result.current.data.slotsError).toBe("API Down");
+      expect(result.current.data.slotsError).toBe(ERROR_COPY.serverError.detail);
+      expect(result.current.data.slotsError).not.toContain("failed: 500");
       expect(result.current.data.slotsLoading).toBe(false);
     });
 
@@ -299,7 +318,7 @@ describe("useBookingFlow", () => {
 
     it("selectSlotAndHold rejects: sets holdError, stays on time-slot", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.holds.create.mockRejectedValue(new Error("Slot taken"));
+      fakeApi.holds.create.mockRejectedValue(serverError("POST", "/api/v1/holds"));
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -308,7 +327,8 @@ describe("useBookingFlow", () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
       });
 
-      expect(result.current.data.holdError).toBe("Slot taken");
+      expect(result.current.data.holdError).toBe(ERROR_COPY.serverError.detail);
+      expect(result.current.data.holdError).not.toContain("failed: 500");
       expect(result.current.state).toBe("time-slot");
       expect(result.current.data.holdLoading).toBe(false);
     });
@@ -356,7 +376,7 @@ describe("useBookingFlow", () => {
 
     it("confirmReservation rejects: sets confirmError, stays on guest-details", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.holds.confirm.mockRejectedValue(new Error("Confirm failed"));
+      fakeApi.holds.confirm.mockRejectedValue(serverError("POST", "/api/v1/holds/hold-1/confirm"));
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -367,7 +387,8 @@ describe("useBookingFlow", () => {
         await result.current.actions.confirmReservation(guestDetails);
       });
 
-      expect(result.current.data.confirmError).toBe("Confirm failed");
+      expect(result.current.data.confirmError).toBe(ERROR_COPY.serverError.detail);
+      expect(result.current.data.confirmError).not.toContain("failed: 500");
       expect(result.current.state).toBe("guest-details");
       expect(result.current.data.confirmLoading).toBe(false);
     });

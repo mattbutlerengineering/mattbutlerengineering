@@ -1,5 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
-import { parseArgs, findPriorIssueNumber, runFileIssueCli } from "../lib/file-issue-cli.mjs";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { execFileSync } from "node:child_process";
+import { markReady } from "@mbe/gh-client";
+import {
+  parseArgs,
+  findPriorIssueNumber,
+  runFileIssueCli,
+  buildReopenLabelArgs,
+  createRealDeps,
+} from "../lib/file-issue-cli.mjs";
+
+// createRealDeps().reopenIssue shells out via execFileSync — mock it so the
+// regression test below never touches a real `gh` binary.
+vi.mock("node:child_process", () => ({
+  execFileSync: vi.fn(),
+}));
+
+const mockExecFileSync = vi.mocked(execFileSync);
 
 describe("parseArgs", () => {
   it("parses a minimal request", () => {
@@ -22,6 +38,8 @@ describe("parseArgs", () => {
       searchState: "open",
       contains: null,
       searchText: null,
+      commentBody: null,
+      commentBodyFile: null,
     });
   });
 
@@ -71,6 +89,34 @@ describe("parseArgs", () => {
     expect(opts.searchState).toBe("all");
     expect(opts.contains).toBe("2026-W31");
     expect(opts.searchText).toBe("some query");
+  });
+
+  it("accepts --comment-body and --comment-body-file", () => {
+    const withInline = parseArgs([
+      "--title",
+      "t",
+      "--body",
+      "b",
+      "--dedupe-key",
+      "k",
+      "--comment-body",
+      "comment text",
+    ]);
+    expect(withInline.commentBody).toBe("comment text");
+    expect(withInline.commentBodyFile).toBeNull();
+
+    const withFile = parseArgs([
+      "--title",
+      "t",
+      "--body",
+      "b",
+      "--dedupe-key",
+      "k",
+      "--comment-body-file",
+      "/tmp/comment.md",
+    ]);
+    expect(withFile.commentBodyFile).toBe("/tmp/comment.md");
+    expect(withFile.commentBody).toBeNull();
   });
 
   it("throws when --title is missing", () => {
@@ -127,6 +173,7 @@ function fakeDeps(overrides = {}) {
     getIssueState: vi.fn(() => "missing"),
     createIssue: vi.fn(() => 101),
     reopenIssue: vi.fn(),
+    commentOnIssue: vi.fn(),
     ...overrides,
   };
 }
@@ -223,6 +270,104 @@ describe("runFileIssueCli", () => {
     expect(result).toEqual({ action: "create", issueNumber: 55 });
   });
 
+  it("comments on the prior open issue instead of silently skipping when --comment-body is given (#5084)", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [
+        { number: 7, title: "[nightly-compliance 2026-09-01] Drift detected" },
+      ]),
+      getIssueState: vi.fn(() => "open"),
+    });
+
+    const result = runFileIssueCli(
+      [
+        "--title",
+        "[nightly-compliance 2026-09-02] Drift detected",
+        "--body",
+        "b",
+        "--dedupe-key",
+        "nightly-compliance-drift-abc123",
+        "--search-label",
+        "meta-improvement",
+        "--search-text",
+        "abc123",
+        "--comment-body",
+        "Drift also detected on 2026-09-02 — see run.",
+      ],
+      deps
+    );
+
+    expect(result).toEqual({ action: "skip", issueNumber: 7, commented: true });
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(
+      7,
+      "Drift also detected on 2026-09-02 — see run."
+    );
+    expect(deps.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("reads the comment body from --comment-body-file when given", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [{ number: 7, title: "t" }]),
+      getIssueState: vi.fn(() => "open"),
+      readFile: vi.fn((path) =>
+        path === "/tmp/comment.md" ? "comment from file" : "body from file"
+      ),
+    });
+
+    runFileIssueCli(
+      [
+        "--title",
+        "t",
+        "--body",
+        "b",
+        "--dedupe-key",
+        "k",
+        "--search-label",
+        "meta-improvement",
+        "--comment-body-file",
+        "/tmp/comment.md",
+      ],
+      deps
+    );
+
+    expect(deps.commentOnIssue).toHaveBeenCalledWith(7, "comment from file");
+  });
+
+  it("does not comment when the result is a fresh create, even if --comment-body is given", () => {
+    const deps = fakeDeps({ createIssue: vi.fn(() => 55) });
+
+    const result = runFileIssueCli(
+      [
+        "--title",
+        "t",
+        "--body",
+        "b",
+        "--dedupe-key",
+        "k",
+        "--comment-body",
+        "should not be posted",
+      ],
+      deps
+    );
+
+    expect(result).toEqual({ action: "create", issueNumber: 55 });
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+  });
+
+  it("does not comment when no --comment-body/--comment-body-file is given, even on a skip", () => {
+    const deps = fakeDeps({
+      searchIssues: vi.fn(() => [{ number: 7, title: "t" }]),
+      getIssueState: vi.fn(() => "open"),
+    });
+
+    const result = runFileIssueCli(
+      ["--title", "t", "--body", "b", "--dedupe-key", "k", "--search-label", "meta-improvement"],
+      deps
+    );
+
+    expect(result).toEqual({ action: "skip", issueNumber: 7 });
+    expect(deps.commentOnIssue).not.toHaveBeenCalled();
+  });
+
   it("treats a search failure as 'no prior found' and still creates — every original inline dedup implementation failed open (bash's default non-strict error handling on a failed `gh issue list`), not closed", () => {
     const deps = fakeDeps({
       searchIssues: vi.fn(() => {
@@ -237,5 +382,60 @@ describe("runFileIssueCli", () => {
     );
 
     expect(result).toEqual({ action: "create", issueNumber: 55 });
+  });
+});
+
+describe("buildReopenLabelArgs", () => {
+  it("matches @mbe/gh-client's markReady() re-queue transition exactly", () => {
+    // file-issue-cli.mjs is deliberately dependency-free (runs in workflows
+    // that never `pnpm install`), so it can't import markReady() at runtime —
+    // this cross-checks the hand-written gh args against the real transition
+    // so the two can't silently drift (#5071).
+    const { add, remove } = markReady(999); // issue number is irrelevant here
+    const expected = [];
+    for (const label of add) expected.push("--add-label", label);
+    for (const label of remove) expected.push("--remove-label", label);
+
+    expect(buildReopenLabelArgs()).toEqual(expected);
+  });
+
+  it("adds ready and removes the stale-on-reopen coordination labels", () => {
+    const args = buildReopenLabelArgs();
+
+    expect(args).toEqual(
+      expect.arrayContaining([
+        "--add-label",
+        "ready",
+        "--remove-label",
+        "has-pr",
+        "--remove-label",
+        "agent-failed",
+        "--remove-label",
+        "agent-skip",
+      ])
+    );
+  });
+});
+
+describe("createRealDeps().reopenIssue", () => {
+  beforeEach(() => {
+    mockExecFileSync.mockReset();
+    mockExecFileSync.mockReturnValue("");
+  });
+
+  it("reopens the issue and resets coordination labels back to ready", () => {
+    const deps = createRealDeps();
+    deps.reopenIssue(12);
+
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      "gh",
+      ["issue", "reopen", "12"],
+      expect.anything()
+    );
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      "gh",
+      ["issue", "edit", "12", ...buildReopenLabelArgs()],
+      expect.anything()
+    );
   });
 });

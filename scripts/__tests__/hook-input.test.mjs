@@ -392,6 +392,121 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
     SEAM_TIMEOUT_MS
   );
 
+  /**
+   * A work repo whose own branch was never pushed, plus a LINKED WORKTREE on a
+   * different branch that is fully pushed and up to date.
+   *
+   * This is the shape every agent worktree takes: the hook runs with
+   * cwd = $CLAUDE_PROJECT_DIR (the main checkout, sitting on some unrelated
+   * branch) while the push it is verifying came from the worktree.
+   */
+  function gitFixtureWithPushedWorktree() {
+    const origin = join(sandbox, "origin.git");
+    const work = join(sandbox, "work");
+    const tree = join(sandbox, "linked");
+    git(sandbox, "init", "-q", "--bare", "-b", "main", origin);
+    git(sandbox, "init", "-q", "-b", "main", work);
+    writeFileSync(join(work, "a.ts"), "export const a = 1;\n");
+    git(work, "add", "a.ts");
+    git(work, "commit", "-qm", "init");
+    git(work, "remote", "add", "origin", origin);
+    git(work, "push", "-qu", "origin", "main");
+    // The main checkout moves to a branch that exists ONLY locally.
+    git(work, "checkout", "-qb", "local-only-branch");
+    // A linked worktree on its own branch, pushed and in sync.
+    git(work, "worktree", "add", "-q", "-b", "feature", tree, "main");
+    writeFileSync(join(tree, "b.ts"), "export const b = 1;\n");
+    git(tree, "add", "b.ts");
+    git(tree, "commit", "-qm", "worktree change");
+    git(tree, "push", "-q", "origin", "feature");
+    return { work, tree };
+  }
+
+  it(
+    "verify-push-sha stays silent for a pushed branch when the main checkout is on another branch",
+    () => {
+      // Regression: the hook resolved the branch with `rev-parse --abbrev-ref
+      // HEAD` in its own CWD, so a push from a linked worktree was checked
+      // against the MAIN checkout's branch. That branch is typically not on
+      // origin, producing "branch '<other>' not found on origin" after a push
+      // that landed perfectly — and a guard that cries wolf gets ignored.
+      const { work } = gitFixtureWithPushedWorktree();
+      const result = run("verify-push-sha.sh", bashPayloadFor("git push -u origin feature"), work);
+      expect(result.stderr, "false alarm on a push that landed").toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha still reports a branch that exists locally but never reached the remote",
+    () => {
+      // The fix must not blind the hook. `local-only-branch` is real here — it
+      // is the branch the main checkout sits on — but it was never pushed, so
+      // naming it in the command is exactly the failure this guard exists for.
+      const { work } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor("git push -u origin local-only-branch"),
+        work
+      );
+      expect(result.stderr).toContain("not found on");
+      expect(result.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha ignores a command that only mentions a push in its text",
+    () => {
+      // Regression: the matcher was a bare substring test, so ANY command whose
+      // text contained the words fired the hook — a heredoc writing this very
+      // test file, a comment, an echo. Two of six false firings in one session
+      // were this, not the worktree bug above.
+      const { work } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor('echo "reminder: git push origin local-only-branch later"'),
+        work
+      );
+      expect(result.stderr, "fired on a command that pushes nothing").toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha still fires for a real push after a shell separator",
+    () => {
+      // The matcher must stay generous about where a push can appear: erring
+      // toward firing is cheap, missing a push that silently failed is not.
+      const { work } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor("cd . && git push -u origin local-only-branch"),
+        work
+      );
+      expect(result.stderr).toContain("not found on");
+      expect(result.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha resolves a src:dst refspec against the remote side",
+    () => {
+      const { work } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor("git push origin feature:feature"),
+        work
+      );
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
   it.each([
     ["completely empty stdin", ""],
     ["malformed JSON", "{not json"],

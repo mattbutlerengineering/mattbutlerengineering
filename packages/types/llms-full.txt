@@ -34,6 +34,22 @@
       createdAt: z.string(),
       updatedAt: z.string(),
     });
+    export const AgentSessionEventSchema = z.object({
+      id: z.string(),
+      sessionId: z.string(),
+      type: z.string(),
+      data: z.record(z.string(), z.unknown()).optional(),
+      createdAt: z.string(),
+    });
+    export const CreateAgentSessionRequestSchema = z.object({
+      taskDescription: z.string().min(1).max(10_000),
+      model: z.string().optional(),
+      maxTurns: z.number().min(1).max(200).optional(),
+      maxBudgetUsd: z.number().min(0.01).max(10.0).optional(),
+      baseBranch: z.string().optional(),
+      createPr: z.boolean().optional(),
+      parentId: z.string().optional(),
+    });
   </file>
   <file path="src/schemas/api.ts">
     export const ProblemDetailsSchema = z
@@ -79,6 +95,34 @@
       gridSize: z.number().optional(),
       showGrid: z.boolean().optional(),
     });
+    export const TableStatusSchema = z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]);
+    export const TableSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      tableNumber: z.string().nullable(),
+      capacity: z.number(),
+      minCovers: z.number(),
+      maxCovers: z.number().nullable(),
+      location: z.string().nullable(),
+      isActive: z.boolean(),
+      priority: z.number(),
+      status: TableStatusSchema,
+      venueId: z.string().nullable(),
+      floorPlanId: z.string().nullable(),
+      shapeMetadata: TableShapeMetadataSchema.nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const FloorPlanSchema = z.object({
+      id: z.string(),
+      venueId: z.string(),
+      name: z.string(),
+      isActive: z.boolean(),
+      layoutJson: FloorPlanLayoutSchema,
+      tables: z.array(TableSchema).optional(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
   </file>
   <file path="src/schemas/guest.ts">
     export const StaffNoteSchema = z.object({
@@ -106,10 +150,57 @@
       createdAt: z.string(),
       updatedAt: z.string(),
     });
+    export const GuestSegmentSchema = z.object({
+      name: z.string(),
+      description: z.string(),
+      count: z.number(),
+    });
+    export const GuestRiskResultSchema = z.object({
+      riskScore: z.enum(["trusted", "standard", "risky"]),
+      requiresDeposit: z.boolean(),
+    });
+    export const GuestRecognitionSchema = z.object({
+      recognized: z.boolean(),
+      firstName: z.string().nullable(),
+      visitCount: z.number(),
+      hasPreferences: z.boolean(),
+    });
   </file>
   <file path="src/schemas/health-system.ts">
     export const systemHealthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
     export type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
+    export const probeStatusSchema = z.enum(["ok", "error", "timeout"]);
+    export type ProbeStatus = z.infer<typeof probeStatusSchema>;
+    export const ciStatusSchema = z.enum(["healthy", "unhealthy", "stale"]);
+    export type CiStatus = z.infer<typeof ciStatusSchema>;
+    export const migrationCheckStatusSchema = z.enum(["ok", "error", "stale", "unknown"]);
+    export type MigrationCheckStatus = z.infer<typeof migrationCheckStatusSchema>;
+    export const runInfoSchema = z
+      .object({
+        conclusion: z.string(),
+        updated_at: z.string(),
+      })
+      .catchall(z.unknown());
+    export type RunInfo = z.infer<typeof runInfoSchema>;
+    export const serviceCheckSchema = z.object({
+      status: probeStatusSchema,
+      latency: z.number(),
+      version: z.string().optional(),
+      checks: z.record(z.string(), z.unknown()).optional(),
+    });
+    export type ServiceHealthCheck = z.infer<typeof serviceCheckSchema>;
+    export const staticSiteCheckSchema = z.object({
+      status: probeStatusSchema,
+      latency: z.number(),
+    });
+    export type StaticSiteCheck = z.infer<typeof staticSiteCheckSchema>;
+    export const systemHealthSchema = z.object({
+      status: systemHealthStatusSchema,
+      timestamp: z.string(),
+      requestId: z.string(),
+      subsystems: subsystemsSchema,
+    });
+    export type SystemHealth = z.infer<typeof systemHealthSchema>;
   </file>
   <file path="src/schemas/json-schema.ts">
     function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> {
@@ -155,6 +246,122 @@
       }
       return result;
     }
+    function toFastifyJsonSchema(id: string, zodSchema: ZodType) {
+      const raw = toJSONSchema(zodSchema, {
+        target: "draft-07",
+        unrepresentable: "any",
+      });
+      const cleaned = stripAdditionalProperties(raw as Record<string, unknown>);
+      const { $schema: _, ...rest } = cleaned;
+      return { $id: id, ...rest };
+    }
+    export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown> {
+      const raw = toJSONSchema(zodSchema, {
+        target: "draft-07",
+        unrepresentable: "any",
+      });
+      const cleaned = stripRequestOverConstraints(
+        stripAdditionalProperties(raw as Record<string, unknown>)
+      );
+      const { $schema: _schema, $id: _id, ...rest } = cleaned;
+      return rest;
+    }
+    export const userPreferencesJsonSchema = toFastifyJsonSchema(
+      "UserPreferences",
+      UserPreferencesSchema
+    );
+    export const userJsonSchema = toFastifyJsonSchema("User", UserSchema);
+    export const tableShapeMetadataJsonSchema = toFastifyJsonSchema(
+      "TableShapeMetadata",
+      TableShapeMetadataSchema
+    );
+    export const tableJsonSchema = toFastifyJsonSchema("Table", TableSchema);
+    export const reservationJsonSchema = toFastifyJsonSchema("Reservation", ReservationSchema);
+    export const venueGroupJsonSchema = toFastifyJsonSchema("VenueGroup", VenueGroupSchema);
+    export const venueJsonSchema = toFastifyJsonSchema("Venue", VenueSchema);
+    export const publicVenueJsonSchema = toFastifyJsonSchema("PublicVenue", PublicVenueSchema);
+    export const publicVenueConfigJsonSchema = toFastifyJsonSchema(
+      "PublicVenueConfig",
+      PublicVenueConfigSchema
+    );
+    export const guestJsonSchema = toFastifyJsonSchema("Guest", GuestSchema);
+    export const guestSegmentJsonSchema = toFastifyJsonSchema("GuestSegment", GuestSegmentSchema);
+    export const guestRiskResultJsonSchema = toFastifyJsonSchema(
+      "GuestRiskResult",
+      GuestRiskResultSchema
+    );
+    export const guestRecognitionJsonSchema = toFastifyJsonSchema(
+      "GuestRecognition",
+      GuestRecognitionSchema
+    );
+    export const waitlistJoinResultJsonSchema = toFastifyJsonSchema(
+      "WaitlistJoinResult",
+      WaitlistJoinResultSchema
+    );
+    export const floorPlanLayoutJsonSchema = toFastifyJsonSchema(
+      "FloorPlanLayout",
+      FloorPlanLayoutSchema
+    );
+    export const floorPlanJsonSchema = toFastifyJsonSchema("FloorPlan", FloorPlanSchema);
+    export const sessionJsonSchema = toFastifyJsonSchema("Session", AgentSessionSchema);
+    export const sessionEventJsonSchema = toFastifyJsonSchema("SessionEvent", AgentSessionEventSchema);
+    export const createSessionBodyJsonSchema = toFastifyJsonSchema(
+      "CreateSessionBody",
+      CreateAgentSessionRequestSchema
+    );
+    export const paginationJsonSchema = toFastifyJsonSchema("Pagination", PaginationSchema);
+    export const problemDetailsJsonSchema = toFastifyJsonSchema("ProblemDetails", ProblemDetailsSchema);
+    export const listReservationsQueryJsonSchema = toRequestJsonSchema(ListReservationsQuerySchema);
+    export const listMyReservationsQueryJsonSchema = toRequestJsonSchema(ListMyReservationsQuerySchema);
+    export const walkInBodyJsonSchema = toRequestJsonSchema(WalkInBodySchema);
+    export const createReservationBodyJsonSchema = toRequestJsonSchema(CreateReservationBodySchema);
+    export const updateReservationBodyJsonSchema = toRequestJsonSchema(UpdateReservationBodySchema);
+    export const availabilityQueryJsonSchema = toRequestJsonSchema(AvailabilityQuerySchema);
+    export const availabilityDatesQueryJsonSchema = toRequestJsonSchema(AvailabilityDatesQuerySchema);
+    export const briefingQueryJsonSchema = toRequestJsonSchema(BriefingQuerySchema);
+    export const eventsStreamQueryJsonSchema = toRequestJsonSchema(EventsStreamQuerySchema);
+    export const testEventBodyJsonSchema = toRequestJsonSchema(TestEventBodySchema);
+    export const listFloorPlansQueryJsonSchema = toRequestJsonSchema(ListFloorPlansQuerySchema);
+    export const createFloorPlanBodyJsonSchema = toRequestJsonSchema(CreateFloorPlanBodySchema);
+    export const updateFloorPlanBodyJsonSchema = toRequestJsonSchema(UpdateFloorPlanBodySchema);
+    export const updateTablePositionsBodyJsonSchema = toRequestJsonSchema(
+      UpdateTablePositionsBodySchema
+    );
+    export const assignTableBodyJsonSchema = toRequestJsonSchema(AssignTableBodySchema);
+    export const listGuestsQueryJsonSchema = toRequestJsonSchema(ListGuestsQuerySchema);
+    export const searchGuestsQueryJsonSchema = toRequestJsonSchema(SearchGuestsQuerySchema);
+    export const guestSegmentsQueryJsonSchema = toRequestJsonSchema(GuestSegmentsQuerySchema);
+    export const createGuestBodyJsonSchema = toRequestJsonSchema(CreateGuestBodySchema);
+    export const findOrCreateGuestBodyJsonSchema = toRequestJsonSchema(FindOrCreateGuestBodySchema);
+    export const updateGuestBodyJsonSchema = toRequestJsonSchema(UpdateGuestBodySchema);
+    export const addGuestNoteBodyJsonSchema = toRequestJsonSchema(AddGuestNoteBodySchema);
+    export const lapsingGuestsQueryJsonSchema = toRequestJsonSchema(LapsingGuestsQuerySchema);
+    export const createHoldBodyJsonSchema = toRequestJsonSchema(CreateHoldBodySchema);
+    export const confirmHoldBodyJsonSchema = toRequestJsonSchema(ConfirmHoldBodySchema);
+    export const createDepositBodyJsonSchema = toRequestJsonSchema(CreateDepositBodySchema);
+    export const listTablesQueryJsonSchema = toRequestJsonSchema(ListTablesQuerySchema);
+    export const createTableBodyJsonSchema = toRequestJsonSchema(CreateTableBodySchema);
+    export const updateTableBodyJsonSchema = toRequestJsonSchema(UpdateTableBodySchema);
+    export const updateTableStatusBodyJsonSchema = toRequestJsonSchema(UpdateTableStatusBodySchema);
+    export const listVenueGroupsQueryJsonSchema = toRequestJsonSchema(ListVenueGroupsQuerySchema);
+    export const createVenueGroupBodyJsonSchema = toRequestJsonSchema(CreateVenueGroupBodySchema);
+    export const updateVenueGroupBodyJsonSchema = toRequestJsonSchema(UpdateVenueGroupBodySchema);
+    export const listVenuesQueryJsonSchema = toRequestJsonSchema(ListVenuesQuerySchema);
+    export const createVenueBodyJsonSchema = toRequestJsonSchema(CreateVenueBodySchema);
+    export const updateVenueBodyJsonSchema = toRequestJsonSchema(UpdateVenueBodySchema);
+    export const createWaitlistBodyJsonSchema = toRequestJsonSchema(CreateWaitlistBodySchema);
+    export const listWaitlistQueryJsonSchema = toRequestJsonSchema(ListWaitlistQuerySchema);
+    export const publicAvailabilityQueryJsonSchema = toRequestJsonSchema(PublicAvailabilityQuerySchema);
+    export const publicDepositBodyJsonSchema = toRequestJsonSchema(PublicDepositBodySchema);
+    export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
+      PublicGuestRecognitionQuerySchema
+    );
+    export const publicGuestRiskQueryJsonSchema = toRequestJsonSchema(PublicGuestRiskQuerySchema);
+    export const publicHoldBodyJsonSchema = toRequestJsonSchema(PublicHoldBodySchema);
+    export const publicReservationBodyJsonSchema = toRequestJsonSchema(PublicReservationBodySchema);
+    export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
+    export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
+    export const modifyReservationBodyJsonSchema = toRequestJsonSchema(ModifyReservationBodySchema);
   </file>
   <file path="src/schemas/reservation-requests.ts">
     export const ListReservationsQuerySchema = z.object({
@@ -169,6 +376,328 @@
     export const ListMyReservationsQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
       limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
+    });
+    export const WalkInBodySchema = z
+      .object({
+        partySize: z.number().int().min(1).describe("Number of guests"),
+        tableId: z.string().describe("ID of the table to seat guests at"),
+        venueId: z.string().describe("ID of the venue"),
+        guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
+        durationMinutes: z
+          .number()
+          .int()
+          .min(1)
+          .describe("Expected duration in minutes (defaults to 90)")
+          .optional(),
+        occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+        seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+      })
+      .describe("Walk-in reservation payload");
+    export const CreateReservationBodySchema = z
+      .object({
+        date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
+        startTime: z.iso.datetime({ offset: true }).describe("Start time (ISO 8601)"),
+        endTime: z.iso.datetime({ offset: true }).describe("End time (ISO 8601)"),
+        partySize: z.number().int().min(1).describe("Number of guests"),
+        tableId: z.string().describe("ID of the table to reserve"),
+        notes: z.string().describe("Special requests or notes").optional(),
+        guestName: z.string().describe("Guest name (for unauthenticated reservations)").optional(),
+        guestEmail: z.email().describe("Guest email (for unauthenticated reservations)").optional(),
+        guestPhone: z.string().describe("Guest phone number").optional(),
+        venueId: z.string().describe("ID of the venue for this reservation").optional(),
+        occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+        seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+      })
+      .describe("Reservation creation payload");
+    export const UpdateReservationBodySchema = z
+      .object({
+        date: z.iso.date().describe("New reservation date").optional(),
+        startTime: z.iso.datetime({ offset: true }).describe("New start time").optional(),
+        endTime: z.iso.datetime({ offset: true }).describe("New end time").optional(),
+        partySize: z.number().int().min(1).describe("New party size").optional(),
+        tableId: z.string().describe("New table ID").optional(),
+        status: ReservationStatusSchema.describe("New status").optional(),
+        notes: z.string().describe("Updated notes").optional(),
+        cancellationReason: z
+          .string()
+          .describe("Reason for cancellation (used when status is CANCELLED)")
+          .optional(),
+        cancellationNote: z
+          .string()
+          .describe("Additional cancellation notes (used when status is CANCELLED)")
+          .optional(),
+        occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
+        seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+      })
+      .describe("Fields to update");
+    export const AvailabilityQuerySchema = z.object({
+      date: z.iso.date().describe("Date in YYYY-MM-DD format"),
+      partySize: z.string().describe("Number of guests"),
+      duration: z.string().describe("Optional duration override in minutes").optional(),
+    });
+    export const AvailabilityDatesQuerySchema = z.object({
+      startDate: z.iso.date().describe("Start date in YYYY-MM-DD format"),
+      endDate: z.iso.date().describe("End date in YYYY-MM-DD format"),
+      partySize: z.string().describe("Number of guests"),
+    });
+    export const BriefingQuerySchema = z.object({
+      date: z.iso.date().describe("Date for the briefing (YYYY-MM-DD)"),
+      venueId: z.string().describe("Venue ID to scope the briefing to"),
+    });
+    export const EventsStreamQuerySchema = z.object({
+      venueId: z.string().describe("Filter events to a specific venue").optional(),
+    });
+    export const TestEventBodySchema = z.object({
+      type: z.string(),
+      venueId: z.string(),
+      data: JsonObjectSchema,
+    });
+    export const ListFloorPlansQuerySchema = z.object({
+      venueId: z.string().optional(),
+      page: z.string().default("1"),
+      limit: z.string().default("10"),
+    });
+    export const CreateFloorPlanBodySchema = z.object({
+      venueId: z.string(),
+      name: z.string(),
+      isActive: z.boolean().optional(),
+      layoutJson: JsonObjectSchema,
+    });
+    export const UpdateFloorPlanBodySchema = z.object({
+      name: z.string().optional(),
+      isActive: z.boolean().optional(),
+      layoutJson: JsonObjectSchema.optional(),
+    });
+    export const UpdateTablePositionsBodySchema = z.object({
+      floorPlanId: z.string(),
+      positions: z.array(
+        z.object({
+          tableId: z.string(),
+          shapeMetadata: JsonObjectSchema,
+        })
+      ),
+    });
+    export const AssignTableBodySchema = z.object({
+      floorPlanId: z.string(),
+      shapeMetadata: JsonObjectSchema.optional(),
+    });
+    export const ListGuestsQuerySchema = z.object({
+      venueId: z.string().describe("Venue ID to list guests for"),
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of guests per page (max 100)"),
+    });
+    export const SearchGuestsQuerySchema = z.object({
+      venueId: z.string().describe("Venue ID to search within"),
+      query: z.string().describe("Search term (matches name, email, or phone)").optional(),
+      tags: z.string().describe("Comma-separated tags to filter by").optional(),
+      hasNotVisitedInDays: z
+        .string()
+        .describe("Filter guests who haven't visited in X days")
+        .optional(),
+    });
+    export const GuestSegmentsQuerySchema = z.object({
+      venueId: z.string().describe("Venue ID to get segments for"),
+    });
+    export const CreateGuestBodySchema = z.object({
+      venueId: z.string().describe("Venue ID"),
+      email: z.email().describe("Guest email").optional(),
+      phone: z.string().describe("Guest phone").optional(),
+      name: z.string().describe("Guest name"),
+      notes: z.string().describe("Internal notes").optional(),
+      tags: z.array(z.string()).describe("Tags for categorization").optional(),
+      dietaryRestrictions: z
+        .array(z.string())
+        .describe("Dietary restrictions (e.g. gluten-free, vegan, nut-allergy)")
+        .optional(),
+    });
+    export const FindOrCreateGuestBodySchema = z.object({
+      venueId: z.string().describe("Venue ID"),
+      email: z.email().describe("Guest email (used for matching)").optional(),
+      phone: z.string().describe("Guest phone (used for matching if email not found)").optional(),
+      name: z.string().describe("Guest name"),
+      dietaryRestrictions: z
+        .array(z.string())
+        .describe("Dietary restrictions to merge with existing guest profile")
+        .optional(),
+    });
+    export const UpdateGuestBodySchema = z.object({
+      email: z.email().nullable().optional(),
+      phone: z.string().nullable().optional(),
+      name: z.string().optional(),
+      notes: z.string().nullable().optional(),
+      tags: z.array(z.string()).nullable().optional(),
+      dietaryRestrictions: z
+        .array(z.string())
+        .nullable()
+        .describe("Dietary restrictions (replaces existing list)")
+        .optional(),
+    });
+    export const AddGuestNoteBodySchema = z.object({
+      text: z.string().min(1).describe("Note text"),
+    });
+    export const LapsingGuestsQuerySchema = z.object({
+      venueId: z.string().describe("Venue ID to scan"),
+    });
+    export const CreateHoldBodySchema = z.object({
+      venueId: z.string().describe("Venue ID"),
+      date: z.iso.date().describe("Reservation date (YYYY-MM-DD)"),
+      time: z.iso.datetime({ offset: true }).describe("Start time in ISO 8601 format"),
+      partySize: z.number().int().min(1).max(20).describe("Number of guests"),
+      tableId: z
+        .string()
+        .describe("Optional specific table to hold. If not provided, best available table is assigned.")
+        .optional(),
+      holdDurationMinutes: z
+        .number()
+        .int()
+        .min(1)
+        .max(60)
+        .describe("Override hold duration in minutes. Defaults to venue setting or 10 minutes.")
+        .optional(),
+    });
+    export const ConfirmHoldBodySchema = z.object({
+      guestName: z.string().describe("Guest name").optional(),
+      guestEmail: z.email().describe("Guest email").optional(),
+      guestPhone: z.string().describe("Guest phone number").optional(),
+      guestId: z.string().describe("ID of existing guest record").optional(),
+      notes: z.string().describe("Special requests or notes").optional(),
+    });
+    export const CreateDepositBodySchema = z.object({
+      reservationId: z.string().describe("ID of the reservation"),
+      amountCents: z.number().int().min(1).describe("Deposit amount in cents"),
+      currency: z.string().default("usd").describe("ISO currency code"),
+    });
+    export const ListTablesQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of tables per page (max 100)"),
+      activeOnly: z.enum(["true", "false"]).default("false").describe("Filter to only active tables"),
+      venueId: z.string().describe("Filter by venue ID").optional(),
+    });
+    export const CreateTableBodySchema = z
+      .object({
+        name: z.string().describe("Unique table name (e.g., 'Table 1', 'Patio A')"),
+        capacity: z.number().int().min(1).describe("Maximum number of guests the table can seat"),
+        location: z.string().describe("Location description (e.g., 'Main Floor', 'Patio')").optional(),
+        venueId: z.string().describe("ID of the venue this table belongs to").optional(),
+      })
+      .describe("Table creation payload");
+    export const UpdateTableBodySchema = z
+      .object({
+        name: z.string().describe("New table name").optional(),
+        capacity: z.number().int().min(1).describe("New capacity").optional(),
+        location: z.string().describe("New location description").optional(),
+        isActive: z
+          .boolean()
+          .describe("Whether the table is active and available for reservations")
+          .optional(),
+      })
+      .describe("Fields to update");
+    export const UpdateTableStatusBodySchema = z
+      .object({
+        status: TableStatusSchema.describe("New table status"),
+      })
+      .describe("Table status update payload");
+    export const ListVenueGroupsQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of groups per page (max 100)"),
+    });
+    export const CreateVenueGroupBodySchema = z
+      .object({
+        name: z.string().describe("Venue group name"),
+        slug: z.string().describe("URL-friendly identifier (must be unique)"),
+        settings: JsonObjectSchema.describe("Shared settings for all venues in the group").optional(),
+      })
+      .describe("Venue group creation payload");
+    export const UpdateVenueGroupBodySchema = z
+      .object({
+        name: z.string().optional(),
+        slug: z.string().optional(),
+        settings: JsonObjectSchema.optional(),
+      })
+      .describe("Fields to update");
+    export const ListVenuesQuerySchema = z.object({
+      page: z.string().default("1").describe("Page number (1-indexed)"),
+      limit: z.string().default("10").describe("Number of venues per page (max 100)"),
+      venueGroupId: z.string().describe("Filter venues by venue group ID").optional(),
+    });
+    export const CreateVenueBodySchema = z
+      .object({
+        venueGroupId: z.string().describe("ID of the venue group this venue belongs to").optional(),
+        name: z.string().describe("Venue name"),
+        slug: z.string().describe("URL-friendly identifier for public booking URLs (must be unique)"),
+        ianaTimezone: z.string().describe("IANA timezone identifier (e.g., 'America/Los_Angeles')"),
+        currencyCode: z.string().default("USD").describe("ISO 4217 currency code"),
+        operatingHours: JsonObjectSchema.describe("Weekly operating schedule").optional(),
+        settings: JsonObjectSchema.describe("Venue-specific settings").optional(),
+      })
+      .describe("Venue creation payload");
+    export const UpdateVenueBodySchema = z
+      .object({
+        venueGroupId: z.string().nullable().optional(),
+        name: z.string().optional(),
+        slug: z.string().optional(),
+        ianaTimezone: z.string().optional(),
+        currencyCode: z.string().optional(),
+        operatingHours: JsonObjectSchema.nullable().optional(),
+        settings: JsonObjectSchema.nullable().optional(),
+      })
+      .describe("Fields to update");
+    export const CreateWaitlistBodySchema = z.object({
+      venueId: z.string(),
+      partySize: z.number().int().min(1),
+      guestName: z.string(),
+      guestPhone: z.string(),
+      avgTurnTimeMinutes: z.number().int().min(1).optional(),
+    });
+    export const ListWaitlistQuerySchema = z.object({
+      venueId: z.string(),
+    });
+    export const PublicAvailabilityQuerySchema = z.object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      partySize: z.string(),
+    });
+    export const PublicDepositBodySchema = z.object({
+      reservationId: z.string().min(1),
+      guestEmail: z.string().optional(),
+      guestName: z.string().optional(),
+    });
+    export const PublicGuestRecognitionQuerySchema = z.object({
+      email: z.email(),
+    });
+    export const PublicGuestRiskQuerySchema = z.object({
+      email: z.string().optional(),
+      phone: z.string().optional(),
+    });
+    export const PublicHoldBodySchema = z.object({
+      date: z.string().min(1),
+      startTime: z.string().min(1),
+      endTime: z.string().min(1),
+      partySize: z.number().int().min(1).max(20),
+    });
+    export const PublicReservationBodySchema = z.object({
+      holdId: z.string().min(1),
+      guestName: z.string().min(1),
+      guestEmail: z.string().min(1),
+      guestPhone: z.string().optional(),
+      specialRequests: z.string().optional(),
+    });
+    export const ModifyReservationBodySchema = z
+      .object({
+        date: z.iso.date().describe("New reservation date (YYYY-MM-DD)").optional(),
+        startTime: z.iso.datetime({ offset: true }).describe("New start time (ISO 8601)").optional(),
+        endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
+        partySize: z.number().int().min(1).describe("New party size").optional(),
+        specialRequests: z.string().describe("Special requests or notes").optional(),
+      })
+      .describe("Fields to modify via guest self-service");
+    export const PublicUnsubscribeQuerySchema = z.object({
+      token: z.string().optional(),
+    });
+    export const PublicWaitlistBodySchema = z.object({
+      venueId: z.string(),
+      partySize: z.number().int().min(1),
+      guestName: z.string(),
+      guestPhone: z.string(),
     });
   </file>
   <file path="src/schemas/reservation.ts">
@@ -187,6 +716,61 @@
       "other",
       "none",
     ]);
+    export const SeatingPreferenceSchema = z.enum([
+      "booth",
+      "patio",
+      "bar",
+      "window",
+      "quiet",
+      "no_preference",
+    ]);
+    export const ReservationSchema = z.object({
+      id: z.string(),
+      date: z.string(),
+      startTime: z.string(),
+      endTime: z.string(),
+      durationMinutes: z.number().optional(),
+      partySize: z.number(),
+      status: ReservationStatusSchema,
+      notes: z.string().nullable(),
+      cancellationReason: z.string().nullable(),
+      cancellationNote: z.string().nullable(),
+      occasion: OccasionSchema.nullable(),
+      seatingPreference: SeatingPreferenceSchema.nullable(),
+      guestName: z.string().nullable(),
+      guestEmail: z.string().nullable(),
+      guestPhone: z.string().nullable(),
+      guestId: z.string().nullable(),
+      userId: z.string().nullable(),
+      tableId: z.string(),
+      table: TableSchema.optional(),
+      venueId: z.string().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const DepositStatusSchema = z.enum([
+      "pending",
+      "held",
+      "applied",
+      "refunded",
+      "partial_refunded",
+      "forfeited",
+    ]);
+    export const DepositSchema = z.object({
+      id: z.string(),
+      reservationId: z.string(),
+      amountCents: z.number(),
+      currency: z.string(),
+      status: DepositStatusSchema,
+      stripePaymentIntentId: z.string().nullable(),
+      stripeCustomerId: z.string().nullable(),
+      heldAt: z.string().nullable(),
+      appliedAt: z.string().nullable(),
+      refundedAt: z.string().nullable(),
+      forfeitedAt: z.string().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
   </file>
   <file path="src/schemas/table-status.ts">
     export const TableDisplayStatusSchema = z.enum([
@@ -216,6 +800,11 @@
       createdAt: z.string(),
       updatedAt: z.string(),
     });
+    export const UserProfileSchema = z.object({
+      id: z.string(),
+      name: z.string().nullable(),
+      picture: z.string().nullable(),
+    });
   </file>
   <file path="src/schemas/venue.ts">
     export const DayScheduleSchema = z.object({
@@ -230,6 +819,64 @@
       settings: z.record(z.string(), z.unknown()).nullable(),
       createdAt: z.string(),
     });
+    export const VenueSchema = z.object({
+      id: z.string(),
+      venueGroupId: z.string().nullable(),
+      venueGroup: VenueGroupSchema.optional(),
+      name: z.string(),
+      slug: z.string(),
+      ianaTimezone: z.string(),
+      currencyCode: z.string(),
+      operatingHours: z
+        .object({
+          monday: DayScheduleSchema.optional(),
+          tuesday: DayScheduleSchema.optional(),
+          wednesday: DayScheduleSchema.optional(),
+          thursday: DayScheduleSchema.optional(),
+          friday: DayScheduleSchema.optional(),
+          saturday: DayScheduleSchema.optional(),
+          sunday: DayScheduleSchema.optional(),
+        })
+        .nullable(),
+      settings: z.record(z.string(), z.unknown()).nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    });
+    export const PublicVenueSchema = z.object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      ianaTimezone: z.string(),
+      operatingHours: VenueSchema.shape.operatingHours,
+    });
+    export const PublicVenueDepositSchema = z.object({
+      enabled: z.boolean(),
+      depositType: z.enum(["flat", "per_person"]).nullable(),
+      amountCents: z.number().nullable(),
+      freeCancellationHours: z.number().nullable(),
+      lateCancellationFeePercent: z.number().nullable(),
+      noShowFeePercent: z.number().nullable(),
+    });
+    export const PublicVenueConfigSchema = z.object({
+      name: z.string(),
+      slug: z.string(),
+      ianaTimezone: z.string(),
+      currencyCode: z.string(),
+      operatingHours: VenueSchema.shape.operatingHours,
+      settings: z.object({
+        defaultReservationDuration: z.number().optional(),
+        maxPartySize: z.number().optional(),
+        maxAdvanceBooking: z.number().optional(),
+        slotIntervalMinutes: z.number().optional(),
+      }),
+      deposit: PublicVenueDepositSchema,
+    });
+    export const DepositPaymentIntentSchema = z.object({
+      clientSecret: z.string(),
+      depositId: z.string(),
+      amountCents: z.number(),
+      currency: z.string(),
+    });
   </file>
   <file path="src/schemas/waitlist.ts">
     export const WaitlistJoinRequestSchema = z.object({
@@ -241,6 +888,27 @@
     export const WaitlistJoinResultSchema = z.object({
       position: z.number(),
       estimatedWaitMinutes: z.number(),
+    });
+    export const WaitlistStatusSchema = z.enum([
+      "waiting",
+      "notified",
+      "seated",
+      "expired",
+      "cancelled",
+    ]);
+    export const WaitlistEntrySchema = z.object({
+      id: z.string(),
+      venueId: z.string(),
+      partySize: z.number(),
+      guestName: z.string(),
+      guestPhone: z.string(),
+      position: z.number(),
+      estimatedWaitMinutes: z.number(),
+      status: WaitlistStatusSchema,
+      notifiedAt: z.string().nullable(),
+      expiresAt: z.string().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
     });
   </file>
   </section>
@@ -272,6 +940,22 @@
       createdAt: string;
       updatedAt: string;
     }
+    export interface CreateAgentSessionRequest {
+      taskDescription: string;
+      model?: string;
+      maxTurns?: number;
+      maxBudgetUsd?: number;
+      baseBranch?: string;
+      createPr?: boolean;
+      parentId?: string;
+    }
+    export interface AgentSessionEvent {
+      id: string;
+      sessionId: string;
+      type: string;
+      data: Record<string, unknown>;
+      createdAt: string;
+    }
   </file>
   <file path="src/api.ts">
     export interface ApiResponse<T> {
@@ -281,6 +965,66 @@
     export interface ApiMeta {
       timestamp: string;
       requestId?: string;
+    }
+    export type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
+    export function titleForStatus(status: number): string {
+      if (status in STATUS_TITLES) {
+        return STATUS_TITLES[status]!;
+      }
+      return status >= 500 ? "Internal Server Error" : "Error";
+    }
+    export function createProblemDetails(
+      status: number,
+      title: string,
+      detail: string,
+      type = "about:blank",
+      instance?: string,
+      extensions?: Record<string, unknown>
+    ): ProblemDetails {
+      return {
+        type,
+        title,
+        status,
+        detail,
+        instance,
+        ...extensions,
+      };
+    }
+    export interface PaginatedResponse<T> {
+      data: T[];
+      pagination: Pagination;
+    }
+    export interface Pagination {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }
+    export interface HealthResponse {
+      status: "ok" | "degraded" | "error";
+      version: string;
+      timestamp: string;
+      service?: string;
+      checks?: Record<string, unknown>;
+      [key: string]: unknown;
+    }
+    export interface ReadinessResponse {
+      ready: boolean;
+      timestamp: string;
+      checks: ReadinessCheckStatus[];
+    }
+    export interface ReadinessCheckStatus {
+      name: string;
+      status: "ok" | "error";
+      message?: string;
+    }
+    export interface HealthCheck {
+      name: string;
+      status: "ok" | "error";
+      message?: string;
+      durationMs?: number;
     }
   </file>
   <file path="src/availability.ts">
@@ -295,6 +1039,58 @@
       capacity: number;
       minCovers: number;
       maxCovers: number | null;
+    }
+    export interface DateAvailability {
+      date: string; // YYYY-MM-DD
+      hasAvailability: boolean;
+      slotCount?: number;
+    }
+    export interface AvailabilityQuery {
+      date: string; // YYYY-MM-DD
+      partySize: number;
+      duration?: number; // minutes, optional override
+    }
+    export interface DateRangeQuery {
+      startDate: string; // YYYY-MM-DD
+      endDate: string; // YYYY-MM-DD
+      partySize: number;
+    }
+    export interface ReservationHold {
+      id: string;
+      venueId: string;
+      tableId: string;
+      date: string; // YYYY-MM-DD
+      startTime: string; // ISO 8601 datetime
+      endTime: string; // ISO 8601 datetime
+      partySize: number;
+      sessionId: string;
+      expiresAt: string; // ISO 8601 datetime
+      createdAt: string;
+    }
+    export interface CreateHoldRequest {
+      venueId: string;
+      date: string; // YYYY-MM-DD
+      time: string; // ISO 8601 datetime
+      partySize: number;
+      tableId?: string; // optional, auto-assign if not provided
+      holdDurationMinutes?: number; // optional, venue default if not provided
+    }
+    export interface ConfirmHoldRequest {
+      guestName?: string;
+      guestEmail?: string;
+      guestPhone?: string;
+      guestId?: string;
+      notes?: string;
+    }
+    export interface ConflictCheckResult {
+      hasConflict: boolean;
+      conflictingReservationId?: string;
+      conflictingHoldId?: string;
+    }
+    export interface PacingCheckResult {
+      withinLimit: boolean;
+      currentCovers: number;
+      maxCovers: number;
     }
   </file>
   <file path="src/date.ts">
@@ -336,6 +1132,25 @@
       gridSize?: number;
       showGrid?: boolean;
     }
+    export interface CreateFloorPlanRequest {
+      venueId: string;
+      name: string;
+      isActive?: boolean;
+      layoutJson: FloorPlanLayout;
+    }
+    export interface UpdateFloorPlanRequest {
+      name?: string;
+      isActive?: boolean;
+      layoutJson?: FloorPlanLayout;
+    }
+    export interface UpdateTablePositionRequest {
+      tableId: string;
+      shapeMetadata: TableShapeMetadata;
+    }
+    export interface BulkUpdateTablePositionsRequest {
+      floorPlanId: string;
+      positions: UpdateTablePositionRequest[];
+    }
   </file>
   <file path="src/guest.ts">
     export type CommunicationPreference = "email_only" | "sms_only" | "both" | "transactional_only";
@@ -344,11 +1159,211 @@
       createdBy: string;
       createdAt: string;
     }
+    export type GuestRiskScore = "trusted" | "standard" | "risky";
+    export interface Guest {
+      id: string;
+      venueId: string;
+      venue?: Venue;
+      email: string | null;
+      phone: string | null;
+      name: string;
+      notes: string | null;
+      visitCount: number;
+      /** Number of NO_SHOW reservations for this guest at this venue. */
+      noShowCount: number;
+      /** Timestamp of the guest's most recent NO_SHOW, written by recordNoShow. Used for risk decay. */
+      lastNoShowAt?: string | null;
+      /** Computed risk score based on no-show history. */
+      riskScore: GuestRiskScore;
+      lifetimeSpend: string | null; // Decimal as string for precision
+      lastVisit: string | null;
+      tags: string[] | null;
+      dietaryRestrictions: string[] | null;
+      communicationPreference: CommunicationPreference;
+      /**
+       * True when the guest has opted out of marketing/lifecycle email. Consulted
+       * by the reservations contact-policy before any marketing send. Optional so
+       * partially-hydrated guests default to still-subscribed.
+       */
+      unsubscribed?: boolean;
+      /** Staff-only notes. Never returned in public-facing API responses. */
+      staffNotes: StaffNote[];
+      reservations?: Reservation[];
+      createdAt: string;
+      updatedAt: string;
+    }
+    export interface LapsingGuest {
+      guestId: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      communicationPreference: CommunicationPreference;
+      avgFrequencyDays: number;
+      daysSinceLastVisit: number;
+      daysOverdue: number;
+    }
+    export interface CreateGuestRequest {
+      venueId: string;
+      email?: string;
+      phone?: string;
+      name: string;
+      notes?: string;
+      tags?: string[];
+      dietaryRestrictions?: string[];
+    }
+    export interface UpdateGuestRequest {
+      email?: string | null;
+      phone?: string | null;
+      name?: string;
+      notes?: string | null;
+      tags?: string[] | null;
+      dietaryRestrictions?: string[] | null;
+    }
+    export interface GuestSearchParams {
+      venueId: string;
+      query?: string; // Search name, email, or phone
+      tags?: string[]; // Filter by tags
+      hasNotVisitedInDays?: number; // For win-back segments
+      minVisitCount?: number;
+      maxVisitCount?: number;
+    }
+    export interface GuestSegment {
+      name: string;
+      description: string;
+      count: number;
+      guests?: Guest[];
+    }
+    export interface GuestRiskResult {
+      riskScore: GuestRiskScore;
+      /** True when the guest's risk score warrants an automatic deposit requirement. */
+      requiresDeposit: boolean;
+    }
+    export interface GuestRecognition {
+      recognized: boolean;
+      firstName: string | null;
+      visitCount: number;
+      hasPreferences: boolean;
+    }
   </file>
   <file path="src/reservation.ts">
     export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
     export type DepositStatus =
       "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+    export interface Deposit {
+      id: string;
+      reservationId: string;
+      amountCents: number;
+      currency: string;
+      status: DepositStatus;
+      stripePaymentIntentId: string | null;
+      stripeCustomerId: string | null;
+      heldAt: string | null;
+      appliedAt: string | null;
+      refundedAt: string | null;
+      forfeitedAt: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
+      AVAILABLE: ["OCCUPIED"],
+      OCCUPIED: ["DIRTY"],
+      DIRTY: ["READY"],
+      READY: ["AVAILABLE"],
+    };
+    export type Occasion = "birthday" | "anniversary" | "business" | "date_night" | "other" | "none";
+    export type SeatingPreference = "booth" | "patio" | "bar" | "window" | "quiet" | "no_preference";
+    export interface Reservation {
+      id: string;
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      status: ReservationStatus;
+      notes: string | null;
+      cancellationReason: string | null;
+      cancellationNote: string | null;
+      guestName: string | null;
+      guestEmail: string | null;
+      guestPhone: string | null;
+      guestId: string | null;
+      userId: string | null;
+      occasion: Occasion | null;
+      seatingPreference: SeatingPreference | null;
+      tableId: string;
+      table?: Table;
+      guest?: {
+        visitCount: number;
+        communicationPreference: string | null;
+        unsubscribed?: boolean;
+      } | null;
+      venueId: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export interface CreateReservationRequest {
+      date: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      tableId: string;
+      notes?: string;
+      occasion?: Occasion;
+      seatingPreference?: SeatingPreference;
+      guestName?: string;
+      guestEmail?: string;
+      guestPhone?: string;
+      guestId?: string;
+      venueId?: string;
+    }
+    export interface UpdateReservationRequest {
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      partySize?: number;
+      tableId?: string;
+      status?: ReservationStatus;
+      notes?: string;
+      occasion?: Occasion;
+      seatingPreference?: SeatingPreference;
+      cancellationReason?: string;
+      cancellationNote?: string;
+    }
+    export interface UpdateTableStatusRequest {
+      status: TableStatus;
+    }
+    export interface WalkInRequest {
+      partySize: number;
+      tableId: string;
+      venueId: string;
+      guestName?: string;
+      durationMinutes?: number;
+      occasion?: Occasion;
+      seatingPreference?: SeatingPreference;
+    }
+    export interface CreateTableRequest {
+      name: string;
+      tableNumber?: string;
+      capacity: number;
+      minCovers?: number;
+      maxCovers?: number;
+      location?: string;
+      priority?: number;
+      venueId?: string;
+      floorPlanId?: string;
+      shapeMetadata?: TableShapeMetadata;
+    }
+    export interface UpdateTableRequest {
+      name?: string;
+      tableNumber?: string;
+      capacity?: number;
+      minCovers?: number;
+      maxCovers?: number;
+      location?: string;
+      isActive?: boolean;
+      priority?: number;
+      floorPlanId?: string | null;
+      shapeMetadata?: TableShapeMetadata | null;
+    }
   </file>
   <file path="src/schema-compat.ts">
     interface JsonSchemaProperty {
@@ -366,10 +1381,170 @@
       required?: readonly string[];
       [key: string]: unknown;
     }
+    export interface SchemaChange {
+      type: "breaking" | "non-breaking";
+      message: string;
+    }
+    export function compareSchema(
+      schemaId: string,
+      baseline: JsonSchema | undefined,
+      current: JsonSchema | undefined
+    ): { breaking: string[]; nonBreaking: string[] } {
+      const breaking: string[] = [];
+      const nonBreaking: string[] = [];
+    
+      if (!current) {
+        breaking.push(`Schema "${schemaId}" was removed`);
+        return { breaking, nonBreaking };
+      }
+    
+      if (!baseline) {
+        nonBreaking.push(`Schema "${schemaId}" is new`);
+        return { breaking, nonBreaking };
+      }
+    
+      const baseProps = baseline.properties ?? {};
+      const currProps = current.properties ?? {};
+      const baseRequired = new Set(baseline.required ?? []);
+      const currRequired = new Set(current.required ?? []);
+    
+      // Removed properties
+      for (const prop of Object.keys(baseProps)) {
+        if (!(prop in currProps)) {
+          breaking.push(`${schemaId}: property "${prop}" was removed`);
+        }
+      }
+    
+      // New properties
+      for (const prop of Object.keys(currProps)) {
+        if (!(prop in baseProps)) {
+          if (currRequired.has(prop)) {
+            breaking.push(
+              `${schemaId}: required property "${prop}" was added (breaks existing clients)`
+            );
+          } else {
+            nonBreaking.push(`${schemaId}: optional property "${prop}" was added`);
+          }
+        }
+      }
+    
+      // Required constraint changes on existing fields
+      for (const req of currRequired) {
+        if (!baseRequired.has(req) && req in baseProps) {
+          breaking.push(`${schemaId}: property "${req}" became required (was optional)`);
+        }
+      }
+      for (const req of baseRequired) {
+        if (!currRequired.has(req) && req in currProps) {
+          nonBreaking.push(`${schemaId}: property "${req}" became optional (was required)`);
+        }
+      }
+    
+      // Property-level changes on shared fields
+      for (const prop of Object.keys(baseProps)) {
+        if (!(prop in currProps)) continue;
+        const baseDef = baseProps[prop];
+        const currDef = currProps[prop];
+        if (!baseDef || !currDef) continue;
+    
+        // Type change
+        if (baseDef.type && currDef.type && baseDef.type !== currDef.type) {
+          breaking.push(
+            `${schemaId}: property "${prop}" type changed from "${baseDef.type}" to "${currDef.type}"`
+          );
+        }
+    
+        // Enum narrowing
+        if (baseDef.enum && currDef.enum) {
+          const baseSet = new Set(baseDef.enum);
+          const currSet = new Set(currDef.enum);
+          const removed = [...baseSet].filter((v) => !currSet.has(v));
+          const added = [...currSet].filter((v) => !baseSet.has(v));
+    
+          if (removed.length > 0) {
+            breaking.push(`${schemaId}: property "${prop}" enum values removed: ${removed.join(", ")}`);
+          }
+          if (added.length > 0) {
+            nonBreaking.push(`${schemaId}: property "${prop}" enum values added: ${added.join(", ")}`);
+          }
+        }
+    
+        // Nullable changes
+        if (baseDef.nullable === true && currDef.nullable !== true) {
+          breaking.push(`${schemaId}: property "${prop}" is no longer nullable`);
+        }
+        if (baseDef.nullable !== true && currDef.nullable === true) {
+          nonBreaking.push(`${schemaId}: property "${prop}" became nullable`);
+        }
+    
+        // Cosmetic changes
+        for (const key of COSMETIC_KEYS) {
+          if (JSON.stringify(baseDef[key]) !== JSON.stringify(currDef[key])) {
+            nonBreaking.push(`${schemaId}: property "${prop}" ${key} changed`);
+          }
+        }
+      }
+    
+      return { breaking, nonBreaking };
+    }
   </file>
   <file path="src/table-status.ts">
     export type TableDisplayStatus = "available" | "seated" | "needs-bussing" | "reserved-soon";
     export const RESERVED_SOON_WINDOW_MINUTES = 30;
+    export interface TableDisplayStatusInput {
+      /** The reservation currently or next occupying this table, or null if none. */
+      reservation: Reservation | null;
+      /**
+       * Whether staff has confirmed an active seating hold on `reservation`
+       * (e.g. a deposit hold or check-in), independent of the reservation's
+       * own booking-lifecycle `status`. Ignored when `reservation` is null.
+       */
+      hasActiveHold: boolean;
+      /** Current time, injected by the caller. */
+      now: Date;
+    }
+    export function deriveTableDisplayStatus(input: TableDisplayStatusInput): TableDisplayStatus {
+      const { reservation, hasActiveHold, now } = input;
+    
+      if (!reservation) {
+        return "available";
+      }
+    
+      if (reservation.status === "CANCELLED" || reservation.status === "NO_SHOW") {
+        return "available";
+      }
+    
+      if (reservation.status === "COMPLETED") {
+        return "needs-bussing";
+      }
+    
+      if (hasActiveHold) {
+        return "seated";
+      }
+    
+      const nowMs = now.getTime();
+      const startMs = new Date(reservation.startTime).getTime();
+      const endMs = new Date(reservation.endTime).getTime();
+    
+      if (nowMs >= endMs) {
+        return "needs-bussing";
+      }
+    
+      if (nowMs >= startMs) {
+        return "seated";
+      }
+    
+      const msUntilStart = startMs - nowMs;
+      if (msUntilStart <= RESERVED_SOON_WINDOW_MINUTES * MS_PER_MINUTE) {
+        return "reserved-soon";
+      }
+    
+      return "available";
+    }
+    export interface TableStatusDelta {
+      tableId: string;
+      status: TableDisplayStatus;
+    }
   </file>
   <file path="src/table.ts">
     export type TableStatus = "AVAILABLE" | "OCCUPIED" | "DIRTY" | "READY";
@@ -381,6 +1556,23 @@
       rotation?: number;
       shape: "rectangle" | "circle" | "square";
       color?: string;
+    }
+    export interface Table {
+      id: string;
+      name: string;
+      tableNumber: string | null;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      location: string | null;
+      isActive: boolean;
+      priority: number;
+      status: TableStatus;
+      venueId: string | null;
+      floorPlanId: string | null;
+      shapeMetadata: TableShapeMetadata | null;
+      createdAt: string;
+      updatedAt: string;
     }
   </file>
   <file path="src/user.ts">
@@ -399,6 +1591,25 @@
       createdAt: string;
       updatedAt: string;
     }
+    export interface UserProfile {
+      id: string;
+      name: string | null;
+      picture: string | null;
+    }
+    export interface CreateUserRequest {
+      email: string;
+      name?: string;
+      picture?: string;
+    }
+    export interface UpdateUserRequest {
+      name?: string;
+      picture?: string;
+    }
+    export interface UpdatePreferencesRequest {
+      theme?: "light" | "dark" | "system";
+      emailNotifications?: boolean;
+      marketingEmails?: boolean;
+    }
   </file>
   <file path="src/venue.ts">
     export interface VenueGroup {
@@ -412,7 +1623,138 @@
       id: string;
       name: string;
       slug: string;
+      ianaTimezone: string;
       operatingHours: OperatingHours | null;
+    }
+    export interface Venue {
+      id: string;
+      venueGroupId: string | null;
+      venueGroup?: VenueGroup;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: OperatingHours | null;
+      settings: VenueSettings | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export interface OperatingHours {
+      monday?: DaySchedule;
+      tuesday?: DaySchedule;
+      wednesday?: DaySchedule;
+      thursday?: DaySchedule;
+      friday?: DaySchedule;
+      saturday?: DaySchedule;
+      sunday?: DaySchedule;
+    }
+    export interface DaySchedule {
+      open: string; // "09:00" 24-hour format
+      close: string; // "22:00"
+      closed?: boolean;
+    }
+    export interface PacingRule {
+      maxCoversPerSlot: number;
+      timeWindowMinutes?: number; // override slot interval
+    }
+    export interface DurationRule {
+      minPartySize: number;
+      maxPartySize: number;
+      durationMinutes: number;
+    }
+    export interface VenueSettings {
+      defaultReservationDuration?: number; // minutes
+      maxPartySize?: number;
+      minAdvanceBooking?: number; // hours
+      maxAdvanceBooking?: number; // days
+      requirePhone?: boolean;
+      requireEmail?: boolean;
+      confirmationEmailEnabled?: boolean;
+      reminderEmailEnabled?: boolean;
+      // Availability settings
+      slotIntervalMinutes?: number; // default 15
+      lastSeatingBuffer?: number; // minutes before close, default 90
+      holdDurationMinutes?: number; // default 10
+      pacingRules?: PacingRule[];
+      durationRules?: DurationRule[];
+      /**
+       * Number of no-shows that triggers automatic deposit requirement.
+       * Risky guests (at or above this threshold) will always see the deposit step.
+       * Default: 2
+       */
+      autoDepositAfterNoShows?: number;
+    }
+    export type DepositType = "flat" | "per_person";
+    export interface DepositConfig {
+      enabled: boolean;
+      depositType: DepositType | null;
+      amountCents: number | null;
+      currency: string;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export interface CreateVenueGroupRequest {
+      name: string;
+      slug: string;
+      settings?: Record<string, unknown>;
+    }
+    export interface UpdateVenueGroupRequest {
+      name?: string;
+      slug?: string;
+      settings?: Record<string, unknown>;
+    }
+    export interface CreateVenueRequest {
+      venueGroupId?: string;
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode?: string;
+      operatingHours?: OperatingHours;
+      settings?: VenueSettings;
+    }
+    export interface UpdateVenueRequest {
+      venueGroupId?: string | null;
+      name?: string;
+      slug?: string;
+      ianaTimezone?: string;
+      currencyCode?: string;
+      operatingHours?: OperatingHours | null;
+      settings?: VenueSettings | null;
+    }
+    export interface PublicVenueDeposit {
+      enabled: boolean;
+      depositType: DepositType | null;
+      amountCents: number | null;
+      freeCancellationHours: number | null;
+      lateCancellationFeePercent: number | null;
+      noShowFeePercent: number | null;
+    }
+    export interface PublicVenueSettings {
+      defaultReservationDuration?: number;
+      maxPartySize?: number;
+      maxAdvanceBooking?: number;
+      slotIntervalMinutes?: number;
+    }
+    export interface PublicVenueConfig {
+      name: string;
+      slug: string;
+      ianaTimezone: string;
+      currencyCode: string;
+      operatingHours: OperatingHours | null;
+      settings: PublicVenueSettings;
+      deposit: PublicVenueDeposit;
+    }
+    export interface CreateDepositPaymentIntentRequest {
+      reservationId: string;
+      guestEmail?: string;
+      guestName?: string;
+    }
+    export interface DepositPaymentIntent {
+      clientSecret: string;
+      depositId: string;
+      amountCents: number;
+      currency: string;
     }
   </file>
   <file path="src/waitlist.ts">
@@ -425,6 +1767,28 @@
     export interface WaitlistJoinResult {
       position: number;
       estimatedWaitMinutes: number;
+    }
+    export type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
+    export interface WaitlistEntry {
+      id: string;
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      position: number;
+      estimatedWaitMinutes: number;
+      status: WaitlistStatus;
+      notifiedAt: string | null;
+      expiresAt: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+    export interface CreateWaitlistEntryRequest {
+      venueId: string;
+      partySize: number;
+      guestName: string;
+      guestPhone: string;
+      avgTurnTimeMinutes?: number;
     }
   </file>
   </section>

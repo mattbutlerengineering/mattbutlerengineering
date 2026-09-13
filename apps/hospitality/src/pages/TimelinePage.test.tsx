@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TimelinePage } from "./TimelinePage.js";
 import { useVenue } from "../contexts/VenueContext.js";
@@ -30,7 +33,12 @@ vi.mock("../hooks/useReservations.js", () => ({
 vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn(), TABLES_QUERY_KEY: "tables" }));
 
 vi.mock("../components/PageHeader", () => ({
-  PageHeader: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
+  // tabIndex={-1} like the real one: useFocusAfter's pageHeading target lands here after Retry.
+  PageHeader: ({ title }: { title: string }) => (
+    <div data-testid="page-header">
+      <h1 tabIndex={-1}>{title}</h1>
+    </div>
+  ),
 }));
 
 vi.mock("../components/timeline", () => ({
@@ -39,19 +47,54 @@ vi.mock("../components/timeline", () => ({
     reservations,
     onReservationClick,
     onTableStatusChange,
+    selectedReservationId,
+    seatedIds,
+    bottomInset,
+    emptyNight,
+    pendingTableId,
   }: {
     tables?: Table[];
     reservations?: Reservation[];
     onReservationClick?: (r: Reservation) => void;
     onTableStatusChange?: (id: string, status: string) => void;
+    selectedReservationId?: string | null;
+    seatedIds?: ReadonlySet<string>;
+    bottomInset?: number;
+    emptyNight?: {
+      variant: "today" | "otherDate";
+      dateLabel: string;
+      onWalkIn: () => void;
+      onToday: () => void;
+    } | null;
+    pendingTableId?: string | null;
   }) => (
     <div data-testid="timeline-grid">
       <span data-testid="table-count">{tables?.length ?? 0}</span>
       <span data-testid="res-count">{reservations?.length ?? 0}</span>
+      {/* Item 16's grid props, echoed so the page's derivations can be asserted. */}
+      <span data-testid="seated-ids">{[...(seatedIds ?? [])].join(",")}</span>
+      <span data-testid="bottom-inset">{bottomInset ?? ""}</span>
+      <span data-testid="pending-table-id">{pendingTableId ?? ""}</span>
+      {emptyNight && (
+        <div data-testid="timeline-empty-night" data-variant={emptyNight.variant}>
+          {emptyNight.dateLabel}
+          <button onClick={emptyNight.onWalkIn}>Walk-in (quiet night)</button>
+          <button onClick={emptyNight.onToday}>Back to today</button>
+        </div>
+      )}
       {reservations?.map((r) => (
-        <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
-          {r.guestName}
-        </button>
+        <React.Fragment key={r.id}>
+          <button data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
+            {r.guestName}
+          </button>
+          {/* The real block's test id and pressed state: the page's focus and selection targets. */}
+          <button
+            data-testid={`reservation-block-${r.id}`}
+            aria-pressed={selectedReservationId === r.id}
+          >
+            block {r.id}
+          </button>
+        </React.Fragment>
       ))}
       {tables?.map((t) => (
         <button
@@ -79,86 +122,135 @@ vi.mock("../components/timeline", () => ({
       ))}
     </div>
   ),
-}));
-
-vi.mock("../components/timeline/CancelReservationDialog", () => ({
-  CancelReservationDialog: ({
-    onConfirm,
-    onClose,
-  }: {
-    onConfirm: (reason: string, note: string) => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="cancel-dialog">
-      <button data-testid="cancel-confirm" onClick={() => onConfirm("no_show", "test note")}>
-        Confirm Cancel
-      </button>
-      <button data-testid="cancel-close" onClick={onClose}>
-        Close Cancel
-      </button>
-    </div>
+  ReservationDetails: ({ reservation }: { reservation: Reservation }) => (
+    <div data-testid="reservation-details">{reservation.guestName}</div>
   ),
+  ReservationSheet: ({ reservation, open }: { reservation: Reservation; open: boolean }) =>
+    open ? <div data-testid="reservation-sheet">{reservation.guestName}</div> : null,
+  TimelineSkeleton: () => <div data-testid="timeline-skeleton" />,
 }));
 
-vi.mock("../components/timeline/EditReservationDrawer", () => ({
-  EditReservationDrawer: ({
-    reservation,
-    onSave,
-    onClose,
-  }: {
-    reservation: Reservation;
-    onSave: (id: string, data: Partial<Reservation>) => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="edit-drawer">
-      <span data-testid="edit-guest">{reservation.guestName}</span>
-      <button data-testid="edit-save" onClick={() => onSave(reservation.id, { partySize: 6 })}>
-        Save
-      </button>
-      <button data-testid="edit-close" onClick={onClose}>
-        Close Edit
-      </button>
-    </div>
-  ),
-}));
+// The dialog stand-ins honour the rethrow contract (architecture § Dialog contracts): like the
+// real dialogs they consume the promise the page hands back, reporting its outcome so the page's
+// rethrow can be asserted — and so a rejection never escapes as an unhandled error.
+vi.mock("../components/timeline/CancelReservationDialog", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    CancelReservationDialog: ({
+      onConfirm,
+      onClose,
+    }: {
+      onConfirm: (reason: string, note: string) => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="cancel-dialog">
+          <button
+            data-testid="cancel-confirm"
+            onClick={() =>
+              onConfirm("no_show", "test note").then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Confirm Cancel
+          </button>
+          <span data-testid="cancel-outcome">{outcome}</span>
+          <button data-testid="cancel-close" onClick={onClose}>
+            Close Cancel
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
-vi.mock("../components/timeline/WalkInDialog", () => ({
-  WalkInDialog: ({
-    tables,
-    venueId,
-    onConfirm,
-    onClose,
-  }: {
-    tables?: Table[];
-    venueId?: string;
-    onConfirm: (data: {
-      partySize: number;
-      tableId: string;
+vi.mock("../components/timeline/EditReservationDrawer", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    EditReservationDrawer: ({
+      reservation,
+      onSave,
+      onClose,
+    }: {
+      reservation: Reservation;
+      onSave: (id: string, data: Partial<Reservation>) => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="edit-drawer">
+          <span data-testid="edit-guest">{reservation.guestName}</span>
+          <button
+            data-testid="edit-save"
+            onClick={() =>
+              onSave(reservation.id, { partySize: 6 }).then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Save
+          </button>
+          <span data-testid="edit-outcome">{outcome}</span>
+          <button data-testid="edit-close" onClick={onClose}>
+            Close Edit
+          </button>
+        </div>
+      );
+    },
+  };
+});
+
+vi.mock("../components/timeline/WalkInDialog", async () => {
+  const { useState } = await vi.importActual<typeof React>("react");
+  return {
+    WalkInDialog: ({
+      tables,
+      venueId,
+      onConfirm,
+      onClose,
+    }: {
+      tables?: Table[];
       venueId?: string;
-      guestName: string;
-    }) => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="walkin-dialog">
-      <button
-        data-testid="walkin-confirm"
-        onClick={() =>
-          onConfirm({
-            partySize: 2,
-            tableId: tables?.[0]?.id ?? "t1",
-            venueId,
-            guestName: "Walk-in Guest",
-          })
-        }
-      >
-        Confirm Walk-in
-      </button>
-      <button data-testid="walkin-close" onClick={onClose}>
-        Close Walk-in
-      </button>
-    </div>
-  ),
-}));
+      onConfirm: (data: {
+        partySize: number;
+        tableId: string;
+        venueId?: string;
+        guestName: string;
+      }) => Promise<void>;
+      onClose: () => void;
+    }) => {
+      const [outcome, setOutcome] = useState("");
+      return (
+        <div data-testid="walkin-dialog">
+          <button
+            data-testid="walkin-confirm"
+            onClick={() =>
+              onConfirm({
+                partySize: 2,
+                tableId: tables?.[0]?.id ?? "t1",
+                venueId,
+                guestName: "Walk-in Guest",
+              }).then(
+                () => setOutcome("resolved"),
+                () => setOutcome("rejected")
+              )
+            }
+          >
+            Confirm Walk-in
+          </button>
+          <span data-testid="walkin-outcome">{outcome}</span>
+          <button data-testid="walkin-close" onClick={onClose}>
+            Close Walk-in
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Drawer: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
@@ -167,16 +259,103 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     children,
     onClick,
     disabled,
+    ref,
+    variant,
+    size,
     ...rest
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     disabled?: boolean;
+    ref?: React.Ref<HTMLButtonElement>;
+    variant?: string;
+    size?: string;
     "aria-label"?: string;
+    "aria-describedby"?: string;
   }) => (
-    <button onClick={onClick} disabled={disabled} aria-label={rest["aria-label"]}>
+    <button
+      ref={ref}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={rest["aria-label"]}
+      aria-describedby={rest["aria-describedby"]}
+      data-variant={variant}
+      data-size={size}
+    >
       {children}
     </button>
+  ),
+  IconButton: ({
+    icon,
+    onClick,
+    variant,
+    size,
+    ...rest
+  }: {
+    icon: React.ReactNode;
+    onClick?: () => void;
+    variant?: string;
+    size?: string;
+    "aria-label": string;
+  }) => (
+    <button
+      onClick={onClick}
+      aria-label={rest["aria-label"]}
+      data-variant={variant}
+      data-size={size}
+    >
+      {icon}
+    </button>
+  ),
+  EmptyState: ({
+    heading,
+    description,
+    action,
+  }: {
+    heading?: string;
+    description?: string;
+    action?: React.ReactNode;
+  }) => (
+    <div data-testid="empty-state">
+      <h2>{heading}</h2>
+      {description && <p>{description}</p>}
+      {action}
+    </div>
+  ),
+  Alert: ({
+    title,
+    children,
+    actions,
+    dismissible,
+    onDismiss,
+  }: {
+    title?: string;
+    children: React.ReactNode;
+    actions?: React.ReactNode;
+    dismissible?: boolean;
+    onDismiss?: () => void;
+  }) => (
+    <div role="alert">
+      {title && <p>{title}</p>}
+      {children}
+      {actions}
+      {dismissible && <button onClick={onDismiss}>Dismiss</button>}
+    </div>
+  ),
+  Collapsible: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Stat: ({
+    label,
+    value,
+    ...rest
+  }: {
+    label: string;
+    value: React.ReactNode;
+    "aria-label"?: string;
+  }) => (
+    <div role="group" aria-label={rest["aria-label"] ?? label}>
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
   ),
   Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Text: ({ children, className }: { children: React.ReactNode; className?: string }) => (
@@ -199,7 +378,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Divider: () => <hr />,
 }));
 
-// Mock matchMedia for useIsMobile hook
+// Mock matchMedia for useViewport (desktop by default: no query matches)
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query: string) => ({
@@ -277,6 +456,14 @@ function makeTable(overrides: Partial<Table> = {}): Table {
   };
 }
 
+/** What `createWalkIn` resolves to by default: the record the page selects, speaks about and focuses. */
+const WALK_IN_RESERVATION = makeReservation({
+  id: "r-walkin",
+  guestName: "Walk-in Guest",
+  partySize: 2,
+  tableId: "t1",
+});
+
 function makeTimelineData(overrides: Partial<UseTimelineDataResult> = {}): UseTimelineDataResult {
   const todayStr = new Date().toLocaleDateString("en-CA");
   const defaultReservation = makeReservation({ date: todayStr });
@@ -289,10 +476,11 @@ function makeTimelineData(overrides: Partial<UseTimelineDataResult> = {}): UseTi
     stats: { confirmed: 1, pending: 0, totalCovers: 4, total: 1 },
     isFromCache: false,
     lastSyncedAt: undefined,
+    refetch: vi.fn().mockResolvedValue(undefined),
     seatGuest: vi.fn().mockResolvedValue(defaultReservation),
     cancelReservation: vi.fn().mockResolvedValue(undefined),
     updateReservation: vi.fn().mockResolvedValue(defaultReservation),
-    createWalkIn: vi.fn().mockResolvedValue(undefined),
+    createWalkIn: vi.fn().mockResolvedValue(WALK_IN_RESERVATION),
     updateTableStatus: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -306,11 +494,18 @@ describe("TimelinePage", () => {
     defaultOptions: { queries: { retry: false } },
   });
 
-  const renderPage = () =>
+  // Renders the router's current search string so a stripped intent can be asserted.
+  function LocationProbe() {
+    const { search } = useLocation();
+    return <span data-testid="location-search">{search}</span>;
+  }
+
+  const renderPage = (initialEntries: string[] = ["/timeline"]) =>
     render(
       <QueryClientProvider client={testQueryClient}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
           <TimelinePage />
+          <LocationProbe />
         </MemoryRouter>
       </QueryClientProvider>
     );
@@ -397,12 +592,14 @@ describe("TimelinePage", () => {
     expect(screen.getByLabelText("Next day")).toBeDefined();
   });
 
-  it("shows stats when data is loaded", async () => {
+  it("shows the four KpiStats with their values once data is loaded (item 15 rewrite of the stats row)", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText(/Reservations:/)).toBeDefined();
+      expect(screen.getByRole("group", { name: "Reservations" })).toHaveTextContent("1");
     });
-    expect(screen.getByText(/Covers:/)).toBeDefined();
+    expect(screen.getByRole("group", { name: "Covers" })).toHaveTextContent("4");
+    expect(screen.getByRole("group", { name: "Confirmed" })).toHaveTextContent("1");
+    expect(screen.getByRole("group", { name: "Pending" })).toHaveTextContent("0");
   });
 
   it("shows live connection indicator", async () => {
@@ -571,10 +768,26 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("does not show Seat Guest button for non-CONFIRMED reservations", async () => {
+    it("shows Seat Guest for a PENDING reservation on a free table (item 13 rule)", async () => {
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({
           reservations: [{ ...defaultReservation, status: "PENDING" as const }],
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Seat Guest")).toBeDefined();
+      });
+    });
+
+    it("does not show Seat Guest button for a reservation that is neither PENDING nor CONFIRMED", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [{ ...defaultReservation, status: "COMPLETED" as const }],
         })
       );
       renderPage();
@@ -625,7 +838,7 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("sets error when seatGuest fails", async () => {
+    it("lets the panel own a failed seat — 'Guest not seated.' inside it, the grid still mounted (item 15 rewrite: no page error state)", async () => {
       const seatGuest = vi.fn().mockRejectedValue(new Error("Seat failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ seatGuest }));
 
@@ -639,9 +852,11 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByText("Seat Guest"));
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
+        expect(screen.getByRole("alert")).toHaveTextContent("Guest not seated.");
       });
-      expect(screen.getByText("Seat failed")).toBeDefined();
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      expect(screen.getByText("Reservation Details")).toBeDefined();
     });
   });
 
@@ -691,7 +906,32 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("sets error when cancelReservation fails", async () => {
+    it("rethrows a failed cancel so the dialog owns the failure (item 12 bridge)", async () => {
+      const cancelReservation = vi.fn().mockRejectedValue(new Error("Cancel failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Cancel Reservation")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Cancel Reservation"));
+      await waitFor(() => {
+        expect(screen.getByTestId("cancel-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("cancel-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("cancel-outcome")).toHaveTextContent("rejected");
+      });
+      // The dialog stays mounted for its own banner; the page has not closed it.
+      expect(screen.getByTestId("cancel-dialog")).toBeDefined();
+    });
+
+    it("leaves the grid mounted and shows no page-level alert when cancel fails (item 15 rewrite: no page error state)", async () => {
       const cancelReservation = vi.fn().mockRejectedValue(new Error("Cancel failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
 
@@ -709,9 +949,11 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("cancel-confirm"));
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
+        expect(screen.getByTestId("cancel-outcome")).toHaveTextContent("rejected");
       });
-      expect(screen.getByText("Cancel failed")).toBeDefined();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      expect(screen.getByRole("status")).toHaveTextContent("");
     });
   });
 
@@ -781,7 +1023,31 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("sets error when updateReservation fails", async () => {
+    it("rethrows a failed edit so the drawer owns the failure (item 12 bridge)", async () => {
+      const updateReservation = vi.fn().mockRejectedValue(new Error("Update failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("res-r1")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("res-r1"));
+      await waitFor(() => {
+        expect(screen.getByText("Edit Reservation")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Edit Reservation"));
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-drawer")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("edit-save"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("edit-outcome")).toHaveTextContent("rejected");
+      });
+      expect(screen.getByTestId("edit-drawer")).toBeDefined();
+    });
+
+    it("leaves the grid mounted and shows no page-level alert when edit fails (item 15 rewrite: no page error state)", async () => {
       const updateReservation = vi.fn().mockRejectedValue(new Error("Update failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateReservation }));
 
@@ -799,15 +1065,17 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("edit-save"));
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
+        expect(screen.getByTestId("edit-outcome")).toHaveTextContent("rejected");
       });
-      expect(screen.getByText("Update failed")).toBeDefined();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      expect(screen.getByRole("status")).toHaveTextContent("");
     });
   });
 
   describe("walk-in flow", () => {
     it("calls createWalkIn from useTimelineData", async () => {
-      const createWalkIn = vi.fn().mockResolvedValue(undefined);
+      const createWalkIn = vi.fn().mockResolvedValue(WALK_IN_RESERVATION);
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({ reservations: [], createWalkIn })
       );
@@ -829,7 +1097,7 @@ describe("TimelinePage", () => {
     });
 
     it("closes walk-in dialog after a successful create", async () => {
-      const createWalkIn = vi.fn().mockResolvedValue(undefined);
+      const createWalkIn = vi.fn().mockResolvedValue(WALK_IN_RESERVATION);
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({ reservations: [], createWalkIn })
       );
@@ -848,7 +1116,27 @@ describe("TimelinePage", () => {
       });
     });
 
-    it("sets error when createWalkIn fails", async () => {
+    it("rethrows a failed walk-in so the dialog owns the failure (item 12 bridge)", async () => {
+      const createWalkIn = vi.fn().mockRejectedValue(new Error("Walk-in failed"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ createWalkIn }));
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Walk-in")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Walk-in"));
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("walkin-confirm"));
+
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-outcome")).toHaveTextContent("rejected");
+      });
+      expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+    });
+
+    it("leaves timeline-grid mounted and shows no page-level alert when the walk-in is rejected (item 15 rewrite: no page error state)", async () => {
       const createWalkIn = vi.fn().mockRejectedValue(new Error("Walk-in failed"));
       vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ createWalkIn }));
 
@@ -862,9 +1150,12 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("walkin-confirm"));
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
+        expect(screen.getByTestId("walkin-outcome")).toHaveTextContent("rejected");
       });
-      expect(screen.getByText("Walk-in failed")).toBeDefined();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      expect(screen.getByTestId("res-count")).toHaveTextContent("1");
+      expect(screen.getByRole("status")).toHaveTextContent("");
     });
 
     it("closes walk-in dialog without creating", async () => {
@@ -914,8 +1205,205 @@ describe("TimelinePage", () => {
       });
       fireEvent.click(screen.getByTestId("table-status-t1"));
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
+        expect(screen.getByRole("alert")).toHaveTextContent("Table status not changed.");
       });
+      // The 409's own sentence is never the surface text — it sits in the details block.
+      expect(screen.getByRole("alert")).toHaveTextContent(/Invalid table transition/);
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+    });
+
+    it("marks the table pending while the change is in flight, then clears it (item 16)", async () => {
+      let settle: () => void = () => {};
+      const updateTableStatus = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            settle = resolve;
+          })
+      );
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      await waitFor(() => {
+        expect(screen.getByTestId("pending-table-id")).toHaveTextContent("t1");
+      });
+
+      await act(async () => settle());
+      await waitFor(() => {
+        expect(screen.getByTestId("pending-table-id")).toHaveTextContent("");
+      });
+    });
+
+    it("announces 'Table 1 is now occupied.' and focuses the trigger on success (item 16)", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent("Table 1 is now occupied.");
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("table-status-t1"));
+      });
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("on failure: clears pending, focuses the trigger, and Retry re-sends the same transition (item 16)", async () => {
+      const updateTableStatus = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Invalid table transition"))
+        .mockResolvedValueOnce(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      const alert = await waitFor(() => screen.getByRole("alert"));
+      expect(alert).toHaveTextContent("Table status not changed.");
+      expect(screen.getByTestId("pending-table-id")).toHaveTextContent("");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("table-status-t1"));
+      });
+
+      fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+      await waitFor(() => {
+        expect(updateTableStatus).toHaveBeenCalledTimes(2);
+      });
+      expect(updateTableStatus).toHaveBeenNthCalledWith(1, "t1", "OCCUPIED");
+      expect(updateTableStatus).toHaveBeenNthCalledWith(2, "t1", "OCCUPIED");
+      await waitFor(() => {
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Table 1 is now occupied.");
+    });
+
+    it("the failure banner is dismissible (item 16)", async () => {
+      const updateTableStatus = vi.fn().mockRejectedValue(new Error("nope"));
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ updateTableStatus }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("table-status-t1")));
+      const alert = await waitFor(() => screen.getByRole("alert"));
+      fireEvent.click(within(alert).getByRole("button", { name: "Dismiss" }));
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+    });
+  });
+
+  describe("grid props (item 16)", () => {
+    it("passes the derived seated set to the grid", async () => {
+      const now = Date.now();
+      const iso = (ms: number) => new Date(ms).toISOString();
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [
+            makeReservation({
+              status: "CONFIRMED",
+              startTime: iso(now - 30 * 60_000),
+              endTime: iso(now + 90 * 60_000),
+            }),
+          ],
+          tables: [makeTable({ status: "OCCUPIED" })],
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("seated-ids")).toHaveTextContent("r1");
+      });
+    });
+
+    it("tonight with tables and zero reservations: the quiet night, and its Walk-in opens the dialog", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage();
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      expect(quiet).toHaveAttribute("data-variant", "today");
+      expect(quiet).toHaveTextContent(
+        new Date(`${todayStr}T00:00:00`).toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "short",
+          day: "numeric",
+        })
+      );
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+
+      fireEvent.click(within(quiet).getByRole("button", { name: "Walk-in (quiet night)" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+    });
+
+    it("another date with zero reservations: the other-date variant, and Back to today returns to today", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage(["/timeline?date=2026-05-20"]);
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      expect(quiet).toHaveAttribute("data-variant", "otherDate");
+      expect(quiet).toHaveTextContent("Wednesday, May 20");
+
+      fireEvent.click(within(quiet).getByRole("button", { name: "Back to today" }));
+      await waitFor(() => {
+        expect(screen.getByTestId("location-search")).toHaveTextContent(`date=${todayStr}`);
+      });
+    });
+
+    it("no quiet night when the reservations fetch failed — an empty grid is not an empty book", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [], fetchError: new Error("500") })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.queryByTestId("timeline-empty-night")).toBeNull();
+    });
+
+    it("no quiet night while reservations exist", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.queryByTestId("timeline-empty-night")).toBeNull();
+    });
+
+    it("reserves the sheet's height as the grid's bottom inset on tablet with a selection, nothing on desktop", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
+      const { unmount } = renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => {
+        expect(screen.getByText("Reservation Details")).toBeDefined();
+      });
+      expect(screen.getByTestId("bottom-inset")).toHaveTextContent("");
+      unmount();
+
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        matches: query === "(max-width: 1024px)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      try {
+        renderPage();
+        expect(screen.getByTestId("bottom-inset")).toHaveTextContent("");
+        fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+        await waitFor(() => {
+          expect(screen.getByTestId("reservation-sheet")).toBeDefined();
+        });
+        expect(screen.getByTestId("bottom-inset")).toHaveTextContent("240");
+      } finally {
+        vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+          matches: false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        }));
+      }
     });
   });
 
@@ -967,7 +1455,7 @@ describe("TimelinePage", () => {
   });
 
   describe("error and empty states", () => {
-    it("shows error message when data fetch fails", async () => {
+    it("shows the load banner beside a grid that stays mounted when the fetch fails with tables present (item 15 rewrite: load axis)", async () => {
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({
           fetchError: new Error("Network error"),
@@ -976,19 +1464,113 @@ describe("TimelinePage", () => {
       );
       renderPage();
       await waitFor(() => {
-        expect(screen.getByRole("alert")).toBeDefined();
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Couldn't load tonight's reservations."
+        );
       });
+      // The raw request line is demoted to the details block, never the sentence.
       expect(screen.getByText("Network error")).toBeDefined();
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      expect(screen.getByRole("button", { name: "Retry" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "Walk-in" })).toBeEnabled();
     });
 
-    it("shows empty state when no tables exist", async () => {
+    it("shows the 'Couldn't load tonight.' empty state with Retry, Walk-in disabled with its caption and stats '—' when nothing loaded", async () => {
+      const refetch = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          fetchError: new Error("Network error"),
+          reservations: [],
+          tables: [],
+          refetch,
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: "Couldn't load tonight." })).toBeDefined();
+      });
+      expect(screen.queryByTestId("timeline-grid")).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      const walkIn = screen.getByRole("button", { name: "Walk-in" });
+      expect(walkIn).toBeDisabled();
+      expect(screen.getByText("Walk-ins need the tables loaded — Retry above.")).toBeDefined();
+      expect(screen.getAllByText("—")).toHaveLength(4);
+      expect(screen.getByRole("group", { name: "Reservations, unavailable" })).toBeDefined();
+
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      await waitFor(() => {
+        expect(refetch).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("speaks and focuses the page heading after a Retry that resolves", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          fetchError: new Error("Network error"),
+          reservations: [],
+          tables: [],
+        })
+      );
+      renderPage();
+      const retry = await waitFor(() => screen.getByRole("button", { name: "Retry" }));
+      fireEvent.click(retry);
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent("Tonight's grid loaded.");
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByRole("heading", { level: 1 }));
+      });
+    });
+
+    it("stays silent after a Retry that rejects — the load surface is the failure's voice", async () => {
+      const refetch = vi.fn().mockRejectedValue(new Error("Still down"));
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          fetchError: new Error("Network error"),
+          reservations: [],
+          tables: [],
+          refetch,
+        })
+      );
+      renderPage();
+      const retry = await waitFor(() => screen.getByRole("button", { name: "Retry" }));
+      fireEvent.click(retry);
+      await waitFor(() => {
+        expect(refetch).toHaveBeenCalledTimes(1);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("");
+      expect(screen.getByRole("heading", { name: "Couldn't load tonight." })).toBeDefined();
+    });
+
+    it("shows the skeleton and four '—' stats while loading, never a grid or a zero", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          isLoading: true,
+          reservations: [],
+          tables: [],
+          stats: { confirmed: 0, pending: 0, totalCovers: 0, total: 0 },
+        })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-skeleton")).toBeDefined();
+      });
+      expect(screen.queryByTestId("timeline-grid")).toBeNull();
+      expect(screen.queryByRole("heading", { name: "No tables yet." })).toBeNull();
+      expect(screen.getAllByText("—")).toHaveLength(4);
+      expect(screen.queryByText("0")).toBeNull();
+    });
+
+    it("shows 'No tables yet.' when no tables exist (item 15 rewrite: ux.md Screen 7 copy)", async () => {
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({ reservations: [], tables: [] })
       );
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText("No tables configured for this venue.")).toBeDefined();
+        expect(screen.getByRole("heading", { name: "No tables yet." })).toBeDefined();
       });
+      expect(screen.getByText("Set up a floor plan and the grid fills in.")).toBeDefined();
+      expect(screen.queryByTestId("timeline-grid")).toBeNull();
     });
 
     it("links the empty-state hint to the Floor Plans page instead of leaving it as inert text", async () => {
@@ -1017,7 +1599,7 @@ describe("TimelinePage", () => {
   });
 
   describe("stats display", () => {
-    it("shows pending count when there are pending reservations", async () => {
+    it("shows the pending count in its KpiStat (item 15 rewrite: four KpiStats, always)", async () => {
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({
           stats: { confirmed: 1, pending: 1, totalCovers: 6, total: 2 },
@@ -1025,16 +1607,18 @@ describe("TimelinePage", () => {
       );
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText("pending")).toBeDefined();
+        expect(screen.getByRole("group", { name: "Pending" })).toHaveTextContent("1");
       });
+      expect(screen.getByRole("group", { name: "Reservations" })).toHaveTextContent("2");
     });
 
-    it("does not show pending section when no pending reservations", async () => {
+    it("keeps the Pending KpiStat at 0 when nothing is pending — the row's layout never changes (item 15 rewrite)", async () => {
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText("confirmed")).toBeDefined();
+        expect(screen.getByRole("group", { name: "Confirmed" })).toHaveTextContent("1");
       });
-      expect(screen.queryByText("pending")).toBeNull();
+      expect(screen.getByRole("group", { name: "Pending" })).toHaveTextContent("0");
+      expect(screen.getAllByRole("group")).toHaveLength(4);
     });
   });
 
@@ -1127,6 +1711,299 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(seatGuest).toHaveBeenCalledWith(expect.objectContaining({ id: "r1" }));
       });
+    });
+  });
+
+  // ── Item 15 (#5034): the orchestrator's contract ─────────────────────────────
+
+  describe("URL intent (item 15)", () => {
+    it("opens the walk-in dialog from /timeline?walkin=true and strips the param on close", async () => {
+      renderPage(["/timeline?walkin=true"]);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      expect(screen.getByTestId("location-search")).toHaveTextContent("?walkin=true");
+
+      fireEvent.click(screen.getByTestId("walkin-close"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("walkin-dialog")).toBeNull();
+      });
+      expect(screen.getByTestId("location-search")).not.toHaveTextContent("walkin");
+    });
+
+    it("keeps date while stripping the intent after a walk-in created from the URL", async () => {
+      renderPage(["/timeline?date=2026-05-10&walkin=true"]);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      fireEvent.click(screen.getByTestId("walkin-confirm"));
+      await waitFor(() => {
+        expect(screen.queryByTestId("walkin-dialog")).toBeNull();
+      });
+      expect(screen.getByTestId("location-search")).toHaveTextContent("?date=2026-05-10");
+      expect(screen.getByTestId("location-search")).not.toHaveTextContent("walkin");
+    });
+
+    it("holds the URL-opened dialog back while the grid is still loading", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ isLoading: true, reservations: [], tables: [] })
+      );
+      renderPage(["/timeline?walkin=true"]);
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-skeleton")).toBeDefined();
+      });
+      expect(screen.queryByTestId("walkin-dialog")).toBeNull();
+    });
+
+    it("returns focus to the Walk-in button when a URL-opened dialog closes (Escape has no opener to restore)", async () => {
+      renderPage(["/timeline?walkin=true"]);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      expect(document.activeElement).toBe(document.body);
+
+      fireEvent.click(screen.getByTestId("walkin-close"));
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByRole("button", { name: "Walk-in" }));
+      });
+    });
+
+    it("selects the reservation named by selected=<id> and strips the param when the details close", async () => {
+      renderPage(["/timeline?selected=r1"]);
+      await waitFor(() => {
+        expect(screen.getByText("Reservation Details")).toBeDefined();
+      });
+      expect(screen.getByTestId("reservation-block-r1")).toHaveAttribute("aria-pressed", "true");
+
+      fireEvent.click(screen.getByLabelText("Close reservation details"));
+      await waitFor(() => {
+        expect(screen.queryByText("Reservation Details")).toBeNull();
+      });
+      expect(screen.getByTestId("reservation-block-r1")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByTestId("location-search")).not.toHaveTextContent("selected");
+    });
+
+    it("ignores a selected=<id> that names no reservation on this date", async () => {
+      renderPage(["/timeline?selected=nope"]);
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.queryByText("Reservation Details")).toBeNull();
+    });
+  });
+
+  describe("mutation outcomes: one sentence, one focus target (item 15)", () => {
+    it("mounts the page's single live region empty from the first render", async () => {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      });
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(screen.getByRole("status")).toHaveTextContent("");
+    });
+
+    it("walk-in success: selects the new block, names the table in one sentence and focuses the block", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [defaultReservation, WALK_IN_RESERVATION] })
+      );
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Walk-in")).toBeDefined();
+      });
+      fireEvent.click(screen.getByText("Walk-in"));
+      fireEvent.click(await waitFor(() => screen.getByTestId("walkin-confirm")));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("walkin-dialog")).toBeNull();
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Seated Walk-in Guest, party of 2, at Table 1."
+      );
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      const block = screen.getByTestId("reservation-block-r-walkin");
+      expect(block).toHaveAttribute("aria-pressed", "true");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(block);
+      });
+      // The sidebar follows the id: the panel now describes the walk-in.
+      expect(screen.getByText("Reservation Details")).toBeDefined();
+      expect(screen.getAllByText("Walk-in Guest").length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("walk-in success without a guest name speaks 'Seated a walk-in, …'", async () => {
+      const anonymous = { ...WALK_IN_RESERVATION, guestName: "" };
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ createWalkIn: vi.fn().mockResolvedValue(anonymous) })
+      );
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByText("Walk-in")));
+      fireEvent.click(await waitFor(() => screen.getByTestId("walkin-confirm")));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "Seated a walk-in, party of 2, at Table 1."
+        );
+      });
+    });
+
+    it("seat success: one sentence naming guest and table, focus on the block, selection kept", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      fireEvent.click(await waitFor(() => screen.getByText("Seat Guest")));
+      await waitFor(() => {
+        expect(screen.getByRole("status")).toHaveTextContent("Seated Alice at Table 1.");
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+      });
+      expect(screen.getByText("Reservation Details")).toBeDefined();
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+    });
+
+    it("cancel success: clears the selection, speaks once and focuses the block", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      fireEvent.click(await waitFor(() => screen.getByText("Cancel Reservation")));
+      fireEvent.click(await waitFor(() => screen.getByTestId("cancel-confirm")));
+      await waitFor(() => {
+        expect(screen.queryByTestId("cancel-dialog")).toBeNull();
+      });
+      expect(screen.queryByText("Reservation Details")).toBeNull();
+      expect(screen.getByTestId("reservation-block-r1")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByRole("status")).toHaveTextContent("Cancelled Alice's reservation.");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+      });
+    });
+
+    it("edit success: speaks once and returns focus to the Edit button that opened the drawer", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      const edit = await waitFor(() => screen.getByText("Edit Reservation"));
+      edit.focus();
+      fireEvent.click(edit);
+      fireEvent.click(await waitFor(() => screen.getByTestId("edit-save")));
+      await waitFor(() => {
+        expect(screen.queryByTestId("edit-drawer")).toBeNull();
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Saved changes to Alice's reservation.");
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByText("Edit Reservation"));
+      });
+      expect(screen.getByText("Reservation Details")).toBeDefined();
+    });
+  });
+
+  describe("seated is a fact about the floor (item 15)", () => {
+    it("hides Seat Guest and reads 'Seated' for a CONFIRMED party on an OCCUPIED table inside its slot", async () => {
+      const now = Date.now();
+      const iso = (ms: number) => new Date(ms).toISOString();
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [
+            makeReservation({
+              status: "CONFIRMED",
+              startTime: iso(now - 30 * 60_000),
+              endTime: iso(now + 90 * 60_000),
+            }),
+          ],
+          tables: [makeTable({ status: "OCCUPIED" })],
+        })
+      );
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => {
+        expect(screen.getByText("Seated")).toBeDefined();
+      });
+      expect(screen.queryByText("Seat Guest")).toBeNull();
+    });
+  });
+
+  describe("viewport composition (item 15)", () => {
+    afterEach(() => {
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+    });
+
+    it("tablet: grid plus the bottom sheet, no sidebar", async () => {
+      vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+        matches: query === "(max-width: 1024px)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => {
+        expect(screen.getByTestId("reservation-sheet")).toBeDefined();
+      });
+      expect(screen.getByTestId("timeline-grid")).toBeDefined();
+      expect(screen.queryByText("Reservation Details")).toBeNull();
+      expect(screen.queryByTestId("drawer")).toBeNull();
+    });
+
+    it("desktop: grid plus the Card sidebar, no sheet", async () => {
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      await waitFor(() => {
+        expect(screen.getByText("Reservation Details")).toBeDefined();
+      });
+      expect(screen.queryByTestId("reservation-sheet")).toBeNull();
+      expect(screen.queryByTestId("drawer")).toBeNull();
+    });
+  });
+
+  describe("header controls (item 15)", () => {
+    it("day arrows are md IconButtons, Today is secondary, Walk-in is primary — all size md", async () => {
+      renderPage(["/timeline?date=2026-01-01"]);
+      const previous = await waitFor(() => screen.getByLabelText("Previous day"));
+      expect(previous).toHaveAttribute("data-size", "md");
+      expect(screen.getByLabelText("Next day")).toHaveAttribute("data-size", "md");
+      const today = screen.getByRole("button", { name: "Today" });
+      expect(today).toHaveAttribute("data-variant", "secondary");
+      expect(today).toHaveAttribute("data-size", "md");
+      const walkIn = screen.getByRole("button", { name: "Walk-in" });
+      expect(walkIn).toHaveAttribute("data-variant", "primary");
+      expect(walkIn).toHaveAttribute("data-size", "md");
+    });
+  });
+  describe("module CSS (item 15)", () => {
+    const css = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "TimelinePage.module.css"),
+      "utf-8"
+    );
+
+    it("gives the day arrows, Today and Walk-in a 44 px minimum under the coarse-pointer / tablet query", () => {
+      const coarseBlock = css.match(
+        /@media \(pointer: coarse\), \(max-width: 1024px\) \{([\s\S]*?)\n\}/
+      );
+      expect(coarseBlock).not.toBeNull();
+      expect(coarseBlock?.[1]).toMatch(
+        /\.navButton,\s*\.todayButton,\s*\.walkInButton\s*\{[^}]*min-block-size:\s*44px/
+      );
+      expect(coarseBlock?.[1]).toMatch(
+        /\.navButton,\s*\.todayButton,\s*\.walkInButton\s*\{[^}]*min-inline-size:\s*44px/
+      );
+    });
+
+    it("hides the sidebar below 1025 px — the tablet band gets the sheet, not a squeezed column", () => {
+      const tabletBlock = css.match(/@media \(max-width: 1024px\) \{([\s\S]*?)\n\}/);
+      expect(tabletBlock).not.toBeNull();
+      expect(tabletBlock?.[1]).toMatch(/\.sidebar\s*\{[^}]*display:\s*none/);
+      // The phone block keeps its compact header rules; the sidebar rule no longer lives there.
+      const phoneBlock = css.match(/@media \(max-width: 768px\) \{([\s\S]*?)\n\}/);
+      expect(phoneBlock?.[1] ?? "").not.toMatch(/\.sidebar/);
     });
   });
 });

@@ -12,12 +12,12 @@ import {
   Text,
   Toggle,
 } from "@mattbutlerengineering/rialto";
-import { ApiClientError } from "@mbe/api-client";
 import type { UserPreferences } from "@mbe/types";
 import { useCurrentUser, useUpdatePreferences } from "../hooks/useUsers.js";
 import { useTheme } from "../hooks/use-theme";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import styles from "./SettingsPage.module.css";
 
 /* ── Constants ──────────────────────────────── */
@@ -140,14 +140,7 @@ export function SettingsPage() {
           setSuccessMessage(null);
         }, 3000);
       } catch (err) {
-        if (err instanceof ApiClientError) {
-          const detail = err.problemDetails.detail;
-          setError(`Failed to save settings: ${detail}`);
-        } else if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Failed to save settings");
-        }
+        setError(describeApiError(err).detail);
       } finally {
         setIsSaving(false);
       }
@@ -162,15 +155,14 @@ export function SettingsPage() {
 
   // Show error banner when user data fails to load
   if (loadError && !user) {
+    const loadFailure = describeApiError(loadError);
     return (
       <div>
         <PageHeader title="Settings" description="Manage your account settings and preferences" />
         <ErrorRetryBanner
-          error={
-            loadError instanceof ApiClientError
-              ? loadError.problemDetails.detail
-              : loadError.message
-          }
+          title="Couldn't load settings."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
           onRetry={refetch}
         />
       </div>

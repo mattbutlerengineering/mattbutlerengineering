@@ -2,6 +2,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AdminPage } from "./AdminPage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -63,8 +79,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+  ErrorRetryBanner: ({
+    title,
+    error,
+    onRetry,
+  }: {
+    title?: string;
+    error: string;
+    onRetry: () => void;
+  }) => (
     <div data-testid="error-retry-banner">
+      <strong>{title}</strong>
       <span>{error}</span>
       <button data-testid="retry-button" onClick={onRetry}>
         Retry
@@ -174,12 +199,14 @@ describe("AdminPage", () => {
   });
 
   it("shows ErrorRetryBanner when fetch fails", async () => {
-    mockApiClient.users.list.mockRejectedValue(new Error("Server error"));
+    mockApiClient.users.list.mockRejectedValue(serverError("GET", "/api/v1/users?page=1&limit=10"));
     renderPage();
     await waitFor(() => {
       expect(screen.getByTestId("error-retry-banner")).toBeDefined();
     });
-    expect(screen.getByText("Server error")).toBeDefined();
+    expect(screen.getByText("Couldn't load users.")).toBeDefined();
+    expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
   });
 
   it("retries fetch when retry button is clicked after error", async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import type { Venue } from "@mbe/types";
@@ -177,6 +177,23 @@ describe("VenueSwitcher", () => {
       expect(screen.getByRole("listbox")).toBeDefined();
       await userEvent.keyboard("{Escape}");
       expect(screen.queryByRole("listbox")).toBeNull();
+    });
+
+    it("returns keyboard focus to the trigger button on Escape (#5158)", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      const trigger = screen.getByRole("button", { name: /Current venue/ });
+      await userEvent.click(trigger);
+      await userEvent.keyboard("{Escape}");
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("returns keyboard focus to the trigger button on outside click (#5158)", async () => {
+      render(<VenueSwitcher onNavigate={onNavigate} />);
+      const trigger = screen.getByRole("button", { name: /Current venue/ });
+      await userEvent.click(trigger);
+      expect(screen.getByRole("listbox")).toBeDefined();
+      fireEvent.mouseDown(document.body);
+      expect(document.activeElement).toBe(trigger);
     });
 
     it("focuses the currently selected venue option when the dropdown opens", async () => {
