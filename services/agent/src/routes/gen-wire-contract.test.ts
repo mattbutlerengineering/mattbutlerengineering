@@ -32,17 +32,21 @@ vi.mock("@mbe/auth/fastify", () => ({
   requireOwnershipOrAdmin: vi.fn(() => vi.fn(async () => {})),
 }));
 
-vi.mock("../services/session.js", () => ({
-  sessionService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn(),
-    updateStatus: vi.fn(),
-    delete: vi.fn(),
-    addEvent: vi.fn(),
-    listEvents: vi.fn(),
-  },
-}));
+vi.mock("../services/session.js", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    sessionService: {
+      list: vi.fn(),
+      getById: vi.fn(),
+      create: vi.fn(),
+      updateStatus: vi.fn(),
+      delete: vi.fn(),
+      addEvent: vi.fn(),
+      listEvents: vi.fn(),
+    },
+  };
+});
 
 vi.mock("../services/session-executor.js", () => ({
   executeSession: vi.fn().mockResolvedValue(undefined),

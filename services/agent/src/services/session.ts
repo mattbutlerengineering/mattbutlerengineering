@@ -54,6 +54,14 @@ interface ListOptions {
   readonly userId?: string;
 }
 
+/**
+ * Page size for listEvents' afterId-cursor pagination. Exported so the SSE
+ * catch-up route (session-events.ts) can detect a short (final) page without
+ * hardcoding a copy of this value — a duplicated literal previously drifted
+ * silently from this one and reintroduced #5010 (dropped catch-up history).
+ */
+export const EVENTS_PAGE_SIZE = 100;
+
 export const sessionService = {
   async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
     const { page, limit, status, userId } = options;
@@ -229,7 +237,7 @@ export const sessionService = {
     const events = await prisma.sessionEvent.findMany({
       where,
       orderBy: { createdAt: "asc" },
-      take: 100,
+      take: EVENTS_PAGE_SIZE,
     });
 
     return events.map(mapPrismaEvent);
