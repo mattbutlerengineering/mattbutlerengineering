@@ -4183,6 +4183,14 @@
        * null until the fetch resolves, or if `venueSlug` was never provided.
        */
       venueConfig: PublicVenueConfig | null;
+      /**
+       * The guest details form's fields, lifted here (not owned by
+       * `GuestDetailsForm`'s local state) so `EXPIRE_HOLD` doesn't wipe what the
+       * guest already typed — the form unmounts when the step falls back to
+       * "time-slot", but this survives and re-seeds the form once a new hold
+       * succeeds.
+       */
+      guestDetails: GuestDetails;
     }
     interface BookingFlowState {
       step: BookingStep;
@@ -4210,7 +4218,8 @@
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
       | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
       | { type: "GO_TO_WAITLIST_JOIN" }
-      | { type: "WAITLIST_JOINED"; result: WaitlistResult };
+      | { type: "WAITLIST_JOINED"; result: WaitlistResult }
+      | { type: "SET_GUEST_DETAILS"; details: GuestDetails };
     export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
     export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
       "date-party",
@@ -4382,6 +4391,12 @@
             data: { ...state.data, waitlistResult: action.result },
           };
     
+        case "SET_GUEST_DETAILS":
+          return {
+            ...state,
+            data: { ...state.data, guestDetails: action.details },
+          };
+    
         default:
           return state;
       }
@@ -4402,6 +4417,7 @@
       setDepositConfig: (config: DepositConfig | null) => void;
       goToWaitlistJoin: () => void;
       handleWaitlistJoined: (result: WaitlistResult) => void;
+      setGuestDetails: (details: GuestDetails) => void;
     }
     export interface BookingFlowResult {
       state: BookingStep;
@@ -4661,6 +4677,10 @@
         dispatch({ type: "WAITLIST_JOINED", result });
       }, []);
     
+      const setGuestDetails = useCallback((details: GuestDetails) => {
+        dispatch({ type: "SET_GUEST_DETAILS", details });
+      }, []);
+    
       // Hold-expiry timer — captured hold in closure; effect restarts on every
       // hold change. Owned here (not the component) so expiry + availability
       // reload are exercisable headlessly through this hook alone.
@@ -4709,6 +4729,7 @@
           setDepositConfig,
           goToWaitlistJoin,
           handleWaitlistJoined,
+          setGuestDetails,
         },
       };
     }
