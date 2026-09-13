@@ -33,13 +33,40 @@ import {
 // other example test — we stub it. The CommandPalette stub is *behavioral*: it
 // mirrors the real component's observable contract so the page's composition is
 // what the tests exercise. Specifically it reproduces open/close rendering,
-// the search combobox + substring filtering, group headers ordered by the
-// `groups` prop, the "No results found" empty state, ⌘K/Ctrl+K global toggle,
-// Escape-to-close, ArrowUp/ArrowDown/Enter navigation, and returning focus to
-// the trigger on close (mirror of useReturnFocus). The real component's
-// internals are covered by packages/rialto's own suites; here we only verify
-// how the example wires items, groups, recent state, and selection.
+// the search combobox, ranking + best-rank section sort, group headers ordered
+// by the `groups` prop as a tiebreak, the "No results found" empty state,
+// ⌘K/Ctrl+K global toggle, Escape-to-close, ArrowUp/ArrowDown/Enter navigation,
+// and returning focus to the trigger on close (mirror of useReturnFocus). The
+// real component's internals are covered by packages/rialto's own suites;
+// here we only verify how the example wires items, groups, recent state, and
+// selection.
+//
+// Fidelity note (#5273): `rankMatch` below is a verbatim port of
+// `rankCommandMatch` from packages/rialto/src/components/CommandPalette/
+// CommandPalette.tsx, not an import of it — a relative source import resolves
+// at runtime but fails `tsc` here with TS6059 (that file sits outside this
+// package's `rootDir: "src"`), and the "@mattbutlerengineering/rialto"
+// package specifier can't be used either: the built dist barrel pulls in
+// every component, including ones that import workspace packages rialto-web
+// doesn't depend on (e.g. ChatPanel -> @mbe/api-client), which breaks
+// resolution even once rialto is built. If the real `rankCommandMatch`
+// changes, update this copy to match.
 // ---------------------------------------------------------------------------
+
+/** Verbatim port of CommandPalette.tsx's `rankCommandMatch` — see the note above. */
+type MatchRank = 0 | 1 | 2 | 3;
+function rankMatch(label: string, query: string): MatchRank | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  const lower = label.toLowerCase();
+  if (lower.startsWith(q)) return 0;
+  const words = lower.split(/\s+/).filter(Boolean);
+  if (words.slice(1).some((word) => word.startsWith(q))) return 1;
+  if (lower.includes(q)) return 2;
+  const opensEachWord =
+    q.length <= words.length && Array.from(q).every((ch, i) => words[i]?.startsWith(ch));
+  return opensEachWord ? 3 : null;
+}
 
 vi.mock("@mattbutlerengineering/rialto", () => {
   interface MockCommandItem {
@@ -107,18 +134,42 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       if (open) inputRef.current?.focus();
     }, [open]);
 
-    const trimmed = query.trim().toLowerCase();
-    const filtered = trimmed
-      ? items.filter((item) => item.label.toLowerCase().includes(trimmed))
-      : items;
+    // Rank + group exactly like the real component (CommandPalette.tsx):
+    // rank every item against the trimmed query via `rankMatch` (a verbatim
+    // port of `rankCommandMatch` — see the fidelity note above), bucket by
+    // group in `groups`-prop order, then — with a query — reorder sections by
+    // the best rank they contain.
+    const trimmedQuery = query.trim();
+    const ranked = trimmedQuery
+      ? items
+          .flatMap((item) => {
+            const rank = rankMatch(item.label, trimmedQuery);
+            return rank === null ? [] : [{ item, rank }];
+          })
+          .sort((a, b) => a.rank - b.rank)
+      : items.map((item) => ({ item, rank: 0 }));
 
-    const sections: { group: string | null; items: MockCommandItem[] }[] = [];
-    const ungrouped = filtered.filter((item) => !item.group);
-    if (ungrouped.length) sections.push({ group: null, items: ungrouped });
-    for (const group of groups) {
-      const inGroup = filtered.filter((item) => item.group === group);
-      if (inGroup.length) sections.push({ group, items: inGroup });
+    const sectionsByGroup = new Map<string | null, { items: MockCommandItem[]; best: number }>();
+    for (const { item, rank } of ranked) {
+      const key = item.group ?? null;
+      const section = sectionsByGroup.get(key);
+      if (section) section.items.push(item);
+      else sectionsByGroup.set(key, { items: [item], best: rank });
     }
+
+    const groupOrder = groups.length
+      ? groups
+      : Array.from(sectionsByGroup.keys()).filter((key): key is string => key !== null);
+    const orderedSections = [null, ...groupOrder].flatMap((key) => {
+      const section = sectionsByGroup.get(key);
+      return section ? [{ group: key, items: section.items, best: section.best }] : [];
+    });
+    if (trimmedQuery) orderedSections.sort((a, b) => a.best - b.best);
+
+    const sections = orderedSections.map(({ group, items: sectionItems }) => ({
+      group,
+      items: sectionItems,
+    }));
     const flat = sections.flatMap((section) => section.items);
 
     const select = (item: MockCommandItem) => {
@@ -424,24 +475,29 @@ describe("CommandPaletteExamplePage — composition", () => {
     expect(trigger).toHaveFocus();
   });
 
-  it("navigates grouped results with the arrow keys and selects with Enter", async () => {
+  it("ranks results by best match, navigates with arrow keys, and selects with Enter", async () => {
     const user = userEvent.setup();
     render(<CommandPaletteExamplePage />);
     await openViaTrigger(user);
-    // "Terrace" matches exactly one reservation and one room (across two groups).
+    // "Terrace" matches a Reservations entry ("Diego Alvarez · Terrace Suite
+    // 507" — rank 1: a later word starts with the query) and a Rooms entry
+    // ("Terrace Suite 507 · South Wing" — rank 0: the label itself starts with
+    // the query). The stronger match leads regardless of `groups` order, so
+    // Rooms comes first even though Reservations precedes Rooms in that list.
     await user.type(screen.getByRole("combobox"), "Terrace");
     const options = within(listbox()).getAllByRole("option");
     expect(options).toHaveLength(2);
+    expect(options[0]).toHaveTextContent(/south wing/i);
     expect(options[0]).toHaveAttribute("aria-selected", "true");
     await user.keyboard("{ArrowDown}");
     const afterDown = within(listbox()).getAllByRole("option");
     expect(afterDown[0]).toHaveAttribute("aria-selected", "false");
     expect(afterDown[1]).toHaveAttribute("aria-selected", "true");
+    expect(afterDown[1]).toHaveTextContent(/diego alvarez/i);
     await user.keyboard("{Enter}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    // The second flat result is the room — its label carries the wing.
     expect(screen.getByText(/last opened/i)).toBeInTheDocument();
-    expect(screen.getByText(/south wing/i)).toBeInTheDocument();
+    expect(screen.getByText(/diego alvarez/i)).toBeInTheDocument();
   });
 
   it("fires the selection handler on click and records it as a recent search", async () => {
