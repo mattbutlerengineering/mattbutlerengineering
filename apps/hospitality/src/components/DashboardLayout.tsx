@@ -330,12 +330,7 @@ function DashboardLayoutInner() {
           </Button>
         </div>
 
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className={styles.content}
-          style={{ outline: "none" }}
-        >
+        <main id="main-content" tabIndex={-1} className={styles.content}>
           {showRefreshBanner && (
             <Banner
               variant="warning"
