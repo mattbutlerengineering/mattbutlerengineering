@@ -2,17 +2,21 @@ import { createHmac } from "node:crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 
-vi.mock("../services/session.js", () => ({
-  sessionService: {
-    list: vi.fn(),
-    getById: vi.fn(),
-    create: vi.fn().mockResolvedValue({ id: "test-session" }),
-    updateStatus: vi.fn(),
-    delete: vi.fn(),
-    addEvent: vi.fn(),
-    listEvents: vi.fn(),
-  },
-}));
+vi.mock("../services/session.js", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    sessionService: {
+      list: vi.fn(),
+      getById: vi.fn(),
+      create: vi.fn().mockResolvedValue({ id: "test-session" }),
+      updateStatus: vi.fn(),
+      delete: vi.fn(),
+      addEvent: vi.fn(),
+      listEvents: vi.fn(),
+    },
+  };
+});
 
 vi.mock("../services/session-trigger.js", () => ({
   triggerSession: vi.fn().mockResolvedValue({ session: { id: "test-session" }, accepted: true }),

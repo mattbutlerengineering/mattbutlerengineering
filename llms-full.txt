@@ -18432,11 +18432,16 @@
                 afterId = lastEvent.id;
               }
     
-              if (page.length < EVENTS_PAGE_SIZE) {
+              // Check the bound before the short-page break: a session with
+              // exactly MAX_CATCHUP_EVENTS persisted events ends on a full page,
+              // and fetching one more (empty) page is the only way to tell "that
+              // was everything" apart from "there's more" without a false
+              // events:truncated marker on the exact boundary.
+              if (deliveredCount > MAX_CATCHUP_EVENTS) {
+                truncated = true;
                 break;
               }
-              if (deliveredCount >= MAX_CATCHUP_EVENTS) {
-                truncated = true;
+              if (page.length < EVENTS_PAGE_SIZE) {
                 break;
               }
             }
@@ -27867,6 +27872,7 @@
       readonly status?: SessionStatus;
       readonly userId?: string;
     }
+    export const EVENTS_PAGE_SIZE = 100;
     export const sessionService = {
       async list(options: ListOptions): Promise<{ data: AgentSession[]; pagination: Pagination }> {
         const { page, limit, status, userId } = options;
@@ -28042,7 +28048,7 @@
         const events = await prisma.sessionEvent.findMany({
           where,
           orderBy: { createdAt: "asc" },
-          take: 100,
+          take: EVENTS_PAGE_SIZE,
         });
     
         return events.map(mapPrismaEvent);
