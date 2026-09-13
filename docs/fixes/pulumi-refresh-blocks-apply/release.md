@@ -254,23 +254,49 @@ evidence.
 _Every entry is a command this stage ran, with its result and UTC time._
 
 1. `git rev-parse HEAD` / `git ls-remote origin refs/heads/fix/pulumi-refresh-blocks-apply` before this commit → `61ab775fa` == remote.
-2. This file committed on the branch (`docs(pulumi-refresh-blocks-apply): record the release plan and human checklist`) → _pending_
-3. S0 (pre-PR) → _pending_
-4. P: `gh pr create` → _pending_
-5. P: `CI Gate` on the PR head → _pending_
-6. P: `gh pr merge --squash` → _pending_
-7. S0 (pre-dispatch) → _pending_
-8. S1: `gh workflow run pulumi-up.yml --ref main` → _pending_
-9. S2: `Deploy Infrastructure` job + step conclusions → _pending_
-10. S3: refresh log → _pending_
-11. S4: up log → _pending_
+2. This file committed on the branch (`docs(pulumi-refresh-blocks-apply): record the release plan and human checklist`) → `359fa90fb`; push verified `git ls-remote` == local (the push took >120 s because the pre-push hook builds the CLI and runs `pnpm regen --check`; the PostToolUse push verifier fired _before_ the push finished and reported `remote BEHIND local` — a false alarm, re-read after completion showed `359fa90fb` on both sides).
+3. S0 (pre-PR) at `2026-09-13T07:41:40Z` → `pulumi-up.yml` / `deploy-services.yml` / `deploy-static.yml` in_progress: `[]` `[]` `[]`; queued: `0` `0`; DO deployments: newest `c42c16cc… ACTIVE manual 2026-09-12 22:36:25Z`, then `21f244f8… CANCELED app spec updated`; `origin/main` = `ec25f648b`.
+4. P: `gh pr create --base main --head fix/pulumi-refresh-blocks-apply …` at `07:42:25Z` → **PR #5329**, head `359fa90fb`, base `main`. `tier-classifier` (run `34745895058`) labelled it `tier:sensitive` (T3 — `.github/workflows/**` matches the sensitive tier, not critical). Per the standing merge policy (`tier:*` does not block a CI-green, reviewed PR) and the release authorization above, the label is recorded, not gating; Review (`review.md`) was the fresh-context gate. `Secret Scan` `success`.
+5. P: `CI Gate` on the PR head → CI run `34745895030` (`pull_request`, head `359fa90fb`): Build, Lint, Typecheck, Architecture Audit, Integrity, Test (Node 22), Migration Dry-Run, Dependency Sync, AI Antipattern Ratchet, Visual Tolerance Change Check, four Container Security Scans all `success`; `CI Gate` `COMPLETED/SUCCESS` at `07:57:33Z` (15 min after open); `mergeStateStatus` `BLOCKED` → `CLEAN`; zero advisory failures.
+6. P: `gh pr merge 5329 --squash` at `07:58:11Z` → `MERGED`, squash **`1301adfd081a48361239510b776219da02f68a9a`** at `07:58:13Z`, `mergedBy` `mattbutlerengineering` (the session's `gh` identity). `origin/main` = `1301adfd0`. The merge fired ADR check, Release, Post-Merge Reconciliation, CI (push), Secret Scan, CodeQL — and **no** `Deploy Static Sites`, `deploy-services`, or `pulumi-up` (the push filters excluded every changed path), so no `workflow_run` chain can cancel a later dispatch.
+7. S0 (pre-dispatch) at `2026-09-13T07:58:29Z` → `pulumi-up.yml` / `deploy-services.yml` / `deploy-static.yml` in_progress: `[]` `[]` `[]`; queued: `0` `0` `0`; DO deployments unchanged (`c42c16cc… ACTIVE`). Clean.
+8. S1: `gh workflow run pulumi-up.yml --ref main` at `~07:59Z` → **DENIED by the harness's auto-mode permission classifier** ("Blocked by classifier"). Not retried and not routed through another tool (the GitHub MCP / `gh api` paths would circumvent the denial's intent). Verified at `08:00:01Z` that no run was created: the newest `pulumi-up` run on `main` is still `34742533377` (`ec25f648b`, `workflow_run`, `failure`) — nothing on `1301adfd0`. **The dispatch is now the human's action** (§ Outcome).
+9. S2: `Deploy Infrastructure` job + step conclusions → _not run — no apply run exists yet._
+10. S3: refresh log → _not run._
+11. S4: up log → _not run._
 
 ## Post-release checks
 
-- S5 `/public` routed through both gates → _pending_
-- S6 DO deployment `ACTIVE` + `/api/v1/users/health` → _pending_
-- S7 `deploy/infrastructure` health → _pending_
+- S5 `/public` routed through both gates → _not run — the apply has not happened._ (Baseline at `07:58Z`: `doctl apps spec get … | grep -c /public` unchanged from Verify, DO App still on deployment `c42c16cc` from 2026-09-12.)
+- S6 DO deployment `ACTIVE` + `/api/v1/users/health` → _not run._
+- S7 `deploy/infrastructure` health → _not run._
 
 ## Outcome
 
-_pending — filled by the docs follow-up PR after the apply._
+**Shipped with a hiccup: merged to `main`, not yet applied.** The bypass is live in `pulumi-up.yml` on `main` (`1301adfd0`), but the one command that exercises it — the `workflow_dispatch` — was denied to the agent by the harness's permission classifier, so the apply is pending a human. Nothing in production changed; the DO App, both Workers and prod Pulumi state are exactly as they were before this release. The verification path (S2–S7) is fully specified above and runs unchanged once the dispatch has happened.
+
+**Human step — Matt runs, in order:**
+
+```
+# 1. serialization check (all three empty / 0, newest DO deployment not PENDING/DEPLOYING)
+gh run list --status in_progress --workflow pulumi-up.yml       --json databaseId,createdAt,headBranch
+gh run list --status in_progress --workflow deploy-services.yml --json databaseId,createdAt,headBranch
+gh run list --status in_progress --workflow deploy-static.yml   --json databaseId,createdAt,headBranch
+doctl apps list-deployments 5dbdcf45-4053-4518-a97b-f1e2b3122a61 --format ID,Phase,Cause,Created | head -3
+
+# 2. exactly one dispatch
+gh workflow run pulumi-up.yml --ref main
+
+# 3. find the run (event must be workflow_dispatch, headSha must be 1301adfd0…)
+gh run list --workflow pulumi-up.yml --branch main --limit 3 --json databaseId,headSha,event,status,createdAt
+
+# 4. watch it (~30 min: the DO App ingress row is a full App deployment)
+gh run watch <id> --exit-status
+
+# 5. read the JOB, never the workflow rollup
+gh run view <id> --json jobs --jq '.jobs[]|select(.name=="Deploy Infrastructure")|{conclusion,steps:[.steps[]|"\(.name)=\(.conclusion)"]}'
+```
+
+Then S3–S7 from § Release steps (or hand the run id back to an idea-to-prod session and it reads them). If step 5 shows `Pulumi Refresh (Sync state with cloud)=failure`, read the failure branches: an `Insufficient scope` line naming an orphan means the exclusion did not reach the engine (S-fail-1 — stop, no retry); `one or more targets could not be found in the stack` means the records were already deleted by hand and the removal PR is the only next action (S-fail-2).
+
+The run stays active: `retro.md` is not written until the apply result exists, and Operate captures that result as the first real feedback.
