@@ -232,14 +232,34 @@ not exist.
 - **What happened:** This run introduced a load-sensitive focus race in its own
   test suite. `apps/hospitality/src/pages/WaitlistPage.test.tsx`'s spec
   "seat success … and focuses the next card" is absent at `e08164890^` and
-  present at `e08164890` (verified by `git show`). It reddened `main` **41
-  minutes** after the merge. The auto-filer opened **#5287** naming
+  present at `e08164890` (verified by `git show`). The run's **own** CI was green
+  — `e08164890`'s CI run `34648764172` concluded `success` — and the spec first
+  failed on the next full CI run on `main`, `34651999575` on `fe04834dc` (the
+  docs-only release-record merge): attempt 1's `Test (Node 22)` failed at
+  **22:11:05Z**, 52 minutes after the feature merge, and `CI Gate` went red at
+  **22:15:09Z**.
+
+  Three seconds later `Revert Watchdog` run `34653165502` fired on that
+  `workflow_run` failure, opened **#5287** at 22:16:21Z naming
   `fe04834dcb1ad16eb303458caada749accc63f01` as the culprit — that is PR #5286,
-  the docs-only release record, which touches nothing under
-  `apps/hospitality/src` and cannot reach that test. The real fix, PR **#5288**
-  (`17d8793d8`, merged 22:53:00Z, one file changed), wrapped the focus assertions
-  so they synchronize on focus rather than on the live-region text that
-  `useFocusAfter` moves focus a commit after. Total main-red window: ~37 minutes.
+  the docs-only release record, which touches nothing under `apps/hospitality/`
+  and cannot reach that test — and then failed at its own "Propose Revert PR"
+  step.
+
+  **Attempt 2 of the same run passed with no change at all** (`Test (Node 22)`
+  success at 22:33:30Z, `CI Gate` success at 22:33:38Z), which cleared main's red
+  check and auto-closed #5287 at 22:34:33Z. That green re-run is the proof the
+  failure is load-dependent rather than deterministic — and it is also the reason
+  the defect could have ended there, filed as a flake and forgotten.
+
+  It did not, because PR **#5288** (opened 22:22:33Z, merged **22:53:00Z**,
+  `17d8793d8`, one file) did the analysis the auto-filer did not: "The commit
+  range that reddened main, `da0a01943..fe04834dc`, changes exactly three files
+  … None can reach this test." It then wrapped five assertions so they
+  synchronize on focus rather than on the live-region text that `useFocusAfter`
+  moves focus a commit after. `CI Gate` was red on `main` for **18 minutes**;
+  the actual fix landed 19 minutes after the re-run had already hidden it.
+
 - **Signal strength:** `measured`.
 
 ### The externality: this run inflated the shared `ready` queue for a week
