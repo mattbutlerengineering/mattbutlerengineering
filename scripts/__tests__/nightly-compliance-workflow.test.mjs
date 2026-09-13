@@ -192,3 +192,33 @@ describe("nightly-compliance.yml Detect drift step", () => {
     expect(step).not.toMatch(/grep -c '[✗✓]' \/tmp\/report\.md \|\| echo 0/);
   });
 });
+
+describe("nightly-compliance.yml File meta-improvement issue if drift detected step (#5084)", () => {
+  const step = extractStep(WORKFLOW, "File meta-improvement issue if drift detected");
+
+  // Regression test for the bug this issue reports: the dedupe key used to
+  // be keyed on `today` alone, so a persistent failure filed a fresh issue
+  // every single night instead of being recognised as the same bug.
+  it("no longer dedupes on the date alone", () => {
+    expect(step).not.toMatch(/--dedupe-key "nightly-compliance-drift-\$\{today\}"/);
+    expect(step).not.toMatch(/--search-text "\$title"/);
+  });
+
+  it("computes a stable signature via the shared signature module, not inline date logic", () => {
+    expect(step).toMatch(/node scripts\/print-drift-signature\.mjs/);
+    expect(step).toMatch(/--dedupe-key "nightly-compliance-drift-\$\{signature\}"/);
+    expect(step).toMatch(/--search-text "\$signature"/);
+  });
+
+  it("embeds the signature as a machine-readable HTML-comment marker in the issue body", () => {
+    expect(step).toMatch(/<!-- nightly-compliance-signature: \$\{signature\} -->/);
+  });
+
+  it("comments on a matched open issue instead of silently skipping", () => {
+    expect(step).toMatch(/--comment-body-file \/tmp\/drift-comment\.md/);
+  });
+
+  it("still keeps the date in the title for readability", () => {
+    expect(step).toMatch(/title="\[nightly-compliance \$\{today\}\] Drift detected"/);
+  });
+});

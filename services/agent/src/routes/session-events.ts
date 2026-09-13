@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { type ProblemDetails, type AgentSessionEvent, createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { sessionService } from "../services/session.js";
+import { sessionService, EVENTS_PAGE_SIZE } from "../services/session.js";
 import { getSessionEventEmitter } from "../services/session-event-emitter.js";
 import { requireSessionAccess } from "./sessions.js";
 
@@ -13,14 +13,6 @@ const TERMINAL_EVENT_TYPES = new Set(["session:complete", "session:error", "sess
 
 /** Session statuses that are terminal on connect (replay-only, no live stream). */
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
-
-/**
- * Must match sessionService.listEvents' internal page size (not imported to
- * avoid coupling this route's module graph to session.ts's mock surface —
- * every route test that mocks "../services/session.js" would otherwise need
- * to stub the export too). A page shorter than this signals end of history.
- */
-const EVENTS_PAGE_SIZE = 100;
 
 /**
  * Upper bound on how many persisted events the SSE catch-up read will drain
@@ -149,11 +141,16 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
             afterId = lastEvent.id;
           }
 
-          if (page.length < EVENTS_PAGE_SIZE) {
+          // Check the bound before the short-page break: a session with
+          // exactly MAX_CATCHUP_EVENTS persisted events ends on a full page,
+          // and fetching one more (empty) page is the only way to tell "that
+          // was everything" apart from "there's more" without a false
+          // events:truncated marker on the exact boundary.
+          if (deliveredCount > MAX_CATCHUP_EVENTS) {
+            truncated = true;
             break;
           }
-          if (deliveredCount >= MAX_CATCHUP_EVENTS) {
-            truncated = true;
+          if (page.length < EVENTS_PAGE_SIZE) {
             break;
           }
         }

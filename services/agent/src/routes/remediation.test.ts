@@ -3,11 +3,15 @@ import type { FastifyInstance } from "fastify";
 import { createHmac } from "node:crypto";
 
 // Mock all dependencies
-vi.mock("../services/session.js", () => ({
-  sessionService: {
-    create: vi.fn(),
-  },
-}));
+vi.mock("../services/session.js", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    sessionService: {
+      create: vi.fn(),
+    },
+  };
+});
 
 vi.mock("../services/session-trigger.js", () => ({
   triggerSession: vi.fn(),

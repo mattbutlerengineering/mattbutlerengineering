@@ -138,6 +138,11 @@
   outline: none;
 }
 
+.content:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 /* ── Responsive: mobile layout ──────────────── */
 
 @media (max-width: 767px) {

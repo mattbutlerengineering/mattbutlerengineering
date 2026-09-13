@@ -510,6 +510,9 @@
       }
     </item>
     <item priority="high">
+      export const EVENTS_PAGE_SIZE: unknown;
+    </item>
+    <item priority="high">
       export const sessionService: unknown;
     </item>
   </file>

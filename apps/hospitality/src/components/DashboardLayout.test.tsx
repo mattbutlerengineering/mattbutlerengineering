@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -496,6 +499,33 @@ describe("DashboardLayout", () => {
       await user.click(actionButton);
 
       expect(signIn).toHaveBeenCalledWith({ returnTo: "/reservations?date=2026-09-01" });
+    });
+  });
+
+  describe("main-content focus indicator (#5159)", () => {
+    beforeEach(() => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "operational",
+        completedSteps: ["hours", "tables", "publish"],
+        nextStep: null,
+        progress: 100,
+      });
+    });
+
+    it("does not zero the outline via an inline style, leaving :focus-visible in control", () => {
+      renderLayout("/timeline");
+      const main = screen.getByRole("main");
+      expect(main.getAttribute("style") ?? "").not.toMatch(/outline/);
+    });
+
+    it("pairs .content's outline:none with a :focus-visible box-shadow replacement", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "DashboardLayout.module.css"),
+        "utf-8"
+      );
+      const focusRule = css.match(/\.content:focus-visible\s*\{([^}]*)\}/)?.[1] ?? "";
+      expect(focusRule).toMatch(/outline:\s*none/);
+      expect(focusRule).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
     });
   });
 

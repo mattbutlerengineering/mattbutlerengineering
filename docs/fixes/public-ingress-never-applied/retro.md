@@ -7,7 +7,7 @@ assumptions:
   - "Outcome signal strength labels (`measured` / `pattern` / `anecdote`) are this stage's own assignment; the skill names the axis but no user graded any of them. Every `measured` label below is backed by a command run on 2026-09-12 and quoted; `pattern` is used only where at least ten independent observations agree; `anecdote` is used where the observation exists but cannot bear weight, and in each such case the reason is stated inline."
   - "The thirteen open `API surface invariant breach` issues were NOT closed by this stage and #5237 was not touched. `release.md` step 6 owns their closure and gates it on the apply, and they are the only standing automated evidence that the surface is still dead — closing them at run close would delete the outcome instrument at the exact moment the run stops watching. Nobody was present to override that reading."
   - "The one outstanding run finding with no carrier — the `--base` probe gap that `review.md` deferred to `a follow-up Implement work item / ready issue` — is recorded here as a backlog seed and flagged for human action rather than filed as a GitHub issue. `autorun-brief.md` records `Tracker mirror: None` for this run and this stage's dispatch authorizes exactly two writes (this artifact and a `docs/backlog.md` append) plus the PR that carries them. Filing an issue was not authorized, so the gap is seeded, not ticketed. It has now survived one review deferral and one Ship precondition without acquiring an owner; the seed is the third attempt."
-  - "The blocker on #4848 (two orphaned Auth0 state records failing `Pulumi Refresh`) was re-measured, reported, and deliberately not touched. `pulumi state delete` and Auth0 scope grants are destructive production-state changes outside this stage's authorization."
+  - "The blocker (two orphaned Auth0 state records failing `Pulumi Refresh`, tracked in #5169) was re-measured, reported, and deliberately not touched. `pulumi state delete` and Auth0 scope grants are destructive production-state changes outside this stage's authorization."
 ---
 
 # Retro: `/public/v1/**` — the run met every criterion it set, and the defect is still live
@@ -82,8 +82,9 @@ auth0:index:Branding mattbutlerengineering-branding refreshing failed: 403 Forbi
 auth0:index:Tenant   mattbutlerengineering-tenant   refreshing failed: 403 Forbidden: Insufficient scope, expected any of: read:tenant_settings: provider=auth0@3.51.0
 ```
 
-Same two orphan URNs, same provider, same step, three days on. `#4848` is still
-OPEN with its last comment at `2026-09-09T17:48:55Z` — nothing has happened.
+Same two orphan URNs, same provider, same step, three days on. `#5169` — the
+open issue that tracks this failure — is still OPEN, last comment
+`2026-09-09T18:44:39Z`. Nothing has happened.
 
 **This blocks every infrastructure deploy on `main`, not just this run.**
 `pulumi-up.yml` runs `refresh` unconditionally before `up`, so the entire IaC
@@ -267,7 +268,7 @@ post-deploy-check issues by failure signature, not commit SHA`), which stopped
   the flood at #5237. Correct fix, wrong reading of the event — the volume was a
   true alarm about a dead production surface, and it was processed as issue-tracker
   noise. Nobody who saw twelve issues in 36 hours went and looked at what they said.
-- **The blocker needs escalating, not recording.** #4848's Auth0 orphans have
+- **The blocker needs escalating, not recording.** The Auth0 orphans (#5169) have
   blocked _every_ `pulumi-up` on `main` for three days. This run reported it
   precisely and correctly and then closed. Nothing in the pipeline escalates a
   human-gated blocker that outlives the run that found it.
@@ -301,7 +302,7 @@ contributed at lines 54 and 56 were not touched or duplicated).
   changed the App resource as a detectable contradiction, not a green.
 - Make a silent-degradation `catch` on a network boundary report before it
   degrades.
-- Escalate a human-gated blocker that outlives the run that found it — #4848 has
+- Escalate a human-gated blocker that outlives the run that found it — #5169 has
   blocked every infra deploy on `main` for three days.
 - Read a burst of identical auto-filed issues as an alarm before deduping it.
 
@@ -310,9 +311,21 @@ contributed at lines 54 and 56 were not touched or duplicated).
 Closed 2026-09-12 with the defect live and the apply unexecuted. This is a
 _complete_ run, not a _delivered_ fix, and the distinction is the point.
 
+> **Correction (2026-09-12, same day).** This document first named **#4848** as
+> the blocker to unblock. That was wrong, and the error came from the
+> orchestrating session, not from the evidence gathered here. #4848 is
+> "[Audit] UX: Auth0 login page exposes raw dev tenant ID and stock branding" —
+> the _feature request_. The chain this retro measured is correct and unchanged:
+> #4924 implemented it and created `auth0:index:Branding` and
+> `auth0:index:Tenant`; revert #5165 removed the source and left the two state
+> records orphaned. The open issue that actually tracks the resulting
+> `Pulumi Refresh` failure is **#5169** ("Pulumi Deploy failing on Auth0 403
+> Insufficient scope"), and every pointer above now names it. Nothing else in
+> this retro changed; the measurements stand.
+
 **Outstanding, in priority order — all need a human:**
 
-1. **#4848 — unblock `Pulumi Refresh`.** Two orphaned Auth0 state records
+1. **#5169 — unblock `Pulumi Refresh`.** Two orphaned Auth0 state records
    (`Tenant`, `Branding`, created by #4924, source removed by revert #5165) 403 on
    every refresh. Blocks every infrastructure deploy on `main`, not only this fix.
    Options and exact commands: `release.md` step 0.
