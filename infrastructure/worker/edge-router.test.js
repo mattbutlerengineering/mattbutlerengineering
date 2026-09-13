@@ -79,6 +79,7 @@ globalThis.HTMLRewriter = MockHTMLRewriter;
 
 // Import the default export (the Worker module)
 import edgeRouter from "./edge-router.js";
+import { EDGE_REQUESTS_COLUMNS } from "./analytics-schema.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -956,12 +957,53 @@ describe("Edge Router", () => {
       expect(call.blobs).toContain("hospitality");
     });
 
+    // A pin, not a red: this passed against the inline literal the writer used
+    // to carry and passes against the analytics-schema.js import that replaced
+    // it. Positions are read from EDGE_REQUESTS_COLUMNS so a layout change in
+    // the schema module fails here as well as in analytics-schema.test.js.
+    it("lays the data point out per EDGE_REQUESTS_COLUMNS", async () => {
+      await edgeRouter.fetch(makeRequest("/"), env);
+
+      const call = env.ANALYTICS.writeDataPoint.mock.calls[0][0];
+      const position = (field) => Number(EDGE_REQUESTS_COLUMNS[field].replace(/\D/g, "")) - 1;
+
+      expect(call.blobs).toEqual(["marketing", "GET", "unknown", "/"]);
+      expect(call.indexes).toEqual(["marketing"]);
+      expect(call.blobs[position("route")]).toBe("marketing");
+      expect(call.blobs[position("pathname")]).toBe("/");
+      expect(call.doubles[position("status")]).toBe(200);
+      expect(typeof call.doubles[position("elapsedMs")]).toBe("number");
+    });
+
     it("does not fail when ANALYTICS binding is absent", async () => {
       const envWithoutAnalytics = { ...env };
       delete envWithoutAnalytics.ANALYTICS;
 
       const response = await edgeRouter.fetch(makeRequest("/"), envWithoutAnalytics);
       expect(response.status).toBe(200);
+    });
+
+    // The ANALYTICS counterpart to response-formatter's "falls back to
+    // hardcoded defaults when KV read throws". writeDataPoint is the second
+    // external binding read on the request path, it runs after the upstream
+    // response was already fetched successfully, and Cloudflare documents
+    // per-data-point limits without documenting what happens when one is
+    // exceeded. Containment lives in writeAnalytics itself, so this covers the
+    // API passthrough call site as well as the static one exercised here.
+    it("still serves the response when writeDataPoint throws", async () => {
+      const envWithBrokenAnalytics = {
+        ...env,
+        ANALYTICS: {
+          writeDataPoint: vi.fn(() => {
+            throw new Error("Analytics Engine unavailable");
+          }),
+        },
+      };
+
+      // Should NOT throw — an analytics failure must never reach the visitor
+      const response = await edgeRouter.fetch(makeRequest("/"), envWithBrokenAnalytics);
+      expect(response.status).toBe(200);
+      expect(envWithBrokenAnalytics.ANALYTICS.writeDataPoint).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -4,7 +4,6 @@
     <item priority="low">
       interface CookiePreferences {
         essential: true;
-        analytics: boolean;
         functional: boolean;
         marketing: boolean;
       }
