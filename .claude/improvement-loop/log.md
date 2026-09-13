@@ -1726,3 +1726,12 @@ None this run (`agent-skip` empty, 0 open).
 **queueEfficiency:** composite 0.923 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:12, size:l:2, size:s:7, size:m:5
 **Issues filed:** 0
+
+## 2026-09-13 (learning-loop)
+
+**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency) — domainActivity, agentCost, lighthouse, mutationScore, flakyTests, e2eStability unavailable; issues + issueFeedback failed with GitHub auth 403 (REST fallback credential invalid for direct API calls — same `@mbe/gh-client`/no-`gh`-CLI gap as prior runs, not a new regression)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114 unchanged, CI 100% pass rate 26/26, queueEfficiency composite 0.933)
+**Verifications:** 5 checked (issues #5287, #5280, #5273, #5241, #5240), 0 verified, 0 failed, 5 skipped (no completed CI runs / no Lighthouse inventory to verify against)
+**Sentry triage:** skipped — not requested by this scheduled run and would hit the same `gh`-less issue-creation gap; no regressions to triage anyway
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on GitHub REST auth (403) — pre-existing gap, `metrics/ai-issue-feedback.json` still holds only the error placeholder; defaulted to budget 3/category (moot, zero regressions this run). All 30d verification records carry `confidence: "skip"`, so false-positive/fix-effectiveness rates remain non-computable from this data. No threshold changes made.
