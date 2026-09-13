@@ -85,8 +85,9 @@ export type CommandMatchRank = 0 | 1 | 2 | 3;
  * `"walk"` does not match `"Waitlist"` at all.
  */
 export function rankCommandMatch(label: string, query: string): CommandMatchRank | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
   const lower = label.toLowerCase();
-  const q = query.toLowerCase();
   if (lower.startsWith(q)) return 0;
   const words = lower.split(/\s+/).filter(Boolean);
   if (words.slice(1).some((word) => word.startsWith(q))) return 1;

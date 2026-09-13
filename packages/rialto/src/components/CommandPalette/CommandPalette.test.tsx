@@ -224,21 +224,28 @@ describe("CommandPalette", () => {
       expect(screen.queryByText("Waitlist")).not.toBeInTheDocument();
     });
 
-    it("ArrowDown + Enter select the top-ranked item", async () => {
+    it("ArrowDown moves down the rank-ordered list and Enter selects the item under it", async () => {
       const user = userEvent.setup();
       const onOpenChange = vi.fn();
-      render(
-        <CommandPalette
-          open
-          onOpenChange={onOpenChange}
-          items={[walkIn, waitlist]}
-          groups={["Actions", "Navigation"]}
-        />
-      );
+      // Three matches of differing rank for "walk": prefix (0), later-word-start (1),
+      // and plain substring (2) — pins both rank order and real ArrowDown movement.
+      const top: CommandItem = { id: "top", label: "Walk-in guest", onSelect: vi.fn() };
+      const mid: CommandItem = { id: "mid", label: "Show walkway", onSelect: vi.fn() };
+      const low: CommandItem = { id: "low", label: "Catwalk tour", onSelect: vi.fn() };
+      render(<CommandPalette open onOpenChange={onOpenChange} items={[low, mid, top]} />);
       await user.type(screen.getByRole("combobox"), "walk");
-      await user.keyboard("{ArrowDown}{Enter}");
-      expect(walkIn.onSelect).toHaveBeenCalledOnce();
-      expect(waitlist.onSelect).not.toHaveBeenCalled();
+      const options = screen.getAllByRole("option");
+      expect(options.map((o) => o.textContent)).toEqual([
+        "Walk-in guest",
+        "Show walkway",
+        "Catwalk tour",
+      ]);
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getAllByRole("option")[1]).toHaveAttribute("data-active", "true");
+      await user.keyboard("{Enter}");
+      expect(mid.onSelect).toHaveBeenCalledOnce();
+      expect(top.onSelect).not.toHaveBeenCalled();
+      expect(low.onSelect).not.toHaveBeenCalled();
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 
@@ -341,5 +348,15 @@ describe("rankCommandMatch", () => {
     expect(rankCommandMatch("New File", "NEW")).toBe(0);
     expect(rankCommandMatch("new file", "File")).toBe(1);
     expect(rankCommandMatch("Walk-in guest", "WG")).toBe(3);
+  });
+
+  it("trims the query before matching", () => {
+    expect(rankCommandMatch("New File", "  new  ")).toBe(0);
+    expect(rankCommandMatch("New File", "\tfile\n")).toBe(1);
+  });
+
+  it("returns null for an empty or whitespace-only query", () => {
+    expect(rankCommandMatch("New File", "")).toBeNull();
+    expect(rankCommandMatch("New File", "   ")).toBeNull();
   });
 });
