@@ -60,6 +60,14 @@ export interface BookingFlowData {
    * null until the fetch resolves, or if `venueSlug` was never provided.
    */
   venueConfig: PublicVenueConfig | null;
+  /**
+   * The guest details form's fields, lifted here (not owned by
+   * `GuestDetailsForm`'s local state) so `EXPIRE_HOLD` doesn't wipe what the
+   * guest already typed — the form unmounts when the step falls back to
+   * "time-slot", but this survives and re-seeds the form once a new hold
+   * succeeds.
+   */
+  guestDetails: GuestDetails;
 }
 
 interface BookingFlowState {
@@ -89,7 +97,8 @@ type BookingFlowAction =
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "GO_TO_WAITLIST_JOIN" }
-  | { type: "WAITLIST_JOINED"; result: WaitlistResult };
+  | { type: "WAITLIST_JOINED"; result: WaitlistResult }
+  | { type: "SET_GUEST_DETAILS"; details: GuestDetails };
 
 const INITIAL_DATA: BookingFlowData = {
   selectedDate: null,
@@ -110,6 +119,7 @@ const INITIAL_DATA: BookingFlowData = {
   depositPaymentIntentId: null,
   waitlistResult: null,
   venueConfig: null,
+  guestDetails: { name: "", email: "", phone: "", notes: "" },
 };
 
 const INITIAL_STATE: BookingFlowState = {
@@ -296,6 +306,12 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         data: { ...state.data, waitlistResult: action.result },
       };
 
+    case "SET_GUEST_DETAILS":
+      return {
+        ...state,
+        data: { ...state.data, guestDetails: action.details },
+      };
+
     default:
       return state;
   }
@@ -317,6 +333,7 @@ export interface BookingFlowActions {
   setDepositConfig: (config: DepositConfig | null) => void;
   goToWaitlistJoin: () => void;
   handleWaitlistJoined: (result: WaitlistResult) => void;
+  setGuestDetails: (details: GuestDetails) => void;
 }
 
 export interface BookingFlowResult {
@@ -582,6 +599,10 @@ export function useBookingFlow({
     dispatch({ type: "WAITLIST_JOINED", result });
   }, []);
 
+  const setGuestDetails = useCallback((details: GuestDetails) => {
+    dispatch({ type: "SET_GUEST_DETAILS", details });
+  }, []);
+
   // Hold-expiry timer — captured hold in closure; effect restarts on every
   // hold change. Owned here (not the component) so expiry + availability
   // reload are exercisable headlessly through this hook alone.
@@ -630,6 +651,7 @@ export function useBookingFlow({
       setDepositConfig,
       goToWaitlistJoin,
       handleWaitlistJoined,
+      setGuestDetails,
     },
   };
 }

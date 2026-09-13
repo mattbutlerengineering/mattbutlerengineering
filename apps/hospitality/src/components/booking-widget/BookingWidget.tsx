@@ -165,6 +165,8 @@ export function BookingWidget({
           onBack={actions.goToTimeSlot}
           venueSlug={venueSlug}
           api={api}
+          initialDetails={data.guestDetails}
+          onDetailsChange={actions.setGuestDetails}
         />
       )}
 
