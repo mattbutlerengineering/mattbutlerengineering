@@ -104,6 +104,7 @@ jobs:
             excluded=(
               "check-endpoint" # library CLI: needs <name> <url> args; no bare invocation to run nightly
               "check-dep-sync" # shells to `npx depcheck` per workspace package (30+); unpinned + network-dependent + minutes long, not nightly-budget-appropriate
+              "check-deploy-sha" # needs --url/--expected-sha runtime args from a real deploy event; no bare invocation to run nightly
             )
             for script in scripts/check-*.js scripts/check-*.mjs; do
               name=$(basename "$script")
