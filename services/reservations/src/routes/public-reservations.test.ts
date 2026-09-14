@@ -248,6 +248,23 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  it("rejects specialRequests exceeding 500 characters with 400", async () => {
+    const tooLongRequests = "x".repeat(501);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      payload: {
+        holdId: "hold_1",
+        guestName: "Jane Doe",
+        guestEmail: "jane@example.com",
+        specialRequests: tooLongRequests,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
 });
 
 describe("bookingNotifier injection", () => {
