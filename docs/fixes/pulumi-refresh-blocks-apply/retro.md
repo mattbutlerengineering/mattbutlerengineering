@@ -325,3 +325,14 @@ the `rialto-web-usage-instrumentation` run's Operate or to a `session:` seed.
    stays open regardless.
 
 Seeds above are the input to the next Idea-stage run.
+
+**Addendum (written before this file left the branch):** a second human
+dispatch at `2026-09-14T03:29:04Z` — run `34802756625`, `workflow_dispatch`,
+`headSha=b2a1d0c5f` — repeated the result exactly: `Pulumi Refresh` `success`
+with 0 orphan-error lines, `Pulumi Up` `failure` on the single remaining row
+(`cloudflare:index:WorkersScript mattbutlerengineering-edge-router`, Cloudflare
+`10089` "You need to enable Analytics Engine"). Analytics Engine had not been
+enabled between the two runs. This changes no grade above (Done-when 1 stays
+half-met; 2–4 stay met) and upgrades the failure's signal strength from
+`measured` to `pattern`: two independent runs, one cause, deterministic. Seed
+(ii) is the only path forward; a further dispatch without it is wasted.
