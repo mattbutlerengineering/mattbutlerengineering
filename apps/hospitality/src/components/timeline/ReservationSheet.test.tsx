@@ -307,6 +307,11 @@ describe("ReservationSheet", () => {
   });
 
   describe("accessibility contract (xcut H)", () => {
+    it("omits aria-controls on the More button while collapsed, since the detail region isn't rendered", () => {
+      renderSheet();
+      expect(moreButton()).not.toHaveAttribute("aria-controls");
+    });
+
     it("is a named modal dialog whose controls all have names and whose More button announces what it controls", () => {
       renderSheet({ reservation: makeReservation({ guestEmail: "priya@example.com" }) });
       const dialog = screen.getByRole("dialog");
@@ -317,9 +322,9 @@ describe("ReservationSheet", () => {
       }
 
       const more = moreButton();
+      fireEvent.click(more);
       const controlsId = more.getAttribute("aria-controls");
       expect(controlsId).toBeTruthy();
-      fireEvent.click(more);
       const detail = document.getElementById(controlsId!);
       expect(detail).not.toBeNull();
       expect(detail).toHaveTextContent("priya@example.com");

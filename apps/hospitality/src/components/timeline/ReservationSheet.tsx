@@ -153,7 +153,7 @@ export function ReservationSheet({
             variant="ghost"
             onClick={() => setExpandedFor(expanded ? null : reservation.id)}
             aria-expanded={expanded}
-            aria-controls={detailId}
+            aria-controls={expanded ? detailId : undefined}
             disabled={seating}
           >
             More{" "}
