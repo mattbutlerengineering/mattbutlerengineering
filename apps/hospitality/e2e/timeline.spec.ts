@@ -233,7 +233,11 @@ test.describe("Item 16: the now-line, scroll-to-now, and the quiet night", () =>
     ).toBeVisible();
     // The rows stay underneath — the Host can still read the floor.
     await expect(mockedPage.getByTestId("table-row-tbl_e2e_001")).toBeVisible();
-    await expect(mockedPage.getByRole("alert")).toHaveCount(0);
+    // Filtered by title: DashboardLayout's session Banner is also role=alert in CI.
+    const noAlert = mockedPage
+      .getByRole("alert")
+      .filter({ hasText: "Couldn't load tonight's reservations." });
+    await expect(noAlert).toHaveCount(0);
 
     await quietNight.getByRole("button", { name: "Walk-in", exact: true }).click();
     await expect(mockedPage.getByRole("dialog", { name: "Seat walk-in" })).toBeVisible();
@@ -266,9 +270,11 @@ test.describe("Item 16: the now-line, scroll-to-now, and the quiet night", () =>
     await mockedPage.goto("timeline");
 
     await expect(mockedPage.getByTestId("timeline-grid")).toBeVisible();
-    await expect(mockedPage.getByRole("alert")).toContainText(
-      "Couldn't load tonight's reservations."
-    );
+    // Filtered by title: DashboardLayout's session Banner is also role=alert in CI.
+    const alert = mockedPage
+      .getByRole("alert")
+      .filter({ hasText: "Couldn't load tonight's reservations." });
+    await expect(alert).toContainText("Couldn't load tonight's reservations.");
     await expect(mockedPage.getByTestId("timeline-empty-night")).toHaveCount(0);
   });
 });
