@@ -399,6 +399,20 @@ describe("PATCH /public/v1/reservations/manage", () => {
       expect(response.statusCode).toBe(400);
       expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
     });
+
+    it("rejects specialRequests exceeding 500 characters with 400", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      const tooLongRequests = "x".repeat(501);
+
+      const response = await validationApp.inject({
+        method: "PATCH",
+        url: `/public/v1/reservations/manage?token=${token}`,
+        payload: { specialRequests: tooLongRequests },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(reservationService.updateWithConflictCheck).not.toHaveBeenCalled();
+    });
   });
 
   it("reschedules reminder jobs via injected bookingNotifier when time changes", async () => {

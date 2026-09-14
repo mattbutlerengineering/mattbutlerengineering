@@ -394,7 +394,7 @@ export const PublicReservationBodySchema = z.object({
   guestName: z.string().min(1),
   guestEmail: z.string().min(1),
   guestPhone: z.string().optional(),
-  specialRequests: z.string().optional(),
+  specialRequests: z.string().max(500).optional(),
 });
 
 export const ModifyReservationBodySchema = z
@@ -403,7 +403,7 @@ export const ModifyReservationBodySchema = z
     startTime: z.iso.datetime({ offset: true }).describe("New start time (ISO 8601)").optional(),
     endTime: z.iso.datetime({ offset: true }).describe("New end time (ISO 8601)").optional(),
     partySize: z.number().int().min(1).describe("New party size").optional(),
-    specialRequests: z.string().describe("Special requests or notes").optional(),
+    specialRequests: z.string().max(500).describe("Special requests or notes").optional(),
   })
   .describe("Fields to modify via guest self-service");
 
