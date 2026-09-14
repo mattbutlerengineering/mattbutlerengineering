@@ -3,21 +3,43 @@ import { verifyManageToken } from "../routes/public-reservations.js";
 import { reservationService } from "../services/reservation.js";
 
 /**
- * Fastify preHandler that validates the `token` query param as a manage token.
+ * Extracts the manage token from the request, preferring an `Authorization:
+ * Bearer <token>` header over the legacy `token` query param. The header is
+ * checked first so that mutating requests (PATCH/DELETE) never need to put
+ * the bearer credential in a URL — the query param remains only for the
+ * emailed-link GET/PATCH (view + confirm-attendance) routes.
+ */
+function extractManageToken(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const headerToken = authHeader.slice("Bearer ".length).trim();
+    if (headerToken) {
+      return headerToken;
+    }
+  }
+  const query = request.query as { token?: string } | undefined;
+  return query?.token;
+}
+
+/**
+ * Fastify preHandler that validates a manage token, read from an
+ * `Authorization: Bearer <token>` header (checked first) or, for backward
+ * compatibility, the `token` query param.
  *
- * On success, decorates `request.managedReservationId` with the reservation ID
- * extracted from the token and calls `done` / returns so the route handler runs.
+ * On success, decorates `request.managedReservationId` and `request.manageToken`
+ * with the reservation ID / raw token extracted, and calls `done` / returns so
+ * the route handler runs.
  *
  * On failure, replies with an RFC 7807 Problem Details response:
- *   400 — token query param missing
+ *   400 — token missing (neither header nor query param present)
  *   410 — token expired
  *   401 — token invalid or malformed
  */
 export async function requireManageToken(
-  request: FastifyRequest<{ Querystring: { token?: string } }>,
+  request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
-  const { token } = request.query;
+  const token = extractManageToken(request);
 
   if (!token) {
     await reply.status(400).send({
@@ -63,10 +85,12 @@ export async function requireManageToken(
   }
 
   request.managedReservationId = result.reservationId!;
+  request.manageToken = token;
 }
 
 declare module "fastify" {
   interface FastifyRequest {
     managedReservationId: string;
+    manageToken: string;
   }
 }

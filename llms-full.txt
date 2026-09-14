@@ -15149,11 +15149,22 @@
     }
   </file>
   <file path="services/reservations/src/middleware/require-manage-token.ts">
+    function extractManageToken(request: FastifyRequest): string | undefined {
+      const authHeader = request.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        const headerToken = authHeader.slice("Bearer ".length).trim();
+        if (headerToken) {
+          return headerToken;
+        }
+      }
+      const query = request.query as { token?: string } | undefined;
+      return query?.token;
+    }
     export async function requireManageToken(
-      request: FastifyRequest<{ Querystring: { token?: string } }>,
+      request: FastifyRequest,
       reply: FastifyReply
     ): Promise<void> {
-      const { token } = request.query;
+      const token = extractManageToken(request);
     
       if (!token) {
         await reply.status(400).send({
@@ -15199,6 +15210,7 @@
       }
     
       request.managedReservationId = result.reservationId!;
+      request.manageToken = token;
     }
   </file>
   </section>
@@ -19404,7 +19416,7 @@
   </file>
   <file path="services/reservations/src/routes/cancel-reservation.ts">
     export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.delete<{ Querystring: { token?: string } }>(
+      fastify.delete(
         "/public/v1/reservations/manage",
         {
           config: {
@@ -19418,14 +19430,10 @@
             return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
-          const result = await cancelReservationWithDeposit(
-            preamble.reservation,
-            request.query.token!,
-            {
-              bookingNotifier: fastify.bookingNotifier,
-              logger: request.log,
-            }
-          );
+          const result = await cancelReservationWithDeposit(preamble.reservation, request.manageToken, {
+            bookingNotifier: fastify.bookingNotifier,
+            logger: request.log,
+          });
     
           if (!result.success) {
             return reply
@@ -21076,7 +21084,7 @@
       specialRequests?: string;
     }
     export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.patch<{ Querystring: { token?: string }; Body: ModifyBody }>(
+      fastify.patch<{ Body: ModifyBody }>(
         "/public/v1/reservations/manage",
         {
           config: {
@@ -21096,7 +21104,7 @@
           const result = await modifyReservationWithNotifications(
             preamble.reservation,
             request.body ?? {},
-            request.query.token!,
+            request.manageToken,
             {
               bookingNotifier: fastify.bookingNotifier,
               notificationPort: fastify.notificationPort,

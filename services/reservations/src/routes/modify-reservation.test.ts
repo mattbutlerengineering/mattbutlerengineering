@@ -401,6 +401,71 @@ describe("PATCH /public/v1/reservations/manage", () => {
     });
   });
 
+  describe("manage-token transport", () => {
+    // Isolated app instance so these requests don't count against the outer
+    // suite's 10-request rate limit budget.
+    let transportApp: FastifyInstance;
+
+    beforeAll(async () => {
+      transportApp = await buildApp({
+        logger: false,
+        notificationPort: createStubNotificationDispatcher() as never,
+        bookingNotifier: {
+          scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
+          cancelBookingReminders: vi.fn().mockResolvedValue(undefined),
+          rescheduleBookingReminders: vi.fn().mockResolvedValue(undefined),
+          cancelBookingNotifications: vi.fn().mockResolvedValue(undefined),
+        },
+      });
+      await transportApp.ready();
+    });
+
+    afterAll(async () => {
+      await transportApp.close();
+    });
+
+    it("modifies reservation and returns 200 when the token is sent as an Authorization: Bearer header", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      const updatedReservation = {
+        ...mockReservation,
+        partySize: 6,
+        startTime: "20:00",
+      };
+
+      // middleware ownership check + route handler each call getById once
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+        success: true,
+        reservation: updatedReservation,
+      } as never);
+      vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+      const response = await transportApp.inject({
+        method: "PATCH",
+        url: "/public/v1/reservations/manage",
+        headers: { authorization: `Bearer ${token}` },
+        payload: { partySize: 6, startTime: "2026-06-15T20:00:00-07:00" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.data.reservation.partySize).toBe(6);
+      expect(body.data.reservation.startTime).toBe("20:00");
+    });
+
+    it("returns 400 when modifying with neither an Authorization header nor a token query param", async () => {
+      const response = await transportApp.inject({
+        method: "PATCH",
+        url: "/public/v1/reservations/manage",
+        payload: { partySize: 6 },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().title).toBe("Missing Token");
+    });
+  });
+
   it("reschedules reminder jobs via injected bookingNotifier when time changes", async () => {
     const stubNotifier: BookingNotifier = {
       scheduleBookingNotifications: vi.fn().mockResolvedValue(undefined),
