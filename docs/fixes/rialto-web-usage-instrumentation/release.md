@@ -11,9 +11,15 @@ assumptions:
   - "The rollback plan is written CI-first (revert PR -> merge -> pulumi-up.yml re-applies), per the standing deploy-via-CI-only policy. The direct Cloudflare-dashboard binding removal is named as emergency-only, with its drift consequence stated. Nobody was present to choose a rollback shape."
   - "Tracker: defect.md carries no `intake:` (brief § Tracker policy: no tracker interaction), so this stage closes and creates no issue. #5169 is referenced as a measured blocker only — not adopted, not commented on, not modified."
   - 'The Cloudflare Web Analytics site token `0c3656fe25764d6b891842c8ceb2e718` appears in defect.md and in a docs/backlog.md seed. It is not redacted because it is not a credential: it is the zone-injected beacon''s public site token, served in the HTML of every page to every visitor. `scripts/secret-scan.mjs`''s `scanForSecrets()` over the diff''s added lines returns `{"matched":false,"type":null}`.'
+  - "Post-release addendum appended 2026-09-14 by the autorun resume with no live user. The 2026-09-12 body above § Post-release addendum is untouched; every claim in the addendum is the resume's own measurement (three pulumi-up.yml runs read at job level, a read-only Cloudflare dashboard read, a fresh-context Playwright visit), none is inherited from the plan."
 ---
 
 # Release: the edge counter is bound — PREPARED, NOT RELEASED
+
+> **Superseded 2026-09-14.** The release executed after this was written: #5315
+> merged, the `ANALYTICS` binding is applied and live on the edge-router. See
+> § Post-release addendum (2026-09-14) at the end of this file. The body below
+> is preserved as written on 2026-09-12.
 
 **State in one line.** The `ANALYTICS` binding, the drift guard that catches its
 removal, the schema module, the query script, the runbook and the cookie-banner
@@ -475,3 +481,69 @@ not produce a single row of data while #5169 holds, and no one has yet read this
 dataset — or any Analytics Engine dataset — with a real credential.
 
 Next stage: Operate, which cannot begin until step 7 produces a number.
+
+## Post-release addendum (2026-09-14) — the release executed; what the checks found
+
+Written after the fact, from measurements rather than from the plan above.
+Nothing above is rewritten: § Outcome records what was true on 2026-09-12.
+
+**The release ran in three dispatches, and the plan was missing one
+precondition.**
+
+1. #5315 merged (`ec25f648b`, 2026-09-13, merged by Matt by hand). `deploy-static.yml`
+   shipped rialto-web for that commit (run 34742452751), so the consent half was
+   live before the binding was.
+2. The apply stayed blocked by #5169 until PR #5329 (`1301adfd0`, 2026-09-13)
+   excluded the two orphaned Auth0 URNs from refresh and up — the
+   `maintenance:pulumi-refresh-blocks-apply` run, closed via #5350.
+3. The first two `pulumi-up.yml` dispatches (runs 34801283091 and 34802756625,
+   both dispatched by Matt) reached `Pulumi Up` and **failed on the edge-router
+   `WorkersScript` PUT with Cloudflare error 10089 "You need to enable Analytics
+   Engine"**, byte-identical both times. Analytics Engine had never been enabled
+   on the account. None of this run's artifacts named that precondition: the
+   `wrangler.toml` binding had never deployed, so nothing had ever hit it.
+4. Matt created the dataset in the dashboard (Workers → Analytics Engine →
+   Create Dataset: name `edge_requests`, binding `ANALYTICS`, ~04:38Z) and
+   dispatched a third time → run 34806823155: `Pulumi Refresh` `16 unchanged`,
+   `Pulumi Up` **`~ 1 updated`** =
+   `cloudflare:index:WorkersScript mattbutlerengineering-edge-router [diff: ~bindings,content]`,
+   `17 unchanged`; Report Deploy Health wrote `deploy/infrastructure` = success.
+   **Step 4 passes.**
+
+**Post-release checks, as measured (~04:55Z).**
+
+- Step 5 → PASS. Dashboard, read-only: the live script's Bindings page lists
+  `Analytics engine · ANALYTICS · edge_requests` beside the service bindings and
+  the `HEALTH_STATE` KV namespace.
+- Step 8 → PASS. `https://mattbutlerengineering.com/rialto/demos/login` in a
+  fresh Playwright context: the Cookie Preferences dialog has exactly three
+  switches — Essential (checked, disabled), Functional, Marketing. No Analytics
+  toggle.
+- Steps 6–7 → NOT RUN. No token carrying Account · Account Analytics · Read
+  exists in this environment (the brief's ⛔). The read path has still never
+  executed against the real API.
+- Not in the plan, but measured: the Analytics Engine dashboard page shows
+  dataset `edge_requests` **Count = 99** data points at ~04:55Z, fifteen
+  minutes after the apply. That proves `writeAnalytics()` writes for real. It
+  is **not** the step 7 number: it is unfiltered, it includes the checks' own
+  probe requests, and it cannot be sliced by route without the SQL API.
+- Both browsers logged `ERR_CONNECTION_REFUSED` for
+  `static.cloudflareinsights.com`. That is the LAN DNS sinkhole on the
+  workstation that ran the checks, not a production defect — do not seed it.
+
+**Flagged items, revisited.**
+
+- Item 1 (#5169): no longer blocks apply — the bypass landed. Retiring the
+  bypass is still human work
+  (`docs/fixes/pulumi-refresh-blocks-apply/release.md` § Human checklist).
+- Item 3 (read path never executed): still true, and it is now the only thing
+  between this run and Operate.
+- Item 5 (#5315 `tier:critical`): the PR was merged by hand; whether the T4
+  ADR / meta-improvement paperwork was filed was not verified here.
+- Items 2 and 4: unchanged.
+
+**Outcome, corrected.** SHIPPED WITH HICCUPS — merged 2026-09-13, applied
+2026-09-14 04:40Z on the third dispatch, after an unplanned precondition (enable
+Analytics Engine) stopped the first two. Next stage remains Operate, which can
+begin once a token exists and step 7 prints a number worth quoting; the retro
+should record the missed precondition.
