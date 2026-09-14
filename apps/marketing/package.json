@@ -38,7 +38,7 @@
     "react-dom": "catalog:",
     "react-router": "catalog:",
     "@mbe/sentry": "workspace:*",
-    "three": "^0.185.1"
+    "three": "^0.186.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
