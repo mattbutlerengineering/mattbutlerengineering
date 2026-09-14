@@ -261,42 +261,33 @@ _Every entry is a command this stage ran, with its result and UTC time._
 6. P: `gh pr merge 5329 --squash` at `07:58:11Z` → `MERGED`, squash **`1301adfd081a48361239510b776219da02f68a9a`** at `07:58:13Z`, `mergedBy` `mattbutlerengineering` (the session's `gh` identity). `origin/main` = `1301adfd0`. The merge fired ADR check, Release, Post-Merge Reconciliation, CI (push), Secret Scan, CodeQL — and **no** `Deploy Static Sites`, `deploy-services`, or `pulumi-up` (the push filters excluded every changed path), so no `workflow_run` chain can cancel a later dispatch.
 7. S0 (pre-dispatch) at `2026-09-13T07:58:29Z` → `pulumi-up.yml` / `deploy-services.yml` / `deploy-static.yml` in_progress: `[]` `[]` `[]`; queued: `0` `0` `0`; DO deployments unchanged (`c42c16cc… ACTIVE`). Clean.
 8. S1: `gh workflow run pulumi-up.yml --ref main` at `~07:59Z` → **DENIED by the harness's auto-mode permission classifier** ("Blocked by classifier"). Not retried and not routed through another tool (the GitHub MCP / `gh api` paths would circumvent the denial's intent). Verified at `08:00:01Z` that no run was created: the newest `pulumi-up` run on `main` is still `34742533377` (`ec25f648b`, `workflow_run`, `failure`) — nothing on `1301adfd0`. **The dispatch is now the human's action** (§ Outcome).
-9. S2: `Deploy Infrastructure` job + step conclusions → _not run — no apply run exists yet._
-10. S3: refresh log → _not run._
-11. S4: up log → _not run._
+   - 8b. Under a second `/idea-to-prod:autorun` re-invocation at `2026-09-13T19:39Z` the same command was attempted once more and **denied again**; verified no run created (`origin/main` had moved to `3db8810dc`, three metrics commits, bypass intact). Reported, stopped.
+   - 8c. **The human executed the dispatch**: Matt ran `gh workflow run pulumi-up.yml --ref main` from the session prompt (`!` prefix) at `~2026-09-14T03:03:50Z`. No S0 was run in the seconds before it (the last S0 was the clean one at `19:38:44Z`); the post-hoc check at `03:05Z` found `deploy-services` / `deploy-static` in_progress `0` queued `0`, so nothing could have cancelled it. `origin/main` = **`b2a1d0c5f`** (12 commits after `1301adfd0`: metrics, a weekly retro, two reservations fixes — `infrastructure/pulumi/**` diff vs `1301adfd0` empty, bypass verified intact: 2/2/1 `exclude:` blocks and markers). Run **`34801283091`**, `event=workflow_dispatch`, `headSha=b2a1d0c5f`, created `03:03:55Z`, completed `03:06:47Z` (**2 min 52 s**, not ~30 min — see S6).
+9. S2: `gh run view 34801283091 --json jobs …` → `Deploy Infrastructure` = **`failure`**. Steps: `Pin Pulumi CLI=success`, `Pulumi Cancel + Clear Pending Operations=success`, **`Pulumi Refresh (Sync state with cloud)=success`** — the first passing refresh on `main` since 2026-09-09 — **`Pulumi Up=failure`**. `Report Deploy Health` job = `success` (it wrote `failure`, S7).
+10. S3: refresh log — orphan URN lines containing `error`/`forbidden`: **`0`**; total orphan mentions `2`, both in the action's `--exclude` argument echo. `Resources: ~ 1 updated, 15 unchanged, Duration: 2s` — the one `~` is `cloudflare:index:WorkersScript mattbutlerengineering-gen updated (1s)` (live drift read back, not a change). Two warnings, both expected: `refresh operation is using an older version of package 'cloudflare'` / `'auth0'` (the pending provider bumps). **V5 is now verified: `--exclude` reaches the refresh engine and the two Auth0 records are never read.**
+11. S4: up log — the action ran `pulumi up --yes --skip-preview --exclude urn:…tenant:Tenant::mattbutlerengineering-tenant --exclude urn:…branding:Branding::mattbutlerengineering-branding`. Rows: `~ cloudflare:index:WorkersScript mattbutlerengineering-gen updated (10s) [diff: ]` (provider 6.19→6.20, no input change); `~ digitalocean:index:App mattbutlerengineering-api-app updated (36s) [diff: ~spec]` (the `/public` ingress rule from #4565) with the expected `warning: Resource does not support customTimeouts, ignoring: update=15m0s`; `~ cloudflare:index:WorkersScript mattbutlerengineering-edge-router **updating failed** [diff: ~bindings,content]` — `PUT "https://api.cloudflare.com/client/v4/accounts/59d5bec2d6e979d474efe54ec76c3658/workers/scripts/mattbutlerengineering-edge-router": 403 Forbidden`, error code **`10089`**: _"You need to enable Analytics Engine. Head to the Cloudflare Dashboard to enable: https://dash.cloudflare.com/59d5bec2d6e979d474efe54ec76c3658/workers/analytics-engine"_. `Resources: ~ 2 updated, 10 unchanged, 2 errored, Duration: 52s`. Neither orphan URN appears in any row; no `deleted`. **Failure class: none of S-fail-1/2/3.** The orphans are not involved. The failing row is #5315's `ANALYTICS` `analytics_engine` binding (`infrastructure/pulumi/index.ts:342`); Cloudflare refuses any Worker upload carrying such a binding until Analytics Engine has been enabled once on the account. Deterministic, so **no re-dispatch by this stage** — it would fail identically.
 
 ## Post-release checks
 
-- S5 `/public` routed through both gates → _not run — the apply has not happened._ (Baseline at `07:58Z`: `doctl apps spec get … | grep -c /public` unchanged from Verify, DO App still on deployment `c42c16cc` from 2026-09-12.)
-- S6 DO deployment `ACTIVE` + `/api/v1/users/health` → _not run._
-- S7 `deploy/infrastructure` health → _not run._
+- S5 `/public` — **DO gate OPEN, edge gate SHUT.** `doctl apps spec get … | grep -c /public` → **`1`**; ingress order `/api/v1/users → users-api, /api/gen, /v1/sessions, /v1/orchestrate, /v1/webhooks → agent-api, /api → reservations-api, /public → reservations-api, / → users-api`. `curl -D- https://api.mattbutlerengineering.com/public/v1/venues/x` → `HTTP/2 404`, `content-type: application/json`, `x-ratelimit-limit: 100`, body `{"type":"about:blank","title":"Not Found","status":404,"detail":"No venue found with slug 'x'."}` — reservations-api's own `createProblemDetails` (users-api's catch-all answers `{"message":"Route GET:/… not found",…}`). `curl -D- https://mattbutlerengineering.com/public/v1/venues/x` → `HTTP/2 200`, `text/html` (the marketing SPA) — unchanged from before the apply, because #4565's edge-router `originRoutes` ride the WorkersScript that failed. Controls: `/api/v1/venues` → `401`, `/publicity` → `200`, `/` → `200`. `node scripts/check-api-surface-invariants.mjs` → 5/7 ok, 2 failed: `public-venue-lookup:reachable-through-edge` `status-mismatch` (200 vs 404 — real, the edge gate); `public-venue-lookup:reachable-at-origin` **`wrong-service` — a probe defect, not a routing defect**: it asserts the body contains `Venue not found` (`scripts/check-api-surface-invariants.mjs:124,138`) but the service emits `No venue found with slug '…'`; the discriminator was written while DO still refused `/public`, so it had never met a real 404 from the right service. Seeded, not fixed here.
+- S6 DO deployment — `307e240d` **`ACTIVE`**, cause `app spec updated`, created `03:05:53Z`, updated `03:06:23Z` (30 s: an ingress-only spec change re-routes without rebuilding images — the "~30 min" expectation in this file and the public-ingress plan was for an image rebuild and did not apply); previous `dfe13995` → `SUPERSEDED`. `curl https://api.mattbutlerengineering.com/api/v1/users/health` → `{"status":"ok",…"database":{"status":"ok","latency":11}…}`.
+- S7 `Report Deploy Health` — inputs `kv-key: deploy/infrastructure`, `deploy-result: failure` → `CONCLUSION="failure"` → KV **`deploy/infrastructure` = `failure`**. Accurate, and it stays red until the next successful run.
 
 ## Outcome
 
-**Shipped with a hiccup: merged to `main`, not yet applied.** The bypass is live in `pulumi-up.yml` on `main` (`1301adfd0`), but the one command that exercises it — the `workflow_dispatch` — was denied to the agent by the harness's permission classifier, so the apply is pending a human. Nothing in production changed; the DO App, both Workers and prod Pulumi state are exactly as they were before this release. The verification path (S2–S7) is fully specified above and runs unchanged once the dispatch has happened.
+**Shipped with hiccups: the defect this run captured is fixed; the apply it unblocked landed by half.**
 
-**Human step — Matt runs, in order:**
+- **Fixed, measured:** `Pulumi Refresh` passes on `main` (Done-when 1's refresh clause). The deploy pipeline is no longer dead at the first step; the two orphans are excluded exactly as designed.
+- **Landed, measured:** DO App `/public → reservations-api` (Done-when 2, `grep -c /public` = 1, live 404-JSON from the right service); gen Worker provider bump.
+- **Not landed:** edge-router Worker — content, `ANALYTICS` binding, and the `/public` `originRoutes`. Blocked by Cloudflare `10089`, a **second human gate, unrelated to the orphans**, belonging to the `rialto-web-usage-instrumentation` run (#5315 added the binding; that run's architecture, verification and review never recorded that Analytics Engine must be enabled per account before a Worker can bind a dataset). Its own Operate should capture this.
+- **Done-when 1's `Deploy Infrastructure = success` clause: NOT met** — the job fails on the edge-router row. Done-when 3 (guard green on `main`, CI Gate `34745895030` and main push CI `34746515919`) and 4 (§ Human checklist) met.
+- **Rollback: none needed.** The failed `PUT` changed nothing on Cloudflare; the DO `/public` rule is the intended #4565 state; nothing in Pulumi state is half-written (the next run's `Cancel + Clear Pending Operations` step covers any leftover lock).
+- **Rediscovered in passing:** `check-api-surface-invariants.mjs`'s body discriminator never matched the real service (S5).
 
-```
-# 1. serialization check (all three empty / 0, newest DO deployment not PENDING/DEPLOYING)
-gh run list --status in_progress --workflow pulumi-up.yml       --json databaseId,createdAt,headBranch
-gh run list --status in_progress --workflow deploy-services.yml --json databaseId,createdAt,headBranch
-gh run list --status in_progress --workflow deploy-static.yml   --json databaseId,createdAt,headBranch
-doctl apps list-deployments 5dbdcf45-4053-4518-a97b-f1e2b3122a61 --format ID,Phase,Cause,Created | head -3
+**Human steps — Matt, in order:**
 
-# 2. exactly one dispatch
-gh workflow run pulumi-up.yml --ref main
+1. Enable Analytics Engine once for the account: https://dash.cloudflare.com/59d5bec2d6e979d474efe54ec76c3658/workers/analytics-engine (Free plan includes it — the rialto-web run's `architecture.md` cites 100,000 data points/day).
+2. S0, then exactly one `gh workflow run pulumi-up.yml --ref main`. Expect refresh `16 unchanged`, up `~ 1 updated` (`mattbutlerengineering-edge-router [diff: ~bindings,content]`) and `15 unchanged`; then `curl -sS -D- https://mattbutlerengineering.com/public/v1/venues/x` → `404` JSON with `No venue found with slug`, and `deploy/infrastructure` → `success`.
+3. Retire the bypass — § Human checklist above (scopes or `state delete`, then the removal PR in the stated order).
 
-# 3. find the run (event must be workflow_dispatch, headSha must be 1301adfd0…)
-gh run list --workflow pulumi-up.yml --branch main --limit 3 --json databaseId,headSha,event,status,createdAt
-
-# 4. watch it (~30 min: the DO App ingress row is a full App deployment)
-gh run watch <id> --exit-status
-
-# 5. read the JOB, never the workflow rollup
-gh run view <id> --json jobs --jq '.jobs[]|select(.name=="Deploy Infrastructure")|{conclusion,steps:[.steps[]|"\(.name)=\(.conclusion)"]}'
-```
-
-Then S3–S7 from § Release steps (or hand the run id back to an idea-to-prod session and it reads them). If step 5 shows `Pulumi Refresh (Sync state with cloud)=failure`, read the failure branches: an `Insufficient scope` line naming an orphan means the exclusion did not reach the engine (S-fail-1 — stop, no retry); `one or more targets could not be found in the stack` means the records were already deleted by hand and the removal PR is the only next action (S-fail-2).
-
-The run stays active: `retro.md` is not written until the apply result exists, and Operate captures that result as the first real feedback.
+The run closes with `retro.md` on the measured outcome above; Operate treats the apply run as the first real feedback.
