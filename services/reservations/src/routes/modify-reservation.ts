@@ -14,7 +14,7 @@ interface ModifyBody {
 }
 
 export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.patch<{ Querystring: { token?: string }; Body: ModifyBody }>(
+  fastify.patch<{ Body: ModifyBody }>(
     "/public/v1/reservations/manage",
     {
       config: {
@@ -34,7 +34,7 @@ export const modifyReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const result = await modifyReservationWithNotifications(
         preamble.reservation,
         request.body ?? {},
-        request.query.token!,
+        request.manageToken,
         {
           bookingNotifier: fastify.bookingNotifier,
           notificationPort: fastify.notificationPort,

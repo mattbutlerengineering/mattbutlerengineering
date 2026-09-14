@@ -89,9 +89,12 @@
     </item>
   </file>
   <file path="src/middleware/require-manage-token.ts">
+    <item priority="medium">
+      function extractManageToken(request: FastifyRequest): string | undefined { /* ... */ }
+    </item>
     <item priority="high">
       export async function requireManageToken(
-        request: FastifyRequest<{ Querystring: { token?: string } }>,
+        request: FastifyRequest,
         reply: FastifyReply
       ): Promise<void> { /* ... */ }
     </item>
