@@ -1735,3 +1735,12 @@ None this run (`agent-skip` empty, 0 open).
 **Sentry triage:** skipped — not requested by this scheduled run and would hit the same `gh`-less issue-creation gap; no regressions to triage anyway
 **Skill proposals:** 0 (Sunday — Friday-only)
 **Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on GitHub REST auth (403) — pre-existing gap, `metrics/ai-issue-feedback.json` still holds only the error placeholder; defaulted to budget 3/category (moot, zero regressions this run). All 30d verification records carry `confidence: "skip"`, so false-positive/fix-effectiveness rates remain non-computable from this data. No threshold changes made.
+
+## 2026-09-14 (learning-loop)
+
+**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency) — domainActivity, agentCost, lighthouse, mutationScore, flakyTests, e2eStability unavailable; issues + issueFeedback failed with GitHub auth 403 (REST fallback credential invalid for direct API calls — same `@mbe/gh-client`/no-`gh`-CLI gap as prior runs, not a new regression)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114 unchanged, CI 95% pass rate 20/21, queueEfficiency composite 0.962)
+**Verifications:** 5 checked (issues #5343, #5332, #5331, #5280, #5274), 0 verified, 0 failed, 5 skipped (no completed CI runs to verify #5343 against; no Lighthouse inventory for the other four — live-site audits are unavailable in this cloud environment per issue #2920)
+**Sentry triage:** skipped — not requested by this scheduled run's prompt and no regressions to triage anyway
+**Skill proposals:** 0 (Monday — Friday-only)
+**Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on GitHub REST auth (403) — pre-existing gap, `metrics/ai-issue-feedback.json` still holds only the error placeholder; defaulted to budget 3/category (moot, zero regressions this run). All 85 verification records from the last 30 days carry `confidence: "skip"`, so false-positive/fix-effectiveness rates remain non-computable from this data. No threshold changes made.
