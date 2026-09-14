@@ -32,7 +32,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
@@ -171,17 +171,65 @@ export function findScheduledWorkflows(workflowsDir) {
     .sort((a, b) => a.file.localeCompare(b.file));
 }
 
+/**
+ * Explicit, never-a-glob list of deploy workflows that must be evaluated for
+ * a consecutive-failure streak regardless of trigger event (#5343). Deploy
+ * workflows trigger on `push`/`workflow_run`/`workflow_dispatch`, never
+ * `schedule` — `findScheduledWorkflows()` structurally cannot see them, so a
+ * 40-run failure streak on `pulumi-up.yml` produced zero automated notice.
+ * Per the `rialto-web-e2e.yml` precedent (gotchas.md § Build / pnpm /
+ * turbo), a glob (e.g. `deploy-*.yml`) fails silently in either direction —
+ * this list is the deliberate alternative.
+ */
+export const DEPLOY_WORKFLOW_FILES = ["deploy-services.yml", "deploy-static.yml", "pulumi-up.yml"];
+
+/**
+ * Enumerates the fixed `DEPLOY_WORKFLOW_FILES` set that actually exist under
+ * `workflowsDir`, sorted by file name for deterministic output. Unlike
+ * `findScheduledWorkflows()`, this does not inspect each file's `on:` block
+ * at all — membership in the explicit list is the only criterion.
+ *
+ * @param {string} workflowsDir
+ * @returns {Array<{name: string, file: string, path: string}>}
+ */
+export function findDeployWorkflows(workflowsDir) {
+  return DEPLOY_WORKFLOW_FILES.filter((file) => existsSync(join(workflowsDir, file)))
+    .map((file) => {
+      const source = readFileSync(join(workflowsDir, file), "utf-8");
+      const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
+      return {
+        name: nameMatch ? nameMatch[1].trim() : file,
+        file,
+        path: `.github/workflows/${file}`,
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file));
+}
+
 /** Pure: builds the deterministic ci-fix issue title so re-runs dedupe by title match. */
 export function buildScheduledFailureTitle(workflowName, streak) {
   return `ci-fix: ${workflowName} has failed ${streak} consecutive scheduled runs`;
 }
 
+/**
+ * Pure: same as `buildScheduledFailureTitle`, but for a deploy workflow
+ * flagged from non-`schedule` events — never claims "scheduled runs" for a
+ * streak that was actually `push`/`workflow_run` (#5343 criterion 4).
+ */
+export function buildDeployFailureTitle(workflowName, streak) {
+  return `ci-fix: ${workflowName} has failed ${streak} consecutive runs`;
+}
+
 const SCHEDULED_FAILURE_TITLE_PATTERN = /^ci-fix: (.+) has failed \d+ consecutive scheduled runs$/;
+const DEPLOY_FAILURE_TITLE_PATTERN = /^ci-fix: (.+) has failed \d+ consecutive runs$/;
 
 /** Pure: extracts the workflow name an issue was filed for, from its title. */
 export function extractWorkflowNameFromIssueTitle(issue) {
-  const match = SCHEDULED_FAILURE_TITLE_PATTERN.exec(issue?.title ?? "");
-  return match ? match[1] : null;
+  const title = issue?.title ?? "";
+  const scheduledMatch = SCHEDULED_FAILURE_TITLE_PATTERN.exec(title);
+  if (scheduledMatch) return scheduledMatch[1];
+  const deployMatch = DEPLOY_FAILURE_TITLE_PATTERN.exec(title);
+  return deployMatch ? deployMatch[1] : null;
 }
 
 /**
@@ -199,8 +247,19 @@ export function findPriorScheduledFailureIssue(candidates, workflowName) {
   return match ? match.number : null;
 }
 
-/** Pure: builds the issue body naming the workflow path, streak length, and failing run URLs. */
-export function buildScheduledFailureBody({ workflowPath, streak, runs, workflowModifiedAt }) {
+/**
+ * Pure: builds the issue body naming the workflow path, streak length, and
+ * failing run URLs. `kind` (default `"scheduled"`) picks the wording so a
+ * deploy-workflow finding never claims "scheduled runs" for a streak that
+ * was actually `push`/`workflow_run` (#5343 criterion 4).
+ */
+export function buildScheduledFailureBody({
+  workflowPath,
+  streak,
+  runs,
+  workflowModifiedAt,
+  kind = "scheduled",
+}) {
   const runLines = (runs ?? [])
     .map((run) => `- ${run.url ?? "(no url)"}${run.createdAt ? ` (${run.createdAt})` : ""}`)
     .join("\n");
@@ -211,12 +270,20 @@ export function buildScheduledFailureBody({ workflowPath, streak, runs, workflow
     ? `\n**Workflow file last changed:** ${workflowModifiedAt} — at least one failing run above postdates it.\n`
     : "";
 
-  return `\`${workflowPath}\` has failed its last ${streak} consecutive scheduled runs.
+  const runsNoun = kind === "deploy" ? "consecutive runs" : "consecutive scheduled runs";
+  const workflowNoun = kind === "deploy" ? "workflow" : "scheduled workflow";
+
+  return `\`${workflowPath}\` has failed its last ${streak} ${runsNoun}.
 ${modifiedLine}
 ### Failing runs
 ${runLines}
 
-**Action Required:** investigate why this scheduled workflow is failing and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this streak — see .claude/rules/gotchas.md.`;
+**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this streak — see .claude/rules/gotchas.md.`;
+}
+
+/** Pure: `buildScheduledFailureBody` with `kind: "deploy"` wording. */
+export function buildDeployFailureBody(args) {
+  return buildScheduledFailureBody({ ...args, kind: "deploy" });
 }
 
 /** Pure: builds the `gh issue create` args for a scheduled-failure issue. */
@@ -240,7 +307,7 @@ export function buildScheduledFailureCreateArgs(title, body) {
  * against) one `ci-fix` issue via the shared `fileIssue()` seam.
  *
  * @param {{
- *   workflows: Array<{name: string, path: string}>,
+ *   workflows: Array<{name: string, path: string, kind?: "scheduled"|"deploy"}>,
  *   getRuns: (workflowName: string) => Array<{conclusion?: string|null}>,
  *   threshold?: number,
  *   searchCiFixIssues?: () => Array<{number: number, title: string}>,
@@ -281,12 +348,20 @@ export function runScheduledWorkflowHealthCheck({
       return { workflow: workflow.name, status: health.status };
     }
 
-    const title = buildScheduledFailureTitle(workflow.name, health.streak);
+    // `kind` defaults to "scheduled" so callers that never set it (every
+    // pre-#5343 call site, and every existing test) keep the exact prior
+    // title/body wording — only deploy-workflow callers opt into "deploy".
+    const kind = workflow.kind ?? "scheduled";
+    const title =
+      kind === "deploy"
+        ? buildDeployFailureTitle(workflow.name, health.streak)
+        : buildScheduledFailureTitle(workflow.name, health.streak);
     const body = buildScheduledFailureBody({
       workflowPath: workflow.path,
       streak: health.streak,
       runs: health.failingRuns,
       workflowModifiedAt,
+      kind,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
@@ -393,18 +468,32 @@ function main() {
   const threshold = thresholdArg ? Number(thresholdArg) : DEFAULT_THRESHOLD;
 
   const workflowsDir = join(ROOT, ".github", "workflows");
-  const workflows = findScheduledWorkflows(workflowsDir);
+  const scheduledWorkflows = findScheduledWorkflows(workflowsDir);
+  const deployWorkflows = findDeployWorkflows(workflowsDir);
 
   // Diagnostic/progress output goes to stderr; the final stdout write below
   // is this script's actual product (a machine-readable JSON summary),
   // mirroring revert-watchdog.mjs's checkBaseline() convention.
-  console.error(`Checking ${workflows.length} scheduled workflow(s) (threshold=${threshold}).`);
+  console.error(
+    `Checking ${scheduledWorkflows.length} scheduled + ${deployWorkflows.length} deploy workflow(s) (threshold=${threshold}).`
+  );
 
   const ghClient = createGhClient();
-
-  const results = runScheduledWorkflowHealthCheck({
-    workflows,
+  const commonDeps = {
     threshold,
+    searchCiFixIssues: () =>
+      ghClient.issue.list(["--label", "ci-fix", "--state", "all", "--json", "number,title"]),
+    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
+    createIssue: (title, body) =>
+      parseIssueNumberFromUrl(ghClient.issue.create(buildScheduledFailureCreateArgs(title, body))),
+    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
+    log: (msg) => console.error(msg),
+    getWorkflowModifiedAt: (workflowPath) => resolveWorkflowModifiedAt(workflowPath),
+  };
+
+  const scheduledResults = runScheduledWorkflowHealthCheck({
+    ...commonDeps,
+    workflows: scheduledWorkflows,
     getRuns: (name) =>
       ghClient.workflow.runs([
         "--workflow",
@@ -416,21 +505,30 @@ function main() {
         "--json",
         "conclusion,url,createdAt",
       ]),
-    searchCiFixIssues: () =>
-      ghClient.issue.list(["--label", "ci-fix", "--state", "all", "--json", "number,title"]),
-    getIssueState: (issueNumber) => getIssueStateViaGhClient(ghClient, issueNumber),
-    createIssue: (title, body) =>
-      parseIssueNumberFromUrl(ghClient.issue.create(buildScheduledFailureCreateArgs(title, body))),
-    reopenIssue: (issueNumber) => ghClient.issue.reopen(issueNumber),
-    log: (msg) => console.error(msg),
-    getWorkflowModifiedAt: (workflowPath) => resolveWorkflowModifiedAt(workflowPath),
   });
+
+  // No `--event` filter here: deploy workflows trigger on push/workflow_run/
+  // workflow_dispatch, never schedule (#5343) — the whole point is to
+  // evaluate them regardless of which event produced the run.
+  const deployResults = runScheduledWorkflowHealthCheck({
+    ...commonDeps,
+    workflows: deployWorkflows.map((w) => ({ ...w, kind: "deploy" })),
+    getRuns: (name) =>
+      ghClient.workflow.runs([
+        "--workflow",
+        name,
+        "--limit",
+        String(threshold + 5),
+        "--json",
+        "conclusion,url,createdAt",
+      ]),
+  });
+
+  const results = [...scheduledResults, ...deployResults];
 
   const failing = results.filter((r) => r.status === "failing-streak");
   if (failing.length > 0) {
-    console.error(
-      `${failing.length} scheduled workflow(s) failing ${threshold}+ consecutive runs.`
-    );
+    console.error(`${failing.length} workflow(s) failing ${threshold}+ consecutive runs.`);
   }
 
   process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);
