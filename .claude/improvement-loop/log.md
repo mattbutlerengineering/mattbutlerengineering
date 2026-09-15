@@ -1779,3 +1779,8 @@ None this run (`agent-skip` empty, 0 open).
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open).
+
+## 2026-09-15
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
