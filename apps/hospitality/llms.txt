@@ -718,6 +718,9 @@
     <item priority="high">
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
+    <item priority="high">
+      export const LAPSING_GUESTS_QUERY_KEY: unknown;
+    </item>
     <item priority="low">
       interface UseGuestsParams {
         venueId?: string | null;
@@ -755,6 +758,20 @@
     </item>
     <item priority="high">
       export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseLapsingGuestsResult {
+        data: LapsingGuest[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useSendWinBack: unknown;
     </item>
     <item priority="low">
       interface UseGuestResult {
