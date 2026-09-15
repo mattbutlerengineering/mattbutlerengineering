@@ -848,7 +848,7 @@
       slug: z.string(),
       ianaTimezone: z.string(),
       operatingHours: VenueSchema.shape.operatingHours,
-      settings: z.object({ maxPartySize: z.number().optional() }).optional(),
+      settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
       phone: z.string().optional(),
     });
     export const PublicVenueDepositSchema = z.object({
@@ -1627,7 +1627,7 @@
       slug: string;
       ianaTimezone: string;
       operatingHours: OperatingHours | null;
-      settings?: { maxPartySize?: number };
+      settings?: { maxPartySize?: number } | null;
       phone?: string;
     }
     export interface Venue {

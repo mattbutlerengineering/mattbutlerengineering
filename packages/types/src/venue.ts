@@ -29,7 +29,7 @@ export interface PublicVenue {
   slug: string;
   ianaTimezone: string;
   operatingHours: OperatingHours | null;
-  settings?: { maxPartySize?: number };
+  settings?: { maxPartySize?: number } | null;
   phone?: string;
 }
 
