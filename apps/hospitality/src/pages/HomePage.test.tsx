@@ -117,7 +117,13 @@ vi.mock("../components/dashboard", () => ({
       stat row
     </div>
   ),
-  LapsingGuestsWidget: ({ guests, onSendWinBack }: any) => (
+  LapsingGuestsWidget: ({
+    guests,
+    onSendWinBack,
+  }: {
+    guests: readonly LapsingGuest[];
+    onSendWinBack: (guestId: string) => void;
+  }) => (
     <div data-testid="lapsing-guests-widget">
       {guests.map((g: LapsingGuest) => (
         <button key={g.guestId} onClick={() => onSendWinBack(g.guestId)}>
