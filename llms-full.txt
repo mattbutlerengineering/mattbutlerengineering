@@ -18202,6 +18202,8 @@
       name: string;
       slug: string;
       operatingHours: OperatingHours | null;
+      settings?: { maxPartySize?: number };
+      phone?: string;
     }
   </file>
   <file path="packages/types/src/waitlist.ts">

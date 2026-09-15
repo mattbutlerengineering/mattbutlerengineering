@@ -6170,6 +6170,7 @@
         name: string;
         slug: string;
         operatingHours: OperatingHours | null;
+        settings?: { maxPartySize?: number };
       }
     </item>
   </file>

@@ -413,6 +413,8 @@
       name: string;
       slug: string;
       operatingHours: OperatingHours | null;
+      settings?: { maxPartySize?: number };
+      phone?: string;
     }
   </file>
   <file path="src/waitlist.ts">

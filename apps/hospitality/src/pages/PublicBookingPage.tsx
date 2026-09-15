@@ -103,6 +103,8 @@ export function PublicBookingPage() {
           venueSlug={venue.slug}
           apiBaseUrl={BASE_URL}
           hasOperatingHours={hasOperatingHours(venue.operatingHours)}
+          maxPartySize={venue.settings?.maxPartySize}
+          phone={venue.phone}
           onCancellation={() => {
             activeHoldIdRef.current = null;
           }}

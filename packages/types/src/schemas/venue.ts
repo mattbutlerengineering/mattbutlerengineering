@@ -44,6 +44,8 @@ export const PublicVenueSchema = z.object({
   name: z.string(),
   slug: z.string(),
   operatingHours: VenueSchema.shape.operatingHours,
+  settings: z.object({ maxPartySize: z.number().optional() }).optional(),
+  phone: z.string().optional(),
 });
 
 export const PublicVenueDepositSchema = z.object({
