@@ -1,10 +1,15 @@
 import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { Table } from "@mbe/types";
+import type { Guest, Table } from "@mbe/types";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
+import { LiveStatus } from "../LiveStatus.js";
+import { GuestLookup } from "../crm/GuestLookup.js";
+import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
+import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { useStatusMessage } from "../../hooks/useStatusMessage.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import styles from "./WalkInDialog.module.css";
 
@@ -17,6 +22,8 @@ interface WalkInDialogProps {
     tableId: string;
     venueId: string;
     guestName?: string;
+    /** Present only when the Host picked a returning guest from the lookup (SC7/SC8). */
+    guestId?: string;
   }) => Promise<void>;
   onClose: () => void;
 }
@@ -26,6 +33,11 @@ interface WalkInFormData {
 }
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+// ux.md § Copy — the walk-in lookup hint and the clear sentence. No caption on this surface:
+// there are no contact fields below the strip for one to describe.
+const GUEST_NAME_HINT = "Name or phone — returning guests appear as you type.";
+const GUEST_CLEARED = "Guest cleared.";
 
 function findBestTable(tables: Table[], partySize: number): string {
   const eligible = tables
@@ -46,6 +58,10 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [isLoading, setIsLoading] = useState(false);
   const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
+  // The picked returning guest. Nothing here gates seating: no pick, no `guestId`, same payload
+  // as before the lookup existed.
+  const [pickedGuest, setPickedGuest] = useState<Guest | null>(null);
+  const { status, announce } = useStatusMessage();
 
   const panelRef = useRef<HTMLDivElement>(null);
   const pressedRef = useRef<HTMLButtonElement>(null);
@@ -62,9 +78,23 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
   }, []);
   useEscapeKey(onClose, true);
 
-  const { register, handleSubmit } = useForm<WalkInFormData>({
+  const { register, handleSubmit, setValue, setFocus, watch } = useForm<WalkInFormData>({
     defaultValues: { guestName: "" },
   });
+  const guestName = watch("guestName");
+
+  const handlePick = (guest: Guest) => {
+    setValue("guestName", guest.name);
+    setPickedGuest(guest);
+    announce(pickAnnouncement("linked", guest));
+  };
+
+  const handleClear = () => {
+    setPickedGuest(null);
+    // The typed name stays; selecting it makes "type a different name" a single keystroke.
+    setFocus("guestName", { shouldSelect: true });
+    announce(GUEST_CLEARED);
+  };
 
   const availableTables = tables
     .filter((t) => t.status === "AVAILABLE" && t.capacity >= partySize)
@@ -96,6 +126,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
         tableId,
         venueId,
         guestName: data.guestName.trim() || undefined,
+        ...(pickedGuest ? { guestId: pickedGuest.id } : {}),
       });
     } catch (err) {
       const description = describeApiError(err);
@@ -187,13 +218,22 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
                 />
               )}
 
-              <Input
+              <GuestLookup
+                venueId={venueId}
                 label="Guest name (optional)"
-                type="text"
+                hint={GUEST_NAME_HINT}
                 placeholder="e.g. Smith"
+                query={guestName}
+                picked={pickedGuest}
+                onPick={handlePick}
+                onClear={handleClear}
+                announce={announce}
                 disabled={isLoading}
                 {...register("guestName")}
               />
+              {pickedGuest && (
+                <GuestHistoryStrip guest={pickedGuest} mode="linked" onClear={handleClear} />
+              )}
             </Stack>
 
             {failure && (
@@ -222,6 +262,7 @@ export function WalkInDialog({ tables, venueId, onConfirm, onClose }: WalkInDial
             </div>
           </Stack>
         </form>
+        <LiveStatus status={status} />
       </div>
     </div>
   );
