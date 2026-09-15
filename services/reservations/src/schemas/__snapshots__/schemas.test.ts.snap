@@ -498,6 +498,34 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
     "endTime": {
       "type": "string",
     },
+    "guest": {
+      "anyOf": [
+        {
+          "properties": {
+            "communicationPreference": {
+              "type": [
+                "string",
+                "null",
+              ],
+            },
+            "unsubscribed": {
+              "type": "boolean",
+            },
+            "visitCount": {
+              "type": "number",
+            },
+          },
+          "required": [
+            "visitCount",
+            "communicationPreference",
+          ],
+          "type": "object",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "guestEmail": {
       "type": [
         "string",
