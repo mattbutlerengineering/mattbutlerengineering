@@ -4682,6 +4682,24 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/middleware/venue-context.ts">
+    <item priority="low">
+      interface VenueContextClient {
+        $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
+      }
+    </item>
+    <item priority="high">
+      export async function setVenueContext(
+        client: VenueContextClient,
+        venueId: string | null | undefined
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueContextPreHandler(
+        resolveVenueId: VenueIdResolver
+      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
