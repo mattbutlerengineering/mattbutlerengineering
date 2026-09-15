@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "vitest-axe";
 import { Drawer } from "./Drawer";
 
 const user = userEvent.setup();
@@ -165,5 +166,41 @@ describe("Drawer", () => {
     const closeBtn = screen.getByRole("button", { name: /close/i });
     // The focus trap focuses the first focusable element (close button)
     expect(closeBtn).toHaveFocus();
+  });
+
+  describe("size=compact", () => {
+    it("applies the compact class to a bottom sheet", () => {
+      render(
+        <Drawer open side="bottom" size="compact" title="Sheet" onClose={vi.fn()}>
+          <p>Content</p>
+        </Drawer>
+      );
+      const dialog = screen.getByRole("dialog");
+      expect(dialog).toHaveClass("compact");
+      expect(dialog).toHaveClass("bottom");
+    });
+
+    it("applies the compact class to a right drawer", () => {
+      render(
+        <Drawer open side="right" size="compact" title="Narrow" onClose={vi.fn()}>
+          <p>Content</p>
+        </Drawer>
+      );
+      const dialog = screen.getByRole("dialog");
+      expect(dialog).toHaveClass("compact");
+      expect(dialog).toHaveClass("right");
+    });
+
+    it("passes axe for a compact bottom sheet", async () => {
+      const { container } = render(
+        <Drawer open side="bottom" size="compact" title="Sheet" onClose={vi.fn()}>
+          <p>Content</p>
+        </Drawer>
+      );
+      const results = await axe(container, {
+        rules: { "color-contrast": { enabled: false } },
+      });
+      expect(results).toHaveNoViolations();
+    });
   });
 });

@@ -42,3 +42,11 @@
   flex-wrap: wrap;
   margin-block-start: var(--rialto-space-xs);
 }
+
+/* Row controls stay finger-sized on touch screens and tablet-width viewports (NF INCLUSIVE, ≥ 44 × 44). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .actions > button {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+}

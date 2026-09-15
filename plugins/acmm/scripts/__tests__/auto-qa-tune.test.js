@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { latestSnapshot, computeAdjustments, buildHistoryEntry } from "../auto-qa-tune.js";
+import {
+  latestSnapshot,
+  computeAdjustments,
+  buildHistoryEntry,
+  serializeConfig,
+} from "../auto-qa-tune.js";
 
 // ---------------------------------------------------------------------------
 // latestSnapshot
@@ -193,4 +198,61 @@ test("buildHistoryEntry: insufficient data flags as reviewed-only", () => {
   });
 
   assert.ok(entry.note.includes("All metrics within acceptable ranges"));
+});
+
+// ---------------------------------------------------------------------------
+// serializeConfig — output must survive `prettier --check`
+// ---------------------------------------------------------------------------
+
+test("serializeConfig: collapses short arrays the way prettier does", async () => {
+  const config = {
+    version: 1,
+    history: [
+      {
+        date: "2026-09-13",
+        trigger: "auto-qa-tune",
+        adjustments: ["ci-fix: 1 → 1.03 (headroom)"],
+      },
+    ],
+  };
+
+  // Control: this is what the tuner used to write, and what `prettier --check`
+  // rejects. If this control ever stops holding, the assertion below is
+  // vacuous and this test is no longer protecting anything.
+  const plain = JSON.stringify(config, null, 2) + "\n";
+  assert.ok(
+    plain.includes('"adjustments": [\n'),
+    "control: JSON.stringify must expand the short array"
+  );
+
+  const out = await serializeConfig(config, ".github/auto-qa-tuning.json");
+  assert.ok(
+    out.includes('"adjustments": ["ci-fix: 1 → 1.03 (headroom)"]'),
+    "short single-element array should be collapsed onto one line"
+  );
+  assert.ok(out.endsWith("\n"), "file should end with a trailing newline");
+});
+
+test("serializeConfig: keeps a long array expanded", async () => {
+  const config = {
+    history: [
+      {
+        adjustments: [
+          "Acceptance rate 100% meets or exceeds the 85% floor (115 merged, 0 rejected). No adjustments needed.",
+        ],
+      },
+    ],
+  };
+
+  const out = await serializeConfig(config, ".github/auto-qa-tuning.json");
+  assert.ok(
+    out.includes('"adjustments": [\n'),
+    "an array too long for the print width stays expanded"
+  );
+});
+
+test("serializeConfig: round-trips the config unchanged", async () => {
+  const config = { version: 1, thresholds: { maxBudgetUSD: 1.5 }, history: [] };
+  const out = await serializeConfig(config, ".github/auto-qa-tuning.json");
+  assert.deepEqual(JSON.parse(out), config, "formatting must not alter the data");
 });

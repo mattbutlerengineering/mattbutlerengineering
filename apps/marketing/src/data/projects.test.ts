@@ -3,7 +3,7 @@ import { PROJECTS } from "./projects.js";
 
 describe("PROJECTS", () => {
   it("has the correct number of projects", () => {
-    expect(PROJECTS).toHaveLength(2);
+    expect(PROJECTS).toHaveLength(3);
   });
 
   it("each project has required fields", () => {
@@ -33,7 +33,9 @@ describe("PROJECTS", () => {
     expect(rialto).toBeDefined();
     expect(rialto!.stack).toContain("React");
     expect(rialto!.stack).toContain("TypeScript");
-    expect(rialto!.href).toBe("/rialto/");
+    // Deep-links to a composed showcase page (Booking Wizard example) rather than
+    // the /rialto/ landing page, so a first-time visitor sees breadth in one view.
+    expect(rialto!.href).toBe("/rialto/examples/booking-wizard");
   });
 
   it("Hospitality Platform project has correct data", () => {
@@ -41,6 +43,14 @@ describe("PROJECTS", () => {
     expect(hospitality).toBeDefined();
     expect(hospitality!.stack).toContain("Auth0");
     expect(hospitality!.stack).toContain("PWA");
-    expect(hospitality!.href).toBe("/hospitality/");
+    expect(hospitality!.href).toBe("/hospitality/?ref=marketing");
+  });
+
+  it("Gen project has a deep-linking href with a pre-loaded prompt", () => {
+    const gen = PROJECTS.find((p) => p.title.includes("Gen"));
+    expect(gen).toBeDefined();
+    expect(gen!.href).toMatch(/^\/gen\/\?prompt=/);
+    const promptParam = new URL(gen!.href!, "https://example.com").searchParams.get("prompt");
+    expect(promptParam).toBeTruthy();
   });
 });

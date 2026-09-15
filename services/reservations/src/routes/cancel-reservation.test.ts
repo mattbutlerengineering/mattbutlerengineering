@@ -179,6 +179,39 @@ describe("DELETE /public/v1/reservations/manage", () => {
     expect(body.data.status).toBe("CANCELLED");
   });
 
+  it("cancels reservation and returns 200 when the token is sent as an Authorization: Bearer header", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    // middleware ownership check + route handler each call getById once
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...mockReservation,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/reservations/manage",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.data.status).toBe("CANCELLED");
+  });
+
+  it("returns 400 when cancelling with neither an Authorization header nor a token query param", async () => {
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/public/v1/reservations/manage",
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().title).toBe("Missing Token");
+  });
+
   it("sends cancellation notification with guest communication preference", async () => {
     const token = generateManageToken("res_1", "jane@example.com");
 
@@ -318,6 +351,30 @@ describe("DELETE /public/v1/reservations/manage", () => {
       const response = await notifierApp.inject({
         method: "DELETE",
         url: `/public/v1/reservations/manage?token=${token}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(stubNotifier.cancelBookingNotifications).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "res_1" }),
+        token,
+        "guest"
+      );
+    });
+
+    it("delegates to the injected bookingNotifier.cancelBookingNotifications with a header-sourced token", async () => {
+      const token = generateManageToken("res_1", "jane@example.com");
+      // middleware ownership check + route handler each call getById once
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+      vi.mocked(reservationService.update).mockResolvedValueOnce({
+        ...mockReservation,
+        status: "CANCELLED",
+      } as never);
+
+      const response = await notifierApp.inject({
+        method: "DELETE",
+        url: "/public/v1/reservations/manage",
+        headers: { authorization: `Bearer ${token}` },
       });
 
       expect(response.statusCode).toBe(200);

@@ -30,6 +30,8 @@ export interface UseReservationDisplayResult {
   filteredData: Reservation[];
   isLoading: boolean;
   error: Error | null;
+  /** Re-runs the list query; resolves with `error: null` on success so Retry can speak. */
+  refetch: () => Promise<{ error: Error | null }>;
 }
 
 /* ── Hook ────────────────────────────────────────────── */
@@ -46,7 +48,7 @@ export function useReservationDisplay({
   searchQuery,
   limit = 50,
 }: UseReservationDisplayParams): UseReservationDisplayResult {
-  const { data, isLoading, error } = useReservations({
+  const { data, isLoading, error, refetch } = useReservations({
     date,
     venueId,
     limit,
@@ -81,5 +83,5 @@ export function useReservationDisplay({
     return result;
   }, [allReservations, statusFilter, searchQuery]);
 
-  return { data, stats, filteredData, isLoading, error };
+  return { data, stats, filteredData, isLoading, error, refetch };
 }

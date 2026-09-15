@@ -48,6 +48,18 @@
     <item priority="medium">
       function safeJsonParse(text: string): unknown { /* ... */ }
     </item>
+    <item priority="high">
+      export function parseGeminiUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseOpenCodeUsage(stdout: string): CliUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractGeminiError(stdout: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractOpenCodeError(stdout: string): string | undefined { /* ... */ }
+    </item>
   </file>
   <file path="src/adapters/failover-session-adapter.ts">
     <item priority="high">
@@ -57,6 +69,13 @@
     </item>
     <item priority="low">
       type FailoverCapableAdapter = AgentAdapter & AgentSessionAdapter;
+    </item>
+    <item priority="high">
+      class FailoverSessionAdapter {
+        adapters: readonly FailoverCapableAdapter[];
+        detector: RateLimitDetector;
+        async runSession(): Promise<unknown>;
+      }
     </item>
   </file>
   <file path="src/adapters/gemini-adapter.ts">
@@ -92,6 +111,9 @@
     <item priority="medium">
       function checkAborted(signal: AbortSignal | undefined, errors: string[]): boolean { /* ... */ }
     </item>
+    <item priority="medium">
+      function buildSyntheticTurnMetrics(costUsd: number, modelId: string): readonly TurnMetrics[] { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="eval">
@@ -111,6 +133,12 @@
         totalWithoutSelfEval: number;
       }
     </item>
+    <item priority="medium">
+      function bucket(count: number, passed: number): CalibrationBucket { /* ... */ }
+    </item>
+    <item priority="high">
+      export function calibrate(report: EvalReport): CalibrationSummary { /* ... */ }
+    </item>
   </file>
   <file path="src/eval/cost-regression.ts">
     <item priority="high">
@@ -128,6 +156,9 @@
     <item priority="high">
       export const NAMED_SUITES: Readonly<Record<string, string>>;
     </item>
+    <item priority="high">
+      export function resolveSuitePath(suite: string): string { /* ... */ }
+    </item>
   </file>
   <file path="src/eval/eval-harness.ts">
     <item priority="low">
@@ -142,6 +173,20 @@
         tasks: readonly Task[],
         opts: RunEvalSuiteOptions
       ): Promise<EvalReport> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function failedScore(task: Task, err: unknown): TaskScore { /* ... */ }
+    </item>
+    <item priority="medium">
+      function aggregateByCategory(
+        scores: readonly TaskScore[]
+      ): Partial<Record<TaskCategory, EvalAggregate>> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function aggregate(
+        ranScores: readonly TaskScore[],
+        allScores: readonly TaskScore[]
+      ): EvalAggregate { /* ... */ }
     </item>
   </file>
   <file path="src/eval/golden-task-set.ts">
@@ -171,6 +216,72 @@
     </item>
     <item priority="low">
       type TaskCategory = (typeof TASK_CATEGORIES)[number];
+    </item>
+    <item priority="high">
+      export const rubricSchema: unknown;
+    </item>
+    <item priority="low">
+      type Rubric = z.infer<typeof rubricSchema>;
+    </item>
+    <item priority="high">
+      export const taskBudgetSchema: unknown;
+    </item>
+    <item priority="low">
+      type TaskBudget = z.infer<typeof taskBudgetSchema>;
+    </item>
+    <item priority="high">
+      export const taskSchema: unknown;
+    </item>
+    <item priority="low">
+      type Task = z.infer<typeof taskSchema>;
+    </item>
+    <item priority="low">
+      interface DeterministicChecks {
+        testsPass: boolean;
+        typecheckPass: boolean;
+        lintPass: boolean;
+        withinBudget: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface TaskRunResult {
+        task: Task;
+        session: SessionResult;
+        checks: DeterministicChecks;
+      }
+    </item>
+    <item priority="low">
+      interface TaskScore {
+        taskId: string;
+        category: TaskCategory;
+        passed: boolean;
+        score: number;
+        deterministic: DeterministicChecks;
+      }
+    </item>
+    <item priority="low">
+      interface EvalAggregate {
+        total: number;
+        passRate: number;
+        meanScore: number;
+        meanCostUsd: number;
+        meanTurns: number;
+      }
+    </item>
+    <item priority="low">
+      interface EvalReport {
+        runId: string;
+        tasks: readonly TaskScore[];
+        aggregate: EvalAggregate;
+        byCategory: Partial<Record<TaskCategory, EvalAggregate>>;
+        nonRunCount: number;
+      }
+    </item>
+    <item priority="low">
+      type TaskRunner = (task: Task) => Promise<TaskRunResult>;
+    </item>
+    <item priority="low">
+      type JudgeFunction = (taskPrompt: string, criteria: string) => Promise<Evaluat...;
     </item>
   </file>
   </section>
@@ -231,6 +342,151 @@
     </item>
     <item priority="low">
       type PhaseStatus = "success" | "failed" | "skipped";
+    </item>
+    <item priority="low">
+      interface PhaseResult {
+        phase: string;
+        status: PhaseStatus;
+        errors: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface WorktreeManagerDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      interface PromptBuilderDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      interface QueryRunnerDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      interface PrCreatorDeps {
+        
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopParams {
+        prNumber: number;
+        branchName: string;
+        repoPath: string;
+        model: string;
+        maxRetries: number;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopResult {
+        retriesUsed: number;
+        resolved: boolean;
+        lastFingerprint: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopRunnerDeps {
+        worktreeManager: Pick<WorktreeManagerDeps, "commitAndPush" | "resolveRepoI...;
+        feedbackPoller: PrFeedbackPort;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopDeps {
+        feedbackPoller: PrFeedbackPort;
+      }
+    </item>
+    <item priority="low">
+      interface PhaseDeps {
+        worktreeManager: WorktreeManagerDeps;
+        promptBuilder: PromptBuilderDeps;
+        queryRunner: QueryRunnerDeps;
+        prCreator: PrCreatorDeps;
+        feedbackLoop: FeedbackLoopDeps;
+      }
+    </item>
+    <item priority="low">
+      interface WorktreePhaseInput {
+        config: SessionConfig;
+        onEvent?: SessionEventCallback;
+      }
+    </item>
+    <item priority="low">
+      interface WorktreePhaseOutput {
+        worktree: WorktreeInfo;
+        systemPrompt: string;
+        taskSignals: TaskSignals;
+      }
+    </item>
+    <item priority="low">
+      interface QueryPhaseInput {
+        config: SessionConfig;
+        onEvent?: SessionEventCallback;
+        worktree: WorktreeInfo;
+        systemPrompt: string;
+      }
+    </item>
+    <item priority="low">
+      interface QueryPhaseOutput {
+        resultMessage?: NonNullable<HardenedQueryResult["resultMessage"]>;
+        stuckReason?: StuckPattern;
+        turnMetrics: readonly TurnMetrics[];
+        toolCallMetrics: readonly ToolCallMetrics[];
+        contextMetrics?: ContextMetrics;
+      }
+    </item>
+    <item priority="low">
+      interface VerificationPhaseInput {
+        config: SessionConfig;
+        onEvent?: SessionEventCallback;
+        worktree: WorktreeInfo;
+        resultMessage?: SessionResultSummary;
+        stuckReason?: StuckPattern;
+      }
+    </item>
+    <item priority="low">
+      interface VerificationPhaseOutput {
+        hasChanges: boolean;
+        commitMsg?: string;
+        gatewayVerdict?: GatewayVerdict;
+        gatewayEvaluation?: EvaluationResult;
+      }
+    </item>
+    <item priority="low">
+      interface PublishPhaseInput {
+        config: SessionConfig;
+        onEvent?: SessionEventCallback;
+        worktree: WorktreeInfo;
+        hasChanges: boolean;
+        resultMessage?: SessionResultSummary;
+      }
+    </item>
+    <item priority="low">
+      interface PublishPhaseOutput {
+        prUrl: string | null;
+        prNumber?: number;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackPhaseInput {
+        config: SessionConfig;
+        onEvent?: SessionEventCallback;
+        worktree: WorktreeInfo;
+        resultMessage?: SessionResultSummary;
+        prUrl: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface PhaseExecution {
+        result: PhaseResult;
+        output: TOutput | null;
+      }
+    </item>
+    <item priority="low">
+      interface Phase {
+        name: string;
+      }
     </item>
   </file>
   <file path="src/phases/publish-phase.ts">
@@ -308,6 +564,58 @@
         costUsd?: number;
       }
     </item>
+    <item priority="low">
+      interface StoredSession {
+        id: string;
+        status: SessionStatus;
+        taskDescription: string;
+        baseBranch: string;
+        model: string;
+      }
+    </item>
+    <item priority="low">
+      interface SessionLifecycleStore {
+        
+      }
+    </item>
+    <item priority="low">
+      interface SessionLifecycleLogger {
+        
+      }
+    </item>
+    <item priority="low">
+      interface StoredEvent {
+        type: string;
+        data: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      type EventProjector = (event: SessionEvent) => StoredEvent | null;
+    </item>
+    <item priority="low">
+      interface ConcurrencyGate {
+        limit: number;
+      }
+    </item>
+    <item priority="low">
+      type RunSessionFn = (
+        config: SessionConfig,
+        onEvent?: (event: SessionEve...;
+    </item>
+    <item priority="low">
+      interface SessionLifecycleDeps {
+        store: SessionLifecycleStore;
+        resolveRepoPath: () => string;
+        runSession?: RunSessionFn;
+        concurrency?: ConcurrencyGate;
+        projectEvent?: EventProjector;
+      }
+    </item>
+    <item priority="low">
+      interface SessionLifecycleOrchestrator {
+        
+      }
+    </item>
   </file>
   </section>
   <section priority="medium" role="src">
@@ -334,6 +642,9 @@
     <item priority="high">
       export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): AuditSurface { /* ... */ }
     </item>
+    <item priority="high">
+      export function detectRegression(s: AuditSurface, newScores: LighthouseScores): Regression | null { /* ... */ }
+    </item>
   </file>
   <file path="src/audit-surface-mapper.ts">
     <item priority="medium">
@@ -353,6 +664,70 @@
     <item priority="high">
       export const ZONES: readonly Zone[];
     </item>
+    <item priority="high">
+      export const BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export const INVENTORY_VERSION: unknown;
+    </item>
+    <item priority="low">
+      interface LighthouseScores {
+        performance: number;
+        accessibility: number;
+        bestPractices: number;
+        seo: number;
+      }
+    </item>
+    <item priority="low">
+      interface ScoreEntry {
+        timestamp: string;
+        scores: LighthouseScores;
+      }
+    </item>
+    <item priority="low">
+      interface AuditSurface {
+        id: string;
+        zone: Zone;
+        type: "page" | "api_endpoint";
+        url: string;
+        sourceFiles: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface AuditInventory {
+        surfaces: readonly AuditSurface[];
+        lastUpdated: string;
+        version: number;
+      }
+    </item>
+    <item priority="low">
+      interface Regression {
+        surfaceId: string;
+        category: keyof LighthouseScores;
+        previousScore: number;
+        currentScore: number;
+        drop: number;
+      }
+    </item>
+    <item priority="medium">
+      function surface(
+        id: string,
+        zone: Zone,
+        type: "page" | "api_endpoint",
+        path: string,
+        sourceFiles: readonly string[],
+        auth: "none" | "auth0" = "none"
+      ): AuditSurface { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SURFACE_REGISTRY: readonly AuditSurface[];
+    </item>
+    <item priority="high">
+      export function buildInventory(): AuditInventory { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mergeInventory(fresh: AuditInventory, existing: AuditInventory): AuditInventory { /* ... */ }
+    </item>
   </file>
   <file path="src/budget-calculator.ts">
     <item priority="high">
@@ -364,6 +739,28 @@
     </item>
     <item priority="high">
       export function classifyTaskComplexity(description: string): "simple" | "standard" | "complex" { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveBudget(taskDescription: string): BudgetConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveModel(taskDescription: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface PrExample {
+        title: string;
+        body: string;
+        filesChanged: number;
+      }
+    </item>
+    <item priority="high">
+      export async function fetchRecentPrExamples(
+        repoPath: string,
+        limit = 3
+      ): Promise<readonly PrExample[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatPrExamples(examples: readonly PrExample[]): string { /* ... */ }
     </item>
   </file>
   <file path="src/budget-gate.ts">
@@ -397,6 +794,68 @@
         timestamp: string;
       }
     </item>
+    <item priority="low">
+      interface BundleSizeBaseline {
+        entries: readonly BundleSizeEntry[];
+        updatedAt: string;
+        version: number;
+      }
+    </item>
+    <item priority="low">
+      interface BundleSizeComparison {
+        app: string;
+        previousBytes: number;
+        currentBytes: number;
+        deltaBytes: number;
+        deltaPercent: number;
+      }
+    </item>
+    <item priority="low">
+      interface BundleSizeReport {
+        comparisons: readonly BundleSizeComparison[];
+        hasRegressions: boolean;
+        summary: string;
+      }
+    </item>
+    <item priority="high">
+      export async function measureAppBundleSize(
+        distPath: string,
+        appName: string
+      ): Promise<BundleSizeEntry> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function measureAllBundles(rootDir: string): Promise<readonly BundleSizeEntry[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadBaseline(baselinePath: string): Promise<BundleSizeBaseline | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function saveBaseline(
+        baselinePath: string,
+        entries: readonly BundleSizeEntry[]
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildComparison(
+        app: string,
+        currentBytes: number,
+        previousBytes: number,
+        thresholdPercent: number
+      ): BundleSizeComparison { /* ... */ }
+    </item>
+    <item priority="high">
+      export function compareWithBaseline(
+        current: readonly BundleSizeEntry[],
+        baseline: BundleSizeBaseline | null,
+        thresholdPercent: number = DEFAULT_THRESHOLD_PERCENT
+      ): BundleSizeReport { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatReport(report: BundleSizeReport): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatKB(bytes: number): string { /* ... */ }
+    </item>
   </file>
   <file path="src/change-type-classifier.ts">
     <item priority="low">
@@ -404,6 +863,40 @@
     </item>
     <item priority="low">
       type SkippablePhase = "smoke-audit" | "deploy-verify" | "lighthouse" | "e2e";
+    </item>
+    <item priority="low">
+      interface ChangeClassification {
+        type: ChangeType;
+        files: readonly string[];
+        skipPhases: readonly SkippablePhase[];
+        reason: string;
+      }
+    </item>
+    <item priority="high">
+      interface ClassificationRule {
+        type: ChangeType;
+        matches: (file: string) => boolean;
+        skipPhases: readonly SkippablePhase[];
+      }
+    </item>
+    <item priority="high">
+      export function classifyChanges(files: readonly string[]): ChangeClassification { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shouldSkipPhase(
+        classification: ChangeClassification,
+        phase: SkippablePhase
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatClassification(classification: ChangeClassification): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildReason(
+        type: ChangeType,
+        fileCount: number,
+        skipPhases: readonly SkippablePhase[]
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="src/circuit-breaker.ts">
@@ -415,6 +908,14 @@
         failureThreshold: number;
         resetTimeoutMs: number;
         onStateChange?: (state: CircuitState, error?: Error) => void;
+      }
+    </item>
+    <item priority="high">
+      class CircuitBreaker {
+        state: CircuitState;
+        failures: number;
+        lastError: Error;
+        openedAt: number;
       }
     </item>
   </file>
@@ -437,6 +938,19 @@
         durationMs: number;
       }
     </item>
+    <item priority="low">
+      interface AdapterState {
+        name: string;
+        available: boolean;
+        cooldownUntil: number | null;
+        consecutiveFailures: number;
+      }
+    </item>
+    <item priority="low">
+      interface AgentAdapter {
+        name: string;
+      }
+    </item>
   </file>
   <file path="src/context-budget.ts">
     <item priority="low">
@@ -450,6 +964,56 @@
         percentUsed: number;
       }
     </item>
+    <item priority="low">
+      interface ContextStrategyHint {
+        strategy: ContextStrategy;
+        percentUsed: number;
+        message: string;
+      }
+    </item>
+    <item priority="low">
+      interface ContextMetrics {
+        contextPercentAtExit: number;
+        peakContextPercent: number;
+        contextLimit: number;
+        compactionCount: number;
+      }
+    </item>
+    <item priority="low">
+      interface TurnTokenData {
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface ContextBudgetConfig {
+        maxToolOutputChars: number;
+      }
+    </item>
+    <item priority="low">
+      interface ContextBudget {
+        
+      }
+    </item>
+    <item priority="high">
+      export const MODEL_CONTEXT_LIMITS: Readonly<Record<string, number>>;
+    </item>
+    <item priority="medium">
+      function resolveContextLimit(modelId: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Threshold {
+        percent: number;
+        strategy: ContextStrategy;
+        message: string;
+      }
+    </item>
+    <item priority="high">
+      export function createContextBudget(
+        modelId: string,
+        configOverrides?: Partial<ContextBudgetConfig>
+      ): ContextBudget { /* ... */ }
+    </item>
   </file>
   <file path="src/cost-tracker.ts">
     <item priority="high">
@@ -457,6 +1021,25 @@
     </item>
     <item priority="high">
       export function extractCost(result: SDKResultMessage): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapSubtypeToStatus(subtype: string): SessionStatus { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getResultText(result: SDKResultMessage): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getErrors(result: SDKResultMessage): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSessionResultSummary(result: SDKResultMessage): SessionResultSummary { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSessionResult(
+        result: SDKResultMessage,
+        branchName: string,
+        prUrl: string | null
+      ): SessionResult { /* ... */ }
     </item>
   </file>
   <file path="src/dep-bump-merger.ts">
@@ -468,6 +1051,23 @@
     </item>
     <item priority="medium">
       function extractChangedFiles(diff: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function countDiffLines(diff: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractNonLockfileDiff(diff: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isTrivialDepBump(diff: string): TrivialDepBumpResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mergeDirectly(options: {
+        readonly branchName: string;
+        readonly baseBranch: string;
+        readonly repoPath: string;
+        readonly commitTitle: string;
+      }): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/deploy-verifier.ts">
@@ -487,6 +1087,63 @@
         attempts: number;
       }
     </item>
+    <item priority="low">
+      interface VerificationResult {
+        passed: boolean;
+        checks: readonly HealthCheckResult[];
+        failedChecks: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface VerificationConfig {
+        maxRetries: number;
+        retryDelayMs: number;
+        timeoutMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_VERIFICATION_CONFIG: VerificationConfig;
+    </item>
+    <item priority="high">
+      export const DEFAULT_HEALTH_CHECKS: readonly HealthCheck[];
+    </item>
+    <item priority="medium">
+      function sleep(ms: number): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkHttpStatus(
+        url: string,
+        timeoutMs: number
+      ): Promise<{ passed: boolean; status: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function checkJsonHealth(
+        url: string,
+        timeoutMs: number
+      ): Promise<{ passed: boolean; status: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runSingleCheck(
+        check: HealthCheck,
+        config: VerificationConfig
+      ): Promise<HealthCheckResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function verifyDeployment(
+        checks: readonly HealthCheck[] = DEFAULT_HEALTH_CHECKS,
+        configOverrides?: Partial<VerificationConfig>
+      ): Promise<VerificationResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function rollbackCloudflareWorker(
+        workerName: string,
+        versionId: string,
+        reason: string
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCloudflareWorkerVersion(workerName: string): Promise<string | null> { /* ... */ }
+    </item>
   </file>
   <file path="src/diff-parser.ts">
     <item priority="low">
@@ -504,6 +1161,22 @@
         totalChangedLines: number;
       }
     </item>
+    <item priority="medium">
+      function parseGitHeaderPath(line: string): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseHunkHeader(line: string): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface FileAccumulator {
+        path: string;
+        addedLines: { line: number; content: string }[];
+        removedLineCount: number;
+      }
+    </item>
+    <item priority="high">
+      export function parseDiff(diff: string): ParsedDiff { /* ... */ }
+    </item>
   </file>
   <file path="src/diff-reviewer.ts">
     <item priority="low">
@@ -517,6 +1190,18 @@
         model: string;
         maxBudgetUsd: number;
       }
+    </item>
+    <item priority="high">
+      export const DEFAULT_REVIEW_CONFIG: ReviewConfig;
+    </item>
+    <item priority="medium">
+      function buildReviewPrompt(diff: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function reviewDiff(
+        diff: string,
+        configOverrides?: Partial<ReviewConfig>
+      ): Promise<ReviewResult> { /* ... */ }
     </item>
   </file>
   <file path="src/diff-static-analyzer.ts">
@@ -536,6 +1221,27 @@
         durationMs: number;
       }
     </item>
+    <item priority="low">
+      interface AnalysisRule {
+        id: string;
+        pattern: RegExp;
+        message: string;
+        severity: "warning" | "error";
+        fileGlob?: string;
+      }
+    </item>
+    <item priority="high">
+      export const ANALYSIS_RULES: readonly AnalysisRule[];
+    </item>
+    <item priority="medium">
+      function matchesFileGlob(filePath: string, glob: string | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function analyzeDiff(diff: string): StaticAnalysisResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatViolations(violations: readonly Violation[]): string { /* ... */ }
+    </item>
   </file>
   <file path="src/evaluation-prompt-builder.ts">
     <item priority="medium">
@@ -543,6 +1249,12 @@
     </item>
     <item priority="high">
       export function extractAcceptanceCriteria(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractExpectedFiles(taskDescription: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildEvaluationPrompt(taskDescription: string, gitDiff: string): string { /* ... */ }
     </item>
   </file>
   <file path="src/evaluation-skip-policy.ts">
@@ -555,6 +1267,15 @@
     </item>
     <item priority="low">
       type SkipReason = "empty_diff" | "trivial_commit" | "test_only_changes" | "small_diff_tests_passed";
+    </item>
+    <item priority="low">
+      interface SkipDecision {
+        skip: boolean;
+        reason?: SkipReason;
+      }
+    </item>
+    <item priority="high">
+      export function evaluationSkipDecision(input: SkipPolicyInput): SkipDecision { /* ... */ }
     </item>
   </file>
   <file path="src/event-mapper.ts">
@@ -573,6 +1294,75 @@
         isError: boolean;
       }
     </item>
+    <item priority="low">
+      interface AssistantTextEvent {
+        type: "session:assistant";
+        text: string;
+      }
+    </item>
+    <item priority="low">
+      interface TurnMetricsEvent {
+        type: "session:turn_metrics";
+        turnIndex: number;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
+      }
+    </item>
+    <item priority="low">
+      type MappedEvent = ToolUseEvent | ToolResultEvent | AssistantTextEvent | TurnMetricsEvent;
+    </item>
+    <item priority="high">
+      interface ToolUseBlock {
+        type: "tool_use";
+        id: string;
+        name: string;
+        input: Record<string, unknown>;
+      }
+    </item>
+    <item priority="high">
+      interface TextBlock {
+        type: "text";
+        text: string;
+      }
+    </item>
+    <item priority="high">
+      interface ToolResultBlock {
+        type: "tool_result";
+        tool_use_id: string;
+        is_error?: boolean;
+      }
+    </item>
+    <item priority="high">
+      type ContentBlock = ToolUseBlock | TextBlock | ToolResultBlock | { type: string };
+    </item>
+    <item priority="high">
+      interface MessageUsage {
+        input_tokens?: number | null;
+        output_tokens?: number | null;
+        cache_creation_input_tokens?: number | null;
+        cache_read_input_tokens?: number | null;
+      }
+    </item>
+    <item priority="high">
+      interface AssistantInnerMessage {
+        content: readonly ContentBlock[];
+        model?: string;
+        usage?: MessageUsage;
+      }
+    </item>
+    <item priority="medium">
+      function mapAssistantMessage(
+        innerMessage: AssistantInnerMessage,
+        turnIndex: number
+      ): readonly MappedEvent[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function mapUserMessage(content: unknown): readonly MappedEvent[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mapSdkMessage(message: SDKMessage, turnIndex = 0): readonly MappedEvent[] { /* ... */ }
+    </item>
   </file>
   <file path="src/failure-memory.ts">
     <item priority="low">
@@ -589,6 +1379,34 @@
         records: readonly FailureRecord[];
       }
     </item>
+    <item priority="low">
+      async function loadMemory(repoPath: string): Promise<FailureMemory> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function saveMemory(repoPath: string, memory: FailureMemory): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordFailure(repoPath: string, record: FailureRecord): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function queryPastFailures(
+        memory: FailureMemory,
+        taskDescription: string,
+        maxResults = 3
+      ): readonly FailureRecord[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildFailureContext(pastFailures: readonly FailureRecord[]): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type PreventionTactic = "reduce_scope" | "check_auth" | "increase_budget" | "break_into_steps" | "use_sonnet" | "add_context";
+    </item>
+    <item priority="high">
+      export function inferPreventionTactic(failure: FailureRecord): PreventionTactic { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPreventionHint(tactic: PreventionTactic): string { /* ... */ }
+    </item>
   </file>
   <file path="src/feedback-loop.ts">
     <item priority="medium">
@@ -601,6 +1419,13 @@
     <item priority="medium">
       function delay(ms: number, signal?: AbortSignal): Promise<void> { /* ... */ }
     </item>
+    <item priority="high">
+      export async function runFeedbackLoop(
+        config: FeedbackLoopParams,
+        deps: FeedbackLoopRunnerDeps = defaultRunnerDeps,
+        onEvent?: SessionEventCallback
+      ): Promise<FeedbackLoopResult> { /* ... */ }
+    </item>
   </file>
   <file path="src/feedback-prompt-builder.ts">
     <item priority="high">
@@ -611,6 +1436,21 @@
         ciLogMaxChars?: number;
       }
     </item>
+    <item priority="high">
+      export function sanitizeUserContent(text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function wrapUserContent(text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function truncateCILog(log: string, maxChars: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildReviewFixPrompt(
+        context: FeedbackContext,
+        options: BuildReviewFixPromptOptions = {}
+      ): string { /* ... */ }
+    </item>
   </file>
   <file path="src/file-classifier.ts">
     <item priority="high">
@@ -618,6 +1458,39 @@
     </item>
     <item priority="high">
       export const isDocFile: unknown;
+    </item>
+    <item priority="high">
+      export const isTestOrDocsPath: unknown;
+    </item>
+    <item priority="high">
+      export const isConfigFile: unknown;
+    </item>
+    <item priority="high">
+      export const isDependencyFile: unknown;
+    </item>
+    <item priority="high">
+      export const isInfrastructureFile: unknown;
+    </item>
+    <item priority="high">
+      export const isMetricsFile: unknown;
+    </item>
+    <item priority="high">
+      export const isFrontendSourceFile: unknown;
+    </item>
+    <item priority="high">
+      export const isBackendSourceFile: unknown;
+    </item>
+    <item priority="high">
+      export const isAutomationDefinitionFile: unknown;
+    </item>
+    <item priority="high">
+      export const isLowRiskFile: unknown;
+    </item>
+    <item priority="high">
+      export const isNonAuditableFile: unknown;
+    </item>
+    <item priority="high">
+      export const allFilesNonAuditable: unknown;
     </item>
   </file>
   <file path="src/gate-runner.ts">
@@ -636,6 +1509,32 @@
         config: PostCommitGatewayConfig;
       }
     </item>
+    <item priority="low">
+      interface GateResult {
+        passed: boolean;
+        gateName: string;
+        severity: "error" | "warning";
+        details?: string;
+        output?: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface GateRunResult {
+        passed: boolean;
+        results: readonly GateResult[];
+      }
+    </item>
+    <item priority="low">
+      interface QualityGate {
+        name: string;
+        eventType?: SessionEventType;
+      }
+    </item>
+    <item priority="high">
+      class GateRunner {
+        async run(): Promise<unknown>;
+      }
+    </item>
   </file>
   <file path="src/gen-permissions.ts">
     <item priority="high">
@@ -643,6 +1542,21 @@
     </item>
     <item priority="high">
       export function isRmRecursiveDelete(command: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function segmentIsRmRecursiveDelete(segment: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ENCODING_BYPASS_PATTERNS: readonly RegExp[];
+    </item>
+    <item priority="high">
+      export const BLOCKED_TOOLS: ReadonlySet<string>;
+    </item>
+    <item priority="high">
+      export function normalizeBashCommand(command: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isBashCommandBlocked(command: string): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/intent-extractor.ts">
@@ -657,6 +1571,33 @@
         content: readonly ContentBlock[];
       }
     </item>
+    <item priority="high">
+      interface AnthropicClient {
+        messages: {
+          create(params: Record<string, unknown>): Promise<An...;
+      }
+    </item>
+    <item priority="high">
+      interface AnthropicSDKModule {
+        default: new () => AnthropicClient;
+      }
+    </item>
+    <item priority="high">
+      export const IssueIntentSchema: unknown;
+    </item>
+    <item priority="low">
+      type IssueIntent = z.infer<typeof IssueIntentSchema>;
+    </item>
+    <item priority="high">
+      export async function extractIssueIntent(
+        issueTitle: string,
+        issueBody: string,
+        issueNumber: number
+      ): Promise<IssueIntent | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function intentToRoutingContext(intent: IssueIntent): RoutingContext { /* ... */ }
+    </item>
   </file>
   <file path="src/model-registry.ts">
     <item priority="low">
@@ -664,6 +1605,15 @@
     </item>
     <item priority="high">
       export const MODEL_IDS: Readonly<Record<ModelTier, string>>;
+    </item>
+    <item priority="high">
+      export const TIER_DOWNGRADE: Readonly<Record<ModelTier, ModelTier>>;
+    </item>
+    <item priority="high">
+      export function resolveModelId(tier: ModelTier): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getFeedbackLoopModel(parentModelId: string): string { /* ... */ }
     </item>
   </file>
   <file path="src/model-router.ts">
@@ -682,6 +1632,31 @@
         taskSignals?: TaskSignals;
       }
     </item>
+    <item priority="low">
+      interface ModelRoutingResult {
+        tier: ModelTier;
+        modelId: string;
+        reason: string;
+      }
+    </item>
+    <item priority="high">
+      export function routeModel(issue: IssueInput, ctx?: RoutingContext): ModelTier { /* ... */ }
+    </item>
+    <item priority="high">
+      export function routeModelWithReason(issue: IssueInput, ctx?: RoutingContext): ModelRoutingResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildResult(tier: ModelTier, reason: string): ModelRoutingResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyContextAdjustments(
+        result: ModelRoutingResult,
+        ctx?: RoutingContext
+      ): ModelRoutingResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isTestOrDocsOnlyTask(paths: readonly string[]): boolean { /* ... */ }
+    </item>
   </file>
   <file path="src/observability.ts">
     <item priority="high">
@@ -690,6 +1665,38 @@
     <item priority="medium">
       function containsInOrder(str: string, a: string, b: string): boolean { /* ... */ }
     </item>
+    <item priority="high">
+      type BudgetSignal = RegExp | ((str: string) => boolean);
+    </item>
+    <item priority="high">
+      export function categorizeFailure(
+        errors: readonly string[],
+        stuckPattern?: StuckPatternType
+      ): FailureCategory | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildTurnMetricsList(
+        rawTurns: ReadonlyArray<{
+          turnIndex: number;
+          startedAt: string;
+          inputTokens: number;
+          outputTokens: number;
+          thinkingTokens: number;
+          costUsd: number;
+          modelId: string;
+        }>
+      ): readonly TurnMetrics[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildToolCallMetricsList(
+        rawCalls: ReadonlyArray<{
+          toolName: string;
+          toolUseId: string;
+          latencyMs: number;
+          isError: boolean;
+        }>
+      ): readonly ToolCallMetrics[] { /* ... */ }
+    </item>
   </file>
   <file path="src/orchestrator.ts">
     <item priority="medium">
@@ -697,6 +1704,12 @@
     </item>
     <item priority="medium">
       function extractSessionIds(obj: unknown): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runOrchestrator(
+        config: OrchestratorConfig,
+        onEvent?: (event: { type: string; message: string }) => void | Promise<void>
+      ): Promise<OrchestratorResult> { /* ... */ }
     </item>
   </file>
   <file path="src/post-commit-gateway.ts">
@@ -712,6 +1725,21 @@
         evaluation?: EvaluationResult;
       }
     </item>
+    <item priority="low">
+      interface PostCommitGatewayInput {
+        worktreePath: string;
+        diff: string;
+        commitMsg: string;
+        taskDescription: string;
+        config: PostCommitGatewayConfig;
+      }
+    </item>
+    <item priority="high">
+      export async function runPostCommitGateway(
+        input: PostCommitGatewayInput,
+        onEvent?: SessionEventCallback
+      ): Promise<GatewayVerdict> { /* ... */ }
+    </item>
   </file>
   <file path="src/pr-creator.ts">
     <item priority="high">
@@ -719,6 +1747,21 @@
     </item>
     <item priority="high">
       export function buildPrTitle(taskDescription: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildPrBody(
+        taskDescription: string,
+        sessionId: string,
+        costUsd: number | undefined,
+        numTurns: number
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildFailurePrBody(
+        taskDescription: string,
+        errors: readonly string[],
+        stuckPattern?: string
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="src/pr-feedback-poller.ts">
@@ -738,6 +1781,53 @@
         logSnippet: string;
       }
     </item>
+    <item priority="low">
+      interface FeedbackContext {
+        prNumber: number;
+        reviewComments: readonly ReviewComment[];
+        ciFailures: readonly CIFailure[];
+        reviewDecision: string;
+      }
+    </item>
+    <item priority="low">
+      interface PollResult {
+        context: FeedbackContext;
+        fingerprint: string;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackPoller {
+        
+      }
+    </item>
+    <item priority="low">
+      async function fetchUnresolvedComments(
+        owner: string,
+        repo: string,
+        prNumber: number,
+        repoPath: string,
+        port: PrFeedbackPort
+      ): Promise<{ comments: readonly ReviewComment[]; reviewDecision: string }> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function fetchCIFailures(
+        prNumber: number,
+        repoPath: string,
+        tailLines: number,
+        port: PrFeedbackPort
+      ): Promise<readonly CIFailure[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function computeFingerprint(comments: readonly ReviewComment[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createFeedbackPoller(
+        owner: string,
+        repo: string,
+        repoPath: string,
+        port: PrFeedbackPort = ghPrFeedbackPort
+      ): FeedbackPoller { /* ... */ }
+    </item>
   </file>
   <file path="src/pr-feedback-port.ts">
     <item priority="low">
@@ -755,6 +1845,34 @@
         threads: readonly GraphQLThreadNode[];
       }
     </item>
+    <item priority="low">
+      interface CheckResult {
+        name: string;
+        state: string;
+        conclusion: string;
+      }
+    </item>
+    <item priority="low">
+      interface RepoOwnerResult {
+        owner: string;
+        repo: string;
+      }
+    </item>
+    <item priority="low">
+      interface PrFeedbackPort {
+        
+      }
+    </item>
+    <item priority="high">
+      interface GraphQLResponse {
+        data: {
+          readonly repository: {
+            readonly pullRequest: ...;
+      }
+    </item>
+    <item priority="high">
+      export const ghPrFeedbackPort: PrFeedbackPort;
+    </item>
   </file>
   <file path="src/pr-risk-classifier.ts">
     <item priority="high">
@@ -762,6 +1880,12 @@
     </item>
     <item priority="high">
       export function reviewersForDiff(files: readonly string[]): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DIFF_REVIEWER_NAMES: readonly string[];
+    </item>
+    <item priority="high">
+      export function qualifiesForLowRiskFastPath(files: readonly string[]): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/prompt-builder.ts">
@@ -780,6 +1904,43 @@
         model?: string;
       }
     </item>
+    <item priority="high">
+      export async function loadSourceFiles(
+        paths: readonly string[]
+      ): Promise<readonly SourceFileEntry[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadLlmsFiles(
+        filePaths: readonly string[]
+      ): Promise<readonly SourceFileEntry[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatSourceFileSection(entries: readonly SourceFileEntry[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatLlmsSection(entries: readonly SourceFileEntry[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatIssueContext(issueContext: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatFailureContext(failureContext: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatModelConstraints(model?: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatVerificationSteps(steps: readonly string[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function buildSystemPrompt(
+        taskDescription: string,
+        config?: PromptBuilderConfig
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function loadProjectContext(repoPath: string): Promise<string | null> { /* ... */ }
+    </item>
   </file>
   <file path="src/qa-tuning-loader.ts">
     <item priority="low">
@@ -797,6 +1958,28 @@
         lastTunedAt: string;
         thresholds: QaTuningThresholds;
       }
+    </item>
+    <item priority="high">
+      export const QaTuningConfigSchema: unknown;
+    </item>
+    <item priority="high">
+      export function parseThresholds(raw: unknown): QaTuningThresholds | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyTuningDefaults(
+        sessionDefaults: {
+          readonly maxBudgetUsd: number;
+          readonly stuckDetectorConfig?: { readonly zeroProgressThreshold?: number };
+        },
+        tuning: QaTuningThresholds,
+        hardCodedDefaultBudget: number
+      ): {
+        readonly maxBudgetUsd: number;
+        readonly stuckDetectorConfig: { readonly zeroProgressThreshold: number } | undefined;
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function loadQaTuning(repoPath: string): QaTuningThresholds | null { /* ... */ }
     </item>
   </file>
   <file path="src/rate-limit-detector.ts">
@@ -828,6 +2011,14 @@
         tuning: QaTuningThresholds | null
       ): Record<string, string | number | boolean> { /* ... */ }
     </item>
+    <item priority="high">
+      export function buildFinalResult(
+        config: SessionConfig,
+        outcome: PipelineOutcome,
+        rootSpan: Span,
+        onEvent: SessionEventCallback | undefined
+      ): SessionResult { /* ... */ }
+    </item>
   </file>
   <file path="src/retry.ts">
     <item priority="low">
@@ -843,6 +2034,32 @@
         value: T;
         attempts: number;
       }
+    </item>
+    <item priority="high">
+      export const DEFAULT_RETRY_CONFIG: RetryConfig;
+    </item>
+    <item priority="high">
+      export function isTransientError(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isContextWindowExhausted(error: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function calculateDelay(attempt: number, baseDelayMs: number, maxDelayMs: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function withRetry<T>(
+        fn: () => Promise<T>,
+        configOverrides: Partial<RetryConfig> = {}
+      ): Promise<RetryResult<T>> { /* ... */ }
+    </item>
+    <item priority="high">
+      class ContextWindowExhaustedError {
+        name: unknown;
+      }
+    </item>
+    <item priority="medium">
+      function sleep(ms: number): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="src/revert-detector.ts">
@@ -864,6 +2081,33 @@
         revertedAt: string;
       }
     </item>
+    <item priority="high">
+      export async function detectRecentReverts(
+        repoPath: string,
+        hoursBack: number = 24
+      ): Promise<RevertCommit[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isPrAiAuthor(prBody: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function extractPrNumberFromMessage(message: string): number | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getCommitDetails(
+        repoPath: string,
+        sha: string
+      ): Promise<{ message: string; timestamp: string } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatRevertForIssue(revert: RevertCommit, isAiAuthor: boolean): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function detectAiAuthorReverts(
+        repoPath: string,
+        hoursBack: number = 24
+      ): Promise<{ commit: RevertCommit; prNumber: number }[]> { /* ... */ }
+    </item>
   </file>
   <file path="src/reviewer-contract.ts">
     <item priority="low">
@@ -884,6 +2128,44 @@
         suggestion?: string;
       }
     </item>
+    <item priority="low">
+      type ReviewIssueCategory = "hallucination" | "regression" | "test_failure" | "lint_violation" | "type_error" | "security" | "incomplete" | "quality";
+    </item>
+    <item priority="low">
+      type ReviewScore = number;
+    </item>
+    <item priority="high">
+      export const PASS_THRESHOLD: unknown;
+    </item>
+    <item priority="low">
+      interface ReviewVerdict {
+        verdict: "pass" | "flag";
+        score: ReviewScore;
+        issues: readonly ReviewIssue[];
+        strengths?: string;
+        assessment: string;
+      }
+    </item>
+    <item priority="low">
+      interface ReviewOutcome {
+        verdict: ReviewVerdict;
+        costUsd: number;
+        durationMs: number;
+        retryCount: number;
+      }
+    </item>
+    <item priority="low">
+      type ReviewRetryAction = "retry" | "file_issue" | "skip";
+    </item>
+    <item priority="low">
+      interface ReviewRetryPolicy {
+        maxRetries: number;
+        actions: readonly ReviewRetryAction[];
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_REVIEW_RETRY_POLICY: ReviewRetryPolicy;
+    </item>
   </file>
   <file path="src/run-agent-session.ts">
     <item priority="low">
@@ -899,6 +2181,12 @@
         signal?: AbortSignal;
       }
     </item>
+    <item priority="high">
+      export async function runAgentSession(
+        config: SessionConfig,
+        options: RunAgentSessionOptions = {}
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
   </file>
   <file path="src/run-git.ts">
     <item priority="high">
@@ -909,6 +2197,27 @@
         cwd?: string;
         timeoutMs?: number;
       }
+    </item>
+    <item priority="high">
+      interface ExecFileFailure {
+        message?: string;
+        code?: number;
+        stderr?: string;
+        killed?: boolean;
+      }
+    </item>
+    <item priority="high">
+      class GitCommandError {
+        args: readonly string[];
+        exitCode: number;
+        stderr: string;
+      }
+    </item>
+    <item priority="high">
+      export async function runGit(
+        args: readonly string[],
+        options: RunGitOptions = {}
+      ): Promise<string> { /* ... */ }
     </item>
   </file>
   <file path="src/run-hardened-query.ts">
@@ -924,6 +2233,38 @@
         maxBudgetUsd: number;
       }
     </item>
+    <item priority="low">
+      interface RawTurnMetric {
+        turnIndex: number;
+        startedAt: string;
+        inputTokens: number;
+        outputTokens: number;
+        thinkingTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface RawToolCallMetric {
+        toolName: string;
+        toolUseId: string;
+        latencyMs: number;
+        isError: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface HardenedQueryResult {
+        resultMessage: SDKResultMessage | null;
+        stuckReason: StuckPattern | null;
+        rawTurnMetrics: readonly RawTurnMetric[];
+        rawToolCallMetrics: readonly RawToolCallMetric[];
+        errorMessage: string | null;
+      }
+    </item>
+    <item priority="high">
+      export async function runHardenedQuery(
+        config: HardenedQueryConfig,
+        onEvent?: SessionEventCallback
+      ): Promise<HardenedQueryResult> { /* ... */ }
+    </item>
   </file>
   <file path="src/sanitize-output.ts">
     <item priority="high">
@@ -931,6 +2272,14 @@
     </item>
     <item priority="high">
       export function sanitizeStreamChunk(chunk: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createSanitizedStream(
+        source: ReadableStream<string> | AsyncIterable<string>
+      ): ReadableStream<string> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readableStreamFromAsyncIterable(iterable: AsyncIterable<string>): ReadableStream<string> { /* ... */ }
     </item>
   </file>
   <file path="src/session-runner.ts">
@@ -942,6 +2291,57 @@
     <item priority="medium">
       function pipelineWorktree(run: PipelineRun | undefined): WorktreeInfo | undefined { /* ... */ }
     </item>
+    <item priority="medium">
+      function pipelineStuckReason(run: PipelineRun | undefined): StuckPattern | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runSession(
+        config: SessionConfig,
+        onEvent?: SessionEventCallback,
+        deps: PhaseDeps = createDefaultPhaseDeps(),
+        signal?: AbortSignal
+      ): Promise<SessionResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pipelineOutcome(partial: Partial<PipelineOutcome>): PipelineOutcome { /* ... */ }
+    </item>
+    <item priority="medium">
+      function requireOutput<T>(exec: PhaseExecution<T>, phase: string): T { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runPipeline(
+        config: SessionConfig,
+        onEvent: SessionEventCallback | undefined,
+        deps: PhaseDeps,
+        signal?: AbortSignal
+      ): Promise<PipelineRun> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function throwIfAborted(signal: AbortSignal | undefined): void { /* ... */ }
+    </item>
+    <item priority="low">
+      async function abortOnFailure(
+        result: { status: string; errors: readonly string[] },
+        config: SessionConfig,
+        worktree: WorktreeInfo | undefined,
+        stuckReason: StuckPattern | undefined,
+        deps: PhaseDeps,
+        onEvent: SessionEventCallback | undefined
+      ): Promise<{ readonly errors: readonly string[]; readonly prUrl: string | null } | null> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyEffectiveConfig(config: SessionConfig): SessionConfig { /* ... */ }
+    </item>
+    <item priority="low">
+      async function pushPartialWork(
+        config: SessionConfig,
+        worktree: WorktreeInfo | undefined,
+        stuckReason: StuckPattern | undefined,
+        deps: PhaseDeps,
+        errorMessage: string,
+        onEvent: SessionEventCallback | undefined
+      ): Promise<string | null> { /* ... */ }
+    </item>
   </file>
   <file path="src/source-resolver.ts">
     <item priority="high">
@@ -949,6 +2349,9 @@
     </item>
     <item priority="medium">
       function detectTaskContexts(taskDescription: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveSourceFiles(taskDescription: string): readonly string[] { /* ... */ }
     </item>
   </file>
   <file path="src/spend-recorder.ts">
@@ -958,6 +2361,27 @@
     <item priority="high">
       export const SPEND_SINK_FILE: unknown;
     </item>
+    <item priority="low">
+      interface SpendEntry {
+        date: string;
+        timestamp: string;
+        costUsd: number;
+        issueNumber?: number | null;
+        model?: string;
+      }
+    </item>
+    <item priority="low">
+      interface SpendEntryInput {
+        costUsd: number;
+        issueNumber?: number | null;
+        model?: string;
+        adapter?: string;
+        sessionId?: string;
+      }
+    </item>
+    <item priority="high">
+      export function recordSpend(repoPath: string, input: SpendEntryInput): void { /* ... */ }
+    </item>
   </file>
   <file path="src/stuck-detector.ts">
     <item priority="low">
@@ -965,6 +2389,62 @@
     </item>
     <item priority="low">
       type StuckSeverity = "warning" | "error";
+    </item>
+    <item priority="low">
+      interface StuckPattern {
+        type: StuckPatternType;
+        count: number;
+        threshold: number;
+        description: string;
+        severity: StuckSeverity;
+      }
+    </item>
+    <item priority="low">
+      interface StuckDetectorConfig {
+        repeatedActionThreshold: number;
+        repeatedErrorThreshold: number;
+        selfMessageThreshold: number;
+        alternatingPairThreshold: number;
+        contextWindowLoopThreshold: number;
+      }
+    </item>
+    <item priority="low">
+      interface StuckDetector {
+        
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_STUCK_CONFIG: StuckDetectorConfig;
+    </item>
+    <item priority="medium">
+      function normalizeOutput(text: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fingerprintToolUse(block: { name: string; input: unknown }): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fingerprintAssistantText(contentBlocks: Array<{ type: string; text?: string }>): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractAssistantTextLength(contentBlocks: Array<{ type: string; text?: string }>): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractToolUseFingerprints(message: SDKMessage): readonly string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractToolNames(message: SDKMessage): readonly string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function extractObservationFingerprint(message: SDKMessage): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isErrorObservation(message: SDKMessage): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isFileModifyingTool(toolName: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createStuckDetector(configOverrides?: Partial<StuckDetectorConfig>): StuckDetector { /* ... */ }
     </item>
   </file>
   <file path="src/success-evaluator.ts">
@@ -983,6 +2463,25 @@
         maxBudgetUsd: number;
       }
     </item>
+    <item priority="high">
+      export const DEFAULT_EVALUATION_CONFIG: EvaluationConfig;
+    </item>
+    <item priority="medium">
+      function evaluationFailedResult(reason: string, error?: unknown): EvaluationResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getGitDiff(worktreePath: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      type EvaluateSuccessConfig = Partial<EvaluationConfig> & Omit<SkipPolicyInput, "diff">;
+    </item>
+    <item priority="high">
+      export async function evaluateSuccess(
+        taskDescription: string,
+        gitDiff: string,
+        config?: EvaluateSuccessConfig
+      ): Promise<EvaluationResult> { /* ... */ }
+    </item>
   </file>
   <file path="src/synthetic-bug-seeder.ts">
     <item priority="low">
@@ -996,6 +2495,18 @@
         replacement?: string;
         imports?: string;
       }
+    </item>
+    <item priority="high">
+      export const BUG_CATALOG: Record<BugType, BugInjector>;
+    </item>
+    <item priority="low">
+      interface InjectBugResult {
+        injected: boolean;
+        content: string;
+      }
+    </item>
+    <item priority="high">
+      export function injectBug(type: BugType, content: string): InjectBugResult { /* ... */ }
     </item>
   </file>
   <file path="src/task-decomposer.ts">
@@ -1011,6 +2522,18 @@
     <item priority="high">
       export const DEFAULT_ORCHESTRATOR_CONFIG: Omit<OrchestratorConfig, "taskDescription">;
     </item>
+    <item priority="low">
+      interface OrchestratorResult {
+        status: "succeeded" | "failed" | "partially_succeeded" | "in_prog...;
+        childSessionIds: readonly string[];
+        summary: string;
+        totalCostUsd: number;
+        durationMs: number;
+      }
+    </item>
+    <item priority="high">
+      export function buildOrchestratorPrompt(config: OrchestratorConfig): string { /* ... */ }
+    </item>
   </file>
   <file path="src/task-signal-registry.ts">
     <item priority="low">
@@ -1018,6 +2541,35 @@
     </item>
     <item priority="low">
       type TaskDomain = "dependency" | "test" | "security" | "deploy" | "feature" | "docs" | "ci";
+    </item>
+    <item priority="low">
+      interface TaskSignals {
+        tier: TaskTier;
+        domains: readonly TaskDomain[];
+        contextBundles: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      interface TitleSignal {
+        pattern: RegExp;
+        domain?: TaskDomain;
+      }
+    </item>
+    <item priority="high">
+      interface DomainRule {
+        domain: TaskDomain;
+        patterns: readonly RegExp[];
+        bundles: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      export function classifyTask(description: string, titlePrefix?: string): TaskSignals { /* ... */ }
+    </item>
+    <item priority="medium">
+      function matchTitleSignal(titlePrefix: string): TitleSignal | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function classifyTier(description: string): Exclude<TaskTier, "trivial"> { /* ... */ }
     </item>
   </file>
   <file path="src/token-estimator.ts">
@@ -1037,6 +2589,38 @@
         confidence: "low" | "medium" | "high";
         basis: string;
       }
+    </item>
+    <item priority="high">
+      export const PER_TIER_COST_PER_MTOK_USD: Readonly<Record<ModelTier, number>>;
+    </item>
+    <item priority="high">
+      export const PER_TIER_DEFAULT_TOKENS: Readonly<Record<ModelTier, number>>;
+    </item>
+    <item priority="high">
+      export const MIN_HIGH_CONFIDENCE_ROWS: unknown;
+    </item>
+    <item priority="high">
+      export function estimateIssueTokens(issue: IssueInput, history: TelemetryRow[]): TokenEstimate { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildEstimate(
+        rows: TelemetryRow[],
+        tier: ModelTier,
+        confidence: TokenEstimate["confidence"],
+        basis: string
+      ): TokenEstimate { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasLabelOverlap(row: TelemetryRow, issueLabels: Set<string>): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function finiteTokens(row: TelemetryRow): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tokensToCost(tokens: number, tier: ModelTier): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function median(nums: number[]): number { /* ... */ }
     </item>
   </file>
   <file path="src/tool-permissions.ts">
@@ -1060,6 +2644,111 @@
         thinkingTokens: number;
       }
     </item>
+    <item priority="low">
+      interface ToolCallMetrics {
+        toolName: string;
+        toolUseId: string;
+        latencyMs: number;
+        isError: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface FeedbackLoopConfig {
+        enabled: boolean;
+        maxRetries: number;
+        pollIntervalMs: number;
+        pollTimeoutMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_FEEDBACK_LOOP_CONFIG: FeedbackLoopConfig;
+    </item>
+    <item priority="low">
+      interface SessionConfig {
+        taskDescription: string;
+        repoPath: string;
+        baseBranch: string;
+        model: string;
+        maxTurns: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_SESSION_CONFIG: Omit<SessionConfig, "taskDescription" | "repoPath">;
+    </item>
+    <item priority="low">
+      type SessionStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+    </item>
+    <item priority="low">
+      interface TokenUsage {
+        inputTokens: number;
+        outputTokens: number;
+      }
+    </item>
+    <item priority="low">
+      interface SessionResultSummary {
+        success: boolean;
+        sessionId: string;
+        costUsd: number;
+        numTurns: number;
+        subtype?: string;
+      }
+    </item>
+    <item priority="low">
+      interface SessionResult {
+        sessionId: string;
+        status: SessionStatus;
+        branchName: string;
+        prUrl: string | null;
+        costUsd: number;
+      }
+    </item>
+    <item priority="low">
+      type SessionEventType = "session:start" | "session:message" | "session:tool_use" | "session:assistant" | "session:result" | "session:error" | "session:stuck" | "session:evaluation" | "session:verification" | "session:review" | "session:tool_result" | "session:turn_metrics" | "session:tool_latency" | "session:heartbeat" | "session:cleanup_warning" | "session:budget_breach";
+    </item>
+    <item priority="low">
+      interface HeartbeatConfig {
+        intervalMs: number;
+        inactivityTimeoutMs: number;
+      }
+    </item>
+    <item priority="high">
+      export const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig;
+    </item>
+    <item priority="low">
+      interface SessionEvent {
+        type: SessionEventType;
+        timestamp: string;
+        data: SDKMessage | SDKResultMessage | { message: string };
+      }
+    </item>
+    <item priority="low">
+      type SessionEventCallback = (event: SessionEvent) => void;
+    </item>
+    <item priority="low">
+      type WorktreeMode = "full" | "lightweight";
+    </item>
+    <item priority="low">
+      interface WorktreeInfo {
+        path: string;
+        branchName: string;
+        mode: WorktreeMode;
+      }
+    </item>
+    <item priority="low">
+      interface PrResult {
+        url: string;
+        number: number;
+      }
+    </item>
+    <item priority="low">
+      interface PrOptions {
+        title: string;
+        body: string;
+        baseBranch: string;
+        branchName: string;
+        repoPath: string;
+      }
+    </item>
   </file>
   <file path="src/utils.ts">
     <item priority="high">
@@ -1072,6 +2761,12 @@
     <item priority="high">
       export function sanitizeForCommitMessage(text: string): string { /* ... */ }
     </item>
+    <item priority="high">
+      export async function storeVerificationLog(
+        worktreePath: string,
+        sections: readonly { readonly label: string; readonly output: string }[]
+      ): Promise<string> { /* ... */ }
+    </item>
   </file>
   <file path="src/worktree-manager.ts">
     <item priority="high">
@@ -1079,6 +2774,88 @@
     </item>
     <item priority="high">
       export function validateGitRef(ref: string, label: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validatePath(path: string, label: string): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateBranchName(taskDescription: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function git(args: readonly string[], cwd: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createFullWorktree(
+        repoPath: string,
+        baseBranch: string,
+        branchName: string
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function createLightweightWorktree(
+        repoPath: string,
+        baseBranch: string,
+        branchName: string
+      ): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CreateWorktreeOptions {
+        mode?: WorktreeMode;
+      }
+    </item>
+    <item priority="high">
+      export async function createWorktree(
+        repoPath: string,
+        baseBranch: string,
+        taskDescription: string,
+        options: CreateWorktreeOptions = {}
+      ): Promise<WorktreeInfo> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function removeWorktree(
+        repoPath: string,
+        worktreePath: string,
+        mode: WorktreeMode = "full"
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function cleanupWorktrees(repoPath: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function commitChanges(worktreePath: string, message: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function pushBranch(worktreePath: string, branchName: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function commitAndPush(worktreePath: string, message: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function hasChanges(worktreePath: string): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RepoIdentity {
+        owner: string;
+        repo: string;
+      }
+    </item>
+    <item priority="high">
+      export async function resolveRepoIdentity(worktreePath: string): Promise<RepoIdentity> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface VerificationResult {
+        passed: boolean;
+        lintOk: boolean;
+        typecheckOk: boolean;
+        testsOk: boolean;
+        lintOutput?: string;
+      }
+    </item>
+    <item priority="high">
+      export async function syncLockfileIfNeeded(worktreePath: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runVerification(worktreePath: string): Promise<VerificationResult> { /* ... */ }
     </item>
   </file>
   <file path="src/worktree-reaper.ts">
@@ -1095,6 +2872,17 @@
         maxRetries?: number;
         baseDelayMs?: number;
       }
+    </item>
+    <item priority="low">
+      interface ReapOutcome {
+        succeeded: boolean;
+        attempts: number;
+      }
+    </item>
+    <item priority="high">
+      export async function scheduleWorktreeReap(
+        options: ScheduleWorktreeReapOptions
+      ): Promise<ReapOutcome> { /* ... */ }
     </item>
   </file>
   </section>

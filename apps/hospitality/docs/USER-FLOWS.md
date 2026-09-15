@@ -79,7 +79,7 @@ Host sees accurate data for today, SSE is connected, tables match physical layou
 
 ### Steps
 
-1. Host opens Timeline → clicks "Walk-In" button
+1. Host opens the "Seat walk-in" dialog — the Timeline's "Walk-in" button, ⌘K → "Walk-in guest", or the Dashboard's "Walk-in" (both navigate to `/timeline?walkin=true`, which opens it)
 2. Walk-In dialog opens → enters party size, guest name (optional), table selection
 3. Submits → reservation created with status CONFIRMED
 4. Table status changes to OCCUPIED
@@ -110,7 +110,7 @@ Walk-in reservation visible on Timeline, table marked OCCUPIED, other clients no
 1. Click reservation block on Timeline → Detail sidebar opens
 2. View guest name, party size, time, table, status, notes
 3. **Edit:** Click "Edit" → EditReservationDrawer opens → modify fields → Save
-4. **Seat:** Click "Mark as Seated" → status changes to CONFIRMED, table to OCCUPIED
+4. **Seat:** Click "Seat Guest" → status changes to CONFIRMED and the table to OCCUPIED; the block reads "seated" for as long as that table stays occupied (seated is derived, never stored)
 5. **Cancel:** Click "Cancel" → CancelReservationDialog opens → select reason → confirm
 6. **Complete:** After guest leaves, click "Complete" → status to COMPLETED, table to DIRTY
 

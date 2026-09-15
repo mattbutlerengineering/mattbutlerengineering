@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import React, { type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Venue } from "@mbe/types";
@@ -38,11 +38,13 @@ vi.mock("../components/booking-widget/index.js", async () => {
       hasOperatingHours: hasHours,
       maxPartySize,
       phone,
+      onHoldChange,
     }: {
       venueId: string;
       hasOperatingHours: boolean;
       maxPartySize?: number;
       phone?: string;
+      onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
     }) => (
       <div
         data-testid="booking-widget"
@@ -50,7 +52,13 @@ vi.mock("../components/booking-widget/index.js", async () => {
         data-has-operating-hours={String(hasHours)}
         data-max-party-size={maxPartySize ?? ""}
         data-phone={phone ?? ""}
-      />
+      >
+        <button
+          data-testid="trigger-hold-change"
+          onClick={() => onHoldChange?.({ holdId: "hold-abc", sessionId: "sess-xyz" })}
+        />
+        <button data-testid="trigger-hold-clear" onClick={() => onHoldChange?.(null)} />
+      </div>
     ),
     hasOperatingHours,
   };
@@ -86,6 +94,7 @@ vi.mock("./PublicBookingPage.module.css", () => ({
     header: "header",
     widgetWrapper: "widgetWrapper",
     footer: "footer",
+    notFoundLink: "notFoundLink",
   },
 }));
 
@@ -135,6 +144,17 @@ beforeEach(() => {
 });
 
 describe("PublicBookingPage", () => {
+  describe("document title (#4973)", () => {
+    it("sets a venue-specific booking title once the venue resolves", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(document.title).toBe("Book a table — The Grand Table");
+      });
+    });
+  });
+
   describe("loading state", () => {
     it("shows loading text while fetching venue", () => {
       // Never-resolving promise keeps the query pending.
@@ -185,6 +205,44 @@ describe("PublicBookingPage", () => {
         expect(screen.getByText("Venue not found")).toBeDefined();
       });
       expect(mockGetBySlug).not.toHaveBeenCalled();
+    });
+
+    it("offers a real navigable link, not a bare history.back() action, when there is no browser history", async () => {
+      const historyLengthSpy = vi.spyOn(window.history, "length", "get").mockReturnValue(1);
+      try {
+        mockGetBySlug.mockRejectedValue(new Error(LEAKY_404_MESSAGE));
+        renderPage();
+
+        await waitFor(() => {
+          expect(screen.getByText("Venue not found")).toBeDefined();
+        });
+
+        const link = screen.getByRole("link");
+        // Pin the destination, not just its existence: a truthy href is equally
+        // satisfied by a link into the auth-gated staff dashboard, which is not
+        // an exit for a guest.
+        expect(link.getAttribute("href")).toBe("https://mattbutlerengineering.com/");
+        expect(screen.queryByRole("button")).toBeNull();
+      } finally {
+        historyLengthSpy.mockRestore();
+      }
+    });
+
+    it("keeps the Go Back button when real browser history is available", async () => {
+      const historyLengthSpy = vi.spyOn(window.history, "length", "get").mockReturnValue(2);
+      try {
+        mockGetBySlug.mockRejectedValue(new Error(LEAKY_404_MESSAGE));
+        renderPage();
+
+        await waitFor(() => {
+          expect(screen.getByText("Venue not found")).toBeDefined();
+        });
+
+        expect(screen.getByRole("button", { name: "Go Back" })).toBeDefined();
+        expect(screen.queryByRole("link")).toBeNull();
+      } finally {
+        historyLengthSpy.mockRestore();
+      }
     });
   });
 
@@ -265,6 +323,67 @@ describe("PublicBookingPage", () => {
         const widget = screen.getByTestId("booking-widget");
         expect(widget.getAttribute("data-max-party-size")).toBe("");
       });
+    });
+  });
+
+  describe("release-hold on tab close", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("dispatches a DELETE with keepalive to release the active hold on pagehide", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("trigger-hold-change"));
+      window.dispatchEvent(new Event("pagehide"));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("v1/holds/hold-abc"),
+        expect.objectContaining({
+          method: "DELETE",
+          keepalive: true,
+          headers: expect.objectContaining({ "x-session-id": "sess-xyz" }),
+        })
+      );
+    });
+
+    it("does not dispatch a release on pagehide when no hold is active", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+
+      window.dispatchEvent(new Event("pagehide"));
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("clears the tracked hold once onHoldChange reports it released", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("trigger-hold-change"));
+      fireEvent.click(screen.getByTestId("trigger-hold-clear"));
+      window.dispatchEvent(new Event("pagehide"));
+
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

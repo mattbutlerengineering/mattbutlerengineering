@@ -66,6 +66,22 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 import { SetupHoursPage } from "./SetupHoursPage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 import { useVenue } from "../contexts/VenueContext.js";
 
 const defaultVenue = {
@@ -155,8 +171,8 @@ describe("SetupHoursPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/setup");
   });
 
-  it("save failure shows error banner", async () => {
-    mockApiClient.venues.update.mockRejectedValue(new Error("Network error"));
+  it("save failure shows the house serverError sentence, never the raw message", async () => {
+    mockApiClient.venues.update.mockRejectedValue(serverError("PATCH", "/api/v1/venues/venue-1"));
 
     const user = userEvent.setup();
     renderPage();
@@ -166,7 +182,8 @@ describe("SetupHoursPage", () => {
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeDefined();
     });
-    expect(screen.getByText("Network error")).toBeDefined();
+    expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
   });
 
   it("save failure with non-Error shows fallback message", async () => {
@@ -180,7 +197,7 @@ describe("SetupHoursPage", () => {
     await waitFor(() => {
       expect(screen.getByRole("alert")).toBeDefined();
     });
-    expect(screen.getByText("Failed to save operating hours.")).toBeDefined();
+    expect(screen.getByText(ERROR_COPY.unknown.detail)).toBeDefined();
   });
 
   it("shows Saving... text while saving", async () => {

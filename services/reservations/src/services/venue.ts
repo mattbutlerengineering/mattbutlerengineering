@@ -301,6 +301,7 @@ export const venueService = {
         id: true,
         name: true,
         slug: true,
+        ianaTimezone: true,
         operatingHours: true,
         settings: true,
       },
@@ -313,6 +314,7 @@ export const venueService = {
       id: venue.id,
       name: venue.name,
       slug: venue.slug,
+      ianaTimezone: venue.ianaTimezone,
       operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
       settings:
         settings?.maxPartySize != null ? { maxPartySize: settings.maxPartySize } : undefined,

@@ -1,4 +1,5 @@
 {
+  "originRoutes": ["/api", "/public"],
   "staticRoutes": [
     {
       "prefix": "/hospitality",

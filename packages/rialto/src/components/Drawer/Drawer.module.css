@@ -84,6 +84,16 @@
   border-radius: 0;
 }
 
+/* ── Size: compact ───────────────────────────── */
+.compact.right,
+.compact.left {
+  width: min(320px, calc(100vw - 48px));
+}
+
+.compact.bottom {
+  height: min(40vh, 240px);
+}
+
 /* ── Header ──────────────────────────────────── */
 .header {
   display: flex;

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useReducer } from "react";
 import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
-import { formatLongDate, formatTime } from "../../utils/format.js";
+import { formatLongDate, formatTime, formatTimeIn } from "../../utils/format.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import styles from "./GuestDetailsForm.module.css";
@@ -25,6 +25,19 @@ export interface GuestDetailsFormProps {
   onBack: () => void;
   venueSlug?: string;
   api: BookingWidgetApiClient;
+  /**
+   * Seeds the form fields on mount — e.g. what the guest already typed
+   * before a hold expired and bounced them back to the time-slot step.
+   * Omit for a blank form.
+   */
+  initialDetails?: GuestDetails;
+  /**
+   * Fired on every field edit so the caller can lift the details into
+   * longer-lived state (survives this component unmounting on hold expiry).
+   */
+  onDetailsChange?: (details: GuestDetails) => void;
+  /** IANA timezone to display the reservation summary time in; falls back to device-local (#4976). */
+  venueTimezone?: string;
 }
 
 function computeHoldTimeRemaining(hold: ReservationHold): string {
@@ -54,12 +67,15 @@ export function GuestDetailsForm({
   onBack,
   venueSlug,
   api,
+  initialDetails,
+  onDetailsChange,
+  venueTimezone,
 }: GuestDetailsFormProps) {
-  const [nameInput, setNameInput] = useState("");
-  const [email, setEmail] = useState("");
-  const [phoneInput, setPhoneInput] = useState("");
-  const [notes, setNotes] = useState("");
-  const [nameEdited, setNameEdited] = useState(false);
+  const [nameInput, setNameInput] = useState(initialDetails?.name ?? "");
+  const [email, setEmail] = useState(initialDetails?.email ?? "");
+  const [phoneInput, setPhoneInput] = useState(initialDetails?.phone ?? "");
+  const [notes, setNotes] = useState(initialDetails?.notes ?? "");
+  const [nameEdited, setNameEdited] = useState(Boolean(initialDetails?.name));
   // Force re-render every second so the hold countdown stays current
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
 
@@ -84,8 +100,21 @@ export function GuestDetailsForm({
 
   const holdTimeRemaining = hold ? computeHoldTimeRemaining(hold) : null;
 
+  // Lift the current fields up to the caller (`useBookingFlow`'s reducer
+  // state) on every edit, so they survive this form unmounting on hold
+  // expiry. `patch` overrides the field that just changed; the others come
+  // from the latest render's values.
+  const notifyDetailsChange = useCallback(
+    (patch: Partial<GuestDetails>) => {
+      onDetailsChange?.({ name, email, phone, notes, ...patch });
+    },
+    [name, email, phone, notes, onDetailsChange]
+  );
+
   const formattedDate = formatLongDate(date);
-  const formattedTime = formatTime(slot.time);
+  const formattedTime = venueTimezone
+    ? formatTimeIn(slot.time, venueTimezone)
+    : formatTime(slot.time);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -150,6 +179,7 @@ export function GuestDetailsForm({
           onChange={(e) => {
             setNameInput(e.target.value);
             setNameEdited(true);
+            notifyDetailsChange({ name: e.target.value });
           }}
           placeholder="John Smith"
         />
@@ -158,7 +188,10 @@ export function GuestDetailsForm({
           label="Email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            notifyDetailsChange({ email: e.target.value });
+          }}
           onBlur={handleEmailBlur}
           placeholder="john@example.com"
         />
@@ -167,7 +200,10 @@ export function GuestDetailsForm({
           label="Phone"
           type="tel"
           value={phone}
-          onChange={(e) => setPhoneInput(e.target.value)}
+          onChange={(e) => {
+            setPhoneInput(e.target.value);
+            notifyDetailsChange({ phone: e.target.value });
+          }}
           placeholder="(555) 123-4567"
         />
 
@@ -176,7 +212,10 @@ export function GuestDetailsForm({
         <TextArea
           label="Special Requests"
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            notifyDetailsChange({ notes: e.target.value });
+          }}
           rows={3}
           placeholder="Allergies, celebrations, seating preferences..."
         />

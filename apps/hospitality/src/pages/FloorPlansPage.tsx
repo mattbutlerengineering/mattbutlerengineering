@@ -12,6 +12,7 @@ import type { FloorPlan } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { NewFloorPlanDialog } from "../components/floor-plan";
 import { useFloorPlans, useCloneFloorPlan } from "../hooks/useFloorPlans.js";
 import { useApiClient } from "../hooks/useApiClient.js";
@@ -49,6 +50,7 @@ export function FloorPlansPage() {
     error,
     refetch,
   } = useFloorPlans({ venueId: selectedVenueId });
+  const loadFailure = error ? describeApiError(error) : null;
 
   const cloneMutation = useCloneFloorPlan();
 
@@ -66,8 +68,7 @@ export function FloorPlansPage() {
         setLiveMessage(`Floor plan "${cloned.name}" cloned successfully`);
         navigate(`/floor-plans/${cloned.id}`);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to clone floor plan";
-        setLiveMessage(`Error: ${message}`);
+        setLiveMessage(`Floor plan not cloned. ${describeApiError(err).detail}`);
       }
     },
     [cloneMutation, navigate]
@@ -129,7 +130,15 @@ export function FloorPlansPage() {
         />
       )}
 
-      {error && <ErrorRetryBanner error={error.message} onRetry={refetch} onDismiss={() => {}} />}
+      {loadFailure && (
+        <ErrorRetryBanner
+          title="Couldn't load floor plans."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
+          onRetry={refetch}
+          onDismiss={() => {}}
+        />
+      )}
 
       {!isLoading && !error && floorPlans.length === 0 && (
         <EmptyState

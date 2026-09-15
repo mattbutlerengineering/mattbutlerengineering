@@ -5,13 +5,17 @@ import { join } from "node:path";
 import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
   DEFAULT_THRESHOLD,
+  DEPLOY_WORKFLOW_FILES,
   classifyScheduledWorkflowHealth,
   hasScheduleTrigger,
   findScheduledWorkflows,
+  findDeployWorkflows,
   buildScheduledFailureTitle,
+  buildDeployFailureTitle,
   extractWorkflowNameFromIssueTitle,
   findPriorScheduledFailureIssue,
   buildScheduledFailureBody,
+  buildDeployFailureBody,
   buildScheduledFailureCreateArgs,
   runScheduledWorkflowHealthCheck,
   resolveWorkflowModifiedAt,
@@ -519,5 +523,276 @@ describe("resolveWorkflowModifiedAt", () => {
     expect(
       resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
     ).toBeUndefined();
+  });
+});
+
+// #5343: a deploy workflow (pulumi-up.yml, deploy-services.yml,
+// deploy-static.yml) triggers on push/workflow_run/workflow_dispatch, never
+// schedule — findScheduledWorkflows()/hasScheduleTrigger() structurally
+// cannot see it, so it can fail every run indefinitely with no detector
+// noticing (pulumi-up.yml: 40 consecutive failures, 09-09 -> 09-13). This
+// enumerates that fixed, explicit set directly, regardless of trigger.
+describe("findDeployWorkflows", () => {
+  let dir;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "deploy-workflows-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("finds only the explicitly-named deploy workflow files, sorted by file name", () => {
+    writeFileSync(
+      join(dir, "pulumi-up.yml"),
+      `name: Pulumi Deploy\non:\n  push:\n    branches: [main]\n  workflow_run:\n    workflows: ["Deploy Static Sites"]\n  workflow_dispatch:\n`
+    );
+    writeFileSync(
+      join(dir, "deploy-services.yml"),
+      `name: Deploy Services\non:\n  push:\n    branches: [main]\n`
+    );
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      `name: Deploy Static Sites\non:\n  push:\n    branches: [main]\n  workflow_dispatch:\n`
+    );
+
+    const result = findDeployWorkflows(dir);
+    expect(result).toEqual([
+      {
+        name: "Deploy Services",
+        file: "deploy-services.yml",
+        path: ".github/workflows/deploy-services.yml",
+      },
+      {
+        name: "Deploy Static Sites",
+        file: "deploy-static.yml",
+        path: ".github/workflows/deploy-static.yml",
+      },
+      { name: "Pulumi Deploy", file: "pulumi-up.yml", path: ".github/workflows/pulumi-up.yml" },
+    ]);
+  });
+
+  it("is an explicit list, not a glob — a similarly-named file is never picked up", () => {
+    // rialto-web-e2e.yml precedent (gotchas.md § Build / pnpm / turbo): a glob
+    // fails silently in either direction. `pulumi-preview.yml` and
+    // `pulumi-r2-checksum-validation.yml` are real, unrelated workflow files
+    // that share the `pulumi-` prefix with `pulumi-up.yml` — neither must
+    // ever be swept in by name-matching.
+    writeFileSync(join(dir, "pulumi-up.yml"), `name: Pulumi Deploy\non:\n  push:\n`);
+    writeFileSync(join(dir, "pulumi-preview.yml"), `name: Pulumi Preview\non:\n  push:\n`);
+    writeFileSync(
+      join(dir, "pulumi-r2-checksum-validation.yml"),
+      `name: Pulumi R2 Checksum Validation\non:\n  workflow_dispatch:\n`
+    );
+
+    const result = findDeployWorkflows(dir);
+    expect(result).toEqual([
+      { name: "Pulumi Deploy", file: "pulumi-up.yml", path: ".github/workflows/pulumi-up.yml" },
+    ]);
+  });
+
+  it("skips a listed deploy workflow file that does not exist on disk", () => {
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      `name: Deploy Static Sites\non:\n  push:\n    branches: [main]\n`
+    );
+    const result = findDeployWorkflows(dir);
+    expect(result).toEqual([
+      {
+        name: "Deploy Static Sites",
+        file: "deploy-static.yml",
+        path: ".github/workflows/deploy-static.yml",
+      },
+    ]);
+  });
+
+  it("carries the real repo's three deploy workflow files", () => {
+    expect(DEPLOY_WORKFLOW_FILES).toEqual([
+      "deploy-services.yml",
+      "deploy-static.yml",
+      "pulumi-up.yml",
+    ]);
+  });
+});
+
+describe("buildDeployFailureTitle / buildScheduledFailureTitle wording", () => {
+  it("never claims 'scheduled runs' for a deploy-workflow finding", () => {
+    const title = buildDeployFailureTitle("pulumi-up.yml", 40);
+    expect(title).toBe("ci-fix: pulumi-up.yml has failed 40 consecutive runs");
+    expect(title).not.toContain("scheduled");
+  });
+
+  it("round-trips a deploy-workflow title through extractWorkflowNameFromIssueTitle", () => {
+    const title = buildDeployFailureTitle("pulumi-up.yml", 40);
+    expect(extractWorkflowNameFromIssueTitle({ title })).toBe("pulumi-up.yml");
+  });
+
+  it("keeps the scheduled title wording unchanged (criterion 2 — no behavior change)", () => {
+    expect(buildScheduledFailureTitle("release.yml", 3)).toBe(
+      "ci-fix: release.yml has failed 3 consecutive scheduled runs"
+    );
+  });
+
+  it("does not cross-match a scheduled title against the deploy dedupe key, or vice versa", () => {
+    const candidates = [
+      { number: 1, title: buildScheduledFailureTitle("release.yml", 3) },
+      { number: 2, title: buildDeployFailureTitle("pulumi-up.yml", 40) },
+    ];
+    expect(findPriorScheduledFailureIssue(candidates, "pulumi-up.yml")).toBe(2);
+    expect(findPriorScheduledFailureIssue(candidates, "release.yml")).toBe(1);
+    expect(findPriorScheduledFailureIssue(candidates, "deploy-services.yml")).toBeNull();
+  });
+});
+
+describe("buildDeployFailureBody", () => {
+  it("does not claim 'scheduled' for a deploy-workflow finding", () => {
+    const body = buildDeployFailureBody({
+      workflowPath: ".github/workflows/pulumi-up.yml",
+      streak: 40,
+      runs: [{ url: "https://github.com/x/y/actions/runs/1" }],
+    });
+    expect(body).toContain(".github/workflows/pulumi-up.yml");
+    expect(body).toContain("40 consecutive");
+    expect(body).not.toContain("scheduled");
+  });
+});
+
+describe("runScheduledWorkflowHealthCheck — deploy workflows (no schedule trigger)", () => {
+  it("flags a deploy workflow with an N-run failure streak sourced entirely from push/workflow_run events", () => {
+    const workflows = [
+      { name: "pulumi-up.yml", path: ".github/workflows/pulumi-up.yml", kind: "deploy" },
+    ];
+    const runs = [
+      { conclusion: "failure", url: "u1", event: "push" },
+      { conclusion: "failure", url: "u2", event: "workflow_run" },
+      { conclusion: "failure", url: "u3", event: "push" },
+    ];
+    const created = [];
+
+    const results = runScheduledWorkflowHealthCheck({
+      workflows,
+      threshold: 3,
+      getRuns: () => runs,
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 101;
+      },
+    });
+
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe("ci-fix: pulumi-up.yml has failed 3 consecutive runs");
+    expect(created[0].title).not.toContain("scheduled");
+    expect(results).toEqual([
+      { workflow: "pulumi-up.yml", status: "failing-streak", action: "create", issueNumber: 101 },
+    ]);
+  });
+
+  it("counts a mixed-event run history correctly, cancelled excluded from the streak", () => {
+    const workflows = [
+      {
+        name: "deploy-services.yml",
+        path: ".github/workflows/deploy-services.yml",
+        kind: "deploy",
+      },
+    ];
+    // Newest-first: push, cancelled (excluded, doesn't break the streak),
+    // workflow_run, workflow_dispatch — three real failures once the
+    // cancelled run is filtered out.
+    const runs = [
+      { conclusion: "failure", url: "u1", event: "push" },
+      { conclusion: "cancelled", url: "u2", event: "push" },
+      { conclusion: "failure", url: "u3", event: "workflow_run" },
+      { conclusion: "failure", url: "u4", event: "workflow_dispatch" },
+    ];
+    let createCalled = false;
+
+    const results = runScheduledWorkflowHealthCheck({
+      workflows,
+      threshold: 3,
+      getRuns: () => runs,
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: () => {
+        createCalled = true;
+        return 202;
+      },
+    });
+
+    expect(createCalled).toBe(true);
+    expect(results[0].status).toBe("failing-streak");
+  });
+
+  it("does not flag a green deploy workflow", () => {
+    const workflows = [
+      { name: "deploy-static.yml", path: ".github/workflows/deploy-static.yml", kind: "deploy" },
+    ];
+    const runs = [
+      { conclusion: "success", url: "u1", event: "push" },
+      { conclusion: "success", url: "u2", event: "push" },
+      { conclusion: "success", url: "u3", event: "workflow_dispatch" },
+    ];
+    let createCalled = false;
+
+    const results = runScheduledWorkflowHealthCheck({
+      workflows,
+      threshold: 3,
+      getRuns: () => runs,
+      createIssue: () => {
+        createCalled = true;
+        return 1;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([{ workflow: "deploy-static.yml", status: "healthy" }]);
+  });
+
+  // Regression test against the real data (#5343): pulumi-up.yml's actual
+  // 09-09T17:05Z -> 09-13T06:22Z run history — 40 failures, 6 cancelled, 0
+  // successes, every run's event either "push" or "workflow_run", never
+  // "schedule". Before this fix, no code path could ever evaluate this
+  // workflow for a streak at all — this test must fail on the pre-fix code
+  // (findScheduledWorkflows-only enumeration + event=="schedule" filtering)
+  // and pass once pulumi-up.yml is enumerated via findDeployWorkflows and
+  // evaluated regardless of event.
+  it("flags pulumi-up.yml's real 40-failure/6-cancelled run history (09-09 -> 09-13)", () => {
+    const PULUMI_UP_REAL_HISTORY = Array.from({ length: 46 }, (_, i) => {
+      const isCancelled = i >= 40; // 6 cancelled runs, older than the 40 failures
+      return {
+        conclusion: isCancelled ? "cancelled" : "failure",
+        url: `https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/${1399 + i}`,
+        event: i % 2 === 0 ? "push" : "workflow_run",
+        createdAt: isCancelled ? "2026-09-09T17:05:00Z" : "2026-09-13T06:22:00Z",
+      };
+    });
+    expect(PULUMI_UP_REAL_HISTORY.filter((r) => r.conclusion === "failure")).toHaveLength(40);
+    expect(PULUMI_UP_REAL_HISTORY.filter((r) => r.conclusion === "cancelled")).toHaveLength(6);
+    expect(
+      PULUMI_UP_REAL_HISTORY.every((r) => r.event === "push" || r.event === "workflow_run")
+    ).toBe(true);
+
+    const workflows = [
+      { name: "pulumi-up.yml", path: ".github/workflows/pulumi-up.yml", kind: "deploy" },
+    ];
+    const created = [];
+
+    const results = runScheduledWorkflowHealthCheck({
+      workflows,
+      threshold: 3,
+      getRuns: () => PULUMI_UP_REAL_HISTORY,
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 5344;
+      },
+    });
+
+    expect(results[0].status).toBe("failing-streak");
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe("ci-fix: pulumi-up.yml has failed 3 consecutive runs");
   });
 });

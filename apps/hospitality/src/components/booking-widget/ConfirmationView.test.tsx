@@ -80,6 +80,45 @@ describe("ConfirmationView", () => {
     expect(screen.getByText("ABCD1234")).toBeDefined();
   });
 
+  it("displays the reservation time in the venue's timezone, not the device's (#4976)", () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      // 18:00Z on 2026-05-20 is 2:00 PM in New York (EDT, UTC-4) but
+      // 11:00 AM on a Los Angeles device (PDT, UTC-7).
+      const reservation = makeReservation({ startTime: "2026-05-20T18:00:00Z" });
+      render(
+        <ConfirmationView
+          reservation={reservation}
+          onNewBooking={mockOnNewBooking}
+          venueTimezone="America/New_York"
+        />
+      );
+      expect(screen.getByText("2:00 PM")).toBeDefined();
+      expect(screen.queryByText("11:00 AM")).toBeNull();
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
+
+  it("falls back to venueConfig.ianaTimezone when venueTimezone prop is omitted", () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "America/Los_Angeles";
+    try {
+      const reservation = makeReservation({ startTime: "2026-05-20T18:00:00Z" });
+      render(
+        <ConfirmationView
+          reservation={reservation}
+          onNewBooking={mockOnNewBooking}
+          venueConfig={makeVenueConfig({ ianaTimezone: "America/New_York" })}
+        />
+      );
+      expect(screen.getByText("2:00 PM")).toBeDefined();
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
+
   it("displays party size with correct pluralization", () => {
     render(
       <ConfirmationView
@@ -157,31 +196,6 @@ describe("ConfirmationView", () => {
     expect(mockOnNewBooking).toHaveBeenCalled();
   });
 
-  it("shows cancel button when onCancellation is provided", () => {
-    const mockCancel = vi.fn();
-    render(
-      <ConfirmationView
-        reservation={makeReservation()}
-        onNewBooking={mockOnNewBooking}
-        onCancellation={mockCancel}
-      />
-    );
-    expect(screen.getByText("Cancel Reservation")).toBeDefined();
-  });
-
-  it("calls onCancellation when cancel button is clicked", () => {
-    const mockCancel = vi.fn();
-    render(
-      <ConfirmationView
-        reservation={makeReservation()}
-        onNewBooking={mockOnNewBooking}
-        onCancellation={mockCancel}
-      />
-    );
-    fireEvent.click(screen.getByText("Cancel Reservation"));
-    expect(mockCancel).toHaveBeenCalled();
-  });
-
   it("navigates to cancellationUrl when provided", () => {
     const originalLocation = window.location.href;
     Object.defineProperty(window, "location", {
@@ -200,7 +214,7 @@ describe("ConfirmationView", () => {
     expect(window.location.href).toBe("https://example.com/cancel");
   });
 
-  it("does not show cancel button when neither cancellationUrl nor onCancellation is provided", () => {
+  it("does not show the cancel button when cancellationUrl is not provided (#4978)", () => {
     render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
     expect(screen.queryByText("Cancel Reservation")).toBeNull();
   });

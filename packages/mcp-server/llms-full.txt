@@ -15,6 +15,24 @@
       assertNoTraversal(sql, "SQL statement");
       return run("psql", [dbUrl, "-t", "-c", sql]);
     }
+    export function ghJson(
+      args: string[],
+      run: (cmd: string, args: string[]) => string = defaultGhRun
+    ): string {
+      return run("gh", args);
+    }
+    export function doctlJson(
+      args: string[],
+      run: (cmd: string, args: string[]) => string = defaultDoctlRun
+    ): string {
+      return run("doctl", args);
+    }
+    export function pulumiJson(
+      args: string[],
+      run: (cmd: string, args: string[]) => string = defaultPulumiRun
+    ): string {
+      return run("pulumi", args);
+    }
   </file>
   <file path="src/dispatcher.ts">
     type McpContent = { type: "text"; text: string };
@@ -22,6 +40,68 @@
       content: McpContent[];
       isError?: boolean;
     };
+    export type ToolDefinition<TSchema extends z.ZodTypeAny = z.ZodTypeAny> = {
+      name: string;
+      description: string;
+      inputSchema: TSchema;
+      handler: (args: z.infer<TSchema>) => Promise<string>;
+    };
+    export function defineTool<TSchema extends z.ZodTypeAny>(
+      def: ToolDefinition<TSchema>
+    ): ToolDefinition<TSchema> {
+      return def;
+    }
+    type JsonSchemaObject = {
+      type: "object";
+      properties?: Record<string, unknown>;
+      required?: string[];
+      [key: string]: unknown;
+    };
+    export function listTools(tools: ToolDefinition[]): Array<{
+      name: string;
+      description: string;
+      inputSchema: JsonSchemaObject;
+    }> {
+      return tools.map((t) => {
+        const raw = z.toJSONSchema(t.inputSchema) as JsonSchemaObject;
+        // MCP spec requires type: 'object' at root; strip the $schema sentinel
+        const { $schema: _, ...rest } = raw as { $schema?: string } & JsonSchemaObject;
+        return {
+          name: t.name,
+          description: t.description,
+          inputSchema: rest as JsonSchemaObject,
+        };
+      });
+    }
+    function errorEnvelope(message: string): McpResult {
+      return {
+        content: [{ type: "text", text: `Error: ${message}` }],
+        isError: true,
+      };
+    }
+    export async function callTool(
+      tools: ToolDefinition[],
+      name: string,
+      args: unknown
+    ): Promise<McpResult> {
+      const tool = tools.find((t) => t.name === name);
+    
+      if (!tool) {
+        return errorEnvelope(`Tool not found: ${name}`);
+      }
+    
+      const parsed = tool.inputSchema.safeParse(args);
+      if (!parsed.success) {
+        return errorEnvelope(`Validation invalid: ${parsed.error.message}`);
+      }
+    
+      try {
+        const text = await tool.handler(parsed.data);
+        return { content: [{ type: "text", text }] };
+      } catch (error) {
+        return errorEnvelope(error instanceof Error ? error.message : String(error));
+      }
+    }
   </file>
   <file path="src/index.ts">
     async function main() {
@@ -43,6 +123,22 @@
       timeoutMs?: number;
       /** Label used in the error envelope's `error` field. Defaults to "Command failed". */
       errorLabel?: string;
+    }
+    export function createShellRunner(opts: ShellRunnerOptions = {}) {
+      const runner = opts.runner ?? (execFileSync as unknown as ShellRunner);
+      const timeout = opts.timeoutMs ?? 15_000;
+      const errorLabel = opts.errorLabel ?? "Command failed";
+    
+      return function run(cmd: string, args: string[] = []): string {
+        try {
+          return (runner(cmd, args, { encoding: "utf-8", timeout }) as string).trim();
+        } catch (error) {
+          return JSON.stringify({
+            error: errorLabel,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      };
     }
   </file>
   </section>

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GuestDrawer } from "./GuestDrawer.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { Guest, Reservation } from "@mbe/types";
 import type {
   AlertProps,
@@ -218,7 +219,7 @@ describe("GuestDrawer", () => {
     });
   });
 
-  it("shows error alert when save fails", async () => {
+  it("shows the house sentence when save fails — never the error's debug message", async () => {
     const onSave = vi.fn().mockRejectedValue(new Error("Network error"));
     render(
       <GuestDrawer
@@ -233,7 +234,8 @@ describe("GuestDrawer", () => {
     fireEvent.click(screen.getByText("Edit Guest"));
     await waitFor(() => expect(screen.getByText("Save")).toBeDefined());
     fireEvent.click(screen.getByText("Save"));
-    await waitFor(() => expect(screen.getByText("Network error")).toBeDefined());
+    await waitFor(() => expect(screen.getByText(ERROR_COPY.unknown.detail)).toBeDefined());
+    expect(screen.queryByText("Network error")).toBeNull();
     expect(mockToast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
   });
 

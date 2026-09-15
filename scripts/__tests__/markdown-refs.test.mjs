@@ -73,6 +73,21 @@ describe("extractMarkdownReferences (shared markdown-ref extractor)", () => {
     expect(refs).toHaveLength(0);
   });
 
+  test("does not treat bare-identifier code like `[toState](issueNumber)` as a markdown link", async () => {
+    // Regression for #5089: llms-full.txt embeds raw TS source (e.g. from
+    // pack.ts). A line like `TRANSITIONS[toState](issueNumber)` coincidentally
+    // matches `[text](link)` syntax, but `issueNumber` is a bare identifier
+    // (no "/" or "."), not a plausible file reference — it must not be
+    // extracted as a dead-link candidate.
+    const { extractMarkdownReferences } = await import("../lib/markdown-refs.mjs");
+    const refs = extractMarkdownReferences(
+      "      client.label.apply(TRANSITIONS[toState](issueNumber));\n",
+      "/repo/llms-full.txt"
+    );
+
+    expect(refs).toHaveLength(0);
+  });
+
   test("reports missing targets via checkStaleReferences", async () => {
     const { checkStaleReferences } = await import("../lib/markdown-refs.mjs");
     const fileExists = (p) => p === path.resolve("/repo", "docs/exists.md");

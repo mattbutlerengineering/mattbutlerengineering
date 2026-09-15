@@ -577,27 +577,41 @@ describe("collectQueueEfficiency — review_coverage", () => {
     expect(result.sub_metrics.review_coverage).toBeCloseTo(0.667, 3);
   });
 
-  it("counts skipped rows as uncovered", () => {
+  it("counts skipped rows as uncovered, denominator is window PRs not rows found", () => {
+    // 3 window PRs (10, 11, 12); only 2 have a row at all, and one of those
+    // is "skipped". Denominator is windowPrs.length (3), not the 2 rows
+    // found, so this is 1/3 — not the pre-fix 1/2 (reviewed / rows.length).
     const result = collect([
       { pr_number: 10, reviewer_verdict: "pass" },
       { pr_number: 11, reviewer_verdict: "skipped" },
     ]);
 
-    expect(result.sub_metrics.review_coverage).toBe(0.5);
+    expect(result.sub_metrics.review_coverage).toBeCloseTo(0.333, 3);
   });
 
-  it("ignores rows outside the current window", () => {
+  // #5005: this test used to assert review_coverage === 1 for 3 window PRs
+  // with only 1 in-window row — the exact bug the issue names. The
+  // pre-fix denominator was windowRows.length (here, 1, after PR 999's
+  // out-of-window row is filtered out), so 1 reviewed / 1 row = 1 read as
+  // "full coverage" even though 2 of the 3 window PRs never got a review
+  // row at all. The fixed denominator is windowPrs.length (3), so the true
+  // value is 1/3 — a gate that only fired for 1 of 3 PRs is NOT full
+  // coverage, and the metric now says so.
+  it("scopes to window PRs, not just in-window rows found (denominator bug, #5005)", () => {
     const result = collect([
       { pr_number: 10, reviewer_verdict: "pass" },
-      { pr_number: 999, reviewer_verdict: "error" },
+      { pr_number: 999, reviewer_verdict: "error" }, // outside window, ignored either way
     ]);
 
-    expect(result.sub_metrics.review_coverage).toBe(1);
+    expect(result.sub_metrics.review_coverage).toBeCloseTo(0.333, 3);
   });
 
-  it("is null when no window PR has a telemetry row", () => {
-    // Distinguishes "no data" from a genuine zero-coverage window.
-    expect(collect([]).sub_metrics.review_coverage).toBeNull();
+  it("is 0, not null or 1, when the review gate wrote zero rows for the window (#5005)", () => {
+    // A gate that stops firing entirely must read as a falling number (0),
+    // not as "no data" (null, the pre-fix behavior) or a flattering "fully
+    // covered" (1) — the exact failure mode the metric exists to catch.
+    const result = collect([]);
+    expect(result.sub_metrics.review_coverage).toBe(0);
   });
 });
 

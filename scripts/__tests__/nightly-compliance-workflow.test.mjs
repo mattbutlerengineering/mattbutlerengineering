@@ -135,13 +135,18 @@ describe("nightly-compliance.yml Run gating scripts step", () => {
       );
     }
 
-    // The two scripts known (measured, not assumed) to be nightly-inappropriate
+    // The scripts known (measured, not assumed) to be nightly-inappropriate
     // must stay named here — check-endpoint.mjs is a library CLI that exits 1
     // on a bare invocation with no args (always "fails" without checking
-    // anything), and check-dep-sync.mjs shells to unpinned `npx depcheck` per
-    // workspace package, measured at 4m33s wall time for a single full run.
+    // anything), check-dep-sync.mjs shells to unpinned `npx depcheck` per
+    // workspace package (measured at 4m33s wall time for a single full run),
+    // and check-deploy-sha.mjs requires --url/--expected-sha runtime args
+    // from a real deploy event with no bare invocation (#5076/#5102 — it
+    // failed every nightly run with a usage error before being added here).
     const excludedNames = [...excludedBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-    expect(excludedNames).toEqual(expect.arrayContaining(["check-endpoint", "check-dep-sync"]));
+    expect(excludedNames).toEqual(
+      expect.arrayContaining(["check-endpoint", "check-dep-sync", "check-deploy-sha"])
+    );
   });
 
   it("still captures each script's exit status via if, not a masked bare call", () => {
@@ -190,5 +195,35 @@ describe("nightly-compliance.yml Detect drift step", () => {
   // own line, splitting the summary across two lines instead of one.
   it("does not use the || echo 0 fallback that double-printed the count", () => {
     expect(step).not.toMatch(/grep -c '[✗✓]' \/tmp\/report\.md \|\| echo 0/);
+  });
+});
+
+describe("nightly-compliance.yml File meta-improvement issue if drift detected step (#5084)", () => {
+  const step = extractStep(WORKFLOW, "File meta-improvement issue if drift detected");
+
+  // Regression test for the bug this issue reports: the dedupe key used to
+  // be keyed on `today` alone, so a persistent failure filed a fresh issue
+  // every single night instead of being recognised as the same bug.
+  it("no longer dedupes on the date alone", () => {
+    expect(step).not.toMatch(/--dedupe-key "nightly-compliance-drift-\$\{today\}"/);
+    expect(step).not.toMatch(/--search-text "\$title"/);
+  });
+
+  it("computes a stable signature via the shared signature module, not inline date logic", () => {
+    expect(step).toMatch(/node scripts\/print-drift-signature\.mjs/);
+    expect(step).toMatch(/--dedupe-key "nightly-compliance-drift-\$\{signature\}"/);
+    expect(step).toMatch(/--search-text "\$signature"/);
+  });
+
+  it("embeds the signature as a machine-readable HTML-comment marker in the issue body", () => {
+    expect(step).toMatch(/<!-- nightly-compliance-signature: \$\{signature\} -->/);
+  });
+
+  it("comments on a matched open issue instead of silently skipping", () => {
+    expect(step).toMatch(/--comment-body-file \/tmp\/drift-comment\.md/);
+  });
+
+  it("still keeps the date in the title for readability", () => {
+    expect(step).toMatch(/title="\[nightly-compliance \$\{today\}\] Drift detected"/);
   });
 });

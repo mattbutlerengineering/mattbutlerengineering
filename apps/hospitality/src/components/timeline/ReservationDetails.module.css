@@ -1,0 +1,86 @@
+/* Detail fields (moved from TimelinePage.module.css with the component) */
+.detailsStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+/* Notes detail */
+.notesValue {
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+  background: var(--rialto-surface-recessed);
+  padding: var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-sharp);
+}
+
+/* Status badge */
+.statusBadge {
+  display: inline-block;
+  padding-inline: var(--rialto-space-xs);
+  padding-block: 0.125rem;
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  border-radius: var(--rialto-radius-round);
+}
+
+.statusSeated {
+  background: var(--rialto-success-muted);
+  color: var(--rialto-success);
+}
+
+.statusConfirmed {
+  background: color-mix(in srgb, var(--rialto-accent) 15%, transparent);
+  color: var(--rialto-accent);
+}
+
+.statusPending {
+  background: var(--rialto-warning-muted);
+  color: var(--rialto-warning);
+}
+
+.statusCompleted {
+  background: var(--rialto-success-muted);
+  color: var(--rialto-success);
+}
+
+.statusCancelled {
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-secondary);
+}
+
+.statusNoShow {
+  background: var(--rialto-error-muted);
+  color: var(--rialto-error);
+}
+
+/* The caption that explains a missing Seat Guest (ux Screen 5) */
+.statusCaption {
+  margin-block-start: var(--rialto-space-2xs);
+}
+
+/* Action buttons */
+.actionsDivider {
+  padding-block-start: var(--rialto-space-md);
+  border-block-start: 1px solid var(--rialto-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.fullWidth {
+  inline-size: 100%;
+}
+
+/* Spoken but not seen: "table unknown" beside the visible dash (ux Decision f) */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

@@ -109,8 +109,14 @@ vi.mock("../pages/examples/FormStatesExamplePage.js", () => ({
 vi.mock("../pages/examples/ReservationsListExamplePage.js", () => ({
   ReservationsListExamplePage: () => null,
 }));
+vi.mock("../pages/examples/ReservationTimelineExamplePage.js", () => ({
+  ReservationTimelineExamplePage: () => null,
+}));
 vi.mock("../pages/examples/GuestDetailExamplePage.js", () => ({
   GuestDetailExamplePage: () => null,
+}));
+vi.mock("../pages/examples/AvailabilityHeatmapExamplePage.js", () => ({
+  AvailabilityHeatmapExamplePage: () => null,
 }));
 vi.mock("../pages/tokens/ColorPage.js", () => ({ ColorPage: () => null }));
 vi.mock("../pages/tokens/TypographyPage.js", () => ({ TypographyPage: () => null }));
@@ -146,6 +152,9 @@ vi.mock("../pages/examples/BookingWizardExamplePage.js", () => ({
 }));
 vi.mock("../pages/examples/OnboardingExamplePage.js", () => ({
   OnboardingExamplePage: () => null,
+}));
+vi.mock("../pages/examples/GuestCheckinExamplePage.js", () => ({
+  GuestCheckinExamplePage: () => null,
 }));
 vi.mock("../pages/examples/NotificationCenterExamplePage.js", () => ({
   NotificationCenterExamplePage: () => null,
@@ -330,6 +339,21 @@ describe("PageRegistry — onboarding example", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Guest-checkin example (#5208)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — guest-checkin example", () => {
+  it("registers example-guest-checkin in the Examples category at /examples/guest-checkin", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-guest-checkin");
+    expect(entry, "example-guest-checkin missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Guest Checkin");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/guest-checkin");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Invoice example (#3553)
 // ---------------------------------------------------------------------------
 
@@ -340,6 +364,51 @@ describe("PageRegistry — invoice example", () => {
     expect(entry?.label).toBe("Invoice");
     expect(entry?.category).toBe("Examples");
     expect(entry?.path).toBe("/examples/invoice");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Availability-heatmap example (#5206)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — availability-heatmap example", () => {
+  it("registers example-availability-heatmap in the Examples category at /examples/availability-heatmap", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-availability-heatmap");
+    expect(entry, "example-availability-heatmap missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Availability Heatmap");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/availability-heatmap");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reservation-timeline example (#5207)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — reservation-timeline example", () => {
+  it("registers example-reservation-timeline in the Examples category at /examples/reservation-timeline", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-reservation-timeline");
+    expect(entry, "example-reservation-timeline missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Reservation Timeline");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/reservation-timeline");
+    expect(entry?.comingSoon).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reservation Kanban example (#5209)
+// ---------------------------------------------------------------------------
+
+describe("PageRegistry — reservation-kanban example", () => {
+  it("registers example-reservation-kanban in the Examples category at /examples/reservation-kanban", () => {
+    const entry = PAGE_REGISTRY.find((e) => e.id === "example-reservation-kanban");
+    expect(entry, "example-reservation-kanban missing from PAGE_REGISTRY").toBeDefined();
+    expect(entry?.label).toBe("Reservation Kanban");
+    expect(entry?.category).toBe("Examples");
+    expect(entry?.path).toBe("/examples/reservation-kanban");
     expect(entry?.comingSoon).toBeUndefined();
   });
 });

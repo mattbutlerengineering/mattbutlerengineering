@@ -15,7 +15,6 @@ src/
 │   ├── adr.ts         # check-adr — validate Architecture Decision Records
 │   ├── check-deps.ts  # check-deps — dependency version enforcement
 │   ├── cleanup-worktrees.ts  # cleanup-worktrees — remove stale git worktrees
-│   ├── compound.ts    # compound — chain multiple commands as a single task
 │   ├── generate.ts    # generate — scaffold code from templates
 │   ├── health.ts      # health — check service/infra health endpoints
 │   ├── issue.ts       # issue transition — apply label-machine state transitions

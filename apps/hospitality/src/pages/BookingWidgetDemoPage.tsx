@@ -15,6 +15,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { BookingWidget, hasOperatingHours } from "../components/booking-widget";
 import { useVenues } from "../hooks/useVenues.js";
 import { highlightEmbedCode } from "./highlight-embed-code.js";
@@ -104,6 +105,7 @@ function BookingWidgetDemoSkeleton() {
 export function BookingWidgetDemoPage() {
   const navigate = useNavigate();
   const { data: venues = [], isLoading, error, refetch } = useVenues({ limit: 50 });
+  const loadFailure = error ? describeApiError(error) : null;
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [deviceFrame, setDeviceFrame] = useState("desktop");
 
@@ -159,7 +161,14 @@ export function BookingWidgetDemoPage() {
         design preview of what is coming; it cannot be added to your website today.
       </Banner>
 
-      {error && <ErrorRetryBanner error={error.message} onRetry={refetch} />}
+      {loadFailure && (
+        <ErrorRetryBanner
+          title="Couldn't load venues."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
+          onRetry={refetch}
+        />
+      )}
 
       {/* Venue selector */}
       <Card variant="flat" className={styles.venueSection}>
@@ -216,6 +225,7 @@ export function BookingWidgetDemoPage() {
                     venueId={effectiveVenueId}
                     audience="staff"
                     hasOperatingHours={hasOperatingHours(selectedVenue?.operatingHours)}
+                    venueTimezone={selectedVenue?.ianaTimezone}
                     onSetHours={handleSetHours}
                   />
                 ) : (

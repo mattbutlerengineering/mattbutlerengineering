@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   classifyProbe,
   isRetryable,
+  resolveBase,
   API_SURFACE_PROBES,
   PROBE_STATES,
 } from "../check-api-surface-invariants.mjs";
@@ -61,13 +62,117 @@ describe("classifyProbe", () => {
   });
 
   it("only ever returns a declared state", () => {
+    const bodyProbe = { ...probe, expectBodyIncludes: "Venue not found" };
     const outcomes = [
       classifyProbe(probe, { httpCode: 401, headers: { "x-ratelimit-limit": "1" } }),
       classifyProbe(probe, { httpCode: 0, headers: {} }),
       classifyProbe(probe, { httpCode: 500, headers: {} }),
       classifyProbe(probe, { httpCode: 401, headers: {} }),
+      classifyProbe(bodyProbe, {
+        httpCode: 401,
+        headers: { "x-ratelimit-limit": "1" },
+        body: "something else entirely",
+      }),
     ];
     for (const outcome of outcomes) expect(PROBE_STATES).toContain(outcome);
+  });
+});
+
+describe("classifyProbe — expectBodyIncludes and the wrong-service verdict", () => {
+  // A 404 alone cannot say which service produced it: users-api and
+  // reservations-api emit byte-identical Fastify route-miss bodies. The
+  // discriminator is what a *serving* route says — once reservations really
+  // owns /public/v1/venues, an absent slug hits its own handler and answers
+  // `{"success":false,"error":"Venue not found"}`, which the catch-all cannot
+  // produce. Status is necessary; only the body is sufficient.
+  const probe = {
+    expectStatus: 404,
+    expectBodyIncludes: "Venue not found",
+    requireHeaders: ["x-ratelimit-limit"],
+  };
+  const headers = { "x-ratelimit-limit": "100" };
+
+  it("passes when the status, the body and the headers all match", () => {
+    expect(
+      classifyProbe(probe, {
+        httpCode: 404,
+        headers,
+        body: '{"success":false,"error":"Venue not found"}',
+      })
+    ).toBe("ok");
+  });
+
+  it("reports wrong-service when the status matches but the body is another service's", () => {
+    // The live signature of this defect: the expected 404, produced by
+    // users-api's catch-all instead of the route that should own the path.
+    expect(
+      classifyProbe(probe, {
+        httpCode: 404,
+        headers,
+        body: '{"message":"Route GET:/public/v1/venues/x not found","error":"Not Found","statusCode":404}',
+      })
+    ).toBe("wrong-service");
+  });
+
+  it("orders wrong-service after unreachable and after status-mismatch", () => {
+    // "The host is down" and "the wrong service answered" call for opposite
+    // responses, and a status that never matched says nothing about a body.
+    expect(classifyProbe(probe, { httpCode: 0, headers: {}, body: "" })).toBe("unreachable");
+    expect(classifyProbe(probe, { httpCode: 200, headers, body: "<html>marketing</html>" })).toBe(
+      "status-mismatch"
+    );
+  });
+
+  it("prefers wrong-service over guard-missing", () => {
+    // Deliberate: if the wrong service answered, its headers say nothing about
+    // the guard on the right one. Reporting guard-missing here would name a
+    // rate-limit regression that does not exist and send the reader to the
+    // wrong file — the same conflation the unreachable/guard-missing ordering
+    // already exists to prevent.
+    expect(
+      classifyProbe(probe, {
+        httpCode: 404,
+        headers: {},
+        body: '{"message":"Route GET:/x not found","error":"Not Found","statusCode":404}',
+      })
+    ).toBe("wrong-service");
+  });
+
+  it("treats a body it could not read as the wrong service, never as ok", () => {
+    expect(classifyProbe(probe, { httpCode: 404, headers, body: "" })).toBe("wrong-service");
+    expect(classifyProbe(probe, { httpCode: 404, headers })).toBe("wrong-service");
+  });
+
+  it("leaves a probe that declares no expectBodyIncludes exactly as it was", () => {
+    const noBody = { expectStatus: 401, requireHeaders: ["x-ratelimit-limit"] };
+    expect(classifyProbe(noBody, { httpCode: 401, headers, body: "anything at all" })).toBe("ok");
+    expect(classifyProbe(noBody, { httpCode: 401, headers: {}, body: "" })).toBe("guard-missing");
+  });
+
+  it("declares wrong-service as a probe state", () => {
+    expect(PROBE_STATES).toContain("wrong-service");
+  });
+});
+
+describe("resolveBase", () => {
+  // One invocation has to cover two hosts: the DO origin and the apex the
+  // shipped browser bundle actually calls. A probe therefore carries its own
+  // origin — but an explicit --base must still win, or the unit tests below
+  // would fire at production instead of their local fixture.
+  it("uses the probe's own origin when no --base was given", () => {
+    expect(resolveBase({ origin: "https://mattbutlerengineering.com" }, null)).toBe(
+      "https://mattbutlerengineering.com"
+    );
+  });
+
+  it("falls back to the default base for a probe with no origin", () => {
+    expect(resolveBase({}, null)).toBe("https://api.mattbutlerengineering.com");
+  });
+
+  it("lets an explicit --base override even a probe that pins its own origin", () => {
+    expect(
+      resolveBase({ origin: "https://mattbutlerengineering.com" }, "http://127.0.0.1:1234")
+    ).toBe("http://127.0.0.1:1234");
   });
 });
 
@@ -99,6 +204,18 @@ describe("API_SURFACE_PROBES", () => {
   it("covers sibling routes, so a service-wide limiter regression is caught too", () => {
     const paths = new Set(API_SURFACE_PROBES.map((p) => p.path));
     expect(paths.size).toBeGreaterThan(1);
+  });
+
+  it("probes the public surface on BOTH hosts, because the gates are in series", () => {
+    // The DO origin and the apex fail for different reasons and are fixed in
+    // different files. Probing only the origin is what let the edge gate hide:
+    // a correct ingress rule behind an edge that never forwards /public is
+    // still a dead surface, and the origin probe would go green over it.
+    const reachability = API_SURFACE_PROBES.filter((p) => p.expectBodyIncludes);
+    expect(reachability.map((p) => p.origin).sort()).toEqual([
+      "https://api.mattbutlerengineering.com",
+      "https://mattbutlerengineering.com",
+    ]);
   });
 
   it("gives every probe a unique name for the report", () => {
@@ -233,17 +350,25 @@ describe("runner exit codes", () => {
       let body = "";
       req.on("data", (c) => (body += c));
       req.on("end", () => {
+        // Two probes can share a path+method for two different reasons: they
+        // split on the request body (venue-create's validation vs auth stage),
+        // or they split on the ORIGIN (the reachability pair, identical except
+        // for which host they ask). Only the first is distinguishable from
+        // inside one fixture server, and the second does not need to be --
+        // those probes expect the same answer, so either one serves both.
         const probe =
           matches.length > 1
-            ? matches.find((p) =>
+            ? (matches.find((p) =>
                 body.includes("ianaTimezone") ? p.expectStatus === 401 : p.expectStatus === 400
-              )
+              ) ?? matches[0])
             : matches[0];
         if (!probe) return res.writeHead(404).end();
         if (withHeaders(probe)) {
           for (const h of probe.requireHeaders) res.setHeader(h, "100");
         }
-        res.writeHead(probe.expectStatus).end("{}");
+        // A probe that discriminates on the body needs a body that satisfies
+        // it, or "every invariant holds" could never be represented here.
+        res.writeHead(probe.expectStatus).end(probe.expectBodyIncludes ?? "{}");
       });
     });
     await new Promise((r) => server.listen(0, r));
@@ -296,6 +421,9 @@ describe("isRetryable", () => {
     // `unreachable` is deliberate, not an oversight.
     expect(isRetryable("guard-missing")).toBe(false);
     expect(isRetryable("status-mismatch")).toBe(false);
+    // Which service owns a path is decided by ingress and edge config, not by
+    // how warm a container is. Retrying it could only mask the regression.
+    expect(isRetryable("wrong-service")).toBe(false);
   });
 
   it("does not retry a passing probe", () => {

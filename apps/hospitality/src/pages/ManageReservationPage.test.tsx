@@ -58,6 +58,42 @@ beforeEach(() => {
 });
 
 describe("ManageReservationPage", () => {
+  describe("document title (#4973)", () => {
+    it("sets a venue-specific reservation title once the reservation resolves", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse({
+          data: {
+            reservation: {
+              id: "res_1",
+              date: "2026-06-15",
+              startTime: "19:00",
+              endTime: "21:00",
+              partySize: 4,
+              guestName: "Jane Doe",
+              guestEmail: "jane@example.com",
+              guestPhone: "+1555000111",
+              status: "PENDING",
+              notes: null,
+            },
+            venue: {
+              id: "venue_1",
+              name: "The Oak Table",
+              slug: "the-oak-table",
+              ianaTimezone: "America/Los_Angeles",
+            },
+          },
+        })
+      );
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(document.title).toBe("The Oak Table — Your reservation");
+      });
+    });
+  });
+
   it("shows no-access-link message when no token in URL", () => {
     renderPage();
     expect(screen.getByText("No Access Link")).toBeDefined();

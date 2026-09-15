@@ -26,7 +26,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/adapter-pg": "^7.10.0",
     "pg": "^8.23.0"
   },
   "devDependencies": {
@@ -34,7 +34,7 @@
     "@types/node": "catalog:",
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "catalog:",
-    "prisma": "^7.9.1",
+    "prisma": "^7.10.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

@@ -4,8 +4,12 @@ import { useUrlParams } from "../hooks/use-url-params.js";
 import { Stack, Text, Card } from "@mattbutlerengineering/rialto";
 import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
+import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
+/** Default title before the reservation resolves (or on an invalid/expired link) — distinguishes this guest surface from a staff-sounding "Dashboard" tab (#4973). */
+const DEFAULT_TITLE = "Your reservation — Hospitality";
 
 // Custom error type to distinguish expired vs invalid
 class ManageTokenError extends Error {
@@ -46,6 +50,8 @@ export function ManageReservationPage() {
     enabled: !!token,
     retry: false,
   });
+
+  useDocumentTitle(data?.venue ? `${data.venue.name} — Your reservation` : DEFAULT_TITLE);
 
   // No token in URL
   if (!token) {

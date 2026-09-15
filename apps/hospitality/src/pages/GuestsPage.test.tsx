@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GuestsPage } from "./GuestsPage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import type { Venue, Guest, GuestSegment } from "@mbe/types";
@@ -25,8 +27,27 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error }: { error: string }) => <div data-testid="error-banner">{error}</div>,
+  ErrorRetryBanner: ({ title, error }: { title?: string; error: string }) => (
+    <div data-testid="error-banner">
+      <strong>{title}</strong>
+      <span>{error}</span>
+    </div>
+  ),
 }));
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 vi.mock("../components/crm/GuestCard.js", () => ({
   GuestCard: ({ guestId }: { guestId: string | null | undefined }) => (
@@ -336,9 +357,11 @@ describe("GuestsPage", () => {
   });
 
   it("shows error banner when error is present", () => {
-    renderPage({ error: new Error("Connection failed"), guests: [] });
+    renderPage({ error: serverError("GET", "/api/v1/guests?venueId=venue-1"), guests: [] });
     expect(screen.getByTestId("error-banner")).toBeDefined();
-    expect(screen.getByText("Connection failed")).toBeDefined();
+    expect(screen.getByText("Couldn't load guests.")).toBeDefined();
+    expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
   });
 
   it("shows Add Guest button", () => {
@@ -595,8 +618,20 @@ describe("GuestsPage - add guest dialog", () => {
     });
   });
 
-  it("shows error when add guest fails", async () => {
-    const addGuest = vi.fn().mockRejectedValue(new Error("Duplicate guest"));
+  it("shows the server's own 409 detail when add guest conflicts — never the request line", async () => {
+    // A duplicate is a 409 from the API; `conflict` keeps the server's detail verbatim.
+    const addGuest = vi.fn().mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "A guest with this email already exists.",
+        },
+        "POST",
+        "/api/v1/guests"
+      )
+    );
     const user = userEvent.setup();
     const directory = makeDirectoryResult({ guests: [], addGuest });
     vi.mocked(useVenue).mockReturnValue(makeVenueContext());
@@ -614,8 +649,9 @@ describe("GuestsPage - add guest dialog", () => {
     fireEvent.click(buttons[buttons.length - 1]);
 
     await waitFor(() => {
-      expect(screen.getByText("Duplicate guest")).toBeDefined();
+      expect(screen.getByText("A guest with this email already exists.")).toBeDefined();
     });
+    expect(screen.queryByText(/failed: 409/)).toBeNull();
   });
 
   it("closes dialog when Cancel is clicked", async () => {
@@ -645,10 +681,11 @@ describe("GuestsPage - empty state", () => {
 describe("GuestsPage - error retry", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("displays the error message from failed query", () => {
+  it("renders the `unknown` row for a plain Error, never its debug message", () => {
     renderPage({ error: new Error("Network timeout"), guests: [] });
     expect(screen.getByTestId("error-banner")).toBeDefined();
-    expect(screen.getByText("Network timeout")).toBeDefined();
+    expect(screen.getByText(ERROR_COPY.unknown.detail)).toBeDefined();
+    expect(screen.queryByText("Network timeout")).toBeNull();
   });
 });
 
@@ -847,8 +884,8 @@ describe("GuestsPage - success toast on save", () => {
     });
   });
 
-  it("does not show success toast when save fails", async () => {
-    const updateGuest = vi.fn().mockRejectedValue(new Error("Network error"));
+  it("does not show success toast when save fails — the drawer shows the house sentence", async () => {
+    const updateGuest = vi.fn().mockRejectedValue(serverError("PATCH", "/api/v1/guests/g1"));
     const guest = makeGuest();
     const directory = makeDirectoryResult({
       guests: [guest],
@@ -867,8 +904,9 @@ describe("GuestsPage - success toast on save", () => {
     fireEvent.click(screen.getByText("Save"));
 
     await waitFor(() => {
-      expect(screen.getByText("Network error")).toBeDefined();
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
     });
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
 
     expect(mockToast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "success" }));
   });

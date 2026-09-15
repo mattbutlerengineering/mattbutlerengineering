@@ -83,6 +83,76 @@
     export interface BookingEmailTemplateInput extends BookingNotificationInput {
       manageBaseUrl: string;
     }
+    interface BookingEmailTemplate {
+      subject: string;
+      html: string;
+    }
+    interface EventCopy {
+      heading: string;
+      subject: string;
+      includeAddress: boolean;
+      includeManageLink: boolean;
+    }
+    function eventCopy(venueName: string, event: NotificationEventType): EventCopy {
+      switch (event) {
+        case "confirmation":
+          return {
+            heading: "Your reservation is confirmed",
+            subject: `Reservation Confirmed — ${venueName}`,
+            includeAddress: true,
+            includeManageLink: true,
+          };
+        case "reminder":
+          return {
+            heading: "Your reservation is tomorrow",
+            subject: `Reminder: Reservation at ${venueName}`,
+            includeAddress: true,
+            includeManageLink: true,
+          };
+        case "modified":
+          return {
+            heading: "Your reservation has been updated",
+            subject: `Updated: Reservation at ${venueName}`,
+            includeAddress: true,
+            includeManageLink: true,
+          };
+        case "cancelled":
+          return {
+            heading: "Your reservation has been cancelled",
+            subject: `Cancelled: Reservation at ${venueName}`,
+            includeAddress: false,
+            includeManageLink: false,
+          };
+      }
+    }
+    function manageLinkHtml(manageBaseUrl: string, manageToken: string): string {
+      const rawUrl = `${manageBaseUrl}?token=${encodeURIComponent(manageToken)}`;
+      const safeUrl = sanitizeUrl(rawUrl);
+      if (!safeUrl) return "";
+      return `<p><a href="${escapeHtml(safeUrl)}">Modify or Cancel</a></p>`;
+    }
+    export function buildBookingEmail(
+      input: BookingEmailTemplateInput,
+      event: NotificationEventType
+    ): BookingEmailTemplate {
+      const copy = eventCopy(input.venueName, event);
+    
+      const lines = [
+        `<h1>${copy.heading}</h1>`,
+        `<p><strong>${escapeHtml(input.venueName)}</strong></p>`,
+        `<p>${input.date} at ${input.startTime} — Party of ${input.partySize}</p>`,
+      ];
+    
+      if (copy.includeAddress && input.venueAddress) {
+        lines.push(`<p>${escapeHtml(input.venueAddress)}</p>`);
+      }
+    
+      if (copy.includeManageLink) {
+        lines.push(manageLinkHtml(input.manageBaseUrl, input.manageToken));
+      }
+    
+      return { subject: copy.subject, html: lines.join("\n") };
+    }
   </file>
   <file path="src/ical.ts">
     export interface IcalEventInput {
@@ -98,6 +168,75 @@
       sequence?: number;
     }
     export type IcalMethod = "REQUEST" | "CANCEL";
+    export function escapeIcalText(value: string): string {
+      return value
+        .replace(/\\/g, "\\\\")
+        .replace(/;/g, "\\;")
+        .replace(/,/g, "\\,")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r");
+    }
+    function assertSafeIcalToken(value: string, fieldName: string): void {
+      if (FORBIDDEN_ICAL_TOKEN_CHARS.test(value)) {
+        throw new Error(`Invalid ${fieldName}: must not contain CR, LF, or ";"`);
+      }
+    }
+    export function generateBookingIcal(input: IcalEventInput, method: IcalMethod): string {
+      assertSafeIcalToken(input.venueTimezone, "venueTimezone");
+      if (input.guestEmail) assertSafeIcalToken(input.guestEmail, "guestEmail");
+    
+      const uid = `${input.reservationId}@mbe`;
+      const sequence = input.sequence ?? 0;
+      const now = formatIcalDate(new Date());
+    
+      const dtstart = toIcalDateTime(input.date, input.startTime, input.venueTimezone);
+      const dtend = toIcalDateTime(input.date, input.endTime, input.venueTimezone);
+    
+      const venueName = escapeIcalText(input.venueName);
+      const summary =
+        method === "CANCEL" ? `CANCELLED: Reservation at ${venueName}` : `Reservation at ${venueName}`;
+    
+      const status = method === "CANCEL" ? "CANCELLED" : "CONFIRMED";
+    
+      const description =
+        `Party of ${input.partySize}` +
+        (input.guestName ? `\\nGuest: ${escapeIcalText(input.guestName)}` : "");
+    
+      const lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        `PRODID:-//MBE//Booking//EN`,
+        `METHOD:${method}`,
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `SEQUENCE:${sequence}`,
+        `DTSTAMP:${now}`,
+        `DTSTART;TZID=${input.venueTimezone}:${dtstart}`,
+        `DTEND;TZID=${input.venueTimezone}:${dtend}`,
+        `SUMMARY:${summary}`,
+        `LOCATION:${venueName}`,
+        `DESCRIPTION:${description}`,
+        `STATUS:${status}`,
+        ...(input.guestEmail
+          ? [`ORGANIZER:mailto:noreply@mbe.dev`, `ATTENDEE:mailto:${input.guestEmail}`]
+          : []),
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ];
+    
+      return lines.join("\r\n");
+    }
+    function toIcalDateTime(date: string, time: string, _timezone: string): string {
+      const [year, month, day] = date.split("-");
+      const [hour, minute] = time.split(":");
+      return `${year}${month}${day}T${hour}${minute}00`;
+    }
+    function formatIcalDate(date: Date): string {
+      return date
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+    }
   </file>
   <file path="src/notification-dispatcher.ts">
     export interface NotificationDispatcherConfig {
@@ -243,6 +382,22 @@
       guestEmail: string;
       venueName: string;
     }
+    export interface ThankYouEmailInput {
+      guestEmail: string;
+      guestFirstName: string | null;
+      venueName: string;
+      visitDate: string;
+      feedbackUrl: string | null;
+      unsubscribeToken: string;
+    }
+    export interface NotificationPort {
+      sendBookingConfirmation(input: BookingNotificationInput): Promise<void>;
+      sendBookingReminder(input: BookingNotificationInput): Promise<void>;
+      sendBookingModified(input: BookingNotificationInput): Promise<void>;
+      sendBookingCancelled(input: BookingNotificationInput): Promise<void>;
+      sendWinBack(input: WinBackNotificationInput): Promise<void>;
+      sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
+    }
   </file>
   <file path="src/resend-adapter.ts">
     interface ResendClient {
@@ -254,6 +409,135 @@
       resend: ResendClient | null;
       fromAddress: string;
       manageBaseUrl: string;
+    }
+    export class ResendNotificationAdapter implements NotificationPort {
+      private readonly resend: ResendClient | null;
+      private readonly fromAddress: string;
+      private readonly manageBaseUrl: string;
+    
+      constructor(config: ResendAdapterConfig) {
+        this.resend = config.resend;
+        this.fromAddress = config.fromAddress;
+        this.manageBaseUrl = config.manageBaseUrl;
+      }
+    
+      async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+          attachments: [
+            {
+              filename: "reservation.ics",
+              content: content.ical,
+              contentType: `text/calendar; method=${content.icalMethod}`,
+            },
+          ],
+        });
+      }
+    
+      async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+        });
+      }
+    
+      async sendBookingModified(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+          attachments: [
+            {
+              filename: "reservation.ics",
+              content: content.ical,
+              contentType: `text/calendar; method=${content.icalMethod}`,
+            },
+          ],
+        });
+      }
+    
+      async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: content.subject,
+          html: content.html,
+          attachments: [
+            {
+              filename: "reservation.ics",
+              content: content.ical,
+              contentType: `text/calendar; method=${content.icalMethod}`,
+            },
+          ],
+        });
+      }
+    
+      async sendWinBack(input: WinBackNotificationInput): Promise<void> {
+        if (!this.resend) return;
+        const safeGuestName = escapeHtml(input.guestName);
+        const safeVenueName = escapeHtml(input.venueName);
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to: input.guestEmail,
+          subject: `We miss you, ${input.guestName}!`,
+          html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+        });
+      }
+    
+      async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
+        if (!this.resend) return;
+    
+        const { guestEmail, guestFirstName, venueName, visitDate, feedbackUrl, unsubscribeToken } =
+          input;
+    
+        const safeName = escapeHtml(guestFirstName ?? "Guest");
+        const safeVenueName = escapeHtml(venueName);
+        const safeVisitDate = escapeHtml(visitDate);
+        const safeUnsubscribeUrl = escapeHtml(
+          `${this.manageBaseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
+        );
+    
+        const safeFeedbackUrl = feedbackUrl ? sanitizeUrl(feedbackUrl) : null;
+        const feedbackSection = safeFeedbackUrl
+          ? `<p><a href="${escapeHtml(safeFeedbackUrl)}">Share your feedback</a> — it helps us improve.</p>`
+          : "";
+    
+        const html = `<!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8" /><title>Thank you for visiting ${safeVenueName}</title></head>
+    <body style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+      <h2>Thank you, ${safeName}!</h2>
+      <p>We loved having you at <strong>${safeVenueName}</strong> on ${safeVisitDate}.</p>
+      <p>We hope to see you again soon.</p>
+      ${feedbackSection}
+      <hr style="margin-top:32px" />
+      <p style="font-size:0.8em;color:#888">
+        <a href="${safeUnsubscribeUrl}">Unsubscribe</a> from post-visit emails.
+      </p>
+    </body>
+    </html>`;
+    
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to: guestEmail,
+          subject: `Thank you for visiting ${venueName}!`,
+          html,
+        });
+      }
     }
   </file>
   <file path="src/sanitize.ts">
@@ -296,6 +580,36 @@
       manageToken: string;
       manageBaseUrl: string;
     }
+    export interface WinbackMessageInput {
+      guestName: string | null;
+      guestPhone: string;
+      venueName: string;
+      manageBaseUrl: string;
+    }
+    export interface WaitlistAddedInput {
+      guestPhone: string;
+      guestName: string | null;
+      position: number;
+      estimatedWaitMinutes: number;
+    }
+    export interface WaitlistPositionUpdateInput {
+      guestPhone: string;
+      guestName: string | null;
+      position: number;
+      estimatedWaitMinutes: number;
+    }
+    export interface WaitlistTableReadyInput {
+      guestPhone: string;
+      guestName: string | null;
+    }
+    export interface SmsPort {
+      sendBookingReminder(input: SmsNotificationInput): Promise<void>;
+      sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void>;
+      sendWinbackMessage(input: WinbackMessageInput): Promise<void>;
+      sendWaitlistAdded(input: WaitlistAddedInput): Promise<void>;
+      sendWaitlistPositionUpdate(input: WaitlistPositionUpdateInput): Promise<void>;
+      sendWaitlistTableReady(input: WaitlistTableReadyInput): Promise<void>;
+    }
   </file>
   <file path="src/twilio-sms-adapter.ts">
     interface TwilioMessages {
@@ -307,6 +621,118 @@
     }
     interface TwilioClient {
       messages: TwilioMessages;
+    }
+    export interface TwilioSmsAdapterConfig {
+      client: TwilioClient | null;
+      fromNumber: string;
+      /** Delay in ms between retry attempts (default: 1000). Used in tests to speed up. */
+      retryDelayMs?: number;
+    }
+    function formatDate(dateStr: string): string {
+      // dateStr is "YYYY-MM-DD" format
+      const [year, month, day] = dateStr.split("-").map(Number);
+      if (year === undefined || month === undefined || day === undefined) {
+        throw new Error(`Invalid date string: ${dateStr}`);
+      }
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    }
+    export class TwilioSmsAdapter implements SmsPort {
+      private readonly client: TwilioClient | null;
+      private readonly fromNumber: string;
+      private readonly retryDelayMs: number;
+    
+      constructor(config: TwilioSmsAdapterConfig) {
+        this.client = config.client;
+        this.fromNumber = config.fromNumber;
+        this.retryDelayMs = config.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+      }
+    
+      async sendBookingReminder(input: SmsNotificationInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const dateStr = formatDate(input.date);
+        const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+    
+        const body = `${name}, reminder: ${input.venueName} ${dateStr} at ${input.startTime} for ${input.partySize}. Manage: ${manageUrl}`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistUpdate(input: WaitlistUpdateInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const dateStr = formatDate(input.date);
+        const manageUrl = `${input.manageBaseUrl}?token=${input.manageToken}`;
+    
+        const body = `${name}, you&apos;re on the waitlist at ${input.venueName} for ${dateStr}, party of ${input.partySize}. Check: ${manageUrl}`;
+        // Strip HTML entities for SMS
+        const smsBody = body.replace(/&apos;/g, "'");
+        const trimmed = smsBody.length > 160 ? smsBody.slice(0, 160) : smsBody;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWinbackMessage(input: WinbackMessageInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const url = input.manageBaseUrl;
+    
+        const body = `${name}, we miss you at ${input.venueName}! Book your next visit: ${url}`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistAdded(input: WaitlistAddedInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const body = `${name}, you're #${input.position}, est. ${input.estimatedWaitMinutes} min wait. We'll text when your table is ready.`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistPositionUpdate(input: WaitlistPositionUpdateInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const body = `${name}, update: you're now #${input.position}, est. ${input.estimatedWaitMinutes} min.`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      async sendWaitlistTableReady(input: WaitlistTableReadyInput): Promise<void> {
+        if (!this.client) return;
+    
+        const name = input.guestName ?? "Guest";
+        const body = `${name}, your table is ready! Please check in within 5 minutes.`;
+        const trimmed = body.length > 160 ? body.slice(0, 160) : body;
+    
+        await this.sendWithRetry(input.guestPhone, trimmed);
+      }
+    
+      private sendWithRetry(to: string, body: string): Promise<void> {
+        return retry(
+          () =>
+            this.client!.messages.create({
+              to,
+              from: this.fromNumber,
+              body,
+            }).then(() => undefined),
+          {
+            maxRetries: MAX_RETRIES - 1,
+            baseDelayMs: this.retryDelayMs,
+            jitter: true,
+          }
+        );
+      }
     }
   </file>
   </section>

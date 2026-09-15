@@ -26,7 +26,6 @@ describe("useCookieConsent", () => {
     expect(result.current.consented).toBe(true);
     expect(result.current.preferences).toEqual({
       essential: true,
-      analytics: true,
       functional: true,
       marketing: true,
     });
@@ -41,7 +40,7 @@ describe("useCookieConsent", () => {
 
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(stored.consented).toBe(true);
-    expect(stored.preferences.analytics).toBe(true);
+    expect(stored.preferences.functional).toBe(true);
   });
 
   it("rejectAll sets only essential to true and marks consented", () => {
@@ -54,7 +53,6 @@ describe("useCookieConsent", () => {
     expect(result.current.consented).toBe(true);
     expect(result.current.preferences).toEqual({
       essential: true,
-      analytics: false,
       functional: false,
       marketing: false,
     });
@@ -65,7 +63,6 @@ describe("useCookieConsent", () => {
 
     act(() => {
       result.current.savePreferences({
-        analytics: true,
         functional: false,
         marketing: true,
       });
@@ -74,7 +71,6 @@ describe("useCookieConsent", () => {
     expect(result.current.consented).toBe(true);
     expect(result.current.preferences).toEqual({
       essential: true,
-      analytics: true,
       functional: false,
       marketing: true,
     });
@@ -102,9 +98,8 @@ describe("useCookieConsent", () => {
       consented: true,
       preferences: {
         essential: true,
-        analytics: true,
         functional: false,
-        marketing: false,
+        marketing: true,
       },
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
@@ -112,7 +107,7 @@ describe("useCookieConsent", () => {
     const { result } = renderHook(() => useCookieConsent());
 
     expect(result.current.consented).toBe(true);
-    expect(result.current.preferences.analytics).toBe(true);
+    expect(result.current.preferences.marketing).toBe(true);
     expect(result.current.preferences.functional).toBe(false);
   });
 
@@ -130,7 +125,6 @@ describe("useCookieConsent", () => {
       consented: true,
       preferences: {
         essential: false, // Tampered value
-        analytics: true,
         functional: true,
         marketing: true,
       },
@@ -140,5 +134,28 @@ describe("useCookieConsent", () => {
     const { result } = renderHook(() => useCookieConsent());
 
     expect(result.current.preferences.essential).toBe(true);
+  });
+
+  it("ignores a previously stored `analytics` key without writing back", () => {
+    // Visitors who saved consent before the analytics toggle was removed
+    // still carry the old key; it must be dropped on read, not crash, and
+    // must not trigger a write — it evaporates on their next save.
+    const legacy =
+      '{"consented":true,"preferences":{"essential":true,"analytics":true,"functional":false,"marketing":true}}';
+    localStorage.setItem(STORAGE_KEY, legacy);
+
+    const { result } = renderHook(() => useCookieConsent());
+
+    expect(result.current.consented).toBe(true);
+    expect(result.current.preferences).toEqual({
+      essential: true,
+      functional: false,
+      marketing: true,
+    });
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(legacy);
+  });
+
+  it("has no analytics preference — edge request logging is server-side and cookie-free", () => {
+    expect(DEFAULT_PREFERENCES).toEqual({ essential: true, functional: false, marketing: false });
   });
 });

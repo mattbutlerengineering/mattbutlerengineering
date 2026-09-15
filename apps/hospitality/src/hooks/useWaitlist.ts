@@ -1,6 +1,7 @@
 import type { CreateWaitlistEntryRequest, WaitlistEntry } from "@mbe/types";
 import { createQueryHook } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
+import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 
 export const WAITLIST_QUERY_KEY = "waitlist" as const;
 
@@ -26,8 +27,11 @@ export const useCreateWaitlistEntry = createMutationHook<CreateWaitlistEntryRequ
   }
 );
 
+// Seating a party means a walk-in reservation now exists (WaitlistPage creates it just before),
+// so the reservations list is stale too — the Waitlist's "View on Timeline" must show the party
+// (the Timeline's own walk-in path does the same through invalidateAll).
 export const useSeatWaitlistEntry = createMutationHook<string, WaitlistEntry>({
-  invalidateKeys: WAITLIST_QUERY_KEY,
+  invalidateKeys: [WAITLIST_QUERY_KEY, RESERVATIONS_QUERY_KEY],
   mutationFn: (api, id) => api.waitlist.seat(id),
 });
 

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { type ProblemDetails, type AgentSessionEvent, createProblemDetails } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
-import { sessionService } from "../services/session.js";
+import { sessionService, EVENTS_PAGE_SIZE } from "../services/session.js";
 import { getSessionEventEmitter } from "../services/session-event-emitter.js";
 import { requireSessionAccess } from "./sessions.js";
 
@@ -13,6 +13,17 @@ const TERMINAL_EVENT_TYPES = new Set(["session:complete", "session:error", "sess
 
 /** Session statuses that are terminal on connect (replay-only, no live stream). */
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
+
+/**
+ * Upper bound on how many persisted events the SSE catch-up read will drain
+ * via the afterId cursor loop (10 pages of EVENTS_PAGE_SIZE). Sessions under
+ * this size get their full history replayed. Pathological sessions (tens of
+ * thousands of events) would otherwise block connection setup indefinitely,
+ * so the loop stops here and emits an explicit `events:truncated` marker
+ * instead of either hanging or silently dropping history like the old
+ * single-page read did.
+ */
+const MAX_CATCHUP_EVENTS = 10 * EVENTS_PAGE_SIZE;
 
 export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /v1/sessions/:id/events — SSE stream of session events
@@ -28,8 +39,11 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
         operationId: "streamSessionEvents",
         description:
           "Server-Sent Events stream for real-time session updates. " +
-          "Replays existing events from the database on connect, then streams " +
-          "new events live via an in-process subscription until the session completes.",
+          "Drains existing events from the database on connect (paging past the " +
+          "internal page size until history is exhausted or a bound is hit), then " +
+          "streams new events live via an in-process subscription until the " +
+          "session completes. If the persisted history exceeds the bound, an " +
+          "`events:truncated` event is sent before the stream continues live.",
         tags: ["Events"],
         params: {
           type: "object",
@@ -107,10 +121,42 @@ export const sessionEventsRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       try {
-        // Catch-up: read persisted events once on connect (the only DB event read).
-        const existingEvents = await sessionService.listEvents(session.id);
-        for (const event of existingEvents) {
-          deliver(event);
+        // Catch-up: drain persisted history page by page via the afterId
+        // cursor, until either the history is exhausted (a short page) or
+        // MAX_CATCHUP_EVENTS is hit. Without this loop, a session with more
+        // than one page of events would replay only the oldest page and
+        // silently jump to live, dropping everything in between.
+        let afterId: string | undefined;
+        let deliveredCount = 0;
+        let truncated = false;
+        for (;;) {
+          const page = await sessionService.listEvents(session.id, afterId);
+          for (const event of page) {
+            deliver(event);
+          }
+          deliveredCount += page.length;
+
+          const lastEvent = page[page.length - 1];
+          if (lastEvent) {
+            afterId = lastEvent.id;
+          }
+
+          // Check the bound before the short-page break: a session with
+          // exactly MAX_CATCHUP_EVENTS persisted events ends on a full page,
+          // and fetching one more (empty) page is the only way to tell "that
+          // was everything" apart from "there's more" without a false
+          // events:truncated marker on the exact boundary.
+          if (deliveredCount > MAX_CATCHUP_EVENTS) {
+            truncated = true;
+            break;
+          }
+          if (page.length < EVENTS_PAGE_SIZE) {
+            break;
+          }
+        }
+
+        if (truncated) {
+          sendEvent("events:truncated", { sessionId: session.id, deliveredCount });
         }
 
         // Flush anything that arrived live during catch-up, then go fully live.
