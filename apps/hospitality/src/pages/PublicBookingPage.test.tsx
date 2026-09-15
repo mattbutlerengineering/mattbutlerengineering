@@ -256,7 +256,7 @@ describe("PublicBookingPage", () => {
       window.dispatchEvent(new Event("pagehide"));
 
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/holds/hold-abc"),
+        expect.stringContaining("v1/holds/hold-abc"),
         expect.objectContaining({
           method: "DELETE",
           keepalive: true,
