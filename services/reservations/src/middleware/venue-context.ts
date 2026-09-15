@@ -5,9 +5,9 @@ import { prisma } from "../services/database.js";
 /**
  * Postgres RLS venue-scoping backstop (ADR-026), part 5/7.
  *
- * Minimal shape needed to issue the `SET LOCAL` statement: any Prisma client
- * (the top-level `PrismaClient`, or a `Prisma.TransactionClient`) that
- * exposes tagged-template `$executeRaw`.
+ * Minimal shape needed to issue the `SET LOCAL` statement — any of the
+ * top-level `PrismaClient` or a `Prisma.TransactionClient` — that exposes
+ * tagged-template `$executeRaw`.
  */
 export interface VenueContextClient {
   $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
