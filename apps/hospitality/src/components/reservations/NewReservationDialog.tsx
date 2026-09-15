@@ -2,8 +2,14 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Input, Select, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
-import type { CreateReservationRequest, Table } from "@mbe/types";
+import type { CreateReservationRequest, Guest, Table } from "@mbe/types";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { useStatusMessage } from "../../hooks/useStatusMessage.js";
+import { LiveStatus } from "../LiveStatus.js";
+import { GuestLookup } from "../crm/GuestLookup.js";
+import { GuestHistoryStrip } from "../crm/GuestHistoryStrip.js";
+import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
+import { applyClear, applyPick, type PrefillSnapshot } from "../crm/guest-prefill.js";
 import styles from "./NewReservationDialog.module.css";
 
 interface NewReservationDialogProps {
@@ -23,6 +29,18 @@ interface NewReservationFormData {
 }
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+// ux.md § Copy — the lookup field's hint, the linked strip's caption and the clear sentence.
+const GUEST_NAME_HINT = "Name, email or phone — returning guests appear as you type.";
+const LINK_ONLY_CAPTION =
+  "Edits to email or phone below change this booking only — the profile isn't edited.";
+const GUEST_CLEARED = "Guest cleared.";
+
+/** The picked guest plus what the contact fields held before prefill, so Clear can restore them. */
+interface GuestLink {
+  guest: Guest;
+  snapshot: PrefillSnapshot;
+}
 
 // No duration control in this minimal form — 90 minutes matches the
 // walk-in route's server-side default (see reservationRoutes "/walk-in").
@@ -58,6 +76,8 @@ export function NewReservationDialog({
   const [tableId, setTableId] = useState<string>(() => findBestTable(tables, 2));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [link, setLink] = useState<GuestLink | null>(null);
+  const { status, announce } = useStatusMessage();
 
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -77,6 +97,10 @@ export function NewReservationDialog({
   const {
     register,
     handleSubmit,
+    getValues,
+    setValue,
+    setFocus,
+    watch,
     formState: { errors },
   } = useForm<NewReservationFormData>({
     defaultValues: {
@@ -87,6 +111,33 @@ export function NewReservationDialog({
       startTime: "",
     },
   });
+
+  const guestName = watch("guestName");
+
+  const handlePick = (guest: Guest) => {
+    setValue("guestName", guest.name);
+    const { next, snapshot } = applyPick(
+      { guestEmail: getValues("guestEmail"), guestPhone: getValues("guestPhone") },
+      { email: guest.email, phone: guest.phone }
+    );
+    setValue("guestEmail", next.guestEmail);
+    setValue("guestPhone", next.guestPhone);
+    setLink({ guest, snapshot });
+    announce(pickAnnouncement("linked", guest));
+  };
+
+  const handleClear = () => {
+    if (!link) return;
+    const restored = applyClear(
+      { guestEmail: getValues("guestEmail"), guestPhone: getValues("guestPhone") },
+      link.snapshot
+    );
+    setValue("guestEmail", restored.guestEmail);
+    setValue("guestPhone", restored.guestPhone);
+    setLink(null);
+    setFocus("guestName", { shouldSelect: true });
+    announce(GUEST_CLEARED);
+  };
 
   const availableTables = tables
     .filter((t) => t.isActive && t.capacity >= partySize)
@@ -136,6 +187,8 @@ export function NewReservationDialog({
         guestName: data.guestName.trim(),
         guestEmail: guestEmail || undefined,
         guestPhone: guestPhone || undefined,
+        // Only a picked guest links the booking; an ignored lookup leaves today's payload as is.
+        ...(link ? { guestId: link.guest.id } : {}),
       });
     } catch (err) {
       setError(describeApiError(err).detail);
@@ -173,13 +226,27 @@ export function NewReservationDialog({
             {validationError && <div className={styles.errorBanner}>{validationError}</div>}
 
             <Stack gap="md">
-              <Input
+              <GuestLookup
+                venueId={venueId}
                 label="Guest Name"
-                type="text"
+                hint={GUEST_NAME_HINT}
                 placeholder="e.g. Smith"
+                query={guestName}
+                picked={link?.guest ?? null}
+                onPick={handlePick}
+                onClear={handleClear}
+                announce={announce}
                 disabled={isLoading}
                 {...register("guestName", { required: "Guest name is required." })}
               />
+              {link && (
+                <GuestHistoryStrip
+                  guest={link.guest}
+                  mode="linked"
+                  caption={LINK_ONLY_CAPTION}
+                  onClear={handleClear}
+                />
+              )}
 
               <div className={styles.fieldRow}>
                 <Input
@@ -267,6 +334,7 @@ export function NewReservationDialog({
             </div>
           </Stack>
         </form>
+        <LiveStatus status={status} />
       </div>
     </div>
   );

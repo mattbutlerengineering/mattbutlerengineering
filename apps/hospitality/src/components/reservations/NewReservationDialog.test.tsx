@@ -4,7 +4,23 @@ import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { NewReservationDialog } from "./NewReservationDialog.js";
 import { ApiClientError } from "@mbe/api-client";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
-import type { Table } from "@mbe/types";
+import type { Guest, Table } from "@mbe/types";
+import type { UseGuestLookupParams, UseGuestLookupResult } from "../../hooks/useGuestLookup.js";
+import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
+
+const mockUseGuestLookup = vi.fn<(params: UseGuestLookupParams) => UseGuestLookupResult>();
+
+vi.mock("../../hooks/useGuestLookup.js", () => ({
+  useGuestLookup: (params: UseGuestLookupParams) => mockUseGuestLookup(params),
+}));
+
+const idleLookup: UseGuestLookupResult = {
+  rows: [],
+  hasMore: false,
+  isLoading: false,
+  failed: false,
+  query: "",
+};
 
 // Mock scrollIntoView for JSDOM (rialto Select uses it)
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -30,6 +46,29 @@ function makeTable(overrides: Partial<Table> = {}): Table {
   };
 }
 
+/** SC2's returning guest: Priya, 4 visits, 1 no-show, shellfish allergy. */
+function makeGuest(overrides: Partial<Guest> = {}): Guest {
+  return {
+    id: "gst_priya",
+    venueId: "venue-1",
+    name: "Priya Shah",
+    email: "priya@example.com",
+    phone: "(555) 010-0100",
+    notes: null,
+    visitCount: 4,
+    noShowCount: 1,
+    riskScore: "standard",
+    lifetimeSpend: "400.00",
+    lastVisit: "2026-04-01T00:00:00.000Z",
+    tags: ["vip"],
+    dietaryRestrictions: ["shellfish"],
+    staffNotes: [],
+    createdAt: "2025-01-01T00:00:00.000Z",
+    updatedAt: "2026-04-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function makeTables(): Table[] {
   return [
     makeTable({ id: "table-1", name: "Table 1", capacity: 2 }),
@@ -50,6 +89,8 @@ describe("NewReservationDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseGuestLookup.mockReset();
+    mockUseGuestLookup.mockReturnValue(idleLookup);
   });
 
   function fillRequiredFields() {
@@ -265,6 +306,157 @@ describe("NewReservationDialog", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
 
     resolvePromise!(undefined);
+  });
+
+  describe("returning guest lookup", () => {
+    const priya = makeGuest();
+    const priyaRows: UseGuestLookupResult = { ...idleLookup, rows: [priya], query: "pri" };
+    const LINK_CAPTION =
+      "Edits to email or phone below change this booking only — the profile isn't edited.";
+
+    function guestNameField() {
+      return screen.getByRole("combobox", { name: /guest name/i });
+    }
+
+    function fillDateAndTime() {
+      fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: "2026-04-10" } });
+      fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: "18:30" } });
+    }
+
+    /** Type "Pri", tap the Priya row, then let the lookup go quiet again. */
+    function pickPriya() {
+      mockUseGuestLookup.mockReturnValue(priyaRows);
+      fireEvent.change(guestNameField(), { target: { value: "Pri" } });
+      fireEvent.mouseDown(screen.getByRole("option", { name: /Priya Shah/ }));
+      mockUseGuestLookup.mockReturnValue(idleLookup);
+    }
+
+    it("wires the lookup field with the returning-guest hint", () => {
+      render(<NewReservationDialog {...defaultProps} />);
+      expect(guestNameField()).toBeInTheDocument();
+      expect(
+        screen.getByText("Name, email or phone — returning guests appear as you type.")
+      ).toBeInTheDocument();
+      expect(mockUseGuestLookup).toHaveBeenLastCalledWith({ venueId: "venue-1", text: "" });
+    });
+
+    it("picking Priya links the booking, prefills her contact details and shows the strip", async () => {
+      render(<NewReservationDialog {...defaultProps} />);
+      pickPriya();
+
+      const strip = screen.getByRole("group", { name: "Using Priya Shah's profile" });
+      expect(strip).toHaveTextContent(LINK_CAPTION);
+      expect(guestNameField()).toHaveValue("Priya Shah");
+      expect(screen.getByLabelText(/guest email/i)).toHaveValue("priya@example.com");
+      expect(screen.getByLabelText(/guest phone/i)).toHaveValue("(555) 010-0100");
+      expect(screen.queryByRole("listbox", { name: "Guest suggestions" })).toBeNull();
+
+      fillDateAndTime();
+      fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+      expect(defaultProps.onConfirm.mock.calls[0][0]).toMatchObject({
+        guestId: "gst_priya",
+        guestName: "Priya Shah",
+        guestEmail: "priya@example.com",
+        guestPhone: "(555) 010-0100",
+      });
+    });
+
+    it("Clear keeps an edited email, restores the previous phone, drops the strip and the guestId", async () => {
+      render(<NewReservationDialog {...defaultProps} />);
+      fireEvent.change(screen.getByLabelText(/guest phone/i), {
+        target: { value: "(555) 999-0000" },
+      });
+      pickPriya();
+      expect(screen.getByLabelText(/guest phone/i)).toHaveValue("(555) 010-0100");
+      fireEvent.change(screen.getByLabelText(/guest email/i), {
+        target: { value: "new@example.com" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Clear Priya Shah" }));
+
+      expect(screen.queryByRole("group", { name: /profile/ })).toBeNull();
+      expect(screen.getByLabelText(/guest email/i)).toHaveValue("new@example.com");
+      expect(screen.getByLabelText(/guest phone/i)).toHaveValue("(555) 999-0000");
+      expect(document.activeElement).toBe(guestNameField());
+
+      fillDateAndTime();
+      fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+      const data = defaultProps.onConfirm.mock.calls[0][0];
+      expect(data).not.toHaveProperty("guestId");
+      expect(data).toMatchObject({ guestEmail: "new@example.com", guestPhone: "(555) 999-0000" });
+    });
+
+    it("leaves today's payload untouched when the lookup is ignored (no guestId key)", async () => {
+      render(<NewReservationDialog {...defaultProps} />);
+      fillRequiredFields();
+      fireEvent.click(screen.getByRole("button", { name: "Create Reservation" }));
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+      expect(defaultProps.onConfirm.mock.calls[0][0]).toStrictEqual({
+        date: "2026-04-10",
+        startTime: "2026-04-10T18:30:00",
+        endTime: "2026-04-10T20:00:00",
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+        guestName: "Smith",
+        guestEmail: "smith@example.com",
+        guestPhone: undefined,
+      });
+    });
+
+    it("a failed lookup never blocks submit (SC6)", async () => {
+      mockUseGuestLookup.mockReturnValue({ ...idleLookup, failed: true, query: "smi" });
+      render(<NewReservationDialog {...defaultProps} />);
+      fillRequiredFields();
+      // The sentence appears twice: the caption under the hint and its one polite announcement.
+      const copies = screen.getAllByText(
+        "Can't look up guests right now — type the details as usual."
+      );
+      expect(copies.some((el) => el.closest('[role="status"]') === null)).toBe(true);
+      expect(copies.filter((el) => el.closest('[role="status"]') !== null)).toHaveLength(1);
+      const submit = screen.getByRole("button", { name: "Create Reservation" });
+      expect(submit).toBeEnabled();
+      fireEvent.click(submit);
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+    });
+
+    it("speaks the pick and the clear through the dialog's own LiveStatus", () => {
+      render(<NewReservationDialog {...defaultProps} />);
+      pickPriya();
+      const sentence = pickAnnouncement("linked", priya);
+      const spoken = screen.getByText(sentence);
+      expect(spoken.closest('[role="status"]')).not.toBeNull();
+      expect(screen.getByRole("dialog")).toContainElement(spoken);
+
+      fireEvent.click(screen.getByRole("button", { name: "Clear Priya Shah" }));
+      expect(screen.queryByText(sentence)).toBeNull();
+      const cleared = screen.getByText("Guest cleared.");
+      expect(cleared.closest('[role="status"]')).not.toBeNull();
+      expect(screen.getByRole("dialog")).toContainElement(cleared);
+    });
+
+    it("Escape with the listbox open closes the list, not the dialog", () => {
+      mockUseGuestLookup.mockReturnValue(priyaRows);
+      render(<NewReservationDialog {...defaultProps} />);
+      fireEvent.change(guestNameField(), { target: { value: "Pri" } });
+      expect(screen.getByRole("listbox", { name: "Guest suggestions" })).toBeInTheDocument();
+
+      fireEvent.keyDown(guestNameField(), { key: "Escape" });
+
+      expect(screen.queryByRole("listbox", { name: "Guest suggestions" })).toBeNull();
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
   });
 
   describe("accessibility (focus trap + return focus)", () => {
