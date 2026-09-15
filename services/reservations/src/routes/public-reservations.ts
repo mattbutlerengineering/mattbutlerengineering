@@ -4,6 +4,8 @@ import { AppError, publicReservationBodyJsonSchema } from "@mbe/types";
 import { createHmac, timingSafeEqual } from "crypto";
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
+import { resolveGuestLink } from "../services/guest-link.js";
+import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { decrementHoldCount } from "../middleware/public-rate-limit.js";
 import { getManageTokenConfig } from "../config/manage-token.js";
@@ -105,9 +107,22 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
       }
 
+      // Read-only recognition by the contact the guest typed — never by an id in the body,
+      // which the schema does not declare and this handler never reads (SC12). Both lookups
+      // run whenever their input is present, so a known contact costs the same as an unknown
+      // one (SC11). Without a supplied id `resolveGuestLink` cannot reject, so the fallback
+      // branch only keeps the union honest.
+      const link = await resolveGuestLink({ venueId: venue.id, guestEmail, guestPhone });
+
       const result = await confirmHold({
         holdId,
-        guestDetails: { guestName, guestEmail, guestPhone, notes: specialRequests },
+        guestDetails: {
+          guestName,
+          guestEmail,
+          guestPhone,
+          notes: specialRequests,
+          guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+        },
       });
 
       if (!result.success) {
@@ -131,9 +146,10 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
         .scheduleBookingNotifications(result.reservation, manageToken)
         .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
 
+      // The notifier above gets the linked reservation; the caller never learns of the link.
       return reply.status(201).send({
         data: {
-          reservation: result.reservation,
+          reservation: withoutGuestLink(result.reservation),
           manageToken,
         },
       });
