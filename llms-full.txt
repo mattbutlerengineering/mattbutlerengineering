@@ -15259,6 +15259,29 @@
       request.manageToken = token;
     }
   </file>
+  <file path="services/reservations/src/middleware/venue-context.ts">
+    export interface VenueContextClient {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    }
+    export async function setVenueContext(
+      client: VenueContextClient,
+      venueId: string | null | undefined
+    ): Promise<void> {
+      if (!venueId) return;
+      await client.$executeRaw`SET LOCAL app.venue_id = ${venueId}`;
+    }
+    export function venueContextPreHandler(
+      resolveVenueId: VenueIdResolver
+    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+      return async function setVenueContextPreHandler(
+        request: FastifyRequest,
+        _reply: FastifyReply
+      ): Promise<void> {
+        const venueId = await resolveVenueId(request);
+        await setVenueContext(prisma, typeof venueId === "string" ? venueId : null);
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
