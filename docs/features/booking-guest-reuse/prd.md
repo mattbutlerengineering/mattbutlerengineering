@@ -169,11 +169,16 @@ Walk-in (`WalkInDialog`, `POST /api/v1/reservations/walk-in`):
 
 Waitlist add (`WaitlistPage`):
 
-- [ ] SC9 — Typing a phone that exactly matches an existing guest shows that
-      guest's name, visits, no-shows and allergies in the form and prefills the
-      name field (the Host can still edit it). The created entry carries only
+- [ ] SC9 — Typing a phone (or a name) into the waitlist card's guest lookup
+      that matches an existing guest offers that guest; picking shows their
+      visits, no-shows and allergies in the form and prefills the Phone field
+      (the Host can still edit every field). The created entry carries only
       today's fields (`guestName`, `guestPhone`, `partySize`);
       `packages/types/src/schemas/waitlist.ts` is unchanged. Component test.
+      _(Reworded 2026-09-15 by the autorun orchestrator to match `ux.md`
+      assumption 6 — the lookup lives in the Guest name field on every
+      surface; the original wording said typing a phone "prefills the name
+      field".)_
 
 Public widget (`POST /public/:slug/reservations`, `public-reservations.ts:84`):
 
