@@ -38,7 +38,7 @@
     "react-dom": "catalog:",
     "react-router": "catalog:",
     "@mbe/sentry": "workspace:*",
-    "three": "^0.185.1"
+    "three": "^0.186.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -51,7 +51,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/three": "^0.185.4",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
