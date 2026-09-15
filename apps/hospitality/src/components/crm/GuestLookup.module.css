@@ -1,0 +1,96 @@
+/* GuestLookup — a register-compatible combobox. The field is rialto Input; the listbox is
+ * portaled to document.body and positioned from the input's rect (rialto Select precedent). */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.caption {
+  margin: 0;
+}
+
+/* The listbox's own polite region (ux.md: "2 results available" is spoken from the field). */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ── Listbox ─────────────────────────────────── */
+.listbox {
+  position: fixed;
+  z-index: 10000;
+  margin: 0;
+  padding: var(--rialto-space-2xs);
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--rialto-surface-elevated);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-md);
+  transform-origin: top center;
+  animation: listboxEnter var(--rialto-duration-standard) var(--rialto-ease-precision) both;
+}
+
+/* Fade + 4 px rise, no exit (the list unmounts on close). */
+@keyframes listboxEnter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rialto-space-2xs));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listbox {
+    animation: none;
+  }
+}
+
+/* ── Rows (≥ 44 px so a tablet tap lands) ────── */
+.option {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  cursor: pointer;
+  transition: background 0.1s var(--rialto-ease-precision);
+}
+
+.option:hover,
+.optionActive {
+  background: var(--rialto-accent-muted);
+}
+
+/* Two Text spans: caption/primary for the name (medium weight, outranking Text's own rule),
+ * detail/secondary for the contact line. */
+.option .optionName {
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* Loading / no match / more matches — announced, not selectable. */
+.status {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  cursor: default;
+}
