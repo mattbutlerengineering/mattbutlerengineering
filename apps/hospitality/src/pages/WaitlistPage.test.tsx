@@ -16,8 +16,24 @@ import {
 } from "../hooks/useWaitlist.js";
 import { useTables } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
-import type { Table, WaitlistEntry } from "@mbe/types";
+import type { Guest, Table, WaitlistEntry } from "@mbe/types";
+import type { UseGuestLookupParams, UseGuestLookupResult } from "../hooks/useGuestLookup.js";
+import { pickAnnouncement } from "../components/crm/guest-lookup-rows.js";
 import React from "react";
+
+const mockUseGuestLookup = vi.fn<(params: UseGuestLookupParams) => UseGuestLookupResult>();
+
+vi.mock("../hooks/useGuestLookup.js", () => ({
+  useGuestLookup: (params: UseGuestLookupParams) => mockUseGuestLookup(params),
+}));
+
+const idleLookup: UseGuestLookupResult = {
+  rows: [],
+  hasMore: false,
+  isLoading: false,
+  failed: false,
+  query: "",
+};
 
 vi.mock("react-router", async () => ({
   ...(await vi.importActual("react-router")),
@@ -100,7 +116,10 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
       isLoading?: boolean;
       loadingText?: string;
     } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-      <button {...props}>{isLoading ? (loadingText ?? children) : children}</button>
+      // type="button" by default like the real Button: a Clear inside the form must not submit it.
+      <button type="button" {...props}>
+        {isLoading ? (loadingText ?? children) : children}
+      </button>
     ),
     // Forwards tabIndex / data-testid: entry cards are useFocusAfter targets.
     Card: ({
@@ -126,14 +145,18 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
         {action}
       </div>
     ),
+    // `hint` sits outside the <label> so exact label queries ("Guest Name") keep matching.
     Input: forwardRef<
       HTMLInputElement,
-      { label?: string } & React.InputHTMLAttributes<HTMLInputElement>
-    >(({ label, ...props }, ref) => (
-      <label>
-        {label}
-        <input ref={ref} {...props} />
-      </label>
+      { label?: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>
+    >(({ label, hint, ...props }, ref) => (
+      <div>
+        <label>
+          {label}
+          <input ref={ref} {...props} />
+        </label>
+        {hint && <span>{hint}</span>}
+      </div>
     )),
     Select: ({
       label,
@@ -164,8 +187,20 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
       <div data-testid="skeleton-group">{children}</div>
     ),
     Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    Text: ({ children, className }: { children: React.ReactNode; className?: string }) => (
-      <span className={className}>{children}</span>
+    Tag: ({ children }: { children: React.ReactNode }) => <span data-testid="tag">{children}</span>,
+    // Forwards `id`: GuestHistoryStrip names its group via aria-labelledby on its title.
+    Text: ({
+      children,
+      className,
+      id,
+    }: {
+      children: React.ReactNode;
+      className?: string;
+      id?: string;
+    }) => (
+      <span id={id} className={className}>
+        {children}
+      </span>
     ),
     useToast: () => ({ toast: mockToast, dismiss: vi.fn() }),
   };
@@ -201,6 +236,42 @@ function renderPage() {
     </MemoryRouter>
   );
 }
+
+/**
+ * The page's own polite region(s). The guest lookup owns a second `role="status"` inside the
+ * form (results / loading / no-match sentences), so page announcements are asserted on the
+ * region outside the form only.
+ */
+function pageStatusRegions() {
+  return screen.getAllByRole("status").filter((el) => !el.closest("form"));
+}
+
+function pageStatus() {
+  const [region] = pageStatusRegions();
+  if (!region) throw new Error("WaitlistPage rendered no page-level status region");
+  return region;
+}
+
+/** The E2E fixture guest (`guests-list.json` gst_e2e_001): Alice, 12 visits, known phone. */
+const makeAlice = (overrides: Partial<Guest> = {}): Guest => ({
+  id: "gst_e2e_001",
+  venueId: "venue-abc",
+  name: "Alice Johnson",
+  email: "alice@example.com",
+  phone: "+15551234567",
+  notes: "Prefers window seating",
+  visitCount: 12,
+  noShowCount: 0,
+  riskScore: "trusted",
+  lifetimeSpend: "1450.00",
+  lastVisit: "2026-05-10T18:00:00.000Z",
+  tags: ["VIP", "regular"],
+  dietaryRestrictions: ["vegetarian"],
+  staffNotes: [],
+  createdAt: "2025-06-01T00:00:00.000Z",
+  updatedAt: "2026-05-10T18:00:00.000Z",
+  ...overrides,
+});
 
 /** Scopes card queries to waitlist entry rows, excluding the add-to-waitlist form's own Card. */
 function getRowCards(container: HTMLElement) {
@@ -276,6 +347,8 @@ describe("WaitlistPage", () => {
   beforeEach(() => {
     mockToast.mockClear();
     mockNavigate.mockClear();
+    mockUseGuestLookup.mockReset();
+    mockUseGuestLookup.mockReturnValue(idleLookup);
     vi.mocked(useNavigate).mockReturnValue(mockNavigate);
     vi.mocked(useVenue).mockReturnValue(mockVenue);
     vi.mocked(useTables).mockReturnValue({
@@ -408,8 +481,8 @@ describe("WaitlistPage", () => {
     });
 
     renderPage();
-    expect(screen.getAllByRole("status")).toHaveLength(1);
-    expect(screen.getByRole("status")).toHaveTextContent("");
+    expect(pageStatusRegions()).toHaveLength(1);
+    expect(pageStatus()).toHaveTextContent("");
   });
 
   it("renders entries ordered by position with guest name, party size and wait", () => {
@@ -515,7 +588,7 @@ describe("WaitlistPage", () => {
       expect(banner).toHaveTextContent("Not added.");
       expect(banner).toHaveTextContent(ERROR_COPY.serverError.detail);
       expect(screen.queryByText(/failed: 500/)).toBeNull();
-      expect(screen.getByRole("status")).toHaveTextContent("");
+      expect(pageStatus()).toHaveTextContent("");
     });
 
     it("announces the add once and returns focus to the Guest Name field (B3.1, B3.2 — the deliberate exception)", async () => {
@@ -529,16 +602,160 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add to Waitlist" }));
 
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(
-          /^Added Jordan Lee, party of 3, to the waitlist\.$/
-        );
+        expect(pageStatus()).toHaveTextContent(/^Added Jordan Lee, party of 3, to the waitlist\.$/);
       });
-      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(pageStatusRegions()).toHaveLength(1);
       // useFocusAfter focuses in an effect after the commit in which the target
       // resolves — a later commit than the one that renders the status sentence
       // above. Synchronize on focus itself, not on a different signal.
       await waitFor(() => {
         expect(document.activeElement).toBe(screen.getByLabelText("Guest Name"));
+      });
+    });
+  });
+
+  describe("returning guest lookup (M4.1, #4990)", () => {
+    const alice = makeAlice();
+    const aliceRows: UseGuestLookupResult = { ...idleLookup, rows: [alice], query: "555123" };
+    const RESERVATION_CAPTION =
+      "Edits to email or phone below change this booking only — the profile isn't edited.";
+
+    beforeEach(() => {
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+    });
+
+    function guestNameField() {
+      return screen.getByTestId("waitlist-guest-name");
+    }
+
+    /** Type the known phone, tap the Alice row, then let the lookup go quiet again. */
+    function pickAlice() {
+      mockUseGuestLookup.mockReturnValue(aliceRows);
+      fireEvent.change(guestNameField(), { target: { value: "555123" } });
+      fireEvent.mouseDown(screen.getByRole("option", { name: /Alice Johnson/ }));
+      mockUseGuestLookup.mockReturnValue(idleLookup);
+    }
+
+    it("swaps the field for the lookup, keeping the test id and the label", () => {
+      renderPage();
+      expect(guestNameField()).toHaveAttribute("role", "combobox");
+      expect(screen.getByLabelText("Guest Name")).toBe(guestNameField());
+      expect(
+        screen.getByText("Name or phone — returning guests appear as you type.")
+      ).toBeInTheDocument();
+      expect(mockUseGuestLookup).toHaveBeenLastCalledWith({ venueId: "venue-abc", text: "" });
+    });
+
+    it("typing a known phone lists Alice; picking fills the phone, shows 'Recognised' and speaks through the page's region", () => {
+      renderPage();
+      mockUseGuestLookup.mockReturnValue(aliceRows);
+      fireEvent.change(guestNameField(), { target: { value: "555123" } });
+
+      const option = screen.getByRole("option", { name: /Alice Johnson/ });
+      expect(option).toHaveTextContent("Alice Johnson");
+      fireEvent.mouseDown(option);
+      mockUseGuestLookup.mockReturnValue(idleLookup);
+
+      expect(guestNameField()).toHaveValue("Alice Johnson");
+      expect(screen.getByLabelText(/guest phone/i)).toHaveValue("+15551234567");
+      const strip = screen.getByRole("group", { name: "Recognised Alice Johnson" });
+      expect(strip).toHaveTextContent("12 visits");
+      expect(strip).not.toHaveTextContent(RESERVATION_CAPTION);
+      expect(pageStatusRegions()).toHaveLength(1);
+      expect(pageStatus().textContent).toBe(pickAnnouncement("recognised", alice));
+    });
+
+    it("Clear with the phone unedited empties it, drops the strip, says 'Guest cleared.' and reselects the name", async () => {
+      renderPage();
+      pickAlice();
+
+      fireEvent.click(screen.getByRole("button", { name: "Clear Alice Johnson" }));
+
+      expect(screen.getByLabelText(/guest phone/i)).toHaveValue("");
+      expect(screen.queryByRole("group", { name: /Recognised/ })).toBeNull();
+      expect(pageStatus().textContent).toBe("Guest cleared.");
+      // react-hook-form's setFocus defers to a macrotask; the name stays and is selected.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(guestNameField());
+      });
+      const field = guestNameField() as HTMLInputElement;
+      expect(field).toHaveValue("Alice Johnson");
+      expect(field.selectionStart).toBe(0);
+      expect(field.selectionEnd).toBe("Alice Johnson".length);
+    });
+
+    it("Clear keeps a phone the Host edited after the pick", () => {
+      renderPage();
+      pickAlice();
+      fireEvent.change(screen.getByLabelText(/guest phone/i), {
+        target: { value: "555-999-0000" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Clear Alice Johnson" }));
+
+      expect(screen.getByLabelText(/guest phone/i)).toHaveValue("555-999-0000");
+    });
+
+    it("submits exactly { venueId, partySize, guestName, guestPhone } after a pick — no guestId (SC9) — and success resets the strip", async () => {
+      const mutateAsync = vi
+        .fn()
+        .mockResolvedValue(makeEntry({ guestName: "Alice Johnson", partySize: 2 }));
+      mockMutationHooks({ create: { mutateAsync } });
+      renderPage();
+      pickAlice();
+
+      fireEvent.click(screen.getByRole("button", { name: "Add to Waitlist" }));
+
+      await waitFor(() => {
+        expect(mutateAsync).toHaveBeenCalledOnce();
+      });
+      const payload = mutateAsync.mock.calls[0][0];
+      expect(payload).toStrictEqual({
+        venueId: "venue-abc",
+        partySize: 2,
+        guestName: "Alice Johnson",
+        guestPhone: "+15551234567",
+      });
+      expect(payload).not.toHaveProperty("guestId");
+      expect(Object.keys(payload).sort()).toEqual([
+        "guestName",
+        "guestPhone",
+        "partySize",
+        "venueId",
+      ]);
+      await waitFor(() => {
+        expect(screen.queryByRole("group", { name: /Recognised/ })).toBeNull();
+      });
+      expect(guestNameField()).toHaveValue("");
+    });
+
+    it("a failed lookup never blocks adding (SC6)", async () => {
+      const mutateAsync = vi.fn().mockResolvedValue(makeEntry());
+      mockMutationHooks({ create: { mutateAsync } });
+      mockUseGuestLookup.mockReturnValue({ ...idleLookup, failed: true, query: "smi" });
+      renderPage();
+      expect(
+        screen.getAllByText("Can't look up guests right now — type the details as usual.").length
+      ).toBeGreaterThan(0);
+
+      fireEvent.change(guestNameField(), { target: { value: "Smith" } });
+      fireEvent.change(screen.getByLabelText(/guest phone/i), {
+        target: { value: "555-123-4567" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add to Waitlist" }));
+
+      await waitFor(() => {
+        expect(mutateAsync).toHaveBeenCalledWith({
+          venueId: "venue-abc",
+          partySize: 2,
+          guestName: "Smith",
+          guestPhone: "555-123-4567",
+        });
       });
     });
   });
@@ -654,9 +871,9 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Notify" })[0]!);
 
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Notified Jordan Lee\.$/);
+        expect(pageStatus()).toHaveTextContent(/^Notified Jordan Lee\.$/);
       });
-      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(pageStatusRegions()).toHaveLength(1);
       // useFocusAfter focuses in an effect after the commit in which the target
       // resolves — a later commit than the one that renders the status sentence
       // above. Synchronize on focus itself, not on a different signal.
@@ -677,7 +894,7 @@ describe("WaitlistPage", () => {
       const view = renderPage();
       fireEvent.click(screen.getByRole("button", { name: "Notify" }));
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Notified Jordan Lee\.$/);
+        expect(pageStatus()).toHaveTextContent(/^Notified Jordan Lee\.$/);
       });
 
       // The refetch lands: the notified party is no longer "waiting", so the list is empty.
@@ -715,7 +932,7 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]!);
 
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Removed Alice from the waitlist\.$/);
+        expect(pageStatus()).toHaveTextContent(/^Removed Alice from the waitlist\.$/);
       });
       // useFocusAfter focuses in an effect after the commit in which the target
       // resolves — a later commit than the one that renders the status sentence
@@ -737,7 +954,7 @@ describe("WaitlistPage", () => {
       const view = renderPage();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Removed Alice/);
+        expect(pageStatus()).toHaveTextContent(/^Removed Alice/);
       });
 
       // The refetch lands: the list is empty now.
@@ -774,7 +991,7 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Cancel" })[1]!);
 
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Removed Bob/);
+        expect(pageStatus()).toHaveTextContent(/^Removed Bob/);
       });
       // useFocusAfter focuses in an effect after the commit in which the target
       // resolves — a later commit than the one that renders the status sentence
@@ -838,9 +1055,9 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Seat" })[0]!);
 
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Seated Jordan Lee at Table 1\.$/);
+        expect(pageStatus()).toHaveTextContent(/^Seated Jordan Lee at Table 1\.$/);
       });
-      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(pageStatusRegions()).toHaveLength(1);
       // useFocusAfter focuses in an effect after the commit in which the target
       // resolves — a later commit than the one that renders the status sentence
       // above. Synchronize on focus itself, not on a different signal.
@@ -875,7 +1092,7 @@ describe("WaitlistPage", () => {
       const view = renderPage();
       fireEvent.click(screen.getByRole("button", { name: "Seat" }));
       await waitFor(() => {
-        expect(screen.getByRole("status")).toHaveTextContent(/^Seated Jordan Lee/);
+        expect(pageStatus()).toHaveTextContent(/^Seated Jordan Lee/);
       });
 
       vi.mocked(useWaitlist).mockReturnValue({
@@ -926,7 +1143,7 @@ describe("WaitlistPage", () => {
       expect(screen.queryByText(/failed: 409/)).toBeNull();
       expect(seatMutateAsync).not.toHaveBeenCalled();
       expect(mockToast).not.toHaveBeenCalled();
-      expect(screen.getByRole("status")).toHaveTextContent("");
+      expect(pageStatus()).toHaveTextContent("");
       expect(screen.getByRole("button", { name: "Seat" })).toBeInTheDocument();
     });
 
