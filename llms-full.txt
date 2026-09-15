@@ -15268,7 +15268,7 @@
       venueId: string | null | undefined
     ): Promise<void> {
       if (!venueId) return;
-      await client.$executeRaw`SET LOCAL app.venue_id = ${venueId}`;
+      await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
     }
     export function venueContextPreHandler(
       resolveVenueId: VenueIdResolver

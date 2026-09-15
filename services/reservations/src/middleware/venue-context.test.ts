@@ -22,7 +22,7 @@ describe("setVenueContext", () => {
     vi.mocked(prisma.$executeRaw).mockClear();
   });
 
-  it("sets app.venue_id via a parameterized SET LOCAL when a venue id is given", async () => {
+  it("sets app.venue_id via a parameterized set_config() when a venue id is given", async () => {
     await setVenueContext(prisma, "venue-1");
 
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
@@ -31,18 +31,21 @@ describe("setVenueContext", () => {
       ...unknown[],
     ];
     // Parameterized tagged-template call: the venue id must be a bound
-    // value, never interpolated into the SQL string itself.
-    expect(strings.join("?")).toBe("SET LOCAL app.venue_id = ?");
+    // value, never interpolated into the SQL string itself. `set_config()`
+    // is used instead of `SET LOCAL app.venue_id = ?` because Postgres's
+    // SET/SET LOCAL grammar does not accept a bind parameter in the value
+    // position — only set_config() does.
+    expect(strings.join("?")).toBe("SELECT set_config('app.venue_id', ?, true)");
     expect(values).toEqual(["venue-1"]);
   });
 
-  it("does not run SET LOCAL when venueId is null (default-deny per ADR-026 §4)", async () => {
+  it("does not run set_config() when venueId is null (default-deny per ADR-026 §4)", async () => {
     await setVenueContext(prisma, null);
 
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 
-  it("does not run SET LOCAL when venueId is undefined", async () => {
+  it("does not run set_config() when venueId is undefined", async () => {
     await setVenueContext(prisma, undefined);
 
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
