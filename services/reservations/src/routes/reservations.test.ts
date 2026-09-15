@@ -74,6 +74,8 @@ vi.mock("../services/guest.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     search: vi.fn(),
+    findByEmail: vi.fn(),
+    findByPhone: vi.fn(),
     findOrCreate: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -1301,6 +1303,91 @@ describe("Reservation Routes", () => {
           occasion: "birthday",
           seatingPreference: "booth",
         }),
+        "auth0|user-123"
+      );
+    });
+
+    it("(a) rejects a guestId from another venue with 400 before any write (booking-guest-reuse M1.6)", async () => {
+      vi.mocked(guestService.getById).mockResolvedValueOnce({
+        id: "gst_1",
+        venueId: "venue-other",
+      } as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123", guestId: "gst_1" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe(400);
+      expect(body.title).toBe("Bad Request");
+      expect(body.detail).toBe("Unknown guest for this venue");
+      expect(guestService.getById).toHaveBeenCalledWith("gst_1");
+      expect(reservationService.createWalkIn).not.toHaveBeenCalled();
+      expect(stubEvents.emitReservationCreated).not.toHaveBeenCalled();
+      expect(stubEvents.emitTableUpdated).not.toHaveBeenCalled();
+    });
+
+    it("(b) persists an in-venue guestId and returns reservation.guest on the 201 body", async () => {
+      vi.mocked(guestService.getById).mockResolvedValueOnce({
+        id: "gst_1",
+        venueId: "venue-123",
+      } as never);
+      // The shared fixture has no `guest` key (@mbe/test-fixtures predates the
+      // relation), so spread into a fresh object rather than widening the fixture.
+      const linked = {
+        ...createMockReservation({
+          id: "res-walkin",
+          status: "CONFIRMED",
+          guestName: "Ada",
+          guestId: "gst_1",
+        }),
+        guest: { visitCount: 12, communicationPreference: "both", unsubscribed: false },
+      };
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: linked,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123", guestId: "gst_1" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(guestService.getById).toHaveBeenCalledWith("gst_1");
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.objectContaining({ guestId: "gst_1", venueId: "venue-123" }),
+        "auth0|user-123"
+      );
+      const body = JSON.parse(response.body);
+      expect(body.data.guestId).toBe("gst_1");
+      expect(body.data.guest.visitCount).toBe(12);
+      expect(stubEvents.emitReservationCreated).toHaveBeenCalledWith(linked);
+    });
+
+    it("(c) never looks a guest up when no guestId is supplied", async () => {
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({ id: "res-walkin", status: "CONFIRMED" }),
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(guestService.getById).not.toHaveBeenCalled();
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.not.objectContaining({ guestId: expect.anything() }),
         "auth0|user-123"
       );
     });

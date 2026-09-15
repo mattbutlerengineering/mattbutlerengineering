@@ -32,6 +32,7 @@ import { recordNoShow } from "../services/reservation-no-show.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
+import { resolveGuestLink } from "../services/guest-link.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
 import { venueIdFromBody } from "./venue-access.js";
@@ -219,6 +220,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               data: { $ref: "Reservation#" },
             },
           },
+          400: {
+            description: "Unknown guest for this venue",
+            $ref: "Error#",
+          },
           401: {
             description: "Authentication required",
             $ref: "Error#",
@@ -236,6 +241,19 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
+      // A picked guest must belong to this venue; unknown and foreign ids get
+      // the same answer, before anything is written.
+      if (request.body.guestId) {
+        const link = await resolveGuestLink({
+          venueId: request.body.venueId,
+          guestId: request.body.guestId,
+        });
+        if (!link.ok) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+        }
+      }
       // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
       // a single transaction. If the table update fails the whole thing rolls
       // back and rejects, so we only reach the SSE emits below after a
