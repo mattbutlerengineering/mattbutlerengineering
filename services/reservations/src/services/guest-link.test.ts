@@ -12,7 +12,7 @@ vi.mock("./guest.js", () => ({
   },
 }));
 
-import { resolveGuestLink } from "./guest-link.js";
+import { resolveGuestLink, linkOrCreateGuest } from "./guest-link.js";
 import { guestService } from "./guest.js";
 
 const VENUE = "venue-1";
@@ -175,5 +175,140 @@ describe("resolveGuestLink (booking-guest-reuse M1.3)", () => {
     await expect(
       resolveGuestLink({ venueId: VENUE, guestEmail: "a@b.c", guestPhone: "+1" })
     ).rejects.toBe(boom);
+  });
+});
+
+describe("linkOrCreateGuest (booking-guest-reuse M1.4)", () => {
+  it("returns a resolve hit unchanged and never calls create", async () => {
+    const m = mocked();
+    m.findByEmail.mockResolvedValueOnce(makeGuest({ id: "gst_hit" }));
+    m.findByPhone.mockResolvedValueOnce(null);
+
+    const result = await linkOrCreateGuest({
+      venueId: VENUE,
+      guestName: "Ada",
+      guestEmail: "ada@example.com",
+      guestPhone: "+15550001",
+    });
+
+    expect(result).toEqual({ ok: true, guestId: "gst_hit" });
+    expect(m.create).not.toHaveBeenCalled();
+  });
+
+  it("returns a GUEST_NOT_IN_VENUE rejection unchanged and never calls create", async () => {
+    const m = mocked();
+    m.getById.mockResolvedValueOnce(null);
+
+    const result = await linkOrCreateGuest({ venueId: VENUE, guestId: "gst_x", guestName: "Ada" });
+
+    expect(result).toEqual({ ok: false, code: "GUEST_NOT_IN_VENUE" });
+    expect(m.create).not.toHaveBeenCalled();
+  });
+
+  it("miss + email + name → create called once with { venueId, name, email } (no phone key) and its id returned", async () => {
+    const m = mocked();
+    m.findByEmail.mockResolvedValueOnce(null);
+    m.create.mockResolvedValueOnce(makeGuest({ id: "gst_new" }));
+
+    const result = await linkOrCreateGuest({
+      venueId: VENUE,
+      guestName: "Ada",
+      guestEmail: "ada@example.com",
+    });
+
+    expect(result).toEqual({ ok: true, guestId: "gst_new" });
+    expect(m.create).toHaveBeenCalledTimes(1);
+    expect(m.create).toHaveBeenCalledWith({
+      venueId: VENUE,
+      name: "Ada",
+      email: "ada@example.com",
+    });
+    expect(m.create.mock.calls[0]![0]).not.toHaveProperty("phone");
+  });
+
+  it("miss + phone + name → create called with { venueId, name, phone } (no email key)", async () => {
+    const m = mocked();
+    m.findByPhone.mockResolvedValueOnce(null);
+    m.create.mockResolvedValueOnce(makeGuest({ id: "gst_new" }));
+
+    const result = await linkOrCreateGuest({
+      venueId: VENUE,
+      guestName: "Ada",
+      guestPhone: "+15550001",
+    });
+
+    expect(result).toEqual({ ok: true, guestId: "gst_new" });
+    expect(m.create).toHaveBeenCalledWith({ venueId: VENUE, name: "Ada", phone: "+15550001" });
+    expect(m.create.mock.calls[0]![0]).not.toHaveProperty("email");
+  });
+
+  it("miss + name, no contact → { ok: true, guestId: null } and no create", async () => {
+    const m = mocked();
+
+    const result = await linkOrCreateGuest({ venueId: VENUE, guestName: "Ada" });
+
+    expect(result).toEqual({ ok: true, guestId: null });
+    expect(m.create).not.toHaveBeenCalled();
+  });
+
+  it("miss + contact, no name → { ok: true, guestId: null } and no create", async () => {
+    const m = mocked();
+    m.findByEmail.mockResolvedValueOnce(null);
+
+    const result = await linkOrCreateGuest({ venueId: VENUE, guestEmail: "ada@example.com" });
+
+    expect(result).toEqual({ ok: true, guestId: null });
+    expect(m.create).not.toHaveBeenCalled();
+  });
+
+  it("create rejecting with P2002 → contact lookups run a second time and the winner's id is returned", async () => {
+    const m = mocked();
+    m.findByEmail
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(makeGuest({ id: "gst_winner" }));
+    m.findByPhone.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    m.create.mockRejectedValueOnce({ code: "P2002" });
+
+    const result = await linkOrCreateGuest({
+      venueId: VENUE,
+      guestName: "Ada",
+      guestEmail: "ada@example.com",
+      guestPhone: "+15550001",
+    });
+
+    expect(result).toEqual({ ok: true, guestId: "gst_winner" });
+    expect(m.findByEmail).toHaveBeenCalledTimes(2);
+    expect(m.findByPhone).toHaveBeenCalledTimes(2);
+    expect(m.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("create rejecting with any other error → the rejection propagates", async () => {
+    const m = mocked();
+    const boom = new Error("insert failed");
+    m.findByEmail.mockResolvedValueOnce(null);
+    m.create.mockRejectedValueOnce(boom);
+
+    await expect(
+      linkOrCreateGuest({ venueId: VENUE, guestName: "Ada", guestEmail: "ada@example.com" })
+    ).rejects.toBe(boom);
+    expect(m.findByEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("never calls findOrCreate or update", async () => {
+    const m = mocked();
+    m.findByEmail.mockResolvedValue(null);
+    m.findByPhone.mockResolvedValue(null);
+    m.create.mockResolvedValue(makeGuest({ id: "gst_new" }));
+
+    await linkOrCreateGuest({
+      venueId: VENUE,
+      guestName: "Ada",
+      guestEmail: "a@b.c",
+      guestPhone: "+1",
+    });
+    await linkOrCreateGuest({ venueId: VENUE });
+
+    expect(m.findOrCreate).not.toHaveBeenCalled();
+    expect(m.update).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,9 @@
  * - `resolveGuestLink` — read-only: a supplied id is accepted only when the guest
  *   belongs to the venue; otherwise exact email / phone matches within the venue,
  *   email winning over phone (as `guestService.findOrCreate` does).
+ * - `linkOrCreateGuest` — staff path only: resolve, then create a bare Guest when
+ *   nothing matched and both a name and a contact were given. Existing profiles
+ *   are never updated (that is what sets this apart from `findOrCreate`).
  *
  * Cross-venue linking is impossible by construction: contact lookups go through
  * the venue-scoped compound uniques, and an id is checked against `guest.venueId`.
@@ -45,4 +48,41 @@ export async function resolveGuestLink(input: GuestLinkInput): Promise<GuestLink
   ]);
 
   return { ok: true, guestId: byEmail?.id ?? byPhone?.id ?? null };
+}
+
+export interface LinkOrCreateGuestInput extends GuestLinkInput {
+  guestName?: string | null;
+}
+
+/** Prisma unique-constraint violation — the shape `isPrismaNotFound` checks, for P2002. */
+function isPrismaUniqueViolation(err: unknown): boolean {
+  return (
+    err !== null &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code: string }).code === "P2002"
+  );
+}
+
+export async function linkOrCreateGuest(input: LinkOrCreateGuestInput): Promise<GuestLinkResult> {
+  const resolved = await resolveGuestLink(input);
+  if (!resolved.ok || resolved.guestId !== null) return resolved;
+
+  const { venueId, guestName, guestEmail, guestPhone } = input;
+  if (!guestName || (!guestEmail && !guestPhone)) return resolved;
+
+  try {
+    const created = await guestService.create({
+      venueId,
+      name: guestName,
+      ...(guestEmail ? { email: guestEmail } : {}),
+      ...(guestPhone ? { phone: guestPhone } : {}),
+    });
+    return { ok: true, guestId: created.id };
+  } catch (err) {
+    // Two first-time bookings for the same contact raced and the other one won:
+    // link to it instead of failing the booking.
+    if (isPrismaUniqueViolation(err)) return resolveGuestLink(input);
+    throw err;
+  }
 }
