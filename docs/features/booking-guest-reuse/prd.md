@@ -189,9 +189,14 @@ Public widget (`POST /public/:slug/reservations`, `public-reservations.ts:84`):
       identical in status, headers and body once ids, timestamps and the manage
       token are normalised. Route test that diffs the two responses and asserts an
       empty diff.
+
+  > Amended 2026-09-15 (Review): "headers" excludes `x-ratelimit-*` (the second request necessarily reads one lower) and `date` (a same-second guard); the route test names that allowlist, asserts `content-length` equal, and asserts no header outside the allowlist differs.
+
 - [ ] SC12 — The public body still does not accept a caller-supplied `guestId`
       (`PublicReservationBodySchema` unchanged in that respect). Route test sends
       one and asserts the stored reservation does not carry it.
+
+  > Amended 2026-09-15 (Review): "does not accept" = the public schema never declares `guestId` and the handler never reads it; a body carrying one is answered 201 with the key ignored and the reservation linked only by the typed contact. A 400 would itself tell the caller the key means something, so the test asserts never read / never stored, not a rejection.
 
 Gates and constraints:
 

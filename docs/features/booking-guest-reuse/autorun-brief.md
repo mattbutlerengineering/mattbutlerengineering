@@ -6,7 +6,7 @@ description, so there are zero user answers in this file. Every field is
 either (a) copied from the pre-existing `idea.md` (written 2026-08-31, the
 run's only artifact, found local-only and never pushed) or (b) an
 orchestrator default that the relying stage must log under `assumptions:`.
-Where a prior run's brief recorded a *standing* user answer, it is quoted as
+Where a prior run's brief recorded a _standing_ user answer, it is quoted as
 precedent, never inherited as authorization. This file is the brief, not an
 artifact: it never counts toward orientation.
 
@@ -77,7 +77,7 @@ Measured on `origin/main` `da54bd57b` (2026-09-15):
   `guestId` already exists (`TimelinePage`, `EditReservationDrawer`);
   rialto ships `Autocomplete`, `Combobox`, `Popover`.
 - Backend: `guestService.findOrCreate(venueId, {email?, phone?, name,
-  dietaryRestrictions?})` resolves **exact** email (precedence) then exact
+dietaryRestrictions?})` resolves **exact** email (precedence) then exact
   phone via `@@unique([venueId, email])` / `@@unique([venueId, phone])`;
   **no phone normalization exists anywhere** (`guest-identity.ts` is only
   dietary-merge + update-payload helpers). `reservationService.create`
@@ -87,7 +87,7 @@ Measured on `origin/main` `da54bd57b` (2026-09-15):
   `findOrCreate` either.
 - **Prisma:** only `Reservation` has `guestId` (`schema.prisma:216`).
   `WaitlistEntry` has no guest link, and `packages/types/src/schemas/
-  waitlist.ts` carries no `guestId`.
+waitlist.ts` carries no `guestId`.
 - Tracker: issue **#4990** (`audit`, `ready`, `ux`; filed 2026-09-04 by
   the `hospitality-service-ux` UX audit, lens RECOGNIZE) covers the
   walk-in + waitlist half of this idea with the same fix sketch (typeahead
@@ -107,7 +107,7 @@ Measured on `origin/main` `da54bd57b` (2026-09-15):
 - Walk-in (`WalkInDialog`): optional lookup (phone/name) that never gates
   seating; a pick passes `guestId` through the walk-in payload
   (`packages/types` walk-in schema + `services/reservations` route/service
-  + `@mbe/api-client`), so the seated block can show the visit badge.
+  - `@mbe/api-client`), so the seated block can show the visit badge.
 - Waitlist add (`WaitlistPage`): recognise on the phone already collected
   (typeahead / inline card). **Persisting a waitlist→guest link is out**
   (needs a Prisma column; see Out) — the PRD may keep waitlist to
@@ -122,9 +122,9 @@ Measured on `origin/main` `da54bd57b` (2026-09-15):
   and write within this run and must not require rewriting existing rows.
 - Unit tests for every changed component/route/service (TDD); updates to
   the E2E specs that exercise these dialogs (`apps/hospitality/e2e/
-  reservations.spec.ts`, `walkin.spec.ts`, `waitlist.spec.ts`, and the
+reservations.spec.ts`, `walkin.spec.ts`, `waitlist.spec.ts`, and the
   `timeline*.spec.ts` / `dashboard.spec.ts` / `realtime-collaboration.
-  spec.ts` files if their selectors break) and `e2e/api-mocks.ts`; docs
+spec.ts` files if their selectors break) and `e2e/api-mocks.ts`; docs
   (`apps/hospitality/CLAUDE.md` components, `docs/USER-FLOWS.md` if a flow
   is satisfied); llms regen; a rialto `.changeset` only if
   `packages/rialto/src` changes.

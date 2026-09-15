@@ -56,6 +56,7 @@ One component, mounted three times in place of today's Guest name `Input`. Every
 4. Host sets time and party as today, taps **Create Reservation**. The reservation is created with `guestId`; the dialog closes; the page behaves as today (the sheet/sidebar for it now shows the full `GuestCard`, because a `guestId` exists).
 5. **Ignore path** (Story 3): at step 2 the Host keeps typing "Priya Shah", tabs to Guest Phone, types her number, never picks. Nothing appears under the field beyond the hint. On submit the server links the exact phone match — no duplicate, no UI. Nothing in the dialog claims a link; the sheet after creation tells the truth.
 6. **Wrong-guest path**: at step 3 the Host realises it is a different Priya. Taps **Clear**: field, email and phone revert to what they held before the pick; strip gone; announced "Guest cleared."; focus in the field. Host types on.
+   > Amended 2026-09-15 (Review): the name field keeps "Priya Shah" with its text selected (one keystroke replaces it); only email and phone revert. Reverting the name to the pre-pick "Pri" would hand the Host a fragment to delete, and :45 ("focus → the field") plus § States "Cleared" ("text selected so the Host can retype at once") already assume a full name is there to select. `NewReservationDialog.test.tsx`, `WalkInDialog.test.tsx` and `WaitlistPage.test.tsx` pin this reading.
 
 ### Flow 2 — Host seats a walk-in regular (Seat walk-in dialog)
 
@@ -137,6 +138,7 @@ PICKED, zero history (what every real guest looks like until Q4 is fixed)
 - **Picked**: field text = name; strip as drawn; **Clear** (`Button variant="ghost"`, visible text "Clear", accessible name "Clear Priya Shah"; ≥ 44 px on tablet); polite announcement (§ Copy). The strip is `role="group"` with `aria-labelledby` its title, so a screen reader can find it again.
 - **Zero history**: exactly the second strip — no badge, no counts, the one sentence. Never "0 visits", never "New".
 - **Cleared**: strip gone; field and every prefilled field revert to pre-pick values unless edited since; announced "Guest cleared."; focus in the field with its text selected so the Host can retype at once.
+  > Amended 2026-09-15 (Review): "every prefilled field" means the fields the pick filled — email and phone on the reservation dialog, phone on the waitlist. The name field keeps the picked name, selected; see Flow 1 step 6.
 - **Reduced motion**: the listbox keeps rialto's gated entrance (no slide, no fade under `prefers-reduced-motion`); the strip has no motion at all.
 - **Check**: Stories 1, 2; SC1, SC2, SC6; Q1 (caption), Q4 (zero state).
 
@@ -237,11 +239,11 @@ Not designed. Server-side link on exact match, response byte-identical (Stories 
 
 ### Field
 
-| Surface | Label (unchanged text) | Hint | Placeholder |
-| --- | --- | --- | --- |
+| Surface         | Label (unchanged text)  | Hint                                                          | Placeholder  |
+| --------------- | ----------------------- | ------------------------------------------------------------- | ------------ |
 | New Reservation | "Guest Name" (required) | "Name, email or phone — returning guests appear as you type." | "e.g. Smith" |
-| Seat walk-in | "Guest name (optional)" | "Name or phone — returning guests appear as you type." | "e.g. Smith" |
-| Waitlist add | "Guest Name" (required) | "Name or phone — returning guests appear as you type." | "e.g. Smith" |
+| Seat walk-in    | "Guest name (optional)" | "Name or phone — returning guests appear as you type."        | "e.g. Smith" |
+| Waitlist add    | "Guest Name" (required) | "Name or phone — returning guests appear as you type."        | "e.g. Smith" |
 
 ### Listbox rows and status rows
 
@@ -253,22 +255,22 @@ Not designed. Server-side link on exact match, response byte-identical (Stories 
 
 ### Strip
 
-| Surface | Title | Caption line |
-| --- | --- | --- |
+| Surface                       | Title                    | Caption line                                                                                           |
+| ----------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
 | New Reservation, Seat walk-in | "Using {name}'s profile" | Reservation only: "Edits to email or phone below change this booking only — the profile isn't edited." |
-| Waitlist add | "Recognised {name}" | none |
+| Waitlist add                  | "Recognised {name}"      | none                                                                                                   |
 
 Body, in order: segment `Badge` (VIP → accent, Repeat → success; nothing for New) · "{N} visit|visits" or "No visits on record yet" · when noShowCount > 0: "{N} no-show|no-shows" + risk `Badge` (Trusted / Standard / Risky, variants as `GuestCard`) · dietary `Tag`s, allergy keywords → `variant="error"` prefixed "Allergy:", others default (the prior run's per-tag rule). Clear: visible "Clear", `aria-label="Clear {name}"`.
 
 ### Announcements (polite, once, from a region inside the dialog; the waitlist uses the page's region)
 
-| Event | Sentence |
-| --- | --- |
-| Pick (reservation, walk-in) | "Using Priya Shah's profile — 12 visits, 1 no-show. Allergy: shellfish." / "Using Jordan Lee's profile — no visits on record yet." |
-| Pick (waitlist) | "Recognised Priya Shah — 12 visits, 1 no-show. Allergy: shellfish." |
-| Clear | "Guest cleared." |
-| Lookup failed | "Can't look up guests right now — type the details as usual." (same as the caption; once per episode) |
-| Results / loading / no match | the listbox's own region: "2 results available" / "Looking up guests…" / "No returning guest matches. Carry on as usual." |
+| Event                        | Sentence                                                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Pick (reservation, walk-in)  | "Using Priya Shah's profile — 12 visits, 1 no-show. Allergy: shellfish." / "Using Jordan Lee's profile — no visits on record yet." |
+| Pick (waitlist)              | "Recognised Priya Shah — 12 visits, 1 no-show. Allergy: shellfish."                                                                |
+| Clear                        | "Guest cleared."                                                                                                                   |
+| Lookup failed                | "Can't look up guests right now — type the details as usual." (same as the caption; once per episode)                              |
+| Results / loading / no match | the listbox's own region: "2 results available" / "Looking up guests…" / "No returning guest matches. Carry on as usual."          |
 
 Existing sentences ("Seated Priya Shah, party of 2, at Table 3.", "Added Priya Shah, party of 2, to the waitlist.") are unchanged.
 
@@ -279,22 +281,23 @@ Existing sentences ("Seated Priya Shah, party of 2, at Table 3.", "Added Priya S
 - `guest-signals.ts` (`isAllergyTag`, `getSegmentLabel`, `getSegmentVariant`) and `GuestCard`'s risk label/variant rules are the single source for the strip; `ordinalVisit` for the block label — nothing is re-derived.
 - Field labels keep their exact text (`/guest name/i`, `/guest email/i`, `/guest phone/i` are load-bearing in the unit and E2E specs); the walk-in dialog's accessible name "Seat walk-in" and button names "Seat now", "Create Reservation", "Add to Waitlist" are unchanged.
 - Dialogs keep `role=dialog`, `aria-modal`, labelledby, focus trap, Escape-to-close, initial focus (party size on walk-in; first field on reservation); each dialog gains one polite region for the lookup's sentences. The waitlist page keeps its single `LiveStatus` region and speaks through `announce()`.
+  > Amended 2026-09-15 (Review): one polite region of the dialog's own (pick, clear and the failure sentence go through `announce()`), plus the lookup's results region inside the field for "2 results available" / loading / no match (§ Announcements, last row) — two polite regions per dialog, each with one job. The waitlist page likewise keeps its single page region for the pick/clear/failure sentences and gains the lookup's results region inside the form.
 - Prior-run rules carry: `describeApiError` voice, `ErrorRetryBanner` for the surfaces' own failures, `useFocusAfter` for focus moves, 44 px controls on a coarse pointer, reduced motion gates on every entrance.
 - Search: `useGuestSearch({ venueId, query })` with the 300 ms debounce precedent; venue-scoped by the endpoint.
 
 ## Story reachability check
 
-| Story | Reached by | Screen(s) |
-| --- | --- | --- |
-| 1 — suggestions as I type | Flow 1 step 2; Flow 2 step 3; Flow 3 step 1 | 1, 2, 3, 4 |
-| 2 — history before confirm | Flow 1 step 3; Flow 2 step 3 | 1 (picked), 2, 3 |
-| 3 — exact match with no pick | Flow 1 step 5 | 2 (no UI; server) |
-| 4 — ignorable walk-in lookup | Flow 2 step 2 | 3 (default) |
-| 5 — linked walk-in block label | Flow 2 step 4 | 3 (after seating) |
-| 6 — waitlist recognise + prefill | Flow 3 steps 1–2 | 4 |
-| 7 — Manager: bookings attach | consequence of Flows 1–2; visible on the Guests page and sheet as today | — (no new UI) |
-| 8 — widget guest lands on profile | no UI surface (server-side, Q2) | 5 (none) |
-| 9 — widget indistinguishable | no UI surface (server-side, Q2) | 5 (none) |
+| Story                             | Reached by                                                              | Screen(s)         |
+| --------------------------------- | ----------------------------------------------------------------------- | ----------------- |
+| 1 — suggestions as I type         | Flow 1 step 2; Flow 2 step 3; Flow 3 step 1                             | 1, 2, 3, 4        |
+| 2 — history before confirm        | Flow 1 step 3; Flow 2 step 3                                            | 1 (picked), 2, 3  |
+| 3 — exact match with no pick      | Flow 1 step 5                                                           | 2 (no UI; server) |
+| 4 — ignorable walk-in lookup      | Flow 2 step 2                                                           | 3 (default)       |
+| 5 — linked walk-in block label    | Flow 2 step 4                                                           | 3 (after seating) |
+| 6 — waitlist recognise + prefill  | Flow 3 steps 1–2                                                        | 4                 |
+| 7 — Manager: bookings attach      | consequence of Flows 1–2; visible on the Guests page and sheet as today | — (no new UI)     |
+| 8 — widget guest lands on profile | no UI surface (server-side, Q2)                                         | 5 (none)          |
+| 9 — widget indistinguishable      | no UI surface (server-side, Q2)                                         | 5 (none)          |
 
 Stories 1–6 are reachable through flows in this artifact; 7 has no surface of its own and is satisfied by existing screens; 8 and 9 have no UI by design.
 
