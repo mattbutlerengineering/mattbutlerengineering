@@ -4,9 +4,16 @@ import { useAuth } from "@mbe/auth/react";
 import { Button, NeonSign, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
-import { ReservationList, ActivityFeed, StatRow } from "../components/dashboard";
+import { describeApiError } from "../lib/describe-api-error.js";
+import {
+  ReservationList,
+  ActivityFeed,
+  LapsingGuestsWidget,
+  StatRow,
+} from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
+import { useLapsingGuests, useSendWinBack } from "../hooks/useGuests.js";
 import { useNow } from "../hooks/useNow.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import { deriveVenueOpenState } from "../utils/venueOpenState.js";
@@ -27,9 +34,12 @@ export function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { reservations, stats, isLoading, error, refetch } = useDashboardStatsQuery();
+  const loadFailure = error ? describeApiError(error) : null;
   const { isConnected } = useSSEStatus();
   const feedEvents = useSSEEventFeed({ maxItems: 5 });
-  const { selectedVenue } = useVenue();
+  const { selectedVenue, selectedVenueId } = useVenue();
+  const { data: lapsingGuests = [] } = useLapsingGuests(selectedVenueId);
+  const sendWinBack = useSendWinBack();
   const now = useNow();
   // Render-time derivation on the venue's own clock; `null` means "no sign".
   const openState = selectedVenue
@@ -44,6 +54,13 @@ export function HomePage() {
     refetch();
   }, [refetch]);
 
+  const handleSendWinBack = useCallback(
+    (guestId: string) => {
+      sendWinBack.mutate(guestId);
+    },
+    [sendWinBack]
+  );
+
   return (
     <div>
       <PageHeader
@@ -56,13 +73,20 @@ export function HomePage() {
         }
       />
 
-      {error && <ErrorRetryBanner error={error.message} onRetry={handleRetry} />}
+      {loadFailure && (
+        <ErrorRetryBanner
+          title="Couldn't load the dashboard."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
+          onRetry={handleRetry}
+        />
+      )}
 
       {isLoading ? <StatsLoading /> : <StatRow stats={stats} />}
 
       <div className={styles.actionsRow}>
-        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline")}>
-          New Walk-In
+        <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
+          Walk-in
         </Button>
         <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
           View Floor Plan
@@ -78,6 +102,10 @@ export function HomePage() {
       <div className={styles.contentGrid}>
         <ReservationList reservations={reservations} isLoading={isLoading} />
         <ActivityFeed events={feedEvents} isConnected={isConnected} />
+      </div>
+
+      <div className={styles.lapsingGuests}>
+        <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
       </div>
     </div>
   );

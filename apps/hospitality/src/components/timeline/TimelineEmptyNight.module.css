@@ -1,0 +1,31 @@
+/*
+ * Sits over the hour columns (architecture.md § Components): the table column
+ * and the hour header stay in view beside and above it, and the now-line
+ * (z-index 30) still shows through. The host sets the two custom properties
+ * from its own column/header constants; the defaults are the desktop grid's.
+ */
+.overlay {
+  position: absolute;
+  inset-block-start: var(--timeline-header-height, 40px);
+  inset-block-end: 0;
+  inset-inline-start: var(--timeline-table-column-width, 120px);
+  inset-inline-end: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-md);
+  pointer-events: none;
+}
+
+.card {
+  max-inline-size: 28rem;
+  pointer-events: auto;
+}
+
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer (ux.md Screen 7). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .card button {
+    min-block-size: 44px;
+  }
+}

@@ -141,6 +141,7 @@ const mockPublicVenue = {
   id: "venue-123",
   name: "Chez Panisse",
   slug: "chez-panisse",
+  ianaTimezone: "America/Los_Angeles",
   operatingHours: null,
 };
 
@@ -738,7 +739,9 @@ describe("Venue Routes", () => {
         expect(body.data).not.toHaveProperty("settings");
         expect(body.data).not.toHaveProperty("createdAt");
         expect(body.data).not.toHaveProperty("updatedAt");
-        expect(Object.keys(body.data).sort()).toEqual(["id", "name", "operatingHours", "slug"]);
+        expect(Object.keys(body.data).sort()).toEqual(
+          ["ianaTimezone", "id", "name", "operatingHours", "slug"].sort()
+        );
       });
 
       it("does not call the internal, unprojected getBySlug", async () => {

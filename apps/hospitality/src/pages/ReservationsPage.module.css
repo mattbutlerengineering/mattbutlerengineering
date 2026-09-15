@@ -67,6 +67,18 @@
   margin-block-end: var(--rialto-space-lg);
 }
 
+/* Error banner between the toolbar and the table region (ux.md Screen 8) */
+.banner {
+  margin-block: var(--rialto-space-md);
+}
+
+/* Five text-row skeletons standing in for the table while it loads */
+.loading {
+  display: grid;
+  gap: var(--rialto-space-sm);
+  margin-block: var(--rialto-space-md);
+}
+
 .toolbar {
   display: flex;
   align-items: center;

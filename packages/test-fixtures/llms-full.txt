@@ -70,6 +70,79 @@
       readonly createdAt: string;
       readonly updatedAt: string;
     }
+    export interface MockPagination {
+      readonly page: number;
+      readonly limit: number;
+      readonly total: number;
+      readonly totalPages: number;
+      readonly hasNext: boolean;
+      readonly hasPrev: boolean;
+    }
+    export function createMockTable(overrides?: Partial<MockTable>): MockTable {
+      return Object.freeze({
+        id: "table-123",
+        name: "Table 1",
+        tableNumber: "1",
+        capacity: 4,
+        minCovers: 1,
+        maxCovers: null,
+        location: "Main Floor",
+        isActive: true,
+        priority: 0,
+        status: "AVAILABLE" as const,
+        venueId: null,
+        floorPlanId: null,
+        shapeMetadata: null,
+        createdAt: "2026-01-25T00:00:00.000Z",
+        updatedAt: "2026-01-25T00:00:00.000Z",
+        ...overrides,
+      });
+    }
+    export function createMockReservation(
+      overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
+    ): MockReservation {
+      const { table: tableOverrides, ...restOverrides } = overrides ?? {};
+      const table = createMockTable(tableOverrides);
+      return Object.freeze({
+        id: "res-123",
+        date: "2026-02-15",
+        startTime: "2026-02-15T18:00:00.000Z",
+        endTime: "2026-02-15T20:00:00.000Z",
+        partySize: 4,
+        status: "PENDING" as const,
+        notes: null,
+        cancellationReason: null,
+        cancellationNote: null,
+        occasion: null,
+        seatingPreference: null,
+        guestName: "John Doe",
+        guestEmail: "john@example.com",
+        guestPhone: null,
+        guestId: null,
+        userId: null,
+        tableId: table.id,
+        table,
+        venueId: null,
+        createdAt: "2026-01-25T00:00:00.000Z",
+        updatedAt: "2026-01-25T00:00:00.000Z",
+        ...restOverrides,
+      });
+    }
+    export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination {
+      return Object.freeze({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false,
+        ...overrides,
+      });
+    }
+    export const ERROR_NOT_FOUND = "Not Found";
+    export const ERROR_UNAUTHORIZED = "Unauthorized";
+    export const ERROR_CONFLICT = "Conflict";
+    export const ERROR_FORBIDDEN = "Forbidden";
   </file>
   <file path="src/users.ts">
     export interface MockUserPreferences {
@@ -86,6 +159,47 @@
       readonly preferences: MockUserPreferences;
       readonly createdAt: string;
       readonly updatedAt: string;
+    }
+    export function createMockUser(overrides: Partial<MockUser> = {}): MockUser {
+      return Object.freeze({
+        ...BASE_USER,
+        ...overrides,
+        preferences: Object.freeze({
+          ...BASE_USER_PREFERENCES,
+          ...(overrides.preferences ?? {}),
+        }),
+      });
+    }
+    export interface MockPaginatedResponse<T> {
+      data: T[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+      };
+    }
+    export function createMockPaginatedResponse<T>(
+      data: T[],
+      opts: { page?: number; limit?: number; total?: number } = {}
+    ): MockPaginatedResponse<T> {
+      const page = opts.page ?? 1;
+      const limit = opts.limit ?? 10;
+      const total = opts.total ?? data.length;
+      const totalPages = Math.ceil(total / limit);
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        },
+      };
     }
   </file>
   </section>

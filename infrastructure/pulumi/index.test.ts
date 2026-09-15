@@ -611,6 +611,31 @@ describe("Configuration Validation", () => {
       expect(kvBinding.name).toBe("HEALTH_STATE");
     });
 
+    it("edge router has an Analytics Engine binding for the edge_requests dataset", () => {
+      // The binding is declared in infrastructure/worker/wrangler.toml too, but
+      // nothing deploys from that file — this WorkersScript is the production
+      // router, and it shipped without the binding for 3.5 months
+      // (docs/fixes/rialto-web-usage-instrumentation/defect.md).
+      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
+        name.includes("edge-router")
+      );
+      expect(edgeRouter).toBeDefined();
+      // Narrowed inline rather than widened to the escape-hatch cast the
+      // sibling binding tests above use: that cast is on the AI-antipattern
+      // ratchet (scripts/check-ai-antipatterns.mjs, `anyType`), and this
+      // assertion only needs three string fields.
+      const bindings = edgeRouter!.inputs.bindings as Array<{
+        name?: string;
+        type?: string;
+        dataset?: string;
+      }>;
+      const analytics = bindings.find((b) => b.type === "analytics_engine");
+
+      expect(analytics).toBeDefined();
+      expect(analytics!.name).toBe("ANALYTICS");
+      expect(analytics!.dataset).toBe("edge_requests");
+    });
+
     it("root DNS record is proxied AAAA 100::", () => {
       const rootDns = findResource(
         "cloudflare:index/dnsRecord:DnsRecord",

@@ -11,6 +11,257 @@ no retro.
 
 ---
 
+## 2026-09-13
+
+Window: **2026-09-07 → 2026-09-13**. Sources: GitHub MCP tool surface (PR/issue
+search, workflow-run, workflow-job and job-log endpoints), `metrics/stale-human-blocked.jsonl`,
+`.claude/improvement-loop/log.md`, `.claude/rules/gotchas.md`, `docs/scheduled-tasks.md`,
+`docs/routines/*.md`, `.github/workflows/pulumi-up.yml`, `.github/workflows/pulumi-preview.yml`,
+`scripts/scheduled-workflow-health.mjs`, and the working tree at `c548662`.
+
+**154 PRs merged, 16 closed unmerged, 1 open at window close. 93 issues filed,
+74 closed (net +19).** Median PR lived **17.5 minutes**; 133 of 154 (86.4%)
+merged inside an hour. `ci.yml` on `main` passed **75 of 75** non-cancelled runs
+(100%; 10 cancelled by concurrency, excluded per the `ciHealth` denominator rule).
+
+Application flow was the healthiest it has been. **Infrastructure flow was
+stopped for the entire second half of the week**, and one causal chain explains
+almost every other symptom below:
+
+1. **#4565** (`/public/v1` ingress) merged 09-09 after **360.5 h** open — but
+   Pulumi's `ignoreChanges: ["spec"]` meant it never reached the DO app, so
+   `API Surface Invariants` went red on every deploy from 09-07 (16 consecutive
+   Post-Deploy Check failures, per #5265's measurement).
+2. **#4924** (Auth0 branding) merged 09-09T17:05Z after **164.6 h** open, applied
+   two Auth0 records with a 403 on `update:*`, and was reverted 29 minutes later
+   by **#5165** — leaving both records orphaned in prod state.
+3. From that moment **every `pulumi refresh` 403s**, so **Pulumi Up is skipped on
+   every run** — and the ingress fix in (1) still cannot apply.
+4. That standing red made **auto-rollback misattribute it to the newest commit**,
+   opening five false revert PRs.
+
+### Routine liveness
+
+Cross-checked `docs/scheduled-tasks.md`'s catalog against observed artifacts. A
+routine is "alive" only if it both ran and landed its expected artifact.
+
+| Routine                     | Expected artifact               | Observed 09-07 → 09-13                                                            | Verdict                   |
+| --------------------------- | ------------------------------- | --------------------------------------------------------------------------------- | ------------------------- |
+| `mbe-morning` (ACMM)        | `chore(acmm): daily audit` PR   | landed 09-07/09/10/11/12; 09-08 (#5138) closed unmerged; 09-13 (#5336) still open | **ran 7/7, landed 5/7**   |
+| `mbe-morning` (`/ideate`)   | proposal / decompose batch      | batch activity present across window                                              | alive                     |
+| `mbe-evening` (queue)       | implement-queue + telemetry PRs | queue-telemetry PR every day 09-07 → 09-13 (15 PRs)                               | alive, 7/7                |
+| `mbe-evening` (tracker)     | `progress-tracker` PR           | 8 PRs, all 7 days                                                                 | alive, 7/7                |
+| `mbe-evening` (optimize-IQ) | `optimize-implement-queue` PR   | 7 PRs, all 7 days                                                                 | alive, 7/7                |
+| `mbe-midday` / `mbe-night`  | implement-queue PRs             | PRs in both UTC bands every day                                                   | alive                     |
+| `mbe-auditor`               | ≤3 `audit` issues/day           | `audit`/`ci-fix` issues filed throughout                                          | alive                     |
+| `mbe-learning-loop`         | metrics PR / sensor triage      | 7 PRs, all 7 days                                                                 | alive, 7/7                |
+| `mbe-weekly-improve` (Fri)  | 1 PR + `ready` issues           | **not determinable — see below**                                                  | **unverifiable**          |
+| `mbe-doc-rot` (Fri)         | 1 PR                            | #5245 `docs: weekly rot sweep 2026-09-11`                                         | **alive — recovered**     |
+| `mbe-weekly-retro` (Sun)    | 1 PR                            | #5081 merged 09-07 after 5.5 h                                                    | alive                     |
+| `drift-fix.yml`             | PR when drifted                 | ran 09-07…09-13, 7/7 success, no drift → no PR                                    | alive, correct silence    |
+| `audit-sweep.yml` (Mon)     | issues                          | ran 09-07; log shows 4/4 surfaces HTTP 200, 0 issues filed                        | alive, correct silence    |
+| `automation-pr-rescue.yml`  | update-branch + re-dispatch     | ran throughout                                                                    | alive                     |
+| `stale-human-blocked.yml`   | label + record stale issues     | ran 09-13T18:14:59Z, 15 issues recorded, 8 newly labeled                          | alive — but see Blockers  |
+| `pulumi-up.yml`             | applied infra                   | **0 successes since 09-09T06:26Z**                                                | **ran, produced nothing** |
+
+Two entries deserve expansion.
+
+**`mbe-doc-rot` recovered.** It was DARK last Friday; this Friday it landed
+#5245 on schedule. No action needed — recording it so the gap is not re-filed.
+
+**`mbe-weekly-improve` is unverifiable, and that is the finding — not that it is
+dark.** Last week's entry called it DARK. That conclusion was weaker than it
+read, and this run cannot reproduce it either way: `docs/routines/mbe-weekly-improve.md`
+tells the routine to "implement the single most useful change … and open ONE PR",
+with **no title convention**. Unlike `mbe-doc-rot` (`docs: weekly rot sweep <date>`)
+or the metrics routines, it leaves no signature to search for. Friday 09-11 merged
+28 PRs, several of which are plausible candidates (#5268 SSE-drain fix, #5225
+pr-metrics predicate unification, #5236 post-deploy dedupe) — and no query
+distinguishes "the routine ran and this is its PR" from "an implement-queue worker
+happened to land something similar". A routine whose liveness cannot be checked
+is one that can die silently for 19 days again. Filed as an issue.
+
+### Blockers
+
+15 human-blocked issues, from `metrics/stale-human-blocked.jsonl`'s 09-13 run.
+**Read that file, not `updatedAt`** — see the note after the table.
+
+| Issue | Days since last **human** touch | The specific ask                                                                                                       |
+| ----- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| #4111 | 32                              | Set `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode `pk_test_…`) as a repo secret and wire it into the Hospitality E2E job.   |
+| #3585 | 27                              | Decide: fund an `ANTHROPIC_API_KEY` for the agent service, or delete the AI features that need one.                    |
+| #3388 | 27                              | Add `TURBO_TOKEN` (+ `TURBO_TEAM`) to repo secrets to turn on Turborepo remote caching.                                |
+| #3253 | 27                              | Decide whether to take the TypeScript 7 migration now or pin and defer it.                                             |
+| #3978 | 27                              | Say yes or no to exploring video-game UI density patterns in rialto — it is an open-ended product call, not a task.    |
+| #4119 | 26                              | Dispatch `pulumi-r2-checksum-validation.yml` and read its verdict, so the Pulumi CLI 3.253.0 pin can be raised.        |
+| #3322 | 26                              | Choose the npm publish credential: a GitHub Packages token, or an npmjs token matching rialto's `publishConfig`.       |
+| #4517 | 20                              | Confirm the intended unsubscribe destination (API host, not web host) so the link can be repointed.                    |
+| #4558 | 19                              | Decide whether to keep or drop the test job's `--concurrency=2` cap, given a control run refutes its stated rationale. |
+| #4527 | 18                              | Rule on whether a non-admin identity may bootstrap its first venue — a product/security policy call.                   |
+| #4618 | 16                              | Say whether `.claude/agent-spend/sessions.jsonl` should be fixed or retired; it has been empty for 4+ occurrences.     |
+| #4648 | 15                              | Review and close the W35 AI audit trail.                                                                               |
+| #4664 | 15                              | Decide whether to enforce branch protection against direct pushes to `main`.                                           |
+| #4670 | 15                              | Approve or reject deletion of the 165 orphaned cloud resources.                                                        |
+| #4287 | 15                              | Nothing — chaos-agent has run green since #4567; this is closeable on sight.                                           |
+
+**`updatedAt` is now an actively misleading staleness signal, and this retro's own
+Pass 2 is specified against it.** `stale-human-blocked.yml` labels exactly the
+most-ignored issues, and a label write bumps `updatedAt`. Eight issues
+(#4517, #4558, #4527, #4618, #4648, #4664, #4670, #4287) were labeled at
+09-13T18:14:59Z and now report `updatedAt` of 09-13T18:15:0x — so sorting the
+blocker list by `updatedAt` ascending puts the **15-to-20-day-stale** issues at
+the _bottom_, looking freshest. The detector itself is fine: it was fixed after
+last week's entry and now writes `last_human_touch_at` per issue, which is where
+the table above comes from. The bug is in every _consumer_ still reading
+`updatedAt` — this routine included. Filed as an issue.
+
+### Friction
+
+Median 17.5 min, 86.4% inside the hour, 6 PRs over 24 h. The long tail is
+entirely human-gated, and 4 of the 6 cleared in one sweep on 09-09T16:43–17:45Z
+when Matt merged a backlog that had been sitting for weeks.
+
+| PR            | Open→merge        | Why                                                                                                       |
+| ------------- | ----------------- | --------------------------------------------------------------------------------------------------------- |
+| #4565         | **360.5 h**       | `/public/v1` ingress, `tier:critical`. Waited 15 days for a human; then did not apply anyway (see below). |
+| #4794 / #4795 | 216.0 h / 215.3 h | Dependabot `@types/node` / `@types/react-dom`, `tier:sensitive` — blocked purely on the tier gate.        |
+| #4924         | 164.6 h           | Auth0 branding, `tier:critical`. Merged, 403'd, reverted 29 min later.                                    |
+| #5187         | 41.5 h            | Public-ingress pipeline record, blocked on the Auth0 orphans.                                             |
+| #5117         | 33.7 h            | `pack.ts` truncation fix, `tier:critical`.                                                                |
+
+**Slowest PR: #4565, at 360.5 hours (15.0 days) — 1,236× the median.** It is also
+the most expensive PR of the week in a second sense: the thing it fixed _still is
+not live_. It sat 15 days on the tier gate, merged on 09-09, and Pulumi's
+`ignoreChanges: ["spec"]` meant the ingress rule never reached the DO app. The
+review latency and the apply failure are independent defects that happened to
+land on the same change.
+
+**Reverts: 6 revert PRs opened, 5 of them false positives.** Auto-rollback opened
+#5200, #5221, #5230, #5238 and #5263 between 09-10 and 09-11; all five were closed
+unmerged in a 2-minute batch at 09-11T19:16–19:18Z. A sixth, **#5196, was merged**
+on 09-10T05:07Z before the pattern was recognised — a spurious revert that actually
+landed on `main`. Root cause and fix are both excellent and both shipped inside the
+week: #5265 (merged 09-11T19:48Z, 30 minutes after the cleanup) added
+`isRegressionTransition()`, so a revert now requires a demonstrated
+success→failure transition rather than a standing red. Its own verification
+re-ran the real run that opened #5263 and showed the new gate declining. This is
+the week's best piece of process work; it needs no follow-up.
+
+Not measured this run: `update-branch` counts and per-PR red-then-green history.
+GitHub does not expose `mergeStateStatus` retroactively, and reconstructing it
+across 154 PRs was not worth the API budget. Note `main` is **not** `strict`
+(gotchas § CI), so the N² update-branch tax that motivated ADR-016/ADR-023 should
+not be binding today — a claim worth re-measuring directly rather than inheriting.
+
+### Recurring causes
+
+| Cause                                                                     | Count                                                       | Genuine defect?          | In gotchas?                                                     |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------ | --------------------------------------------------------------- |
+| `pulumi refresh` 403 on two orphaned Auth0 records                        | **40 consecutive failed runs**, 09-09T17:05Z → 09-13T06:22Z | **Yes**                  | Yes — § Pulumi / R2, entry for #5169/#4848                      |
+| `API Surface Invariants` red on every deploy (`/public/v1` never applied) | 16 consecutive Post-Deploy Checks from 09-07                | **Yes**                  | Partially — the ingress defect is in `docs/fixes/`, not gotchas |
+| Auto-rollback reverting a standing red                                    | 6 revert PRs (5 closed, 1 merged)                           | **Yes** — fixed by #5265 | Not yet                                                         |
+| Visual Regression baselines stale since #5087                             | #5091 + #5119, both open, both `agent-failed`, 6+ days      | **Yes**                  | Yes — § CI, visual-baseline entry                               |
+| `ci.yml` on `main`                                                        | 0 failures / 75 runs                                        | —                        | —                                                               |
+
+**The Pulumi failure is the one to read carefully, because the documented fix is
+in the tree and has never executed.** `.claude/rules/gotchas.md` describes a
+three-site `exclude:` bypass, and it is genuinely present and correct —
+`pulumi-up.yml:122` (refresh), `:154` (up), `pulumi-preview.yml:171` — guarded by
+`scripts/__tests__/pulumi-orphan-exclude-bypass.test.mjs`. But it was merged by
+**#5329 at 2026-09-13T07:58Z**, and the most recent `pulumi-up.yml` run is
+**06:21Z the same morning — 1 h 37 m earlier**. `pulumi-up.yml` has no `schedule:`
+trigger; it fires on pushes touching six infra/design paths, on `workflow_run`
+after Deploy Static Sites, or on dispatch. **So the bypass has not run once.** Its
+effectiveness is unknown, not proven — and `docs/fixes/pulumi-refresh-blocks-apply/release.md`
+already anticipates both outcomes, including an `S-fail-1` branch for "an
+`Insufficient scope` line naming an orphan means the exclusion did not reach the
+engine". The last observed refresh command was
+`pulumi refresh --skip-preview --yes … --stack prod --non-interactive`, carrying
+no `--exclude`; that run predates the fix, so it is the baseline to beat, not
+evidence against it. **A human dispatch is the only way to find out.** Top escalation.
+
+**Standing-red deploys are structurally invisible to the fleet detector.**
+`scripts/scheduled-workflow-health.mjs` only enumerates workflows carrying a
+`schedule:` trigger and only counts runs where `event == "schedule"`.
+`pulumi-up.yml`, `deploy-services.yml` and `deploy-static.yml` have no `schedule:`
+trigger, so **no streak length can ever flag them** — 40 consecutive failures over
+4½ days produced nothing from the detector built for exactly this shape of
+problem. Credit where due: synthetic monitoring did notice, filing **#5183
+("System health unhealthy: Deploys: unhealthy")** on 09-09T22:19Z, about five
+hours after the break. But it names no cause, and it has sat open and unactioned
+for four days. Filed as an issue.
+
+### Throughput
+
+**93 issues filed, 74 closed — net +19.** The `ready` queue stands at **60 open**.
+`.claude/improvement-loop/log.md`'s 09-13 evening entry independently reports the
+queue moving 67 → 63 → 60 across the last three nights, so the backlog is being
+drained faster than the prior weeks even as the gross count grows; the +19 is
+dominated by `audit`/`ci-fix` filings, several of which are duplicate chains the
+evening routine has flagged for four nights running (#5189, post-deploy-check
+dedupe — partially addressed by #5236 on 09-11).
+
+Direction: **growing, but less steeply than gross counts suggest, and the
+composition is improving.** Two weeks of comparable data (last week net +48, this
+week net +19) is a two-point series; that is a plausible direction, not an
+established trend, and it should not be reported as one until a third week lands.
+
+### Top 3 changes
+
+1. **Dispatch `pulumi-up.yml` and find out whether the bypass works.** Zero
+   engineering effort; unblocks every infrastructure change merged since 09-09,
+   including #4565's ingress fix, #5315's Analytics Engine binding, and the
+   `API Surface Invariants` red that is still misleading three other automations.
+   The recipe, serialization checks and both failure branches are already written
+   in `docs/fixes/pulumi-refresh-blocks-apply/release.md`. Highest leverage
+   available this week by a wide margin. **Human-only — Escalations.**
+2. **Teach the workflow-health detector about non-scheduled deploy workflows.**
+   The streak logic already exists and is pure and unit-tested; it is the
+   _enumeration_ that is scoped to `schedule:`. Extending it to a named deploy
+   set would have filed a precise, actionable issue on 09-09 instead of leaving a
+   four-day outage to be found by a weekly retro. Small, self-contained, agent-sized.
+3. **Stop reading `updatedAt` for staleness; read `last_human_touch_at`.** The
+   detector already writes the correct field to `metrics/stale-human-blocked.jsonl`;
+   consumers just have not followed. One-line-ish fix to this routine's own prompt
+   that repairs a signal the factory's whole human-throughput view rests on — and
+   which currently inverts the ordering of the very issues it exists to surface.
+
+### Escalations
+
+Nothing here is agent-implementable; none of it is filed as `ready`.
+
+1. **Dispatch `pulumi-up.yml` on `main`** and read the `Deploy Infrastructure`
+   job (never the workflow rollup), following steps 1–5 in
+   `docs/fixes/pulumi-refresh-blocks-apply/release.md`. This is the single
+   highest-leverage action available. If the refresh step still reports
+   `Insufficient scope`, that is the documented `S-fail-1` branch — stop, do not
+   retry, and take item 2 instead.
+2. **Grant the Pulumi Auth0 M2M application `read:tenant_settings`,
+   `update:tenant_settings`, `read:branding`, `update:branding`** — or export the
+   stack and `pulumi state delete` both orphaned URNs. Either permanently retires
+   the bypass. Note the gotchas warning: **a scope grant produces no pipeline
+   signal**, so the follow-up removal PR has to be opened by a human who remembers.
+3. **#4119** — dispatch `pulumi-r2-checksum-validation.yml` and read its verdict,
+   so the Pulumi CLI 3.253.0 pin can stop drifting from the SDK. 26 days stale.
+4. **#3388** — add `TURBO_TOKEN` and `TURBO_TEAM` to repo secrets. 27 days stale.
+5. **#3253** — decide: take the TypeScript 7 migration, or pin and defer with a date.
+6. **#3585** — decide: fund `ANTHROPIC_API_KEY`, or remove the AI features requiring it.
+7. **#3322** — choose the npm publish credential (GitHub Packages token vs. npmjs token).
+8. **#4111** — set `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode) for the Hospitality E2E job.
+9. **#5183** — triage or close. It has been the only automated notice of the
+   deploy outage for four days and says only "Deploys: unhealthy".
+10. **#4287** — closeable on sight; chaos-agent has run green since #4567.
+11. **#5091 / #5119** — visual baselines stale since #5087, both `agent-failed`,
+    6+ days. Regenerate from the `visual-actuals-replica-a` artifact per
+    gotchas § CI, or say they should be retired.
+
+Owned by other routines, noted and not re-filed: the ACMM daily audit landing
+5/7 (`mbe-morning`), the duplicate `ci-fix` chains (`/optimize-implement-queue`,
+tracked at #5189), and the disconnected-worktree-history pattern (#5296, three
+nights running per the evening log).
+
+---
+
 ## 2026-09-06
 
 Window: **2026-08-31 → 2026-09-06**. Sources: GitHub REST/search API (repo-scoped

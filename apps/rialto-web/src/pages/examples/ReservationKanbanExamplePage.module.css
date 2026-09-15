@@ -1,0 +1,26 @@
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--rialto-space-md);
+  align-items: start;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-sm);
+  background: var(--rialto-surface-recessed);
+  border-radius: var(--rialto-radius-soft);
+}
+
+.columnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+}
+
+.card {
+  width: 100%;
+}

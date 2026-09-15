@@ -17,14 +17,23 @@
  *     --dedupe-key "<key>" \
  *     [--label <label> ...] \
  *     [--search-label <label> ...] [--search-state open|all] \
- *     [--contains "<substring>"] [--search-text "<gh --search query>"]
+ *     [--contains "<substring>"] [--search-text "<gh --search query>"] \
+ *     [--comment-body "<text>" | --comment-body-file <path>]
  *
- * Prints one JSON line to stdout: {"action":"create"|"skip"|"reopen","issueNumber":123}
+ * Prints one JSON line to stdout:
+ *   {"action":"create"|"skip"|"reopen","issueNumber":123}
+ *   {"action":"skip","issueNumber":123,"commented":true}  (when --comment-body[-file] is given and a prior open issue is matched)
  *
  * Omitting every `--search-label` skips the dedupe lookup entirely (ledger
  * stays empty, always creates) — for the handful of call sites that
  * deliberately have no dedup today and aren't part of this migration's
  * behavior-change scope.
+ *
+ * `--comment-body`/`--comment-body-file` (#5084): when a prior *open* issue
+ * is matched (action "skip"), posts a comment on it instead of silently
+ * doing nothing — e.g. so `nightly-compliance` can note "drift also
+ * detected on <date>" on the existing issue rather than leaving no trace of
+ * the repeat run. Never fires on "create" or "reopen".
  */
 
 import { execFileSync } from "node:child_process";
@@ -42,6 +51,8 @@ const FLAGS_WITH_VALUE = new Set([
   "--search-state",
   "--contains",
   "--search-text",
+  "--comment-body",
+  "--comment-body-file",
 ]);
 
 /**
@@ -50,6 +61,7 @@ const FLAGS_WITH_VALUE = new Set([
  *   title: string, body: string|null, bodyFile: string|null, labels: string[],
  *   dedupeKey: string, searchLabels: string[], searchState: "open"|"all",
  *   contains: string|null, searchText: string|null,
+ *   commentBody: string|null, commentBodyFile: string|null,
  * }}
  */
 export function parseArgs(argv) {
@@ -63,6 +75,8 @@ export function parseArgs(argv) {
     searchState: "open",
     contains: null,
     searchText: null,
+    commentBody: null,
+    commentBodyFile: null,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -82,6 +96,8 @@ export function parseArgs(argv) {
     else if (flag === "--search-state") opts.searchState = value;
     else if (flag === "--contains") opts.contains = value;
     else if (flag === "--search-text") opts.searchText = value;
+    else if (flag === "--comment-body") opts.commentBody = value;
+    else if (flag === "--comment-body-file") opts.commentBodyFile = value;
   }
 
   if (!opts.title) throw new Error("--title is required");
@@ -115,12 +131,13 @@ export function findPriorIssueNumber(issues, { contains } = {}) {
  * @property {(issueNumber: number) => "open"|"closed"|"missing"} getIssueState
  * @property {(title: string, body: string, labels: string[]) => number} createIssue
  * @property {(issueNumber: number) => void} reopenIssue
+ * @property {(issueNumber: number, body: string) => void} [commentOnIssue]
  */
 
 /**
  * @param {string[]} argv
  * @param {FileIssueCliDeps} deps
- * @returns {{ action: "create"|"skip"|"reopen", issueNumber: number }}
+ * @returns {{ action: "create"|"skip"|"reopen", issueNumber: number, commented?: true }}
  */
 export function runFileIssueCli(argv, deps) {
   const opts = parseArgs(argv);
@@ -160,11 +177,49 @@ export function runFileIssueCli(argv, deps) {
     }
   );
 
+  const commentBody =
+    opts.commentBody ?? (opts.commentBodyFile ? deps.readFile(opts.commentBodyFile) : null);
+  if (result.action === "skip" && commentBody !== null) {
+    deps.commentOnIssue(result.issueNumber, commentBody);
+    return { action: result.action, issueNumber: result.issueNumber, commented: true };
+  }
+
   return { action: result.action, issueNumber: result.issueNumber };
 }
 
+/**
+ * Gh CLI args resetting coordination labels back to `ready` on reopen.
+ *
+ * Mirrors @mbe/gh-client's `markReady()` re-queue transition (has-pr /
+ * in-progress / agent-failed / agent-skip -> ready) without importing the
+ * package: this CLI is deliberately dependency-free so it keeps running in
+ * workflows that never `pnpm install` (see the module doc above). A
+ * regression test cross-checks this literal against the real `markReady()`
+ * output so the two can't silently drift (#5071).
+ *
+ * Without this, `reopenIssue()` left a reopened issue exactly as labeled at
+ * closure time — e.g. still `has-pr` from the PR that closed the prior
+ * occurrence, even though no PR exists for the new one.
+ *
+ * @returns {string[]}
+ */
+export function buildReopenLabelArgs() {
+  return [
+    "--add-label",
+    "ready",
+    "--remove-label",
+    "has-pr",
+    "--remove-label",
+    "in-progress",
+    "--remove-label",
+    "agent-failed",
+    "--remove-label",
+    "agent-skip",
+  ];
+}
+
 /** Real deps: raw `gh` CLI via execFileSync — no npm dependencies. */
-function createRealDeps() {
+export function createRealDeps() {
   const run = (args) => execFileSync("gh", args, { encoding: "utf-8", timeout: 30_000 }).trim();
 
   return {
@@ -198,6 +253,11 @@ function createRealDeps() {
 
     reopenIssue(issueNumber) {
       run(["issue", "reopen", String(issueNumber)]);
+      run(["issue", "edit", String(issueNumber), ...buildReopenLabelArgs()]);
+    },
+
+    commentOnIssue(issueNumber, body) {
+      run(["issue", "comment", String(issueNumber), "--body", body]);
     },
   };
 }

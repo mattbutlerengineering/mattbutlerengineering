@@ -29,6 +29,86 @@
     
       return { domain, clientId, audience, email, password };
     }
+    interface TokenResponse {
+      access_token: string;
+      id_token: string;
+      token_type: string;
+      expires_in: number;
+    }
+    async function fetchAuth0Tokens(config: Auth0Config): Promise<TokenResponse> {
+      const response = await fetch(`https://${config.domain}/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "password",
+          username: config.email,
+          password: config.password,
+          audience: config.audience,
+          client_id: config.clientId,
+          scope: "openid profile email",
+        }),
+      });
+    
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(
+          `Auth0 token request failed (${response.status}): ${body}\n` +
+            "Verify: ROPC grant enabled, test user exists, no MFA, correct credentials."
+        );
+      }
+    
+      return response.json() as Promise<TokenResponse>;
+    }
+    function decodeJwtPayload(token: string): Record<string, unknown> {
+      const base64 = token.split(".")[1];
+      const json = Buffer.from(base64, "base64url").toString("utf-8");
+      return JSON.parse(json) as Record<string, unknown>;
+    }
+    function buildOidcUserEntry(
+      config: Auth0Config,
+      tokens: TokenResponse
+    ): { key: string; value: string } {
+      const authority = `https://${config.domain}`;
+      const idClaims = decodeJwtPayload(tokens.id_token);
+    
+      const oidcUser = {
+        access_token: tokens.access_token,
+        id_token: tokens.id_token,
+        token_type: tokens.token_type,
+        scope: "openid profile email",
+        expires_at: Math.floor(Date.now() / 1000) + tokens.expires_in,
+        profile: {
+          sub: idClaims.sub,
+          email: idClaims.email,
+          email_verified: idClaims.email_verified,
+          name: idClaims.name,
+          picture: idClaims.picture,
+          iss: idClaims.iss,
+          aud: idClaims.aud,
+          iat: idClaims.iat,
+          exp: idClaims.exp,
+        },
+      };
+    
+      return {
+        key: `oidc.user:${authority}:${config.clientId}`,
+        value: JSON.stringify(oidcUser),
+      };
+    }
+    export async function injectAuth0Session(page: Page): Promise<void> {
+      const config = getAuth0Config();
+      const tokens = await fetchAuth0Tokens(config);
+      const entry = buildOidcUserEntry(config, tokens);
+    
+      // Navigate to the app first so sessionStorage is on the correct origin
+      await page.goto("/");
+      await page.evaluate(({ key, value }) => {
+        sessionStorage.setItem(key, value);
+      }, entry);
+    
+      // Reload so AuthProvider picks up the injected session
+      await page.reload();
+    }
   </file>
   <file path="e2e/fixtures.ts">
     export const test = base.extend<{ authPage: Page }>({
@@ -91,12 +171,246 @@
       onComplete?: (spec: Spec, rawLines: string[]) => void;
       onError?: (error: Error) => void;
     }
+    export interface UseGenStreamReturn {
+      spec: Spec | null;
+      isStreaming: boolean;
+      error: Error | null;
+      rawLines: string[];
+      send: (prompt: string, context?: Record<string, unknown>) => Promise<void>;
+      clear: () => void;
+      stop: () => void;
+    }
+    function sanitizeProps(parsed: Record<string, unknown>): Record<string, unknown> {
+      if (!parsed.props || typeof parsed.props !== "object") return parsed;
+    
+      const props = parsed.props as Record<string, unknown>;
+      const safeProps: Record<string, unknown> = {};
+      for (const key of Object.keys(props)) {
+        if (!key.startsWith("on") && !BLOCKED_PROP_KEYS.has(key)) {
+          safeProps[key] = props[key];
+        }
+      }
+      return { ...parsed, props: safeProps };
+    }
+    export function useGenStream({
+      api,
+      onComplete,
+      onError,
+    }: UseGenStreamOptions): UseGenStreamReturn {
+      const { accessToken } = useAuth();
+    
+      const [spec, setSpec] = useState<Spec | null>(null);
+      const [isStreaming, setIsStreaming] = useState(false);
+      const [error, setError] = useState<Error | null>(null);
+      const [rawLines, setRawLines] = useState<string[]>([]);
+    
+      // Store AbortController in ref so it persists across renders
+      const abortControllerRef = useRef<AbortController | null>(null);
+    
+      // Use stable refs for callbacks to avoid re-creating send on every render.
+      // Sync via useEffect — writing ref.current in render body violates
+      // react-hooks/refs and React's render-purity rules.
+      const onCompleteRef = useRef(onComplete);
+      const onErrorRef = useRef(onError);
+    
+      useEffect(() => {
+        onCompleteRef.current = onComplete;
+      }, [onComplete]);
+      useEffect(() => {
+        onErrorRef.current = onError;
+      }, [onError]);
+    
+      const send = useCallback(
+        async (prompt: string, context?: Record<string, unknown>): Promise<void> => {
+          // Abort any in-flight request
+          abortControllerRef.current?.abort();
+    
+          const controller = new AbortController();
+          abortControllerRef.current = controller;
+    
+          // Reset state
+          setIsStreaming(true);
+          setError(null);
+          setRawLines([]);
+          setSpec(null);
+    
+          const accumulatedElements: FlatElement[] = [];
+          // Track raw lines locally to avoid stale React state in onComplete callback
+          const accumulatedRawLines: string[] = [];
+    
+          try {
+            const stream = streamNDJSON<Record<string, unknown>>({
+              url: api,
+              body: { prompt, context },
+              headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+              signal: controller.signal,
+            });
+    
+            for await (const parsed of stream) {
+              const sanitized = sanitizeProps(parsed);
+              const rawLine = JSON.stringify(sanitized);
+    
+              accumulatedRawLines.push(rawLine);
+              setRawLines((prev) => [...prev, rawLine]);
+    
+              // Treat as a flat element; cast to FlatElement for spec assembly
+              accumulatedElements.push(sanitized as unknown as FlatElement);
+              const updatedSpec = flatToTree([...accumulatedElements]);
+              setSpec(updatedSpec);
+            }
+    
+            // Build the final spec and notify completion — pass local rawLines array
+            // to avoid stale closure pitfall (React state may not reflect latest lines)
+            const finalSpec = accumulatedElements.length > 0 ? flatToTree(accumulatedElements) : null;
+            if (finalSpec) {
+              onCompleteRef.current?.(finalSpec, accumulatedRawLines);
+            }
+    
+            setIsStreaming(false);
+          } catch (err) {
+            if (err instanceof Error && err.name === "AbortError") {
+              // Abort is intentional (user clicked stop) — keep partial spec, no error
+              setIsStreaming(false);
+              return;
+            }
+    
+            const error = err instanceof Error ? err : new Error(String(err));
+            setError(error);
+            setIsStreaming(false);
+            onErrorRef.current?.(error);
+          }
+        },
+        [api, accessToken]
+      );
+    
+      const clear = useCallback(() => {
+        setSpec(null);
+        setError(null);
+        setRawLines([]);
+      }, []);
+    
+      const stop = useCallback(() => {
+        abortControllerRef.current?.abort();
+        setIsStreaming(false);
+      }, []);
+    
+      return { spec, isStreaming, error, rawLines, send, clear, stop };
+    }
   </file>
   <file path="src/hooks/usePanelLayout.ts">
     type Breakpoint = "mobile" | "tablet" | "desktop";
     interface PanelState {
       historyVisible: boolean;
       inspectorVisible: boolean;
+    }
+    interface PanelLayout extends PanelState {
+      breakpoint: Breakpoint;
+      toggleHistory: () => void;
+      toggleInspector: () => void;
+      closeOverlays: () => void;
+    }
+    function getBreakpoint(): Breakpoint {
+      if (typeof window === "undefined") return "desktop";
+      if (window.matchMedia(MOBILE_QUERY).matches) return "mobile";
+      if (window.matchMedia(TABLET_QUERY).matches) return "tablet";
+      return "desktop";
+    }
+    function getDefaults(bp: Breakpoint): PanelState {
+      switch (bp) {
+        case "mobile":
+          return { historyVisible: false, inspectorVisible: false };
+        case "tablet":
+          return { historyVisible: false, inspectorVisible: true };
+        case "desktop":
+          return { historyVisible: true, inspectorVisible: true };
+      }
+    }
+    function loadPrefs(bp: Breakpoint): PanelState {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return getDefaults(bp);
+        const saved = JSON.parse(raw) as Record<string, PanelState>;
+        const prefs = saved[bp];
+        if (
+          prefs &&
+          typeof prefs.historyVisible === "boolean" &&
+          typeof prefs.inspectorVisible === "boolean"
+        ) {
+          return prefs;
+        }
+      } catch {
+        // Ignore corrupt data
+      }
+      return getDefaults(bp);
+    }
+    function savePrefs(bp: Breakpoint, state: PanelState): void {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const existing = raw ? (JSON.parse(raw) as Record<string, PanelState>) : {};
+        const updated = { ...existing, [bp]: state };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {
+        // Storage full or unavailable — ignore
+      }
+    }
+    export function usePanelLayout(): PanelLayout {
+      const [breakpoint, setBreakpoint] = useState<Breakpoint>(getBreakpoint);
+      const [panels, setPanels] = useState<PanelState>(() => loadPrefs(getBreakpoint()));
+    
+      // Listen for breakpoint changes
+      useEffect(() => {
+        const mobileQuery = window.matchMedia(MOBILE_QUERY);
+        const tabletQuery = window.matchMedia(TABLET_QUERY);
+    
+        function handleChange() {
+          const newBp = getBreakpoint();
+          setBreakpoint((prev) => {
+            if (prev === newBp) return prev;
+            // Load saved prefs (or defaults) for the new breakpoint
+            setPanels(loadPrefs(newBp));
+            return newBp;
+          });
+        }
+    
+        mobileQuery.addEventListener("change", handleChange);
+        tabletQuery.addEventListener("change", handleChange);
+    
+        return () => {
+          mobileQuery.removeEventListener("change", handleChange);
+          tabletQuery.removeEventListener("change", handleChange);
+        };
+      }, []);
+    
+      // Persist on change
+      useEffect(() => {
+        savePrefs(breakpoint, panels);
+      }, [breakpoint, panels]);
+    
+      const toggleHistory = useCallback(() => {
+        setPanels((prev) => ({ ...prev, historyVisible: !prev.historyVisible }));
+      }, []);
+    
+      const toggleInspector = useCallback(() => {
+        setPanels((prev) => ({ ...prev, inspectorVisible: !prev.inspectorVisible }));
+      }, []);
+    
+      const closeOverlays = useCallback(() => {
+        setPanels((prev) => {
+          if (breakpoint === "desktop") return prev;
+          return { ...prev, historyVisible: false, inspectorVisible: false };
+        });
+      }, [breakpoint]);
+    
+      return useMemo(
+        () => ({
+          ...panels,
+          breakpoint,
+          toggleHistory,
+          toggleInspector,
+          closeOverlays,
+        }),
+        [panels, breakpoint, toggleHistory, toggleInspector, closeOverlays]
+      );
     }
   </file>
   <file path="src/hooks/usePlayground.ts">
@@ -175,6 +489,153 @@
     
       return { session, toggleTheme, onSignOut, onLogoClick, onTemplatesOpen };
     }
+    export interface PlaygroundCommandDeps {
+      isStreaming: boolean;
+      displaySpec: Spec | null;
+      reset: () => void;
+      toggleFullscreen: () => void;
+      stop: () => void;
+      openGallery: () => void;
+      openShortcuts: () => void;
+      copy: (text: string) => Promise<boolean> | void;
+      toggleTheme: () => void;
+      onSignOut: () => void;
+      closePalette: () => void;
+      toggleHistory: () => void;
+      toggleInspector: () => void;
+    }
+    export function buildPlaygroundCommandItems({
+      isStreaming,
+      displaySpec,
+      reset,
+      toggleFullscreen,
+      stop,
+      openGallery,
+      openShortcuts,
+      copy,
+      toggleTheme,
+      onSignOut,
+      closePalette,
+      toggleHistory,
+      toggleInspector,
+    }: PlaygroundCommandDeps): CommandItem[] {
+      return [
+        {
+          id: "new-generation",
+          label: "New Generation",
+          group: "Actions",
+          shortcut: ["⌘", "N"],
+          onSelect: () => {
+            closePalette();
+            reset();
+          },
+        },
+        {
+          id: "toggle-fullscreen",
+          label: "Toggle Fullscreen",
+          group: "Actions",
+          shortcut: ["⌘", "F"],
+          onSelect: () => {
+            closePalette();
+            toggleFullscreen();
+          },
+        },
+        ...(isStreaming
+          ? [
+              {
+                id: "stop-generation",
+                label: "Stop Generation",
+                group: "Actions",
+                shortcut: ["Esc"],
+                onSelect: () => {
+                  closePalette();
+                  stop();
+                },
+              },
+            ]
+          : []),
+        {
+          id: "open-templates",
+          label: "Browse Templates",
+          group: "Actions",
+          shortcut: ["⌘", "T"],
+          onSelect: () => {
+            closePalette();
+            openGallery();
+          },
+        },
+        ...(displaySpec
+          ? [
+              {
+                id: "export-spec",
+                label: "Download Spec as JSON",
+                group: "Export",
+                onSelect: () => {
+                  closePalette();
+                  downloadJson(displaySpec);
+                },
+              },
+              {
+                id: "copy-spec-json",
+                label: "Copy Spec JSON",
+                group: "Export",
+                onSelect: () => {
+                  closePalette();
+                  void copy(JSON.stringify(displaySpec, null, 2));
+                },
+              },
+            ]
+          : []),
+        {
+          id: "toggle-history",
+          label: "Toggle History Panel",
+          group: "Panels",
+          shortcut: ["⌘", "1"],
+          onSelect: () => {
+            closePalette();
+            toggleHistory();
+          },
+        },
+        {
+          id: "toggle-inspector",
+          label: "Toggle JSON Inspector",
+          group: "Panels",
+          shortcut: ["⌘", "2"],
+          onSelect: () => {
+            closePalette();
+            toggleInspector();
+          },
+        },
+        {
+          id: "keyboard-shortcuts",
+          label: "Keyboard Shortcuts",
+          group: "Settings",
+          shortcut: ["?"],
+          onSelect: () => {
+            closePalette();
+            openShortcuts();
+          },
+        },
+        {
+          id: "toggle-theme",
+          label: "Toggle Theme",
+          group: "Settings",
+          onSelect: () => {
+            closePalette();
+            toggleTheme();
+          },
+        },
+        {
+          id: "sign-out",
+          label: "Sign Out",
+          group: "Settings",
+          onSelect: () => {
+            closePalette();
+            onSignOut();
+          },
+        },
+      ];
+    }
   </file>
   <file path="src/hooks/useSpecsApi.ts">
     export interface SaveSpecData {
@@ -189,6 +650,91 @@
       saveSpec: (data: SaveSpecData) => Promise<StoredSpec>;
       toggleFavorite: (id: string) => Promise<void>;
       deleteSpec: (id: string) => Promise<void>;
+    }
+    export function useSpecsApi(): UseSpecsApiReturn {
+      const client = useApi();
+    
+      const [specs, setSpecs] = useState<StoredSpec[]>([]);
+      const [isLoading, setIsLoading] = useState(true);
+      // Mirror of specs in a ref so deleteSpec can read the current list without
+      // taking specs as a useCallback dependency (which would recreate on every render).
+      const specsRef = useRef<StoredSpec[]>(specs);
+      useEffect(() => {
+        specsRef.current = specs;
+      }, [specs]);
+    
+      const fetchSpecs = useCallback(async (): Promise<void> => {
+        // NOTE: We deliberately do NOT call setIsLoading(true) synchronously here.
+        // `isLoading` is initialized to `true`, and this hook calls fetchSpecs once
+        // on mount via useEffect — a synchronous setState inside that effect would
+        // trigger react-hooks's "setState within an effect can trigger cascading
+        // renders" rule. Manual refetchers that need a loading indicator can read
+        // `isLoading` (which flips to false after first success) and manage their
+        // own UI state, or we can introduce a separate `isRefreshing` flag later.
+        try {
+          const json = await client.get<{ data: StoredSpec[] }>("/api/gen/specs");
+          setSpecs(json.data);
+        } catch (err) {
+          console.error("[useSpecsApi] fetchSpecs error:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      }, [client]);
+    
+      const saveSpec = useCallback(
+        async (data: SaveSpecData): Promise<StoredSpec> => {
+          const json = await client.post<{ data: StoredSpec }>("/api/gen/specs", data);
+          const created = json.data;
+          // Prepend to local state (immutable update)
+          setSpecs((prev) => [created, ...prev]);
+          return created;
+        },
+        [client]
+      );
+    
+      const toggleFavorite = useCallback(
+        async (id: string): Promise<void> => {
+          // Optimistic update — immediately flip isFavorite
+          setSpecs((prev) => prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s)));
+          try {
+            await client.patch(`/api/gen/specs/${id}/favorite`, {});
+          } catch (err) {
+            // Revert optimistic update on error
+            setSpecs((prev) =>
+              prev.map((s) => (s.id === id ? { ...s, isFavorite: !s.isFavorite } : s))
+            );
+            console.error("[useSpecsApi] toggleFavorite error:", err);
+          }
+        },
+        [client]
+      );
+    
+      const deleteSpec = useCallback(
+        async (id: string): Promise<void> => {
+          // Read current specs via ref — avoids adding specs to the dep array,
+          // keeping deleteSpec identity stable across renders.
+          const itemToDelete = specsRef.current.find((s) => s.id === id);
+          // Optimistic removal from local state
+          setSpecs((prev) => prev.filter((s) => s.id !== id));
+          try {
+            await client.delete(`/api/gen/specs/${id}`);
+          } catch (err) {
+            // Revert only the failed item via functional update — concurrent
+            // successful deletes are not affected (no stale snapshot overwrite).
+            if (itemToDelete !== undefined) {
+              setSpecs((prev) => (prev.some((s) => s.id === id) ? prev : [...prev, itemToDelete]));
+            }
+            console.error("[useSpecsApi] deleteSpec error:", err);
+          }
+        },
+        [client]
+      );
+    
+      useEffect(() => {
+        queueMicrotask(() => void fetchSpecs());
+      }, [fetchSpecs]);
+    
+      return { specs, isLoading, fetchSpecs, saveSpec, toggleFavorite, deleteSpec };
     }
   </file>
   </section>
@@ -254,6 +800,156 @@
        */
       onGenerationComplete?: () => void;
     }
+    export function usePlaygroundSession(options?: UsePlaygroundSessionOptions): PlaygroundSession {
+      const playgroundState = usePlaygroundState();
+      const { mode, exitRefinement, enterRefinement } = playgroundState;
+    
+      const { specs, isLoading, saveSpec, toggleFavorite, deleteSpec } = useSpecsApi();
+      const [activeId, setActiveId] = useState<string | null>(null);
+      const [filter, setFilter] = useState<"all" | "favorites">("all");
+      // Track the most recently submitted prompt without triggering a re-render.
+      const promptRef = useRef("");
+    
+      const { spec, isStreaming, error, rawLines, send, stop } = useGenStream({
+        api: "/api/gen/ui",
+        onComplete: (completedSpec, completedRawLines) => {
+          options?.onGenerationComplete?.();
+          void saveSpec({
+            prompt: promptRef.current,
+            spec: completedSpec,
+            rawLines: completedRawLines,
+          }).then((stored) => setActiveId(stored.id));
+        },
+      });
+    
+      const activeEntry = activeId ? specs.find((s) => s.id === activeId) : undefined;
+      // Cast spec from unknown to Spec — it's a valid Spec JSON object from the API
+      const activeEntrySpec = activeEntry?.spec as Spec | undefined;
+      const activeEntryRawLines = activeEntry?.rawLines ?? [];
+    
+      const displaySpec = isStreaming ? spec : (activeEntrySpec ?? spec);
+      const displayRawLines = isStreaming
+        ? rawLines
+        : activeEntryRawLines.length > 0
+          ? activeEntryRawLines
+          : rawLines;
+      const displayError = isStreaming ? error : null;
+      const activeSpecId = !isStreaming && activeId ? activeId : null;
+    
+      const resetTo = useCallback(
+        (id: string | null) => {
+          setActiveId(id);
+          exitRefinement();
+        },
+        [exitRefinement]
+      );
+    
+      const submit = useCallback(
+        (prompt: string) => {
+          if (mode === "refine" && displaySpec) {
+            const refinementPrompt = createRefinementPrompt(displaySpec, prompt);
+            promptRef.current = `Refined: ${prompt}`;
+            setActiveId(null);
+            void send(refinementPrompt);
+          } else {
+            promptRef.current = prompt;
+            setActiveId(null);
+            void send(prompt);
+          }
+        },
+        [mode, displaySpec, send]
+      );
+    
+      // Pre-load a deep-linked prompt (e.g. from the marketing site's playground
+      // link: `/gen/?prompt=<text>`) by submitting it once on mount. Guarded by a
+      // ref rather than an empty dependency array so it still fires exactly once
+      // even though `submit` is recreated whenever `mode`/`displaySpec`/`send`
+      // change. Absent or blank param -> no-op, identical to today's behavior.
+      // `submit` itself calls setState, so — like useSpecsApi's mount-fetch above
+      // it — the call is deferred to a microtask to avoid a synchronous setState
+      // inside the effect body (react-hooks/set-state-in-effect).
+      const initialPromptHandledRef = useRef(false);
+      useEffect(() => {
+        if (initialPromptHandledRef.current) return;
+        initialPromptHandledRef.current = true;
+        const initialPrompt = new URLSearchParams(window.location.search).get("prompt")?.trim();
+        if (initialPrompt) queueMicrotask(() => submit(initialPrompt));
+      }, [submit]);
+    
+      const replay = useCallback(
+        (id: string) => {
+          const entry = specs.find((s) => s.id === id);
+          if (!entry) return;
+          promptRef.current = entry.prompt;
+          resetTo(null);
+          void send(entry.prompt);
+        },
+        [specs, resetTo, send]
+      );
+    
+      const retry = useCallback(() => {
+        const retryPrompt = activeEntry?.prompt ?? promptRef.current;
+        if (!retryPrompt) return;
+        promptRef.current = retryPrompt;
+        resetTo(null);
+        void send(retryPrompt);
+      }, [activeEntry, resetTo, send]);
+    
+      const selectHistory = useCallback(
+        (id: string) => {
+          if (isStreaming) return;
+          resetTo(id);
+        },
+        [isStreaming, resetTo]
+      );
+    
+      const reset = useCallback(() => resetTo(null), [resetTo]);
+    
+      const handleDeleteSpec = useCallback(
+        (id: string) => {
+          void deleteSpec(id);
+          if (activeId === id) setActiveId(null);
+        },
+        [deleteSpec, activeId]
+      );
+    
+      return {
+        mode,
+        isFullscreen: playgroundState.isFullscreen,
+        galleryOpen: playgroundState.galleryOpen,
+        shortcutsOpen: playgroundState.shortcutsOpen,
+        toggleFullscreen: playgroundState.toggleFullscreen,
+        openGallery: playgroundState.openGallery,
+        closeGallery: playgroundState.closeGallery,
+        toggleGallery: playgroundState.toggleGallery,
+        openShortcuts: playgroundState.openShortcuts,
+        closeShortcuts: playgroundState.closeShortcuts,
+        toggleShortcuts: playgroundState.toggleShortcuts,
+        exitRefinement,
+    
+        specs,
+        isLoading,
+        filter,
+        setFilter,
+    
+        isStreaming,
+        error,
+        displaySpec,
+        displayRawLines,
+        displayError,
+        activeSpecId,
+    
+        submit,
+        refine: enterRefinement,
+        replay,
+        retry,
+        selectHistory,
+        toggleFavorite,
+        deleteSpec: handleDeleteSpec,
+        reset,
+        stop,
+      };
+    }
   </file>
   <file path="src/pages/usePlaygroundState.ts">
     export type PlaygroundMode = "generate" | "refine";
@@ -277,6 +973,46 @@
       openShortcuts: () => void;
       closeShortcuts: () => void;
       toggleShortcuts: () => void;
+    }
+    export function usePlaygroundState(): PlaygroundState {
+      const [mode, setMode] = useState<PlaygroundMode>("generate");
+      const [isFullscreen, setIsFullscreen] = useState(false);
+      const [galleryOpen, setGalleryOpen] = useState(false);
+      const [shortcutsOpen, setShortcutsOpen] = useState(false);
+    
+      const enterRefinement = useCallback(() => setMode("refine"), []);
+      const exitRefinement = useCallback(() => setMode("generate"), []);
+    
+      const openGallery = useCallback(() => setGalleryOpen(true), []);
+      const closeGallery = useCallback(() => setGalleryOpen(false), []);
+      const toggleGallery = useCallback(() => setGalleryOpen((prev) => !prev), []);
+    
+      const openShortcuts = useCallback(() => setShortcutsOpen(true), []);
+      const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
+      const toggleShortcuts = useCallback(() => setShortcutsOpen((prev) => !prev), []);
+    
+      const toggleFullscreen = useCallback(() => {
+        setIsFullscreen((prev) => !prev);
+        // Overlays don't belong over the fullscreen canvas — dismiss them.
+        setGalleryOpen(false);
+        setShortcutsOpen(false);
+      }, []);
+    
+      return {
+        mode,
+        isFullscreen,
+        galleryOpen,
+        shortcutsOpen,
+        enterRefinement,
+        exitRefinement,
+        toggleFullscreen,
+        openGallery,
+        closeGallery,
+        toggleGallery,
+        openShortcuts,
+        closeShortcuts,
+        toggleShortcuts,
+      };
     }
   </file>
   </section>

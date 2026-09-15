@@ -5,7 +5,7 @@ import { loadReservationForManage, manageProblemDetails } from "./load-reservati
 import { cancelReservationWithDeposit } from "../services/reservation-cancellation.js";
 
 export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.delete<{ Querystring: { token?: string } }>(
+  fastify.delete(
     "/public/v1/reservations/manage",
     {
       config: {
@@ -19,14 +19,10 @@ export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
       }
 
-      const result = await cancelReservationWithDeposit(
-        preamble.reservation,
-        request.query.token!,
-        {
-          bookingNotifier: fastify.bookingNotifier,
-          logger: request.log,
-        }
-      );
+      const result = await cancelReservationWithDeposit(preamble.reservation, request.manageToken, {
+        bookingNotifier: fastify.bookingNotifier,
+        logger: request.log,
+      });
 
       if (!result.success) {
         return reply

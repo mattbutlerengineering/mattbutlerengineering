@@ -49,11 +49,13 @@ function buildActionItems(
       id: "action-new-reservation",
       label: "New Reservation",
       group: "Actions",
-      onSelect: () => navigate("/timeline"),
+      // Carries the intent the Reservations page reads on arrival (architecture § Amendment
+      // 2026-09-04) — landing on the Timeline left the operator to find the button themselves.
+      onSelect: () => navigate("/reservations?new=true"),
     },
     {
       id: "action-walkin",
-      label: "Walk-in Guest",
+      label: "Walk-in guest",
       group: "Actions",
       onSelect: () => navigate("/timeline?walkin=true"),
     },
@@ -82,9 +84,10 @@ function buildActionItems(
 
 function buildGroups(sections: readonly NavSection[]): string[] {
   const sectionNames = sections.map(sectionGroupName);
-  // Deduplicate while preserving order, then append "Actions"
+  // "Actions" leads: on an empty query the palette opens on what a Host does, not where they go
+  // (ux.md Flow 5). Section names follow, deduplicated in nav order.
   const unique = Array.from(new Set(sectionNames));
-  return [...unique, "Actions"];
+  return ["Actions", ...unique];
 }
 
 /* ── Hook ───────────────────────────────────────── */

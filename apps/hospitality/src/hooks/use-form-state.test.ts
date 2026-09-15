@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { z } from "zod";
 import { ApiClientError } from "@mbe/api-client";
 import { useFormState } from "./use-form-state.js";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
 
 const guestSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -109,8 +110,34 @@ describe("useFormState - submit failure", () => {
       await result.current.handleSubmit();
     });
 
-    expect(result.current.error).toBe("Server error");
+    // A plain Error is the `unknown` row — the house sentence, never the debug message.
+    expect(result.current.error).toBe(ERROR_COPY.unknown.detail);
     expect(result.current.isPending).toBe(false);
+  });
+
+  it("shows the house serverError sentence, never the raw message, on a 500", async () => {
+    const onSubmit = vi.fn().mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Internal Server Error",
+          status: 500,
+          detail: "Internal Server Error",
+        },
+        "PATCH",
+        "/guests/123"
+      )
+    );
+    const { result } = renderHook(() =>
+      useFormState({ name: "Alice", email: "" }, onSubmit, guestSchema)
+    );
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(result.current.error).toBe(ERROR_COPY.serverError.detail);
+    expect(result.current.error).not.toContain("failed: 500");
   });
 
   it("uses fallback message when error has no message", async () => {
@@ -123,8 +150,7 @@ describe("useFormState - submit failure", () => {
       await result.current.handleSubmit();
     });
 
-    expect(typeof result.current.error).toBe("string");
-    expect((result.current.error?.length ?? 0) > 0).toBe(true);
+    expect(result.current.error).toBe(ERROR_COPY.unknown.detail);
   });
 
   it("uses problemDetails.detail (not debug message) when error is ApiClientError", async () => {

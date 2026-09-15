@@ -11,6 +11,24 @@
         run: (cmd: string, args: string[]) => string = defaultPsqlRun
       ): string { /* ... */ }
     </item>
+    <item priority="high">
+      export function ghJson(
+        args: string[],
+        run: (cmd: string, args: string[]) => string = defaultGhRun
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function doctlJson(
+        args: string[],
+        run: (cmd: string, args: string[]) => string = defaultDoctlRun
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pulumiJson(
+        args: string[],
+        run: (cmd: string, args: string[]) => string = defaultPulumiRun
+      ): string { /* ... */ }
+    </item>
   </file>
   <file path="src/dispatcher.ts">
     <item priority="high">
@@ -21,6 +39,39 @@
         content: McpContent[];
         isError?: boolean;
       };
+    </item>
+    <item priority="low">
+      type ToolDefinition = {
+        name: string;
+        description: string;
+        inputSchema: T...;
+    </item>
+    <item priority="high">
+      export function defineTool<TSchema extends z.ZodTypeAny>(
+        def: ToolDefinition<TSchema>
+      ): ToolDefinition<TSchema> { /* ... */ }
+    </item>
+    <item priority="high">
+      type JsonSchemaObject = {
+        type: "object";
+        properties?: Record<string, unknown...;
+    </item>
+    <item priority="high">
+      export function listTools(tools: ToolDefinition[]): Array<{
+        name: string;
+        description: string;
+        inputSchema: JsonSchemaObject;
+      }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function errorEnvelope(message: string): McpResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function callTool(
+        tools: ToolDefinition[],
+        name: string,
+        args: unknown
+      ): Promise<McpResult> { /* ... */ }
     </item>
   </file>
   <file path="src/index.ts">
@@ -41,6 +92,9 @@
         timeoutMs?: number;
         errorLabel?: string;
       }
+    </item>
+    <item priority="high">
+      export function createShellRunner(opts: ShellRunnerOptions = {}) { /* ... */ }
     </item>
   </file>
   </section>

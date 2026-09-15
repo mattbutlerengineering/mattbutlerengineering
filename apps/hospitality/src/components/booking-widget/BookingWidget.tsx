@@ -22,9 +22,21 @@ export interface BookingWidgetProps {
   enableDateRange?: boolean;
   minDate?: string;
   maxDate?: string;
+  /**
+   * Overrides the manage-token-derived cancellation link ConfirmationView
+   * would otherwise build. Mainly for embeds/demos without a real backend
+   * manage token; leave unset in production.
+   */
   cancellationUrl?: string;
-  onCancellation?: () => void;
+  /**
+   * Notified whenever the active (unconfirmed) hold changes — see
+   * useBookingFlow's onHoldChange. Lets the embedding page release the hold
+   * if the guest closes the tab before confirming (#4978).
+   */
+  onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
   className?: string;
+  /** Venue contact phone, shown as a tel: link for parties above maxPartySize (#4979). */
+  phone?: string;
   stripePublishableKey?: string;
   /** Default estimated wait minutes shown when no slots are available (before API response) */
   defaultWaitMinutes?: number;
@@ -38,6 +50,20 @@ export interface BookingWidgetProps {
   audience?: "staff" | "guest";
   /** Staff-only: called when the "Set Operating Hours" prompt is clicked. */
   onSetHours?: () => void;
+  /**
+   * IANA timezone the venue operates in (e.g. "America/New_York"). Threaded
+   * into every step that displays a slot/reservation time so it renders in
+   * the venue's clock rather than the guest's device timezone (#4976).
+   */
+  venueTimezone?: string;
+}
+
+// Mirrors the "reservations/manage" route registered in main.tsx (basename
+// "/hospitality") — the guest-facing self-service manage/cancel page.
+const MANAGE_RESERVATION_PATH = "/hospitality/reservations/manage";
+
+function buildManageCancellationUrl(manageToken: string): string {
+  return `${window.location.origin}${MANAGE_RESERVATION_PATH}?token=${encodeURIComponent(manageToken)}`;
 }
 
 const BOOKING_STEPS_NO_DEPOSIT: StepItem[] = [
@@ -63,13 +89,15 @@ export function BookingWidget({
   minDate,
   maxDate,
   cancellationUrl,
-  onCancellation,
+  onHoldChange,
   className = "",
+  phone,
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
   defaultWaitMinutes = 30,
   hasOperatingHours = true,
   audience = "guest",
   onSetHours,
+  venueTimezone,
 }: BookingWidgetProps) {
   // API client - no auth token for public booking
   const api = usePublicApiClient({ baseUrl: apiBaseUrl });
@@ -84,6 +112,7 @@ export function BookingWidget({
     venueSlug,
     stripePublishableKey,
     holdDurationMinutes,
+    onHoldChange,
   });
 
   // stepKeys/currentStepIndex come from useBookingFlow — the single source
@@ -129,6 +158,7 @@ export function BookingWidget({
           onPartySizeChange={actions.setPartySize}
           onNext={actions.goToTimeSlot}
           maxPartySize={maxPartySize}
+          phone={phone}
           enableDateRange={enableDateRange}
           minDate={minDate}
           maxDate={maxDate}
@@ -150,6 +180,7 @@ export function BookingWidget({
           hasOperatingHours={hasOperatingHours}
           audience={audience}
           onSetHours={onSetHours}
+          venueTimezone={venueTimezone}
         />
       )}
 
@@ -165,6 +196,9 @@ export function BookingWidget({
           onBack={actions.goToTimeSlot}
           venueSlug={venueSlug}
           api={api}
+          initialDetails={data.guestDetails}
+          onDetailsChange={actions.setGuestDetails}
+          venueTimezone={venueTimezone}
         />
       )}
 
@@ -201,9 +235,12 @@ export function BookingWidget({
             data.partySize
           )}
           onNewBooking={actions.resetFlow}
-          cancellationUrl={cancellationUrl}
-          onCancellation={onCancellation}
+          cancellationUrl={
+            cancellationUrl ??
+            (data.manageToken ? buildManageCancellationUrl(data.manageToken) : undefined)
+          }
           venueConfig={data.venueConfig}
+          venueTimezone={venueTimezone}
         />
       )}
 

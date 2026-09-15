@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage.js";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
 import { useAuth } from "@mbe/auth/react";
 import type { AuthUser, JWTPayload } from "@mbe/auth";
 import { useTheme } from "../hooks/use-theme.js";
@@ -25,16 +27,19 @@ vi.mock("../hooks/useApiClient.js", () => ({
   useApiClient: vi.fn(() => mockApiClient),
 }));
 
-// ApiClientError is still imported in the page
-vi.mock("@mbe/api-client", () => ({
-  ApiClientError: class extends Error {
-    problemDetails: Record<string, unknown>;
-    constructor(message: string, problemDetails: Record<string, unknown> = {}) {
-      super(message);
-      this.problemDetails = problemDetails;
-    }
-  },
-}));
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
@@ -46,8 +51,17 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+  ErrorRetryBanner: ({
+    title,
+    error,
+    onRetry,
+  }: {
+    title?: string;
+    error: string;
+    onRetry: () => void;
+  }) => (
     <div data-testid="error-retry-banner">
+      <strong>{title}</strong>
       <span>{error}</span>
       <button data-testid="retry-button" onClick={onRetry}>
         Retry
@@ -262,13 +276,15 @@ describe("SettingsPage", () => {
 
   describe("error state", () => {
     it("shows ErrorRetryBanner when user data fails to load", async () => {
-      mockApiClient.users.me.mockRejectedValue(new Error("Failed to load user"));
+      mockApiClient.users.me.mockRejectedValue(serverError("GET", "/api/v1/users/me"));
       renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("error-retry-banner")).toBeDefined();
       });
-      expect(screen.getByText("Failed to load user")).toBeDefined();
+      expect(screen.getByText("Couldn't load settings.")).toBeDefined();
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
     });
 
     it("retries user fetch when retry button is clicked", async () => {
@@ -499,7 +515,9 @@ describe("SettingsPage", () => {
     });
 
     it("shows error alert when saving fails", async () => {
-      mockApiClient.users.updatePreferences.mockRejectedValue(new Error("Network error"));
+      mockApiClient.users.updatePreferences.mockRejectedValue(
+        serverError("PATCH", "/api/v1/users/me/preferences")
+      );
 
       renderPage();
 
@@ -512,8 +530,10 @@ describe("SettingsPage", () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText("Network error")).toBeDefined();
+        expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
       });
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
+      expect(screen.queryByText(/Failed to save settings/)).toBeNull();
     });
   });
 

@@ -3,6 +3,7 @@
  *
  * Routes requests based on path prefix:
  *   /api/*                   → DO App Platform (HTTP subrequest)
+ *   /public/*                → DO App Platform (HTTP subrequest)
  *   /gen/*                   → Workers Static Assets (Service Binding, CDN-free)
  *   /hospitality/*           → Workers Static Assets (Service Binding, CDN-free)
  *   /rialto/*                → Workers Static Assets (Service Binding, CDN-free)
@@ -32,6 +33,7 @@ import { handleHealthUptime } from "./health/uptime.js";
 import { handleHealthPerformance } from "./health/performance.js";
 import { handleHealthLighthouse } from "./health/lighthouse.js";
 import { handleHealthDeps } from "./health/deps.js";
+import { ANALYTICS_BINDING, toDataPoint } from "./analytics-schema.js";
 
 // ── Audit Token Verification ─────────────────────────────────────────
 // Automated audits (Lighthouse, Playwright, curl) from the CI/cloud
@@ -51,21 +53,66 @@ function isAuditRequest(request, env) {
   return token !== null && token === env.AUDIT_TOKEN;
 }
 
+/**
+ * Whether a path is served by the DO origin, per routes-config.json's
+ * `originRoutes`.
+ *
+ * **Exact-or-slash, never a bare `startsWith(prefix)`**: a prefix matches the
+ * whole path, or a whole path segment below it. `/api` and `/api/v1/x` proxy;
+ * `/apiary` and `/publicity` do not, and both serve the marketing SPA today.
+ * This is exactly what the hardcoded `/api` test did before the table moved
+ * here, so for `/api` the change is a refactor — a matcher that changed what a
+ * live path returns would not be.
+ *
+ * **Order is not significant.** This is one boolean — does ANY prefix match —
+ * so `originRoutes` is a set, and no entry can shadow another. Contrast
+ * `staticRoutes` below, whose order IS load-bearing (first match wins, ending
+ * in a catch-all) and whose prefix is stripped before forwarding. The two
+ * tables mean different things and deliberately keep different matchers: a
+ * `staticRoutes` prefix is a mount point, an `originRoutes` prefix is a path
+ * segment on a shared origin, forwarded verbatim for DO ingress to re-match.
+ *
+ * @param {string} pathname `url.pathname` only — the query is excluded, and
+ *   matching is case-sensitive. Both unchanged from the hardcoded branch.
+ */
+function isOriginRoute(pathname) {
+  return topologyConfig.originRoutes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 // ── Auth0 Tenant ──────────────────────────────────────────────────────
 // AUTH0_ORIGIN is defined in csp.js (the module that uses it) and
 // re-exported here for backward compatibility with consumers that
 // import it from edge-router.js.
 export { AUTH0_ORIGIN };
 
+// Column layout lives in analytics-schema.js, shared with the reader
+// (scripts/edge-usage.mjs). The early return on a missing binding is kept
+// deliberately — the Pulumi test and scripts/check-analytics-bindings.mjs are
+// what make absence loud, not a runtime error on every request.
 function writeAnalytics(env, request, route, statusCode, startTime) {
-  if (!env.ANALYTICS) return;
-  const country = request.headers.get("CF-IPCountry") || "unknown";
-  const elapsed = Date.now() - startTime;
-  env.ANALYTICS.writeDataPoint({
-    blobs: [route, request.method, country, new URL(request.url).pathname],
-    doubles: [statusCode, elapsed],
-    indexes: [route],
-  });
+  const analytics = env[ANALYTICS_BINDING];
+  if (!analytics) return;
+  try {
+    analytics.writeDataPoint(
+      toDataPoint({
+        route,
+        method: request.method,
+        country: request.headers.get("CF-IPCountry") || "unknown",
+        pathname: new URL(request.url).pathname,
+        status: statusCode,
+        elapsedMs: Date.now() - startTime,
+      })
+    );
+  } catch (error) {
+    // Telemetry must never fail the request. Both call sites run AFTER the
+    // upstream response was fetched successfully, and `fetch` has no top-level
+    // catch — an escaping throw would replace a good response with
+    // Cloudflare's 1101 page. Cloudflare documents per-data-point limits
+    // (blobs, doubles, index bytes) without documenting the behaviour on
+    // breach, and `pathname` is caller-supplied, so this is contained rather
+    // than assumed safe. Same fail-open shape as the HEALTH_STATE reads.
+    console.error("Analytics write failed:", error.message);
+  }
 }
 
 export default {
@@ -139,8 +186,17 @@ export default {
       );
     }
 
-    // ── API routes → HTTP subrequest to DO App Platform ──────────────
-    if (url.pathname.startsWith("/api/") || url.pathname === "/api") {
+    // ── Origin routes → HTTP subrequest to DO App Platform ───────────
+    // Prefixes come from routes-config.json's originRoutes (ADR-011: no
+    // topology is hardcoded here). /public joins /api on this branch, so it
+    // inherits the circuit breaker, the forwarded header set, X-Feature-Flags
+    // stripping and verbatim path preservation unchanged.
+    //
+    // NOT the rate limiter: that runs above, before this branch, keyed by
+    // rate-limiter.js's own RATE_LIMITS table — a prefix listed in
+    // originRoutes is not bounded by being proxied. /public/ has its own entry
+    // there, and rate-limiter.test.js asserts every originRoutes prefix does.
+    if (isOriginRoute(url.pathname)) {
       // Circuit breaker: check if API proxy is healthy
       const circuitState = await getCircuitState(env.HEALTH_STATE);
       const nowMs = Date.now();

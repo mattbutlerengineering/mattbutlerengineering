@@ -40,7 +40,7 @@ test.describe("CF-2: Dashboard morning load", () => {
   test("quick action buttons are visible", async ({ mockedPage }) => {
     await mockedPage.goto("dashboard");
 
-    await expect(mockedPage.getByRole("button", { name: /New Walk.?In/i })).toBeVisible();
+    await expect(mockedPage.getByRole("button", { name: "Walk-in", exact: true })).toBeVisible();
     await expect(mockedPage.getByRole("button", { name: /View Floor Plan/i })).toBeVisible();
     await expect(mockedPage.getByRole("button", { name: /Guest Lookup/i })).toBeVisible();
   });

@@ -156,4 +156,51 @@ describe("requireManageToken preHandler", () => {
     expect(body.title).toBe("Forbidden");
     expect(body.status).toBe(403);
   });
+
+  it("decorates request.managedReservationId and passes through when token is sent as an Authorization: Bearer header", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/reservations/manage",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.reservation.id).toBe("res_1");
+  });
+
+  it("prefers the Authorization header over a query param when both are present", async () => {
+    const headerToken = generateManageToken("res_1", "jane@example.com");
+    const bogusQueryToken = "not-a-real-token";
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${bogusQueryToken}`,
+      headers: { authorization: `Bearer ${headerToken}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.reservation.id).toBe("res_1");
+  });
+
+  it("returns 400 when neither an Authorization header nor a token query param is present", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/reservations/manage",
+      headers: { authorization: "Bearer " },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.title).toBe("Missing Token");
+  });
 });

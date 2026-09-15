@@ -1,8 +1,37 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import { StrictMode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
+import { ApiClientError } from "@mbe/api-client";
 import { WalkInDialog } from "./WalkInDialog.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { Table } from "@mbe/types";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
+
+/** A 409 carrying the server's own sentence in `problemDetails.detail` (B1.2). */
+function conflictError(detail: string): ApiClientError {
+  return new ApiClientError(
+    { type: "about:blank", title: "Conflict", status: 409, detail },
+    "POST",
+    "/api/v1/reservations/walk-in"
+  );
+}
 
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -87,7 +116,7 @@ describe("WalkInDialog", () => {
 
   it("should render the dialog with title", () => {
     render(<WalkInDialog {...defaultProps} />);
-    expect(screen.getByText("Seat Walk-In")).toBeDefined();
+    expect(screen.getByText("Seat walk-in")).toBeDefined();
   });
 
   it("should render with dialog role and aria-modal", () => {
@@ -157,7 +186,7 @@ describe("WalkInDialog", () => {
     expect(listbox.textContent).not.toContain("Table 3");
   });
 
-  it("should show no-tables message when no tables fit", () => {
+  it("explains when nothing fits, as a caption the disabled Seat now is described by", () => {
     // All tables occupied
     const occupiedTables = makeTables().map((t) => ({
       ...t,
@@ -165,17 +194,12 @@ describe("WalkInDialog", () => {
     }));
     render(<WalkInDialog {...defaultProps} tables={occupiedTables} />);
 
-    expect(screen.getByText(/no available tables for a party of 2/i)).toBeDefined();
-  });
-
-  it("should disable Seat Now when no tables available", () => {
-    const occupiedTables = makeTables().map((t) => ({
-      ...t,
-      status: "OCCUPIED" as const,
-    }));
-    render(<WalkInDialog {...defaultProps} tables={occupiedTables} />);
-
-    expect(screen.getByRole("button", { name: "Seat Now" })).toBeDisabled();
+    const caption =
+      "Nothing free for a party of 2 right now. Try a smaller party, or mark a table Available.";
+    expect(screen.getByText(caption)).toBeInTheDocument();
+    const seatNow = screen.getByRole("button", { name: "Seat now" });
+    expect(seatNow).toBeDisabled();
+    expect(seatNow).toHaveAccessibleDescription(caption);
   });
 
   it("should render guest name input as optional", () => {
@@ -197,7 +221,7 @@ describe("WalkInDialog", () => {
     const nameInput = screen.getByLabelText(/guest name/i) as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: "Johnson" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
@@ -213,7 +237,7 @@ describe("WalkInDialog", () => {
   it("should omit guestName when empty", async () => {
     render(<WalkInDialog {...defaultProps} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
@@ -228,7 +252,7 @@ describe("WalkInDialog", () => {
     const input = screen.getByLabelText(/guest name/i) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "   " } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
@@ -244,26 +268,15 @@ describe("WalkInDialog", () => {
     expect(defaultProps.onClose).toHaveBeenCalledOnce();
   });
 
-  it("should display error when onConfirm throws an Error", async () => {
-    const onConfirm = vi.fn().mockRejectedValue(new Error("Server error"));
-    render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Server error")).toBeDefined();
-    });
-  });
-
-  it("should display fallback error when onConfirm throws a non-Error", async () => {
+  it("speaks the house sentence for a non-Error rejection, never the thrown value", async () => {
     const onConfirm = vi.fn().mockRejectedValue("something broke");
     render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
-    await waitFor(() => {
-      expect(screen.getByText("Failed to seat walk-in.")).toBeDefined();
-    });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(ERROR_COPY.unknown.detail);
+    expect(screen.queryByText("something broke")).toBeNull();
   });
 
   it("should show loading state while confirming", async () => {
@@ -276,7 +289,7 @@ describe("WalkInDialog", () => {
     );
     render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(screen.getByText("Seating…")).toBeDefined();
@@ -298,7 +311,7 @@ describe("WalkInDialog", () => {
     );
     render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "1" })).toBeDisabled();
@@ -321,7 +334,7 @@ describe("WalkInDialog", () => {
     );
     render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText(/guest name/i)).toBeDisabled();
@@ -358,7 +371,7 @@ describe("WalkInDialog", () => {
     // The "Please select a table" error is a guard for edge cases
     // We can't easily trigger it through the UI — Seat Now is disabled when no tables match
     render(<WalkInDialog {...defaultProps} tables={smallTables} />);
-    expect(screen.getByRole("button", { name: "Seat Now" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Seat now" })).toBeDisabled();
   });
 
   it("should pass correct party size after changing selection", async () => {
@@ -367,7 +380,7 @@ describe("WalkInDialog", () => {
     // Change to party of 6
     fireEvent.click(screen.getByRole("button", { name: "6" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Seat Now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
 
     await waitFor(() => {
       expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
@@ -379,7 +392,7 @@ describe("WalkInDialog", () => {
     expect(data.tableId).toBe("table-4");
   });
 
-  describe("accessibility (focus trap + return focus)", () => {
+  describe("accessibility (focus trap; focus return belongs to the page)", () => {
     it("traps Tab focus within the dialog", () => {
       const { container } = render(<WalkInDialog {...defaultProps} />);
       const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
@@ -394,43 +407,136 @@ describe("WalkInDialog", () => {
       expect(document.activeElement).toBe(last);
     });
 
-    it("returns focus to the trigger element when closed via Cancel", () => {
+    it("opens with focus on the pressed party-size control, surviving StrictMode's double-run effects", () => {
+      render(
+        <StrictMode>
+          <WalkInDialog {...defaultProps} />
+        </StrictMode>
+      );
+
+      expect(screen.getByRole("button", { name: "2" })).toHaveFocus();
+    });
+
+    // The page owns focus return (`useFocusAfter`, captured at event time) — the dialog no longer
+    // restores the opener itself, so closing must call `onClose` and leave focus where it is.
+    it.each([
+      ["Cancel", () => fireEvent.click(screen.getByRole("button", { name: "Cancel" }))],
+      ["Escape", () => fireEvent.keyDown(document, { key: "Escape" })],
+      [
+        "backdrop click",
+        () => fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement),
+      ],
+    ])("closing via %s calls onClose without moving focus back to the opener", (_label, close) => {
       const trigger = document.createElement("button");
       document.body.appendChild(trigger);
       trigger.focus();
 
       render(<WalkInDialog {...defaultProps} />);
-      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-
-      expect(document.activeElement).toBe(trigger);
-      document.body.removeChild(trigger);
-    });
-
-    it("closes and returns focus on Escape key", () => {
-      const trigger = document.createElement("button");
-      document.body.appendChild(trigger);
-      trigger.focus();
-
-      render(<WalkInDialog {...defaultProps} />);
-      fireEvent.keyDown(document, { key: "Escape" });
+      close();
 
       expect(defaultProps.onClose).toHaveBeenCalledOnce();
-      expect(document.activeElement).toBe(trigger);
+      expect(document.activeElement).not.toBe(trigger);
       document.body.removeChild(trigger);
     });
+  });
 
-    it("returns focus when closed via backdrop click", () => {
-      const trigger = document.createElement("button");
-      document.body.appendChild(trigger);
-      trigger.focus();
+  describe("owns its failure (item 12, #5031; ux.md Screen 3)", () => {
+    const failure = serverError("POST", "/api/v1/reservations/walk-in");
 
-      const { container } = render(<WalkInDialog {...defaultProps} />);
-      const overlay = container.firstChild as HTMLElement;
-      fireEvent.click(overlay);
+    it("renders 'Walk-in not seated.' with the house sentence, the raw line behind Show details, and stays open", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(failure);
+      render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
 
-      expect(defaultProps.onClose).toHaveBeenCalledOnce();
-      expect(document.activeElement).toBe(trigger);
-      document.body.removeChild(trigger);
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+
+      const alert = await screen.findByRole("alert");
+      expect(
+        alert.textContent?.startsWith(`Walk-in not seated.${ERROR_COPY.serverError.detail}`)
+      ).toBe(true);
+      expect(screen.queryByText(failure.message)).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+      expect(screen.getByRole("region", { name: "Show details" })).toHaveTextContent(
+        failure.message
+      );
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+
+    it("returns the button to 'Seat now' in the same commit as the banner and keeps the field values", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(failure);
+      render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
+      fireEvent.click(screen.getByRole("button", { name: "4" }));
+      fireEvent.change(screen.getByLabelText(/guest name/i), { target: { value: "Smith" } });
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+
+      await screen.findByRole("alert");
+      const seatNow = screen.getByRole("button", { name: "Seat now" });
+      expect(seatNow).not.toBeDisabled();
+      expect(screen.queryByText("Seating…")).toBeNull();
+      expect(screen.getByRole("button", { name: "4" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("combobox", { name: /table/i })).toHaveTextContent(
+        "Table 2 (seats 4)"
+      );
+      expect((screen.getByLabelText(/guest name/i) as HTMLInputElement).value).toBe("Smith");
+    });
+
+    it("leaves focus on Seat now after a 500, so tapping again is the retry", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(failure);
+      render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+
+      await screen.findByRole("alert");
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Seat now" })).toHaveFocus();
+      });
+    });
+
+    it("shows the server's own detail for a 409 and moves focus to the Table control", async () => {
+      const onConfirm = vi.fn().mockRejectedValue(conflictError("Table 1 was just taken."));
+      render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Table 1 was just taken.");
+      expect(alert).not.toHaveTextContent(ERROR_COPY.conflict.detail);
+      await waitFor(() => {
+        expect(screen.getByRole("combobox", { name: /table/i })).toHaveFocus();
+      });
+    });
+
+    it("a second Seat now after a failure calls onConfirm again with the kept values", async () => {
+      const onConfirm = vi.fn().mockRejectedValueOnce(failure).mockResolvedValueOnce(undefined);
+      render(<WalkInDialog {...defaultProps} onConfirm={onConfirm} />);
+      fireEvent.click(screen.getByRole("button", { name: "6" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+      await screen.findByRole("alert");
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+
+      await waitFor(() => {
+        expect(onConfirm).toHaveBeenCalledTimes(2);
+      });
+      expect(onConfirm.mock.calls[1][0]).toMatchObject({ partySize: 6, tableId: "table-4" });
+    });
+  });
+
+  describe("44 px targets (NF INCLUSIVE)", () => {
+    it("gives the party-size row and the actions a 44 px minimum under the coarse-pointer / tablet query", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "WalkInDialog.module.css"),
+        "utf-8"
+      );
+      const coarseBlock = css.match(
+        /@media \(pointer: coarse\), \(max-width: 1024px\) \{([\s\S]*?)\n\}/
+      );
+      expect(coarseBlock).not.toBeNull();
+      expect(coarseBlock?.[1]).toMatch(/\.partySizeRow > button\s*\{[^}]*min-block-size:\s*44px/);
+      expect(coarseBlock?.[1]).toMatch(/\.partySizeRow > button\s*\{[^}]*min-inline-size:\s*44px/);
+      expect(coarseBlock?.[1]).toMatch(/\.actions > button\s*\{[^}]*min-block-size:\s*44px/);
     });
   });
 });

@@ -28,6 +28,20 @@ const SIGNED_OUT_TAGLINE = "You're signed out. Sign in again whenever you're rea
 /** Default tagline shown on a first-visit (never-authenticated) sign-in. */
 const DEFAULT_TAGLINE = "Restaurant management, simplified.";
 
+/** Tagline shown when the marketing homepage's project card sent the visitor here. */
+const REFERRED_TAGLINE = "You came from the portfolio site — take a look inside.";
+
+/** Query param + value the marketing homepage's Hospitality project link appends (`?ref=marketing`). */
+const REFERRER_PARAM = "ref";
+const REFERRER_MARKETING = "marketing";
+
+/** Resolves which tagline to show, in priority order: signed-out > referred-from > default. */
+function resolveTagline(signedOut: boolean, referredFromMarketing: boolean): string {
+  if (signedOut) return SIGNED_OUT_TAGLINE;
+  if (referredFromMarketing) return REFERRED_TAGLINE;
+  return DEFAULT_TAGLINE;
+}
+
 /**
  * Branded sign-in gate for the unauthenticated shell. Atmosphere + grain
  * backdrop and a machined card per the rialto house style, with a split-flap
@@ -51,6 +65,8 @@ export interface LoginGateProps {
 export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
   const { signIn, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
+  const referredFromMarketing =
+    new URLSearchParams(window.location.search).get(REFERRER_PARAM) === REFERRER_MARKETING;
 
   useEffect(() => {
     document.title = LANDING_TITLE;
@@ -71,7 +87,7 @@ export function LoginGate({ signedOut = false }: LoginGateProps = {}) {
               Hospitality
             </Text>
             <Text variant="body" color="secondary">
-              {signedOut ? SIGNED_OUT_TAGLINE : DEFAULT_TAGLINE}
+              {resolveTagline(signedOut, referredFromMarketing)}
             </Text>
           </Stack>
 

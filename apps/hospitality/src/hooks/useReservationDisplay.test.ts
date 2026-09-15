@@ -85,6 +85,29 @@ describe("useReservationDisplay", () => {
       expect(result.current).toHaveProperty("error");
     });
 
+    it("exposes the underlying hook's refetch so the page can Retry (item 8)", () => {
+      const refetch = vi.fn().mockResolvedValue({ error: null });
+      mockUseReservations.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: null,
+        refetch,
+      });
+
+      const { result } = renderHook(
+        () =>
+          useReservationDisplay({
+            date: "2026-01-15",
+            venueId: "v1",
+            statusFilter: "all",
+            searchQuery: "",
+          }),
+        { wrapper: createWrapper() }
+      );
+
+      expect(result.current.refetch).toBe(refetch);
+    });
+
     it("forwards isLoading from underlying hook", () => {
       mockUseReservations.mockReturnValue({
         data: undefined,

@@ -21,6 +21,7 @@ import {
 import type { DataListItem } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { useCurrentUser, useUpdateCurrentUser } from "../hooks/useUsers.js";
 import {
   computeElapsedPercent,
@@ -182,7 +183,7 @@ export function ProfilePage() {
         setSaveSuccess(false);
       }, 3000);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save profile");
+      setSaveError(describeApiError(err).detail);
     } finally {
       setIsSaving(false);
     }
@@ -233,10 +234,16 @@ export function ProfilePage() {
   }
 
   if (error && !user) {
+    const loadFailure = describeApiError(error);
     return (
       <div>
         <PageHeader title="Profile" description="Manage your profile" />
-        <ErrorRetryBanner error={error.message} onRetry={refetch} />
+        <ErrorRetryBanner
+          title="Couldn't load your profile."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
+          onRetry={refetch}
+        />
       </div>
     );
   }
@@ -282,7 +289,12 @@ export function ProfilePage() {
         )}
 
         {saveError && (
-          <Alert variant="error" title="Error" dismissible onDismiss={() => setSaveError(null)}>
+          <Alert
+            variant="error"
+            title="Changes not saved."
+            dismissible
+            onDismiss={() => setSaveError(null)}
+          >
             {saveError}
           </Alert>
         )}

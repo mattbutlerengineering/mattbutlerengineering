@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { createApiClient } from "@mbe/api-client";
 import { StaffDepositSection } from "./StaffDepositSection.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import { RESERVATIONS_QUERY_KEY } from "../../hooks/useReservations.js";
 import type { Deposit } from "@mbe/types";
 
@@ -195,8 +196,27 @@ describe("StaffDepositSection", () => {
       expect(screen.getByTestId("alert")).toBeDefined();
       expect(screen.getByText(/Card declined/)).toBeDefined();
     });
+    // B1: the server's own 400 detail is written for the person — the request line never is.
+    expect(screen.queryByText(/failed: 400/)).toBeNull();
     // A failed create must not invalidate the timeline cache.
     expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it("speaks the house sentence for a server error — never the request line", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ error: "Internal Server Error", statusCode: 500 }, 500)
+    );
+
+    renderSection();
+    fireEvent.click(screen.getByText("+ Collect Deposit"));
+
+    fireEvent.change(screen.getByTestId("amount-input"), { target: { value: "25" } });
+    fireEvent.click(screen.getByText("Create Deposit"));
+
+    await waitFor(() => {
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+    });
+    expect(screen.queryByText(/failed: 500/)).toBeNull();
   });
 
   it("hides form when cancel clicked", () => {

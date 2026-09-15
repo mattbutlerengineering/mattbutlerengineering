@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import { Button, Select, TextArea, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useEscapeKey, useFocusTrap } from "@mattbutlerengineering/rialto/hooks";
 import type { CancellationQuote } from "../../hooks/useCancellationQuote.js";
+import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
+import { useFocusAfter } from "../../hooks/useFocusAfter.js";
+import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import styles from "./CancelReservationDialog.module.css";
 
 interface CancelReservationDialogProps {
   reservationId: string;
   guestName: string | null;
+  /** Rejects on failure — the dialog owns showing it (architecture § Dialog contracts). */
   onConfirm: (reason: string, note: string) => Promise<void>;
   onClose: () => void;
   /** Fee quote (evaluated fee + display label). When provided, shows the fee before confirm. */
@@ -20,6 +24,12 @@ const CANCELLATION_REASONS = [
   { value: "other", label: "Other" },
 ];
 
+/**
+ * The dialog owns its failure and nothing else: a rejected `onConfirm` becomes an
+ * `ErrorRetryBanner` above the actions, the buttons return to rest, reason and note stay, and
+ * focus lands back on Cancel Reservation — pressing again is the retry. Focus return on close is
+ * the page's (`useFocusAfter`, captured at event time), so there is no restore code here.
+ */
 export function CancelReservationDialog({
   reservationId: _reservationId,
   guestName,
@@ -30,38 +40,32 @@ export function CancelReservationDialog({
   const [reason, setReason] = useState<string>("guest_cancelled");
   const [note, setNote] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiErrorDescription | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
-  }, []);
-
-  const handleClose = useCallback(() => {
-    previouslyFocusedRef.current?.focus();
-    onClose();
-  }, [onClose]);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const { focusAfter } = useFocusAfter();
 
   useFocusTrap(panelRef, true);
-  useEscapeKey(handleClose, true);
+  useEscapeKey(onClose, true);
 
   const displayName = guestName ?? "Guest";
 
   const handleConfirm = async () => {
     setIsLoading(true);
-    setError(null);
+    setFailure(null);
     try {
       await onConfirm(reason, note);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel reservation.");
+      setFailure(describeApiError(err));
+      if (confirmRef.current) focusAfter({ kind: "element", element: confirmRef.current });
+    } finally {
       setIsLoading(false);
     }
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) handleClose();
+    if (e.target === e.currentTarget) onClose();
   };
 
   return (
@@ -85,8 +89,6 @@ export function CancelReservationDialog({
               Cancelling reservation for <strong>{displayName}</strong>
             </Text>
           </div>
-
-          {error && <div className={styles.errorBanner}>{error}</div>}
 
           {quote && (
             <div
@@ -116,11 +118,20 @@ export function CancelReservationDialog({
             />
           </Stack>
 
+          {failure && (
+            <ErrorRetryBanner
+              title="Reservation not cancelled."
+              error={failure.detail}
+              details={failure.raw}
+            />
+          )}
+
           <div className={styles.actions}>
-            <Button variant="secondary" onClick={handleClose} disabled={isLoading}>
+            <Button variant="secondary" onClick={onClose} disabled={isLoading}>
               Keep Reservation
             </Button>
             <Button
+              ref={confirmRef}
               variant="primary"
               onClick={handleConfirm}
               isLoading={isLoading}

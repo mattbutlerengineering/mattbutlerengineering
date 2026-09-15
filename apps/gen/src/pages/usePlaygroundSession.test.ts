@@ -72,6 +72,7 @@ describe("usePlaygroundSession", () => {
     specsApiState = { specs: [], isLoading: false };
     capturedOnComplete = undefined;
     mockSaveSpec.mockResolvedValue(makeStoredSpec({ id: "new-id" }));
+    window.history.pushState({}, "", "/");
   });
 
   it("starts in generate mode with no active spec", () => {
@@ -287,6 +288,55 @@ describe("usePlaygroundSession", () => {
       genStreamState = { ...genStreamState, isStreaming: true };
       rerender();
       expect(result.current.displayError).toBe(err);
+    });
+  });
+
+  describe("initial prompt query param", () => {
+    it("submits the decoded prompt param automatically on mount", async () => {
+      window.history.pushState({}, "", "/?prompt=draw%20a%20button");
+
+      renderHook(() => usePlaygroundSession());
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockSend).toHaveBeenCalledWith("draw a button");
+    });
+
+    it("does not submit anything when the prompt param is absent", async () => {
+      window.history.pushState({}, "", "/");
+
+      renderHook(() => usePlaygroundSession());
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it("ignores a blank prompt param", async () => {
+      window.history.pushState({}, "", "/?prompt=%20%20");
+
+      renderHook(() => usePlaygroundSession());
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it("only submits once even if the hook re-renders", async () => {
+      window.history.pushState({}, "", "/?prompt=hello");
+
+      const { rerender } = renderHook(() => usePlaygroundSession());
+      await act(async () => {
+        await Promise.resolve();
+      });
+      rerender();
+      rerender();
+
+      expect(mockSend).toHaveBeenCalledTimes(1);
     });
   });
 

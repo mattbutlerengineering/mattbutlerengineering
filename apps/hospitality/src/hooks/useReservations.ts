@@ -15,7 +15,8 @@ export interface UseReservationsResult {
   data: Reservation[] | undefined;
   isLoading: boolean;
   error: Error | null;
-  refetch: () => void;
+  /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
+  refetch: () => Promise<{ error: Error | null }>;
   /** True when `data` was served from the offline cache after a fetch failure. */
   isFromCache: boolean;
   /**

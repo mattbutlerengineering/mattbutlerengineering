@@ -12,8 +12,8 @@ import {
   Stat,
   Text,
 } from "@mattbutlerengineering/rialto";
-import { ApiClientError } from "@mbe/api-client";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import type { GuestSegment } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import { PageHeader } from "../components/PageHeader";
@@ -175,6 +175,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
     addGuest,
     updateGuest,
   } = directory;
+  const loadFailure = error ? describeApiError(error) : null;
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
@@ -248,9 +249,11 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
         </div>
       )}
 
-      {error && (
+      {loadFailure && (
         <ErrorRetryBanner
-          error={error instanceof ApiClientError ? error.problemDetails.detail : error.message}
+          title="Couldn't load guests."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
           onRetry={refetch}
           onDismiss={() => {}}
         />

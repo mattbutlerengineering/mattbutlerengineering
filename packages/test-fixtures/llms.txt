@@ -33,6 +33,38 @@
         partySize: number;
       }
     </item>
+    <item priority="low">
+      interface MockPagination {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function createMockTable(overrides?: Partial<MockTable>): MockTable { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockReservation(
+        overrides?: Partial<Omit<MockReservation, "table">> & { table?: Partial<MockTable> }
+      ): MockReservation { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMockPagination(overrides?: Partial<MockPagination>): MockPagination { /* ... */ }
+    </item>
+    <item priority="high">
+      export const ERROR_NOT_FOUND: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_UNAUTHORIZED: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_CONFLICT: unknown;
+    </item>
+    <item priority="high">
+      export const ERROR_FORBIDDEN: unknown;
+    </item>
   </file>
   <file path="src/users.ts">
     <item priority="low">
@@ -50,6 +82,24 @@
         picture: string | null;
         emailVerified: boolean;
       }
+    </item>
+    <item priority="high">
+      export function createMockUser(overrides: Partial<MockUser> = {}): MockUser { /* ... */ }
+    </item>
+    <item priority="low">
+      interface MockPaginatedResponse {
+        data: T[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;...;
+      }
+    </item>
+    <item priority="high">
+      export function createMockPaginatedResponse<T>(
+        data: T[],
+        opts: { page?: number; limit?: number; total?: number } = {}
+      ): MockPaginatedResponse<T> { /* ... */ }
     </item>
   </file>
   </section>

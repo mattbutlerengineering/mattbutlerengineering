@@ -108,13 +108,15 @@ Agents run in `permissionMode: "acceptEdits"` with a `canUseTool` handler.
 
 ## Model Routing
 
-`routeModel(issue)` selects tier based on issue metadata (first match wins):
+`routeModel(issue, ctx?)` (`src/model-router.ts`) selects tier based on issue metadata and optional runtime context (first match wins):
 
-| Tier   | When                                                                                                                  | Model                     |
-| ------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| haiku  | `chore(deps):` or `fix(security):` title patterns                                                                     | claude-haiku-4-5-20251001 |
-| sonnet | `ci-fix` label, simple features, default                                                                              | claude-sonnet-5           |
-| opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) | claude-opus-4-8           |
+| Tier   | When                                                                                                                                                                                               | Model                     |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| haiku  | Title matches `chore(deps):`, `chore(deps-*):`, `fix(security):`, `docs:`, `test:`, `chore(lint):`, or `chore(style):` — **or** the task's resolved source paths are all test/docs files, ≤2 paths | claude-haiku-4-5-20251001 |
+| sonnet | `ci-fix` label; `feature` label with no complexity signal; default when nothing else matches                                                                                                       | claude-sonnet-5           |
+| opus   | `feature` label + complexity keywords (architect, refactor, migration, breaking change, schema change, multi-service) — **or** `feature` label touching >15 source files                           | claude-opus-4-8           |
+
+**Post-processing** (`applyContextAdjustments`, runs after the base tier above): a `haiku` result is escalated to `sonnet` if `ctx.pastFailureTier` shows a prior haiku attempt failed on a similar task; an `opus` result is downgraded to `sonnet` if `ctx.remainingBudgetUsd` is below $0.30.
 
 ## Multi-CLI Adapters
 

@@ -36,3 +36,21 @@
   margin-block-start: var(--rialto-space-2xl);
   padding-block-end: var(--rialto-space-md);
 }
+
+.notFoundLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-accent);
+  color: var(--rialto-surface);
+  font: inherit;
+  text-decoration: none;
+}
+
+.notFoundLink:hover,
+.notFoundLink:focus-visible {
+  text-decoration: underline;
+}

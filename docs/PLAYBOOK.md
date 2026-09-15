@@ -969,7 +969,7 @@ Run this every Friday (or the last day of your work week). Takes 30-60 minutes.
 
 - [ ] Update CLAUDE.md with any new conventions, gotchas, or learnings from this week
 - [ ] Did I ship at least one user-facing feature this week?
-- [ ] Am I building what users actually want? (Check analytics, feedback, support requests)
+- [ ] Am I building what users actually want? (Check analytics → [docs/runbooks/edge-usage.md](runbooks/edge-usage.md), feedback, support requests)
 - [ ] Am I still fully understanding the code AI generates? If not, schedule a "manual coding" session.
 
 **Health:**

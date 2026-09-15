@@ -49,7 +49,8 @@ interface OfflineCacheSchema extends DBSchema {
   };
 }
 
-const DB_NAME = "mbe-hospitality-offline";
+/** Exported so E2E specs can reset the cache by name (reservations.spec.ts). */
+export const DB_NAME = "mbe-hospitality-offline";
 const DB_VERSION = 1;
 const RESERVATIONS_STORE = "reservations";
 const FLOOR_PLAN_SNAPSHOTS_STORE = "floorPlanSnapshots";

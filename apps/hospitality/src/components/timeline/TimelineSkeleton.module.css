@@ -1,0 +1,19 @@
+/* The grid's loading state (ux Screen 7): a header row and five table rows, drawn once. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+/* Announced, not seen: the region's text is content, so it is read once (architecture § Components) */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

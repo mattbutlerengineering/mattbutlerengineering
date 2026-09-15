@@ -4,6 +4,22 @@ import { render, screen, waitFor, fireEvent, act } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ApiClientError } from "@mbe/api-client";
+import { ERROR_COPY } from "../lib/describe-api-error.js";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 const { defaultAuthUser } = vi.hoisted(() => ({
   defaultAuthUser: {
@@ -40,8 +56,17 @@ vi.mock("../components/PageHeader", () => ({
 }));
 
 vi.mock("../components/ErrorRetryBanner", () => ({
-  ErrorRetryBanner: ({ error, onRetry }: { error: string; onRetry: () => void }) => (
+  ErrorRetryBanner: ({
+    title,
+    error,
+    onRetry,
+  }: {
+    title?: string;
+    error: string;
+    onRetry: () => void;
+  }) => (
     <div data-testid="error-retry-banner">
+      <strong>{title}</strong>
       <span>{error}</span>
       <button data-testid="retry-button" onClick={onRetry}>
         Retry
@@ -211,13 +236,15 @@ describe("ProfilePage", () => {
 
   describe("error state", () => {
     it("shows ErrorRetryBanner when fetch fails", async () => {
-      mockApiClient.users.me.mockRejectedValue(new Error("Network error"));
+      mockApiClient.users.me.mockRejectedValue(serverError("GET", "/api/v1/users/me"));
       renderPage();
 
       await waitFor(() => {
         expect(screen.getByTestId("error-retry-banner")).toBeDefined();
       });
-      expect(screen.getByText("Network error")).toBeDefined();
+      expect(screen.getByText("Couldn't load your profile.")).toBeDefined();
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
     });
 
     it("retries fetch via refetch when retry button is clicked", async () => {
@@ -382,7 +409,7 @@ describe("ProfilePage", () => {
     });
 
     it("save error shows error alert", async () => {
-      mockApiClient.users.update.mockRejectedValue(new Error("Save failed"));
+      mockApiClient.users.update.mockRejectedValue(serverError("PATCH", "/api/v1/users/user-1"));
 
       const user = userEvent.setup();
       renderPage();
@@ -397,7 +424,9 @@ describe("ProfilePage", () => {
       await waitFor(() => {
         expect(screen.getByTestId("alert-error")).toBeDefined();
       });
-      expect(screen.getByText("Save failed")).toBeDefined();
+      expect(screen.getByText("Changes not saved.")).toBeDefined();
+      expect(screen.getByText(ERROR_COPY.serverError.detail)).toBeDefined();
+      expect(screen.queryByText(/failed: 500/)).toBeNull();
     });
 
     it("cancel reverts form data and hides edit form", async () => {

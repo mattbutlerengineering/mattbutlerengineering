@@ -261,6 +261,64 @@ describe("TimeSlotPicker", () => {
     });
   });
 
+  // #4979: "Estimated wait: ~30 min" was shown for any date with no slots,
+  // including dates days out — where a walk-in wait estimate is meaningless.
+  describe("wait estimate only shown for a same-day date", () => {
+    function futureDateString(daysFromNow: number): string {
+      const d = new Date();
+      d.setDate(d.getDate() + daysFromNow);
+      return d.toISOString().split("T")[0]!;
+    }
+
+    it("does NOT show a wait estimate for a future date", () => {
+      render(
+        <TimeSlotPicker
+          {...defaultProps}
+          date={futureDateString(5)}
+          slots={[]}
+          onJoinWaitlist={vi.fn()}
+          estimatedWaitMinutes={25}
+        />
+      );
+      expect(screen.queryByText(/~25 min/)).toBeNull();
+      expect(screen.getByText("Try a different date or party size.")).toBeDefined();
+    });
+
+    it("still offers Join Waitlist for a future date, just without the false estimate", () => {
+      render(
+        <TimeSlotPicker
+          {...defaultProps}
+          date={futureDateString(5)}
+          slots={[]}
+          onJoinWaitlist={vi.fn()}
+          estimatedWaitMinutes={25}
+        />
+      );
+      expect(screen.getByText("Join Waitlist")).toBeDefined();
+    });
+  });
+
+  describe("venue timezone", () => {
+    it("renders slot times in the venue's timezone, not the guest's device timezone (#4976)", () => {
+      const originalTz = process.env.TZ;
+      process.env.TZ = "America/Los_Angeles";
+      try {
+        // 17:00Z on 2026-05-17 is 1:00 PM in New York (EDT, UTC-4) but
+        // 10:00 AM on a Los Angeles device (PDT, UTC-7) — the bug rendered
+        // the latter with no indication a timezone was in play.
+        const slot = makeSlot("2026-05-17T17:00:00Z");
+        render(
+          <TimeSlotPicker {...defaultProps} slots={[slot]} venueTimezone="America/New_York" />
+        );
+        expect(screen.getByText("Lunch")).toBeDefined();
+        expect(screen.getByText("1:00 PM")).toBeDefined();
+        expect(screen.queryByText("10:00 AM")).toBeNull();
+      } finally {
+        process.env.TZ = originalTz;
+      }
+    });
+  });
+
   describe("no operating hours configured", () => {
     it("shows a set-hours prompt with a working link for the staff audience", () => {
       const onSetHours = vi.fn();

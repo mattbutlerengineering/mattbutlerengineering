@@ -8,6 +8,24 @@
       functions?: number;
       statements?: number;
     }
+    export interface VitestCoverageOptions {
+      include: string[];
+      exclude: string[];
+      thresholds: CoverageThresholds;
+      /** Defaults to ["text", "json", "html"]. */
+      reporter?: CoverageConfig["reporter"];
+    }
+    export interface VitestPresetOptions {
+      /** Defaults to "node". */
+      environment?: "node" | "jsdom";
+      /** Defaults to true. */
+      globals?: boolean;
+      /** Test-file include glob. Omit to fall back to vitest's own default. */
+      include?: string[];
+      coverage: VitestCoverageOptions;
+      /** Raw vite/vitest config merged in last, for anything package-specific (setupFiles, css, resolve.alias, env, ...). */
+      extend?: ViteUserConfig;
+    }
   </file>
   </section>
 </codebase>

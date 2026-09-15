@@ -109,7 +109,12 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
       const port = process.env.PORT ?? "3003";
       const apiBaseUrl = process.env.AGENT_API_URL ?? `http://localhost:${port}`;
 
-      // Create a parent session to track the orchestration
+      // Create a parent session to track the orchestration. Stamp the
+      // authenticated caller's id — sourced exclusively from the verified
+      // auth context (requireAuth preHandler, mandatory on this route) —
+      // the same pattern POST /v1/sessions uses, so the caller who starts
+      // the orchestration can read/cancel/delete it afterward instead of
+      // getting a 404 from requireSessionAccess's null-owner deny.
       const parentSession = await sessionService.create({
         taskDescription: `[Orchestrator] ${taskDescription}`,
         model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
@@ -118,6 +123,7 @@ export const orchestrateRoutes: FastifyPluginAsync = async (fastify) => {
           (overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession) *
           (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) *
           2,
+        userId: request.user?.id,
       });
 
       await sessionService.updateStatus(parentSession.id, "RUNNING");

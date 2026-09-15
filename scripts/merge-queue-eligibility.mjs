@@ -22,6 +22,8 @@
  *
  * Usage:
  *   node scripts/merge-queue-eligibility.mjs check --labels "has-pr,tier:trivial"
+ *   node scripts/merge-queue-eligibility.mjs check-author --login "app/github-actions"
+ *   node scripts/merge-queue-eligibility.mjs check-merge --labels "auto-merge,tier:trivial" --login "app/github-actions"
  */
 
 import { fileURLToPath } from "node:url";
@@ -205,6 +207,11 @@ export function isTrustedAutomationAuthor(login) {
  * the single source of truth both call sites should use going forward so
  * the two checks can't drift out of order or get skipped independently.
  *
+ * Reachable from a workflow via the `check-merge` CLI subcommand below
+ * (#5016) — before that subcommand existed, this function had no CLI
+ * surface, so the four producer workflows each hand-rolled the same
+ * two-call `check --mode automation` + `check-author` sequence instead.
+ *
  * @param {{labelNames?: string[], authorLogin?: string}} [input]
  * @returns {{ eligible: boolean, reason: string }}
  */
@@ -238,10 +245,22 @@ function main() {
     return;
   }
 
+  if (subcommand === "check-merge") {
+    const labelsFlag = readFlag(rest, "--labels") ?? "";
+    const labelNames = labelsFlag
+      .split(",")
+      .map((label) => label.trim())
+      .filter(Boolean);
+    const authorLogin = readFlag(rest, "--login") ?? undefined;
+    console.log(JSON.stringify(isAutomationMergeAllowed({ labelNames, authorLogin })));
+    return;
+  }
+
   if (subcommand !== "check") {
     console.error(
       "Usage: merge-queue-eligibility.mjs check --labels <comma-separated-labels> [--mode automation]\n" +
-        "       merge-queue-eligibility.mjs check-author --login <gh-author-login>"
+        "       merge-queue-eligibility.mjs check-author --login <gh-author-login>\n" +
+        "       merge-queue-eligibility.mjs check-merge --labels <comma-separated-labels> --login <gh-author-login>"
     );
     process.exit(1);
   }
