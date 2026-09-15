@@ -2602,6 +2602,7 @@
   <file path="src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+    export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
     export interface UseGuestsParams {
       venueId?: string | null;
       limit?: number;
@@ -2638,6 +2639,19 @@
     export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
       return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
     }
+    export interface UseLapsingGuestsResult {
+      data: LapsingGuest[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult {
+      return useLapsingGuestsQuery({ venueId }) as QueryHookResult<LapsingGuest[]>;
+    }
+    export const useSendWinBack = createMutationHook<string, { sent: boolean }>({
+      invalidateKeys: LAPSING_GUESTS_QUERY_KEY,
+      mutationFn: (api, guestId) => api.guests.sendWinBack(guestId),
+    });
     export interface UseGuestResult {
       data: Guest | undefined;
       isLoading: boolean;
