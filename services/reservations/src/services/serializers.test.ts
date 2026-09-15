@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { toReservation, toTable, serializeManagedReservation } from "./serializers.js";
+import {
+  toReservation,
+  toTable,
+  serializeManagedReservation,
+  withoutGuestLink,
+} from "./serializers.js";
 
 const NOW = new Date("2026-06-14T18:00:00Z");
 
@@ -141,6 +146,53 @@ describe("serializeManagedReservation", () => {
       guestEmail: reservation.guestEmail,
       status: reservation.status,
       notes: reservation.notes,
+    });
+  });
+});
+
+describe("withoutGuestLink", () => {
+  const linkedRow = () =>
+    makePrismaReservation({
+      guestId: "gst_1",
+      guest: { visitCount: 12, communicationPreference: "email_only", unsubscribed: false },
+    });
+
+  /** Every key except the two the scrub owns. */
+  const others = (reservation: object) =>
+    Object.fromEntries(
+      Object.entries(reservation).filter(([key]) => key !== "guestId" && key !== "guest")
+    );
+
+  it("nulls guestId and guest on a linked reservation and leaves every other key as it was", () => {
+    const linked = toReservation(linkedRow());
+
+    const scrubbed = withoutGuestLink(linked);
+
+    expect(scrubbed.guestId).toBeNull();
+    expect(scrubbed.guest).toBeNull();
+    expect(others(scrubbed)).toStrictEqual(others(linked));
+    expect(Object.keys(scrubbed).sort()).toEqual(Object.keys(linked).sort());
+  });
+
+  it("returns a value-equal reservation when there was no link to scrub", () => {
+    const unlinked = toReservation(makePrismaReservation());
+
+    expect(withoutGuestLink(unlinked)).toStrictEqual(unlinked);
+  });
+
+  it("never mutates its input and always returns a new reference", () => {
+    const linked = toReservation(linkedRow());
+    const before = structuredClone(linked);
+
+    const scrubbed = withoutGuestLink(linked);
+
+    expect(scrubbed).not.toBe(linked);
+    expect(linked).toStrictEqual(before);
+    expect(linked.guestId).toBe("gst_1");
+    expect(linked.guest).toEqual({
+      visitCount: 12,
+      communicationPreference: "email_only",
+      unsubscribed: false,
     });
   });
 });

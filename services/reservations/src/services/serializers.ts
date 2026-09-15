@@ -117,6 +117,15 @@ export function serializeManagedReservation(reservation: Reservation): ManagedRe
   };
 }
 
+/**
+ * The public widget's reply shape: the booking with its guest link withheld. A public caller
+ * must not learn whether the venue recognised them — the 201 body is identical matched or not
+ * (SC11) — so the link the service just made is scrubbed here, and only here, on the way out.
+ */
+export function withoutGuestLink(reservation: Reservation): Reservation {
+  return { ...reservation, guestId: null, guest: null };
+}
+
 /** Maps a Prisma reservation row (with optional table/guest relations) to a domain Reservation. */
 export function toReservation(row: PrismaReservationRow): Reservation {
   return {
