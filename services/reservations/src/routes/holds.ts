@@ -266,7 +266,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{
     Params: { id: string };
     Body: ConfirmHoldRequest;
-    Reply: (ApiResponse<Reservation> & { manageToken: string }) | ProblemDetails;
+    Reply: (ApiResponse<Reservation> & { manageToken?: string }) | ProblemDetails;
   }>(
     "/:id/confirm",
     {
@@ -354,8 +354,15 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
       // Self-service manage/cancel token, threaded through so the guest-facing
       // confirmation screen can link straight to the manage page (#4978) —
       // reuses the same signing logic as the authenticated-email path in
-      // public-reservations.ts rather than duplicating it.
-      const manageToken = generateManageToken(result.reservation.id, request.body.guestEmail ?? "");
+      // public-reservations.ts rather than duplicating it. Only mint one when
+      // guestEmail was actually provided: confirm-hold.ts stores a missing
+      // email as `null`, and requireManageToken checks the token's signed
+      // email against that stored value with strict equality — signing with
+      // "" instead of omitting the token would produce a manage link that
+      // can never validate for a phone-only booking.
+      const manageToken = request.body.guestEmail
+        ? generateManageToken(result.reservation.id, request.body.guestEmail)
+        : undefined;
 
       return reply.code(201).send({ data: result.reservation, manageToken });
     }

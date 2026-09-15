@@ -383,6 +383,8 @@ describe("Hold Routes", () => {
       expect(body.data.id).toEqual(mockReservation.id);
       expect(body.data.status).toEqual("CONFIRMED");
       expect(body.data.guestName).toEqual("John Doe");
+      expect(typeof body.manageToken).toBe("string");
+      expect(body.manageToken.length).toBeGreaterThan(0);
       expect(confirmHold).toHaveBeenCalledWith({
         holdId: "hold-123",
         sessionId: "session-abc",
@@ -391,6 +393,36 @@ describe("Hold Routes", () => {
           guestEmail: "john@example.com",
         },
       });
+    });
+
+    // A manage token is signed with the guestEmail it was minted with, but a
+    // reservation confirmed without an email is stored with guestEmail: null
+    // (confirm-hold.ts's `guestDetails.guestEmail ?? null`). Signing with ""
+    // instead of matching that null would produce a token that
+    // requireManageToken's `reservation.guestEmail !== result.guestEmail`
+    // check can never validate — a guest who books by phone only would get a
+    // Cancel Reservation link that 403s forever. No manage token at all (the
+    // client already treats it as optional) is correct here, not a broken one.
+    it("does not return a manage token when no guestEmail is provided (phone-only booking)", async () => {
+      vi.mocked(confirmHold).mockResolvedValue({
+        success: true,
+        reservation: { ...mockReservation, guestEmail: null, guestPhone: "555-0100" },
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: {
+          "x-session-id": "session-abc",
+        },
+        payload: {
+          guestPhone: "555-0100",
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.manageToken).toBeUndefined();
     });
 
     it("should return 400 without session ID", async () => {
