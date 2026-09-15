@@ -101,6 +101,8 @@ describe("BookingWidget", () => {
     holds: {
       create: vi.fn(),
       confirm: vi.fn(),
+      release: vi.fn().mockResolvedValue(undefined),
+      getSessionId: vi.fn().mockReturnValue("s1"),
     },
     venues: {
       getPublicConfig: vi.fn(),
@@ -160,11 +162,14 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "john@example.com" } });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-123",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "18:00",
-      partySize: 2,
+      reservation: {
+        id: "res-123",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "18:00",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -243,11 +248,14 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-456",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "18:00",
-      partySize: 2,
+      reservation: {
+        id: "res-456",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "18:00",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -310,12 +318,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-789",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-789",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -392,12 +403,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-per-person",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 4,
+      reservation: {
+        id: "res-per-person",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 4,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -486,12 +500,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-risky-override",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-risky-override",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -564,12 +581,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-no-override",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-no-override",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -619,12 +639,15 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "cal@example.com" } });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-cal-1",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-cal-1",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -657,11 +680,14 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "none@example.com" } });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-cal-2",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "18:00",
-      partySize: 2,
+      reservation: {
+        id: "res-cal-2",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "18:00",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));

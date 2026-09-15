@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useEffect } from "react";
+import { useReducer, useCallback, useEffect, useRef } from "react";
 import type {
   TimeSlot,
   ReservationHold,
@@ -40,6 +40,12 @@ export interface BookingFlowData {
   holdLoading: boolean;
   holdError: string | null;
   reservation: Reservation | null;
+  /**
+   * Self-service manage/cancel token returned alongside the confirmed
+   * reservation — threaded through to ConfirmationView so guests get a
+   * working "Cancel Reservation" link instead of a dead-end button (#4978).
+   */
+  manageToken: string | null;
   confirmLoading: boolean;
   confirmError: string | null;
   depositConfig: DepositConfig | null;
@@ -79,8 +85,8 @@ type BookingFlowAction =
   | { type: "HOLD_SUCCESS"; hold: ReservationHold; slot: TimeSlot }
   | { type: "HOLD_ERROR"; error: string }
   | { type: "CONFIRM_START" }
-  | { type: "CONFIRM_SUCCESS_NO_DEPOSIT"; reservation: Reservation }
-  | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation }
+  | { type: "CONFIRM_SUCCESS_NO_DEPOSIT"; reservation: Reservation; manageToken: string | null }
+  | { type: "CONFIRM_SUCCESS_WITH_DEPOSIT"; reservation: Reservation; manageToken: string | null }
   | { type: "CONFIRM_ERROR"; error: string }
   | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
   | { type: "GO_BACK_TO_GUEST_DETAILS" }
@@ -103,6 +109,7 @@ const INITIAL_DATA: BookingFlowData = {
   holdLoading: false,
   holdError: null,
   reservation: null,
+  manageToken: null,
   confirmLoading: false,
   confirmError: null,
   depositConfig: null,
@@ -218,6 +225,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         data: {
           ...state.data,
           reservation: action.reservation,
+          manageToken: action.manageToken,
           confirmLoading: false,
           confirmError: null,
           depositRequired: false,
@@ -230,6 +238,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         data: {
           ...state.data,
           reservation: action.reservation,
+          manageToken: action.manageToken,
           confirmLoading: false,
           confirmError: null,
           depositRequired: true,
@@ -338,6 +347,15 @@ export interface UseBookingFlowDeps {
   /** Present when the venue's Stripe integration is configured; required (with venueSlug) for a deposit to ever be required. */
   stripePublishableKey?: string;
   holdDurationMinutes?: number;
+  /**
+   * Notified whenever the flow's active (unconfirmed) hold changes —
+   * created, released, expired, or consumed by a successful confirm. Lets
+   * the embedding page track the hold so it can release it if the guest
+   * closes the tab before confirming (#4978). `sessionId` travels alongside
+   * the hold id because releasing a hold requires the same `x-session-id`
+   * used to create it, which lives inside `api.holds`, not component state.
+   */
+  onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
 }
 
 export function useBookingFlow({
@@ -346,8 +364,17 @@ export function useBookingFlow({
   venueSlug,
   stripePublishableKey,
   holdDurationMinutes = 10,
+  onHoldChange,
 }: UseBookingFlowDeps): BookingFlowResult {
   const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
+
+  // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
+  // passed as a fresh inline arrow on every render; reading it through a ref
+  // keeps the notify-effect below from re-firing on unrelated re-renders.
+  const onHoldChangeRef = useRef(onHoldChange);
+  useEffect(() => {
+    onHoldChangeRef.current = onHoldChange;
+  }, [onHoldChange]);
 
   const setSelectedDate = useCallback((date: string | null) => {
     dispatch({ type: "SET_DATE", date });
@@ -520,7 +547,7 @@ export function useBookingFlow({
 
       dispatch({ type: "CONFIRM_START" });
       try {
-        const reservation = await api.holds.confirm(flowState.data.hold.id, {
+        const { reservation, manageToken } = await api.holds.confirm(flowState.data.hold.id, {
           guestName: details.name,
           guestEmail: details.email || undefined,
           guestPhone: details.phone || undefined,
@@ -532,9 +559,17 @@ export function useBookingFlow({
         // is required. Checking `.enabled` here would silently drop that
         // override.
         if (depositConfig) {
-          dispatch({ type: "CONFIRM_SUCCESS_WITH_DEPOSIT", reservation });
+          dispatch({
+            type: "CONFIRM_SUCCESS_WITH_DEPOSIT",
+            reservation,
+            manageToken: manageToken ?? null,
+          });
         } else {
-          dispatch({ type: "CONFIRM_SUCCESS_NO_DEPOSIT", reservation });
+          dispatch({
+            type: "CONFIRM_SUCCESS_NO_DEPOSIT",
+            reservation,
+            manageToken: manageToken ?? null,
+          });
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to confirm reservation";
@@ -602,6 +637,17 @@ export function useBookingFlow({
 
     return () => clearInterval(interval);
   }, [flowState.data.hold, fetchSlots]);
+
+  // Notifies onHoldChange whenever the "releasable" hold changes. Once the
+  // flow reaches "confirmation" the hold has been consumed into a real
+  // reservation — nothing left to release — even though `data.hold` itself
+  // is never cleared by the reducer.
+  const activeHoldId = flowState.step === "confirmation" ? null : (flowState.data.hold?.id ?? null);
+  useEffect(() => {
+    onHoldChangeRef.current?.(
+      activeHoldId ? { holdId: activeHoldId, sessionId: api.holds.getSessionId() } : null
+    );
+  }, [activeHoldId, api]);
 
   // Render-time derivation — single source of truth for the step set and
   // indicator. Both step sets share the same indices for every step before

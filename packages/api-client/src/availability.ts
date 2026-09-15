@@ -108,14 +108,19 @@ export class HoldsClient {
   }
 
   /**
-   * Confirm a hold and create a reservation
+   * Confirm a hold and create a reservation. `manageToken` (present whenever
+   * the server can mint one) is the self-service token for the manage/cancel
+   * page — callers thread it into the guest-facing confirmation UI.
    */
-  async confirm(id: string, details: ConfirmHoldRequest): Promise<Reservation> {
+  async confirm(
+    id: string,
+    details: ConfirmHoldRequest
+  ): Promise<{ reservation: Reservation; manageToken?: string }> {
     if (!this.sessionId) {
       throw new Error("Session ID required to confirm hold");
     }
 
-    const response = await this.client.request<{ data: Reservation }>(
+    const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
       `/api/v1/holds/${id}/confirm`,
       {
         method: "POST",
@@ -126,6 +131,6 @@ export class HoldsClient {
       }
     );
 
-    return response.data;
+    return { reservation: response.data, manageToken: response.manageToken };
   }
 }

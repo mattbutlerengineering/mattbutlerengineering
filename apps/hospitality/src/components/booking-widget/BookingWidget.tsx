@@ -22,8 +22,18 @@ export interface BookingWidgetProps {
   enableDateRange?: boolean;
   minDate?: string;
   maxDate?: string;
+  /**
+   * Overrides the manage-token-derived cancellation link ConfirmationView
+   * would otherwise build. Mainly for embeds/demos without a real backend
+   * manage token; leave unset in production.
+   */
   cancellationUrl?: string;
-  onCancellation?: () => void;
+  /**
+   * Notified whenever the active (unconfirmed) hold changes — see
+   * useBookingFlow's onHoldChange. Lets the embedding page release the hold
+   * if the guest closes the tab before confirming (#4978).
+   */
+  onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
   className?: string;
   stripePublishableKey?: string;
   /** Default estimated wait minutes shown when no slots are available (before API response) */
@@ -38,6 +48,14 @@ export interface BookingWidgetProps {
   audience?: "staff" | "guest";
   /** Staff-only: called when the "Set Operating Hours" prompt is clicked. */
   onSetHours?: () => void;
+}
+
+// Mirrors the "reservations/manage" route registered in main.tsx (basename
+// "/hospitality") — the guest-facing self-service manage/cancel page.
+const MANAGE_RESERVATION_PATH = "/hospitality/reservations/manage";
+
+function buildManageCancellationUrl(manageToken: string): string {
+  return `${window.location.origin}${MANAGE_RESERVATION_PATH}?token=${encodeURIComponent(manageToken)}`;
 }
 
 const BOOKING_STEPS_NO_DEPOSIT: StepItem[] = [
@@ -63,7 +81,7 @@ export function BookingWidget({
   minDate,
   maxDate,
   cancellationUrl,
-  onCancellation,
+  onHoldChange,
   className = "",
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
   defaultWaitMinutes = 30,
@@ -84,6 +102,7 @@ export function BookingWidget({
     venueSlug,
     stripePublishableKey,
     holdDurationMinutes,
+    onHoldChange,
   });
 
   // stepKeys/currentStepIndex come from useBookingFlow — the single source
@@ -201,8 +220,10 @@ export function BookingWidget({
             data.partySize
           )}
           onNewBooking={actions.resetFlow}
-          cancellationUrl={cancellationUrl}
-          onCancellation={onCancellation}
+          cancellationUrl={
+            cancellationUrl ??
+            (data.manageToken ? buildManageCancellationUrl(data.manageToken) : undefined)
+          }
           venueConfig={data.venueConfig}
         />
       )}
