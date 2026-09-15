@@ -106,8 +106,11 @@ function makeFakeApi() {
     },
     holds: {
       create: vi.fn().mockResolvedValue({ hold: mockHold, sessionId: "s1" }),
-      confirm: vi.fn().mockResolvedValue(mockReservation),
+      confirm: vi
+        .fn()
+        .mockResolvedValue({ reservation: mockReservation, manageToken: "tok_test123" }),
       release: vi.fn().mockResolvedValue(undefined),
+      getSessionId: vi.fn().mockReturnValue("s1"),
     },
     venues: {
       getPublicConfig: vi.fn().mockResolvedValue(makePublicVenueConfig()),

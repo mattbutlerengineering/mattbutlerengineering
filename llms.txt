@@ -1339,6 +1339,7 @@
         venueSlug,
         stripePublishableKey,
         holdDurationMinutes = 10,
+        onHoldChange,
       }: UseBookingFlowDeps): BookingFlowResult { /* ... */ }
     </item>
   </file>

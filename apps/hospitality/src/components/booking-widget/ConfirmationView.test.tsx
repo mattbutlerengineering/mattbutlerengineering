@@ -196,31 +196,6 @@ describe("ConfirmationView", () => {
     expect(mockOnNewBooking).toHaveBeenCalled();
   });
 
-  it("shows cancel button when onCancellation is provided", () => {
-    const mockCancel = vi.fn();
-    render(
-      <ConfirmationView
-        reservation={makeReservation()}
-        onNewBooking={mockOnNewBooking}
-        onCancellation={mockCancel}
-      />
-    );
-    expect(screen.getByText("Cancel Reservation")).toBeDefined();
-  });
-
-  it("calls onCancellation when cancel button is clicked", () => {
-    const mockCancel = vi.fn();
-    render(
-      <ConfirmationView
-        reservation={makeReservation()}
-        onNewBooking={mockOnNewBooking}
-        onCancellation={mockCancel}
-      />
-    );
-    fireEvent.click(screen.getByText("Cancel Reservation"));
-    expect(mockCancel).toHaveBeenCalled();
-  });
-
   it("navigates to cancellationUrl when provided", () => {
     const originalLocation = window.location.href;
     Object.defineProperty(window, "location", {
@@ -239,7 +214,7 @@ describe("ConfirmationView", () => {
     expect(window.location.href).toBe("https://example.com/cancel");
   });
 
-  it("does not show cancel button when neither cancellationUrl nor onCancellation is provided", () => {
+  it("does not show the cancel button when cancellationUrl is not provided (#4978)", () => {
     render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
     expect(screen.queryByText("Cancel Reservation")).toBeNull();
   });

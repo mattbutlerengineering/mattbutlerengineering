@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import React, { type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Venue } from "@mbe/types";
@@ -36,15 +36,23 @@ vi.mock("../components/booking-widget/index.js", async () => {
     BookingWidget: ({
       venueId,
       hasOperatingHours: hasHours,
+      onHoldChange,
     }: {
       venueId: string;
       hasOperatingHours: boolean;
+      onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
     }) => (
       <div
         data-testid="booking-widget"
         data-venue-id={venueId}
         data-has-operating-hours={String(hasHours)}
-      />
+      >
+        <button
+          data-testid="trigger-hold-change"
+          onClick={() => onHoldChange?.({ holdId: "hold-abc", sessionId: "sess-xyz" })}
+        />
+        <button data-testid="trigger-hold-clear" onClick={() => onHoldChange?.(null)} />
+      </div>
     ),
     hasOperatingHours,
   };
@@ -276,6 +284,67 @@ describe("PublicBookingPage", () => {
       await waitFor(() => {
         expect(screen.getByText("Powered by Matt Butler Engineering")).toBeDefined();
       });
+    });
+  });
+
+  describe("release-hold on tab close", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("dispatches a DELETE with keepalive to release the active hold on pagehide", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("trigger-hold-change"));
+      window.dispatchEvent(new Event("pagehide"));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("v1/holds/hold-abc"),
+        expect.objectContaining({
+          method: "DELETE",
+          keepalive: true,
+          headers: expect.objectContaining({ "x-session-id": "sess-xyz" }),
+        })
+      );
+    });
+
+    it("does not dispatch a release on pagehide when no hold is active", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+
+      window.dispatchEvent(new Event("pagehide"));
+
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("clears the tracked hold once onHoldChange reports it released", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("booking-widget")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByTestId("trigger-hold-change"));
+      fireEvent.click(screen.getByTestId("trigger-hold-clear"));
+      window.dispatchEvent(new Event("pagehide"));
+
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

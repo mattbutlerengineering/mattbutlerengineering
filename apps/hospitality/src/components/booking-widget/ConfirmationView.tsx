@@ -14,7 +14,6 @@ export interface ConfirmationViewProps {
   reservation: Reservation;
   onNewBooking: () => void;
   cancellationUrl?: string;
-  onCancellation?: () => void;
   depositAmountCents?: number | null;
   depositCurrency?: string | null;
   cancellationPolicySummary?: string | null;
@@ -53,7 +52,6 @@ export function ConfirmationView({
   reservation,
   onNewBooking,
   cancellationUrl,
-  onCancellation,
   depositAmountCents,
   depositCurrency,
   cancellationPolicySummary,
@@ -231,16 +229,11 @@ export function ConfirmationView({
 
       {/* Actions */}
       <div className={styles.actions}>
-        {(cancellationUrl || onCancellation) && (
+        {cancellationUrl && (
           <Button
             variant="ghost"
             onClick={() => {
-              if (onCancellation) {
-                onCancellation();
-              }
-              if (cancellationUrl) {
-                window.location.href = cancellationUrl;
-              }
+              window.location.href = cancellationUrl;
             }}
             className={styles.fullWidth}
           >
