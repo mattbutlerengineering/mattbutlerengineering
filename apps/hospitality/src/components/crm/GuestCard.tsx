@@ -12,10 +12,16 @@ import {
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
-import type { GuestRiskScore, Reservation } from "@mbe/types";
+import type { Reservation } from "@mbe/types";
 import { useGuest, useAddStaffNote } from "../../hooks/useGuests.js";
 import { useReservations } from "../../hooks/useReservations.js";
-import { isAllergyTag, getSegmentLabel, getSegmentVariant } from "./guest-signals.js";
+import {
+  isAllergyTag,
+  getSegmentLabel,
+  getSegmentVariant,
+  getRiskLabel,
+  getRiskVariant,
+} from "./guest-signals.js";
 import styles from "./GuestCard.module.css";
 
 /* ── Constants ───────────────────────────────────────── */
@@ -32,18 +38,6 @@ const OCCASION_LABELS: Record<string, string> = {
 
 function formatShortDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function getRiskVariant(score: GuestRiskScore): "error" | "warning" | "neutral" {
-  if (score === "risky") return "error";
-  if (score === "standard") return "warning";
-  return "neutral";
-}
-
-function getRiskLabel(score: GuestRiskScore): string {
-  if (score === "risky") return "Risky";
-  if (score === "standard") return "Standard";
-  return "Trusted";
 }
 
 /* ── Props ───────────────────────────────────────────── */
