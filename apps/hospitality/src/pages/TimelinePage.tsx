@@ -283,6 +283,7 @@ export function TimelinePage() {
     tableId: string;
     venueId: string;
     guestName?: string;
+    guestId?: string;
   }) => {
     const created = await createWalkIn(data);
     setSelectedIdState(created.id);
