@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -176,6 +179,18 @@ describe("App", () => {
       expect(failure).toBeDefined();
       expect(failure.getAttribute("data-lane")).toBe("0");
       expect(screen.getByText(describeAuthError(err).body)).toBeDefined();
+    });
+  });
+
+  describe("skip-link landing target focus indicator (#5159)", () => {
+    it("pairs .loginContainer's outline:none with a :focus-visible box-shadow replacement", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "App.module.css"),
+        "utf-8"
+      );
+      const focusRule = css.match(/\.loginContainer:focus-visible\s*\{([^}]*)\}/)?.[1] ?? "";
+      expect(focusRule).toMatch(/outline:\s*none/);
+      expect(focusRule).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
     });
   });
 

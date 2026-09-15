@@ -1,0 +1,312 @@
+pulumi preview --diff -- run maintenance:public-ingress-never-applied, item 4.5
+=============================================================================
+
+Recorded 2026-09-09 during the Implement-stage reconciliation (breakdown.md,
+Notes "Reconciliation (2026-09-09)"). The preview itself was dispatched by an
+earlier, unrecorded session; every value below was re-read from the run with
+the commands named, not recalled.
+
+Run URL         https://github.com/mattbutlerengineering/mattbutlerengineering/actions/runs/34379571653
+Workflow        Pulumi Preview (read-only) -- .github/workflows/pulumi-preview.yml (workflow id 226963896)
+Event           workflow_dispatch, ref refs/heads/fix/public-ingress-two-gates
+Evaluated SHA   02c8ecd00ad0043647eceaef39c0082be00a49f4
+                (gh run view 34379571653 --json headSha -- the run's SHA, not the branch head)
+Run window      2026-09-09T16:53:46Z .. 2026-09-09T16:55:28Z, conclusion success, every step success
+Artifact        pulumi-preview (artifact id 10115336088)
+Pulumi CLI      3.253.0 (explicit install + pulumi/actions pulumi-version: 3.253.0)
+Command         preview, diff: true, refresh: false, stack prod, work-dir infrastructure/pulumi
+Providers       digitalocean default_4_79_0, cloudflare default_6_19_0 (from the plan's [provider=...] urns)
+
+Bundle fingerprint (item 4.1(h)), copied from the run's step summary
+  sha256(infrastructure/worker/dist/edge-router.js)  830d5def8da802b9dbfa89dcd31bee10bdeab595bd7a5efab4273b789c1be709
+  originRoutes occurrences in the bundled file        4
+
+What 02c8ecd0 is: "Merge origin/main into fix/public-ingress-two-gates"
+(2026-09-09T16:48:47Z, parents 98ef2d96e fix branch + 9aaadd787 main). It
+carries all ten Milestone 1-3 commits, ignoreChanges narrowed at
+infrastructure/pulumi/index.ts:291, originRoutes at
+infrastructure/worker/routes-config.json:2, and pulumi-preview.yml as merged
+by #4545 (a5bfb2acd, an ancestor of 02c8ecd0 -- git merge-base --is-ancestor).
+
+
+Item 4.4 -- serialization against in-flight deploys (P3)
+--------------------------------------------------------
+
+NOT performed before dispatch; reconstructed after the fact on
+2026-09-10T00:35:51Z from the run history, which is a weaker check than the
+one the item specifies (a live `--status in_progress` query immediately before
+dispatch). Recorded as a deviation in breakdown.md.
+
+  preview 34379571653          2026-09-09T16:53:46Z .. 16:55:28Z
+  pulumi-up.yml
+    last run to END before     34319050701  ended   2026-09-09T06:28:18Z (success)
+    first run to START after   34380735703  started 2026-09-09T17:05:07Z
+  deploy-services.yml
+    last run to END before     34318866422  ended   2026-09-09T06:42:42Z
+    first run to START after   34390771555  started 2026-09-09T18:43:35Z
+
+No pulumi-up or deploy-services run overlapped the preview window. Since the
+preview is read-only (no refresh, no up), an overlap could only have affected
+what the preview read, never production.
+
+
+Complete `pulumi preview --diff` stdout
+---------------------------------------
+
+Extracted from `gh run view 34379571653 --log`, step "Preview Infrastructure
+(no apply)", with the runner's job/step/timestamp prefixes and ANSI colour
+codes stripped (perl, verified 0 tabs / 0 escape bytes remain). Nothing
+inside the block is elided beyond what Pulumi itself elides with "...".
+
+Previewing update (prod):
+  pulumi:pulumi:Stack: (same)
+    [urn=urn:pulumi:prod::mbe-infrastructure::pulumi:pulumi:Stack::mbe-infrastructure-prod]
+    ~ cloudflare:index/workersScript:WorkersScript: (update)
+        [id=mattbutlerengineering-edge-router]
+        [urn=urn:pulumi:prod::mbe-infrastructure::cloudflare:index/workersScript:WorkersScript::mattbutlerengineering-edge-router]
+        [provider=urn:pulumi:prod::mbe-infrastructure::pulumi:providers:cloudflare::default_6_19_0::32f4dfce-3620-472a-b23e-f766d6273775]
+      ~ content: 
+            ...
+              { pattern: "/api/flags/", maxRequests: 5, windowSeconds: 60 },
+              { pattern: "/health/system", maxRequests: 10, windowSeconds: 60 },
+          -   { pattern: "/api/", maxRequests: 100, windowSeconds: 60 }
+          +   { pattern: "/api/", maxRequests: 100, windowSeconds: 60 },
+          +   // Same bound as its /api/ sibling, deliberately — /public/ is the
+          +   // unauthenticated guest surface (booking widget, guest self-service), so it
+          +   // is the one that most needs edge shedding.
+          +   //
+          +   // This limiter runs BEFORE the origin-proxy branch and is keyed by this
+          +   // table, NOT by routes-config.json's originRoutes — so a prefix added there
+          +   // does not become rate limited by being proxied. Measured before this entry
+          +   // existed: /api/v1/venues -> {allowed:false, limit:100} while
+          +   // /public/v1/venues/x -> {allowed:true, limit:-1}. rate-limiter.test.js
+          +   // asserts every originRoutes prefix has an entry here, so the next prefix
+          +   // added cannot repeat that.
+          +   { pattern: "/public/", maxRequests: 100, windowSeconds: 60 }
+            ]);
+            function findRateLimit(pathname) {
+            ...
+            // infrastructure/worker/routes-config.json
+            var routes_config_default = {
+          +   originRoutes: ["/api", "/public"],
+              staticRoutes: [
+                {
+            ...
+              return token !== null && token === env.AUDIT_TOKEN;
+            }
+          + function isOriginRoute(pathname) {
+          +   return routes_config_default.originRoutes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+          + }
+            function writeAnalytics(env, request, route, statusCode, startTime) {
+              if (!env.ANALYTICS) return;
+            ...
+                  );
+                }
+          -     if (url.pathname.startsWith("/api/") || url.pathname === "/api") {
+          +     if (isOriginRoute(url.pathname)) {
+                  const circuitState = await getCircuitState(env.HEALTH_STATE);
+                  const nowMs = Date.now();
+            ...
+    ~ digitalocean:index/app:App: (update)
+        [id=5dbdcf45-4053-4518-a97b-f1e2b3122a61]
+        [urn=urn:pulumi:prod::mbe-infrastructure::digitalocean:index/app:App::mattbutlerengineering-api-app]
+        [provider=urn:pulumi:prod::mbe-infrastructure::pulumi:providers:digitalocean::default_4_79_0::87a037c3-6507-429d-8f18-54bf74e795d0]
+      ~ spec: {
+          ~ ingress: {
+              ~ rules: [
+                  ~ [6]: {
+                          ~ component: {
+                              ~ name: "users-api" => "reservations-api"
+                            }
+                          ~ match    : {
+                              ~ path: {
+                                  ~ prefix: "/" => "/public"
+                                }
+                            }
+                        }
+                  + [7]: {
+                          + component : {
+                              + name              : "users-api"
+                              + preservePathPrefix: true
+                            }
+                          + match     : {
+                              + path      : {
+                                  + prefix    : "/"
+                                }
+                            }
+                        }
+                ]
+            }
+        }
+Resources:
+    ~ 2 to update
+    14 unchanged
+warning: Resource does not support customTimeouts, ignoring: update=15m0s
+
+
+Level 1 -- preview-level outcome
+--------------------------------
+
+PLAN PRODUCED. The engine did not error and did not reject any `ignoreChanges`
+property path: `ignoreChanges: ["spec.features", "spec.jobs", "spec.services"]`
+was accepted and a plan was rendered. Summary line: `~ 2 to update, 14 unchanged`.
+Precondition P1 (depth-2, wildcard-free property paths are honored by Pulumi
+3.253.0 with @pulumi/digitalocean 4.79.0) is answered YES -- see the App row.
+
+One warning, printed after the summary:
+  warning: Resource does not support customTimeouts, ignoring: update=15m0s
+This is absent from the baseline up log (34319050701) and appears here because
+an App update is now planned: the `customTimeouts: { update: "15m" }` set on
+the App resource in index.ts will be ignored by the DigitalOcean provider when
+the update is applied. Preview-level observation for release.md (the apply
+will use the provider's own timeout, not 15m); not a defect of this run.
+
+
+Level 2 -- one verdict per resource (all 16 stack resources)
+------------------------------------------------------------
+
+"in plan" = the resource has a row in the stdout above. A resource with no
+row is `unchanged` in a no-refresh preview (the plan lists only the Stack and
+the resources it intends to change). The 16-resource inventory is the set the
+baseline up (34319050701) refreshed by name.
+
+  #  Resource                                                          Plan             Verdict
+  -- ----------------------------------------------------------------- ---------------- -------------------------------------------------------------
+   1 pulumi:pulumi:Stack mbe-infrastructure-prod                       (same)           unchanged -- root, expected
+   2 digitalocean:index:App mattbutlerengineering-api-app              ~ update         PASS. Diff confined to spec.ingress.rules: rendered as
+                                                                                        rules[6] users-api -> reservations-api, prefix "/" -> "/public",
+                                                                                        plus + rules[7] users-api, prefix "/", preservePathPrefix true.
+                                                                                        Read as a list: exactly one rule ("/public" -> reservations-api)
+                                                                                        inserted between "/api" (rules[5]) and the "/" catch-all (now
+                                                                                        rules[7]); no other ingress churn; NO diff on spec.services,
+                                                                                        spec.jobs, spec.features, spec.name, spec.region or
+                                                                                        spec.domainNames. Not `unchanged`, so not silent no-honor;
+                                                                                        no ingress divergence beyond the added rule to enumerate.
+   3 cloudflare:index:WorkersScript mattbutlerengineering-edge-router  ~ update         PASS. Diff confined to `content`; no bindings, scriptName,
+                                                                                        mainModule or compatibilityDate diff. Positively confirmed by
+                                                                                        the 4.1(h) fingerprint: originRoutes occurs 4 times in the
+                                                                                        bundled file (>= 1), sha256 830d5def... recorded above. The
+                                                                                        rendered content diff shows the four edge changes: the
+                                                                                        /public/ rate-limit entry, `originRoutes: ["/api", "/public"]`
+                                                                                        from routes-config.json, `isOriginRoute()` (exact-or-slash),
+                                                                                        and the origin-proxy branch switched from the hardcoded
+                                                                                        `/api` test to `isOriginRoute(url.pathname)`.
+   4 cloudflare:index:WorkersScript mattbutlerengineering-gen          not in plan      unchanged -- PASS, no finding. The carrier's gen build
+                                                                                        (same env as pulumi-up.yml, 4.1(g)) reproduced the asset
+                                                                                        manifest in state.
+   5 auth0:index:Client mattbutlerengineering-hospitality              not in plan      unchanged -- neutral (rule 4). Quiet, as expected in a
+                                                                                        no-refresh preview; counts neither for nor against.
+   6 auth0:index:ClientGrant mattbutlerengineering-hospitality-api-grant not in plan    unchanged
+   7 auth0:index:ResourceServer mattbutlerengineering-api              not in plan      unchanged
+   8 auth0:index:User e2e-test-user                                    not in plan      unchanged
+   9 cloudflare:index:DnsRecord mattbutlerengineering-api-dns          not in plan      unchanged
+  10 cloudflare:index:DnsRecord mattbutlerengineering-dns              not in plan      unchanged
+  11 cloudflare:index:DnsRecord mattbutlerengineering-www-dns          not in plan      unchanged
+  12 cloudflare:index:WorkersKvNamespace mattbutlerengineering-cache   not in plan      unchanged
+  13 cloudflare:index:WorkersKvNamespace mattbutlerengineering-health-state not in plan unchanged
+  14 cloudflare:index:WorkersKvNamespace mattbutlerengineering-sessions not in plan     unchanged
+  15 cloudflare:index:WorkersRoute edge-router-route                   not in plan      unchanged
+  16 cloudflare:index:WorkersRoute edge-router-www-route               not in plan      unchanged
+
+Diffs outside the two expected resources: NONE. There is nothing to enumerate
+for release.md beyond rows 2 and 3.
+
+
+The seven rules of item 4.5, recorded verbatim, each with its verdict
+---------------------------------------------------------------------
+
+1. "`App: unchanged` -> FAIL, unconditionally -- most of all when other
+   resources did change. It is the original defect's exact signature, and no
+   combination of other rows redeems it."
+   VERDICT: not triggered. App is `~ update` (row 2). PASS.
+
+2. "`edge-router: unchanged` -> FAIL. The measured baseline says that bundle
+   is byte-reproducible, so an absent diff means it does not carry the edge
+   change and the preview evaluated the wrong worker. Confirm the row
+   positively from 4.1(h)'s fingerprint -- `originRoutes` occurs at least once
+   in the bundled file, and the `sha256sum` is recorded so a later run can
+   tell whether the same bundle was read -- not from the opaque `~ content`
+   diff alone. A passing App row does not redeem it: the gates are in series,
+   and either one shut leaves the surface just as dead."
+   VERDICT: not triggered. edge-router is `~ update` confined to content;
+   originRoutes count 4 >= 1; sha256 recorded. PASS.
+
+3. "A `mattbutlerengineering-gen` diff is a finding, not build noise.
+   Enumerate it, and treat the `edge-router` row as suspect for the same
+   reason: the likeliest cause is the carrier's build env diverging from
+   `pulumi-up.yml`'s (4.1(g)), which means the preview is not reading the
+   artifacts it claims to."
+   VERDICT: no gen diff (row 4). No finding; the edge-router row is not
+   suspect on this ground. PASS.
+
+4. "`auth0:index:Client mattbutlerengineering-hospitality` gets a named
+   verdict that counts neither for nor against this run -- known permanent
+   `sso` oscillation, unrelated drift, never allowed to dilute the App
+   verdict."
+   VERDICT: named (row 5): unchanged in this no-refresh preview. Neutral.
+
+5. "Every resource appearing in the plan gets a named verdict, and any diff
+   outside the two expected ones is enumerated by name for `release.md`.
+   'Only ingress changed' is admissible as an enumeration and inadmissible as
+   an impression -- an unread row is how a dead surface passes for a live
+   one. 'Resources changed' is not a verdict."
+   VERDICT: all 16 named above; the plan contains exactly the two expected
+   updates and nothing else; enumeration for release.md = rows 2 and 3 only.
+   PASS.
+
+6. "The baseline is re-checked before the table is trusted. Rows 2-4 hold
+   only while the most recent `pulumi-up` still reports `Resources: ~ 1
+   updated, 15 unchanged` with App, `gen` and `edge-router` merely
+   `refreshing` (measured on run 32775514049, `a458f266`,
+   2026-08-24T20:43:35Z). Nothing in this repo goes red when that baseline
+   moves, so record which run was checked and when."
+   VERDICT: re-checked 2026-09-10 against the most recent SUCCESSFUL
+   pulumi-up, run 34319050701 (main 82af9ac7e, 2026-09-09T06:26:16Z ..
+   06:28:18Z, workflow_run, success). Its refresh and its up both ended
+   `Resources: 16 unchanged` -- all 16 resources merely refreshing, App, gen
+   and edge-router included. The baseline has MOVED from the architecture's
+   `~ 1 updated, 15 unchanged` (the auth0 sso oscillation was absent that
+   run) in the benign direction; the three properties the table depends on
+   (App unchanged under `ignoreChanges: ["spec"]`, gen asset manifest
+   reproducible, edge-router bundle byte-reproducible) all still hold. Rows
+   2-4 are trusted. Note: every pulumi-up dispatched after 17:05:07Z on
+   2026-09-09 failed or was cancelled in `Pulumi Refresh` (orphaned Auth0
+   Tenant/Branding state, see breakdown.md Notes) with `Pulumi Up` skipped,
+   so 34319050701 remains the most recent run that reached `up`. 82af9ac7e
+   is an ancestor of 9aaadd787 (the main side of 02c8ecd0), and no path
+   under apps/gen, infrastructure/pulumi, infrastructure/worker,
+   packages/rialto, packages/rialto-catalog or packages/auth changed between
+   them (git log 82af9ac7e..9aaadd787 -- <paths> is empty).
+
+7. "Nothing is applied -- the run's job list contains no `up`, and the App
+   ingress rule reaches production only via `release.md`'s steps, which this
+   run does not execute."
+   VERDICT: the run's single job "Preview Infrastructure (no apply)" has
+   steps Checkout / Setup pnpm / Setup Node 22 / install / build gen /
+   bundle edge router / fingerprint / Pin Pulumi CLI / Preview / Capture
+   preview transcript / upload-artifact; no `up`, `destroy`, `refresh`,
+   `cancel`, `stack import` or `stack export` anywhere in pulumi-preview.yml
+   (grep on the merged file). Production re-measured 2026-09-10T00:32:08Z:
+     GET https://mattbutlerengineering.com/public/v1/venues/x        -> 200 text/html (marketing SPA; edge gate shut)
+     GET https://mattbutlerengineering.com/api/v1/venues              -> 401 JSON, x-ratelimit-limit: 100
+     GET https://api.mattbutlerengineering.com/public/v1/venues/x    -> 404 {"message":"Route GET:/public/v1/venues/x not found","error":"Not Found","statusCode":404} (users-api; DO gate shut)
+     GET https://api.mattbutlerengineering.com/api/v1/venues          -> 401
+   Both gates are still shut. Nothing from this run has reached production.
+   PASS (as the authorized prepare-and-stop end state).
+
+
+Earlier previews on this carrier (unrecorded at the time; listed for completeness)
+--------------------------------------------------------------------------------
+
+  run          when                  ref / SHA                                   sha256 (prefix) / originRoutes   summary
+  32793453536  2026-08-25T00:23Z     main a5bfb2acd (post-#4545 smoke)           count 0                          ~ 1 to update (auth0 Client), 15 unchanged
+  32794154055  2026-08-25T00:34Z     fix/public-ingress-two-gates 98ef2d96e      dc4b6b4c... / 4                  ~ 3 to update (auth0 Client, edge-router, App), 13 unchanged
+  33218903008  2026-08-28T23:00Z     fix/public-ingress-two-gates 98ef2d96e      dc4b6b4c... / 4                  ~ 4 to update (auth0 Client, gen, App, edge-router), 12 unchanged
+  34379571653  2026-09-09T16:53Z     fix/public-ingress-two-gates 02c8ecd0       830d5def... / 4                  ~ 2 to update (edge-router, App), 14 unchanged   <- THIS RECORD
+
+Only 34379571653 is read here: it is the most recent, it evaluates a ref that
+contains the merged carrier, and it is the only one whose auth0 Client row is
+quiet (the 2026-08-25/28 runs previewed right after a pulumi-up whose
+refresh had pulled `sso` into state). The gen diff in 33218903008 was a
+rule-3 finding at the time; it did not recur on 02c8ecd0 and is not
+re-investigated by this reconciliation.

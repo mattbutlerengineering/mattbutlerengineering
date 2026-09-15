@@ -240,6 +240,8 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-settings", label: "Settings", category: "Examples" },
   { id: "example-form", label: "Form States", category: "Examples" },
   { id: "example-reservations", label: "Reservations List", category: "Examples" },
+  { id: "example-reservation-timeline", label: "Reservation Timeline", category: "Examples" },
+  { id: "example-reservation-kanban", label: "Reservation Kanban", category: "Examples" },
   // Module predates the "Guest Profile" label (originally "guest detail").
   {
     id: "example-guest-profile",
@@ -284,6 +286,8 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-command-palette", label: "Command Palette", category: "Examples" },
   { id: "example-booking-wizard", label: "Booking Wizard", category: "Examples" },
   { id: "example-onboarding", label: "Onboarding", category: "Examples" },
+  { id: "example-availability-heatmap", label: "Availability Heatmap", category: "Examples" },
+  { id: "example-guest-checkin", label: "Guest Checkin", category: "Examples" },
   { id: "notification-center", label: "Notification Center", category: "Examples" },
   { id: "invoice", label: "Invoice", category: "Examples" },
   { id: "checkout", label: "Checkout", category: "Examples" },

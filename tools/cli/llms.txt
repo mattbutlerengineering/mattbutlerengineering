@@ -11,6 +11,12 @@
         labels: string[];
       }
     </item>
+    <item priority="high">
+      export function fetchIssueForRouting(issueNumber: string, client: GhClient): FetchedIssue { /* ... */ }
+    </item>
+    <item priority="high">
+      export const checkModelCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/agent/cost.ts">
     <item priority="high">
@@ -30,6 +36,19 @@
         isError: boolean;
       }
     </item>
+    <item priority="high">
+      interface SessionWithMetrics {
+        turnMetrics?: TurnMetrics[];
+        toolCallMetrics?: ToolCallMetrics[];
+        failureCategory?: string;
+      }
+    </item>
+    <item priority="medium">
+      function printCostBreakdown(session: SessionWithMetrics): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const costCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/agent/orchestrate.ts">
     <item priority="high">
@@ -43,6 +62,9 @@
     <item priority="medium">
       function isAdapterType(value: string): value is AdapterType { /* ... */ }
     </item>
+    <item priority="high">
+      export const runCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/agent/session-api.ts">
     <item priority="low">
@@ -51,6 +73,21 @@
     <item priority="high">
       export const startCommand: unknown;
     </item>
+    <item priority="high">
+      export const listCommand: unknown;
+    </item>
+    <item priority="high">
+      export const statusCommand: unknown;
+    </item>
+    <item priority="high">
+      export const logsCommand: unknown;
+    </item>
+    <item priority="high">
+      export const cancelCommand: unknown;
+    </item>
+    <item priority="high">
+      export const deleteCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/agent/shared.ts">
     <item priority="high">
@@ -58,6 +95,15 @@
     </item>
     <item priority="high">
       export function formatCost(usd: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatStatus(status: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatTimestamp(iso: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function printSession(session: AgentSession, verbose = false): void { /* ... */ }
     </item>
   </file>
   </section>
@@ -79,6 +125,31 @@
         prohibited_patterns?: unknown;
       }
     </item>
+    <item priority="medium">
+      function isNonEmptyString(value: unknown): value is string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkFrontmatter(
+        file: string,
+        content: string,
+        violations: StructuralViolation[]
+      ): { id: string | null; patterns: string[] } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkUniqueAndSequentialIds(
+        idsByFile: Map<string, string>,
+        violations: StructuralViolation[]
+      ): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseReadmeIndex(readmeContent: string): Map<string, number> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkIndexSync(adrDir: string, files: string[], violations: StructuralViolation[]): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateAdrStructure(adrDir: string): StructuralViolation[] { /* ... */ }
+    </item>
   </file>
   <file path="src/commands/adr.ts">
     <item priority="high">
@@ -92,6 +163,15 @@
     <item priority="medium">
       function parseADR(filePath: string): ADRFrontmatter | null { /* ... */ }
     </item>
+    <item priority="medium">
+      function reportStructuralViolations(violations: StructuralViolation[]): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function buildFailureMessage(structuralCount: number, patternCount: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const checkAdrCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/agent-eval.ts">
     <item priority="medium">
@@ -99,6 +179,42 @@
     </item>
     <item priority="high">
       export const agentEvalCommand: unknown;
+    </item>
+    <item priority="medium">
+      function emitReport(report: EvalReport, json: boolean): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function noRunMessage(adapterType: AdapterType): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findLogFile(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function loadCostBaseline(logFile: string, adapterType: AdapterType): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function persistReport(report: EvalReport, adapterType: AdapterType): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function makeAgentTaskRunner(
+        repoPath: string,
+        model: string,
+        adapterType: AdapterType
+      ): TaskRunner { /* ... */ }
+    </item>
+    <item priority="low">
+      async function verify(
+        repoPath: string,
+        branch: string,
+        fixtureRef: string,
+        script: "test" | "typecheck" | "lint"
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function printCalibration(summary: CalibrationSummary): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function printReport(report: EvalReport): void { /* ... */ }
     </item>
   </file>
   <file path="src/commands/agent-frontmatter.ts">
@@ -126,6 +242,12 @@
     <item priority="medium">
       function getWorktreeDirs(gitRoot: string): string[] { /* ... */ }
     </item>
+    <item priority="low">
+      async function getRemoteBranches(gitRoot: string): Promise<string[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const cleanupWorktreesCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/compound.ts">
     <item priority="high">
@@ -138,6 +260,21 @@
     </item>
     <item priority="medium">
       function componentTemplate(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function componentStyleTemplate(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function componentTestTemplate(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function componentIndexTemplate(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function routeTemplate(name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const generateCommand: unknown;
     </item>
   </file>
   <file path="src/commands/health.ts">
@@ -158,6 +295,27 @@
         ci?: { status: string };
       }
     </item>
+    <item priority="medium">
+      function colorize(text: string, status: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function statusIcon(status: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function padRight(str: string, len: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatOutput(data: SystemHealth): void { /* ... */ }
+    </item>
+    <item priority="low">
+      async function fetchHealth(): Promise<SystemHealth> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const healthRun: unknown;
+    </item>
+    <item priority="high">
+      export const healthCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/issue.ts">
     <item priority="high">
@@ -165,6 +323,19 @@
     </item>
     <item priority="high">
       export const VALID_TRANSITION_STATES: unknown;
+    </item>
+    <item priority="high">
+      export function isValidTransitionState(value: string): value is TransitionState { /* ... */ }
+    </item>
+    <item priority="high">
+      export function transitionIssue(
+        issueNumber: number,
+        toState: TransitionState,
+        client: GhClient
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const issueCommand: unknown;
     </item>
   </file>
   <file path="src/commands/login.ts">
@@ -194,6 +365,39 @@
     <item priority="medium">
       function detectNextPort(appsDir: string): number { /* ... */ }
     </item>
+    <item priority="medium">
+      function generatePackageJson(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateTsConfig(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateViteConfig(name: string, port: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateIndexHtml(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateMainTsx(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateAppTsx(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateGlobalCss(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateExamplePage(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function generateFaviconSvg(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function writeFile(filePath: string, content: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const newCommand: unknown;
+    </item>
   </file>
   <file path="src/commands/pack.ts">
     <item priority="medium">
@@ -201,6 +405,26 @@
     </item>
     <item priority="medium">
       function getSkeleton(node: Node): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detectPriority(statement: Node): "high" | "medium" | "low" { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getSectionName(file: string): string { /* ... */ }
+    </item>
+    <item priority="low">
+      async function packDirectory(
+        targetPath: string,
+        root: string,
+        forceFull = false,
+        checkOnly = false
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const packCommand: unknown;
+    </item>
+    <item priority="high">
+      export const packChangedCommand: unknown;
     </item>
   </file>
   <file path="src/commands/prime.ts">
@@ -220,6 +444,12 @@
     </item>
     <item priority="high">
       export const logSessionCommand: unknown;
+    </item>
+    <item priority="high">
+      export const statsCommand: unknown;
+    </item>
+    <item priority="high">
+      export const auditPerfCommand: unknown;
     </item>
   </file>
   <file path="src/commands/sync-rules.ts">
@@ -244,6 +474,9 @@
     </item>
     <item priority="high">
       export const usersGetRun: unknown;
+    </item>
+    <item priority="high">
+      export const usersCommand: unknown;
     </item>
   </file>
   <file path="src/commands/visual.ts">
@@ -290,6 +523,34 @@
     <item priority="low">
       type CommandResult = { kind: "rows"; rows: Row[]; f | { kind: "json"; data: unknown  | { kind: "error"; message: stri;
     </item>
+    <item priority="low">
+      type RunOptions = Record<string, unknown>;
+    </item>
+    <item priority="low">
+      interface RenderOptions {
+        json?: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface CommandConfig {
+        requiresAuth?: boolean;
+        run: (opts: O) => Promise<CommandResult>;
+      }
+    </item>
+    <item priority="high">
+      export function defineCommand<O extends RunOptions = RunOptions>(
+        config: CommandConfig<O>
+      ): (opts: O) => Promise<CommandResult> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function errorPrefix(): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function renderRows(rows: Row[]): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runCommand(result: CommandResult, opts: RenderOptions): Promise<void> { /* ... */ }
+    </item>
   </file>
   <file path="src/config.ts">
     <item priority="high">
@@ -302,6 +563,21 @@
     </item>
     <item priority="high">
       export const config: unknown;
+    </item>
+    <item priority="high">
+      export function getApiUrl(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getAccessToken(): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setTokens(accessToken: string, expiresIn: number): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clearTokens(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isAuthenticated(): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/issue-frontmatter.ts">
@@ -319,6 +595,36 @@
         overrides: AgentOverrides | null;
         warnings: string[];
       }
+    </item>
+    <item priority="high">
+      export function parseAgentFrontmatter(issueBody: string): ParseResult { /* ... */ }
+    </item>
+    <item priority="high">
+      type FieldResult = { fields: AgentOverrides; warnings: string[] };
+    </item>
+    <item priority="medium">
+      function validateModel(value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateBudget(value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateMaxTurns(value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateAdapter(value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateEscalate(value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateVerify(value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateField(key: string, value: unknown): FieldResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export function flagsFromOverrides(overrides: AgentOverrides | null): string[] { /* ... */ }
     </item>
   </file>
   <file path="src/monorepo-root.ts">
@@ -341,6 +647,30 @@
         reason: string;
         source: "frontmatter" | "router" | "escalate";
       }
+    </item>
+    <item priority="high">
+      export function resolveEscalatedModel(issue: IssueModelInput): IssueModelResult | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SpendAttempt {
+        sessionId: string;
+        modelId: string;
+        costUsd: number;
+        source: IssueModelResult["source"];
+        escalated: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function buildSpendAttempts(
+        baseSessionId: string,
+        initialResult: IssueModelResult,
+        initialCostUsd: number,
+        escalatedResult?: IssueModelResult,
+        escalatedCostUsd?: number
+      ): SpendAttempt[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveIssueModel(issue: IssueModelInput): IssueModelResult { /* ... */ }
     </item>
   </file>
   <file path="src/token-counter.ts">

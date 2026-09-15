@@ -9,6 +9,7 @@ import {
 } from "../components/venue-onboarding/OperatingHoursStep.js";
 import type { OperatingHoursValidationErrors } from "../components/venue-onboarding/OperatingHoursStep.js";
 import { PageHeader } from "../components/PageHeader.js";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { useUpdateVenue } from "../hooks/useVenues.js";
 import styles from "./SetupHoursPage.module.css";
 
@@ -41,7 +42,7 @@ export function SetupHoursPage() {
       });
       navigate("/setup");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save operating hours.");
+      setError(describeApiError(err).detail);
     } finally {
       setIsSaving(false);
     }

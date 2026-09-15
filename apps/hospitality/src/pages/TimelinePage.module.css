@@ -33,22 +33,6 @@
   gap: var(--rialto-space-xs);
 }
 
-.navButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--rialto-space-xs);
-  background: none;
-  border: none;
-  border-radius: var(--rialto-radius-default);
-  cursor: pointer;
-  color: var(--rialto-text-primary);
-}
-
-.navButton:hover {
-  background: var(--rialto-surface-recessed);
-}
-
 .navIcon {
   width: 1.25rem;
   height: 1.25rem;
@@ -60,24 +44,24 @@
   color: var(--rialto-text-primary);
 }
 
-.todayButton {
-  margin-inline-start: var(--rialto-space-xs);
-  padding-inline: var(--rialto-space-sm);
-  padding-block: var(--rialto-space-2xs);
-  font-size: var(--rialto-text-sm);
-  background: var(--rialto-surface-recessed);
-  border: none;
-  border-radius: var(--rialto-radius-default);
-  color: var(--rialto-text-primary);
-  cursor: pointer;
-}
-
-.todayButton:hover {
-  background: var(--rialto-border);
-}
-
+.todayButton,
 .walkInButton {
   margin-inline-start: var(--rialto-space-xs);
+}
+
+/* Reads as the disabled Walk-in button's description (ux.md Screen 2). */
+.walkInCaption {
+  margin-inline-start: var(--rialto-space-xs);
+}
+
+/* NF INCLUSIVE: 44 px targets on tablets and any coarse pointer (ux.md Screen 2). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .navButton,
+  .todayButton,
+  .walkInButton {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
 }
 
 /* Stats row */
@@ -127,25 +111,6 @@
   color: var(--rialto-text-tertiary);
 }
 
-.statItem {
-  color: var(--rialto-text-secondary);
-}
-
-.statValue {
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-primary);
-}
-
-.statConfirmed {
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-accent);
-}
-
-.statPending {
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-warning);
-}
-
 /* Main content area */
 .content {
   flex: 1;
@@ -160,61 +125,11 @@
   overflow: auto;
 }
 
-/* States inside timeline area */
-.loadingWrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.spinner {
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--rialto-radius-round);
-  border: 2px solid transparent;
-  border-block-end-color: var(--rialto-accent);
-  animation: spin 0.75s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* ── Reduced motion ──────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .liveDotConnected {
     animation: none;
   }
-
-  .spinner {
-    animation: none;
-  }
-}
-
-.errorBox {
-  background: var(--rialto-error-muted);
-  color: var(--rialto-error);
-  padding: var(--rialto-space-md);
-  border-radius: var(--rialto-radius-default);
-  font-size: var(--rialto-text-sm);
-}
-
-.emptyState {
-  text-align: center;
-  padding-block: var(--rialto-space-2xl);
-  color: var(--rialto-text-secondary);
-}
-
-.emptyStateText {
-  font-size: var(--rialto-text-base);
-  margin-block-end: var(--rialto-space-xs);
-}
-
-.emptyStateHint {
-  font-size: var(--rialto-text-sm);
 }
 
 .emptyStateLink {
@@ -277,12 +192,6 @@
 }
 
 /* Detail fields */
-.detailsStack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-md);
-}
-
 .detailLabel {
   display: block;
   font-size: var(--rialto-text-xs);
@@ -301,63 +210,7 @@
   color: var(--rialto-text-primary);
 }
 
-/* Notes detail */
-.notesValue {
-  font-size: var(--rialto-text-sm);
-  color: var(--rialto-text-primary);
-  background: var(--rialto-surface-recessed);
-  padding: var(--rialto-space-xs);
-  border-radius: var(--rialto-radius-sharp);
-}
-
-/* Status badge */
-.statusBadge {
-  display: inline-block;
-  padding-inline: var(--rialto-space-xs);
-  padding-block: 0.125rem;
-  font-size: var(--rialto-text-xs);
-  font-weight: var(--rialto-weight-medium);
-  border-radius: var(--rialto-radius-round);
-}
-
-.statusConfirmed {
-  background: color-mix(in srgb, var(--rialto-accent) 15%, transparent);
-  color: var(--rialto-accent);
-}
-
-.statusPending {
-  background: var(--rialto-warning-muted);
-  color: var(--rialto-warning);
-}
-
-.statusCompleted {
-  background: var(--rialto-success-muted);
-  color: var(--rialto-success);
-}
-
-.statusCancelled {
-  background: var(--rialto-surface-recessed);
-  color: var(--rialto-text-secondary);
-}
-
-.statusNoShow {
-  background: var(--rialto-error-muted);
-  color: var(--rialto-error);
-}
-
 /* Action buttons */
-.actionsDivider {
-  padding-block-start: var(--rialto-space-md);
-  border-block-start: 1px solid var(--rialto-border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-xs);
-}
-
-.fullWidth {
-  inline-size: 100%;
-}
-
 .actionButtonPrimary {
   width: 100%;
   padding-inline: var(--rialto-space-md);
@@ -409,12 +262,14 @@
 }
 
 /* ── Mobile responsive breakpoints ─────────────── */
-@media (max-width: 768px) {
-  /* Hide sidebar on mobile — details shown in Drawer instead */
+@media (max-width: 1024px) {
+  /* Tablet and below: the sheet or the Drawer carries the details, never the column */
   .sidebar {
     display: none;
   }
+}
 
+@media (max-width: 768px) {
   /* Compact header */
   .headerTop {
     margin-block-end: var(--rialto-space-xs);

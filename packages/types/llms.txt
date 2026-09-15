@@ -7,6 +7,12 @@
     <item priority="high">
       export const AgentSessionSchema: unknown;
     </item>
+    <item priority="high">
+      export const AgentSessionEventSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateAgentSessionRequestSchema: unknown;
+    </item>
   </file>
   <file path="src/schemas/api.ts">
     <item priority="high">
@@ -28,6 +34,15 @@
     <item priority="high">
       export const FloorPlanLayoutSchema: unknown;
     </item>
+    <item priority="high">
+      export const TableStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const TableSchema: unknown;
+    </item>
+    <item priority="high">
+      export const FloorPlanSchema: unknown;
+    </item>
   </file>
   <file path="src/schemas/guest.ts">
     <item priority="high">
@@ -35,6 +50,15 @@
     </item>
     <item priority="high">
       export const GuestSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestSegmentSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestRiskResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestRecognitionSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/health-system.ts">
@@ -44,6 +68,48 @@
     <item priority="low">
       type SystemHealthStatus = z.infer<typeof systemHealthStatusSchema>;
     </item>
+    <item priority="high">
+      export const probeStatusSchema: unknown;
+    </item>
+    <item priority="low">
+      type ProbeStatus = z.infer<typeof probeStatusSchema>;
+    </item>
+    <item priority="high">
+      export const ciStatusSchema: unknown;
+    </item>
+    <item priority="low">
+      type CiStatus = z.infer<typeof ciStatusSchema>;
+    </item>
+    <item priority="high">
+      export const migrationCheckStatusSchema: unknown;
+    </item>
+    <item priority="low">
+      type MigrationCheckStatus = z.infer<typeof migrationCheckStatusSchema>;
+    </item>
+    <item priority="high">
+      export const runInfoSchema: unknown;
+    </item>
+    <item priority="low">
+      type RunInfo = z.infer<typeof runInfoSchema>;
+    </item>
+    <item priority="high">
+      export const serviceCheckSchema: unknown;
+    </item>
+    <item priority="low">
+      type ServiceHealthCheck = z.infer<typeof serviceCheckSchema>;
+    </item>
+    <item priority="high">
+      export const staticSiteCheckSchema: unknown;
+    </item>
+    <item priority="low">
+      type StaticSiteCheck = z.infer<typeof staticSiteCheckSchema>;
+    </item>
+    <item priority="high">
+      export const systemHealthSchema: unknown;
+    </item>
+    <item priority="low">
+      type SystemHealth = z.infer<typeof systemHealthSchema>;
+    </item>
   </file>
   <file path="src/schemas/json-schema.ts">
     <item priority="medium">
@@ -51,6 +117,216 @@
     </item>
     <item priority="medium">
       function stripRequestOverConstraints(obj: Record<string, unknown>): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toFastifyJsonSchema(id: string, zodSchema: ZodType) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toRequestJsonSchema(zodSchema: ZodType): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const userPreferencesJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const userJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const tableShapeMetadataJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const tableJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const reservationJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const venueGroupJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const venueJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicVenueJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicVenueConfigJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const guestJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const guestSegmentJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const guestRiskResultJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const guestRecognitionJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const waitlistJoinResultJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const floorPlanLayoutJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const floorPlanJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const sessionJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const sessionEventJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createSessionBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const paginationJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const problemDetailsJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listReservationsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listMyReservationsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const walkInBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createReservationBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateReservationBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const availabilityQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const availabilityDatesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const briefingQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const eventsStreamQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const testEventBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listFloorPlansQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createFloorPlanBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateFloorPlanBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTablePositionsBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const assignTableBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listGuestsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const searchGuestsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const guestSegmentsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createGuestBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const findOrCreateGuestBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateGuestBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const addGuestNoteBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const lapsingGuestsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createHoldBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const confirmHoldBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createDepositBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listTablesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createTableBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTableBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateTableStatusBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listVenueGroupsQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createVenueGroupBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateVenueGroupBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listVenuesQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createVenueBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const updateVenueBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const createWaitlistBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const listWaitlistQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicAvailabilityQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicDepositBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicGuestRecognitionQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicGuestRiskQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicHoldBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicReservationBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicUnsubscribeQueryJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const publicWaitlistBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
+      export const modifyReservationBodyJsonSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/reservation-requests.ts">
@@ -60,6 +336,141 @@
     <item priority="high">
       export const ListMyReservationsQuerySchema: unknown;
     </item>
+    <item priority="high">
+      export const WalkInBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateReservationBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateReservationBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AvailabilityDatesQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const BriefingQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const EventsStreamQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const TestEventBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListFloorPlansQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateFloorPlanBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateFloorPlanBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTablePositionsBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AssignTableBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListGuestsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const SearchGuestsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const GuestSegmentsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateGuestBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const FindOrCreateGuestBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateGuestBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const AddGuestNoteBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const LapsingGuestsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateHoldBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ConfirmHoldBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateDepositBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListTablesQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateTableBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTableBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateTableStatusBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListVenueGroupsQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateVenueGroupBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateVenueGroupBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListVenuesQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateVenueBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const UpdateVenueBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CreateWaitlistBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ListWaitlistQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicAvailabilityQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicDepositBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicGuestRecognitionQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicGuestRiskQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicHoldBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicReservationBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ModifyReservationBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicUnsubscribeQuerySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicWaitlistBodySchema: unknown;
+    </item>
   </file>
   <file path="src/schemas/reservation.ts">
     <item priority="high">
@@ -67,6 +478,18 @@
     </item>
     <item priority="high">
       export const OccasionSchema: unknown;
+    </item>
+    <item priority="high">
+      export const SeatingPreferenceSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DepositStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DepositSchema: unknown;
     </item>
   </file>
   <file path="src/schemas/table-status.ts">
@@ -84,6 +507,9 @@
     <item priority="high">
       export const UserSchema: unknown;
     </item>
+    <item priority="high">
+      export const UserProfileSchema: unknown;
+    </item>
   </file>
   <file path="src/schemas/venue.ts">
     <item priority="high">
@@ -92,6 +518,21 @@
     <item priority="high">
       export const VenueGroupSchema: unknown;
     </item>
+    <item priority="high">
+      export const VenueSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicVenueSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicVenueDepositSchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicVenueConfigSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DepositPaymentIntentSchema: unknown;
+    </item>
   </file>
   <file path="src/schemas/waitlist.ts">
     <item priority="high">
@@ -99,6 +540,12 @@
     </item>
     <item priority="high">
       export const WaitlistJoinResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistStatusSchema: unknown;
+    </item>
+    <item priority="high">
+      export const WaitlistEntrySchema: unknown;
     </item>
   </file>
   </section>
@@ -116,6 +563,24 @@
         branchName: string | null;
       }
     </item>
+    <item priority="low">
+      interface CreateAgentSessionRequest {
+        taskDescription: string;
+        model?: string;
+        maxTurns?: number;
+        maxBudgetUsd?: number;
+        baseBranch?: string;
+      }
+    </item>
+    <item priority="low">
+      interface AgentSessionEvent {
+        id: string;
+        sessionId: string;
+        type: string;
+        data: Record<string, unknown>;
+        createdAt: string;
+      }
+    </item>
   </file>
   <file path="src/api.ts">
     <item priority="low">
@@ -128,6 +593,68 @@
       interface ApiMeta {
         timestamp: string;
         requestId?: string;
+      }
+    </item>
+    <item priority="low">
+      type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
+    </item>
+    <item priority="high">
+      export function titleForStatus(status: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createProblemDetails(
+        status: number,
+        title: string,
+        detail: string,
+        type = "about:blank",
+        instance?: string,
+        extensions?: Record<string, unknown>
+      ): ProblemDetails { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PaginatedResponse {
+        data: T[];
+        pagination: Pagination;
+      }
+    </item>
+    <item priority="low">
+      interface Pagination {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface HealthResponse {
+        status: "ok" | "degraded" | "error";
+        version: string;
+        timestamp: string;
+        service?: string;
+        checks?: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessResponse {
+        ready: boolean;
+        timestamp: string;
+        checks: ReadinessCheckStatus[];
+      }
+    </item>
+    <item priority="low">
+      interface ReadinessCheckStatus {
+        name: string;
+        status: "ok" | "error";
+        message?: string;
+      }
+    </item>
+    <item priority="low">
+      interface HealthCheck {
+        name: string;
+        status: "ok" | "error";
+        message?: string;
+        durationMs?: number;
       }
     </item>
   </file>
@@ -146,6 +673,68 @@
         capacity: number;
         minCovers: number;
         maxCovers: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface DateAvailability {
+        date: string;
+        hasAvailability: boolean;
+        slotCount?: number;
+      }
+    </item>
+    <item priority="low">
+      interface AvailabilityQuery {
+        date: string;
+        partySize: number;
+        duration?: number;
+      }
+    </item>
+    <item priority="low">
+      interface DateRangeQuery {
+        startDate: string;
+        endDate: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface ReservationHold {
+        id: string;
+        venueId: string;
+        tableId: string;
+        date: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface CreateHoldRequest {
+        venueId: string;
+        date: string;
+        time: string;
+        partySize: number;
+        tableId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ConfirmHoldRequest {
+        guestName?: string;
+        guestEmail?: string;
+        guestPhone?: string;
+        guestId?: string;
+        notes?: string;
+      }
+    </item>
+    <item priority="low">
+      interface ConflictCheckResult {
+        hasConflict: boolean;
+        conflictingReservationId?: string;
+        conflictingHoldId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface PacingCheckResult {
+        withinLimit: boolean;
+        currentCovers: number;
+        maxCovers: number;
       }
     </item>
   </file>
@@ -180,6 +769,33 @@
         showGrid?: boolean;
       }
     </item>
+    <item priority="low">
+      interface CreateFloorPlanRequest {
+        venueId: string;
+        name: string;
+        isActive?: boolean;
+        layoutJson: FloorPlanLayout;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateFloorPlanRequest {
+        name?: string;
+        isActive?: boolean;
+        layoutJson?: FloorPlanLayout;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateTablePositionRequest {
+        tableId: string;
+        shapeMetadata: TableShapeMetadata;
+      }
+    </item>
+    <item priority="low">
+      interface BulkUpdateTablePositionsRequest {
+        floorPlanId: string;
+        positions: UpdateTablePositionRequest[];
+      }
+    </item>
   </file>
   <file path="src/guest.ts">
     <item priority="low">
@@ -192,6 +808,76 @@
         createdAt: string;
       }
     </item>
+    <item priority="low">
+      type GuestRiskScore = "trusted" | "standard" | "risky";
+    </item>
+    <item priority="low">
+      interface Guest {
+        id: string;
+        venueId: string;
+        venue?: Venue;
+        email: string | null;
+        phone: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface LapsingGuest {
+        guestId: string;
+        name: string;
+        email: string | null;
+        phone: string | null;
+        communicationPreference: CommunicationPreference;
+      }
+    </item>
+    <item priority="low">
+      interface CreateGuestRequest {
+        venueId: string;
+        email?: string;
+        phone?: string;
+        name: string;
+        notes?: string;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateGuestRequest {
+        email?: string | null;
+        phone?: string | null;
+        name?: string;
+        notes?: string | null;
+        tags?: string[] | null;
+      }
+    </item>
+    <item priority="low">
+      interface GuestSearchParams {
+        venueId: string;
+        query?: string;
+        tags?: string[];
+        hasNotVisitedInDays?: number;
+        minVisitCount?: number;
+      }
+    </item>
+    <item priority="low">
+      interface GuestSegment {
+        name: string;
+        description: string;
+        count: number;
+        guests?: Guest[];
+      }
+    </item>
+    <item priority="low">
+      interface GuestRiskResult {
+        riskScore: GuestRiskScore;
+        requiresDeposit: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface GuestRecognition {
+        recognized: boolean;
+        firstName: string | null;
+        visitCount: number;
+        hasPreferences: boolean;
+      }
+    </item>
   </file>
   <file path="src/reservation.ts">
     <item priority="low">
@@ -199,6 +885,83 @@
     </item>
     <item priority="low">
       type DepositStatus = "pending" | "held" | "applied" | "refunded" | "partial_refunded" | "forfeited";
+    </item>
+    <item priority="low">
+      interface Deposit {
+        id: string;
+        reservationId: string;
+        amountCents: number;
+        currency: string;
+        status: DepositStatus;
+      }
+    </item>
+    <item priority="high">
+      export const TABLE_VALID_TRANSITIONS: Record<TableStatus, TableStatus[]>;
+    </item>
+    <item priority="low">
+      type Occasion = "birthday" | "anniversary" | "business" | "date_night" | "other" | "none";
+    </item>
+    <item priority="low">
+      type SeatingPreference = "booth" | "patio" | "bar" | "window" | "quiet" | "no_preference";
+    </item>
+    <item priority="low">
+      interface Reservation {
+        id: string;
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface CreateReservationRequest {
+        date: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        tableId: string;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateReservationRequest {
+        date?: string;
+        startTime?: string;
+        endTime?: string;
+        partySize?: number;
+        tableId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateTableStatusRequest {
+        status: TableStatus;
+      }
+    </item>
+    <item priority="low">
+      interface WalkInRequest {
+        partySize: number;
+        tableId: string;
+        venueId: string;
+        guestName?: string;
+        durationMinutes?: number;
+      }
+    </item>
+    <item priority="low">
+      interface CreateTableRequest {
+        name: string;
+        tableNumber?: string;
+        capacity: number;
+        minCovers?: number;
+        maxCovers?: number;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateTableRequest {
+        name?: string;
+        tableNumber?: string;
+        capacity?: number;
+        minCovers?: number;
+        maxCovers?: number;
+      }
     </item>
   </file>
   <file path="src/schema-compat.ts">
@@ -219,6 +982,19 @@
         required?: readonly string[];
       }
     </item>
+    <item priority="low">
+      interface SchemaChange {
+        type: "breaking" | "non-breaking";
+        message: string;
+      }
+    </item>
+    <item priority="high">
+      export function compareSchema(
+        schemaId: string,
+        baseline: JsonSchema | undefined,
+        current: JsonSchema | undefined
+      ): { breaking: string[]; nonBreaking: string[] } { /* ... */ }
+    </item>
   </file>
   <file path="src/table-status.ts">
     <item priority="low">
@@ -226,6 +1002,22 @@
     </item>
     <item priority="high">
       export const RESERVED_SOON_WINDOW_MINUTES: unknown;
+    </item>
+    <item priority="low">
+      interface TableDisplayStatusInput {
+        reservation: Reservation | null;
+        hasActiveHold: boolean;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function deriveTableDisplayStatus(input: TableDisplayStatusInput): TableDisplayStatus { /* ... */ }
+    </item>
+    <item priority="low">
+      interface TableStatusDelta {
+        tableId: string;
+        status: TableDisplayStatus;
+      }
     </item>
   </file>
   <file path="src/table.ts">
@@ -239,6 +1031,15 @@
         width: number;
         height: number;
         rotation?: number;
+      }
+    </item>
+    <item priority="low">
+      interface Table {
+        id: string;
+        name: string;
+        tableNumber: string | null;
+        capacity: number;
+        minCovers: number;
       }
     </item>
   </file>
@@ -259,6 +1060,33 @@
         emailVerified: boolean;
       }
     </item>
+    <item priority="low">
+      interface UserProfile {
+        id: string;
+        name: string | null;
+        picture: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface CreateUserRequest {
+        email: string;
+        name?: string;
+        picture?: string;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateUserRequest {
+        name?: string;
+        picture?: string;
+      }
+    </item>
+    <item priority="low">
+      interface UpdatePreferencesRequest {
+        theme?: "light" | "dark" | "system";
+        emailNotifications?: boolean;
+        marketingEmails?: boolean;
+      }
+    </item>
   </file>
   <file path="src/venue.ts">
     <item priority="low">
@@ -275,7 +1103,140 @@
         id: string;
         name: string;
         slug: string;
+        ianaTimezone: string;
         operatingHours: OperatingHours | null;
+      }
+    </item>
+    <item priority="low">
+      interface Venue {
+        id: string;
+        venueGroupId: string | null;
+        venueGroup?: VenueGroup;
+        name: string;
+        slug: string;
+      }
+    </item>
+    <item priority="low">
+      interface OperatingHours {
+        monday?: DaySchedule;
+        tuesday?: DaySchedule;
+        wednesday?: DaySchedule;
+        thursday?: DaySchedule;
+        friday?: DaySchedule;
+      }
+    </item>
+    <item priority="low">
+      interface DaySchedule {
+        open: string;
+        close: string;
+        closed?: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface PacingRule {
+        maxCoversPerSlot: number;
+        timeWindowMinutes?: number;
+      }
+    </item>
+    <item priority="low">
+      interface DurationRule {
+        minPartySize: number;
+        maxPartySize: number;
+        durationMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      interface VenueSettings {
+        defaultReservationDuration?: number;
+        maxPartySize?: number;
+        minAdvanceBooking?: number;
+        maxAdvanceBooking?: number;
+        requirePhone?: boolean;
+      }
+    </item>
+    <item priority="low">
+      type DepositType = "flat" | "per_person";
+    </item>
+    <item priority="low">
+      interface DepositConfig {
+        enabled: boolean;
+        depositType: DepositType | null;
+        amountCents: number | null;
+        currency: string;
+        freeCancellationHours: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface CreateVenueGroupRequest {
+        name: string;
+        slug: string;
+        settings?: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateVenueGroupRequest {
+        name?: string;
+        slug?: string;
+        settings?: Record<string, unknown>;
+      }
+    </item>
+    <item priority="low">
+      interface CreateVenueRequest {
+        venueGroupId?: string;
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        currencyCode?: string;
+      }
+    </item>
+    <item priority="low">
+      interface UpdateVenueRequest {
+        venueGroupId?: string | null;
+        name?: string;
+        slug?: string;
+        ianaTimezone?: string;
+        currencyCode?: string;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueDeposit {
+        enabled: boolean;
+        depositType: DepositType | null;
+        amountCents: number | null;
+        freeCancellationHours: number | null;
+        lateCancellationFeePercent: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueSettings {
+        defaultReservationDuration?: number;
+        maxPartySize?: number;
+        maxAdvanceBooking?: number;
+        slotIntervalMinutes?: number;
+      }
+    </item>
+    <item priority="low">
+      interface PublicVenueConfig {
+        name: string;
+        slug: string;
+        ianaTimezone: string;
+        currencyCode: string;
+        operatingHours: OperatingHours | null;
+      }
+    </item>
+    <item priority="low">
+      interface CreateDepositPaymentIntentRequest {
+        reservationId: string;
+        guestEmail?: string;
+        guestName?: string;
+      }
+    </item>
+    <item priority="low">
+      interface DepositPaymentIntent {
+        clientSecret: string;
+        depositId: string;
+        amountCents: number;
+        currency: string;
       }
     </item>
   </file>
@@ -292,6 +1253,27 @@
       interface WaitlistJoinResult {
         position: number;
         estimatedWaitMinutes: number;
+      }
+    </item>
+    <item priority="low">
+      type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled";
+    </item>
+    <item priority="low">
+      interface WaitlistEntry {
+        id: string;
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+      }
+    </item>
+    <item priority="low">
+      interface CreateWaitlistEntryRequest {
+        venueId: string;
+        partySize: number;
+        guestName: string;
+        guestPhone: string;
+        avgTurnTimeMinutes?: number;
       }
     </item>
   </file>

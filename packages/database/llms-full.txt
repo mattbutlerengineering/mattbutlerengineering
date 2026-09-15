@@ -17,6 +17,196 @@
         (err as { code: string }).code === "P2003"
       );
     }
+    interface SlowQuery {
+      model: string;
+      operation: string;
+      duration: number;
+      timestamp: number;
+    }
+    export interface SlowQueryStats {
+      count5min: number;
+      slowestMs: number;
+    }
+    export interface PoolStats {
+      total: number;
+      active: number;
+      waiting: number;
+      idle: number;
+      utilization: number;
+    }
+    export interface PoolMetrics {
+      total: number;
+      busy: number;
+      idle: number;
+      waiting: number;
+      utilization: number;
+      isDegraded: boolean;
+    }
+    export type ServiceStatus = "ok" | "degraded";
+    export interface DatabaseInstance<T> {
+      prisma: T;
+      getSlowQueryStats: () => SlowQueryStats;
+      getPoolMetrics: () => PoolMetrics;
+      getServiceStatus: () => ServiceStatus;
+      shutdown: () => Promise<void>;
+    }
+    export interface PrismaLike {
+      $extends: (extension: unknown) => unknown;
+      $disconnect: () => Promise<void>;
+      $queryRaw: (...args: unknown[]) => Promise<unknown>;
+    }
+    interface PrismaConstructor {
+      new (opts: { adapter: PrismaPg }): PrismaLike;
+    }
+    export function createDatabase<T extends PrismaLike>(
+      PrismaClient: PrismaConstructor,
+      databaseUrl?: string
+    ): DatabaseInstance<T> {
+      const connectionLimit = parseInt(process.env.PRISMA_CONNECTION_LIMIT ?? "5", 10);
+      const poolUtilizationThreshold = 0.8;
+      const url = databaseUrl ?? process.env.DATABASE_URL;
+    
+      const slowQueries: SlowQuery[] = [];
+    
+      const pool = new pg.Pool({
+        connectionString: url,
+        max: connectionLimit,
+      });
+    
+      pool.on("error", (err) => {
+        console.error("Postgres pool error:", err);
+      });
+    
+      function pruneSlowQueries(): void {
+        const windowStart = Date.now() - SLOW_QUERY_WINDOW_MS;
+        const recent = slowQueries.filter((q) => q.timestamp > windowStart);
+        slowQueries.length = 0;
+        slowQueries.push(...recent);
+      }
+    
+      function getSlowQueryStats(): SlowQueryStats {
+        pruneSlowQueries();
+        return {
+          count5min: slowQueries.length,
+          slowestMs: slowQueries.reduce((max, q) => Math.max(max, q.duration), 0),
+        };
+      }
+    
+      function getPoolStats(): PoolStats {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const p = pool as any;
+        const total = p.totalCount ?? 0;
+        const active = p.activeCount ?? 0;
+        const idle = p.idleCount ?? 0;
+        const waiting = p.waitingCount ?? 0;
+        return {
+          total,
+          active,
+          waiting,
+          idle,
+          utilization: connectionLimit > 0 ? active / connectionLimit : 0,
+        };
+      }
+    
+      function getPoolMetrics(): PoolMetrics {
+        const stats = getPoolStats();
+        return {
+          total: stats.total,
+          busy: stats.active,
+          idle: stats.idle,
+          waiting: stats.waiting,
+          utilization: stats.utilization,
+          isDegraded: stats.utilization >= poolUtilizationThreshold,
+        };
+      }
+    
+      function getServiceStatus(): ServiceStatus {
+        const stats = getSlowQueryStats();
+        const poolStats = getPoolStats();
+        if (stats.count5min > MAX_SLOW_QUERIES) return "degraded";
+        if (poolStats.utilization >= poolUtilizationThreshold) return "degraded";
+        return "ok";
+      }
+    
+      let isShutDown = false;
+    
+      const adapter = new PrismaPg(pool);
+      const basePrisma = new PrismaClient({ adapter });
+    
+      const prisma = basePrisma.$extends({
+        query: {
+          $allOperations: async ({
+            model,
+            operation,
+            args,
+            query,
+          }: {
+            model?: string;
+            operation: string;
+            args: unknown;
+            query: (args: unknown) => Promise<unknown>;
+          }) => {
+            const poolStats = getPoolStats();
+            if (poolStats.utilization >= poolUtilizationThreshold) {
+              console.warn(
+                JSON.stringify({
+                  type: "pool_alert",
+                  utilization: poolStats.utilization,
+                  active: poolStats.active,
+                  max: connectionLimit,
+                  timestamp: new Date().toISOString(),
+                })
+              );
+            }
+    
+            const start = Date.now();
+            const result = await query(args);
+            const duration = Date.now() - start;
+    
+            if (duration > SLOW_QUERY_THRESHOLD_MS) {
+              const sanitizedModel = model ?? "unknown";
+              const sanitizedOperation = operation ?? "unknown";
+    
+              console.warn(
+                JSON.stringify({
+                  type: "slow_query",
+                  model: sanitizedModel,
+                  operation: sanitizedOperation,
+                  duration,
+                  timestamp: new Date().toISOString(),
+                })
+              );
+    
+              slowQueries.push({
+                model: sanitizedModel,
+                operation: sanitizedOperation,
+                duration,
+                timestamp: Date.now(),
+              });
+            }
+    
+            return result;
+          },
+        },
+      }) as T;
+    
+      async function shutdown() {
+        if (isShutDown) return;
+        isShutDown = true;
+        await basePrisma.$disconnect();
+        await pool.end();
+      }
+    
+      process.on("beforeExit", shutdown);
+    
+      return {
+        prisma,
+        getSlowQueryStats,
+        getPoolMetrics,
+        getServiceStatus,
+        shutdown,
+      };
+    }
   </file>
   <file path="src/list-utils.ts">
     export function parsePaginationQuery(query: { page?: string; limit?: string }): {
@@ -31,6 +221,49 @@
     }
     export function paginate(query: { page: number; limit: number }): { skip: number; take: number } {
       return { skip: (query.page - 1) * query.limit, take: query.limit };
+    }
+    export interface PaginationMeta {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }
+    export function toPaginationMeta(page: number, limit: number, total: number): PaginationMeta {
+      const totalPages = Math.ceil(total / limit);
+      return {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      };
+    }
+    export interface PaginatedResponse<T> {
+      data: T[];
+      pagination: PaginationMeta;
+    }
+    export function buildPaginatedResponse<T>(
+      data: T[],
+      page: number,
+      limit: number,
+      total: number
+    ): PaginatedResponse<T> {
+      return { data, pagination: toPaginationMeta(page, limit, total) };
+    }
+    export function createListResponseSchema(entityRef: string) {
+      return {
+        type: "object" as const,
+        properties: {
+          data: { type: "array" as const, items: { $ref: entityRef } },
+          pagination: {
+            type: "object" as const,
+            properties: PAGINATION_PROPERTIES,
+          },
+        },
+      };
     }
   </file>
   <file path="src/prisma-config.ts">
@@ -84,6 +317,61 @@
       /** @deprecated Access via db.getPoolMetrics instead. */
       getPoolMetrics: ReturnType<typeof vi.fn>;
     }
+    export interface MockDatabaseServiceOverrides {
+      /** Merged (not replaced) with the default prisma stub. */
+      prisma?: Record<string, unknown>;
+      getSlowQueryStats?: ReturnType<typeof vi.fn>;
+      getServiceStatus?: ReturnType<typeof vi.fn>;
+      getPoolMetrics?: ReturnType<typeof vi.fn>;
+    }
+    export function createMockDatabaseService(
+      overrides?: MockDatabaseServiceOverrides
+    ): MockDatabaseService {
+      const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
+      const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
+    
+      const getSlowQueryStats =
+        overrides?.getSlowQueryStats ?? vi.fn().mockReturnValue(DEFAULT_SLOW_QUERY_STATS);
+      const getServiceStatus =
+        overrides?.getServiceStatus ?? vi.fn().mockReturnValue(DEFAULT_SERVICE_STATUS);
+      const getPoolMetrics = overrides?.getPoolMetrics ?? vi.fn().mockReturnValue(DEFAULT_POOL_METRICS);
+    
+      return {
+        prisma: mergedPrisma,
+        db: {
+          prisma: mergedPrisma,
+          getSlowQueryStats,
+          getServiceStatus,
+          getPoolMetrics,
+        },
+        getSlowQueryStats,
+        getServiceStatus,
+        getPoolMetrics,
+      };
+    }
+    export interface MockDatabaseModule {
+      db: {
+        prisma: MockPrisma;
+        getSlowQueryStats: ReturnType<typeof vi.fn>;
+        getServiceStatus: ReturnType<typeof vi.fn>;
+        getPoolMetrics: ReturnType<typeof vi.fn>;
+      };
+      prisma: MockPrisma;
+    }
+    export function createMockDatabaseModule(
+      overrides?: MockDatabaseServiceOverrides
+    ): MockDatabaseModule {
+      const mock = createMockDatabaseService(overrides);
+      return {
+        db: {
+          prisma: mock.prisma,
+          getSlowQueryStats: mock.getSlowQueryStats,
+          getServiceStatus: mock.getServiceStatus,
+          getPoolMetrics: mock.getPoolMetrics,
+        },
+        prisma: mock.prisma,
+      };
+    }
   </file>
   <file path="src/validators.ts">
     export interface ValidResult<T> {
@@ -95,6 +383,85 @@
       valid: false;
       value?: never;
       error: string;
+    }
+    export type ValidationResult<T> = ValidResult<T> | InvalidResult;
+    export function validateDateString(value: string | undefined): ValidationResult<Date> {
+      if (!value) {
+        return { valid: false, error: "Date is required. Use YYYY-MM-DD format." };
+      }
+      if (!DATE_REGEX.test(value)) {
+        return { valid: false, error: `Invalid date format. Use YYYY-MM-DD. Received: ${value}` };
+      }
+      const d = new Date(`${value}T00:00:00Z`);
+      if (isNaN(d.getTime())) {
+        return { valid: false, error: `Invalid calendar date: ${value}` };
+      }
+      // Verify the parsed date round-trips — catches impossible dates like 2024-13-01
+      const reparsed = d.toISOString().slice(0, 10);
+      if (reparsed !== value) {
+        return { valid: false, error: `Invalid calendar date: ${value}` };
+      }
+      return { valid: true, value: d };
+    }
+    export function validatePartySize(value: string | undefined): ValidationResult<number> {
+      if (!value) {
+        return { valid: false, error: "partySize is required. Must be a positive integer." };
+      }
+      // Reject decimals and Infinity before parseInt
+      if (value.includes(".") || value === "Infinity" || value === "-Infinity") {
+        return { valid: false, error: "Invalid party size. Must be a positive integer." };
+      }
+      const n = parseInt(value, 10);
+      if (isNaN(n) || n < 1) {
+        return { valid: false, error: "Invalid party size. Must be a positive integer." };
+      }
+      return { valid: true, value: n };
+    }
+    export function validateDateRange(
+      startDate: string,
+      endDate: string,
+      maxDays?: number
+    ): { valid: boolean; error?: string } {
+      const startResult = validateDateString(startDate);
+      if (!startResult.valid) {
+        return { valid: false, error: `Invalid startDate: ${startResult.error}` };
+      }
+      const endResult = validateDateString(endDate);
+      if (!endResult.valid) {
+        return { valid: false, error: `Invalid endDate: ${endResult.error}` };
+      }
+      if (startResult.value > endResult.value) {
+        return { valid: false, error: "startDate must be before or equal to endDate." };
+      }
+      if (maxDays !== undefined) {
+        const diffMs = endResult.value.getTime() - startResult.value.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays > maxDays) {
+          return {
+            valid: false,
+            error: `Date range cannot exceed ${maxDays} days. Received ${Math.ceil(diffDays)} days.`,
+          };
+        }
+      }
+      return { valid: true };
+    }
+    export function validateEnum<T extends string>(
+      value: string | undefined,
+      allowed: ReadonlyArray<T>
+    ): ValidationResult<T> {
+      if (!value) {
+        return {
+          valid: false,
+          error: `Value is required. Allowed: ${allowed.join(", ")}`,
+        };
+      }
+      if ((allowed as ReadonlyArray<string>).includes(value)) {
+        return { valid: true, value: value as T };
+      }
+      return {
+        valid: false,
+        error: `Invalid value "${value}". Allowed: ${allowed.join(", ")}`,
+      };
     }
   </file>
   </section>

@@ -261,6 +261,27 @@ describe("TimeSlotPicker", () => {
     });
   });
 
+  describe("venue timezone", () => {
+    it("renders slot times in the venue's timezone, not the guest's device timezone (#4976)", () => {
+      const originalTz = process.env.TZ;
+      process.env.TZ = "America/Los_Angeles";
+      try {
+        // 17:00Z on 2026-05-17 is 1:00 PM in New York (EDT, UTC-4) but
+        // 10:00 AM on a Los Angeles device (PDT, UTC-7) — the bug rendered
+        // the latter with no indication a timezone was in play.
+        const slot = makeSlot("2026-05-17T17:00:00Z");
+        render(
+          <TimeSlotPicker {...defaultProps} slots={[slot]} venueTimezone="America/New_York" />
+        );
+        expect(screen.getByText("Lunch")).toBeDefined();
+        expect(screen.getByText("1:00 PM")).toBeDefined();
+        expect(screen.queryByText("10:00 AM")).toBeNull();
+      } finally {
+        process.env.TZ = originalTz;
+      }
+    });
+  });
+
   describe("no operating hours configured", () => {
     it("shows a set-hours prompt with a working link for the staff audience", () => {
       const onSetHours = vi.fn();

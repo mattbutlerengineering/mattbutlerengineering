@@ -49,8 +49,7 @@ export function CookieBanner({
               </Stack>
             }
           >
-            We use cookies to enhance your browsing experience, analyze site traffic, and
-            personalize content.{" "}
+            We use cookies to enhance your browsing experience and personalize content.{" "}
             <Link to="/privacy" className={styles.privacyLink}>
               Privacy Policy
             </Link>
@@ -80,11 +79,6 @@ const CATEGORIES: readonly CategoryDef[] = [
     description: "Required for the website to function properly.",
     disabled: true,
     disabledReason: "Required for the site to function",
-  },
-  {
-    key: "analytics",
-    label: "Analytics",
-    description: "Help us understand how visitors interact with the site.",
   },
   {
     key: "functional",
@@ -121,7 +115,6 @@ export function CookiePreferencesDialog({
 
   const handleSave = () => {
     onSave({
-      analytics: draft.analytics,
       functional: draft.functional,
       marketing: draft.marketing,
     });

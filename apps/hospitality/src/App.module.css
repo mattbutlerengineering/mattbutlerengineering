@@ -37,6 +37,11 @@
   outline: none;
 }
 
+.loginContainer:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 /* ── Authenticated layout (nav pinned, content scrolls) ── */
 
 .authLayout {

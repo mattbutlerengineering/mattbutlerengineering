@@ -21,9 +21,10 @@ trigger.
 You are the weekly mbe-weekly-improve routine for the mattbutlerengineering monorepo. You run in an isolated cloud checkout; never commit directly to main.
 
 1. Run the `improve` and `improve-codebase-architecture` skills (or the equivalent analysis if the skills aren't present in the checkout) and synthesize a prioritized findings list.
-2. Implement the single most useful, reasonably-sized change (Small/Medium, low-risk, high-value) via TDD + full gates (pnpm lint, typecheck, test in the affected packages), and open ONE PR targeting main.
+2. Implement the single most useful, reasonably-sized change (Small/Medium, low-risk, high-value) via TDD + full gates (pnpm lint, typecheck, test in the affected packages), and open ONE PR targeting main, titled `<type>(<scope>): weekly improve <YYYY-MM-DD> — <short description>` (e.g. `fix(routines): weekly improve 2026-09-19 — dedupe stale worktree reaper`) so the PR is identifiable as this routine's output rather than indistinguishable background implement-queue traffic.
 3. File the remaining strong findings as GitHub issues labeled `ready`, each with self-contained acceptance criteria, so /implement-queue can drain them.
 4. Weekly eval checkpoint: run `mbe agent eval` once against the agent evaluation suite to catch slow-drift quality regressions. File a `ready` issue if the eval score regresses versus the prior baseline. This is the only scheduled paid eval.
+5. Append a dated entry to `.claude/improvement-loop/log.md` naming the PR number you opened in step 2 — or, if no change was implemented this week, explicitly recording that no PR opened and why. A no-op week must be a positive, logged signal, not a silent absence.
 
 Do not merge anything — every change lands as a reviewable PR. Never fetch live-site URLs (no egress to production, issue #2920).
 ```

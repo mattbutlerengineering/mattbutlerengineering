@@ -350,6 +350,7 @@ describe("venueService", () => {
         id: "venue-1",
         name: "Test Venue",
         slug: "test-venue",
+        ianaTimezone: "America/Los_Angeles",
         operatingHours: {
           monday: { open: "11:00", close: "22:00" },
           tuesday: { open: "11:00", close: "22:00" },
@@ -369,6 +370,7 @@ describe("venueService", () => {
           id: true,
           name: true,
           slug: true,
+          ianaTimezone: true,
           operatingHours: true,
         },
       });

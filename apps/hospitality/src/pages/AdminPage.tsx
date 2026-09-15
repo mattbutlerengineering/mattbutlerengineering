@@ -15,6 +15,7 @@ import {
 import type { User } from "@mbe/types";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { useUsers } from "../hooks/useUsers.js";
 import styles from "./AdminPage.module.css";
 
@@ -194,10 +195,16 @@ export function AdminPage() {
   }
 
   if (error) {
+    const loadFailure = describeApiError(error);
     return (
       <div>
         <PageHeader title="Admin" description="User management" />
-        <ErrorRetryBanner error={error.message} onRetry={refetch} />
+        <ErrorRetryBanner
+          title="Couldn't load users."
+          error={loadFailure.detail}
+          details={loadFailure.raw}
+          onRetry={refetch}
+        />
       </div>
     );
   }

@@ -45,6 +45,12 @@
   text-overflow: ellipsis;
 }
 
+/* The seated glyph sits before the name (ux.md Screen 2); the name still ellipsises. */
+.seatedLed {
+  vertical-align: middle;
+  margin-inline-end: var(--rialto-space-2xs);
+}
+
 .details {
   font-size: var(--rialto-text-xs);
   white-space: nowrap;

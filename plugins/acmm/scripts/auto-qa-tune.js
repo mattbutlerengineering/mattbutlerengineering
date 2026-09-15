@@ -25,6 +25,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import prettier from "prettier";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -159,11 +160,32 @@ export function buildHistoryEntry({ adjustments, date, snapshotDate }) {
   };
 }
 
+/**
+ * Render the tuning config exactly as `prettier --check .` expects to find it.
+ *
+ * `JSON.stringify(config, null, 2)` always breaks an array across lines;
+ * prettier collapses one that fits the print width. The difference is
+ * invisible until something commits the output without the pre-commit
+ * prettier hook in the path — which is precisely what `auto-qa-tune.yml`
+ * does, so the workflow's own PR was the only place the drift ever landed,
+ * and it failed the Build job every time (#5322). Same fix, same reason, as
+ * `saveState` in ./state.js (#3801).
+ *
+ * @param {object} config
+ * @param {string} filepath  Used to resolve the repo's prettier config.
+ * @returns {Promise<string>}
+ */
+export async function serializeConfig(config, filepath) {
+  const raw = JSON.stringify(config, null, 2) + "\n";
+  const prettierConfig = await prettier.resolveConfig(filepath);
+  return prettier.format(raw, { parser: "json", ...prettierConfig });
+}
+
 // ---------------------------------------------------------------------------
 // IO (side-effectful main — not exported for tests)
 // ---------------------------------------------------------------------------
 
-function main() {
+async function main() {
   const DRY_RUN = process.argv.includes("--dry-run");
   const cwd = process.cwd();
   const configPath = resolve(cwd, ".github/auto-qa-tuning.json");
@@ -218,7 +240,7 @@ function main() {
     process.exit(0);
   }
 
-  writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2) + "\n");
+  writeFileSync(configPath, await serializeConfig(updatedConfig, configPath));
   console.log(`Auto-QA tuning complete. ${adjustments.length} finding(s). History entry added.`);
   for (const a of adjustments) {
     console.log(`  - ${a}`);
@@ -230,5 +252,5 @@ import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 if (process.argv[1] === __filename) {
-  main();
+  await main();
 }

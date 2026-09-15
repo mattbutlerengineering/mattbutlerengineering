@@ -13,6 +13,7 @@ import {
   effectiveDepositPolicy,
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
+import { describeApiError } from "../../lib/describe-api-error.js";
 
 export type BookingStep =
   | "date-party"
@@ -66,6 +67,14 @@ export interface BookingFlowData {
    * null until the fetch resolves, or if `venueSlug` was never provided.
    */
   venueConfig: PublicVenueConfig | null;
+  /**
+   * The guest details form's fields, lifted here (not owned by
+   * `GuestDetailsForm`'s local state) so `EXPIRE_HOLD` doesn't wipe what the
+   * guest already typed — the form unmounts when the step falls back to
+   * "time-slot", but this survives and re-seeds the form once a new hold
+   * succeeds.
+   */
+  guestDetails: GuestDetails;
 }
 
 interface BookingFlowState {
@@ -95,7 +104,8 @@ type BookingFlowAction =
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "GO_TO_WAITLIST_JOIN" }
-  | { type: "WAITLIST_JOINED"; result: WaitlistResult };
+  | { type: "WAITLIST_JOINED"; result: WaitlistResult }
+  | { type: "SET_GUEST_DETAILS"; details: GuestDetails };
 
 const INITIAL_DATA: BookingFlowData = {
   selectedDate: null,
@@ -117,6 +127,7 @@ const INITIAL_DATA: BookingFlowData = {
   depositPaymentIntentId: null,
   waitlistResult: null,
   venueConfig: null,
+  guestDetails: { name: "", email: "", phone: "", notes: "" },
 };
 
 const INITIAL_STATE: BookingFlowState = {
@@ -305,6 +316,12 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         data: { ...state.data, waitlistResult: action.result },
       };
 
+    case "SET_GUEST_DETAILS":
+      return {
+        ...state,
+        data: { ...state.data, guestDetails: action.details },
+      };
+
     default:
       return state;
   }
@@ -326,6 +343,7 @@ export interface BookingFlowActions {
   setDepositConfig: (config: DepositConfig | null) => void;
   goToWaitlistJoin: () => void;
   handleWaitlistJoined: (result: WaitlistResult) => void;
+  setGuestDetails: (details: GuestDetails) => void;
 }
 
 export interface BookingFlowResult {
@@ -480,8 +498,7 @@ export function useBookingFlow({
     fetchSlots()
       .then((slots) => dispatch({ type: "SET_SLOTS", slots }))
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : "Failed to load availability";
-        dispatch({ type: "SET_SLOTS_ERROR", error: msg });
+        dispatch({ type: "SET_SLOTS_ERROR", error: describeApiError(err).detail });
       });
   }, [flowState.data.hold, releaseHold, fetchSlots]);
 
@@ -515,8 +532,7 @@ export function useBookingFlow({
         });
         dispatch({ type: "HOLD_SUCCESS", hold, slot });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to hold time slot";
-        dispatch({ type: "HOLD_ERROR", error: msg });
+        dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
       }
     },
     [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
@@ -572,8 +588,7 @@ export function useBookingFlow({
           });
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to confirm reservation";
-        dispatch({ type: "CONFIRM_ERROR", error: msg });
+        dispatch({ type: "CONFIRM_ERROR", error: describeApiError(err).detail });
       }
     },
     [
@@ -615,6 +630,10 @@ export function useBookingFlow({
 
   const handleWaitlistJoined = useCallback((result: WaitlistResult) => {
     dispatch({ type: "WAITLIST_JOINED", result });
+  }, []);
+
+  const setGuestDetails = useCallback((details: GuestDetails) => {
+    dispatch({ type: "SET_GUEST_DETAILS", details });
   }, []);
 
   // Hold-expiry timer — captured hold in closure; effect restarts on every
@@ -676,6 +695,7 @@ export function useBookingFlow({
       setDepositConfig,
       goToWaitlistJoin,
       handleWaitlistJoined,
+      setGuestDetails,
     },
   };
 }

@@ -16,7 +16,7 @@ Project documentation for the mattbutlerengineering monorepo. For AI-specific co
 | [`plans/`](plans/)               | Historical platform design and roadmap documents             |
 | [`reflections/`](reflections/)   | Lessons learned from AI sessions (ACMM L5)                   |
 | [`research/`](research/)         | Weekly research intake notes                                 |
-| [`runbooks/`](runbooks/)         | Operational runbooks for CI, deploys, services, static sites |
+| [`runbooks/`](runbooks/)         | Runbooks for CI, deploys, services, static sites, edge usage |
 | [`domain/`](domain/)             | Ubiquitous language glossary and domain model docs           |
 | [`security/`](security/)         | Security-specific docs (prompt injection guide)              |
 

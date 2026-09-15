@@ -1,7 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { ApiClientError } from "@mbe/api-client";
 import { EditReservationDrawer } from "./EditReservationDrawer.js";
+import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import type { Reservation, Table } from "@mbe/types";
+
+/** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
+function serverError(method: string, path: string): ApiClientError {
+  return new ApiClientError(
+    {
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      detail: "Internal Server Error",
+    },
+    method,
+    path
+  );
+}
 
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -272,25 +288,88 @@ describe("EditReservationDrawer", () => {
     expect(defaultProps.onSave).not.toHaveBeenCalled();
   });
 
-  it("should display error when onSave throws an Error", async () => {
+  it("speaks the house sentence for a plain Error, never its debug message", async () => {
     const onSave = vi.fn().mockRejectedValue(new Error("Network error"));
     render(<EditReservationDrawer {...defaultProps} onSave={onSave} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    await waitFor(() => {
-      expect(screen.getByText("Network error")).toBeDefined();
-    });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(ERROR_COPY.unknown.detail);
+    expect(screen.queryByText("Network error")).toBeNull();
   });
 
-  it("should display fallback error when onSave throws a non-Error", async () => {
+  it("speaks the house sentence for a non-Error rejection, never the thrown value", async () => {
     const onSave = vi.fn().mockRejectedValue("something broke");
     render(<EditReservationDrawer {...defaultProps} onSave={onSave} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    await waitFor(() => {
-      expect(screen.getByText("Failed to save changes.")).toBeDefined();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(ERROR_COPY.unknown.detail);
+    expect(screen.queryByText("something broke")).toBeNull();
+  });
+
+  describe("owns its failure (item 12, #5031)", () => {
+    const failure = serverError("PATCH", "/api/v1/reservations/res-1");
+
+    it("renders 'Changes not saved.' with the house sentence, the raw line behind Show details, and stays open", async () => {
+      const onSave = vi.fn().mockRejectedValue(failure);
+      render(<EditReservationDrawer {...defaultProps} onSave={onSave} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+      const alert = await screen.findByRole("alert");
+      expect(
+        alert.textContent?.startsWith(`Changes not saved.${ERROR_COPY.serverError.detail}`)
+      ).toBe(true);
+      expect(screen.queryByText(failure.message)).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+      expect(screen.getByRole("region", { name: "Show details" })).toHaveTextContent(
+        failure.message
+      );
+      expect(screen.getByTestId("edit-reservation-drawer")).toBeInTheDocument();
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+    });
+
+    it("returns Save Changes to rest in the same commit as the banner and keeps the edited values", async () => {
+      const onSave = vi.fn().mockRejectedValue(failure);
+      render(<EditReservationDrawer {...defaultProps} onSave={onSave} />);
+      fireEvent.change(screen.getByLabelText("Party Size"), { target: { value: "6" } });
+      fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Booth preferred" } });
+
+      fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+      await screen.findByRole("alert");
+      expect(screen.getByRole("button", { name: "Save Changes" })).not.toBeDisabled();
+      expect(screen.queryByText("Saving…")).toBeNull();
+      expect(screen.getByLabelText("Party Size")).not.toBeDisabled();
+      expect((screen.getByLabelText("Party Size") as HTMLInputElement).value).toBe("6");
+      expect((screen.getByLabelText("Notes") as HTMLTextAreaElement).value).toBe("Booth preferred");
+    });
+
+    it("leaves focus on Save Changes after the failure, so pressing again is the retry", async () => {
+      const onSave = vi.fn().mockRejectedValue(failure);
+      render(<EditReservationDrawer {...defaultProps} onSave={onSave} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+      await screen.findByRole("alert");
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Save Changes" })).toHaveFocus();
+      });
+    });
+
+    it("keeps form validation on its own line: a bad party size never shows the failure banner", async () => {
+      render(<EditReservationDrawer {...defaultProps} />);
+      fireEvent.change(screen.getByLabelText("Party Size"), { target: { value: "0" } });
+
+      fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+      expect(await screen.findByText("Party size must be a positive number.")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(defaultProps.onSave).not.toHaveBeenCalled();
     });
   });
 

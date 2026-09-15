@@ -4,7 +4,7 @@ Machine-readable encoding of the rules in [`docs/SECURITY-AI.md`](../../docs/SEC
 
 > **ACMM L5 self-tuning signal.** Policies expressed as data (rather than as prose buried in a markdown file or as imperative checks scattered across review scripts) can be:
 >
-> - Loaded by reviewer agents at session start as input to `pr-review-toolkit:code-reviewer`
+> - Loaded by reviewer agents at session start as input to the `reviewer` agent
 > - Validated by a CI job (when GH Actions is funded) using `conftest` or an OPA policy engine
 > - Diffed across PRs so a change to a rule is visible in the same way as a code change
 >
@@ -21,7 +21,7 @@ Machine-readable encoding of the rules in [`docs/SECURITY-AI.md`](../../docs/SEC
 
 ## How agents apply these policies
 
-Reviewer agents (`pr-review-toolkit:code-reviewer`, `adr-compliance-reviewer`, `migration-reviewer`) read these files at session start. The patterns and rules are evaluated against the diff and used to:
+Reviewer agents (`reviewer`, `adr-compliance-reviewer`, `migration-reviewer`) read these files at session start. The patterns and rules are evaluated against the diff and used to:
 
 1. Reject changes that violate a `forbidden_patterns` entry in `secrets.yaml` or `destructive-ops.yaml`.
 2. Auto-classify a PR using `change-tiers.yaml` rules (mirror of the `tier-classifier.yml` workflow logic).

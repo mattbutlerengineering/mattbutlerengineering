@@ -32,6 +32,8 @@ Every `mbe-*` routine silently died on 2026-07-10 during an account migration an
 
 For the last 7 days, verify each scheduled job actually RAN and actually PRODUCED its expected artifact. Cross-check `docs/scheduled-tasks.md`'s routine catalog (the list of what is supposed to exist) against observed output: `gh pr list --state all --search 'created:>=<7d ago>'`, `gh issue list --state all --search 'created:>=<7d ago>'`, and `gh run list --limit 100` for the GitHub Actions half (`drift-fix.yml`, `audit-sweep.yml`). A routine that ran but produced nothing for 7 straight days is as broken as one that did not run — flag both. This pass alone justifies the routine.
 
+For `mbe-weekly-improve` specifically: its PR must match the signature `<type>(<scope>): weekly improve <date> — <short description>` (see `docs/scheduled-tasks.md`'s `mbe-weekly-improve` note). Cross-check that title against the same week's `.claude/improvement-loop/log.md` entry, which must name the same PR number (or explicitly record that none opened, and why). A plausible-looking implement-queue PR from that Friday that does NOT carry this title and log entry is not evidence the routine ran — it is indistinguishable from unrelated background traffic and must be flagged as DARK, not credited.
+
 ## Pass 2 — human-blocked backlog aging
 
 Human decisions are the factory's real throughput ceiling. List open issues labeled `ready-for-human`, `needs-review`, `blocked`, `agent-failed`, or `stealable`. Anything untouched for more than 7 days is a flow blocker.

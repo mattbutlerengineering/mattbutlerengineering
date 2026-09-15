@@ -71,7 +71,7 @@ describe("useCommandPalette", () => {
 
     const labels = actionItems.map((item) => item.label);
     expect(labels).toContain("New Reservation");
-    expect(labels).toContain("Walk-in Guest");
+    expect(labels).toContain("Walk-in guest");
     expect(labels).toContain("New Floor Plan");
     expect(labels).toContain("Toggle Theme");
     expect(labels).toContain("Sign Out");
@@ -104,10 +104,11 @@ describe("useCommandPalette", () => {
     expect(mockSignOut).toHaveBeenCalled();
   });
 
-  it("builds groups in correct order", () => {
+  it("builds groups with Actions first, then the nav sections in order", () => {
     const { result } = renderHook(() => useCommandPalette(defaultOptions));
 
-    expect(result.current.groups).toEqual(["Main", "Settings", "Actions"]);
+    expect(result.current.groups[0]).toBe("Actions");
+    expect(result.current.groups).toEqual(["Actions", "Main", "Settings"]);
   });
 
   it("deduplicates section group names", () => {
@@ -120,7 +121,7 @@ describe("useCommandPalette", () => {
       useCommandPalette({ ...defaultOptions, sections: sectionsWithDupes })
     );
 
-    expect(result.current.groups).toEqual(["Main", "Actions"]);
+    expect(result.current.groups).toEqual(["Actions", "Main"]);
   });
 
   it("uses 'Navigation' as group name for sections without label", () => {
@@ -142,5 +143,15 @@ describe("useCommandPalette", () => {
     walkinItem?.onSelect();
 
     expect(mockNavigate).toHaveBeenCalledWith("/timeline?walkin=true");
+  });
+
+  it("new reservation action navigates to the Reservations page carrying the new=true intent (architecture § Amendment 2026-09-04)", () => {
+    const { result } = renderHook(() => useCommandPalette(defaultOptions));
+
+    const item = result.current.items.find((i) => i.id === "action-new-reservation");
+    expect(item?.label).toBe("New Reservation");
+    item?.onSelect();
+
+    expect(mockNavigate).toHaveBeenCalledWith("/reservations?new=true");
   });
 });

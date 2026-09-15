@@ -1,0 +1,10 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-md);
+}
+
+.occupancyReadout {
+  margin-inline-start: auto;
+}

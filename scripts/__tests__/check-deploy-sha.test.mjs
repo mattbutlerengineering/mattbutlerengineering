@@ -114,6 +114,28 @@ describe("pollForDeploy", () => {
     expect(sleepFn).toHaveBeenCalledTimes(2);
   });
 
+  it("defaults to a budget of at least 12 minutes -- widened from the 6-minute default (24 attempts x 15s) that still timed out five times in ~24h (#5098, #5123, #5124, #5133, #5134)", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      text: () =>
+        Promise.resolve('<html><head><meta name="build-id" content="stale01"></head></html>'),
+    });
+    const sleepFn = vi.fn().mockResolvedValue(undefined);
+    const result = await pollForDeploy({
+      url: "https://mattbutlerengineering.com/",
+      expectedShortSha: "4364b7b",
+      // maxAttempts/sleepSecs deliberately omitted -- this pins the function's
+      // own defaults, which post-deploy-check.yml's "Poll for deploy to land"
+      // step also relies on implicitly matching (it passes the same numbers
+      // explicitly via MAX_ATTEMPTS/SLEEP_SECS, but the two must stay in sync).
+      fetchFn,
+      sleepFn,
+    });
+    expect(result.confirmed).toBe("timeout");
+    expect(sleepFn).toHaveBeenCalledWith(15000);
+    const totalBudgetSecs = result.attempts * 15;
+    expect(totalBudgetSecs).toBeGreaterThanOrEqual(720);
+  });
+
   it("treats a fetch rejection (DNS failure, connection refused) as a null build id and keeps polling", async () => {
     const fetchFn = vi
       .fn()

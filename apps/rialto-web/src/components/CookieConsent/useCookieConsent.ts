@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 
 export interface CookiePreferences {
   readonly essential: true;
-  readonly analytics: boolean;
   readonly functional: boolean;
   readonly marketing: boolean;
 }
@@ -18,14 +17,12 @@ const STORAGE_KEY = "rialto-cookie-consent";
 
 export const DEFAULT_PREFERENCES: CookiePreferences = {
   essential: true,
-  analytics: false,
   functional: false,
   marketing: false,
 };
 
 const ALL_ACCEPTED: CookiePreferences = {
   essential: true,
-  analytics: true,
   functional: true,
   marketing: true,
 };
@@ -41,13 +38,20 @@ function readStoredConsent(): ConsentState {
     return { consented: false, preferences: DEFAULT_PREFERENCES };
   }
   try {
-    const parsed = JSON.parse(stored) as ConsentState;
+    const parsed = JSON.parse(stored) as {
+      consented?: unknown;
+      preferences?: Record<string, unknown>;
+    };
+    // Pick known keys explicitly rather than spreading the stored object: a
+    // value saved before the analytics toggle was removed still carries an
+    // `analytics` key, and it must be dropped on read — no crash, no
+    // write-back; it evaporates on the visitor's next save.
     return {
-      consented: parsed.consented,
+      consented: Boolean(parsed.consented),
       preferences: {
-        ...DEFAULT_PREFERENCES,
-        ...parsed.preferences,
         essential: true,
+        functional: Boolean(parsed.preferences?.functional),
+        marketing: Boolean(parsed.preferences?.marketing),
       },
     };
   } catch {

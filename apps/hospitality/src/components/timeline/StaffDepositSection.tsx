@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
 import type { Deposit } from "@mbe/types";
 import { useCreateDeposit } from "../../hooks/useDeposits.js";
+import { describeApiError } from "../../lib/describe-api-error.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import styles from "./StaffDepositSection.module.css";
 
@@ -47,7 +48,7 @@ export function StaffDepositSection({ reservationId, existingDeposit }: StaffDep
       });
       setShowForm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create deposit.");
+      setError(describeApiError(err).detail);
     }
   }, [amountInput, reservationId, createDeposit]);
 

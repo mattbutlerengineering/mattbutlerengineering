@@ -6,12 +6,12 @@ Risk classification for pull requests in this monorepo. Used by the `tier-classi
 
 ## The tiers
 
-| Tier               | Label            | Routing                                                            | Approval needed                                                                                                                          |
-| ------------------ | ---------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **T1 — trivial**   | `tier:trivial`   | Auto-mergeable when CI green                                       | Pre-commit hook only                                                                                                                     |
-| **T2 — standard**  | `tier:standard`  | Reviewer agent + human approval                                    | `code-reviewer` agent + 1 human review                                                                                                   |
-| **T3 — sensitive** | `tier:sensitive` | Reviewer agent + specialist agents + human approval                | `code-reviewer` + at least one specialist (`adr-compliance-reviewer`, `migration-reviewer`, or `silent-failure-hunter`) + 1 human review |
-| **T4 — critical**  | `tier:critical`  | All of T3, plus an ADR or `meta-improvement` issue documenting why | Same as T3, plus the user (Matt) personally                                                                                              |
+| Tier               | Label            | Routing                                                            | Approval needed                                                                                           |
+| ------------------ | ---------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **T1 — trivial**   | `tier:trivial`   | Auto-mergeable when CI green                                       | Pre-commit hook only                                                                                      |
+| **T2 — standard**  | `tier:standard`  | Reviewer agent + human approval                                    | `reviewer` agent + 1 human review                                                                         |
+| **T3 — sensitive** | `tier:sensitive` | Reviewer agent + specialist agents + human approval                | `reviewer` + at least one specialist (`adr-compliance-reviewer` or `migration-reviewer`) + 1 human review |
+| **T4 — critical**  | `tier:critical`  | All of T3, plus an ADR or `meta-improvement` issue documenting why | Same as T3, plus the user (Matt) personally                                                               |
 
 The classifier assigns the **highest tier** any matched rule produces. T4 wins over T3 wins over T2 wins over T1.
 
@@ -111,7 +111,7 @@ The rule of thumb is **reviewed vs. unreviewed**, not tier. Applying the tier bl
 
 `tier-classifier` workflow assigns the label automatically on PR open and on every push to the PR branch.
 
-`code-reviewer` agent reads the assigned tier from PR labels and:
+`reviewer` agent reads the assigned tier from PR labels and:
 
 1. **T1**: Skim for typos and clarity. Tier 3 nits only.
 2. **T2**: Apply Tiers 1 and 2 of `docs/review-criteria.md`. Skip Tier 3.
@@ -127,6 +127,6 @@ Update this file. Don't carry implicit tier knowledge in your head, and don't ma
 - `docs/review-criteria.md` — what to actually look for once a tier is assigned
 - `docs/SECURITY-AI.md` — hard prohibitions that apply to T1 through T4
 - `.github/workflows/tier-classifier.yml` — the workflow that assigns labels
+- `.claude/agents/reviewer.md`
 - `.claude/agents/adr-compliance-reviewer.md`
 - `.claude/agents/migration-reviewer.md`
-- `.claude/plugins/pr-review-toolkit/` — the agent collection

@@ -37,9 +37,14 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: "22"
+      # Installs the workspace, not just Node. `auto-qa-tune.js` formats its
+      # output through prettier (see `serializeConfig`) so that what it writes
+      # survives `prettier --check .`; with a bare setup-node there is no
+      # node_modules and that import dies on ERR_MODULE_NOT_FOUND. This action
+      # is cache-backed, so it is normally a restore rather than a real
+      # install. The install's repo-wide prettier reflow stays out of the
+      # commit because `add-paths` below scopes it to the one file.
+      - uses: ./.github/actions/setup-workspace
 
       - name: Run auto-qa-tune
         run: node plugins/acmm/scripts/auto-qa-tune.js

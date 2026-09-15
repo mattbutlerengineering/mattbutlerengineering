@@ -1,6 +1,11 @@
 import { Button, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, PublicVenueConfig } from "@mbe/types";
-import { formatLongDateWithYear, formatTime, formatCurrencyFromCents } from "../../utils/format.js";
+import {
+  formatLongDateWithYear,
+  formatTime,
+  formatTimeIn,
+  formatCurrencyFromCents,
+} from "../../utils/format.js";
 import { buildReservationIcs } from "../../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
 import styles from "./ConfirmationView.module.css";
@@ -18,6 +23,11 @@ export interface ConfirmationViewProps {
    * rather than guessing a timezone.
    */
   venueConfig?: PublicVenueConfig | null;
+  /**
+   * IANA timezone to display the reservation time in. Falls back to
+   * `venueConfig.ianaTimezone`, then device-local, if omitted (#4976).
+   */
+  venueTimezone?: string;
 }
 
 /** Builds the .ics blob client-side and triggers a same-tab file download — no server round-trip. */
@@ -46,9 +56,13 @@ export function ConfirmationView({
   depositCurrency,
   cancellationPolicySummary,
   venueConfig,
+  venueTimezone,
 }: ConfirmationViewProps) {
+  const effectiveTimezone = venueTimezone ?? venueConfig?.ianaTimezone;
   const formattedDate = formatLongDateWithYear(reservation.date);
-  const formattedTime = formatTime(reservation.startTime);
+  const formattedTime = effectiveTimezone
+    ? formatTimeIn(reservation.startTime, effectiveTimezone)
+    : formatTime(reservation.startTime);
 
   return (
     <div className={styles.container}>

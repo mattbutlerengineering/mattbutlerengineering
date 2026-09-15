@@ -38,11 +38,17 @@ export const VenueSchema = z.object({
   updatedAt: z.string(),
 });
 
-/** Curated public projection of `VenueSchema` — see `PublicVenue` (#4022). */
+/**
+ * Curated public projection of `VenueSchema` — see `PublicVenue` (#4022).
+ * Carries `ianaTimezone` (#4976) so guest-facing booking flows can render
+ * slot/reservation times in the venue's clock without depending on the
+ * separate `/public/v1` config endpoint.
+ */
 export const PublicVenueSchema = z.object({
   id: z.string(),
   name: z.string(),
   slug: z.string(),
+  ianaTimezone: z.string(),
   operatingHours: VenueSchema.shape.operatingHours,
 });
 
