@@ -1,0 +1,8 @@
+/* GuestHistoryStrip — the linked/recognised guest summary under a GuestLookup field. No motion. */
+
+.strip {
+  padding: var(--rialto-space-xs) var(--rialto-space-sm);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+}
