@@ -50,6 +50,8 @@ export const PublicVenueSchema = z.object({
   slug: z.string(),
   ianaTimezone: z.string(),
   operatingHours: VenueSchema.shape.operatingHours,
+  settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
+  phone: z.string().optional(),
 });
 
 export const PublicVenueDepositSchema = z.object({

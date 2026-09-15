@@ -63,6 +63,16 @@ describe("DatePartySelector", () => {
     expect(screen.queryByText("5")).toBeNull();
   });
 
+  // #4979: the option grid used to be a hardcoded 1-8 array filtered down —
+  // never expanded — so a venue with a real cap above 8 silently turned away
+  // parties of 9-12 with no way to select them at all.
+  it("renders party size buttons beyond 8 when the venue's maxPartySize is higher", () => {
+    render(<DatePartySelector {...defaultProps} maxPartySize={12} />);
+    for (let i = 1; i <= 12; i++) {
+      expect(screen.getByText(String(i))).toBeDefined();
+    }
+  });
+
   it("disables 'Find Available Times' when no date is selected", () => {
     render(<DatePartySelector {...defaultProps} selectedDate={null} />);
     const btn = screen.getByText("Find Available Times");
@@ -140,5 +150,55 @@ describe("DatePartySelector", () => {
     );
     expect(screen.getByLabelText("Start Date")).toBeDefined();
     expect(screen.queryByLabelText("End Date")).toBeNull();
+  });
+
+  // #4979: parties who genuinely exceed the venue's real cap need a reachable
+  // way to say so, and a real number to call — not a sentence that renders
+  // only for a size nobody can ever select.
+  describe("parties larger than maxPartySize", () => {
+    it("renders a reachable overflow option beyond maxPartySize", () => {
+      render(<DatePartySelector {...defaultProps} maxPartySize={8} />);
+      expect(screen.getByText("8+")).toBeDefined();
+    });
+
+    it("selects an overflow party size when the overflow option is clicked", () => {
+      const onPartySizeChange = vi.fn();
+      render(
+        <DatePartySelector
+          {...defaultProps}
+          maxPartySize={8}
+          onPartySizeChange={onPartySizeChange}
+        />
+      );
+      fireEvent.click(screen.getByText("8+"));
+      expect(onPartySizeChange).toHaveBeenCalledWith(9);
+    });
+
+    it("renders the venue phone as a tel: link when the party exceeds maxPartySize", () => {
+      render(
+        <DatePartySelector {...defaultProps} maxPartySize={8} partySize={9} phone="+1-555-0100" />
+      );
+      const link = screen.getByText("+1-555-0100");
+      expect(link.closest("a")?.getAttribute("href")).toBe("tel:+1-555-0100");
+    });
+
+    it("falls back to a generic contact message when no phone is configured", () => {
+      render(<DatePartySelector {...defaultProps} maxPartySize={8} partySize={9} />);
+      expect(screen.getByText(/contact the venue directly/i)).toBeDefined();
+      expect(screen.queryByRole("link")).toBeNull();
+    });
+
+    it("disables 'Find Available Times' when the overflow option is selected", () => {
+      render(
+        <DatePartySelector
+          {...defaultProps}
+          maxPartySize={8}
+          partySize={9}
+          selectedDate="2026-05-20"
+        />
+      );
+      const btn = screen.getByText("Find Available Times");
+      expect(btn).toHaveProperty("disabled", true);
+    });
   });
 });

@@ -36,16 +36,22 @@ vi.mock("../components/booking-widget/index.js", async () => {
     BookingWidget: ({
       venueId,
       hasOperatingHours: hasHours,
+      maxPartySize,
+      phone,
       onHoldChange,
     }: {
       venueId: string;
       hasOperatingHours: boolean;
+      maxPartySize?: number;
+      phone?: string;
       onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
     }) => (
       <div
         data-testid="booking-widget"
         data-venue-id={venueId}
         data-has-operating-hours={String(hasHours)}
+        data-max-party-size={maxPartySize ?? ""}
+        data-phone={phone ?? ""}
       >
         <button
           data-testid="trigger-hold-change"
@@ -283,6 +289,39 @@ describe("PublicBookingPage", () => {
 
       await waitFor(() => {
         expect(screen.getByText("Powered by Matt Butler Engineering")).toBeDefined();
+      });
+    });
+
+    // #4979: the widget defaulted maxPartySize to a hardcoded 8 regardless of
+    // the venue's real cap because the page never read it off the resolved
+    // venue at all.
+    it("forwards maxPartySize from the venue's settings to BookingWidget", async () => {
+      mockGetBySlug.mockResolvedValue({ ...mockVenue, settings: { maxPartySize: 12 } });
+      renderPage();
+
+      await waitFor(() => {
+        const widget = screen.getByTestId("booking-widget");
+        expect(widget.getAttribute("data-max-party-size")).toBe("12");
+      });
+    });
+
+    it("forwards the venue phone to BookingWidget", async () => {
+      mockGetBySlug.mockResolvedValue({ ...mockVenue, phone: "+1-555-0100" });
+      renderPage();
+
+      await waitFor(() => {
+        const widget = screen.getByTestId("booking-widget");
+        expect(widget.getAttribute("data-phone")).toBe("+1-555-0100");
+      });
+    });
+
+    it("lets BookingWidget fall back to its own default when the venue has no maxPartySize configured", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue); // settings: null
+      renderPage();
+
+      await waitFor(() => {
+        const widget = screen.getByTestId("booking-widget");
+        expect(widget.getAttribute("data-max-party-size")).toBe("");
       });
     });
   });

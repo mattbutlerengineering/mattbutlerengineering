@@ -827,7 +827,8 @@
     }
     export function buildPublicVenueFixture(): PublicVenue {
       const venues = JSON.parse(loadFixture("venues-list"));
-      return PublicVenueSchema.parse(venues.data[0]);
+      const venue = venues.data[0];
+      return PublicVenueSchema.parse({ ...venue, phone: venue.settings?.phone });
     }
     export function buildPublicVenueConfigFixture(): PublicVenueConfig {
       const venues = JSON.parse(loadFixture("venues-list"));

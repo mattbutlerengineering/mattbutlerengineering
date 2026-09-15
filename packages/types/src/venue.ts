@@ -17,6 +17,11 @@ export interface VenueGroup {
  * `operatingHours` (checked via `hasOperatingHours`). Widget-specific
  * settings (max party size, advance booking windows, etc.) come from the
  * separate `PublicVenueConfig` endpoint.
+ *
+ * `settings.maxPartySize` and `phone` (#4979) are surfaced here too — the
+ * page that first resolves the venue by slug needs the real cap before the
+ * widget even mounts (to stop capping party size at a hardcoded default),
+ * and needs a real contact number for parties above that cap.
  */
 export interface PublicVenue {
   id: string;
@@ -24,6 +29,8 @@ export interface PublicVenue {
   slug: string;
   ianaTimezone: string;
   operatingHours: OperatingHours | null;
+  settings?: { maxPartySize?: number } | null;
+  phone?: string;
 }
 
 export interface Venue {
@@ -70,6 +77,8 @@ export interface DurationRule {
 export interface VenueSettings {
   defaultReservationDuration?: number; // minutes
   maxPartySize?: number;
+  /** Contact phone number shown to guests whose party exceeds maxPartySize (#4979). */
+  phone?: string;
   minAdvanceBooking?: number; // hours
   maxAdvanceBooking?: number; // days
   requirePhone?: boolean;

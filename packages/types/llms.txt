@@ -1149,9 +1149,9 @@
       interface VenueSettings {
         defaultReservationDuration?: number;
         maxPartySize?: number;
+        phone?: string;
         minAdvanceBooking?: number;
         maxAdvanceBooking?: number;
-        requirePhone?: boolean;
       }
     </item>
     <item priority="low">
