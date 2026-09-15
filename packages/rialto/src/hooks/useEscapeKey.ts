@@ -8,6 +8,10 @@ import { useEffect } from "react";
  * Tooltip, ContextMenu, HoverCard) consume this hook instead of each maintaining
  * their own inline keydown listener.
  *
+ * Ignores an Escape whose default was already prevented — the standard "already consumed"
+ * signal — so a listbox nested in a Dialog/Drawer closes on the first Escape and the overlay
+ * on the second.
+ *
  * @param onClose - Callback invoked when Escape is pressed.
  * @param enabled - Whether the listener is active (typically matches overlay open state).
  *
@@ -19,6 +23,9 @@ export function useEscapeKey(onClose: () => void, enabled: boolean): void {
     if (!enabled) return;
 
     const handler = (e: KeyboardEvent) => {
+      // An Escape a nested widget already consumed (a combobox closing its listbox calls
+      // preventDefault, as Autocomplete/Combobox/useCombobox do) must not also close the overlay.
+      if (e.defaultPrevented) return;
       if (e.key === "Escape") onClose();
     };
 
