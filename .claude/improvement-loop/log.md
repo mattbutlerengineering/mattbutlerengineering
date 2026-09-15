@@ -1780,6 +1780,11 @@ None this run (`agent-skip` empty, 0 open).
 
 None this run (`agent-skip` empty, 0 open).
 
+## 2026-09-15
+
+**queueEfficiency:** unavailable (query_error)
+**Issues filed:** 0
+
 ## 2026-09-15 (learning-loop)
 
 **Sensors:** 8/16 available (acmm L5 96/114 criteria, prMetrics 9 entries, prCategoryMetrics 92/94 merged across tier:trivial/standard/sensitive/critical/dependencies/agent-regression, ccusageCost $0 30d/7d/today cache_hit 94%, ciHealth 100% pass rate 26/26, sessionLogs 0 sessions/7d, codeChurn 0% churn (457 deleted / 607830 added, 7d), queueEfficiency composite 0.95 [fps 0.875, ttm 0.3h, $0/issue, no baseline yet]) — domainActivity (no `DOMAIN_METRICS_VENUE_ID`), agentCost, lighthouse, mutationScore, flakyTests, e2eStability unavailable; issues + issueFeedback failed with GitHub auth 403 (REST fallback credential invalid for direct API calls — same standing `@mbe/gh-client`/no-`gh`-CLI gap as every prior cloud-scheduled run, not a new regression). Fresh checkout needed `pnpm install --frozen-lockfile` + `pnpm --filter @mbe/gh-client build` before `sensor-report.mjs` would resolve its import — routine cloud-session cold-start, not a repo issue.
