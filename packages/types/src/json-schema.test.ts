@@ -18,7 +18,11 @@ import {
   paginationJsonSchema,
   problemDetailsJsonSchema,
   toRequestJsonSchema,
+  walkInBodyJsonSchema,
+  createReservationBodyJsonSchema,
+  publicReservationBodyJsonSchema,
 } from "./schemas/json-schema.js";
+import { WalkInBodySchema } from "./schemas/reservation-requests.js";
 
 describe("JSON Schema generation (toFastifyJsonSchema)", () => {
   describe("structural requirements", () => {
@@ -225,5 +229,51 @@ describe("Request JSON Schema derivation (toRequestJsonSchema)", () => {
     ) as { properties: { partySize: Record<string, unknown> } };
     expect(schema.properties.partySize.maximum).toBe(20);
     expect(schema.properties.partySize.minimum).toBe(1);
+  });
+});
+
+describe("guestId on the staff booking request bodies (booking-guest-reuse M1.1)", () => {
+  const propertiesOf = (schema: Record<string, unknown>) =>
+    schema.properties as Record<string, Record<string, unknown>>;
+  const requiredOf = (schema: Record<string, unknown>) =>
+    (schema.required as string[] | undefined) ?? [];
+
+  it.each([
+    { name: "walkInBodyJsonSchema", schema: walkInBodyJsonSchema },
+    { name: "createReservationBodyJsonSchema", schema: createReservationBodyJsonSchema },
+  ])("$name declares guestId as an optional plain string", ({ schema }) => {
+    // Every sibling field carries a `.describe()`, so the derived property is
+    // `{ type: "string", description }` — no format, enum or length constraint.
+    expect(propertiesOf(schema).guestId).toEqual({
+      type: "string",
+      description: expect.any(String),
+    });
+    expect(requiredOf(schema)).not.toContain("guestId");
+  });
+
+  it("publicReservationBodyJsonSchema declares no guestId (SC12)", () => {
+    expect(propertiesOf(publicReservationBodyJsonSchema)).not.toHaveProperty("guestId");
+  });
+
+  it("WalkInBodySchema accepts a string guestId and rejects a non-string one", () => {
+    const valid = { partySize: 2, tableId: "table-1", venueId: "venue-1" };
+    expect(WalkInBodySchema.safeParse({ ...valid, guestId: "gst_1" }).success).toBe(true);
+    expect(WalkInBodySchema.safeParse({ ...valid, guestId: 7 }).success).toBe(false);
+  });
+});
+
+describe("Reservation response schema carries the guest relation (booking-guest-reuse M1.1)", () => {
+  it("reservationJsonSchema declares guest so route serializers keep it on the wire", () => {
+    // fast-json-stringify drops every property the response schema does not
+    // declare; without this entry `data.guest.visitCount` never reaches a client.
+    const props = (reservationJsonSchema as Record<string, unknown>).properties as Record<
+      string,
+      unknown
+    >;
+    expect(props).toHaveProperty("guest");
+    expect(JSON.stringify(props.guest)).toContain("visitCount");
+    expect(
+      ((reservationJsonSchema as Record<string, unknown>).required as string[]) ?? []
+    ).not.toContain("guest");
   });
 });

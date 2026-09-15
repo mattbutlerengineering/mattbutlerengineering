@@ -45,6 +45,10 @@ export const WalkInBodySchema = z
     partySize: z.number().int().min(1).describe("Number of guests"),
     tableId: z.string().describe("ID of the table to seat guests at"),
     venueId: z.string().describe("ID of the venue"),
+    guestId: z
+      .string()
+      .describe("ID of an existing guest at this venue to link the walk-in to")
+      .optional(),
     guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
     durationMinutes: z
       .number()
@@ -68,6 +72,10 @@ export const CreateReservationBodySchema = z
     guestName: z.string().describe("Guest name (for unauthenticated reservations)").optional(),
     guestEmail: z.email().describe("Guest email (for unauthenticated reservations)").optional(),
     guestPhone: z.string().describe("Guest phone number").optional(),
+    guestId: z
+      .string()
+      .describe("ID of an existing guest at this venue to link the reservation to")
+      .optional(),
     venueId: z.string().describe("ID of the venue for this reservation").optional(),
     occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
     seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),

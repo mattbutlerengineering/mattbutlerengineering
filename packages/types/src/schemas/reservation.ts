@@ -49,6 +49,14 @@ export const ReservationSchema = z.object({
   userId: z.string().nullable(),
   tableId: z.string(),
   table: TableSchema.optional(),
+  guest: z
+    .object({
+      visitCount: z.number(),
+      communicationPreference: z.string().nullable(),
+      unsubscribed: z.boolean().optional(),
+    })
+    .nullable()
+    .optional(),
   venueId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
