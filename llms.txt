@@ -3589,6 +3589,9 @@
     <item priority="high">
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
+    <item priority="high">
+      export const LAPSING_GUESTS_QUERY_KEY: unknown;
+    </item>
     <item priority="low">
       interface UseGuestsParams {
         venueId?: string | null;
@@ -3626,6 +3629,20 @@
     </item>
     <item priority="high">
       export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseLapsingGuestsResult {
+        data: LapsingGuest[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useSendWinBack: unknown;
     </item>
     <item priority="low">
       interface UseGuestResult {
@@ -4663,6 +4680,24 @@
         request: FastifyRequest,
         reply: FastifyReply
       ): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/middleware/venue-context.ts">
+    <item priority="low">
+      interface VenueContextClient {
+        $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
+      }
+    </item>
+    <item priority="high">
+      export async function setVenueContext(
+        client: VenueContextClient,
+        venueId: string | null | undefined
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueContextPreHandler(
+        resolveVenueId: VenueIdResolver
+      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
     </item>
   </file>
   </section>
@@ -14130,9 +14165,9 @@
       interface VenueSettings {
         defaultReservationDuration?: number;
         maxPartySize?: number;
+        phone?: string;
         minAdvanceBooking?: number;
         maxAdvanceBooking?: number;
-        requirePhone?: boolean;
       }
     </item>
     <item priority="low">

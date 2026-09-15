@@ -32,8 +32,9 @@ import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
+import { useLapsingGuests, useSendWinBack } from "../hooks/useGuests.js";
 import React from "react";
-import type { Venue } from "@mbe/types";
+import type { Venue, LapsingGuest } from "@mbe/types";
 import type { DashboardStats } from "../hooks/useDashboardStatsQuery.js";
 
 vi.mock("@mbe/auth/react", () => ({
@@ -50,6 +51,11 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEStatus: vi.fn(),
   useSSEEventFeed: vi.fn(),
   useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
+}));
+
+vi.mock("../hooks/useGuests.js", () => ({
+  useLapsingGuests: vi.fn(),
+  useSendWinBack: vi.fn(),
 }));
 
 vi.mock("../components/PageHeader", () => ({
@@ -109,6 +115,21 @@ vi.mock("../components/dashboard", () => ({
       data-cancellation={stats.cancellationRate}
     >
       stat row
+    </div>
+  ),
+  LapsingGuestsWidget: ({
+    guests,
+    onSendWinBack,
+  }: {
+    guests: readonly LapsingGuest[];
+    onSendWinBack: (guestId: string) => void;
+  }) => (
+    <div data-testid="lapsing-guests-widget">
+      {guests.map((g: LapsingGuest) => (
+        <button key={g.guestId} onClick={() => onSendWinBack(g.guestId)}>
+          {g.name}
+        </button>
+      ))}
     </div>
   ),
 }));
@@ -192,6 +213,22 @@ describe("HomePage", () => {
       isLoading: false,
       error: null,
       refetch: vi.fn(),
+    });
+
+    vi.mocked(useLapsingGuests).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    vi.mocked(useSendWinBack).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
     });
   });
 
@@ -290,6 +327,62 @@ describe("HomePage", () => {
     renderPage();
     expect(screen.getByTestId("reservation-list")).toBeDefined();
     expect(screen.getByTestId("activity-feed")).toBeDefined();
+  });
+
+  it("renders LapsingGuestsWidget fed by useLapsingGuests", () => {
+    const guest: LapsingGuest = {
+      guestId: "g-1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+      phone: null,
+      communicationPreference: "both",
+      avgFrequencyDays: 7,
+      daysSinceLastVisit: 21,
+      daysOverdue: 7,
+    };
+    vi.mocked(useLapsingGuests).mockReturnValue({
+      data: [guest],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+    const widget = screen.getByTestId("lapsing-guests-widget");
+    expect(widget).toBeDefined();
+    expect(screen.getByText("Jane Doe")).toBeDefined();
+  });
+
+  it("sends a win-back message via useSendWinBack when the widget button is clicked", () => {
+    const guest: LapsingGuest = {
+      guestId: "g-1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+      phone: null,
+      communicationPreference: "both",
+      avgFrequencyDays: 7,
+      daysSinceLastVisit: 21,
+      daysOverdue: 7,
+    };
+    vi.mocked(useLapsingGuests).mockReturnValue({
+      data: [guest],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    const mutate = vi.fn();
+    vi.mocked(useSendWinBack).mockReturnValue({
+      mutate,
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+      error: null,
+    });
+
+    renderPage();
+    fireEvent.click(screen.getByText("Jane Doe"));
+    expect(mutate).toHaveBeenCalledWith("g-1");
   });
 
   it("ActivityFeed receives isConnected status", () => {

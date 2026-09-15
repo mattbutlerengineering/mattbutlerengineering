@@ -8362,7 +8362,8 @@
     }
     export function buildPublicVenueFixture(): PublicVenue {
       const venues = JSON.parse(loadFixture("venues-list"));
-      return PublicVenueSchema.parse(venues.data[0]);
+      const venue = venues.data[0];
+      return PublicVenueSchema.parse({ ...venue, phone: venue.settings?.phone });
     }
     export function buildPublicVenueConfigFixture(): PublicVenueConfig {
       const venues = JSON.parse(loadFixture("venues-list"));
@@ -12589,6 +12590,7 @@
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+    export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
     export interface UseGuestsParams {
       venueId?: string | null;
       limit?: number;
@@ -12625,6 +12627,19 @@
     export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
       return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
     }
+    export interface UseLapsingGuestsResult {
+      data: LapsingGuest[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult {
+      return useLapsingGuestsQuery({ venueId }) as QueryHookResult<LapsingGuest[]>;
+    }
+    export const useSendWinBack = createMutationHook<string, { sent: boolean }>({
+      invalidateKeys: LAPSING_GUESTS_QUERY_KEY,
+      mutationFn: (api, guestId) => api.guests.sendWinBack(guestId),
+    });
     export interface UseGuestResult {
       data: Guest | undefined;
       isLoading: boolean;
@@ -15256,6 +15271,29 @@
     
       request.managedReservationId = result.reservationId!;
       request.manageToken = token;
+    }
+  </file>
+  <file path="services/reservations/src/middleware/venue-context.ts">
+    export interface VenueContextClient {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    }
+    export async function setVenueContext(
+      client: VenueContextClient,
+      venueId: string | null | undefined
+    ): Promise<void> {
+      if (!venueId) return;
+      await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+    }
+    export function venueContextPreHandler(
+      resolveVenueId: VenueIdResolver
+    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+      return async function setVenueContextPreHandler(
+        request: FastifyRequest,
+        _reply: FastifyReply
+      ): Promise<void> {
+        const venueId = await resolveVenueId(request);
+        await setVenueContext(prisma, typeof venueId === "string" ? venueId : null);
+      };
     }
   </file>
   </section>
@@ -25487,6 +25525,8 @@
       slug: z.string(),
       ianaTimezone: z.string(),
       operatingHours: VenueSchema.shape.operatingHours,
+      settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
+      phone: z.string().optional(),
     });
     export const PublicVenueDepositSchema = z.object({
       enabled: z.boolean(),
@@ -33927,8 +33967,10 @@
        * Returns the curated public {@link PublicVenue} projection by slug, or
        * `null` when the venue does not exist. Used by the unauthenticated
        * booking-widget entry point (`GET /api/v1/venues/by-slug/:slug`) so
-       * `venueGroup`/`venueGroupId` and the raw `settings` blob never leave the
-       * database row for an anonymous caller (#4022).
+       * `venueGroup`/`venueGroupId` never leave the database row for an
+       * anonymous caller (#4022). `settings.maxPartySize` and `phone` are
+       * forwarded out of the raw `settings` JSON blob (#4979) — the rest of it
+       * still never leaves this projection.
        */
       async getPublicBySlug(slug: string): Promise<PublicVenue | null> {
         const venue = await prisma.venue.findFirst({
@@ -33939,9 +33981,12 @@
             slug: true,
             ianaTimezone: true,
             operatingHours: true,
+            settings: true,
           },
         });
         if (!venue) return null;
+    
+        const settings = venue.settings as VenueSettings | null;
     
         return {
           id: venue.id,
@@ -33949,6 +33994,9 @@
           slug: venue.slug,
           ianaTimezone: venue.ianaTimezone,
           operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
+          settings:
+            settings?.maxPartySize != null ? { maxPartySize: settings.maxPartySize } : undefined,
+          phone: settings?.phone,
         };
       },
     
@@ -51061,6 +51109,8 @@
       slug: string;
       ianaTimezone: string;
       operatingHours: OperatingHours | null;
+      settings?: { maxPartySize?: number } | null;
+      phone?: string;
     }
     export interface Venue {
       id: string;
@@ -51101,6 +51151,8 @@
     export interface VenueSettings {
       defaultReservationDuration?: number; // minutes
       maxPartySize?: number;
+      /** Contact phone number shown to guests whose party exceeds maxPartySize (#4979). */
+      phone?: string;
       minAdvanceBooking?: number; // hours
       maxAdvanceBooking?: number; // days
       requirePhone?: boolean;

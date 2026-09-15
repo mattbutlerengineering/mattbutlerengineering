@@ -289,8 +289,10 @@ export const venueService = {
    * Returns the curated public {@link PublicVenue} projection by slug, or
    * `null` when the venue does not exist. Used by the unauthenticated
    * booking-widget entry point (`GET /api/v1/venues/by-slug/:slug`) so
-   * `venueGroup`/`venueGroupId` and the raw `settings` blob never leave the
-   * database row for an anonymous caller (#4022).
+   * `venueGroup`/`venueGroupId` never leave the database row for an
+   * anonymous caller (#4022). `settings.maxPartySize` and `phone` are
+   * forwarded out of the raw `settings` JSON blob (#4979) — the rest of it
+   * still never leaves this projection.
    */
   async getPublicBySlug(slug: string): Promise<PublicVenue | null> {
     const venue = await prisma.venue.findFirst({
@@ -301,9 +303,12 @@ export const venueService = {
         slug: true,
         ianaTimezone: true,
         operatingHours: true,
+        settings: true,
       },
     });
     if (!venue) return null;
+
+    const settings = venue.settings as VenueSettings | null;
 
     return {
       id: venue.id,
@@ -311,6 +316,9 @@ export const venueService = {
       slug: venue.slug,
       ianaTimezone: venue.ianaTimezone,
       operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
+      settings:
+        settings?.maxPartySize != null ? { maxPartySize: settings.maxPartySize } : undefined,
+      phone: settings?.phone,
     };
   },
 

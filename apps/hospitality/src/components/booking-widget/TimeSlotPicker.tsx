@@ -1,4 +1,5 @@
 import type { TimeSlot } from "@mbe/types";
+import { toDateString } from "@mbe/types";
 import {
   Button,
   Alert,
@@ -63,6 +64,13 @@ export function TimeSlotPicker({
   venueTimezone,
 }: TimeSlotPickerProps) {
   const formattedDate = formatLongDate(date);
+
+  // #4979: a wait estimate ("~30 min") only means anything for a walk-in
+  // today — showing it for a date days out promised a wait time that has no
+  // relationship to reality. `date` is a future date (not just "not today")
+  // so a stale/past `date` prop (never selectable via the real UI) keeps the
+  // pre-existing behavior rather than being newly suppressed.
+  const isFutureDate = date > toDateString(new Date());
 
   // Get hour from ISO datetime for grouping — in the venue's timezone when
   // known, otherwise the device's (#4976).
@@ -162,7 +170,7 @@ export function TimeSlotPicker({
             <EmptyState
               heading="No available times"
               description={
-                estimatedWaitMinutes != null
+                estimatedWaitMinutes != null && !isFutureDate
                   ? `Estimated wait: ~${estimatedWaitMinutes} min`
                   : "Try a different date or party size."
               }

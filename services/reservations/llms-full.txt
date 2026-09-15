@@ -245,6 +245,29 @@
       request.manageToken = token;
     }
   </file>
+  <file path="src/middleware/venue-context.ts">
+    export interface VenueContextClient {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    }
+    export async function setVenueContext(
+      client: VenueContextClient,
+      venueId: string | null | undefined
+    ): Promise<void> {
+      if (!venueId) return;
+      await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+    }
+    export function venueContextPreHandler(
+      resolveVenueId: VenueIdResolver
+    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+      return async function setVenueContextPreHandler(
+        request: FastifyRequest,
+        _reply: FastifyReply
+      ): Promise<void> {
+        const venueId = await resolveVenueId(request);
+        await setVenueContext(prisma, typeof venueId === "string" ? venueId : null);
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
@@ -11255,8 +11278,10 @@
        * Returns the curated public {@link PublicVenue} projection by slug, or
        * `null` when the venue does not exist. Used by the unauthenticated
        * booking-widget entry point (`GET /api/v1/venues/by-slug/:slug`) so
-       * `venueGroup`/`venueGroupId` and the raw `settings` blob never leave the
-       * database row for an anonymous caller (#4022).
+       * `venueGroup`/`venueGroupId` never leave the database row for an
+       * anonymous caller (#4022). `settings.maxPartySize` and `phone` are
+       * forwarded out of the raw `settings` JSON blob (#4979) — the rest of it
+       * still never leaves this projection.
        */
       async getPublicBySlug(slug: string): Promise<PublicVenue | null> {
         const venue = await prisma.venue.findFirst({
@@ -11267,9 +11292,12 @@
             slug: true,
             ianaTimezone: true,
             operatingHours: true,
+            settings: true,
           },
         });
         if (!venue) return null;
+    
+        const settings = venue.settings as VenueSettings | null;
     
         return {
           id: venue.id,
@@ -11277,6 +11305,9 @@
           slug: venue.slug,
           ianaTimezone: venue.ianaTimezone,
           operatingHours: venue.operatingHours as PublicVenue["operatingHours"],
+          settings:
+            settings?.maxPartySize != null ? { maxPartySize: settings.maxPartySize } : undefined,
+          phone: settings?.phone,
         };
       },
     

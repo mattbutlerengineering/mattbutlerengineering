@@ -35,6 +35,8 @@ export interface BookingWidgetProps {
    */
   onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
   className?: string;
+  /** Venue contact phone, shown as a tel: link for parties above maxPartySize (#4979). */
+  phone?: string;
   stripePublishableKey?: string;
   /** Default estimated wait minutes shown when no slots are available (before API response) */
   defaultWaitMinutes?: number;
@@ -89,6 +91,7 @@ export function BookingWidget({
   cancellationUrl,
   onHoldChange,
   className = "",
+  phone,
   stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
   defaultWaitMinutes = 30,
   hasOperatingHours = true,
@@ -155,6 +158,7 @@ export function BookingWidget({
           onPartySizeChange={actions.setPartySize}
           onNext={actions.goToTimeSlot}
           maxPartySize={maxPartySize}
+          phone={phone}
           enableDateRange={enableDateRange}
           minDate={minDate}
           maxDate={maxDate}
