@@ -45806,6 +45806,7 @@
   <file path="packages/database/src/testing.ts">
     export interface MockPrisma {
       $queryRaw: ReturnType<typeof vi.fn>;
+      $executeRaw: ReturnType<typeof vi.fn>;
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
@@ -45835,7 +45836,10 @@
     export function createMockDatabaseService(
       overrides?: MockDatabaseServiceOverrides
     ): MockDatabaseService {
-      const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
+      const defaultPrisma: MockPrisma = {
+        $queryRaw: vi.fn(),
+        $executeRaw: vi.fn().mockResolvedValue(0),
+      };
       const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
     
       const getSlowQueryStats =
@@ -51408,6 +51412,24 @@
       // route registration so child route plugins inherit it.
       const services: DomainServices = { ...defaultDomainServices, ...options.services };
       fastify.decorate("services", services);
+    
+      // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
+      // `app.venue_id` session variable for every request whose venue is
+      // resolvable from its own query/body/params, so the RLS policies already
+      // enabled on floor_plans/tables/guests/reservations/deposits/waitlist_entries
+      // (parts 2-4) see the same venue scope the application layer does.
+      //
+      // Registered as a shared `addHook`, which Fastify always runs BEFORE a
+      // route's own `preHandler` option array — so this necessarily runs before
+      // `requireAuth`/`requireVenueAccess`, not after, despite those guards
+      // being the more familiar "runs first" preHandlers. That ordering is safe:
+      // this hook never makes an authorization decision (it can only narrow
+      // which rows are visible, exactly like the app-level `where: { venueId }`
+      // filters it backstops) and `requireVenueAccess` still independently
+      // 403s a non-member on every route that has it, after this hook runs. A
+      // request with no resolvable venue id (public routes, health checks,
+      // entity-addressed routes) is a deliberate no-op — ADR-026 §4 default-deny.
+      fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
       await fastify.register(healthRoutes);
