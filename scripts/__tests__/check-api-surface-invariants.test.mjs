@@ -19,6 +19,26 @@ const POST_DEPLOY_WORKFLOW = readFileSync(
   "utf8"
 );
 
+/**
+ * The literal 404 body reservations-api's own public venue-lookup handler
+ * sends, rendered with a sample slug. Read straight from source rather than
+ * hardcoded, so this can never independently drift from the handler the way
+ * the manifest itself did (#5168 and ~10 duplicate issues: the manifest
+ * asserted `expectBodyIncludes: "Venue not found"`, but
+ * `public-venues.ts` has only ever sent `No venue found with slug '<slug>'.`
+ * — every deploy where routing was briefly correct still reported
+ * `wrong-service`, because the discriminator itself never matched).
+ */
+function renderedPublicVenueLookup404Body() {
+  const source = readFileSync(
+    resolve(ROOT, "services/reservations/src/routes/public-venues.ts"),
+    "utf8"
+  );
+  const match = source.match(/createProblemDetails\(404, "Not Found", `([^`]+)`\)/);
+  if (!match) throw new Error("public-venues.ts 404 message shape changed — update this test");
+  return match[1].replace("${slug}", "surface-probe-absent-venue");
+}
+
 describe("classifyProbe", () => {
   const probe = { expectStatus: 401, requireHeaders: ["x-ratelimit-limit"] };
 
@@ -221,6 +241,19 @@ describe("API_SURFACE_PROBES", () => {
   it("gives every probe a unique name for the report", () => {
     const names = API_SURFACE_PROBES.map((p) => p.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("expects a body substring the real public venue-lookup handler actually sends (#5168)", () => {
+    // Both reachability probes assert this discriminator; a mismatch means
+    // classifyProbe reports wrong-service even when routing is correct.
+    const reachability = API_SURFACE_PROBES.filter(
+      (p) => p.name.startsWith("public-venue-lookup:") && p.expectBodyIncludes
+    );
+    expect(reachability.length).toBeGreaterThan(0);
+    const rendered = renderedPublicVenueLookup404Body();
+    for (const probe of reachability) {
+      expect(rendered).toContain(probe.expectBodyIncludes);
+    }
   });
 });
 
