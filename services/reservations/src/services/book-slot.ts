@@ -7,6 +7,7 @@ import {
   activeHoldWindow,
   NOT_BOOKED_STATUSES,
 } from "./slot-rules.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 
 /**
  * Builds a transaction-scoped advisory lock statement keyed on the table id.
@@ -113,6 +114,12 @@ export async function bookSlot<T>(intent: BookSlotIntent<T>): Promise<SlotWriteR
   } = intent;
 
   return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
+    // This `prisma.$transaction` call bypasses the per-call auto-wrap
+    // `services/venue-scoped-prisma.ts` gives the `prisma` export — set
+    // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026 part
+    // 6), using the intent's own (already-resolved) venueId.
+    await setVenueContext(tx, venueId);
+
     // Serialize conflict-checked writes per table BEFORE any conflict check so
     // concurrent slot writes cannot both pass and double-book. Released
     // automatically when the transaction ends.
