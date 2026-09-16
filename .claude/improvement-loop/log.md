@@ -1836,3 +1836,12 @@ None this run (`agent-skip` empty, 0 open).
 **queueEfficiency:** composite 0.911 (baseline n/a) — healthy
 **Difficulty distribution:** size:xl:1, size:xs:17, size:s:4, size:m:4, size:l:1
 **Issues filed:** 0
+
+## 2026-09-16 (learning-loop)
+
+**Sensors:** 8/16 available (acmm L5 96/114 criteria, prMetrics 9 entries, prCategoryMetrics 92/94 merged across tier:trivial/sensitive/critical/standard/dependencies, ccusageCost $0 30d/7d/today cache_hit 95%, ciHealth 100% pass rate 25/25, sessionLogs 0 sessions/7d 0 commits, codeChurn 0% churn (737 deleted / 609964 added, 7d), queueEfficiency composite 0.904 [fps 0.759, ttm 0.3h, $0/issue, no baseline yet]) — domainActivity (no `DOMAIN_METRICS_VENUE_ID`, collector skipped cleanly per no-egress-to-production constraint, issue #2920), agentCost, lighthouse, mutationScore, flakyTests, e2eStability unavailable; issues + issueFeedback failed with GitHub auth 403 (REST fallback credential invalid for direct API calls — same standing `@mbe/gh-client`/no-`gh`-CLI gap as every prior cloud-scheduled run, not a new regression). Fresh checkout needed `pnpm install --frozen-lockfile` + `pnpm build --filter @mbe/cli...` before `sensor-report.mjs` would resolve its `@mbe/gh-client` import — routine cloud-session cold-start, not a repo issue.
+**Regressions:** 0 detected, 0 issues created (`metrics/sensor-report.json` regressions array empty — status Healthy).
+**Verifications:** 5 checked (issues #5387, #5386, #5357, #5345, #5344), 0 verified, 0 failed, 5 skipped (3 "Lighthouse inventory not available" [live-site audits barred in this cloud environment per issue #2920], 2 "no matching verifier for labels" [`meta-improvement`]).
+**Sentry triage:** skipped — Sentry MCP was mid-reconnect when Step 1b ran (`mcp__sentry__find_organizations` returned "No such tool available"); same recurring connectivity gap as prior entries.
+**Skill proposals:** 0 (Wednesday — Friday-only).
+**Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on GitHub REST auth (403), persisting `{error}` to `metrics/ai-issue-feedback.json`; issue-creation budget defaulted to 3/category (moot, zero regressions this run). `verify-fixes.mjs`'s auto-tuner reported "No per-sensor metrics computed — skipping tuning" (all 5 fresh verifications this run were `confidence: skip`, consistent with the last several weeks of the 30d verification log — no verified/failed entries to compute false-positive or fix-effectiveness rates from). No threshold changes made.
