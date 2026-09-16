@@ -2,9 +2,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("./database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
+  // `recalculateVenuePositions` now wraps its raw UPDATE in `$transaction`
+  // so `setVenueContext` (ADR-026 part 6) can set app.venue_id first —
+  // `$transaction` invokes its callback with a `tx` reusing THIS SAME
+  // `$executeRaw` mock, so existing `prisma.$executeRaw` assertions still
+  // see both the set_config call and the recalc UPDATE.
+  const executeRaw = vi.fn().mockResolvedValue(0);
   return createMockDatabaseService({
     prisma: {
-      $executeRaw: vi.fn(),
+      $executeRaw: executeRaw,
+      $transaction: vi.fn((fn: (tx: { $executeRaw: typeof executeRaw }) => unknown) =>
+        fn({ $executeRaw: executeRaw })
+      ),
       waitlistEntry: {
         count: vi.fn(),
         create: vi.fn(),
@@ -148,8 +157,9 @@ describe("waitlistService", () => {
         orderBy: { position: "asc" },
         select: { id: true, position: true },
       });
-      // Batched into a single $executeRaw call, not one updateMany per entry.
-      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+      // Batched into a single $executeRaw call, not one updateMany per
+      // entry — plus setVenueContext's set_config call (ADR-026 part 6).
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
       expect(result).toEqual(seated);
     });
 
@@ -180,8 +190,9 @@ describe("waitlistService", () => {
         where: { id: "wl-2" },
         data: { status: "cancelled" },
       });
-      // Batched into a single $executeRaw call, not one updateMany per entry.
-      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+      // Batched into a single $executeRaw call, not one updateMany per
+      // entry — plus setVenueContext's set_config call (ADR-026 part 6).
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
       expect(result).toEqual(cancelled);
     });
 

@@ -206,6 +206,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-2" }),
               findUnique: vi.fn().mockResolvedValue(cloned),
@@ -241,6 +242,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-3" }),
               findUnique: vi.fn().mockResolvedValue(cloned),
@@ -310,6 +312,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.$transaction).mockImplementationOnce(
         async (fn: (tx: any) => Promise<unknown>) => {
           const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               updateMany: vi.fn().mockResolvedValue({ count: 1 }),
               update: vi.fn().mockResolvedValue(activated),
@@ -352,12 +355,26 @@ describe("floorPlanService", () => {
   });
 
   describe("bulkUpdateTablePositions", () => {
+    /**
+     * The raw UPDATE now runs inside `prisma.$transaction` so
+     * `setVenueContext` (ADR-026 part 6) can set app.venue_id on the same
+     * `tx` first — wires `prisma.$transaction` to invoke its callback with a
+     * `tx` exposing the given `queryRaw` mock, mirroring a real interactive
+     * transaction.
+     */
+    function mockTransaction(queryRaw: ReturnType<typeof vi.fn>): void {
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: { $executeRaw: ReturnType<typeof vi.fn>; $queryRaw: typeof queryRaw }) => unknown
+      ) => fn({ $executeRaw: vi.fn().mockResolvedValue(0), $queryRaw: queryRaw })) as never);
+    }
+
     it("issues exactly one database call for multiple positions", async () => {
       const tables = [makePrismaTable({ id: "t1" }), makePrismaTable({ id: "t2" })];
       vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({
         venueId: "venue-1",
       } as never);
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce(tables as never);
+      const queryRaw = vi.fn().mockResolvedValueOnce(tables as never);
+      mockTransaction(queryRaw);
 
       const positions = [
         {
@@ -373,15 +390,15 @@ describe("floorPlanService", () => {
       const result = await floorPlanService.bulkUpdateTablePositions("fp-1", positions);
 
       expect(result).toHaveLength(2);
-      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it("returns an empty array without issuing a query when positions is empty", async () => {
       const result = await floorPlanService.bulkUpdateTablePositions("fp-1", []);
 
       expect(result).toEqual([]);
-      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("throws a P2025 not-found error when a tableId does not match any row", async () => {
@@ -390,7 +407,7 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({
         venueId: "venue-1",
       } as never);
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never);
+      mockTransaction(vi.fn().mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never));
 
       const positions = [
         {
@@ -416,7 +433,8 @@ describe("floorPlanService", () => {
       vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce({
         venueId: "venue-1",
       } as never);
-      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never);
+      const queryRaw = vi.fn().mockResolvedValueOnce([makePrismaTable({ id: "t1" })] as never);
+      mockTransaction(queryRaw);
 
       await floorPlanService.bulkUpdateTablePositions("fp-1", [
         {
@@ -425,7 +443,7 @@ describe("floorPlanService", () => {
         },
       ]);
 
-      const call = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], ...unknown[]];
+      const call = queryRaw.mock.calls[0] as unknown as [string[], ...unknown[]];
       const [fragments, ...values] = call;
       expect(fragments.join("?")).toContain("t.venue_id =");
       expect(values).toContain("venue-1");
@@ -442,7 +460,7 @@ describe("floorPlanService", () => {
           },
         ])
       ).rejects.toMatchObject({ code: "P2025" });
-      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

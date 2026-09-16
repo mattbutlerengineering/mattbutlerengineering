@@ -72,12 +72,16 @@ import { venueIdFromBody, venueIdFromParams, venueIdFromQuery } from "./routes/v
  * table/reservation id) resolve to null here, which is the ADR-026 §4
  * default-deny no-op, not a regression — nothing sets `app.venue_id` for
  * those routes today either.
+ *
+ * Deliberately synchronous, not `async`: `venueIdFromQuery`/`venueIdFromBody`/
+ * `venueIdFromParams` (`./routes/venue-access.ts`) are all synchronous, and
+ * `venueContextPreHandler` (`./middleware/venue-context.ts`) requires a
+ * synchronous result here to call `enterVenueContext` synchronously — see
+ * its doc comment for the measured AsyncLocalStorage timing bug an
+ * `await`-then-`enterVenueContext` sequence reproduces in this exact app.
  */
-const resolveGlobalVenueId: VenueIdResolver = async (request) =>
-  (await venueIdFromQuery(request)) ??
-  (await venueIdFromBody(request)) ??
-  (await venueIdFromParams(request)) ??
-  null;
+const resolveGlobalVenueId: VenueIdResolver = (request) =>
+  venueIdFromQuery(request) ?? venueIdFromBody(request) ?? venueIdFromParams(request) ?? null;
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;

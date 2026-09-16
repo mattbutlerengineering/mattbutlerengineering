@@ -84,11 +84,12 @@ describe("bookSlot", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value).toBe("WRITTEN");
-    // Lock acquired with the table-keyed advisory-lock SQL.
-    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
-    const sql = vi.mocked(tx.$executeRaw).mock.calls[0]?.[0] as
+    // Two $executeRaw calls on the transaction: setVenueContext's
+    // set_config (ADR-026 part 6) first, then the table-keyed advisory lock.
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+    const sql = vi.mocked(tx.$executeRaw).mock.calls[1]?.[0] as
       { sql: string; values: unknown[] } | undefined;
-    if (!sql) throw new Error("expected an $executeRaw call");
+    if (!sql) throw new Error("expected a second $executeRaw call");
     expect(sql.sql).toContain("pg_advisory_xact_lock");
     expect(sql.values).toContain("table-1");
     expect(intent.write).toHaveBeenCalledTimes(1);

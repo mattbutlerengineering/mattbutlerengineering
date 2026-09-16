@@ -14,6 +14,8 @@ import {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { setVenueContext } from "../middleware/venue-context.js";
+import { getCurrentVenueId } from "./venue-context-store.js";
 import { availabilityService } from "./availability.js";
 import { assertBookable } from "./assert-bookable.js";
 import { venueLocalDateString } from "./slot-rules.js";
@@ -327,7 +329,14 @@ export const reservationService = {
 
         const updated =
           data.status === "NO_SHOW" && existing.guestId
-            ? await prisma.$transaction((tx) => writeStatusChange(tx))
+            ? await prisma.$transaction(async (tx) => {
+                // This `prisma.$transaction` call bypasses the per-call
+                // auto-wrap `services/venue-scoped-prisma.ts` gives the
+                // `prisma` export — set app.venue_id on THIS transaction's
+                // own `tx` explicitly (ADR-026 part 6).
+                await setVenueContext(tx, getCurrentVenueId());
+                return writeStatusChange(tx);
+              })
             : await writeStatusChange(prisma);
 
         return updated ? toReservation(updated) : null;
