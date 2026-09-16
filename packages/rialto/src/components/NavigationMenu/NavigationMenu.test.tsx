@@ -66,6 +66,19 @@ describe("NavigationMenu", () => {
     });
   });
 
+  describe("keyboard navigation into dropdown", () => {
+    it("moves focus to the first child menuitem on ArrowDown from the trigger", async () => {
+      render(<NavigationMenu items={items} />);
+      const trigger = screen.getByRole("button", { name: /products/i });
+      fireEvent.focus(trigger);
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
+
+      fireEvent.keyDown(trigger, { key: "ArrowDown" });
+
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+    });
+  });
+
   describe("aria attributes", () => {
     it("sets aria-expanded=false initially", () => {
       render(<NavigationMenu items={items} />);
