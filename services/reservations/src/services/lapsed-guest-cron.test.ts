@@ -20,12 +20,29 @@ function makeLogger(): FastifyBaseLogger {
 type MockPrisma = {
   venue: { findMany: ReturnType<typeof vi.fn> };
   guest: { findMany: ReturnType<typeof vi.fn> };
+  $transaction: ReturnType<typeof vi.fn>;
 };
 
-function makePrisma(overrides: Partial<MockPrisma> = {}): MockPrisma {
+/**
+ * `findGuestsForVenue` (ADR-026 §3 bypass) wraps the guest query in
+ * `prisma.$transaction`, issuing `SET ROLE`/`RESET ROLE` on the transaction
+ * client before running the real `guest.findMany` on that SAME client — see
+ * `rls-bypass.test.ts` for the dedicated unit test of that mechanism. This
+ * mock mirrors `venue-scoped-prisma.test.ts`'s fake-client shape so
+ * `guest.findMany` here reflects calls made on the `tx` handed to the
+ * `$transaction` callback, not the bare (never-called) top-level delegate.
+ */
+function makePrisma(overrides: Partial<Omit<MockPrisma, "$transaction">> = {}): MockPrisma {
+  const guestFindMany = overrides.guest?.findMany ?? vi.fn().mockResolvedValue([]);
+  const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) => {
+    const tx = { $executeRaw: vi.fn().mockResolvedValue(0), guest: { findMany: guestFindMany } };
+    return fn(tx);
+  });
+
   return {
     venue: { findMany: vi.fn().mockResolvedValue([{ id: "venue-1" }]) },
-    guest: { findMany: vi.fn().mockResolvedValue([]) },
+    guest: { findMany: guestFindMany },
+    $transaction,
     ...overrides,
   };
 }
