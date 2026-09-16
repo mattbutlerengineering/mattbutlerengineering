@@ -13,7 +13,7 @@ assumptions:
   - "Because the PR is CONFLICTING, GitHub can build no `refs/pull/5405/merge` and never delivered the `pull_request` event to `ci.yml` — no `CI` run existed on the head (CodeQL's `Analyze` did run, on `refs/pull/5405/head` with `event=dynamic`, which needs no merge ref). This is the `gate-missing` state from gotchas § CI, so CI was dispatched once with `gh workflow run ci.yml --ref worktree-booking-guest-reuse`. That run tests the branch **as it stands**, not merged with `main` — a green `CI Gate` from it is evidence about the branch alone and is not the required check the merge ref will produce."
   - "The PR body's assumption count is the measured 87 (`awk` over each artifact's frontmatter: prd 10, ux 21, architecture 15, breakdown 13, verification 14, review 14), not the 82 the orchestrator's brief quoted."
   - "Smoke-check URLs below are taken from the deploy workflows' own verification steps and the service's health route; none was probed in this stage because nothing is deployed from this branch."
-  - "Stopped with `CI Gate` still pending rather than waiting it out: the 15-minute poll (60 s ticks, keyed on head `3113150de`) expired with `Build` and `Test (Node 22)` still running and nothing red. Prepare-and-stop records the state at stop time, so an in-flight gate is a complete artifact; the run id and the commands to read the verdict are in § CI state."
+  - "The 15-minute CI poll (60 s ticks, keyed on head `3113150de`) expired with `Build` and `Test (Node 22)` still running and nothing red, and this file was finalized on that pending state rather than blocking further. The gate then concluded green at `04:06:15Z` while this file's own commit was being pushed, so § CI state was corrected to the real verdict in a follow-up commit — the pending wording is not left standing."
   - "Tracker: this stage wrote nothing to #4990 or to PR #5405 — no label, no comment, no close. The orchestrator moved #4990 `ready` → `has-pr` on its own side after the PR opened; that is recorded here as an observation, not as work this stage performed."
   - "Attribution on this file's commit is `Claude Opus 5 (1M context)` rather than the `Claude Fable 5.1` the brief quoted: the session's model changed mid-stage (the ratchet commit `3113150de` carries Fable 5.1) and the harness's current attribution guidance takes precedence. Recorded because the two commits on this branch from this stage therefore disagree."
   - "The rialto changeset is cut by `release.yml` only when `secrets.NPM_TOKEN` is present; `gh secret list` shows 27 secrets and no `NPM_TOKEN`, so merge will not version or publish rialto — the workflow warns and skips (#3322). Recorded as a human step, not fixed."
@@ -109,26 +109,27 @@ All commands ran from the worktree
 | 5   | `git push -u origin worktree-booking-guest-reuse` (hooks enabled) at `3113150de`                                                                                                                                           | pushed — `* [new branch] worktree-booking-guest-reuse -> worktree-booking-guest-reuse`, exit 0. Hooks ran: ratchet `OK hardcodedRoutes: 703 (baseline: 703)` / `OK anyType: 295 (baseline: 295)`, `All generated artifacts are up to date.` `git rev-parse HEAD` = `git rev-parse origin/worktree-booking-guest-reuse` = `3113150de`; tree clean, no `llms*.txt` dirtied |
 | 6   | `gh pr create --base main --head worktree-booking-guest-reuse --title "feat(reservations): recognise returning guests at booking time — walk-in, waitlist, reservation dialog, public widget" --body-file ship/pr-body.md` | **PR [#5405](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/5405)**                                                                                                                                                                                                                                                                                 |
 | 7   | `gh pr view 5405 --json mergeable,mergeStateStatus`                                                                                                                                                                        | `CONFLICTING` / `DIRTY`                                                                                                                                                                                                                                                                                                                                                  |
-| 8   | CI on the head                                                                                                                                                                                                             | see § CI state                                                                                                                                                                                                                                                                                                                                                           |
+| 8   | CI on the head                                                                                                                                                                                                             | dispatched run `35053335596` → `CI Gate` **success** at `04:06:15Z`; commit status `CI Gate success` published on `3113150de`. See § CI state                                                                                                                                                                                                                            |
 | 9   | this file committed by explicit path and pushed (hooks enabled)                                                                                                                                                            | the resulting head SHA and its remote-match confirmation are in the Ship report — a file cannot contain the SHA of its own commit                                                                                                                                                                                                                                        |
 | —   | **merge / auto-merge / deploy / publish / tag / version / label / comment**                                                                                                                                                | **NOT PERFORMED — withheld by the brief**                                                                                                                                                                                                                                                                                                                                |
 
 ## CI state at stop time
 
-**Not green and not red — `CI Gate` had not started when this stage stopped.** Recorded,
-not chased: prepare-and-stop only requires the state at stop time.
+**`CI Gate` = SUCCESS on `3113150de`.** The dispatched run concluded at
+`2026-09-16T04:06:15Z` while this file's own commit was being pushed, so the verdict is
+recorded here rather than left pending.
 
 - **Run `35053335596`** — workflow `CI`, `event=workflow_dispatch`, head `3113150de`,
-  created `2026-09-16T03:50:48Z`. Last observed `04:02:40Z`: `status=in_progress`,
-  **zero failed or cancelled jobs**.
+  created `2026-09-16T03:50:48Z`, concluded `2026-09-16T04:06:15Z` with
+  `conclusion=success` and **zero failed or cancelled jobs**. The `CI Gate` job itself is
+  `completed/success`.
 - **Green at stop time (12 jobs):** Detect Changes, Prepare, Typecheck, Lint,
   Architecture Audit, Dependency Sync, **AI Antipattern Ratchet**, Validate Migrations,
   Dockerfile Lint, and all four Container Security Scans (users, agent, reservations,
   migrate). The ratchet passing on `703` / `295` is the direct confirmation that the
   baseline commit `3113150de` cleared the blocker of pre-flight row 14.
-- **Still running:** `Build`, `Test (Node 22)`. `CI Gate` is `needs:`-gated on both, so it
-  had not started and no `CI Gate` check run or commit status existed yet
-  (`GET /commits/3113150de.../statuses` → empty).
+- **`Build` and `Test (Node 22)`** were the last two jobs to finish; `CI Gate` is
+  `needs:`-gated on both and went green after them.
 - **On the PR itself:** CodeQL `Analyze (actions)` success, `Analyze (javascript-typescript)`
   in progress, Trivy passed, `auto-merge` reported `skipping`. CodeQL runs against
   `refs/pull/5405/head` with `event=dynamic`, which is why it fired when `ci.yml` could not.
@@ -136,11 +137,11 @@ not chased: prepare-and-stop only requires the state at stop time.
   `refs/pull/5405/merge` and never delivered the `pull_request` event to `ci.yml` — the
   `gate-missing` state of gotchas § CI. CI was dispatched **once**:
   `gh workflow run ci.yml --ref worktree-booking-guest-reuse`.
-- **This run's verdict will be attributable.** `ci.yml`'s `CI Gate` job carries the
-  "Publish CI Gate commit status" step (`ci.yml:889`, the #4025 fix), so a
-  `workflow_dispatch` run publishes a real commit **status** named `CI Gate` on
-  `3113150de` — visible to `statusCheckRollup`, unlike a bare check run. Read the final
-  verdict with:
+- **The #4025 mechanism worked, measured.** `ci.yml`'s `CI Gate` job carries the
+  "Publish CI Gate commit status" step (`ci.yml:889`), and this `workflow_dispatch` run
+  did publish a real commit **status** — `GET /commits/3113150de.../statuses` returned
+  exactly `CI Gate success` (it was empty before the gate ran). A commit status, unlike a
+  bare check run, is visible to `statusCheckRollup`. Re-read either with:
 
   ```
   gh run view 35053335596
@@ -152,9 +153,16 @@ not chased: prepare-and-stop only requires the state at stop time.
   merge ref to test, so even a green `CI Gate` here is evidence about the branch alone —
   the required check the merge will actually evaluate can only exist after the conflict in
   § Human steps step 0 is resolved.
-- **Committing this file advances the head**, which invalidates nothing above but does mean
-  CI has to run again on the new head; the same dispatch may be needed while the PR stays
-  conflicting.
+- **Committing this file advanced the head to `848e7e81c`**, and that head carries **no**
+  `CI` run — only `Auto-merge Dependabot dev deps` (skipped). The PR is still
+  `CONFLICTING`, so the `pull_request` event still cannot fire: the green `CI Gate` above
+  belongs to `3113150de`, one commit behind, and the only difference between the two is
+  this document. Whoever resolves step 0 should dispatch CI again (or let the resolved,
+  non-conflicting PR trigger it normally) and read the verdict on the new head.
+- **Advisory, not required:** Codecov commented on the PR at `04:06:11Z` (bot, not this
+  stage) reporting patch coverage **99.09%** with 3 uncovered lines, mostly in
+  `apps/hospitality/src/components/crm/GuestLookup.tsx`. `codecov/patch` is advisory in
+  this repo, as is the Auth0 `Hospitality E2E` job.
 
 ## Human steps to release
 
