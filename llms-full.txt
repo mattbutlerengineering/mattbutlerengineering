@@ -52155,12 +52155,20 @@
     export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
       return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
     }
+    function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
+      if (reservation.status !== "CONFIRMED") return false;
+      const start = new Date(reservation.startTime).getTime();
+      const at = now.getTime();
+      if (Number.isNaN(start) || Number.isNaN(at)) return false;
+      return at >= start - SEATED_EARLY_WINDOW_MS;
+    }
     export function occupiedCaption(
       reservation: Reservation,
       table: Table | undefined,
-      seated: boolean
+      now: Date
     ): string | null {
-      if (seated || !isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      if (isOccupiedByThisReservation(reservation, now)) return null;
       return `${table.name} is still occupied — turn it or move the party.`;
     }
     export interface SeatGuestState {

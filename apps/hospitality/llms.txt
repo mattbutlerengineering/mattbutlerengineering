@@ -1539,11 +1539,14 @@
     <item priority="high">
       export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
     </item>
+    <item priority="medium">
+      function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function occupiedCaption(
         reservation: Reservation,
         table: Table | undefined,
-        seated: boolean
+        now: Date
       ): string | null { /* ... */ }
     </item>
     <item priority="low">
