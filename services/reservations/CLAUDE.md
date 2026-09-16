@@ -552,10 +552,12 @@ it("broadcasts reservation:created event", async () => {
 
 ## Postgres Row-Level Security (RLS) Backstop
 
-Per [ADR-026](../../docs/adr/ADR-026-postgres-rls-venue-backstop.md), `venues`,
+Per [ADR-026](../../docs/adr/ADR-026-postgres-rls-venue-backstop.md),
 `floor_plans`, `tables`, `guests`, `reservations`, `deposits`, and
 `waitlist_entries` carry Postgres `FOR ALL` RLS policies keyed on the
-`app.venue_id` session variable. This is a **second, database-enforced
+`app.venue_id` session variable. (ADR-026 also specifies a policy for
+`venues` itself, but no migration has enabled RLS on that table yet — it
+remains outstanding.) This is a **second, database-enforced
 layer**, not a replacement for application-level scoping: every service
 function must still write its own `where: { venueId }` filter (or the
 equivalent join) exactly as before. RLS exists to catch the case where that
