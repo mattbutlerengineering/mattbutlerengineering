@@ -2,19 +2,18 @@
  * Pure, client-side deep-link URL builders for "add to calendar" flows
  * (Google Calendar, Outlook web). No file generation, no network calls.
  */
-import type { Reservation, PublicVenueConfig } from "@mbe/types";
-import { formatIcsLocalDateTime } from "./ics.js";
+import { formatIcsLocalDateTime, type IcsReservation, type IcsVenue } from "./ics.js";
 
 export interface BuildCalendarLinkOptions {
   /** Guest-facing cancellation/manage-reservation link, included in the event description. */
   cancellationUrl?: string;
 }
 
-function buildEventTitle(venue: PublicVenueConfig): string {
+function buildEventTitle(venue: IcsVenue): string {
   return `${venue.name} Reservation`;
 }
 
-function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string {
+function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string {
   const partyLine = `Party of ${reservation.partySize}.`;
   return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
 }
@@ -26,8 +25,8 @@ function buildEventDescription(reservation: Reservation, cancellationUrl?: strin
  * the correct time regardless of the guest's browser timezone.
  */
 export function buildGoogleCalendarUrl(
-  reservation: Reservation,
-  venue: PublicVenueConfig,
+  reservation: IcsReservation,
+  venue: IcsVenue,
   opts: BuildCalendarLinkOptions = {}
 ): string {
   const start = formatIcsLocalDateTime(reservation.startTime, venue.ianaTimezone);
@@ -90,8 +89,8 @@ function formatIsoWithOffset(isoInstant: string, timeZone: string): string {
  * local time regardless of the guest's browser timezone.
  */
 export function buildOutlookCalendarUrl(
-  reservation: Reservation,
-  venue: PublicVenueConfig,
+  reservation: IcsReservation,
+  venue: IcsVenue,
   opts: BuildCalendarLinkOptions = {}
 ): string {
   const params = new URLSearchParams({

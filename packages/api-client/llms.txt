@@ -308,6 +308,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
+        phone?: string;
       }
     </item>
     <item priority="low">

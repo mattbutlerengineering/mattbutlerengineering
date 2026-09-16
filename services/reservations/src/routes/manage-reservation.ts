@@ -26,7 +26,13 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
         data: {
           reservation: serializeManagedReservation(reservation),
           venue: venue
-            ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
+            ? {
+                id: venue.id,
+                name: venue.name,
+                slug: venue.slug,
+                ianaTimezone: venue.ianaTimezone,
+                phone: venue.settings?.phone,
+              }
             : null,
         },
       });

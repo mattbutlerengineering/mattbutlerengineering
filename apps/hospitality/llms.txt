@@ -1644,15 +1644,15 @@
       }
     </item>
     <item priority="medium">
-      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
+      function buildEventTitle(venue: IcsVenue): string { /* ... */ }
     </item>
     <item priority="medium">
-      function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string { /* ... */ }
+      function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function buildGoogleCalendarUrl(
-        reservation: Reservation,
-        venue: PublicVenueConfig,
+        reservation: IcsReservation,
+        venue: IcsVenue,
         opts: BuildCalendarLinkOptions = {}
       ): string { /* ... */ }
     </item>
@@ -1667,8 +1667,8 @@
     </item>
     <item priority="high">
       export function buildOutlookCalendarUrl(
-        reservation: Reservation,
-        venue: PublicVenueConfig,
+        reservation: IcsReservation,
+        venue: IcsVenue,
         opts: BuildCalendarLinkOptions = {}
       ): string { /* ... */ }
     </item>
@@ -1701,6 +1701,12 @@
   </file>
   <file path="src/utils/ics.ts">
     <item priority="low">
+      type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "party...;
+    </item>
+    <item priority="low">
+      type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
+    </item>
+    <item priority="low">
       interface BuildReservationIcsOptions {
         cancellationUrl?: string;
         now?: Date;
@@ -1723,14 +1729,17 @@
       export function formatIcsLocalDateTime(isoInstant: string, timeZone: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function buildDescription(reservation: Reservation, cancellationUrl?: string): string { /* ... */ }
+      function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function buildReservationIcs(
-        reservation: Reservation,
-        venue: PublicVenueConfig,
+        reservation: IcsReservation,
+        venue: IcsVenue,
         opts: BuildReservationIcsOptions = {}
       ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function downloadIcsFile(icsContent: string, filename: string): void { /* ... */ }
     </item>
   </file>
   <file path="src/utils/local-clock.ts">
