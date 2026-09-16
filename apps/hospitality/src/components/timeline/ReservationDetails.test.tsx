@@ -82,6 +82,7 @@ function renderDetails(overrides: Partial<ReservationDetailsProps> = {}) {
     reservation: makeReservation(),
     tables: [makeTable()],
     seated: false,
+    now: new Date(START),
     onEdit: vi.fn(),
     onSeat: vi.fn().mockResolvedValue(undefined),
     onCancel: vi.fn(),
@@ -111,9 +112,25 @@ describe("ReservationDetails", () => {
     });
 
     it("explains the missing button when the table is OCCUPIED by another party", () => {
-      renderDetails({ tables: [makeTable({ status: "OCCUPIED" })], seated: false });
+      renderDetails({
+        tables: [makeTable({ status: "OCCUPIED" })],
+        seated: false,
+        // 30 minutes before this reservation's own start — a lingering earlier party, not us.
+        now: new Date(new Date(START).getTime() - 30 * 60_000),
+      });
       expect(screen.getByText("Confirmed")).toBeInTheDocument();
       expect(screen.getByText(OCCUPIED_CAPTION)).toBeInTheDocument();
+      expect(seatButton()).toBeNull();
+    });
+
+    it("stays quiet once the party is running over — occupied by itself, not turned (#5270)", () => {
+      renderDetails({
+        tables: [makeTable({ status: "OCCUPIED" })],
+        seated: false,
+        now: new Date(new Date(END).getTime() + 60_000),
+      });
+      expect(screen.getByText("Confirmed")).toBeInTheDocument();
+      expect(screen.queryByText(OCCUPIED_CAPTION)).toBeNull();
       expect(seatButton()).toBeNull();
     });
 

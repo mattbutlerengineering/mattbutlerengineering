@@ -3,6 +3,7 @@ import type { Reservation, Table } from "@mbe/types";
 import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError, type ApiErrorDescription } from "../../lib/describe-api-error.js";
 import { STATUS_LABEL } from "../../utils/reservation-display.js";
+import { SEATED_EARLY_WINDOW_MS } from "../../utils/seated.js";
 
 /**
  * What the detail panel and the phone sheet say about seating (ux.md Screen 5), written once so
@@ -32,15 +33,31 @@ export function canSeat(reservation: Reservation, table: Table | undefined): boo
 }
 
 /**
+ * True once an OCCUPIED table's occupant is presumed to be this reservation's own party rather
+ * than someone else's — the same CONFIRMED + early-window test `isSeated` (seated.ts) uses, but
+ * deliberately with no upper bound at `endTime`. A party running over its slot doesn't hand the
+ * table to a stranger (ux #5270); `isSeated` itself keeps the `endTime` clamp so a lingering
+ * table that later turns OCCUPIED for the *next* booking still reads as unseated for this one.
+ */
+function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
+  if (reservation.status !== "CONFIRMED") return false;
+  const start = new Date(reservation.startTime).getTime();
+  const at = now.getTime();
+  if (Number.isNaN(start) || Number.isNaN(at)) return false;
+  return at >= start - SEATED_EARLY_WINDOW_MS;
+}
+
+/**
  * The sentence that explains a missing Seat Guest: the table is OCCUPIED, but not by this party.
  * Null whenever the button is present, or absent for a reason the Host can already see.
  */
 export function occupiedCaption(
   reservation: Reservation,
   table: Table | undefined,
-  seated: boolean
+  now: Date
 ): string | null {
-  if (seated || !isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+  if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+  if (isOccupiedByThisReservation(reservation, now)) return null;
   return `${table.name} is still occupied — turn it or move the party.`;
 }
 
