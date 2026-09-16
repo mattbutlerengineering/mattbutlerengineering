@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { VenueIdResolver } from "@mbe/auth/fastify";
-import { prisma } from "../services/database.js";
+import { enterVenueContext } from "../services/venue-context-store.js";
 
 /**
  * Postgres RLS venue-scoping backstop (ADR-026), part 5/7.
@@ -40,15 +40,19 @@ export interface VenueContextClient {
  * escape hatch, etc).
  *
  * Correctness note (ADR-026 §4): the `is_local = true` argument makes this
- * transaction-scoped in Postgres, identical to `SET LOCAL`. Callers that
- * need the setting to hold for more than a single statement MUST invoke this
- * with a Prisma transaction client (`Prisma.TransactionClient`) obtained
- * from `prisma.$transaction(...)` — passed the top-level `PrismaClient`
- * singleton outside an explicit transaction, the setting has no effect
- * beyond that one implicit statement. Wiring every request into such a
- * transaction is app-bootstrap work tracked by ADR-026 part 6 (not this
- * issue) — this function, and `venueContextPreHandler` below, are the
- * primitives that work will consume.
+ * transaction-scoped in Postgres, identical to `SET LOCAL`. Callers MUST
+ * invoke this with a Prisma transaction client (`Prisma.TransactionClient`)
+ * obtained from `prisma.$transaction(...)` — called against the top-level
+ * `PrismaClient` singleton outside an explicit transaction, the setting has
+ * no effect beyond that one implicit statement, and evaporates before any
+ * later query in the same request runs. `venueContextPreHandler` below does
+ * NOT call this function directly against the singleton (that was the
+ * ADR-026 part 6 bug this module's callers must avoid) — it stashes the
+ * resolved venue id via `enterVenueContext` (`../services/venue-context-store.js`)
+ * instead, and the actual query-issuing paths (the wrapped `prisma` export in
+ * `../services/database.ts`, and a handful of existing explicit
+ * `$transaction`/raw-query call sites) read it back via `getCurrentVenueId`
+ * and call this function against THEIR OWN transaction client.
  */
 export async function setVenueContext(
   client: VenueContextClient,
@@ -59,21 +63,61 @@ export async function setVenueContext(
 }
 
 /**
- * Fastify preHandler factory (ADR-026 part 5). Resolves the request's venue
- * id the same way `requireVenueAccess` (ADR-020) routes already do — via a
- * `VenueIdResolver`, shared with `@mbe/auth/fastify` — and sets
- * `app.venue_id` for the request's database session.
+ * Fastify preHandler factory (ADR-026 part 6, wired app-wide in `app.ts`).
+ * Resolves the request's venue id the same way `requireVenueAccess`
+ * (ADR-020) routes already do — via a `VenueIdResolver`, shared with
+ * `@mbe/auth/fastify` — and stashes it in the request-scoped
+ * `venue-context-store` (`enterVenueContext`) for the rest of the request.
+ *
+ * Deliberately does NOT call `setVenueContext` here: doing so against the
+ * top-level `prisma` singleton is the transaction-scoping bug documented on
+ * `setVenueContext` above — the setting would evaporate before any query
+ * this request issues. Every query-issuing path reads the stashed id back
+ * via `getCurrentVenueId` and calls `setVenueContext` against its OWN
+ * transaction client instead.
  *
  * Unauthenticated/public routes (no venue context resolved yet, e.g.
  * `/public/v1/venues/:slug/*` before the slug is resolved) are handled by
- * simply not setting the session variable: `setVenueContext` no-ops on a
- * null/undefined venue id, which is the ADR-026 §4 default-deny behavior,
+ * simply stashing `null`: `getCurrentVenueId` then returns `null`, and
+ * `setVenueContext` no-ops on it — the ADR-026 §4 default-deny behavior,
  * not an error.
  *
- * Not wired into any route yet — see this module's doc comment on
- * `setVenueContext` for why, and ADR-026 part 6 for the app-bootstrap wiring
- * (which must also supply the per-request transaction for the `SET LOCAL`
- * to be effective in production) that will consume this export.
+ * Calls `enterVenueContext` SYNCHRONOUSLY whenever `resolveVenueId` resolves
+ * to a plain (non-Promise) value — never via `await resolveVenueId(request)`
+ * followed by a separate statement. This is load-bearing, not stylistic:
+ * measured against this Fastify version (5.12.3) with the real reservations
+ * app (`services/reservations/src/app.ts`) registered end to end, a global
+ * `addHook("preHandler", ...)` whose body does `await resolveVenueId(...)`
+ * *then* `enterVenueContext(...)` — even when `resolveVenueId` itself is
+ * fully synchronous, so the `await` only costs one microtask tick — reliably
+ * shows the resolved venue id one full HTTP request LATE: request N's
+ * `enterVenueContext` call becomes visible starting at request N+1's
+ * `onRequest` hook, not within request N's own remaining lifecycle. A
+ * version of this same hook that never awaits before calling
+ * `enterVenueContext` (this implementation) does not reproduce it, verified
+ * against the same app. The resolvers this hook is actually composed from
+ * (`venueIdFromQuery`/`venueIdFromBody`/`venueIdFromParams` in
+ * `../routes/venue-access.ts`) are all synchronous today, so the fast path
+ * below is what always runs in production; the `PromiseLike` branch exists
+ * only because `VenueIdResolver`'s type permits an async resolver (e.g.
+ * `venueIdFromEntity`) and this factory must not silently produce wrong
+ * results if one is ever passed here — it is NOT verified to be free of the
+ * same timing issue, since nothing exercises it today.
+ *
+ * The returned function is declared `async` and therefore ALWAYS returns a
+ * genuine `Promise` (never a bare `undefined`), even down the synchronous
+ * path below — this is a second, independently load-bearing requirement,
+ * not just the first one's implementation detail. Fastify's preHandler hook
+ * runner (`lib/hooks.js`'s `hookIterator`) always invokes a registered hook
+ * as `fn(request, reply, next)` and only re-invokes `next` itself when the
+ * hook's return value is thenable (`result && typeof result.then ===
+ * "function"`); a hook that ignores the `next` argument (as this one does —
+ * it takes only 2 params) AND returns a plain non-Promise value satisfies
+ * neither of Fastify's two completion contracts (call `next` yourself, or
+ * return a Promise), so the preHandler chain hangs forever with no error.
+ * Measured directly: making this a plain (non-`async`) function that
+ * returns `undefined` on the synchronous path reproduces exactly that hang
+ * against the real app — `fastify.inject()` never resolves.
  */
 export function venueContextPreHandler(
   resolveVenueId: VenueIdResolver
@@ -82,7 +126,20 @@ export function venueContextPreHandler(
     request: FastifyRequest,
     _reply: FastifyReply
   ): Promise<void> {
-    const venueId = await resolveVenueId(request);
-    await setVenueContext(prisma, typeof venueId === "string" ? venueId : null);
+    const result = resolveVenueId(request);
+    if (isThenable(result)) {
+      const venueId = await result;
+      enterVenueContext(typeof venueId === "string" ? venueId : null);
+      return;
+    }
+    enterVenueContext(typeof result === "string" ? result : null);
   };
+}
+
+function isThenable(value: unknown): value is PromiseLike<string | null | undefined> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
 }
