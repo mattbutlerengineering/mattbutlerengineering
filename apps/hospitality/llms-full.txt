@@ -4575,16 +4575,16 @@
       /** Guest-facing cancellation/manage-reservation link, included in the event description. */
       cancellationUrl?: string;
     }
-    function buildEventTitle(venue: PublicVenueConfig): string {
+    function buildEventTitle(venue: IcsVenue): string {
       return `${venue.name} Reservation`;
     }
-    function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildGoogleCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const start = formatIcsLocalDateTime(reservation.startTime, venue.ianaTimezone);
@@ -4627,8 +4627,8 @@
       return `${year}-${month}-${day}T${hour}:${minute}:${second}${formatUtcOffset(offsetMinutes)}`;
     }
     export function buildOutlookCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const params = new URLSearchParams({
@@ -4708,6 +4708,8 @@
     }
   </file>
   <file path="src/utils/ics.ts">
+    export type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "partySize">;
+    export type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
     export interface BuildReservationIcsOptions {
       /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
       cancellationUrl?: string;
@@ -4767,13 +4769,13 @@
       const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "00";
       return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
     }
-    function buildDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildReservationIcs(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildReservationIcsOptions = {}
     ): string {
       const now = opts.now ?? new Date();
@@ -4798,6 +4800,17 @@
       ];
     
       return properties.map(foldLine).join(CRLF);
+    }
+    export function downloadIcsFile(icsContent: string, filename: string): void {
+      const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
     }
   </file>
   <file path="src/utils/local-clock.ts">

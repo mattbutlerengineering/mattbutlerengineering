@@ -19511,7 +19511,9 @@
   </file>
   <file path="services/reservations/src/routes/cancel-reservation.ts">
     export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.delete(
+      fastify.delete<{
+        Body?: { cancellationReason?: string; cancellationNote?: string };
+      }>(
         "/public/v1/reservations/manage",
         {
           config: {
@@ -19525,10 +19527,15 @@
             return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
-          const result = await cancelReservationWithDeposit(preamble.reservation, request.manageToken, {
-            bookingNotifier: fastify.bookingNotifier,
-            logger: request.log,
-          });
+          const result = await cancelReservationWithDeposit(
+            preamble.reservation,
+            request.manageToken,
+            { bookingNotifier: fastify.bookingNotifier, logger: request.log },
+            {
+              cancellationReason: request.body?.cancellationReason,
+              cancellationNote: request.body?.cancellationNote,
+            }
+          );
     
           if (!result.success) {
             return reply
@@ -21179,7 +21186,13 @@
             data: {
               reservation: serializeManagedReservation(reservation),
               venue: venue
-                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
+                ? {
+                    id: venue.id,
+                    name: venue.name,
+                    slug: venue.slug,
+                    ianaTimezone: venue.ianaTimezone,
+                    phone: venue.settings?.phone,
+                  }
                 : null,
             },
           });
@@ -44900,6 +44913,8 @@
       name: string;
       slug: string;
       ianaTimezone: string;
+      /** Contact phone number shown to guests on the manage-reservation page (#4979). */
+      phone?: string;
     }
     export interface ManageReservationData {
       reservation: ManagedReservation;
@@ -45010,6 +45025,28 @@
           undefined,
           manageReservationDataSchema
         );
+      }
+    
+      /**
+       * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
+       * The token is sent as an `Authorization: Bearer` header rather than a query
+       * param — the manage-token middleware prefers it for mutating requests.
+       */
+      async cancelManaged(
+        token: string,
+        reason?: { cancellationReason?: string; cancellationNote?: string }
+      ): Promise<{ status: ReservationStatus }> {
+        const schema = z.object({ status: ReservationStatusSchema });
+        const response = await this.client.request<{ data: { status: ReservationStatus } }>(
+          "/public/v1/reservations/manage",
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+            body: reason ? JSON.stringify(reason) : undefined,
+          },
+          z.object({ data: schema })
+        );
+        return response.data;
       }
     }
   </file>
@@ -53396,16 +53433,16 @@
       /** Guest-facing cancellation/manage-reservation link, included in the event description. */
       cancellationUrl?: string;
     }
-    function buildEventTitle(venue: PublicVenueConfig): string {
+    function buildEventTitle(venue: IcsVenue): string {
       return `${venue.name} Reservation`;
     }
-    function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildGoogleCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const start = formatIcsLocalDateTime(reservation.startTime, venue.ianaTimezone);
@@ -53448,8 +53485,8 @@
       return `${year}-${month}-${day}T${hour}:${minute}:${second}${formatUtcOffset(offsetMinutes)}`;
     }
     export function buildOutlookCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const params = new URLSearchParams({
@@ -53529,6 +53566,8 @@
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">
+    export type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "partySize">;
+    export type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
     export interface BuildReservationIcsOptions {
       /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
       cancellationUrl?: string;
@@ -53588,13 +53627,13 @@
       const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "00";
       return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
     }
-    function buildDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildReservationIcs(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildReservationIcsOptions = {}
     ): string {
       const now = opts.now ?? new Date();
@@ -53619,6 +53658,17 @@
       ];
     
       return properties.map(foldLine).join(CRLF);
+    }
+    export function downloadIcsFile(icsContent: string, filename: string): void {
+      const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
     }
   </file>
   <file path="apps/hospitality/src/utils/local-clock.ts">

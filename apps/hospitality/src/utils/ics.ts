@@ -12,6 +12,16 @@ import type { Reservation, PublicVenueConfig } from "@mbe/types";
 const MAX_LINE_OCTETS = 75;
 const CRLF = "\r\n";
 
+/**
+ * Minimal reservation/venue shapes this module actually reads. Narrower than
+ * the full `Reservation`/`PublicVenueConfig` so guest-facing manage-token
+ * views (which withhold most `Reservation` fields, e.g. `ManagedReservation`
+ * in `@mbe/api-client`) can build a calendar file too, without widening what
+ * the public manage endpoint returns.
+ */
+export type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "partySize">;
+export type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
+
 // TextEncoder/TextDecoder (not Buffer) — this module runs in the browser.
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8");
@@ -100,7 +110,7 @@ export function formatIcsLocalDateTime(isoInstant: string, timeZone: string): st
   return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
 }
 
-function buildDescription(reservation: Reservation, cancellationUrl?: string): string {
+function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string {
   const partyLine = `Party of ${reservation.partySize}.`;
   return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
 }
@@ -110,8 +120,8 @@ function buildDescription(reservation: Reservation, cancellationUrl?: string): s
  * Pure function — deterministic for a given `now`/`uid`.
  */
 export function buildReservationIcs(
-  reservation: Reservation,
-  venue: PublicVenueConfig,
+  reservation: IcsReservation,
+  venue: IcsVenue,
   opts: BuildReservationIcsOptions = {}
 ): string {
   const now = opts.now ?? new Date();
@@ -136,4 +146,17 @@ export function buildReservationIcs(
   ];
 
   return properties.map(foldLine).join(CRLF);
+}
+
+/** Triggers a same-tab download of an .ics file's text content — no server round-trip. */
+export function downloadIcsFile(icsContent: string, filename: string): void {
+  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }
