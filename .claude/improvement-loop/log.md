@@ -1846,6 +1846,12 @@ None this run (`agent-skip` empty, 0 open).
 **Skill proposals:** 0 (Wednesday — Friday-only).
 **Threshold notes:** `collect-ai-issue-feedback.mjs` failed again on GitHub REST auth (403), persisting `{error}` to `metrics/ai-issue-feedback.json`; issue-creation budget defaulted to 3/category (moot, zero regressions this run). `verify-fixes.mjs`'s auto-tuner reported "No per-sensor metrics computed — skipping tuning" (all 5 fresh verifications this run were `confidence: skip`, consistent with the last several weeks of the 30d verification log — no verified/failed entries to compute false-positive or fix-effectiveness rates from). No threshold changes made.
 
+## 2026-09-17
+
+**queueEfficiency:** composite 0.927 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:17, size:m:6, size:s:7, size:l:2, size:xl:1
+**Issues filed:** 0
+
 ## 2026-09-17 (mbe-evening, progress-tracker)
 
 | Metric                                       | Value                                                                                                                  | Target            | Status                        |
