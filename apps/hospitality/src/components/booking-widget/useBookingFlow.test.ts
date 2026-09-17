@@ -7,6 +7,7 @@ import type {
   DepositConfig,
   PublicVenueConfig,
 } from "@mbe/types";
+import { toDateString } from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import { useBookingFlow, deriveStepKeys } from "./useBookingFlow.js";
 import { ApiClientError } from "@mbe/api-client";
@@ -129,16 +130,18 @@ interface RenderBookingFlowOptions {
   venueId?: string;
   venueSlug?: string;
   stripePublishableKey?: string;
+  venueTimezone?: string;
 }
 
 function renderBookingFlow(fakeApi: FakeApi, options: RenderBookingFlowOptions = {}) {
-  const { venueId = "v1", venueSlug, stripePublishableKey } = options;
+  const { venueId = "v1", venueSlug, stripePublishableKey, venueTimezone } = options;
   return renderHook(() =>
     useBookingFlow({
       api: fakeApi as unknown as BookingWidgetApiClient,
       venueId,
       venueSlug,
       stripePublishableKey,
+      venueTimezone,
     })
   );
 }
@@ -150,10 +153,28 @@ describe("useBookingFlow", () => {
       expect(result.current.state).toBe("date-party");
     });
 
+    it("defaults selectedDate to today (#4981)", () => {
+      const { result } = renderBookingFlow(makeFakeApi());
+      expect(result.current.data.selectedDate).toBe(toDateString(new Date()));
+    });
+
+    it("defaults selectedDate to today in the venue's timezone, not the device clock (#4981)", () => {
+      // 2026-01-01T04:30:00Z is still 2025-12-31 in America/Los_Angeles.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T04:30:00Z"));
+      try {
+        const { result } = renderBookingFlow(makeFakeApi(), {
+          venueTimezone: "America/Los_Angeles",
+        });
+        expect(result.current.data.selectedDate).toBe("2025-12-31");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("has empty initial data", () => {
       const { result } = renderBookingFlow(makeFakeApi());
       const { data } = result.current;
-      expect(data.selectedDate).toBeNull();
       expect(data.selectedEndDate).toBeNull();
       expect(data.partySize).toBe(2);
       expect(data.slots).toEqual([]);
@@ -846,7 +867,7 @@ describe("useBookingFlow", () => {
       });
       act(() => result.current.actions.resetFlow());
       expect(result.current.state).toBe("date-party");
-      expect(result.current.data.selectedDate).toBeNull();
+      expect(result.current.data.selectedDate).toBe(toDateString(new Date()));
       expect(result.current.data.selectedEndDate).toBeNull();
       expect(result.current.data.partySize).toBe(2);
       expect(result.current.data.slots).toEqual([]);

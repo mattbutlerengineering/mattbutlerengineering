@@ -14,6 +14,7 @@ import {
   guestRiskMatters,
 } from "./effectiveDepositPolicy.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { todayInTimezone } from "./todayInTimezone.js";
 
 export type BookingStep =
   | "date-party"
@@ -100,7 +101,7 @@ type BookingFlowAction =
   | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
   | { type: "GO_BACK_TO_GUEST_DETAILS" }
   | { type: "EXPIRE_HOLD" }
-  | { type: "RESET" }
+  | { type: "RESET"; selectedDate: string }
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "GO_TO_WAITLIST_JOIN" }
@@ -130,10 +131,19 @@ const INITIAL_DATA: BookingFlowData = {
   guestDetails: { name: "", email: "", phone: "", notes: "" },
 };
 
-const INITIAL_STATE: BookingFlowState = {
-  step: "date-party",
-  data: INITIAL_DATA,
-};
+/**
+ * Builds the initial (or reset) flow state with `selectedDate` defaulted to
+ * "today" in the venue's timezone (#4981) — the guest's first screen used to
+ * show an empty date input and a disabled CTA with no explanation. Falls
+ * back to `toDateString` (UTC-based) when `venueTimezone` isn't known yet;
+ * see `todayInTimezone`.
+ */
+function createInitialState(venueTimezone?: string): BookingFlowState {
+  return {
+    step: "date-party",
+    data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+  };
+}
 
 /** Step keys when no deposit is required — single source of truth for step-set derivation. */
 export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
@@ -283,7 +293,7 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
       };
 
     case "RESET":
-      return INITIAL_STATE;
+      return { step: "date-party", data: { ...INITIAL_DATA, selectedDate: action.selectedDate } };
 
     case "SET_DEPOSIT_CONFIG":
       // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
@@ -374,6 +384,12 @@ export interface UseBookingFlowDeps {
    * used to create it, which lives inside `api.holds`, not component state.
    */
   onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
+  /**
+   * IANA timezone the venue operates in — used to default `selectedDate` to
+   * "today" on the venue's clock rather than a UTC midnight boundary
+   * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+   */
+  venueTimezone?: string;
 }
 
 export function useBookingFlow({
@@ -383,8 +399,9 @@ export function useBookingFlow({
   stripePublishableKey,
   holdDurationMinutes = 10,
   onHoldChange,
+  venueTimezone,
 }: UseBookingFlowDeps): BookingFlowResult {
-  const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
 
   // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
   // passed as a fresh inline arrow on every render; reading it through a ref
@@ -610,8 +627,8 @@ export function useBookingFlow({
   }, []);
 
   const resetFlow = useCallback(() => {
-    dispatch({ type: "RESET" });
-  }, []);
+    dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+  }, [venueTimezone]);
 
   const setDepositConfig = useCallback(
     (config: DepositConfig | null) => {
