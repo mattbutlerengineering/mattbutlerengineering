@@ -92,10 +92,67 @@ describe("withVenueScopedQueries", () => {
     expect(getLastTxExecuteRaw()).not.toHaveBeenCalled();
   });
 
-  it("passes $-prefixed methods straight through, unwrapped", () => {
+  it("passes $-prefixed methods straight through, unwrapped (still invokes the real $transaction)", async () => {
+    // Bound to `target` (see the regression test below), so no longer the
+    // exact same function reference as the raw mock — but must still
+    // delegate to it unmodified.
     const { client, $transaction } = createFakeBaseClient();
     const wrapped = withVenueScopedQueries(client);
 
-    expect(wrapped.$transaction).toBe($transaction);
+    await wrapped.$transaction(async () => "result");
+
+    expect($transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("binds pass-through $-prefixed methods to the real client, not the Proxy (regression, #5418)", () => {
+    // Reproduces the exact shape of Prisma's real `$transaction`/`$connect`/
+    // etc.: an internal method that reads its own state off `this`. Calling
+    // it as `wrapped.$whoAmI()` must resolve `this` to the raw client —
+    // JS method-call semantics otherwise bind `this` to whatever sits left
+    // of the dot at the call site, which is the Proxy (`wrapped`) itself.
+    const client = {
+      $transaction: vi.fn(),
+      $whoAmI(this: unknown) {
+        return this;
+      },
+    } as unknown as PrismaClient;
+    const wrapped = withVenueScopedQueries(client) as unknown as {
+      $whoAmI: () => unknown;
+    };
+
+    const result = wrapped.$whoAmI();
+
+    expect(result).toBe(client);
+    expect(result).not.toBe(wrapped);
+  });
+
+  it("invokes the transaction-scoped delegate method with the correct receiver, not a bare/detached call (regression, #5418)", async () => {
+    // Reproduces Prisma's own internal `_tracingHelper` shape: an
+    // object whose methods call `this.<sibling method>()`. The buggy
+    // implementation hoisted `dynamicTx[modelName][methodProp]` into a
+    // local and invoked it bare, which drops `this` to `undefined` (strict
+    // mode) and threw "Cannot read properties of undefined (reading
+    // 'getTracingHelper')" — the exact Sentry-reported crash.
+    enterVenueContext("venue-99");
+    const tracingHelper = {
+      getTracingHelper() {
+        return { isEnabled: () => true };
+      },
+      isEnabled(this: { getTracingHelper: () => { isEnabled: () => boolean } }) {
+        return this.getTracingHelper().isEnabled();
+      },
+    };
+    const txExecuteRaw = vi.fn().mockResolvedValue(0);
+    const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) =>
+      fn({ $executeRaw: txExecuteRaw, tracingHelper })
+    );
+    const client = { $transaction, tracingHelper } as unknown as PrismaClient;
+    const wrapped = withVenueScopedQueries(client) as unknown as {
+      tracingHelper: { isEnabled: () => Promise<boolean> };
+    };
+
+    const result = await wrapped.tracingHelper.isEnabled();
+
+    expect(result).toBe(true);
   });
 });

@@ -11121,7 +11121,11 @@
       return new Proxy(client, {
         get(target, prop, receiver) {
           if (typeof prop !== "string" || prop.startsWith("$")) {
-            return Reflect.get(target, prop, receiver);
+            const value: unknown = Reflect.get(target, prop, receiver);
+            // Bind pass-through methods to the real client so Prisma's own
+            // internal `this.<field>` accesses never re-enter this Proxy with
+            // `this` set to the wrapper (see trap 1 above).
+            return typeof value === "function" ? value.bind(target) : value;
           }
     
           const delegate: unknown = Reflect.get(target, prop, receiver);
@@ -11144,8 +11148,10 @@
                   // Non-null: the outer trap already confirmed `methodProp` is a
                   // function on the (non-transacted) delegate for `modelName`;
                   // the transaction client's delegate has the identical shape.
-                  const txMethod = dynamicTx[modelName]![methodProp as string]!;
-                  return txMethod(...args);
+                  // Invoked directly (not hoisted to a variable first) so the
+                  // receiver — `dynamicTx[modelName]` — stays the call's `this`
+                  // (see trap 2 above).
+                  return dynamicTx[modelName]![methodProp as string]!(...args);
                 });
             },
           });
