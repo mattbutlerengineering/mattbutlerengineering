@@ -101,11 +101,24 @@ function createWrapper() {
 
 function renderPage() {
   const Wrapper = createWrapper();
-  return render(
+  const result = render(
     <Wrapper>
       <SetupHoursPage />
     </Wrapper>
   );
+  return {
+    ...result,
+    // Re-render through the SAME Wrapper reference so React reconciles
+    // SetupHoursPage in place (a real venue-switch while mounted) instead
+    // of unmounting/remounting it, which would trivially re-run the
+    // useState initializer and mask the bug this is meant to catch.
+    rerenderPage: () =>
+      result.rerender(
+        <Wrapper>
+          <SetupHoursPage />
+        </Wrapper>
+      ),
+  };
 }
 
 describe("SetupHoursPage", () => {
@@ -237,6 +250,27 @@ describe("SetupHoursPage", () => {
 
     expect(mockValidateOperatingHours).not.toHaveBeenCalled();
     expect(mockApiClient.venues.update).not.toHaveBeenCalled();
+  });
+
+  it("re-seeds hours from the newly selected venue when the venue switches (#4982)", () => {
+    const { rerenderPage } = renderPage();
+
+    expect(screen.getByTestId("hours-data").textContent).toContain("10:00");
+
+    const otherVenue = {
+      id: "venue-2",
+      name: "Other Venue",
+      operatingHours: { tuesday: { open: "08:00", close: "16:00" } },
+    };
+    vi.mocked(useVenue).mockReturnValue({
+      selectedVenue: otherVenue,
+      selectedVenueId: "venue-2",
+    } as any);
+
+    rerenderPage();
+
+    expect(screen.getByTestId("hours-data").textContent).toContain("tuesday");
+    expect(screen.getByTestId("hours-data").textContent).not.toContain("monday");
   });
 
   it("onChange clears validation errors", async () => {
