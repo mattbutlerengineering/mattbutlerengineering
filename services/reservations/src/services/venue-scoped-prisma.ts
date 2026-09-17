@@ -44,12 +44,42 @@ type DynamicTransactionClient = Record<string, DynamicDelegate> & {
  * real id; a `null`/missing venue id (no request context, e.g. a background
  * job, or a public/unauthenticated route) still opens the same transaction
  * shape, but `setVenueContext` no-ops on it (ADR-026 §4 default-deny).
+ *
+ * Two `this`-binding traps to avoid when touching this trap (root cause of
+ * the "Cannot read properties of undefined (reading 'getTracingHelper')"
+ * production bug this comment documents):
+ *
+ * 1. A `get` trap that returns `Reflect.get(target, prop, receiver)`
+ *    unbound hands back a bare function reference. JS method-call semantics
+ *    (`obj.method()`) bind `this` to whatever sits left of the final `.` at
+ *    the *call site* — here, the Proxy itself (`receiver`), not `target` —
+ *    so every pass-through `$`-prefixed call (e.g. the `prisma.$transaction`
+ *    call sites in `reservation.ts`/`floor-plan.ts`/`book-slot.ts`/
+ *    `waitlist.ts`/`venue.ts`) re-enters Prisma's internals with `this` set
+ *    to this Proxy. Prisma's `$transaction`/`$connect`/etc. read internal
+ *    state off `this` (`this._engineConfig`, `this._tracingHelper`, ...), so
+ *    every such internal access re-enters THIS trap for a property the
+ *    "model delegate" wrapping below was never meant to see. `.bind(target)`
+ *    below closes that re-entry path.
+ * 2. Extracting a method into a local (`const m = obj[k]; m(...)`) and
+ *    calling the local bare loses the receiver the same way — `this` inside
+ *    the callee becomes `undefined` (strict mode). Prisma's own internal
+ *    `_tracingHelper` object (`getTraceParent`/`isEnabled`/etc., all of
+ *    which call `this.getTracingHelper()`) is exactly this shape, which is
+ *    what turned a stray internal-property access into that exact crash.
+ *    Calling `dynamicTx[modelName]![methodProp](...)` directly (never
+ *    hoisting the method reference to a variable first) keeps the implicit
+ *    receiver intact.
  */
 export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
   return new Proxy(client, {
     get(target, prop, receiver) {
       if (typeof prop !== "string" || prop.startsWith("$")) {
-        return Reflect.get(target, prop, receiver);
+        const value: unknown = Reflect.get(target, prop, receiver);
+        // Bind pass-through methods to the real client so Prisma's own
+        // internal `this.<field>` accesses never re-enter this Proxy with
+        // `this` set to the wrapper (see trap 1 above).
+        return typeof value === "function" ? value.bind(target) : value;
       }
 
       const delegate: unknown = Reflect.get(target, prop, receiver);
@@ -72,8 +102,10 @@ export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
               // Non-null: the outer trap already confirmed `methodProp` is a
               // function on the (non-transacted) delegate for `modelName`;
               // the transaction client's delegate has the identical shape.
-              const txMethod = dynamicTx[modelName]![methodProp as string]!;
-              return txMethod(...args);
+              // Invoked directly (not hoisted to a variable first) so the
+              // receiver — `dynamicTx[modelName]` — stays the call's `this`
+              // (see trap 2 above).
+              return dynamicTx[modelName]![methodProp as string]!(...args);
             });
         },
       });
