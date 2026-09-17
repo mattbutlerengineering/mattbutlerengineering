@@ -413,4 +413,51 @@ describe("ReservationsClient.manageReservation", () => {
 
     await expect(makeClient().manageReservation("tok")).rejects.toBeInstanceOf(ApiValidationError);
   });
+
+  it("carries an optional venue.phone through", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          ...managedPayload,
+          venue: { ...managedPayload.venue, phone: "+15035551234" },
+        },
+      })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venue?.phone).toBe("+15035551234");
+  });
+});
+
+describe("ReservationsClient.cancelManaged", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("DELETEs /public/v1/reservations/manage with the token as a Bearer header and unwraps data", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { status: "CANCELLED" } }));
+
+    const result = await makeClient().cancelManaged("tok-abc");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/reservations/manage");
+    expect(options?.method).toBe("DELETE");
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer tok-abc");
+    expect(result).toEqual({ status: "CANCELLED" });
+  });
+
+  it("sends cancellationReason/cancellationNote as the JSON body when provided", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { status: "CANCELLED" } }));
+
+    await makeClient().cancelManaged("tok-abc", {
+      cancellationReason: "guest_cancelled",
+      cancellationNote: "Change of plans",
+    });
+
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect(JSON.parse(options?.body as string)).toEqual({
+      cancellationReason: "guest_cancelled",
+      cancellationNote: "Change of plans",
+    });
+  });
 });

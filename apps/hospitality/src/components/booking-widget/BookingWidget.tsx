@@ -113,6 +113,7 @@ export function BookingWidget({
     stripePublishableKey,
     holdDurationMinutes,
     onHoldChange,
+    venueTimezone,
   });
 
   // stepKeys/currentStepIndex come from useBookingFlow — the single source
@@ -162,6 +163,7 @@ export function BookingWidget({
           enableDateRange={enableDateRange}
           minDate={minDate}
           maxDate={maxDate}
+          venueTimezone={venueTimezone}
         />
       )}
 

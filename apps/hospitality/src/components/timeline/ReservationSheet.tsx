@@ -21,6 +21,8 @@ export interface ReservationSheetProps {
   tables: Table[];
   /** Computed by the page from `seatedReservationIds` (ux Decision a). */
   seated: boolean;
+  /** The page's clock — lets `occupiedCaption` tell an overrun party from a different one (#5270). */
+  now: Date;
   open: boolean;
   onClose: () => void;
   /** Rejects on failure — the sheet owns showing it (architecture § Dialog contracts). */
@@ -39,6 +41,7 @@ export function ReservationSheet({
   reservation,
   tables,
   seated,
+  now,
   open,
   onClose,
   onSeat,
@@ -51,7 +54,7 @@ export function ReservationSheet({
   const detailId = useId();
 
   const table = findReservationTable(reservation, tables);
-  const caption = occupiedCaption(reservation, table, seated);
+  const caption = occupiedCaption(reservation, table, now);
   const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
   const { data: guest } = useGuest(reservation.guestId);
 

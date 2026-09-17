@@ -122,6 +122,7 @@
     <item priority="low">
       interface MockPrisma {
         $queryRaw: ReturnType<typeof vi.fn>;
+        $executeRaw: ReturnType<typeof vi.fn>;
       }
     </item>
     <item priority="low">

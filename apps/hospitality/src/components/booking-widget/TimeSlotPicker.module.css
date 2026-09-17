@@ -63,6 +63,9 @@
 }
 
 .slot {
+  /* #4981: 32px rows read as decorative on a coarse pointer — bump to the
+     44px WCAG 2.5.8 target-size minimum. */
+  min-height: 44px;
   padding-block: var(--rialto-space-xs);
   padding-inline: var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);

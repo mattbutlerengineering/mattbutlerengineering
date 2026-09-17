@@ -2,14 +2,22 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
-import { useGuests, useGuestSegments, useGuestSearch } from "./useGuests.js";
-import type { Guest, GuestSegment } from "@mbe/types";
+import {
+  useGuests,
+  useGuestSegments,
+  useGuestSearch,
+  useLapsingGuests,
+  useSendWinBack,
+} from "./useGuests.js";
+import type { Guest, GuestSegment, LapsingGuest } from "@mbe/types";
 
 /* ── Mocks ──────────────────────────────────────────── */
 
 const mockList = vi.fn();
 const mockSearch = vi.fn();
 const mockGetSegments = vi.fn();
+const mockGetLapsing = vi.fn();
+const mockSendWinBack = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
@@ -17,6 +25,8 @@ vi.mock("./useApiClient.js", () => ({
       list: mockList,
       search: mockSearch,
       getSegments: mockGetSegments,
+      getLapsing: mockGetLapsing,
+      sendWinBack: mockSendWinBack,
     },
   }),
 }));
@@ -154,5 +164,67 @@ describe("useGuestSearch", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toEqual(guests);
+  });
+});
+
+/* ── Tests: useLapsingGuests ─────────────────────────── */
+
+function makeLapsingGuest(overrides: Partial<LapsingGuest> = {}): LapsingGuest {
+  return {
+    guestId: "g-1",
+    name: "Jane Doe",
+    email: "jane@example.com",
+    phone: null,
+    communicationPreference: "both",
+    avgFrequencyDays: 7,
+    daysSinceLastVisit: 21,
+    daysOverdue: 7,
+    ...overrides,
+  };
+}
+
+describe("useLapsingGuests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns lapsing guests on success", async () => {
+    const guests = [makeLapsingGuest()];
+    mockGetLapsing.mockResolvedValue(guests);
+
+    const { result } = renderHook(() => useLapsingGuests("venue-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toEqual(guests);
+    expect(mockGetLapsing).toHaveBeenCalledWith("venue-1");
+  });
+
+  it("does not fetch when venueId is null", () => {
+    const { result } = renderHook(() => useLapsingGuests(null), {
+      wrapper: createWrapper(),
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(mockGetLapsing).not.toHaveBeenCalled();
+  });
+});
+
+/* ── Tests: useSendWinBack ────────────────────────────── */
+
+describe("useSendWinBack", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls api.guests.sendWinBack with the guest id", async () => {
+    mockSendWinBack.mockResolvedValue({ sent: true });
+
+    const { result } = renderHook(() => useSendWinBack(), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.mutateAsync("g-1");
+    expect(mockSendWinBack).toHaveBeenCalledWith("g-1");
   });
 });

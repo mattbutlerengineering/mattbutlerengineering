@@ -14,6 +14,11 @@ vi.mock("../hooks/use-theme.js", () => ({
   useTheme: vi.fn(),
 }));
 
+const mockNavigate = vi.fn();
+vi.mock("react-router", () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 const mockApiClient = {
   users: {
     me: vi.fn(),
@@ -251,6 +256,16 @@ describe("SettingsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Theme")).toBeDefined();
     });
+  });
+
+  it("navigates to /setup/hours when Operating Hours is clicked (#4982)", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Venue")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText("Operating Hours"));
+    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
   });
 
   it("renders venue defaults card after loading", async () => {

@@ -4143,6 +4143,28 @@
       });
     }
   </file>
+  <file path="apps/hospitality/src/components/booking-widget/todayInTimezone.ts">
+    export function todayInTimezone(now: Date, timeZone?: string): string {
+      if (!timeZone) return toDateString(now);
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const year = get("year");
+        const month = get("month");
+        const day = get("day");
+        if (!year || !month || !day) return toDateString(now);
+        return `${year}-${month}-${day}`;
+      } catch {
+        return toDateString(now);
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"
@@ -4225,12 +4247,18 @@
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
       | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
-      | { type: "RESET" }
+      | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
       | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
       | { type: "GO_TO_WAITLIST_JOIN" }
       | { type: "WAITLIST_JOINED"; result: WaitlistResult }
       | { type: "SET_GUEST_DETAILS"; details: GuestDetails };
+    function createInitialState(venueTimezone?: string): BookingFlowState {
+      return {
+        step: "date-party",
+        data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+      };
+    }
     export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
     export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
       "date-party",
@@ -4371,7 +4399,7 @@
           };
     
         case "RESET":
-          return INITIAL_STATE;
+          return { step: "date-party", data: { ...INITIAL_DATA, selectedDate: action.selectedDate } };
     
         case "SET_DEPOSIT_CONFIG":
           // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
@@ -4459,6 +4487,12 @@
        * used to create it, which lives inside `api.holds`, not component state.
        */
       onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
+      /**
+       * IANA timezone the venue operates in — used to default `selectedDate` to
+       * "today" on the venue's clock rather than a UTC midnight boundary
+       * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+       */
+      venueTimezone?: string;
     }
     export function useBookingFlow({
       api,
@@ -4467,8 +4501,9 @@
       stripePublishableKey,
       holdDurationMinutes = 10,
       onHoldChange,
+      venueTimezone,
     }: UseBookingFlowDeps): BookingFlowResult {
-      const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
+      const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
     
       // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
       // passed as a fresh inline arrow on every render; reading it through a ref
@@ -4694,8 +4729,8 @@
       }, []);
     
       const resetFlow = useCallback(() => {
-        dispatch({ type: "RESET" });
-      }, []);
+        dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+      }, [venueTimezone]);
     
       const setDepositConfig = useCallback(
         (config: DepositConfig | null) => {
@@ -12613,6 +12648,7 @@
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+    export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
     export interface UseGuestsParams {
       venueId?: string | null;
       limit?: number;
@@ -12649,6 +12685,19 @@
     export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
       return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
     }
+    export interface UseLapsingGuestsResult {
+      data: LapsingGuest[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => void;
+    }
+    export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult {
+      return useLapsingGuestsQuery({ venueId }) as QueryHookResult<LapsingGuest[]>;
+    }
+    export const useSendWinBack = createMutationHook<string, { sent: boolean }>({
+      invalidateKeys: LAPSING_GUESTS_QUERY_KEY,
+      mutationFn: (api, guestId) => api.guests.sendWinBack(guestId),
+    });
     export interface UseGuestResult {
       data: Guest | undefined;
       isLoading: boolean;
@@ -15280,6 +15329,41 @@
     
       request.managedReservationId = result.reservationId!;
       request.manageToken = token;
+    }
+  </file>
+  <file path="services/reservations/src/middleware/venue-context.ts">
+    export interface VenueContextClient {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    }
+    export async function setVenueContext(
+      client: VenueContextClient,
+      venueId: string | null | undefined
+    ): Promise<void> {
+      if (!venueId) return;
+      await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+    }
+    export function venueContextPreHandler(
+      resolveVenueId: VenueIdResolver
+    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+      return async function setVenueContextPreHandler(
+        request: FastifyRequest,
+        _reply: FastifyReply
+      ): Promise<void> {
+        const result = resolveVenueId(request);
+        if (isThenable(result)) {
+          const venueId = await result;
+          enterVenueContext(typeof venueId === "string" ? venueId : null);
+          return;
+        }
+        enterVenueContext(typeof result === "string" ? result : null);
+      };
+    }
+    function isThenable(value: unknown): value is PromiseLike<string | null | undefined> {
+      return (
+        typeof value === "object" &&
+        value !== null &&
+        typeof (value as { then?: unknown }).then === "function"
+      );
     }
   </file>
   </section>
@@ -19485,7 +19569,9 @@
   </file>
   <file path="services/reservations/src/routes/cancel-reservation.ts">
     export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.delete(
+      fastify.delete<{
+        Body?: { cancellationReason?: string; cancellationNote?: string };
+      }>(
         "/public/v1/reservations/manage",
         {
           config: {
@@ -19499,10 +19585,15 @@
             return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
-          const result = await cancelReservationWithDeposit(preamble.reservation, request.manageToken, {
-            bookingNotifier: fastify.bookingNotifier,
-            logger: request.log,
-          });
+          const result = await cancelReservationWithDeposit(
+            preamble.reservation,
+            request.manageToken,
+            { bookingNotifier: fastify.bookingNotifier, logger: request.log },
+            {
+              cancellationReason: request.body?.cancellationReason,
+              cancellationNote: request.body?.cancellationNote,
+            }
+          );
     
           if (!result.success) {
             return reply
@@ -21153,7 +21244,13 @@
             data: {
               reservation: serializeManagedReservation(reservation),
               venue: venue
-                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
+                ? {
+                    id: venue.id,
+                    name: venue.name,
+                    slug: venue.slug,
+                    ianaTimezone: venue.ianaTimezone,
+                    phone: venue.settings?.phone,
+                  }
                 : null,
             },
           });
@@ -28862,6 +28959,12 @@
       } = intent;
     
       return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
+        // This `prisma.$transaction` call bypasses the per-call auto-wrap
+        // `services/venue-scoped-prisma.ts` gives the `prisma` export — set
+        // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026 part
+        // 6), using the intent's own (already-resolved) venueId.
+        await setVenueContext(tx, venueId);
+    
         // Serialize conflict-checked writes per table BEFORE any conflict check so
         // concurrent slot writes cannot both pass and double-book. Released
         // automatically when the transaction ends.
@@ -29466,7 +29569,7 @@
   </file>
   <file path="services/reservations/src/services/database.ts">
     export const db = createDatabase(PrismaClient as never);
-    export const prisma = db.prisma as unknown as PrismaClient;
+    export const prisma = withVenueScopedQueries(db.prisma as unknown as PrismaClient);
   </file>
   <file path="services/reservations/src/services/deposit-state-machine.ts">
     export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");
@@ -30249,6 +30352,13 @@
         }
     
         const cloned = await prisma.$transaction(async (tx) => {
+          // This `prisma.$transaction` call bypasses the per-call auto-wrap
+          // `services/venue-scoped-prisma.ts` gives the `prisma` export — set
+          // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026
+          // part 6), using the source floor plan's own (already-resolved)
+          // venue rather than the request-scoped store, since it's more precise.
+          await setVenueContext(tx, source.venueId);
+    
           const newFloorPlan = await tx.floorPlan.create({
             data: {
               venueId: source.venueId,
@@ -30327,6 +30437,10 @@
       async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
         try {
           const floorPlan = await prisma.$transaction(async (tx) => {
+            // See the `clone()` comment above — this `$transaction` call also
+            // bypasses the per-call auto-wrap, so it sets app.venue_id itself.
+            await setVenueContext(tx, venueId);
+    
             await tx.floorPlan.updateMany({
               where: { venueId, isActive: true },
               data: { isActive: false },
@@ -30390,28 +30504,37 @@
           )
         );
     
-        const tables = await prisma.$queryRaw<PrismaTable[]>`
-          UPDATE tables AS t
-          SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
-          FROM (VALUES ${values}) AS v(id, shape_metadata)
-          WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
-          RETURNING
-            t.id,
-            t.name,
-            t.table_number AS "tableNumber",
-            t.capacity,
-            t.min_covers AS "minCovers",
-            t.max_covers AS "maxCovers",
-            t.location,
-            t.is_active AS "isActive",
-            t.status,
-            t.priority,
-            t.venue_id AS "venueId",
-            t.floor_plan_id AS "floorPlanId",
-            t.shape_metadata AS "shapeMetadata",
-            t.created_at AS "createdAt",
-            t.updated_at AS "updatedAt"
-        `;
+        // A raw `$queryRaw` call bypasses `venue-scoped-prisma.ts`'s per-call
+        // auto-wrap (`$`-prefixed methods pass through unwrapped, on purpose —
+        // see that module's doc comment) and, unlike `prisma.model.method(...)`,
+        // is not itself a single implicit transaction Postgres would wrap
+        // `set_config` around — so it must open its own explicit transaction and
+        // set app.venue_id there (ADR-026 part 6).
+        const tables = await prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, floorPlan.venueId);
+          return tx.$queryRaw<PrismaTable[]>`
+            UPDATE tables AS t
+            SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
+            FROM (VALUES ${values}) AS v(id, shape_metadata)
+            WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
+            RETURNING
+              t.id,
+              t.name,
+              t.table_number AS "tableNumber",
+              t.capacity,
+              t.min_covers AS "minCovers",
+              t.max_covers AS "maxCovers",
+              t.location,
+              t.is_active AS "isActive",
+              t.status,
+              t.priority,
+              t.venue_id AS "venueId",
+              t.floor_plan_id AS "floorPlanId",
+              t.shape_metadata AS "shapeMetadata",
+              t.created_at AS "createdAt",
+              t.updated_at AS "updatedAt"
+          `;
+        });
     
         // An unknown/deleted tableId — or, since the venue predicate above, one
         // belonging to another venue — simply doesn't match any row: the UPDATE
@@ -32415,7 +32538,14 @@
     
             const updated =
               data.status === "NO_SHOW" && existing.guestId
-                ? await prisma.$transaction((tx) => writeStatusChange(tx))
+                ? await prisma.$transaction(async (tx) => {
+                    // This `prisma.$transaction` call bypasses the per-call
+                    // auto-wrap `services/venue-scoped-prisma.ts` gives the
+                    // `prisma` export — set app.venue_id on THIS transaction's
+                    // own `tx` explicitly (ADR-026 part 6).
+                    await setVenueContext(tx, getCurrentVenueId());
+                    return writeStatusChange(tx);
+                  })
                 : await writeStatusChange(prisma);
     
             return updated ? toReservation(updated) : null;
@@ -33707,6 +33837,14 @@
       },
     };
   </file>
+  <file path="services/reservations/src/services/venue-context-store.ts">
+    export function enterVenueContext(venueId: string | null): void {
+      venueContextStorage.enterWith(venueId);
+    }
+    export function getCurrentVenueId(): string | null {
+      return venueContextStorage.getStore() ?? null;
+    }
+  </file>
   <file path="services/reservations/src/services/venue-membership.ts">
     export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup {
       return async (userSub: string, venueId: string): Promise<boolean> => {
@@ -33719,6 +33857,53 @@
         const count = await client.venueMembership.count({ where: { userSub } });
         return count > 0;
       };
+    }
+  </file>
+  <file path="services/reservations/src/services/venue-scoped-prisma.ts">
+    type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
+    type DynamicTransactionClient = Record<string, DynamicDelegate> & {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    };
+    export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
+      return new Proxy(client, {
+        get(target, prop, receiver) {
+          if (typeof prop !== "string" || prop.startsWith("$")) {
+            const value: unknown = Reflect.get(target, prop, receiver);
+            // Bind pass-through methods to the real client so Prisma's own
+            // internal `this.<field>` accesses never re-enter this Proxy with
+            // `this` set to the wrapper (see trap 1 above).
+            return typeof value === "function" ? value.bind(target) : value;
+          }
+    
+          const delegate: unknown = Reflect.get(target, prop, receiver);
+          if (delegate === null || typeof delegate !== "object") {
+            return delegate;
+          }
+    
+          const modelName = prop;
+          return new Proxy(delegate as DynamicDelegate, {
+            get(delegateTarget, methodProp, methodReceiver) {
+              const method = Reflect.get(delegateTarget, methodProp, methodReceiver);
+              if (typeof method !== "function") {
+                return method;
+              }
+    
+              return (...args: unknown[]) =>
+                target.$transaction(async (tx) => {
+                  const dynamicTx = tx as unknown as DynamicTransactionClient;
+                  await setVenueContext(dynamicTx, getCurrentVenueId());
+                  // Non-null: the outer trap already confirmed `methodProp` is a
+                  // function on the (non-transacted) delegate for `modelName`;
+                  // the transaction client's delegate has the identical shape.
+                  // Invoked directly (not hoisted to a variable first) so the
+                  // receiver — `dynamicTx[modelName]` — stays the call's `this`
+                  // (see trap 2 above).
+                  return dynamicTx[modelName]![methodProp as string]!(...args);
+                });
+            },
+          });
+        },
+      });
     }
   </file>
   <file path="services/reservations/src/services/venue.ts">
@@ -34382,12 +34567,19 @@
       const rows = Prisma.join(
         updated.map((entry) => Prisma.sql`(${entry.id}, ${entry.position}::int)`)
       );
-      await prisma.$executeRaw`
-        UPDATE "waitlist_entries" AS w
-        SET position = v.position
-        FROM (VALUES ${rows}) AS v(id, position)
-        WHERE w.id = v.id
-      `;
+      // A raw `$executeRaw` call bypasses `venue-scoped-prisma.ts`'s per-call
+      // auto-wrap (`$`-prefixed methods pass through unwrapped, on purpose) —
+      // open its own explicit transaction and set app.venue_id there (ADR-026
+      // part 6), using the already-known venueId parameter.
+      await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.$executeRaw`
+          UPDATE "waitlist_entries" AS w
+          SET position = v.position
+          FROM (VALUES ${rows}) AS v(id, position)
+          WHERE w.id = v.id
+        `;
+      });
     }
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
@@ -44785,6 +44977,8 @@
       name: string;
       slug: string;
       ianaTimezone: string;
+      /** Contact phone number shown to guests on the manage-reservation page (#4979). */
+      phone?: string;
     }
     export interface ManageReservationData {
       reservation: ManagedReservation;
@@ -44895,6 +45089,28 @@
           undefined,
           manageReservationDataSchema
         );
+      }
+    
+      /**
+       * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
+       * The token is sent as an `Authorization: Bearer` header rather than a query
+       * param — the manage-token middleware prefers it for mutating requests.
+       */
+      async cancelManaged(
+        token: string,
+        reason?: { cancellationReason?: string; cancellationNote?: string }
+      ): Promise<{ status: ReservationStatus }> {
+        const schema = z.object({ status: ReservationStatusSchema });
+        const response = await this.client.request<{ data: { status: ReservationStatus } }>(
+          "/public/v1/reservations/manage",
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+            body: reason ? JSON.stringify(reason) : undefined,
+          },
+          z.object({ data: schema })
+        );
+        return response.data;
       }
     }
   </file>
@@ -45792,6 +46008,7 @@
   <file path="packages/database/src/testing.ts">
     export interface MockPrisma {
       $queryRaw: ReturnType<typeof vi.fn>;
+      $executeRaw: ReturnType<typeof vi.fn>;
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
@@ -45821,7 +46038,10 @@
     export function createMockDatabaseService(
       overrides?: MockDatabaseServiceOverrides
     ): MockDatabaseService {
-      const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
+      const defaultPrisma: MockPrisma = {
+        $queryRaw: vi.fn(),
+        $executeRaw: vi.fn().mockResolvedValue(0),
+      };
       const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
     
       const getSlowQueryStats =
@@ -51395,6 +51615,24 @@
       const services: DomainServices = { ...defaultDomainServices, ...options.services };
       fastify.decorate("services", services);
     
+      // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
+      // `app.venue_id` session variable for every request whose venue is
+      // resolvable from its own query/body/params, so the RLS policies already
+      // enabled on floor_plans/tables/guests/reservations/deposits/waitlist_entries
+      // (parts 2-4) see the same venue scope the application layer does.
+      //
+      // Registered as a shared `addHook`, which Fastify always runs BEFORE a
+      // route's own `preHandler` option array — so this necessarily runs before
+      // `requireAuth`/`requireVenueAccess`, not after, despite those guards
+      // being the more familiar "runs first" preHandlers. That ordering is safe:
+      // this hook never makes an authorization decision (it can only narrow
+      // which rows are visible, exactly like the app-level `where: { venueId }`
+      // filters it backstops) and `requireVenueAccess` still independently
+      // 403s a non-member on every route that has it, after this hook runs. A
+      // request with no resolvable venue id (public routes, health checks,
+      // entity-addressed routes) is a deliberate no-op — ADR-026 §4 default-deny.
+      fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
+    
       // Register routes
       await fastify.register(healthRoutes);
       await fastify.register(registerReadinessRoutes, { prisma });
@@ -52178,12 +52416,20 @@
     export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
       return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
     }
+    function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
+      if (reservation.status !== "CONFIRMED") return false;
+      const start = new Date(reservation.startTime).getTime();
+      const at = now.getTime();
+      if (Number.isNaN(start) || Number.isNaN(at)) return false;
+      return at >= start - SEATED_EARLY_WINDOW_MS;
+    }
     export function occupiedCaption(
       reservation: Reservation,
       table: Table | undefined,
-      seated: boolean
+      now: Date
     ): string | null {
-      if (seated || !isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      if (isOccupiedByThisReservation(reservation, now)) return null;
       return `${table.name} is still occupied — turn it or move the party.`;
     }
     export interface SeatGuestState {
@@ -53259,16 +53505,16 @@
       /** Guest-facing cancellation/manage-reservation link, included in the event description. */
       cancellationUrl?: string;
     }
-    function buildEventTitle(venue: PublicVenueConfig): string {
+    function buildEventTitle(venue: IcsVenue): string {
       return `${venue.name} Reservation`;
     }
-    function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildGoogleCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const start = formatIcsLocalDateTime(reservation.startTime, venue.ianaTimezone);
@@ -53311,8 +53557,8 @@
       return `${year}-${month}-${day}T${hour}:${minute}:${second}${formatUtcOffset(offsetMinutes)}`;
     }
     export function buildOutlookCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const params = new URLSearchParams({
@@ -53392,6 +53638,8 @@
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">
+    export type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "partySize">;
+    export type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
     export interface BuildReservationIcsOptions {
       /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
       cancellationUrl?: string;
@@ -53451,13 +53699,13 @@
       const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "00";
       return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
     }
-    function buildDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildReservationIcs(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildReservationIcsOptions = {}
     ): string {
       const now = opts.now ?? new Date();
@@ -53482,6 +53730,17 @@
       ];
     
       return properties.map(foldLine).join(CRLF);
+    }
+    export function downloadIcsFile(icsContent: string, filename: string): void {
+      const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
     }
   </file>
   <file path="apps/hospitality/src/utils/local-clock.ts">

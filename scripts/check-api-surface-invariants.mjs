@@ -110,10 +110,13 @@ export const API_SURFACE_PROBES = [
   //
   // 404 is the expected status on BOTH sides of the fix, so the status alone
   // proves nothing: users-api's catch-all and reservations-api's own handler
-  // both answer 404. The discriminator is the body -- `Venue not found` comes
-  // from public-venues.ts's handler, which only runs if the request actually
-  // reached the service that owns the path. The catch-all's route-miss body
-  // cannot produce that string.
+  // both answer 404. The discriminator is the body -- `No venue found with
+  // slug` comes from public-venues.ts's handler, which only runs if the
+  // request actually reached the service that owns the path. The catch-all's
+  // route-miss body cannot produce that string. (Was `Venue not found` —
+  // that never matched what the handler actually sends, so this probe
+  // reported wrong-service on every deploy regardless of whether routing was
+  // correct; see #5168 and its ~10 duplicates.)
   {
     name: "public-venue-lookup:reachable-at-origin",
     method: "GET",
@@ -121,7 +124,7 @@ export const API_SURFACE_PROBES = [
     // A slug no venue can hold, so the probe reads config and never data.
     path: "/public/v1/venues/surface-probe-absent-venue",
     expectStatus: 404,
-    expectBodyIncludes: "Venue not found",
+    expectBodyIncludes: "No venue found with slug",
     requireHeaders: ["x-ratelimit-limit"],
   },
   {
@@ -135,7 +138,7 @@ export const API_SURFACE_PROBES = [
     origin: "https://mattbutlerengineering.com",
     path: "/public/v1/venues/surface-probe-absent-venue",
     expectStatus: 404,
-    expectBodyIncludes: "Venue not found",
+    expectBodyIncludes: "No venue found with slug",
     requireHeaders: ["x-ratelimit-limit"],
   },
   {

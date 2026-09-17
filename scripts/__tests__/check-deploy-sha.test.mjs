@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { extractBuildId, isBuildConfirmed, pollForDeploy } from "../check-deploy-sha.mjs";
+import {
+  extractBuildId,
+  isBuildConfirmed,
+  isShaVerifiableTrigger,
+  pollForDeploy,
+  resolveExpectedSha,
+} from "../check-deploy-sha.mjs";
 
 describe("extractBuildId", () => {
   it("extracts the build-id from a meta tag", () => {
@@ -154,5 +160,52 @@ describe("pollForDeploy", () => {
       sleepFn,
     });
     expect(result).toEqual({ confirmed: "confirmed", liveBuildId: "4364b7b", attempts: 2 });
+  });
+});
+
+describe("isShaVerifiableTrigger", () => {
+  // Root cause behind the recurring "could not confirm deploy" flake
+  // (#5098, #5123, #5124, #5133, #5134, #5153): the marketing homepage's
+  // build-id is only ever set by "Deploy Static Sites" (VITE_BUILD_ID:
+  // github.sha in deploy-static.yml). "Deploy Services" and "Pulumi Deploy"
+  // ship backend/infra changes that never touch that build, so polling the
+  // homepage for *their* head_sha can never succeed no matter how long the
+  // budget is -- all six filed issues were triggered by one of those two,
+  // none by "Deploy Static Sites".
+  it("is true only for the one workflow that actually updates the polled build-id", () => {
+    expect(isShaVerifiableTrigger("Deploy Static Sites")).toBe(true);
+    expect(isShaVerifiableTrigger("Deploy Services")).toBe(false);
+    expect(isShaVerifiableTrigger("Pulumi Deploy")).toBe(false);
+  });
+
+  it("is false for an absent trigger name (manual workflow_dispatch)", () => {
+    expect(isShaVerifiableTrigger(null)).toBe(false);
+    expect(isShaVerifiableTrigger("")).toBe(false);
+  });
+});
+
+describe("resolveExpectedSha", () => {
+  it("passes the head SHA through for a Deploy Static Sites trigger", () => {
+    expect(
+      resolveExpectedSha({ triggerName: "Deploy Static Sites", headSha: "4364b7bce1a2" })
+    ).toBe("4364b7bce1a2");
+  });
+
+  it("discards the head SHA for triggers that never update the polled build-id", () => {
+    // Confirming against the wrong site is not a timing problem -- no budget
+    // widening fixes it, so the only correct move is to not attempt
+    // confirmation at all (pollForDeploy already treats a falsy expected SHA
+    // as "skipped", matching manual workflow_dispatch's existing behavior).
+    expect(resolveExpectedSha({ triggerName: "Deploy Services", headSha: "4364b7bce1a2" })).toBe(
+      null
+    );
+    expect(resolveExpectedSha({ triggerName: "Pulumi Deploy", headSha: "4364b7bce1a2" })).toBe(
+      null
+    );
+  });
+
+  it("passes an empty/absent head SHA through unchanged (workflow_dispatch has nothing to confirm)", () => {
+    expect(resolveExpectedSha({ triggerName: null, headSha: "" })).toBe(null);
+    expect(resolveExpectedSha({ triggerName: "", headSha: null })).toBe(null);
   });
 });
