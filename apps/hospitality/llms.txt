@@ -437,6 +437,9 @@
     </item>
   </file>
   <file path="src/hooks/use-theme.ts">
+    <item priority="medium">
+      function hasStoredThemePreference(): boolean { /* ... */ }
+    </item>
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
@@ -451,6 +454,9 @@
     </item>
     <item priority="high">
       export function useThemeState(): ThemeContextValue { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/use-url-params.ts">

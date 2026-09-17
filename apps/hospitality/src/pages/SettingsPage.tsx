@@ -94,7 +94,7 @@ function SettingsLoadingSkeleton() {
 
 export function SettingsPage() {
   const { isLoading: isAuthLoading, signOut } = useAuth();
-  const { setTheme: setLocalTheme } = useTheme();
+  const { theme: localTheme, setTheme: setLocalTheme } = useTheme();
 
   const { data: user, isLoading, error: loadError, refetch } = useCurrentUser();
   const updatePreferencesMutation = useUpdatePreferences();
@@ -218,7 +218,7 @@ export function SettingsPage() {
                   <Select
                     label="Theme"
                     options={THEME_OPTIONS}
-                    value={preferences.theme ?? "system"}
+                    value={localTheme}
                     onChange={(value) => {
                       const next = value as "light" | "dark" | "system";
                       setLocalTheme(next);
