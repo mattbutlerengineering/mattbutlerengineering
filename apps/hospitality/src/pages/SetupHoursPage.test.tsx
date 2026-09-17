@@ -83,6 +83,7 @@ function serverError(method: string, path: string): ApiClientError {
   );
 }
 import { useVenue } from "../contexts/VenueContext.js";
+import type { VenueContextValue } from "../contexts/VenueContext.js";
 
 const defaultVenue = {
   id: "venue-1",
@@ -265,7 +266,7 @@ describe("SetupHoursPage", () => {
     vi.mocked(useVenue).mockReturnValue({
       selectedVenue: otherVenue,
       selectedVenueId: "venue-2",
-    } as any);
+    } as VenueContextValue);
 
     rerenderPage();
 
