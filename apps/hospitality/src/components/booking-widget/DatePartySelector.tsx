@@ -1,5 +1,6 @@
 import { Input, Button } from "@mattbutlerengineering/rialto";
 import { toDateString } from "@mbe/types";
+import { todayInTimezone } from "./todayInTimezone.js";
 import styles from "./DatePartySelector.module.css";
 
 export interface DatePartySelectorProps {
@@ -16,6 +17,12 @@ export interface DatePartySelectorProps {
   enableDateRange?: boolean;
   /** Venue contact phone, shown as a tel: link for parties above maxPartySize (#4979). */
   phone?: string;
+  /**
+   * IANA timezone the venue operates in — used to compute "today" on the
+   * venue's clock rather than a UTC midnight boundary (#4981). Omit only
+   * when unknown; falls back to UTC-based `toDateString`.
+   */
+  venueTimezone?: string;
 }
 
 /** Upper bound on how many numbered buttons the grid ever renders (#4979) — a
@@ -36,8 +43,9 @@ export function DatePartySelector({
   maxPartySize = 8,
   enableDateRange = false,
   phone,
+  venueTimezone,
 }: DatePartySelectorProps) {
-  const today = toDateString(new Date());
+  const today = todayInTimezone(new Date(), venueTimezone);
   const effectiveMinDate = minDate ?? today;
 
   const thirtyDaysFromNow = new Date();
@@ -48,7 +56,12 @@ export function DatePartySelector({
   const partySizes = Array.from({ length: renderedMaxPartySize }, (_, i) => i + 1);
   const isOverflowSelected = partySize > maxPartySize;
 
-  const canProceed = selectedDate !== null && partySize > 0 && !isOverflowSelected;
+  // #4981: the date input's `min` attribute only guides the native picker —
+  // a typed (or pasted) past date is still accepted, so canProceed must
+  // reject it explicitly rather than trusting the browser.
+  const isDateBeforeMin = selectedDate !== null && selectedDate < effectiveMinDate;
+  const canProceed =
+    selectedDate !== null && !isDateBeforeMin && partySize > 0 && !isOverflowSelected;
 
   return (
     <div className={styles.container}>
@@ -132,9 +145,17 @@ export function DatePartySelector({
         )}
       </div>
 
-      <Button variant="primary" onClick={onNext} disabled={!canProceed}>
+      <Button
+        variant="primary"
+        onClick={onNext}
+        disabled={!canProceed}
+        className={styles.ctaButton}
+      >
         Find Available Times
       </Button>
+      {!canProceed && !isOverflowSelected && (
+        <p className={styles.ctaHint}>Choose a date from today onward to see available times.</p>
+      )}
     </div>
   );
 }
