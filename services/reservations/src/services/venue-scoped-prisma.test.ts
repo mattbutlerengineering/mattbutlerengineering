@@ -116,10 +116,11 @@ describe("withVenueScopedQueries", () => {
         return this;
       },
     } as unknown as PrismaClient;
-    const wrapped = withVenueScopedQueries(client);
+    const wrapped = withVenueScopedQueries(client) as unknown as {
+      $whoAmI: () => unknown;
+    };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = (wrapped as any).$whoAmI();
+    const result = wrapped.$whoAmI();
 
     expect(result).toBe(client);
     expect(result).not.toBe(wrapped);
@@ -146,10 +147,11 @@ describe("withVenueScopedQueries", () => {
       fn({ $executeRaw: txExecuteRaw, tracingHelper })
     );
     const client = { $transaction, tracingHelper } as unknown as PrismaClient;
-    const wrapped = withVenueScopedQueries(client);
+    const wrapped = withVenueScopedQueries(client) as unknown as {
+      tracingHelper: { isEnabled: () => Promise<boolean> };
+    };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (wrapped as any).tracingHelper.isEnabled();
+    const result = await wrapped.tracingHelper.isEnabled();
 
     expect(result).toBe(true);
   });
