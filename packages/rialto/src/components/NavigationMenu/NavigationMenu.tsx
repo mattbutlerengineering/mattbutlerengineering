@@ -155,6 +155,7 @@ function NavTrigger({
         aria-expanded={isOpen}
         onFocus={startOpen}
         onBlur={startClose}
+        onKeyDown={handlePanelKeyDown}
       >
         {item.label}
         <NavChevron open={isOpen} />
