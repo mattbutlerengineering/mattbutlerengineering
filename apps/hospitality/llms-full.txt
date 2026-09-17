@@ -2066,6 +2066,14 @@
     }
   </file>
   <file path="src/hooks/use-theme.ts">
+    function hasStoredThemePreference(): boolean {
+      try {
+        return localStorage.getItem(THEME_STORAGE_KEY) !== null;
+      } catch {
+        // Storage unavailable — treat as "has one" so we never overwrite silently.
+        return true;
+      }
+    }
     export interface ThemeContextValue {
       readonly theme: ThemePreference;
       readonly setTheme: (theme: ThemePreference) => void;
@@ -2087,6 +2095,21 @@
         }),
         [preference, setTheme]
       );
+    }
+    export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {
+      const { setTheme } = useTheme();
+      const hydratedRef = useRef(false);
+    
+      useEffect(() => {
+        if (hydratedRef.current) return;
+        if (hasStoredThemePreference()) {
+          hydratedRef.current = true;
+          return;
+        }
+        if (!serverTheme) return;
+        hydratedRef.current = true;
+        setTheme(serverTheme);
+      }, [serverTheme, setTheme]);
     }
   </file>
   <file path="src/hooks/use-url-params.ts">

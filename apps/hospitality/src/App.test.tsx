@@ -17,7 +17,17 @@ vi.mock("@mbe/auth/react", async (importOriginal) => ({
 
 vi.mock("./hooks/use-theme.js", () => ({
   useTheme: vi.fn(() => ({ theme: "system", setTheme: vi.fn() })),
+  useThemeServerHydration: vi.fn(),
   resolveTheme: vi.fn((t) => (t === "system" ? "light" : t)),
+}));
+
+vi.mock("./hooks/useUsers.js", () => ({
+  useCurrentUser: vi.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  })),
 }));
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
