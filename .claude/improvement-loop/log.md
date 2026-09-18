@@ -1896,6 +1896,15 @@ None this run (`agent-skip` empty, 0 open).
 **Sentry triage (Step 1b):** skipped — Sentry MCP server disconnected this session
 **Threshold notes:** verify-fixes threshold auto-tuner found no per-sensor metrics to compute (all 5 verifications skipped, none verified/failed) — no tuning signal this run. `collect-ai-issue-feedback` also 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors — budgets file left unchanged (defaults to 3/category); worth a repo-side check on whether the REST fallback credential needs broader scope for issue search/list, since it currently blocks Step 3 dedup checks and Step 2b feedback collection alike (moot this run since regressions was empty, but will block issue filing the next time a regression fires).
 
+## 2026-09-18 (mbe-learning-loop)
+
+**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency; domainActivity/agentCost/lighthouse/mutationScore/flakyTests/e2eStability not available this run; issues/issueFeedback query failed — GitHub REST fallback credential rejected, 403)
+**Regressions:** 0 detected, 0 issues created — status Healthy (ACMM L5 96/114, CI 100% pass rate 24/24, queueEfficiency composite 0.954)
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed, 5 skipped (2 no completed CI runs to verify against, 2 no Lighthouse inventory, 1 Sentry MCP not authenticated at collection time)
+**Skill proposals:** 0 (Friday — no `.claude/session-logs/*.json` entries exist to mine, same standing gap)
+**Sentry triage (Step 1b):** skipped — Sentry MCP server disconnected at the point this step ran
+**Threshold notes:** verify-fixes threshold auto-tuner found no per-sensor metrics to compute (all 5 verifications skipped, none verified/failed) — no tuning signal this run. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors for at least the 3rd consecutive day (also logged 09-17) — budgets file left at defaults (3/category). Moot again this run since regressions was empty, but this is now a recurring, unresolved gap that will block issue filing (Step 3 dedup search) the next time a regression actually fires.
+
 ## 2026-09-18
 
 **queueEfficiency:** composite 0.961 (baseline n/a) — healthy
