@@ -1901,3 +1901,36 @@ None this run (`agent-skip` empty, 0 open).
 **queueEfficiency:** composite 0.961 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:14, size:s:11, size:m:4, size:l:1, size:xl:1
 **Issues filed:** 0
+## 2026-09-18 (mbe-evening, progress-tracker)
+
+No `gh` CLI in this cloud session (standing gap); all queries below via GitHub MCP tools instead.
+
+| Metric                                       | Value                                                                                          | Target            | Status               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------- | -------------------- |
+| Created (7d, audit+ci-fix)                   | 29 (19 audit + 10 ci-fix)                                                                      | -                 | -                    |
+| Closed (7d, audit+ci-fix)                    | 18 (11 audit + 7 ci-fix)                                                                       | -                 | -                    |
+| Closure Rate (7d)                            | 62%                                                                                            | >80%              | yellow               |
+| Agent Success (has-pr/(has-pr+agent-failed)) | 7/(7+4) = 64%                                                                                  | >70%              | yellow               |
+| CI Pass (main, last 20 runs)                 | 100% (20/20 success)                                                                           | >95%              | green                |
+| Queue (ready)                                | 24                                                                                             | <5                | red                  |
+| Stale (ready>7d)                             | 9: #4986, #4987, #4988, #4989, #4991, #5102, #5144, #5166, #5203                               | 0                 | red                  |
+| Blocked (agent-failed)                       | 4: #5119, #5091, #5055, #4914                                                                  | 0                 | red                  |
+| Skipped (agent-skip)                         | 0                                                                                              | 0                 | green                |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | file exists but empty — no attributed rows this run either, same standing gap as prior entries | <$10/day, <$50/7d | unmeasured, same gap |
+
+### Patterns
+
+- **This run's `/implement-queue` iteration claimed a batch of 1** (issue #5436, `ReservationList` memoization perf fix, PR #5452) — deliberately not filled to 3. Nearly every well-scoped `ready` candidate this iteration (all the UX-audit issues, #4986-#4991, #5271-#5279) lives in the `apps/hospitality` zone, and `selectZoneSpreadBatch` allows only one PR per zone per batch; the remaining `ci-fix` candidates (#5385, #5420, #5144) each explicitly say, in their own issue body, not to auto-fix (Dependabot lockfile/branch-ownership concerns, a platform-infra 403 with no code fix, and a bundle-size+security-relevant zod-regex regression needing human root-causing). Filling the batch to 3 would have meant either violating the zone-spread rule or force-claiming an issue that says not to. Confirms the same `apps/hospitality`-zone concentration flagged in 09-17's entry is still the binding constraint on batch size, not agent capacity.
+- **The three recurring `ci-fix` "why not auto-fixed" issues (#5385, #5420, #5144) have now sat in `ready` for 3, 2, and 10 days respectively** without becoming actionable — they're `ready`-labeled but structurally can't be worked by `implement-queue-worker`'s TDD-new-PR pattern (one needs a `@dependabot recreate` comment or a human editing a Dependabot-owned branch; one needs a human to root-cause a security-relevant zod regex change before accepting any fix; one is a GitHub platform 403 no source change can fix). Worth a `[Meta]` issue proposing these get a distinct label (e.g. `needs-human`) so they stop occupying `ready`-queue attention every iteration without being claimable.
+- **8 `[nightly-compliance]` drift issues are open simultaneously** (#4914, #5102, #5203, #5243, #5302, #5334, #5360, #5415; 09-02 through 09-16), despite #5084 previously fixing duplicate _filing_. The same three failure signatures (`apps/rialto-web#test` failure, `check-api-surface-invariants` `wrong-service`/`status-mismatch`, `check-deploy-sha` invoked with missing args) recur across nearly all of them with no completion sweep closing superseded ones and no `/implement-queue` session in the intervening two weeks having filed a fix. Filed **#5454** to root-cause the three recurring failures and add a completion-sweep step.
+- Build freshness was cold at session start (`agent-core-build-freshness.mjs` reported `state: "missing"` — no `node_modules` in the main checkout at all). Required a full `pnpm install --frozen-lockfile` plus `pnpm build --filter @mbe/cli...` before the low-risk-fast-path classifier, `check-adr` pre-commit hook, and `pnpm regen` pre-push hook would all resolve their imports. Same standing "fresh checkout cold-start" cost noted in several prior entries.
+
+### Recommendations
+
+- File (or confirm no duplicate exists for) a `[Meta]` issue proposing a `needs-human` label for `ci-fix` issues whose own body says not to auto-fix (#5385, #5420, #5144 today), distinct from `ready`, so `/implement-queue`'s batch-selection step stops re-evaluating and skipping the same non-claimable issues every iteration.
+- Track **#5454** (nightly-compliance backlog) to completion — 8 open issues spanning 16 days is the largest un-actioned backlog this log has recorded for a single recurring signature.
+- The `apps/hospitality`-zone concentration (flagged 09-17, confirmed again today) means single-zone batches of 1 are likely to keep recurring until either more `ready` work lands outside that zone or the zone itself is subdivided (e.g. by feature area) for `selectZoneSpreadBatch` purposes — worth a `/claude-automation-recommender` look if this persists past this week.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).
