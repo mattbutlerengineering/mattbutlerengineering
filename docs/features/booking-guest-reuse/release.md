@@ -159,6 +159,12 @@ recorded here rather than left pending.
   belongs to `3113150de`, one commit behind, and the only difference between the two is
   this document. Whoever resolves step 0 should dispatch CI again (or let the resolved,
   non-conflicting PR trigger it normally) and read the verdict on the new head.
+- **Addendum 2026-09-17 (orchestrator, after this stage closed):** two further commits
+  advanced the head to `f7ca44308` (this file's CI-verdict correction) and then
+  `cb4927f8c` (two backlog seeds appended to `docs/backlog.md`). Both are docs-only —
+  `git diff --name-only 3113150de..cb4927f8c` lists exactly `docs/backlog.md` and this
+  file — so the code under test has not changed since the green gate, and neither head
+  carries a `CI` run for the same conflicting-PR reason.
 - **Advisory, not required:** Codecov commented on the PR at `04:06:11Z` (bot, not this
   stage) reporting patch coverage **99.09%** with 3 uncovered lines, mostly in
   `apps/hospitality/src/components/crm/GuestLookup.tsx`. `codecov/patch` is advisory in
