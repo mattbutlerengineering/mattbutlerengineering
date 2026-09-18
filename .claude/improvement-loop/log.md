@@ -1896,6 +1896,12 @@ None this run (`agent-skip` empty, 0 open).
 **Sentry triage (Step 1b):** skipped — Sentry MCP server disconnected this session
 **Threshold notes:** verify-fixes threshold auto-tuner found no per-sensor metrics to compute (all 5 verifications skipped, none verified/failed) — no tuning signal this run. `collect-ai-issue-feedback` also 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors — budgets file left unchanged (defaults to 3/category); worth a repo-side check on whether the REST fallback credential needs broader scope for issue search/list, since it currently blocks Step 3 dedup checks and Step 2b feedback collection alike (moot this run since regressions was empty, but will block issue filing the next time a regression fires).
 
+## 2026-09-18
+
+**queueEfficiency:** composite 0.961 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:14, size:s:11, size:m:4, size:l:1, size:xl:1
+**Issues filed:** 0
+
 ## 2026-09-18 (mbe-evening, progress-tracker)
 
 No `gh` CLI in this cloud session (standing gap); all queries below via GitHub MCP tools instead.
