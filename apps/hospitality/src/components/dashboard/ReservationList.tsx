@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { Card, Text, Badge, Skeleton } from "@mattbutlerengineering/rialto";
 import type { Reservation } from "@mbe/types";
 import { STATUS_LABEL } from "../../utils/reservation-display.js";
@@ -29,7 +30,15 @@ interface ReservationListProps {
   readonly isLoading: boolean;
 }
 
-export function ReservationList({ reservations, isLoading }: ReservationListProps) {
+export const ReservationList = memo(function ReservationList({
+  reservations,
+  isLoading,
+}: ReservationListProps) {
+  const sorted = useMemo(() => {
+    const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
+    return [...active].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [reservations]);
+
   if (isLoading) {
     return (
       <Card title="Today's Reservations">
@@ -38,9 +47,7 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
     );
   }
 
-  const active = reservations.filter((r) => r.status !== "CANCELLED" && r.status !== "NO_SHOW");
-
-  if (active.length === 0) {
+  if (sorted.length === 0) {
     return (
       <Card title="Today's Reservations">
         <Text variant="body" color="secondary">
@@ -49,8 +56,6 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
       </Card>
     );
   }
-
-  const sorted = [...active].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return (
     <Card title="Today's Reservations">
@@ -70,4 +75,4 @@ export function ReservationList({ reservations, isLoading }: ReservationListProp
       </ul>
     </Card>
   );
-}
+});
