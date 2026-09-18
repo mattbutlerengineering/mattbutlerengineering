@@ -27,6 +27,8 @@ import {
   isTestPath,
   formatFinding,
   GUARDED_MODULES,
+  collectModulePaths,
+  collectReferenceTexts,
 } from "../check-orphaned-collectors.mjs";
 
 describe("parseRelativeImports", () => {
@@ -201,6 +203,24 @@ describe("GUARDED_MODULES", () => {
       expect(typeof entry.module).toBe("string");
       expect(entry.reason.length).toBeGreaterThan(10);
     }
+  });
+});
+
+describe("collectReferenceTexts — .claude/settings.json and .claude/hooks/**", () => {
+  // Prerequisite for widening GUARDED_MODULES beyond the two hand-listed
+  // entries: REFERENCE_GLOBS used to cover only workflows and SKILL.md files,
+  // so these two load-bearing hooks read as unreachable even though
+  // .claude/settings.json wires them directly and other hooks reference them
+  // by path in comments. Widening the guard before fixing this would have
+  // produced false positives on real, live-invoked modules.
+  it("sees scripts/hook-input.mjs and scripts/secret-scan.mjs as reachable", () => {
+    const modulePaths = collectModulePaths();
+    const liveRoots = findLiveRoots({
+      scriptPaths: modulePaths,
+      referenceTexts: collectReferenceTexts(),
+    });
+    expect(liveRoots.has("scripts/hook-input.mjs")).toBe(true);
+    expect(liveRoots.has("scripts/secret-scan.mjs")).toBe(true);
   });
 });
 

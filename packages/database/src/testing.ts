@@ -1,9 +1,16 @@
 import { vi } from "vitest";
 import type { PoolMetrics, SlowQueryStats, ServiceStatus } from "./index.js";
 
-/** Minimal typed prisma stub — always includes $queryRaw for health checks. */
+/**
+ * Minimal typed prisma stub — always includes $queryRaw for health checks
+ * and $executeRaw for the ADR-026 venue-context preHandler's `set_config()`
+ * call (services/reservations/src/middleware/venue-context.ts), which every
+ * request now issues via the global preHandler in services/reservations'
+ * app bootstrap.
+ */
 export interface MockPrisma {
   $queryRaw: ReturnType<typeof vi.fn>;
+  $executeRaw: ReturnType<typeof vi.fn>;
   [key: string]: unknown;
 }
 
@@ -77,7 +84,10 @@ const DEFAULT_SERVICE_STATUS: ServiceStatus = "ok";
 export function createMockDatabaseService(
   overrides?: MockDatabaseServiceOverrides
 ): MockDatabaseService {
-  const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
+  const defaultPrisma: MockPrisma = {
+    $queryRaw: vi.fn(),
+    $executeRaw: vi.fn().mockResolvedValue(0),
+  };
   const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
 
   const getSlowQueryStats =

@@ -171,3 +171,11 @@
   padding: var(--rialto-space-sm) var(--rialto-space-lg);
   font-size: var(--rialto-text-base);
 }
+
+/* Coarse-pointer (touch) devices need a 44px WCAG 2.5.8 target-size floor on
+   the compact .sm variant; mouse/trackpad density is untouched. */
+@media (pointer: coarse) {
+  .sm {
+    min-block-size: 44px;
+  }
+}

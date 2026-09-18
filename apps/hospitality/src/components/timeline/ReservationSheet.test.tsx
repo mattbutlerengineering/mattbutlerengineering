@@ -117,6 +117,7 @@ function renderSheet(overrides: Partial<ReservationSheetProps> = {}) {
     reservation: makeReservation(),
     tables: [makeTable()],
     seated: false,
+    now: new Date(START),
     open: true,
     onClose: vi.fn(),
     onSeat: vi.fn().mockResolvedValue(undefined),
@@ -251,9 +252,22 @@ describe("ReservationSheet", () => {
     });
 
     it("hides Seat Guest and explains when the table is OCCUPIED by another party", () => {
-      renderSheet({ tables: [makeTable({ status: "OCCUPIED" })] });
+      renderSheet({
+        tables: [makeTable({ status: "OCCUPIED" })],
+        // 30 minutes before this reservation's own start — a lingering earlier party, not us.
+        now: new Date(new Date(START).getTime() - 30 * 60_000),
+      });
       expect(seatButton()).toBeNull();
       expect(screen.getByText(OCCUPIED_CAPTION)).toBeInTheDocument();
+    });
+
+    it("stays quiet once the party is running over — occupied by itself, not turned (#5270)", () => {
+      renderSheet({
+        tables: [makeTable({ status: "OCCUPIED" })],
+        now: new Date(new Date(END).getTime() + 60_000),
+      });
+      expect(seatButton()).toBeNull();
+      expect(screen.queryByText(OCCUPIED_CAPTION)).toBeNull();
     });
 
     it("reads 'Seated' once the party is seated", () => {

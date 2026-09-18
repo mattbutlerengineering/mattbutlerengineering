@@ -298,6 +298,7 @@
   <file path="src/testing.ts">
     export interface MockPrisma {
       $queryRaw: ReturnType<typeof vi.fn>;
+      $executeRaw: ReturnType<typeof vi.fn>;
       [key: string]: unknown;
     }
     export interface MockDatabaseService {
@@ -329,7 +330,10 @@
     export function createMockDatabaseService(
       overrides?: MockDatabaseServiceOverrides
     ): MockDatabaseService {
-      const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
+      const defaultPrisma: MockPrisma = {
+        $queryRaw: vi.fn(),
+        $executeRaw: vi.fn().mockResolvedValue(0),
+      };
       const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
     
       const getSlowQueryStats =

@@ -83,6 +83,7 @@ const mockVenue = {
   name: "The Oak Table",
   slug: "the-oak-table",
   ianaTimezone: "America/Los_Angeles",
+  settings: { phone: "+15035551234" },
 };
 
 describe("GET /public/v1/reservations/manage", () => {
@@ -118,6 +119,26 @@ describe("GET /public/v1/reservations/manage", () => {
     expect(body.data.reservation.guestName).toBe("Jane Doe");
     expect(body.data.reservation.partySize).toBe(4);
     expect(body.data.venue.name).toBe("The Oak Table");
+    expect(body.data.venue.phone).toBe("+15035551234");
+  });
+
+  it("omits venue.phone when the venue has no contact phone configured", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce({
+      ...mockVenue,
+      settings: {},
+    } as never);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/public/v1/reservations/manage?token=${token}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.venue.phone).toBeUndefined();
   });
 
   it("returns 404 with a code extension when reservation not found", async () => {

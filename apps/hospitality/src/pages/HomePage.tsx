@@ -5,9 +5,15 @@ import { Button, NeonSign, Skeleton } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { describeApiError } from "../lib/describe-api-error.js";
-import { ReservationList, ActivityFeed, StatRow } from "../components/dashboard";
+import {
+  ReservationList,
+  ActivityFeed,
+  LapsingGuestsWidget,
+  StatRow,
+} from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
+import { useLapsingGuests, useSendWinBack } from "../hooks/useGuests.js";
 import { useNow } from "../hooks/useNow.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import { deriveVenueOpenState } from "../utils/venueOpenState.js";
@@ -31,7 +37,9 @@ export function HomePage() {
   const loadFailure = error ? describeApiError(error) : null;
   const { isConnected } = useSSEStatus();
   const feedEvents = useSSEEventFeed({ maxItems: 5 });
-  const { selectedVenue } = useVenue();
+  const { selectedVenue, selectedVenueId } = useVenue();
+  const { data: lapsingGuests = [] } = useLapsingGuests(selectedVenueId);
+  const sendWinBack = useSendWinBack();
   const now = useNow();
   // Render-time derivation on the venue's own clock; `null` means "no sign".
   const openState = selectedVenue
@@ -45,6 +53,13 @@ export function HomePage() {
   const handleRetry = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  const handleSendWinBack = useCallback(
+    (guestId: string) => {
+      sendWinBack.mutate(guestId);
+    },
+    [sendWinBack]
+  );
 
   return (
     <div>
@@ -87,6 +102,10 @@ export function HomePage() {
       <div className={styles.contentGrid}>
         <ReservationList reservations={reservations} isLoading={isLoading} />
         <ActivityFeed events={feedEvents} isConnected={isConnected} />
+      </div>
+
+      <div className={styles.lapsingGuests}>
+        <LapsingGuestsWidget guests={lapsingGuests} onSendWinBack={handleSendWinBack} />
       </div>
     </div>
   );

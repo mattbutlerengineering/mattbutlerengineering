@@ -300,6 +300,31 @@ describe("DELETE /public/v1/reservations/manage", () => {
     expect(response.json().code).toBe("RESERVATION_ALREADY_COMPLETED");
   });
 
+  it("passes cancellationReason and cancellationNote from the request body through to the status update", async () => {
+    const token = generateManageToken("res_1", "jane@example.com");
+
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
+    vi.mocked(reservationService.update).mockResolvedValueOnce({
+      ...mockReservation,
+      status: "CANCELLED",
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValueOnce(mockVenue as never);
+
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/public/v1/reservations/manage?token=${token}`,
+      payload: { cancellationReason: "guest_cancelled", cancellationNote: "Change of plans" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(reservationService.update).toHaveBeenCalledWith("res_1", {
+      status: "CANCELLED",
+      cancellationReason: "guest_cancelled",
+      cancellationNote: "Change of plans",
+    });
+  });
+
   it("returns 404 when reservation not found", async () => {
     const token = generateManageToken("res_nonexistent", "jane@example.com");
 

@@ -1,10 +1,11 @@
-import type { Guest, GuestSegment, UpdateGuestRequest } from "@mbe/types";
+import type { Guest, GuestSegment, LapsingGuest, UpdateGuestRequest } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
 import { createQueryHook, type QueryHookResult } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
 export const GUESTS_QUERY_KEY = "guests" as const;
 export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
+export const LAPSING_GUESTS_QUERY_KEY = "lapsingGuests" as const;
 
 /* ── useGuests ───────────────────────────────────────── */
 
@@ -76,6 +77,38 @@ const useGuestSegmentsQuery = createQueryHook<
 export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult {
   return useGuestSegmentsQuery({ venueId }) as QueryHookResult<GuestSegment[]>;
 }
+
+/* ── useLapsingGuests ─────────────────────────────────── */
+
+export interface UseLapsingGuestsResult {
+  data: LapsingGuest[] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+const useLapsingGuestsQuery = createQueryHook<
+  LapsingGuest[],
+  { venueId: string | null | undefined }
+>({
+  key: LAPSING_GUESTS_QUERY_KEY,
+  fetcher: async (params, api) => {
+    if (!params?.venueId) return [];
+    return api.guests.getLapsing(params.venueId);
+  },
+  getEnabled: (params) => !!params?.venueId,
+});
+
+export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult {
+  return useLapsingGuestsQuery({ venueId }) as QueryHookResult<LapsingGuest[]>;
+}
+
+/* ── useSendWinBack mutation ──────────────────────────── */
+
+export const useSendWinBack = createMutationHook<string, { sent: boolean }>({
+  invalidateKeys: LAPSING_GUESTS_QUERY_KEY,
+  mutationFn: (api, guestId) => api.guests.sendWinBack(guestId),
+});
 
 /* ── useGuest (single) ───────────────────────────────── */
 
