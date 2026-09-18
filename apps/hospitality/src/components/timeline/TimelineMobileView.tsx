@@ -97,6 +97,9 @@ function ReservationCard({
       onClick={() => onClick(reservation)}
       aria-label={`${reservation.guestName || "Guest"}, party of ${reservation.partySize}, ${timeLabel}, table ${tableLabel}${seated ? ", seated" : ""}`}
       type="button"
+      // `useFocusAfter`'s target after seat / cancel / walk-in on phone (B3.2, #5271) — without
+      // this, the card that success unmounted (dialog/drawer) has nowhere to hand focus back to.
+      data-testid={`reservation-block-${reservation.id}`}
     >
       <Stack direction="row" align="center" justify="between" gap="sm" className={styles.cardRow}>
         <Stack gap="2xs" className={styles.cardMain}>
