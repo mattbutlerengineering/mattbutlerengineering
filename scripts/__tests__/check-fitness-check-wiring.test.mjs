@@ -11,7 +11,8 @@
  * third (`check-workflow-deps.mjs`), already wired.
  *
  * A check counts as wired if its filename appears (as a literal substring)
- * in root `package.json`, `.husky/pre-push`, or any `.github/workflows/*.yml`
+ * in root `package.json`, `scripts/run-repo-audit.mjs` (the `repo-audit`
+ * manifest since #5465), `.husky/pre-push`, or any `.github/workflows/*.yml`
  * file — or is listed in ALLOWLIST with a one-line reason.
  */
 
@@ -42,6 +43,7 @@ export function listCheckScripts(root = ROOT) {
 export function collectWiringHaystack(root = ROOT) {
   const texts = [
     readFileSync(join(root, "package.json"), "utf-8"),
+    readFileSync(join(root, "scripts", "run-repo-audit.mjs"), "utf-8"),
     readFileSync(join(root, ".husky", "pre-push"), "utf-8"),
   ];
   const workflowsDir = join(root, ".github", "workflows");

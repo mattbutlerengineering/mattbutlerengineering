@@ -8,6 +8,7 @@ import {
   isSecretProvisioned,
   findUnprovisionedSecrets,
 } from "../check-deploy-secret-provisioning.mjs";
+import { REPO_AUDIT_CHECKS } from "../run-repo-audit.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -237,10 +238,12 @@ describe("deploy-secret provisioning (real repo)", () => {
 // every sibling fitness check, it never ran as part of `pnpm repo-audit`
 // (CI's Architecture Audit job), so a regression would fail `pnpm test`
 // but not the job that actually gates merges on it.
+// #5465 moved the check list out of package.json's `&&` chain into
+// REPO_AUDIT_CHECKS — the audit's source of truth is now that array.
 describe("the real repository — repo-audit wiring (#4628)", () => {
   it("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", () => {
-    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
-
-    expect(pkg.scripts["repo-audit"]).toContain("check-deploy-secret-provisioning.mjs");
+    expect(REPO_AUDIT_CHECKS.flatMap((check) => check.args)).toContain(
+      "scripts/check-deploy-secret-provisioning.mjs"
+    );
   });
 });
