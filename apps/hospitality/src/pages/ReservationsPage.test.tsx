@@ -103,13 +103,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onClick,
     disabled,
     ref,
+    ...props
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     disabled?: boolean;
     ref?: React.Ref<HTMLButtonElement>;
+    "aria-label"?: string;
   }) => (
-    <button ref={ref} onClick={onClick} disabled={disabled}>
+    <button ref={ref} onClick={onClick} disabled={disabled} aria-label={props["aria-label"]}>
       {children}
     </button>
   ),
@@ -937,32 +939,121 @@ describe("ReservationsPage", () => {
       expect(screen.getAllByRole("row")).toHaveLength(4);
     });
 
-    it("exposes a per-row activation control distinct from the row itself", () => {
+    it("exposes a visible, labeled per-row action distinct from the row itself (#4986)", () => {
       renderPage();
 
       const activationButton = screen.getByRole("button", {
         name: "View Alice reservation on timeline",
       });
       expect(activationButton.tagName).toBe("BUTTON");
+      // The bug: the old overlay button had empty text content and relied on
+      // an invisible full-cell click target. A discoverable action must render
+      // visible text.
+      expect(activationButton.textContent).toBe("View");
       expect(activationButton.closest("tr")).not.toBeNull();
     });
 
-    it("navigates to the timeline on clicking the row's activation control", () => {
+    it("navigates to the timeline, deep-linking the reservation via the existing `selected` intent contract, on clicking the row's action", () => {
       renderPage();
 
       fireEvent.click(screen.getByRole("button", { name: "View Alice reservation on timeline" }));
 
-      expect(mockNavigate).toHaveBeenCalledWith(`/timeline?date=${defaultReservations[0].date}`);
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/timeline?date=${defaultReservations[0].date}&selected=${defaultReservations[0].id}`
+      );
     });
 
-    it("navigates to the timeline on Enter from the row's activation control", () => {
+    it("navigates to the timeline on click from the row's action for a different row", () => {
       renderPage();
 
-      fireEvent.keyDown(screen.getByRole("button", { name: "View Bob reservation on timeline" }), {
-        key: "Enter",
+      fireEvent.click(screen.getByRole("button", { name: "View Bob reservation on timeline" }));
+
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/timeline?date=${defaultReservations[1].date}&selected=${defaultReservations[1].id}`
+      );
+    });
+  });
+
+  describe("table name resolution (#4986 — never render a raw tbl_ id)", () => {
+    it("resolves the table name from the reservation's embedded table relation", () => {
+      const withTable = makeReservation({
+        id: "r1",
+        guestName: "Alice",
+        tableId: "tbl_e2e_003",
+        table: { id: "tbl_e2e_003", name: "Patio 3" } as Reservation["table"],
+      });
+      mockDisplayHook({
+        data: [withTable],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [withTable],
       });
 
-      expect(mockNavigate).toHaveBeenCalledWith(`/timeline?date=${defaultReservations[1].date}`);
+      renderPage();
+
+      expect(screen.getByText("Patio 3")).toBeDefined();
+      expect(screen.queryByText("tbl_e2e_003")).toBeNull();
+    });
+
+    it("falls back to the tables query by id when the reservation has no embedded table", () => {
+      const withoutTable = makeReservation({
+        id: "r1",
+        guestName: "Alice",
+        tableId: "tbl_e2e_003",
+        table: undefined,
+      });
+      mockDisplayHook({
+        data: [withoutTable],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [withoutTable],
+      });
+      vi.mocked(useTables).mockReturnValue({
+        data: [
+          {
+            id: "tbl_e2e_003",
+            name: "Patio 3",
+            tableNumber: null,
+            capacity: 4,
+            minCovers: 1,
+            maxCovers: null,
+            location: null,
+            isActive: true,
+            priority: 0,
+            status: "AVAILABLE",
+            venueId: null,
+            floorPlanId: null,
+            shapeMetadata: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+
+      renderPage();
+
+      expect(screen.getByText("Patio 3")).toBeDefined();
+      expect(screen.queryByText("tbl_e2e_003")).toBeNull();
+    });
+
+    it("never renders the raw tbl_ id when neither source has resolved yet", () => {
+      const unresolved = makeReservation({
+        id: "r1",
+        guestName: "Alice",
+        tableId: "tbl_e2e_003",
+        table: undefined,
+      });
+      mockDisplayHook({
+        data: [unresolved],
+        stats: { total: 1, confirmed: 1, pending: 0, cancelled: 0 },
+        filteredData: [unresolved],
+      });
+
+      renderPage();
+
+      expect(screen.queryByText("tbl_e2e_003")).toBeNull();
+      expect(screen.queryByText(/^tbl_/)).toBeNull();
     });
   });
 });
