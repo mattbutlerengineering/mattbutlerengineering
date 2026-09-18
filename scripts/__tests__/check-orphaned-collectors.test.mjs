@@ -30,6 +30,7 @@ import {
   collectModulePaths,
   collectReferenceTexts,
 } from "../check-orphaned-collectors.mjs";
+import { REPO_AUDIT_CHECKS } from "../run-repo-audit.mjs";
 
 describe("parseRelativeImports", () => {
   it("collects static relative import specifiers", () => {
@@ -231,8 +232,12 @@ describe("CI wiring", () => {
     readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../package.json"), "utf-8")
   );
 
+  // #5465 moved the check list out of package.json's `&&` chain into
+  // REPO_AUDIT_CHECKS — the audit's source of truth is now that array.
   it("repo-audit invokes the check", () => {
-    expect(pkg.scripts["repo-audit"]).toContain("scripts/check-orphaned-collectors.mjs");
+    expect(REPO_AUDIT_CHECKS.flatMap((check) => check.args)).toContain(
+      "scripts/check-orphaned-collectors.mjs"
+    );
   });
 
   it("is exposed as a standalone script for local use", () => {

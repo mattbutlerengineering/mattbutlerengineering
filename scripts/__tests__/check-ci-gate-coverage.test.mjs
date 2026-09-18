@@ -19,6 +19,7 @@ import {
   findUnreachableJobs,
   ADVISORY_JOBS,
 } from "../check-ci-gate-coverage.mjs";
+import { REPO_AUDIT_CHECKS } from "../run-repo-audit.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -187,10 +188,12 @@ describe("the real repository ci.yml", () => {
   });
 });
 
+// #5465 moved the check list out of package.json's `&&` chain into
+// REPO_AUDIT_CHECKS — the audit's source of truth is now that array.
 describe("repo-audit wiring", () => {
   it("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", () => {
-    const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8"));
-
-    expect(pkg.scripts["repo-audit"]).toContain("check-ci-gate-coverage.mjs");
+    expect(REPO_AUDIT_CHECKS.flatMap((check) => check.args)).toContain(
+      "scripts/check-ci-gate-coverage.mjs"
+    );
   });
 });
