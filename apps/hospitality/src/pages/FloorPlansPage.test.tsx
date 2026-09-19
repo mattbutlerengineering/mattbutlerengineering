@@ -48,12 +48,14 @@ function serverError(method: string, path: string): ApiClientError {
 }
 
 vi.mock("../components/ErrorRetryBanner", () => ({
+  // Mirrors the real component: `Alert variant="error"` carries `role="alert"`, so it's a visible,
+  // assertive-announced element — never a clipped/off-screen live region.
   ErrorRetryBanner: ({ title, error, onRetry, onDismiss }: any) => (
-    <div data-testid="error-banner">
+    <div role="alert" data-testid="error-banner">
       <strong>{title}</strong>
       {error}
-      <button onClick={onRetry}>Retry</button>
-      <button onClick={onDismiss}>Dismiss</button>
+      {onRetry && <button onClick={onRetry}>Retry</button>}
+      {onDismiss && <button onClick={onDismiss}>Dismiss</button>}
     </div>
   ),
 }));
@@ -77,6 +79,7 @@ vi.mock("./FloorPlansPage.module.css", () => ({
     header: "header",
     cardGrid: "cardGrid",
     card: "card",
+    cardOpenButton: "cardOpenButton",
     cardPreview: "cardPreview",
     cardPreviewIcon: "pi",
     cardBody: "cardBody",
@@ -286,7 +289,7 @@ describe("FloorPlansPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/fp-3");
   });
 
-  it("clone error shows live region error", async () => {
+  it("clone error shows a visible alert, not just the sr-only live region", async () => {
     mockFloorPlansClone.mockRejectedValue(serverError("POST", "/api/v1/floor-plans/fp-1/clone"));
 
     renderPage();
@@ -301,11 +304,27 @@ describe("FloorPlansPage", () => {
     });
 
     await waitFor(() => {
-      const liveRegion = screen.getByRole("status");
-      expect(liveRegion.textContent).toContain("Floor plan not cloned.");
-      expect(liveRegion.textContent).toContain(ERROR_COPY.serverError.detail);
-      expect(liveRegion.textContent).not.toContain("failed: 500");
+      const alert = screen.getByRole("alert");
+      expect(alert.textContent).toContain("Floor plan not cloned.");
+      expect(alert.textContent).toContain(ERROR_COPY.serverError.detail);
+      expect(alert.textContent).not.toContain("failed: 500");
     });
+
+    // The sr-only live region is reserved for success announcements — it must not also
+    // carry the failure text (that would make the visible alert redundant, not additive).
+    const liveRegion = screen.getByRole("status");
+    expect(liveRegion.textContent).not.toContain("Floor plan not cloned.");
+  });
+
+  it("does not nest a button inside another button (no nested-interactive violation)", async () => {
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Main Dining")).toBeDefined();
+    });
+
+    const nestedButtons = container.querySelectorAll("button button");
+    expect(nestedButtons.length).toBe(0);
   });
 
   it("shows empty state when no floor plans", async () => {
