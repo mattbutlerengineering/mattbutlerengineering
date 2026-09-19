@@ -60,6 +60,14 @@ module.exports = {
       to: { path: "^(services/|packages/(database|service-bootstrap|jobs)/)" },
     },
     {
+      name: "edge-worker-stays-pure",
+      severity: "error",
+      comment:
+        "The edge worker runs on Cloudflare's edge runtime — no Node-only services or database packages.",
+      from: { path: "^infrastructure/worker/" },
+      to: { path: "^(services/|packages/database/)" },
+    },
+    {
       name: "not-to-dev-dep",
       severity: "error",
       comment:
