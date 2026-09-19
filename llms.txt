@@ -5231,6 +5231,13 @@
   </file>
   <file path="apps/rialto-web/token-count.config.ts">
     <item priority="high">
+      export function findScopedPackageRoot(
+        searchPaths: readonly string[],
+        packageName: string,
+        fileExists: (path: string) => boolean
+      ): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
       export function resolveRialtoTokenCount(): number { /* ... */ }
     </item>
   </file>
