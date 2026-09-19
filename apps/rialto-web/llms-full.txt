@@ -1402,15 +1402,30 @@
   </section>
   <section priority="medium" role="token-count.config.ts">
   <file path="token-count.config.ts">
+    export function findScopedPackageRoot(
+      searchPaths: readonly string[],
+      packageName: string,
+      fileExists: (path: string) => boolean
+    ): string | undefined {
+      for (const base of searchPaths) {
+        const candidate = join(base, packageName);
+        if (fileExists(join(candidate, "package.json"))) {
+          return candidate;
+        }
+      }
+      return undefined;
+    }
     export function resolveRialtoTokenCount(): number {
       try {
-        const stylesheet = require.resolve("@mattbutlerengineering/rialto/styles");
+        const stylesheet = require.resolve(`${RIALTO_PACKAGE_NAME}/styles`);
         return countRialtoTokens(readFileSync(stylesheet, "utf-8"));
       } catch {
-        const tokensDir = join(
-          dirname(require.resolve("@mattbutlerengineering/rialto/package.json")),
-          "src/tokens"
-        );
+        const searchPaths = require.resolve.paths(RIALTO_PACKAGE_NAME) ?? [];
+        const packageRoot = findScopedPackageRoot(searchPaths, RIALTO_PACKAGE_NAME, existsSync);
+        if (!packageRoot) {
+          throw new Error(`Could not resolve ${RIALTO_PACKAGE_NAME} package root`);
+        }
+        const tokensDir = join(packageRoot, "src/tokens");
         const css = readdirSync(tokensDir)
           .filter((file) => file.endsWith(".css"))
           .map((file) => readFileSync(join(tokensDir, file), "utf-8"))
