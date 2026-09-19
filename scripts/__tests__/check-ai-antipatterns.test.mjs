@@ -56,6 +56,83 @@ describe("check-ai-antipatterns", () => {
       expect(count).toBe(0);
     });
 
+    test("detects a catch body containing only a line comment", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { doSomething(); } catch {\n  // Not JSON — fall through to plain message storage.\n}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBeGreaterThanOrEqual(1);
+    });
+
+    test("detects a catch(e) body containing only a block comment", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { doSomething(); } catch (e) {\n  /* swallow intentionally */\n}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBeGreaterThanOrEqual(1);
+    });
+
+    test("detects a catch body mixing line and block comments", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { doSomething(); } catch {\n  // first\n  /* second */\n  // third\n}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBeGreaterThanOrEqual(1);
+    });
+
+    test("does not flag a comment followed by a real statement", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { doSomething(); } catch {\n  // ignore\n  reset();\n}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBe(0);
+    });
+
+    test("does not flag a body whose only statement is console.error(e)", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { doSomething(); } catch (e) {\n  console.error(e);\n}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBe(0);
+    });
+
+    test("a comment containing a brace or the word catch does not break the match", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { doSomething(); } catch {\n" +
+          '  // pattern like this: catch (e) { "}" } is not a real block\n' +
+          "}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBe(1);
+    });
+
+    test("a comment-laden empty catch does not spill into the next catch block", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        "try { a(); } catch {\n" +
+          "  // has a brace: { and the word catch in it\n" +
+          "}\n" +
+          "try { b(); } catch (e) {\n" +
+          "  doWork();\n" +
+          "}\n"
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      const count = scanForPattern(tmpDir, "emptyCatch");
+      expect(count).toBe(1);
+    });
+
     test("detects any type casts", async () => {
       fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), "const x = value as any;\n");
       const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
@@ -162,6 +239,52 @@ describe("check-ai-antipatterns", () => {
       const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
       const block = '"schemas match", () => { assertKeysMatch("User", zodKeys, jsonKeys); }';
       expect(blockHasAssertion(block)).toBe(false);
+    });
+  });
+
+  // ── isSwallowedCatchBody ────────────────────────────────────────────────────
+  // Pure fixture-string tests for the classification emptyCatch relies on —
+  // no filesystem, no shelling out to the whole check (issue #5464).
+
+  describe("isSwallowedCatchBody", () => {
+    test("recognizes a truly empty body", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("")).toBe(true);
+    });
+
+    test("recognizes a body of only whitespace/newlines", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("\n  \n")).toBe(true);
+    });
+
+    test("recognizes a body of only a line comment", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("\n  // ignore this error\n")).toBe(true);
+    });
+
+    test("recognizes a body of only a block comment", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("\n  /* ignore this error */\n")).toBe(true);
+    });
+
+    test("recognizes a body mixing line and block comments", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("\n  // a\n  /* b */\n  // c\n")).toBe(true);
+    });
+
+    test("does not recognize a comment followed by a real statement", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("\n  // ignore\n  reset();\n")).toBe(false);
+    });
+
+    test("does not recognize a body whose only statement is console.error(e)", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody("\n  console.error(e);\n")).toBe(false);
+    });
+
+    test("does not break on a comment containing a brace or the word catch", async () => {
+      const { isSwallowedCatchBody } = await import("../check-ai-antipatterns.mjs");
+      expect(isSwallowedCatchBody('\n  // catch { "}" } is not real code\n')).toBe(true);
     });
   });
 
