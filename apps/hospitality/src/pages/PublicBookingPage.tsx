@@ -36,7 +36,9 @@ export function PublicBookingPage() {
   // (#4022). The public client attaches no access token.
   const publicApiClient = usePublicApiClient({ baseUrl: BASE_URL, maxRetries: 0 });
 
-  const activeHoldIdRef = useRef<string | null>(null);
+  // Tracks the widget's currently-held (not yet confirmed) reservation slot,
+  // updated via BookingWidget's onHoldChange — see the pagehide handler below.
+  const activeHoldRef = useRef<{ holdId: string; sessionId: string | null } | null>(null);
 
   const {
     data: venue,
@@ -54,16 +56,24 @@ export function PublicBookingPage() {
 
   useDocumentTitle(venue ? `Book a table — ${venue.name}` : DEFAULT_TITLE);
 
-  // beforeunload beacon to release holds
+  // Release the active hold when the guest closes/navigates away before
+  // confirming — a `pagehide` handler firing a `DELETE` (release is DELETE,
+  // never POST — `sendBeacon` only sends POST, which is why the previous
+  // implementation never actually released anything; see #4978).
+  // `keepalive: true` lets the request outlive the unloading page.
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      const holdId = activeHoldIdRef.current;
-      if (!holdId) return;
-      navigator.sendBeacon(`${BASE_URL}/api/v1/holds/${holdId}`);
+    const handlePageHide = () => {
+      const activeHold = activeHoldRef.current;
+      if (!activeHold) return;
+      fetch(`${BASE_URL}/api/v1/holds/${activeHold.holdId}`, {
+        method: "DELETE",
+        keepalive: true,
+        headers: activeHold.sessionId ? { "x-session-id": activeHold.sessionId } : undefined,
+      });
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
   }, []);
 
   // Branded, deliberately generic not-found. The raw transport error carries
@@ -131,9 +141,11 @@ export function PublicBookingPage() {
           venueSlug={venue.slug}
           apiBaseUrl={BASE_URL}
           hasOperatingHours={hasOperatingHours(venue.operatingHours)}
+          maxPartySize={venue.settings?.maxPartySize}
+          phone={venue.phone}
           venueTimezone={venue.ianaTimezone}
-          onCancellation={() => {
-            activeHoldIdRef.current = null;
+          onHoldChange={(info) => {
+            activeHoldRef.current = info;
           }}
         />
       </div>

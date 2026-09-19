@@ -15,13 +15,21 @@ describe("by-slug E2E mock — PublicVenue projection", () => {
     expect(Object.keys(fixture).sort()).toEqual(Object.keys(PublicVenueSchema.shape).sort());
   });
 
-  it("omits internal-only fields (venueGroup, venueGroupId, settings, timestamps)", () => {
+  it("omits internal-only fields (venueGroup, venueGroupId, timestamps)", () => {
     const fixture = buildPublicVenueFixture();
 
     expect(fixture).not.toHaveProperty("venueGroup");
     expect(fixture).not.toHaveProperty("venueGroupId");
-    expect(fixture).not.toHaveProperty("settings");
     expect(fixture).not.toHaveProperty("createdAt");
     expect(fixture).not.toHaveProperty("updatedAt");
+  });
+
+  // #4979: settings is no longer fully internal — a curated maxPartySize is
+  // deliberately exposed so guests can select up to the venue's real cap.
+  // The rest of the raw settings blob must still never leak.
+  it("exposes only the curated maxPartySize from settings, never the raw blob", () => {
+    const fixture = buildPublicVenueFixture();
+
+    expect(fixture.settings).toEqual({ maxPartySize: 12 });
   });
 });

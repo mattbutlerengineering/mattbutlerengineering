@@ -117,6 +117,7 @@ function renderSheet(overrides: Partial<ReservationSheetProps> = {}) {
     reservation: makeReservation(),
     tables: [makeTable()],
     seated: false,
+    now: new Date(START),
     open: true,
     onClose: vi.fn(),
     onSeat: vi.fn().mockResolvedValue(undefined),
@@ -251,9 +252,22 @@ describe("ReservationSheet", () => {
     });
 
     it("hides Seat Guest and explains when the table is OCCUPIED by another party", () => {
-      renderSheet({ tables: [makeTable({ status: "OCCUPIED" })] });
+      renderSheet({
+        tables: [makeTable({ status: "OCCUPIED" })],
+        // 30 minutes before this reservation's own start — a lingering earlier party, not us.
+        now: new Date(new Date(START).getTime() - 30 * 60_000),
+      });
       expect(seatButton()).toBeNull();
       expect(screen.getByText(OCCUPIED_CAPTION)).toBeInTheDocument();
+    });
+
+    it("stays quiet once the party is running over — occupied by itself, not turned (#5270)", () => {
+      renderSheet({
+        tables: [makeTable({ status: "OCCUPIED" })],
+        now: new Date(new Date(END).getTime() + 60_000),
+      });
+      expect(seatButton()).toBeNull();
+      expect(screen.queryByText(OCCUPIED_CAPTION)).toBeNull();
     });
 
     it("reads 'Seated' once the party is seated", () => {
@@ -307,6 +321,11 @@ describe("ReservationSheet", () => {
   });
 
   describe("accessibility contract (xcut H)", () => {
+    it("omits aria-controls on the More button while collapsed, since the detail region isn't rendered", () => {
+      renderSheet();
+      expect(moreButton()).not.toHaveAttribute("aria-controls");
+    });
+
     it("is a named modal dialog whose controls all have names and whose More button announces what it controls", () => {
       renderSheet({ reservation: makeReservation({ guestEmail: "priya@example.com" }) });
       const dialog = screen.getByRole("dialog");
@@ -317,9 +336,9 @@ describe("ReservationSheet", () => {
       }
 
       const more = moreButton();
+      fireEvent.click(more);
       const controlsId = more.getAttribute("aria-controls");
       expect(controlsId).toBeTruthy();
-      fireEvent.click(more);
       const detail = document.getElementById(controlsId!);
       expect(detail).not.toBeNull();
       expect(detail).toHaveTextContent("priya@example.com");

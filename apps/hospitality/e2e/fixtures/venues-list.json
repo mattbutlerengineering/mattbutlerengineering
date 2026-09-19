@@ -26,6 +26,7 @@
       "settings": {
         "defaultReservationDuration": 90,
         "maxPartySize": 12,
+        "phone": "+1-555-0100",
         "minAdvanceBooking": 1,
         "maxAdvanceBooking": 30,
         "requireEmail": true,

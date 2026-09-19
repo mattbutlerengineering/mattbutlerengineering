@@ -7,6 +7,15 @@ import React from "react";
 
 process.env.TZ = "UTC";
 
+// Computed relative to the real clock (not a fixed literal) — canProceed now
+// rejects a selected date before today (#4981), so a hardcoded past date
+// would fail as soon as the calendar moved past it.
+const FUTURE_DATE = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().slice(0, 10);
+})();
+
 vi.mock("../../hooks/usePublicApiClient.js", () => ({
   usePublicApiClient: vi.fn(),
 }));
@@ -102,6 +111,8 @@ describe("BookingWidget", () => {
     holds: {
       create: vi.fn(),
       confirm: vi.fn(),
+      release: vi.fn().mockResolvedValue(undefined),
+      getSessionId: vi.fn().mockReturnValue("s1"),
     },
     venues: {
       getPublicConfig: vi.fn(),
@@ -128,7 +139,7 @@ describe("BookingWidget", () => {
 
     // Simulate date selection
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -161,11 +172,14 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "john@example.com" } });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-123",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "18:00",
-      partySize: 2,
+      reservation: {
+        id: "res-123",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "18:00",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -178,7 +192,7 @@ describe("BookingWidget", () => {
   it("handles availability errors with the house sentence, never the debug message", async () => {
     renderWidget();
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockRejectedValue(new Error("API Down"));
 
@@ -221,7 +235,7 @@ describe("BookingWidget", () => {
 
     // Step 1: Date & Party
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -245,11 +259,14 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-456",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "18:00",
-      partySize: 2,
+      reservation: {
+        id: "res-456",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "18:00",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -292,7 +309,7 @@ describe("BookingWidget", () => {
     render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -312,12 +329,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-789",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-789",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -371,7 +391,7 @@ describe("BookingWidget", () => {
 
     // Step 1: Date & party of 4
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
     fireEvent.click(screen.getByRole("button", { name: "4" }));
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
@@ -394,12 +414,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-per-person",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 4,
+      reservation: {
+        id: "res-per-person",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 4,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -468,7 +491,7 @@ describe("BookingWidget", () => {
     );
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -488,12 +511,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-risky-override",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-risky-override",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -546,7 +572,7 @@ describe("BookingWidget", () => {
     );
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -566,12 +592,15 @@ describe("BookingWidget", () => {
     });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-no-override",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-no-override",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -603,7 +632,7 @@ describe("BookingWidget", () => {
     render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -621,12 +650,15 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "cal@example.com" } });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-cal-1",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "2026-05-20T18:00:00.000Z",
-      endTime: "2026-05-20T20:00:00.000Z",
-      partySize: 2,
+      reservation: {
+        id: "res-cal-1",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "2026-05-20T18:00:00.000Z",
+        endTime: "2026-05-20T20:00:00.000Z",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -641,7 +673,7 @@ describe("BookingWidget", () => {
   it("hides the Add to Calendar section on confirmation when no venueSlug is provided (no venue config to fetch)", async () => {
     renderWidget();
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -659,11 +691,14 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "none@example.com" } });
 
     mockApi.holds.confirm.mockResolvedValue({
-      id: "res-cal-2",
-      status: "CONFIRMED",
-      date: "2026-05-20",
-      startTime: "18:00",
-      partySize: 2,
+      reservation: {
+        id: "res-cal-2",
+        status: "CONFIRMED",
+        date: "2026-05-20",
+        startTime: "18:00",
+        partySize: 2,
+      },
+      manageToken: "tok_test123",
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));

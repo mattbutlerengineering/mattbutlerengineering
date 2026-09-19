@@ -1,9 +1,16 @@
 import { vi } from "vitest";
 import type { PoolMetrics, SlowQueryStats, ServiceStatus } from "./index.js";
 
-/** Minimal typed prisma stub — always includes $queryRaw for health checks. */
+/**
+ * Minimal typed prisma stub — always includes $queryRaw for health checks
+ * and $executeRaw for the ADR-026 venue-context preHandler's `set_config()`
+ * call (services/reservations/src/middleware/venue-context.ts), which every
+ * request now issues via the global preHandler in services/reservations'
+ * app bootstrap.
+ */
 export interface MockPrisma {
   $queryRaw: ReturnType<typeof vi.fn>;
+  $executeRaw: ReturnType<typeof vi.fn>;
   [key: string]: unknown;
 }
 
@@ -17,6 +24,7 @@ export interface MockDatabaseService {
     getSlowQueryStats: ReturnType<typeof vi.fn>;
     getServiceStatus: ReturnType<typeof vi.fn>;
     getPoolMetrics: ReturnType<typeof vi.fn>;
+    shutdown: ReturnType<typeof vi.fn>;
   };
   /** @deprecated Access via db.getSlowQueryStats instead. */
   getSlowQueryStats: ReturnType<typeof vi.fn>;
@@ -33,6 +41,7 @@ export interface MockDatabaseServiceOverrides {
   getSlowQueryStats?: ReturnType<typeof vi.fn>;
   getServiceStatus?: ReturnType<typeof vi.fn>;
   getPoolMetrics?: ReturnType<typeof vi.fn>;
+  shutdown?: ReturnType<typeof vi.fn>;
 }
 
 const DEFAULT_POOL_METRICS: PoolMetrics = {
@@ -75,7 +84,10 @@ const DEFAULT_SERVICE_STATUS: ServiceStatus = "ok";
 export function createMockDatabaseService(
   overrides?: MockDatabaseServiceOverrides
 ): MockDatabaseService {
-  const defaultPrisma: MockPrisma = { $queryRaw: vi.fn() };
+  const defaultPrisma: MockPrisma = {
+    $queryRaw: vi.fn(),
+    $executeRaw: vi.fn().mockResolvedValue(0),
+  };
   const mergedPrisma: MockPrisma = { ...defaultPrisma, ...(overrides?.prisma ?? {}) };
 
   const getSlowQueryStats =
@@ -83,6 +95,7 @@ export function createMockDatabaseService(
   const getServiceStatus =
     overrides?.getServiceStatus ?? vi.fn().mockReturnValue(DEFAULT_SERVICE_STATUS);
   const getPoolMetrics = overrides?.getPoolMetrics ?? vi.fn().mockReturnValue(DEFAULT_POOL_METRICS);
+  const shutdown = overrides?.shutdown ?? vi.fn().mockResolvedValue(undefined);
 
   return {
     prisma: mergedPrisma,
@@ -91,6 +104,7 @@ export function createMockDatabaseService(
       getSlowQueryStats,
       getServiceStatus,
       getPoolMetrics,
+      shutdown,
     },
     getSlowQueryStats,
     getServiceStatus,
@@ -105,6 +119,7 @@ export interface MockDatabaseModule {
     getSlowQueryStats: ReturnType<typeof vi.fn>;
     getServiceStatus: ReturnType<typeof vi.fn>;
     getPoolMetrics: ReturnType<typeof vi.fn>;
+    shutdown: ReturnType<typeof vi.fn>;
   };
   prisma: MockPrisma;
 }
@@ -136,6 +151,7 @@ export function createMockDatabaseModule(
       getSlowQueryStats: mock.getSlowQueryStats,
       getServiceStatus: mock.getServiceStatus,
       getPoolMetrics: mock.getPoolMetrics,
+      shutdown: mock.db.shutdown,
     },
     prisma: mock.prisma,
   };

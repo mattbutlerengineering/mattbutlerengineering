@@ -157,14 +157,19 @@
       }
     
       /**
-       * Confirm a hold and create a reservation
+       * Confirm a hold and create a reservation. `manageToken` (present whenever
+       * the server can mint one) is the self-service token for the manage/cancel
+       * page — callers thread it into the guest-facing confirmation UI.
        */
-      async confirm(id: string, details: ConfirmHoldRequest): Promise<Reservation> {
+      async confirm(
+        id: string,
+        details: ConfirmHoldRequest
+      ): Promise<{ reservation: Reservation; manageToken?: string }> {
         if (!this.sessionId) {
           throw new Error("Session ID required to confirm hold");
         }
     
-        const response = await this.client.request<{ data: Reservation }>(
+        const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
           `/api/v1/holds/${id}/confirm`,
           {
             method: "POST",
@@ -175,7 +180,7 @@
           }
         );
     
-        return response.data;
+        return { reservation: response.data, manageToken: response.manageToken };
       }
     }
   </file>
@@ -1012,6 +1017,8 @@
       name: string;
       slug: string;
       ianaTimezone: string;
+      /** Contact phone number shown to guests on the manage-reservation page (#4979). */
+      phone?: string;
     }
     export interface ManageReservationData {
       reservation: ManagedReservation;
@@ -1122,6 +1129,28 @@
           undefined,
           manageReservationDataSchema
         );
+      }
+    
+      /**
+       * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
+       * The token is sent as an `Authorization: Bearer` header rather than a query
+       * param — the manage-token middleware prefers it for mutating requests.
+       */
+      async cancelManaged(
+        token: string,
+        reason?: { cancellationReason?: string; cancellationNote?: string }
+      ): Promise<{ status: ReservationStatus }> {
+        const schema = z.object({ status: ReservationStatusSchema });
+        const response = await this.client.request<{ data: { status: ReservationStatus } }>(
+          "/public/v1/reservations/manage",
+          {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+            body: reason ? JSON.stringify(reason) : undefined,
+          },
+          z.object({ data: schema })
+        );
+        return response.data;
       }
     }
   </file>

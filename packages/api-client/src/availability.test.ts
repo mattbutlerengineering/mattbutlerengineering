@@ -278,7 +278,19 @@ describe("HoldsClient", () => {
       holdsClient.setSessionId("sess-abc");
 
       const result = await holdsClient.confirm("h1", { guestId: "g1" });
-      expect(result).toEqual(fakeReservation);
+      expect(result.reservation).toEqual(fakeReservation);
+    });
+
+    it("returns the manage token alongside the reservation", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: fakeReservation, manageToken: "tok_abc123" })
+      );
+
+      const holdsClient = new HoldsClient(makeApiClient());
+      holdsClient.setSessionId("sess-abc");
+
+      const result = await holdsClient.confirm("h1", { guestId: "g1" });
+      expect(result.manageToken).toBe("tok_abc123");
     });
   });
 

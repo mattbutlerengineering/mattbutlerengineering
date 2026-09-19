@@ -354,11 +354,14 @@ describe("check-workflow-deps", () => {
       expect(findings).toEqual([]);
     });
 
+    // #5465 moved the check list out of package.json's `&&` chain into
+    // REPO_AUDIT_CHECKS — the audit's source of truth is now that array.
     test("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", async () => {
-      const repoRoot = path.resolve(import.meta.dirname, "..", "..");
-      const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, "package.json"), "utf-8"));
+      const { REPO_AUDIT_CHECKS } = await import("../run-repo-audit.mjs");
 
-      expect(pkg.scripts["repo-audit"]).toContain("check-workflow-deps.mjs");
+      expect(REPO_AUDIT_CHECKS.flatMap((check) => check.args)).toContain(
+        "scripts/check-workflow-deps.mjs"
+      );
     });
   });
 

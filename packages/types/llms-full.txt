@@ -848,6 +848,8 @@
       slug: z.string(),
       ianaTimezone: z.string(),
       operatingHours: VenueSchema.shape.operatingHours,
+      settings: z.object({ maxPartySize: z.number().optional() }).nullable().optional(),
+      phone: z.string().optional(),
     });
     export const PublicVenueDepositSchema = z.object({
       enabled: z.boolean(),
@@ -1625,6 +1627,8 @@
       slug: string;
       ianaTimezone: string;
       operatingHours: OperatingHours | null;
+      settings?: { maxPartySize?: number } | null;
+      phone?: string;
     }
     export interface Venue {
       id: string;
@@ -1665,6 +1669,8 @@
     export interface VenueSettings {
       defaultReservationDuration?: number; // minutes
       maxPartySize?: number;
+      /** Contact phone number shown to guests whose party exceeds maxPartySize (#4979). */
+      phone?: string;
       minAdvanceBooking?: number; // hours
       maxAdvanceBooking?: number; // days
       requirePhone?: boolean;

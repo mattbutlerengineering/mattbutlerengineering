@@ -24,6 +24,9 @@
 }
 
 .partyButton {
+  /* #4981: 32px rows read as decorative on a coarse pointer — bump to the
+     44px WCAG 2.5.8 target-size minimum. */
+  min-height: 44px;
   padding-block: var(--rialto-space-xs);
   padding-inline: var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
@@ -56,6 +59,23 @@
 }
 
 .partySizeNote {
+  margin-block-start: var(--rialto-space-xs);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.partySizeNoteLink {
+  color: var(--rialto-accent);
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* #4981: matches the 44px WCAG 2.5.8 target-size minimum on the party/slot
+   buttons above. */
+.ctaButton {
+  min-height: 44px;
+}
+
+.ctaHint {
   margin-block-start: var(--rialto-space-xs);
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-secondary);

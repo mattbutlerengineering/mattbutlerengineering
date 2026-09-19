@@ -6,7 +6,7 @@ import {
   formatTimeIn,
   formatCurrencyFromCents,
 } from "../../utils/format.js";
-import { buildReservationIcs } from "../../utils/ics.js";
+import { buildReservationIcs, downloadIcsFile } from "../../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
 import styles from "./ConfirmationView.module.css";
 
@@ -14,7 +14,6 @@ export interface ConfirmationViewProps {
   reservation: Reservation;
   onNewBooking: () => void;
   cancellationUrl?: string;
-  onCancellation?: () => void;
   depositAmountCents?: number | null;
   depositCurrency?: string | null;
   cancellationPolicySummary?: string | null;
@@ -31,29 +30,20 @@ export interface ConfirmationViewProps {
   venueTimezone?: string;
 }
 
-/** Builds the .ics blob client-side and triggers a same-tab file download — no server round-trip. */
+/** Builds the .ics content and triggers a same-tab file download. */
 function downloadReservationIcs(
   reservation: Reservation,
   venueConfig: PublicVenueConfig,
   cancellationUrl?: string
 ): void {
   const icsContent = buildReservationIcs(reservation, venueConfig, { cancellationUrl });
-  const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `reservation-${reservation.id.slice(-8)}.ics`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+  downloadIcsFile(icsContent, `reservation-${reservation.id.slice(-8)}.ics`);
 }
 
 export function ConfirmationView({
   reservation,
   onNewBooking,
   cancellationUrl,
-  onCancellation,
   depositAmountCents,
   depositCurrency,
   cancellationPolicySummary,
@@ -231,16 +221,11 @@ export function ConfirmationView({
 
       {/* Actions */}
       <div className={styles.actions}>
-        {(cancellationUrl || onCancellation) && (
+        {cancellationUrl && (
           <Button
             variant="ghost"
             onClick={() => {
-              if (onCancellation) {
-                onCancellation();
-              }
-              if (cancellationUrl) {
-                window.location.href = cancellationUrl;
-              }
+              window.location.href = cancellationUrl;
             }}
             className={styles.fullWidth}
           >

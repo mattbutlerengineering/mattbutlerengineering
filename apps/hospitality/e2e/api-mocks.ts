@@ -43,9 +43,18 @@ function jsonOk(route: Route, data: unknown): Promise<void> {
 // widening of the schema is what changes this fixture, not a hand edit
 // (#4032). Exported so e2e/fixtures/public-venue-mock.test.ts can pin the
 // mock's shape to the type.
+//
+// `phone` (#4979) lives on the internal Venue's `settings` blob, not at the
+// top level — flattened here the same way the real server's
+// `venueService.getPublicBySlug` does, so this mock keeps mirroring the real
+// projection instead of drifting from it. `settings.maxPartySize` needs no
+// such flattening: the venues-list fixture's `settings` key already lines up
+// with `PublicVenueSchema`'s `settings` field name, so parsing strips it down
+// to the curated `{ maxPartySize }` shape automatically.
 export function buildPublicVenueFixture(): PublicVenue {
   const venues = JSON.parse(loadFixture("venues-list"));
-  return PublicVenueSchema.parse(venues.data[0]);
+  const venue = venues.data[0];
+  return PublicVenueSchema.parse({ ...venue, phone: venue.settings?.phone });
 }
 
 // GET /public/v1/venues/:slug serves PublicVenueConfig, the unauthenticated

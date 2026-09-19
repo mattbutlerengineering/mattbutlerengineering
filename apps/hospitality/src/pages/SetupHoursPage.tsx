@@ -23,6 +23,19 @@ export function SetupHoursPage() {
   const [error, setError] = useState<string | null>(null);
   const [hoursErrors, setHoursErrors] = useState<OperatingHoursValidationErrors | null>(null);
 
+  // Re-seed `hours` from the newly selected venue when the venue switches
+  // while this page stays mounted (e.g. via VenueSwitcher) — the useState
+  // initializer above only runs once, so without this the form would keep
+  // showing the previous venue's hours (#4982). Adjusting state during
+  // render (rather than in an effect) is React's documented pattern for
+  // resetting state when a prop changes without an extra render+flash.
+  const [seededVenueId, setSeededVenueId] = useState(selectedVenueId);
+  if (selectedVenueId !== seededVenueId) {
+    setSeededVenueId(selectedVenueId);
+    setHours(selectedVenue?.operatingHours ?? {});
+    setHoursErrors(null);
+  }
+
   const handleSave = async () => {
     if (!selectedVenueId) return;
 

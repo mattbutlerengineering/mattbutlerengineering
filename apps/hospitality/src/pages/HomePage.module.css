@@ -67,6 +67,12 @@
   color: var(--rialto-text-secondary);
 }
 
+/* ── Lapsing Guests ─────────────────────────── */
+
+.lapsingGuests {
+  margin-block-start: var(--rialto-space-lg);
+}
+
 /* ── Activity Feed ─────────────────────────── */
 
 .activityFeed {

@@ -359,7 +359,7 @@ describe("venueService", () => {
       });
     });
 
-    it("selects only the projected columns from Prisma — never venueGroup or settings", async () => {
+    it("selects only the projected columns from Prisma — never venueGroup", async () => {
       vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
 
       await venueService.getPublicBySlug("test-venue");
@@ -372,6 +372,7 @@ describe("venueService", () => {
           slug: true,
           ianaTimezone: true,
           operatingHours: true,
+          settings: true,
         },
       });
     });
@@ -380,6 +381,33 @@ describe("venueService", () => {
       vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(null as never);
 
       expect(await venueService.getPublicBySlug("missing")).toBeNull();
+    });
+
+    // #4979: guests at venues that seat more than the widget's hardcoded
+    // default of 8 were silently unable to select their real party size, and
+    // the "please call us" fallback carried no phone number. Forwarding both
+    // from the venue's settings JSON blob lets the widget offer a real cap
+    // and a real number, with no schema migration (settings is already Json).
+    it("forwards maxPartySize and phone from settings", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(
+        makePrismaVenue({ settings: { maxPartySize: 12, phone: "+1-555-0100" } }) as never
+      );
+
+      const result = await venueService.getPublicBySlug("test-venue");
+
+      expect(result).toMatchObject({
+        settings: { maxPartySize: 12 },
+        phone: "+1-555-0100",
+      });
+    });
+
+    it("omits settings and phone when the venue has no maxPartySize/phone configured", async () => {
+      vi.mocked(prisma.venue.findFirst).mockResolvedValueOnce(makePrismaVenue() as never);
+
+      const result = await venueService.getPublicBySlug("test-venue");
+
+      expect(result?.settings).toBeUndefined();
+      expect(result?.phone).toBeUndefined();
     });
   });
 

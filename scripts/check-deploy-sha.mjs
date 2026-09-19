@@ -21,8 +21,13 @@
  * to skip the smoke-test step and fail the job distinguishably from a
  * confirmed-and-healthy run.
  *
+ * `--trigger-name` (#5153 follow-up): passed alongside `--expected-sha`, this
+ * routes the raw head SHA through `resolveExpectedSha()` before polling --
+ * see that function's doc comment for why only "Deploy Static Sites" ever
+ * gets a real SHA to confirm.
+ *
  * Usage:
- *   node scripts/check-deploy-sha.mjs --url <url> [--expected-sha <sha>] [--max-attempts N] [--sleep-secs N]
+ *   node scripts/check-deploy-sha.mjs --url <url> [--expected-sha <sha>] [--trigger-name <name>] [--max-attempts N] [--sleep-secs N]
  *
  * Prints one JSON line to stdout:
  *   {"confirmed":"confirmed"|"timeout"|"skipped","liveBuildId":string|null,"attempts":number}
@@ -52,6 +57,47 @@ export function extractBuildId(html) {
 export function isBuildConfirmed({ expectedShortSha, liveBuildId }) {
   if (!expectedShortSha || !liveBuildId) return false;
   return liveBuildId.slice(0, 7) === expectedShortSha.slice(0, 7);
+}
+
+/**
+ * The only `workflow_run` trigger whose deploy actually updates the polled
+ * `<meta name="build-id">` tag on `https://mattbutlerengineering.com/`.
+ * `deploy-static.yml` sets `VITE_BUILD_ID: ${{ github.sha }}` and is the sole
+ * writer of that tag; "Deploy Services" and "Pulumi Deploy" ship backend/
+ * infra changes that never touch the marketing build.
+ *
+ * Root cause behind the recurring "Post-deploy verification could not
+ * confirm deploy" flake (#5098, #5123, #5124, #5133, #5134, #5153 -- six
+ * occurrences, all after the poll budget was already doubled to 48x15s=12min
+ * for #5006): every one of those issues was filed on a "Deploy Services" or
+ * "Pulumi Deploy" trigger, none on "Deploy Static Sites". Polling the
+ * marketing homepage for a backend/infra commit's SHA is a category error,
+ * not a propagation delay -- no amount of budget widening makes it succeed.
+ */
+const SHA_VERIFIABLE_TRIGGER = "Deploy Static Sites";
+
+/**
+ * @param {string|null} [triggerName]
+ * @returns {boolean}
+ */
+export function isShaVerifiableTrigger(triggerName) {
+  return triggerName === SHA_VERIFIABLE_TRIGGER;
+}
+
+/**
+ * Decides the SHA `pollForDeploy` should actually confirm against, given the
+ * `workflow_run` event that triggered this check. Only "Deploy Static Sites"
+ * ever gets a real SHA to confirm; every other trigger (or no trigger at all,
+ * i.e. manual `workflow_dispatch`) resolves to `null`, which `pollForDeploy`
+ * already treats as "skipped" -- run smoke tests against whatever's live
+ * without waiting on a match that can never happen.
+ *
+ * @param {{ triggerName: string|null, headSha: string|null }} args
+ * @returns {string|null}
+ */
+export function resolveExpectedSha({ triggerName, headSha }) {
+  if (!headSha) return null;
+  return isShaVerifiableTrigger(triggerName) ? headSha : null;
 }
 
 /**
@@ -118,7 +164,11 @@ function readFlag(args, flag) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const url = readFlag(args, "--url");
-  const expectedShortSha = readFlag(args, "--expected-sha") || null;
+  const triggerName = readFlag(args, "--trigger-name") || null;
+  const expectedShortSha = resolveExpectedSha({
+    triggerName,
+    headSha: readFlag(args, "--expected-sha") || null,
+  });
   const maxAttempts = Number(readFlag(args, "--max-attempts") ?? 48);
   const sleepSecs = Number(readFlag(args, "--sleep-secs") ?? 15);
 

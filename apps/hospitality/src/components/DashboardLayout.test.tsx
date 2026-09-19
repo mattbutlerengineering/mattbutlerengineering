@@ -146,6 +146,7 @@ describe("DashboardLayout", () => {
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
               <Route path="setup" element={<div>Setup Content</div>} />
+              <Route path="setup/hours" element={<div>Setup Hours Content</div>} />
               <Route path="chat" element={<ChatPage />} />
             </Route>
           </Routes>
@@ -281,6 +282,30 @@ describe("DashboardLayout", () => {
     });
     renderLayout("/timeline");
     expect(screen.getByText("Timeline Content")).toBeDefined();
+  });
+
+  it("redirects the bare /setup checklist to /timeline when operational", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+      progress: 100,
+    });
+    renderLayout("/setup");
+    expect(screen.getByText("Timeline Content")).toBeDefined();
+  });
+
+  it("does NOT redirect /setup/hours to /timeline when operational (#4982)", () => {
+    // Editing operating hours must stay reachable after a venue goes
+    // operational — only the /setup checklist itself should bounce.
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "operational",
+      completedSteps: ["hours", "tables", "publish"],
+      nextStep: null,
+      progress: 100,
+    });
+    renderLayout("/setup/hours");
+    expect(screen.getByText("Setup Hours Content")).toBeDefined();
   });
 
   describe("document title (#4973)", () => {
