@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-09-12T20:43:48.096Z",
+  "generatedAt": "2026-09-19T00:25:46.320Z",
   "patterns": {
     "magicTimeouts": {
       "count": 29,
       "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
     },
     "emptyCatch": {
-      "count": 5,
-      "description": "Empty catch blocks that swallow errors silently"
+      "count": 76,
+      "description": "Empty or comment-only catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
       "count": 19,
