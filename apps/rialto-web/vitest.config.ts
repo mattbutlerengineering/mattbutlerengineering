@@ -11,6 +11,7 @@ export default defineVitestConfig({
   // vitest if a broader glob picked it up too.
   include: [
     "src/**/*.test.{ts,tsx}",
+    "token-count.config.test.ts",
     "e2e/workflow-coverage.test.ts",
     "e2e/noise-floor-coverage.test.ts",
     "e2e/eager-route-manifest.test.ts",

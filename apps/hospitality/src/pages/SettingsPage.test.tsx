@@ -14,6 +14,11 @@ vi.mock("../hooks/use-theme.js", () => ({
   useTheme: vi.fn(),
 }));
 
+const mockNavigate = vi.fn();
+vi.mock("react-router", () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 const mockApiClient = {
   users: {
     me: vi.fn(),
@@ -253,6 +258,16 @@ describe("SettingsPage", () => {
     });
   });
 
+  it("navigates to /setup/hours when Operating Hours is clicked (#4982)", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Venue")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText("Operating Hours"));
+    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+  });
+
   it("renders venue defaults card after loading", async () => {
     renderPage();
     await waitFor(() => {
@@ -326,6 +341,24 @@ describe("SettingsPage", () => {
   });
 
   describe("theme change", () => {
+    it("shows the local theme, not the server preference, when they differ (#4985)", async () => {
+      vi.mocked(useTheme).mockReturnValue({
+        theme: "dark",
+        setTheme: vi.fn(),
+      });
+      mockApiClient.users.me.mockResolvedValue({
+        ...defaultUser,
+        preferences: { ...defaultUser.preferences, theme: "light" },
+      });
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("select-Theme")).toBeDefined();
+      });
+      expect(screen.getByTestId("select-Theme")).toHaveValue("dark");
+    });
+
     it("calls setTheme and updatePreferences when theme is changed", async () => {
       const mockSetTheme = vi.fn();
       vi.mocked(useTheme).mockReturnValue({

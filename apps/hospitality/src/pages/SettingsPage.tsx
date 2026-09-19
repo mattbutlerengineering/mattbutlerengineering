@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import { useAuth } from "@mbe/auth/react";
 import {
   Alert,
@@ -93,8 +94,9 @@ function SettingsLoadingSkeleton() {
 /* ── Main component ─────────────────────────── */
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const { isLoading: isAuthLoading, signOut } = useAuth();
-  const { setTheme: setLocalTheme } = useTheme();
+  const { theme: localTheme, setTheme: setLocalTheme } = useTheme();
 
   const { data: user, isLoading, error: loadError, refetch } = useCurrentUser();
   const updatePreferencesMutation = useUpdatePreferences();
@@ -218,7 +220,7 @@ export function SettingsPage() {
                   <Select
                     label="Theme"
                     options={THEME_OPTIONS}
-                    value={preferences.theme ?? "system"}
+                    value={localTheme}
                     onChange={(value) => {
                       const next = value as "light" | "dark" | "system";
                       setLocalTheme(next);
@@ -350,22 +352,35 @@ export function SettingsPage() {
 
         {/* ── Sidebar column ──────────────────── */}
         <div className={styles.sidebar}>
-          <Card title="Account">
-            <Stack gap="md">
-              <div>
+          <Stack gap="lg">
+            <Card title="Venue">
+              <Stack gap="md">
                 <Text variant="caption" color="secondary">
-                  Signed in as
+                  Manage the days and times your venue is open for reservations.
                 </Text>
-                <Text variant="body" color="primary">
-                  {user?.email}
-                </Text>
-              </div>
-              <Divider spacing="compact" />
-              <Button variant="secondary" onClick={() => signOut()}>
-                Sign Out
-              </Button>
-            </Stack>
-          </Card>
+                <Button variant="secondary" onClick={() => navigate("/setup/hours")}>
+                  Operating Hours
+                </Button>
+              </Stack>
+            </Card>
+
+            <Card title="Account">
+              <Stack gap="md">
+                <div>
+                  <Text variant="caption" color="secondary">
+                    Signed in as
+                  </Text>
+                  <Text variant="body" color="primary">
+                    {user?.email}
+                  </Text>
+                </div>
+                <Divider spacing="compact" />
+                <Button variant="secondary" onClick={() => signOut()}>
+                  Sign Out
+                </Button>
+              </Stack>
+            </Card>
+          </Stack>
         </div>
       </div>
     </div>

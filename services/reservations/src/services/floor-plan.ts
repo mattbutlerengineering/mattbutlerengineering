@@ -12,6 +12,7 @@ import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { emitFloorPlanCreated } from "./events.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 
 type PrismaFloorPlan = {
   id: string;
@@ -185,6 +186,13 @@ export const floorPlanService = {
     }
 
     const cloned = await prisma.$transaction(async (tx) => {
+      // This `prisma.$transaction` call bypasses the per-call auto-wrap
+      // `services/venue-scoped-prisma.ts` gives the `prisma` export — set
+      // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026
+      // part 6), using the source floor plan's own (already-resolved)
+      // venue rather than the request-scoped store, since it's more precise.
+      await setVenueContext(tx, source.venueId);
+
       const newFloorPlan = await tx.floorPlan.create({
         data: {
           venueId: source.venueId,
@@ -263,6 +271,10 @@ export const floorPlanService = {
   async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
     try {
       const floorPlan = await prisma.$transaction(async (tx) => {
+        // See the `clone()` comment above — this `$transaction` call also
+        // bypasses the per-call auto-wrap, so it sets app.venue_id itself.
+        await setVenueContext(tx, venueId);
+
         await tx.floorPlan.updateMany({
           where: { venueId, isActive: true },
           data: { isActive: false },
@@ -326,28 +338,37 @@ export const floorPlanService = {
       )
     );
 
-    const tables = await prisma.$queryRaw<PrismaTable[]>`
-      UPDATE tables AS t
-      SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
-      FROM (VALUES ${values}) AS v(id, shape_metadata)
-      WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
-      RETURNING
-        t.id,
-        t.name,
-        t.table_number AS "tableNumber",
-        t.capacity,
-        t.min_covers AS "minCovers",
-        t.max_covers AS "maxCovers",
-        t.location,
-        t.is_active AS "isActive",
-        t.status,
-        t.priority,
-        t.venue_id AS "venueId",
-        t.floor_plan_id AS "floorPlanId",
-        t.shape_metadata AS "shapeMetadata",
-        t.created_at AS "createdAt",
-        t.updated_at AS "updatedAt"
-    `;
+    // A raw `$queryRaw` call bypasses `venue-scoped-prisma.ts`'s per-call
+    // auto-wrap (`$`-prefixed methods pass through unwrapped, on purpose —
+    // see that module's doc comment) and, unlike `prisma.model.method(...)`,
+    // is not itself a single implicit transaction Postgres would wrap
+    // `set_config` around — so it must open its own explicit transaction and
+    // set app.venue_id there (ADR-026 part 6).
+    const tables = await prisma.$transaction(async (tx) => {
+      await setVenueContext(tx, floorPlan.venueId);
+      return tx.$queryRaw<PrismaTable[]>`
+        UPDATE tables AS t
+        SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
+        FROM (VALUES ${values}) AS v(id, shape_metadata)
+        WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
+        RETURNING
+          t.id,
+          t.name,
+          t.table_number AS "tableNumber",
+          t.capacity,
+          t.min_covers AS "minCovers",
+          t.max_covers AS "maxCovers",
+          t.location,
+          t.is_active AS "isActive",
+          t.status,
+          t.priority,
+          t.venue_id AS "venueId",
+          t.floor_plan_id AS "floorPlanId",
+          t.shape_metadata AS "shapeMetadata",
+          t.created_at AS "createdAt",
+          t.updated_at AS "updatedAt"
+      `;
+    });
 
     // An unknown/deleted tableId — or, since the venue predicate above, one
     // belonging to another venue — simply doesn't match any row: the UPDATE

@@ -30,7 +30,7 @@ const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 const PATTERN_DESCRIPTIONS = {
   magicTimeouts:
     "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)",
-  emptyCatch: "Empty catch blocks that swallow errors silently",
+  emptyCatch: "Empty or comment-only catch blocks that swallow errors silently",
   noopTestAssertions:
     "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())",
   hardcodedRoutes: "Hardcoded /api/... route strings instead of route constants",
@@ -99,6 +99,113 @@ export function blockHasAssertion(block) {
   return ASSERTION_CALL_RE.test(block);
 }
 
+/**
+ * Modifiers that still declare a test block. An `it.each(...)` / `test.only(...)`
+ * is a test and must be subject to the assertion check; `describe`, the
+ * `beforeEach`/`afterAll` hooks, `test.step`, `test.use` and `test.setTimeout`
+ * are containers, hooks or config calls and must NOT be.
+ *
+ * This is an allowlist rather than `\w+` on purpose: `(?:it|test)\.\w+\(` also
+ * matches `test.describe(` and `test.beforeEach(`, which would have counted
+ * every Playwright container and hook in `apps/*\/e2e/**` as an assertion-free
+ * test (measured: 19 -> 88 findings, all of them spurious).
+ */
+const TEST_DECLARATION_MODIFIERS = [
+  "each",
+  "for",
+  "concurrent",
+  "sequential",
+  "fails",
+  "failing",
+  "skip",
+  "only",
+  "todo",
+  "runIf",
+  "skipIf",
+];
+
+/**
+ * Splits a test file into one segment per test declaration.
+ *
+ * Segment `i` runs from declaration `i` to the start of declaration `i+1` (the
+ * last runs to end of file), which is what `noopTestAssertions` then tests for
+ * an assertion call.
+ *
+ * Matches a bare `it(` / `test(` plus any chain of allowlisted modifiers
+ * (`it.each(`, `test.only(`, `it.skip.each(`) and the tagged-template form
+ * (``it.each`table` ``). Before #5462 only the bare form was matched, so 123
+ * real declarations in this repo were structurally exempt from the ratchet —
+ * an assertion-free `it.each` could be added without moving the count. Worse,
+ * because those declarations were not split points their bodies were absorbed
+ * into the PRECEDING segment, so an `expect()` inside an `it.each` made an
+ * assertion-free plain `it()` above it read as asserting.
+ *
+ * Still a heuristic, not a parser. Known blind spot: a bare in-body modifier
+ * call written at the start of a line (Playwright's `test.skip(cond, reason)`)
+ * would be read as a declaration. There are zero such occurrences in this repo
+ * today, and the leading `[ \t]*` keeps the match anchored to line starts.
+ *
+ * @param {string} content - full text of a test file
+ * @returns {string[]} one segment per test declaration (empty when there are none)
+ */
+const TEST_BLOCK_SPLIT_RE = new RegExp(
+  String.raw`(?:^|\n)[ \t]*(?:it|test)(?:\.(?:${TEST_DECLARATION_MODIFIERS.join("|")}))*[ \t]*[(\`]`,
+  "g"
+);
+
+export function splitTestBlocks(content) {
+  // Segment 0 is the text before the first declaration — never a test block.
+  return content.split(TEST_BLOCK_SPLIT_RE).slice(1);
+}
+
+/**
+ * Pattern fragment matching a swallowed catch body: optional leading
+ * whitespace, then zero or more (line comment | block comment), each with
+ * its own trailing whitespace bound tightly to it. Deliberately NOT a
+ * standalone `\s+` alternative repeated alongside the comment alternatives —
+ * that shape (`(?:\s+|...)*`) lets the engine partition a single run of
+ * whitespace in exponentially many ways once the overall match fails,
+ * which is catastrophic backtracking (ReDoS) on any file with a `catch {`
+ * that never resolves to a matching empty/comment-only body. Binding each
+ * comment's trailing whitespace to itself removes the ambiguity: there is
+ * exactly one way to consume any given run of whitespace.
+ * Shared between isSwallowedCatchBody() and the emptyCatch scanner's
+ * whole-match regex so the two definitions can never drift apart.
+ */
+const CATCH_BODY_CORE = String.raw`\s*(?:\/\/[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*`;
+
+const SWALLOWED_CATCH_BODY_RE = new RegExp(`^${CATCH_BODY_CORE}$`);
+
+/**
+ * Recognizes a catch body that swallows the error: truly empty, only
+ * whitespace, or containing only comments (line and/or block, any mix, any
+ * amount of whitespace/newlines between them). A body containing any real
+ * statement — including one that merely *follows* a comment, or one whose
+ * only statement is `console.error(e)` — returns false. This is a
+ * heuristic token scan, not a parser: it does not track brace nesting, so
+ * a comment's own text (even one containing `{`, `}`, or the word "catch")
+ * is consumed whole by the comment token and can't break the match or
+ * bleed into a sibling catch block.
+ *
+ * Known blind spots (intentional, not fixed here):
+ *   - A no-op statement that isn't a comment — e.g. a bare `;` empty
+ *     statement, or `catch { void 0; }` — is real code by this heuristic
+ *     and is NOT counted, even though it swallows the error just as
+ *     completely as a comment does.
+ *   - A trailing line comment on the body's last line with no newline
+ *     after it (only possible if the closing `}` is on a later line with
+ *     nothing else in between, which — because `//` already consumes to
+ *     end of line — is vanishingly rare in real formatted code) requires a
+ *     `\n` between the comment and end-of-body to match; see
+ *     CATCH_BODY_CORE.
+ *
+ * @param {string} body - text between a catch block's `{` and `}`
+ * @returns {boolean}
+ */
+export function isSwallowedCatchBody(body) {
+  return SWALLOWED_CATCH_BODY_RE.test(body);
+}
+
 /** Pattern scanner implementations, keyed by pattern name. */
 const SCANNERS = {
   magicTimeouts(files) {
@@ -113,8 +220,9 @@ const SCANNERS = {
   },
 
   emptyCatch(files) {
-    // catch (e) {} or catch {} with optional whitespace/newline inside
-    const RE = /catch\s*(?:\([^)]*\))?\s*\{\s*\}/g;
+    // catch (e) {} / catch {}, or a body containing only comments — see
+    // isSwallowedCatchBody() above for exactly what counts as "empty".
+    const RE = new RegExp(String.raw`catch\s*(?:\([^)]*\))?\s*\{${CATCH_BODY_CORE}\}`, "g");
     let total = 0;
     for (const f of files) {
       const content = fs.readFileSync(f, "utf-8");
@@ -130,12 +238,9 @@ const SCANNERS = {
     const testFiles = files.filter(isTestFile);
     for (const f of testFiles) {
       const content = fs.readFileSync(f, "utf-8");
-      // Find it()/test() blocks — heuristic: match top-level test blocks
-      const testBlocks = content.split(/(?:^|\n)\s*(?:it|test)\s*\(/);
-      // First segment is before any test block
-      for (let i = 1; i < testBlocks.length; i++) {
-        const block = testBlocks[i];
-        // Grab up to the next test block start or end of file
+      // One segment per test declaration — see splitTestBlocks() for exactly
+      // which forms count as a declaration.
+      for (const block of splitTestBlocks(content)) {
         if (!blockHasAssertion(block)) {
           total++;
         }

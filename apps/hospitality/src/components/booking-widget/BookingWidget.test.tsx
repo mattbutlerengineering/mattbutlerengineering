@@ -7,6 +7,15 @@ import React from "react";
 
 process.env.TZ = "UTC";
 
+// Computed relative to the real clock (not a fixed literal) — canProceed now
+// rejects a selected date before today (#4981), so a hardcoded past date
+// would fail as soon as the calendar moved past it.
+const FUTURE_DATE = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().slice(0, 10);
+})();
+
 vi.mock("../../hooks/usePublicApiClient.js", () => ({
   usePublicApiClient: vi.fn(),
 }));
@@ -130,7 +139,7 @@ describe("BookingWidget", () => {
 
     // Simulate date selection
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -183,7 +192,7 @@ describe("BookingWidget", () => {
   it("handles availability errors with the house sentence, never the debug message", async () => {
     renderWidget();
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockRejectedValue(new Error("API Down"));
 
@@ -226,7 +235,7 @@ describe("BookingWidget", () => {
 
     // Step 1: Date & Party
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -300,7 +309,7 @@ describe("BookingWidget", () => {
     render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -382,7 +391,7 @@ describe("BookingWidget", () => {
 
     // Step 1: Date & party of 4
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
     fireEvent.click(screen.getByRole("button", { name: "4" }));
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
@@ -482,7 +491,7 @@ describe("BookingWidget", () => {
     );
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -563,7 +572,7 @@ describe("BookingWidget", () => {
     );
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -623,7 +632,7 @@ describe("BookingWidget", () => {
     render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
 
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },
@@ -664,7 +673,7 @@ describe("BookingWidget", () => {
   it("hides the Add to Calendar section on confirmation when no venueSlug is provided (no venue config to fetch)", async () => {
     renderWidget();
     const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: "2026-05-20" } });
+    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
     mockApi.availability.getTimeSlots.mockResolvedValue([
       { time: "2026-05-20T18:00:00", available: true },

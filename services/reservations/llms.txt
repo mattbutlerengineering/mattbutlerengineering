@@ -99,6 +99,27 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="src/middleware/venue-context.ts">
+    <item priority="low">
+      interface VenueContextClient {
+        $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
+      }
+    </item>
+    <item priority="high">
+      export async function setVenueContext(
+        client: VenueContextClient,
+        venueId: string | null | undefined
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueContextPreHandler(
+        resolveVenueId: VenueIdResolver
+      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isThenable(value: unknown): value is PromiseLike<string | null | undefined> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
@@ -1602,12 +1623,32 @@
       export const tableService: unknown;
     </item>
   </file>
+  <file path="src/services/venue-context-store.ts">
+    <item priority="high">
+      export function enterVenueContext(venueId: string | null): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getCurrentVenueId(): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/venue-membership.ts">
     <item priority="high">
       export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
     </item>
     <item priority="high">
       export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/venue-scoped-prisma.ts">
+    <item priority="high">
+      type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
+    </item>
+    <item priority="high">
+      type DynamicTransactionClient = Record<string, DynamicDelegate> & {
+        $executeRaw: (query...;
+    </item>
+    <item priority="high">
+      export function withVenueScopedQueries(client: PrismaClient): PrismaClient { /* ... */ }
     </item>
   </file>
   <file path="src/services/venue.ts">
