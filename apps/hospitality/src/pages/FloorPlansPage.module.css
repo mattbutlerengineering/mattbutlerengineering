@@ -22,12 +22,34 @@
   border-radius: var(--rialto-radius-soft);
   border: 1px solid var(--rialto-border);
   overflow: hidden;
-  cursor: pointer;
   transition: box-shadow 0.15s var(--rialto-ease-precision);
 }
 
-.card:hover {
+.card:hover,
+.card:focus-within {
   box-shadow: var(--rialto-shadow-md);
+}
+
+.cardOpenButton {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.cardOpenButton:hover {
+  background: transparent;
+  border-color: transparent;
 }
 
 .cardPreview {
@@ -72,6 +94,13 @@
   transition: opacity 0.15s var(--rialto-ease-precision);
 }
 
-.card:hover .cardActions {
+.card:hover .cardActions,
+.card:focus-within .cardActions {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .cardActions {
+    opacity: 1;
+  }
 }
