@@ -7729,6 +7729,12 @@
         config: LapsedGuestMonitorConfig
       ): config is LapsedGuestMonitorPrismaConfig { /* ... */ }
     </item>
+    <item priority="high">
+      export function findGuestsForVenue(
+        prisma: PrismaClient,
+        venueId: string
+      ): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> { /* ... */ }
+    </item>
     <item priority="medium">
       function buildPrismaCallbacks(
         prisma: PrismaClient
@@ -7962,6 +7968,14 @@
     </item>
     <item priority="high">
       export const reservationService: unknown;
+    </item>
+  </file>
+  <file path="services/reservations/src/services/rls-bypass.ts">
+    <item priority="high">
+      export function withRlsBypass<T>(
+        prisma: PrismaClient,
+        callback: (tx: Prisma.TransactionClient) => Promise<T>
+      ): Promise<T> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/serializers.ts">

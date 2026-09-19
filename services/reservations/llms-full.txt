@@ -8764,6 +8764,32 @@
     ): config is LapsedGuestMonitorPrismaConfig {
       return "prisma" in config;
     }
+    export function findGuestsForVenue(
+      prisma: PrismaClient,
+      venueId: string
+    ): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> {
+      return withRlsBypass(prisma, (tx) =>
+        tx.guest.findMany({
+          where: {
+            venueId,
+            visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
+            lastVisit: { not: null },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            communicationPreference: true,
+            reservations: {
+              where: { status: "COMPLETED" },
+              select: { startTime: true },
+              orderBy: { startTime: "asc" },
+            },
+          },
+        })
+      );
+    }
     function buildPrismaCallbacks(
       prisma: PrismaClient
     ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
@@ -8772,26 +8798,7 @@
           prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
         runScan: (venueId) =>
           runLapsedGuestScan(venueId, {
-            findGuestsForScan: (vid) =>
-              prisma.guest.findMany({
-                where: {
-                  venueId: vid,
-                  visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
-                  lastVisit: { not: null },
-                },
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                  communicationPreference: true,
-                  reservations: {
-                    where: { status: "COMPLETED" },
-                    select: { startTime: true },
-                    orderBy: { startTime: "asc" },
-                  },
-                },
-              }),
+            findGuestsForScan: (vid) => findGuestsForVenue(prisma, vid),
             emitLapsingGuests,
           }),
       };
@@ -10053,6 +10060,21 @@
         };
       },
     };
+  </file>
+  <file path="src/services/rls-bypass.ts">
+    export function withRlsBypass<T>(
+      prisma: PrismaClient,
+      callback: (tx: Prisma.TransactionClient) => Promise<T>
+    ): Promise<T> {
+      return prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SET ROLE app_rls_bypass`;
+        try {
+          return await callback(tx);
+        } finally {
+          await tx.$executeRaw`RESET ROLE`;
+        }
+      });
+    }
   </file>
   <file path="src/services/serializers.ts">
     export interface PrismaTableRow {

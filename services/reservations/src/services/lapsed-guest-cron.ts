@@ -1,8 +1,10 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { LapsingGuest } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
+import type { LapsedGuestScanDeps } from "./lapsed-guest-scan.js";
 import { runLapsedGuestScan } from "./lapsed-guest-scan.js";
 import { emitLapsingGuests } from "./events.js";
+import { withRlsBypass } from "./rls-bypass.js";
 
 const DEFAULT_STARTUP_DELAY_MS = 60_000;
 const DEFAULT_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -39,6 +41,50 @@ function isPrismaConfig(
   return "prisma" in config;
 }
 
+/**
+ * Reads the guests eligible for lapse detection in a single venue.
+ *
+ * This is a cross-venue read path in aggregate (the cron loops it over
+ * every venue with no HTTP request context, so `getCurrentVenueId()` always
+ * resolves `null` -- ADR-026 §3's audited `lapsed-guest-cron.ts` escape
+ * hatch). `guests` (and, via the nested `reservations` select, the
+ * `reservations` table) are RLS-protected: without the `app_rls_bypass`
+ * role, this query silently returns zero rows for every venue instead of
+ * throwing (ADR-026 §4 default-deny) -- see `./rls-bypass.ts`.
+ *
+ * Exported (not just used inline in `buildPrismaCallbacks` below) so it can
+ * be exercised directly against a real Postgres instance in
+ * `lapsed-guest-cron.rls.integration.test.ts`, which is the only way to
+ * prove this actually reads across venues under RLS rather than merely not
+ * throwing.
+ */
+export function findGuestsForVenue(
+  prisma: PrismaClient,
+  venueId: string
+): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> {
+  return withRlsBypass(prisma, (tx) =>
+    tx.guest.findMany({
+      where: {
+        venueId,
+        visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
+        lastVisit: { not: null },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        communicationPreference: true,
+        reservations: {
+          where: { status: "COMPLETED" },
+          select: { startTime: true },
+          orderBy: { startTime: "asc" },
+        },
+      },
+    })
+  );
+}
+
 function buildPrismaCallbacks(
   prisma: PrismaClient
 ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
@@ -47,26 +93,7 @@ function buildPrismaCallbacks(
       prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
     runScan: (venueId) =>
       runLapsedGuestScan(venueId, {
-        findGuestsForScan: (vid) =>
-          prisma.guest.findMany({
-            where: {
-              venueId: vid,
-              visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
-              lastVisit: { not: null },
-            },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              communicationPreference: true,
-              reservations: {
-                where: { status: "COMPLETED" },
-                select: { startTime: true },
-                orderBy: { startTime: "asc" },
-              },
-            },
-          }),
+        findGuestsForScan: (vid) => findGuestsForVenue(prisma, vid),
         emitLapsingGuests,
       }),
   };
