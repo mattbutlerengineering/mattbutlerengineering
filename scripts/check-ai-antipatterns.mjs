@@ -30,7 +30,7 @@ const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 const PATTERN_DESCRIPTIONS = {
   magicTimeouts:
     "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)",
-  emptyCatch: "Empty catch blocks that swallow errors silently",
+  emptyCatch: "Empty or comment-only catch blocks that swallow errors silently",
   noopTestAssertions:
     "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())",
   hardcodedRoutes: "Hardcoded /api/... route strings instead of route constants",
@@ -158,6 +158,54 @@ export function splitTestBlocks(content) {
   return content.split(TEST_BLOCK_SPLIT_RE).slice(1);
 }
 
+/**
+ * Pattern fragment matching a swallowed catch body: optional leading
+ * whitespace, then zero or more (line comment | block comment), each with
+ * its own trailing whitespace bound tightly to it. Deliberately NOT a
+ * standalone `\s+` alternative repeated alongside the comment alternatives —
+ * that shape (`(?:\s+|...)*`) lets the engine partition a single run of
+ * whitespace in exponentially many ways once the overall match fails,
+ * which is catastrophic backtracking (ReDoS) on any file with a `catch {`
+ * that never resolves to a matching empty/comment-only body. Binding each
+ * comment's trailing whitespace to itself removes the ambiguity: there is
+ * exactly one way to consume any given run of whitespace.
+ * Shared between isSwallowedCatchBody() and the emptyCatch scanner's
+ * whole-match regex so the two definitions can never drift apart.
+ */
+const CATCH_BODY_CORE = String.raw`\s*(?:\/\/[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*`;
+
+const SWALLOWED_CATCH_BODY_RE = new RegExp(`^${CATCH_BODY_CORE}$`);
+
+/**
+ * Recognizes a catch body that swallows the error: truly empty, only
+ * whitespace, or containing only comments (line and/or block, any mix, any
+ * amount of whitespace/newlines between them). A body containing any real
+ * statement — including one that merely *follows* a comment, or one whose
+ * only statement is `console.error(e)` — returns false. This is a
+ * heuristic token scan, not a parser: it does not track brace nesting, so
+ * a comment's own text (even one containing `{`, `}`, or the word "catch")
+ * is consumed whole by the comment token and can't break the match or
+ * bleed into a sibling catch block.
+ *
+ * Known blind spots (intentional, not fixed here):
+ *   - A no-op statement that isn't a comment — e.g. a bare `;` empty
+ *     statement, or `catch { void 0; }` — is real code by this heuristic
+ *     and is NOT counted, even though it swallows the error just as
+ *     completely as a comment does.
+ *   - A trailing line comment on the body's last line with no newline
+ *     after it (only possible if the closing `}` is on a later line with
+ *     nothing else in between, which — because `//` already consumes to
+ *     end of line — is vanishingly rare in real formatted code) requires a
+ *     `\n` between the comment and end-of-body to match; see
+ *     CATCH_BODY_CORE.
+ *
+ * @param {string} body - text between a catch block's `{` and `}`
+ * @returns {boolean}
+ */
+export function isSwallowedCatchBody(body) {
+  return SWALLOWED_CATCH_BODY_RE.test(body);
+}
+
 /** Pattern scanner implementations, keyed by pattern name. */
 const SCANNERS = {
   magicTimeouts(files) {
@@ -172,8 +220,9 @@ const SCANNERS = {
   },
 
   emptyCatch(files) {
-    // catch (e) {} or catch {} with optional whitespace/newline inside
-    const RE = /catch\s*(?:\([^)]*\))?\s*\{\s*\}/g;
+    // catch (e) {} / catch {}, or a body containing only comments — see
+    // isSwallowedCatchBody() above for exactly what counts as "empty".
+    const RE = new RegExp(String.raw`catch\s*(?:\([^)]*\))?\s*\{${CATCH_BODY_CORE}\}`, "g");
     let total = 0;
     for (const f of files) {
       const content = fs.readFileSync(f, "utf-8");
