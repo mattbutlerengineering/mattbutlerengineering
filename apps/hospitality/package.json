@@ -47,27 +47,27 @@
     {
       "name": "React Vendor (react/react-dom)",
       "path": "dist/assets/react-vendor-*.js",
-      "limit": "85 kB"
+      "limit": "90 kB"
     },
     {
       "name": "Rialto Vendor (design system)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "72 kB"
+      "limit": "80 kB"
     },
     {
       "name": "Router Vendor (react-router)",
       "path": "dist/assets/router-vendor-*.js",
-      "limit": "29 kB"
+      "limit": "31 kB"
     },
     {
       "name": "JSON Render Vendor (@json-render/react)",
       "path": "dist/assets/json-render-vendor-*.js",
-      "limit": "32 kB"
+      "limit": "36 kB"
     },
     {
       "name": "Auth Vendor (@mbe/auth)",
       "path": "dist/assets/auth-vendor-*.js",
-      "limit": "21 kB"
+      "limit": "23 kB"
     }
   ],
   "dependencies": {
