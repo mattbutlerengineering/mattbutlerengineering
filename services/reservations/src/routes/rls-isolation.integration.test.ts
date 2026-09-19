@@ -195,4 +195,34 @@ describe.skipIf(!DATABASE_URL)("RLS cross-tenant isolation backstop (ADR-026)", 
 
     expect(rows.map((d) => d.reservationId)).toEqual([reservationAId]);
   });
+
+  // `venues` has no separate venue_id column -- the row's own id IS the
+  // venue identifier (ADR-026 §5's venue_isolation policy). A cross-tenant
+  // query therefore can't assert "zero rows" against the whole table (Venue
+  // B's own row always matches its own id); the isolation assertion instead
+  // proves Venue A's row is invisible while Venue B's own row is still
+  // visible under Venue B's session context.
+  it("does not return Venue A's row when app.venue_id is set to Venue B, with no app-level id filter (cross-tenant isolation)", async () => {
+    const rows = await restrictedPrisma.$transaction(async (tx) => {
+      await setVenueContext(tx, venueBId);
+      return tx.venue.findMany();
+    });
+
+    expect(rows.map((v) => v.id)).toEqual([venueBId]);
+  });
+
+  it("returns Venue A's own row when app.venue_id is set to Venue A (positive control)", async () => {
+    const rows = await restrictedPrisma.$transaction(async (tx) => {
+      await setVenueContext(tx, venueAId);
+      return tx.venue.findMany();
+    });
+
+    expect(rows.map((v) => v.id)).toEqual([venueAId]);
+  });
+
+  it("returns zero venue rows when app.venue_id is never set (default-deny)", async () => {
+    const rows = await restrictedPrisma.venue.findMany();
+
+    expect(rows).toEqual([]);
+  });
 });

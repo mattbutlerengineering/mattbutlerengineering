@@ -553,11 +553,11 @@ it("broadcasts reservation:created event", async () => {
 ## Postgres Row-Level Security (RLS) Backstop
 
 Per [ADR-026](../../docs/adr/ADR-026-postgres-rls-venue-backstop.md),
-`floor_plans`, `tables`, `guests`, `reservations`, `deposits`, and
+`venues`, `floor_plans`, `tables`, `guests`, `reservations`, `deposits`, and
 `waitlist_entries` carry Postgres `FOR ALL` RLS policies keyed on the
-`app.venue_id` session variable. (ADR-026 also specifies a policy for
-`venues` itself, but no migration has enabled RLS on that table yet — it
-remains outstanding.) This is a **second, database-enforced
+`app.venue_id` session variable — `venues`' own policy (`venue_isolation`)
+uses the row's own `id` as the venue identifier, since it has no separate
+`venue_id` column (ADR-026 Section 1). This is a **second, database-enforced
 layer**, not a replacement for application-level scoping: every service
 function must still write its own `where: { venueId }` filter (or the
 equivalent join) exactly as before. RLS exists to catch the case where that
@@ -584,6 +584,24 @@ resolved (public routes, background jobs), `app.venue_id` stays unset and
 every policy's `current_setting('app.venue_id', true)` evaluates to `NULL`
 — default-deny, not an error and not "every venue".
 
+**Known gap — venue-self-addressed routes:** the global resolver
+(`resolveGlobalVenueId` in `app.ts`) only reads a `venueId` key from the
+query, body, or route params; `GET/PATCH/DELETE /api/v1/venues/:id` (and
+`/:id/table-statuses`) address the venue by its own `:id` param instead, so
+that resolver returns `null` for these routes and `app.venue_id` is never
+set via the global preHandler for them (`requireVenueAccess`'s own
+`venueIdFromRouteId` resolver in `routes/venues.ts` does read `:id`
+correctly, but that only drives the application-layer membership check, not
+the RLS session variable). All of these routes still go through the
+venue-scoped `prisma.venue.*` wrapper (`venueService`, `services/venue.ts`),
+so nothing here is an unwrapped/bypassing call site — the gap is purely in
+venue-id _resolution_ for this one route family. Per the caveat below,
+`FORCE ROW LEVEL SECURITY` is not set, so this has no functional impact
+today (the app's own DB role is the table owner and bypasses RLS
+regardless); it does mean the DB-level backstop doesn't yet actually engage
+for these particular routes the way it does for routes that pass `venueId`
+via query/body/param.
+
 **Current caveat:** the tables above do not have `FORCE ROW LEVEL SECURITY`
 set, so RLS does not apply to the table **owner** — and the service's own
 `DATABASE_URL` role is that owner (it's also the role `prisma migrate
@@ -594,9 +612,10 @@ which was not yet guaranteed at the time; it must land atomically with the
 migration. In practice this means the policies are verified against a
 second, non-owner Postgres role rather than the app's own connection — see
 `src/routes/rls-isolation.integration.test.ts` for the real, migrated-database
-proof (cross-tenant reads on `reservations`, `guests`, and the
-join-based `deposits` policy all return zero rows with the app-level
-`venueId` filter deliberately removed).
+proof (cross-tenant reads on `reservations`, `guests`, `venues`, and the
+join-based `deposits` policy all return zero rows — or, for `venues`, no
+other venue's row — with the app-level `venueId`/`id` filter deliberately
+removed).
 
 ## Commands
 
