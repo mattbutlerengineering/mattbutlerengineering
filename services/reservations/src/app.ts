@@ -47,15 +47,41 @@ import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
-import { prisma } from "./services/database.js";
+import { db, prisma } from "./services/database.js";
 import {
   createHasAnyVenueMembership,
   createVenueMembershipLookup,
 } from "./services/venue-membership.js";
-import type { HasAnyVenueMembership, VenueMembershipLookup } from "@mbe/auth/fastify";
+import type {
+  HasAnyVenueMembership,
+  VenueIdResolver,
+  VenueMembershipLookup,
+} from "@mbe/auth/fastify";
 import { getStripeConfig } from "./config/stripe.js";
 import { getManageTokenConfig } from "./config/manage-token.js";
 import { ReservationEventEmitter } from "./services/events.js";
+import { venueContextPreHandler } from "./middleware/venue-context.js";
+import { venueIdFromBody, venueIdFromParams, venueIdFromQuery } from "./routes/venue-access.js";
+
+/**
+ * Best-effort venue-id resolution for the global venue-context preHandler
+ * (ADR-026 part 6/7): tries the same conventions every route's own
+ * `requireVenueAccess` resolver already uses — query, then body, then route
+ * params — so `app.venue_id` gets set without every route file wiring a
+ * resolver a second time. Routes addressed by another entity's id (e.g. a
+ * table/reservation id) resolve to null here, which is the ADR-026 §4
+ * default-deny no-op, not a regression — nothing sets `app.venue_id` for
+ * those routes today either.
+ *
+ * Deliberately synchronous, not `async`: `venueIdFromQuery`/`venueIdFromBody`/
+ * `venueIdFromParams` (`./routes/venue-access.ts`) are all synchronous, and
+ * `venueContextPreHandler` (`./middleware/venue-context.ts`) requires a
+ * synchronous result here to call `enterVenueContext` synchronously — see
+ * its doc comment for the measured AsyncLocalStorage timing bug an
+ * `await`-then-`enterVenueContext` sequence reproduces in this exact app.
+ */
+const resolveGlobalVenueId: VenueIdResolver = (request) =>
+  venueIdFromQuery(request) ?? venueIdFromBody(request) ?? venueIdFromParams(request) ?? null;
 
 export interface ReservationsAppOptions extends AppOptions {
   notificationPort?: NotificationDispatcher;
@@ -160,6 +186,37 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // route registration so child route plugins inherit it.
   const services: DomainServices = { ...defaultDomainServices, ...options.services };
   fastify.decorate("services", services);
+
+  // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
+  // (#5469). `@mbe/database`'s createDatabase() registers its own
+  // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
+  // SIGINT handler always ends with an explicit `process.exit(0)` — which
+  // never fires `beforeExit` — so the pool was previously torn down by abrupt
+  // process termination on every deploy instead of a graceful disconnect.
+  // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
+  // jobWorker below) runs deterministically after requests drain, so wire
+  // db.shutdown() here instead. Registered unconditionally (not gated on
+  // NODE_ENV !== "test" like the background jobs below) since it has no
+  // observable side effect beyond closing a connection that tests mock out.
+  fastify.addHook("onClose", async () => db.shutdown());
+
+  // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
+  // `app.venue_id` session variable for every request whose venue is
+  // resolvable from its own query/body/params, so the RLS policies already
+  // enabled on floor_plans/tables/guests/reservations/deposits/waitlist_entries
+  // (parts 2-4) see the same venue scope the application layer does.
+  //
+  // Registered as a shared `addHook`, which Fastify always runs BEFORE a
+  // route's own `preHandler` option array — so this necessarily runs before
+  // `requireAuth`/`requireVenueAccess`, not after, despite those guards
+  // being the more familiar "runs first" preHandlers. That ordering is safe:
+  // this hook never makes an authorization decision (it can only narrow
+  // which rows are visible, exactly like the app-level `where: { venueId }`
+  // filters it backstops) and `requireVenueAccess` still independently
+  // 403s a non-member on every route that has it, after this hook runs. A
+  // request with no resolvable venue id (public routes, health checks,
+  // entity-addressed routes) is a deliberate no-op — ADR-026 §4 default-deny.
+  fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
 
   // Register routes
   await fastify.register(healthRoutes);

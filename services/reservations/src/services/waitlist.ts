@@ -2,6 +2,7 @@ import { prisma } from "./database.js";
 import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./waitlist-utils.js";
 import { Prisma } from "../generated/prisma/index.js";
 import type { WaitlistStatus } from "../generated/prisma/index.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 
 const DEFAULT_AVG_TURN_TIME_MINUTES = 30;
 
@@ -41,12 +42,19 @@ async function recalculateVenuePositions(venueId: string): Promise<void> {
   const rows = Prisma.join(
     updated.map((entry) => Prisma.sql`(${entry.id}, ${entry.position}::int)`)
   );
-  await prisma.$executeRaw`
-    UPDATE "waitlist_entries" AS w
-    SET position = v.position
-    FROM (VALUES ${rows}) AS v(id, position)
-    WHERE w.id = v.id
-  `;
+  // A raw `$executeRaw` call bypasses `venue-scoped-prisma.ts`'s per-call
+  // auto-wrap (`$`-prefixed methods pass through unwrapped, on purpose) —
+  // open its own explicit transaction and set app.venue_id there (ADR-026
+  // part 6), using the already-known venueId parameter.
+  await prisma.$transaction(async (tx) => {
+    await setVenueContext(tx, venueId);
+    return tx.$executeRaw`
+      UPDATE "waitlist_entries" AS w
+      SET position = v.position
+      FROM (VALUES ${rows}) AS v(id, position)
+      WHERE w.id = v.id
+    `;
+  });
 }
 
 export const waitlistService = {

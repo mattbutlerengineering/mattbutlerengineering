@@ -156,3 +156,10 @@
   outline: none;
   box-shadow: var(--rialto-shadow-focus);
 }
+
+.doneLabel {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-tertiary);
+  margin: 0;
+}

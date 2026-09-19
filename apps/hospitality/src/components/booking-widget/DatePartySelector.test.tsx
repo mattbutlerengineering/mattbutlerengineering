@@ -80,9 +80,27 @@ describe("DatePartySelector", () => {
   });
 
   it("enables 'Find Available Times' when date is selected", () => {
-    render(<DatePartySelector {...defaultProps} selectedDate="2026-05-20" />);
+    render(<DatePartySelector {...defaultProps} selectedDate="2026-05-20" minDate="2020-01-01" />);
     const btn = screen.getByText("Find Available Times");
     expect(btn).toHaveProperty("disabled", false);
+  });
+
+  // #4981: the date input's `min` attribute only guides the native picker —
+  // a typed (or pasted) past date must still be rejected by canProceed.
+  it("disables 'Find Available Times' when the selected date is before minDate", () => {
+    render(<DatePartySelector {...defaultProps} selectedDate="2026-05-19" minDate="2026-05-20" />);
+    const btn = screen.getByText("Find Available Times");
+    expect(btn).toHaveProperty("disabled", true);
+  });
+
+  it("shows a hint explaining why the CTA is disabled for a past date", () => {
+    render(<DatePartySelector {...defaultProps} selectedDate="2026-05-19" minDate="2026-05-20" />);
+    expect(screen.getByText(/choose a date from today onward/i)).toBeDefined();
+  });
+
+  it("does not show the date hint once a valid date is selected", () => {
+    render(<DatePartySelector {...defaultProps} selectedDate="2026-05-20" minDate="2026-05-20" />);
+    expect(screen.queryByText(/choose a date from today onward/i)).toBeNull();
   });
 
   it("calls onDateChange when date is changed", () => {
@@ -109,7 +127,14 @@ describe("DatePartySelector", () => {
 
   it("calls onNext when submit button is clicked", () => {
     const onNext = vi.fn();
-    render(<DatePartySelector {...defaultProps} selectedDate="2026-05-20" onNext={onNext} />);
+    render(
+      <DatePartySelector
+        {...defaultProps}
+        selectedDate="2026-05-20"
+        minDate="2020-01-01"
+        onNext={onNext}
+      />
+    );
     fireEvent.click(screen.getByText("Find Available Times"));
     expect(onNext).toHaveBeenCalled();
   });
@@ -199,6 +224,22 @@ describe("DatePartySelector", () => {
       );
       const btn = screen.getByText("Find Available Times");
       expect(btn).toHaveProperty("disabled", true);
+    });
+  });
+
+  // #4981: "today" for the min-date bound must track the venue's clock, not
+  // the guest's device or a UTC midnight boundary.
+  describe("venueTimezone", () => {
+    it("computes the date input's min bound from the venue's timezone", () => {
+      vi.useFakeTimers();
+      // 2026-01-01T04:30:00Z is still 2025-12-31 in America/Los_Angeles.
+      vi.setSystemTime(new Date("2026-01-01T04:30:00Z"));
+      try {
+        render(<DatePartySelector {...defaultProps} venueTimezone="America/Los_Angeles" />);
+        expect(screen.getByLabelText("Date").getAttribute("min")).toBe("2025-12-31");
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

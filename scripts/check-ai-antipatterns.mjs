@@ -100,6 +100,65 @@ export function blockHasAssertion(block) {
 }
 
 /**
+ * Modifiers that still declare a test block. An `it.each(...)` / `test.only(...)`
+ * is a test and must be subject to the assertion check; `describe`, the
+ * `beforeEach`/`afterAll` hooks, `test.step`, `test.use` and `test.setTimeout`
+ * are containers, hooks or config calls and must NOT be.
+ *
+ * This is an allowlist rather than `\w+` on purpose: `(?:it|test)\.\w+\(` also
+ * matches `test.describe(` and `test.beforeEach(`, which would have counted
+ * every Playwright container and hook in `apps/*\/e2e/**` as an assertion-free
+ * test (measured: 19 -> 88 findings, all of them spurious).
+ */
+const TEST_DECLARATION_MODIFIERS = [
+  "each",
+  "for",
+  "concurrent",
+  "sequential",
+  "fails",
+  "failing",
+  "skip",
+  "only",
+  "todo",
+  "runIf",
+  "skipIf",
+];
+
+/**
+ * Splits a test file into one segment per test declaration.
+ *
+ * Segment `i` runs from declaration `i` to the start of declaration `i+1` (the
+ * last runs to end of file), which is what `noopTestAssertions` then tests for
+ * an assertion call.
+ *
+ * Matches a bare `it(` / `test(` plus any chain of allowlisted modifiers
+ * (`it.each(`, `test.only(`, `it.skip.each(`) and the tagged-template form
+ * (``it.each`table` ``). Before #5462 only the bare form was matched, so 123
+ * real declarations in this repo were structurally exempt from the ratchet —
+ * an assertion-free `it.each` could be added without moving the count. Worse,
+ * because those declarations were not split points their bodies were absorbed
+ * into the PRECEDING segment, so an `expect()` inside an `it.each` made an
+ * assertion-free plain `it()` above it read as asserting.
+ *
+ * Still a heuristic, not a parser. Known blind spot: a bare in-body modifier
+ * call written at the start of a line (Playwright's `test.skip(cond, reason)`)
+ * would be read as a declaration. There are zero such occurrences in this repo
+ * today, and the leading `[ \t]*` keeps the match anchored to line starts.
+ *
+ * @param {string} content - full text of a test file
+ * @returns {string[]} one segment per test declaration (empty when there are none)
+ */
+const TEST_BLOCK_SPLIT_RE = new RegExp(
+  String.raw`(?:^|\n)[ \t]*(?:it|test)(?:\.(?:${TEST_DECLARATION_MODIFIERS.join("|")}))*[ \t]*[(\`]`,
+  "g"
+);
+
+export function splitTestBlocks(content) {
+  // Segment 0 is the text before the first declaration — never a test block.
+  return content.split(TEST_BLOCK_SPLIT_RE).slice(1);
+}
+
+/**
  * Pattern fragment matching a swallowed catch body: optional leading
  * whitespace, then zero or more (line comment | block comment), each with
  * its own trailing whitespace bound tightly to it. Deliberately NOT a
@@ -179,12 +238,9 @@ const SCANNERS = {
     const testFiles = files.filter(isTestFile);
     for (const f of testFiles) {
       const content = fs.readFileSync(f, "utf-8");
-      // Find it()/test() blocks — heuristic: match top-level test blocks
-      const testBlocks = content.split(/(?:^|\n)\s*(?:it|test)\s*\(/);
-      // First segment is before any test block
-      for (let i = 1; i < testBlocks.length; i++) {
-        const block = testBlocks[i];
-        // Grab up to the next test block start or end of file
+      // One segment per test declaration — see splitTestBlocks() for exactly
+      // which forms count as a declaration.
+      for (const block of splitTestBlocks(content)) {
         if (!blockHasAssertion(block)) {
           total++;
         }

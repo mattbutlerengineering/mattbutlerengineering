@@ -288,6 +288,147 @@ describe("check-ai-antipatterns", () => {
     });
   });
 
+  // ── splitTestBlocks ─────────────────────────────────────────────────────────
+  // The other half of noopTestAssertions: which text counts as "one test
+  // block" at all. A declaration this never splits on is structurally exempt
+  // from the assertion check — it can never be flagged, however empty it is.
+  // Pure fixture-string tests, same rationale as blockHasAssertion above.
+
+  describe("splitTestBlocks", () => {
+    test("splits on a plain it(...) declaration", async () => {
+      const { splitTestBlocks } = await import("../check-ai-antipatterns.mjs");
+      const src = ['it("a", () => {});', 'it("b", () => {});'].join("\n");
+      expect(splitTestBlocks(src)).toHaveLength(2);
+    });
+
+    test("splits on it.each(table)(...) — the curried parameterized form", async () => {
+      const { splitTestBlocks } = await import("../check-ai-antipatterns.mjs");
+      const src = 'it.each([[1], [2]])("case %i", (n) => {});';
+      expect(splitTestBlocks(src)).toHaveLength(1);
+    });
+
+    test("splits on the it.each`table` tagged-template form", async () => {
+      const { splitTestBlocks } = await import("../check-ai-antipatterns.mjs");
+      const src = ["it.each`", "  a", "  ${1}", '`("case $a", ({ a }) => {});'].join("\n");
+      expect(splitTestBlocks(src)).toHaveLength(1);
+    });
+
+    test.each([
+      ["it.skip", 'it.skip("a", () => {});'],
+      ["it.only", 'it.only("a", () => {});'],
+      ["it.todo", 'it.todo("a", () => {});'],
+      ["it.fails", 'it.fails("a", () => {});'],
+      ["it.concurrent", 'it.concurrent("a", () => {});'],
+      ["it.sequential", 'it.sequential("a", () => {});'],
+      ["it.for", 'it.for([1, 2])("a", (n) => {});'],
+      ["test.skip", 'test.skip("a", () => {});'],
+      ["test.only", 'test.only("a", () => {});'],
+      ["test.concurrent", 'test.concurrent("a", () => {});'],
+      ["chained it.skip.each", 'it.skip.each([[1]])("a", (n) => {});'],
+    ])("splits on %s — a real test declaration", async (_label, src) => {
+      const { splitTestBlocks } = await import("../check-ai-antipatterns.mjs");
+      expect(splitTestBlocks(src)).toHaveLength(1);
+    });
+
+    test.each([
+      ["describe", 'describe("group", () => {});'],
+      ["test.describe", 'test.describe("group", () => {});'],
+      ["describe.each", 'describe.each([[1]])("group", (n) => {});'],
+      ["test.beforeEach", "test.beforeEach(async ({ page }) => {});"],
+      ["test.afterAll", "test.afterAll(() => {});"],
+      ["test.step", 'test.step("does a thing", () => {});'],
+      ["test.use", 'test.use({ locale: "en" });'],
+      ["test.setTimeout", "test.setTimeout(60000);"],
+    ])("does not split on %s — a container, hook or config call", async (_label, src) => {
+      const { splitTestBlocks } = await import("../check-ai-antipatterns.mjs");
+      expect(splitTestBlocks(src)).toHaveLength(0);
+    });
+
+    test("does not split on a substring match such as submitTest(", async () => {
+      const { splitTestBlocks } = await import("../check-ai-antipatterns.mjs");
+      expect(splitTestBlocks('submitTest("a");\nawaitIt("b");')).toHaveLength(0);
+    });
+  });
+
+  // ── noopTestAssertions: modifier blind spot (#5462) ──────────────────────────
+  // Before this fix the block splitter matched only a bare `it(` / `test(`, so
+  // every `it.each` / `it.skip` / `test.only` declaration in the repo (123 of
+  // them) was structurally invisible to the ratchet: an assertion-free
+  // parameterized test could be added and the count would not move.
+
+  describe("noopTestAssertions — parameterized and modified declarations", () => {
+    test("flags an it.each block that asserts nothing", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "each.test.js"),
+        ['it.each([[1], [2]])("case %i", (n) => {', "  render(n);", "});", ""].join("\n")
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "noopTestAssertions")).toBe(1);
+    });
+
+    test("does not flag an it.each block that does assert", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "each.test.js"),
+        ['it.each([[1], [2]])("case %i", (n) => {', "  expect(n).toBeTruthy();", "});", ""].join(
+          "\n"
+        )
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "noopTestAssertions")).toBe(0);
+    });
+
+    test("flags an assertion-free test.only block", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "only.test.js"),
+        ['test.only("renders", () => {', "  render(<Widget />);", "});", ""].join("\n")
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "noopTestAssertions")).toBe(1);
+    });
+
+    test("an assertion inside a following it.each no longer masks a bare it() above it", async () => {
+      // The splitter's segments run to the NEXT declaration. While `it.each`
+      // was not a split point, its body was absorbed into the preceding
+      // segment, so its expect() made the assertion-free it() above read as
+      // asserting.
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "mask.test.js"),
+        [
+          'it("renders without crashing", () => {',
+          "  render(<Widget />);",
+          "});",
+          "",
+          'it.each([[1]])("case %i", (n) => {',
+          "  expect(n).toBe(1);",
+          "});",
+          "",
+        ].join("\n")
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "noopTestAssertions")).toBe(1);
+    });
+
+    test("a Playwright describe container with hooks contributes no findings", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "e2e.spec.ts"),
+        [
+          'test.describe("suite", () => {',
+          "  test.beforeEach(async ({ page }) => {",
+          '    await page.goto("/");',
+          "  });",
+          "",
+          '  test("loads", async ({ page }) => {',
+          '    await expect(page).toHaveTitle("x");',
+          "  });",
+          "});",
+          "",
+        ].join("\n")
+      );
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "noopTestAssertions")).toBe(0);
+    });
+  });
+
   // ── scanAll ─────────────────────────────────────────────────────────────────
 
   describe("scanAll", () => {

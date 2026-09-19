@@ -550,6 +550,54 @@ it("broadcasts reservation:created event", async () => {
 });
 ```
 
+## Postgres Row-Level Security (RLS) Backstop
+
+Per [ADR-026](../../docs/adr/ADR-026-postgres-rls-venue-backstop.md),
+`floor_plans`, `tables`, `guests`, `reservations`, `deposits`, and
+`waitlist_entries` carry Postgres `FOR ALL` RLS policies keyed on the
+`app.venue_id` session variable. (ADR-026 also specifies a policy for
+`venues` itself, but no migration has enabled RLS on that table yet — it
+remains outstanding.) This is a **second, database-enforced
+layer**, not a replacement for application-level scoping: every service
+function must still write its own `where: { venueId }` filter (or the
+equivalent join) exactly as before. RLS exists to catch the case where that
+filter is missing or wrong — a query that forgets `venueId` now fails closed
+(returns/writes zero rows) at the database instead of leaking or corrupting
+another venue's data.
+
+**How `app.venue_id` gets set:** `venueContextPreHandler`
+(`src/middleware/venue-context.ts`) is a global Fastify preHandler
+(registered in `app.ts`) that resolves the request's venue id the same way
+`requireVenueAccess` does and stashes it in a request-scoped
+`AsyncLocalStorage` store (`src/services/venue-context-store.ts`). The
+actual Postgres session variable is set later, inside the transaction that
+issues the query: `src/services/venue-scoped-prisma.ts`'s
+`withVenueScopedQueries` wraps the exported `prisma` client so every
+model-delegate call (`prisma.table.findMany(...)`, etc.) automatically opens
+a `$transaction` and calls `setVenueContext(tx, ...)` — `SELECT
+set_config('app.venue_id', <id>, true)`, the parameterized equivalent of
+`SET LOCAL` — as that transaction's first statement, before the wrapped
+query runs. A handful of call sites that already manage their own explicit
+`$transaction` (`reservation.ts`, `floor-plan.ts`, `book-slot.ts`,
+`waitlist.ts`) call `setVenueContext` directly instead. When no venue id is
+resolved (public routes, background jobs), `app.venue_id` stays unset and
+every policy's `current_setting('app.venue_id', true)` evaluates to `NULL`
+— default-deny, not an error and not "every venue".
+
+**Current caveat:** the tables above do not have `FORCE ROW LEVEL SECURITY`
+set, so RLS does not apply to the table **owner** — and the service's own
+`DATABASE_URL` role is that owner (it's also the role `prisma migrate
+deploy` runs as). Forcing RLS was tried and reverted (see PR #5370's commit
+history) because it would 500 any request whose venue id doesn't resolve,
+which was not yet guaranteed at the time; it must land atomically with the
+`SET LOCAL`/`set_config` plumbing above, not as an earlier, separate
+migration. In practice this means the policies are verified against a
+second, non-owner Postgres role rather than the app's own connection — see
+`src/routes/rls-isolation.integration.test.ts` for the real, migrated-database
+proof (cross-tenant reads on `reservations`, `guests`, and the
+join-based `deposits` policy all return zero rows with the app-level
+`venueId` filter deliberately removed).
+
 ## Commands
 
 ```bash
