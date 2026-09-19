@@ -1988,3 +1988,12 @@ None new this run (`agent-skip` unchanged at 4, same as 09-15).
 **queueEfficiency:** composite 0.962 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:15, size:s:15, size:m:2
 **Issues filed:** 0
+
+## 2026-09-19 (mbe-learning-loop)
+
+**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency; domainActivity/agentCost/lighthouse/mutationScore/flakyTests/e2eStability not available this run; issues/issueFeedback query failed — GitHub REST fallback credential rejected, 403)
+**Regressions:** 0 detected, 0 issues created — status Healthy (ACMM L5 96/114, CI 100% pass rate 25/25, queueEfficiency composite 0.959)
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed, 5 skipped (2 no Lighthouse inventory, 2 no matching verifier for labels, 1 Sentry MCP not authenticated). 30-day verification log (110 entries) is 100% `skip` confidence — no denominator exists yet for false-positive-rate or fix-effectiveness-rate self-tuning.
+**Skill proposals:** 0 (Saturday — Friday-only)
+**Sentry triage (Step 1b):** skipped — Sentry MCP host (`sentry.io`) not in this cloud session's egress allowlist (403)
+**Threshold notes:** verify-fixes threshold auto-tuner found no per-sensor metrics to compute (all 5 verifications skipped, none verified/failed) — no tuning signal this run. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors for at least the 4th consecutive day (09-17, 09-18, 09-19) — budgets file left at defaults (3/category). Moot again this run since regressions was empty, but this gap will block issue filing (Step 3 dedup search) the next time a regression actually fires — candidate for `/gotcha-harvest` promotion given the repeat count.

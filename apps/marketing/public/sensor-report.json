@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-19T03:10:22.008Z",
+  "generated_at": "2026-09-19T18:08:52.605Z",
   "period": {
     "start": "2026-09-12",
     "end": "2026-09-19"
@@ -48,12 +48,12 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 94,
-      "total_merged": 92,
+      "total_prs": 95,
+      "total_merged": 93,
       "total_closed_without_merge": 2,
       "by_category": {
         "tier:trivial": {
-          "merged": 54,
+          "merged": 55,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -87,42 +87,35 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 134000559,
-      "output_tokens": 246346,
-      "cache_creation_tokens": 2508014,
-      "cache_hit_rate": 0.9816,
+      "cache_read_tokens": 1080597,
+      "output_tokens": 1722,
+      "cache_creation_tokens": 63619,
+      "cache_hit_rate": 0.9444,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 1090,
-          "output_tokens": 246114,
-          "cache_read_tokens": 131916198,
-          "cache_creation_tokens": 2217905
-        },
-        "claude-haiku-4-5-20251001": {
-          "cost": 0,
-          "input_tokens": 296,
-          "output_tokens": 232,
-          "cache_read_tokens": 2084361,
-          "cache_creation_tokens": 290109
+          "input_tokens": 20,
+          "output_tokens": 1722,
+          "cache_read_tokens": 1080597,
+          "cache_creation_tokens": 63619
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 29,
-      "passed": 17,
+      "completed": 30,
+      "passed": 25,
       "failed": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 35417793946,
-        "status": "in_progress",
-        "conclusion": null,
-        "createdAt": "2026-09-19T03:10:23Z",
-        "name": "Auto-Merge Policy",
+        "databaseId": 35459929834,
+        "status": "completed",
+        "conclusion": "skipped",
+        "createdAt": "2026-09-19T18:02:36Z",
+        "name": "claude",
         "headBranch": "main",
-        "headSha": "d605a9e59bf0f1957c144b56dcd9451a7d8fb6b1"
+        "headSha": "f4eaa395cccc3bc6b9a705e1e52aad9afc88c669"
       }
     },
     "lighthouse": {
@@ -140,17 +133,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 28,
-      "logs_7d": 28,
-      "total_commits_7d": 266,
-      "unique_branches_7d": 2,
-      "branches_7d": ["chore/queue-telemetry-2026-09-19", "main"]
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
+      "unique_branches_7d": 0,
+      "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.095,
-      "total_lines_added_7d": 18931,
-      "lines_churned_7d": 1803,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 612328,
+      "lines_churned_7d": 485,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -166,30 +159,30 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.962,
+      "composite": 0.959,
       "sub_metrics": {
-        "issues_merged": 32,
-        "first_pass_success_rate": 0.906,
+        "issues_merged": 29,
+        "first_pass_success_rate": 0.897,
         "median_time_to_merge_hours": 0.3,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": 0,
-        "review_coverage": 0.375
+        "review_coverage": 0.345
       },
       "distribution": {
-        "size:xs": {
-          "count": 15,
-          "avg_commits": 1.4,
-          "avg_ttm_hours": 0.9
-        },
         "size:s": {
           "count": 15,
-          "avg_commits": 1.6,
+          "avg_commits": 1.4,
           "avg_ttm_hours": 1.4
         },
         "size:m": {
           "count": 2,
           "avg_commits": 1,
           "avg_ttm_hours": 0.3
+        },
+        "size:xs": {
+          "count": 12,
+          "avg_commits": 1.5,
+          "avg_ttm_hours": 0.9
         }
       },
       "baseline": null,
