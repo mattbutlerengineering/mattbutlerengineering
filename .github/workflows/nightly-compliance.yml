@@ -186,6 +186,7 @@ jobs:
           path: /tmp/report.md
 
       - name: File meta-improvement issue if drift detected
+        id: file-issue
         if: steps.drift.outputs.drift == 'true' && (github.event_name == 'schedule' || inputs.file_issue == true)
         env:
           REPORT_PATH: /tmp/report.md
@@ -215,7 +216,7 @@ jobs:
           # mean a match against a *closed* issue is never found here, so a
           # recurrence after a fix files fresh rather than silently
           # commenting on stale, closed history.
-          node scripts/lib/file-issue-cli.mjs \
+          result=$(node scripts/lib/file-issue-cli.mjs \
             --title "$title" \
             --body-file /tmp/report-with-marker.md \
             --label meta-improvement \
@@ -223,7 +224,28 @@ jobs:
             --dedupe-key "nightly-compliance-drift-${signature}" \
             --search-label meta-improvement \
             --search-text "$signature" \
-            --comment-body-file /tmp/drift-comment.md
+            --comment-body-file /tmp/drift-comment.md)
+          echo "$result"
+
+          issue_number=$(node -e "console.log(JSON.parse(process.argv[1]).issueNumber)" "$result")
+          echo "issue-number=${issue_number}" >> "$GITHUB_OUTPUT"
+
+      # Completion sweep (#5454): #5084 stopped a persistent failure from
+      # filing a fresh issue every night, but nothing ever closed an OLDER
+      # issue once a newer run's failure set showed it was superseded — the
+      # backlog only ever grew. This closes any other open
+      # `[nightly-compliance ...]` issue whose recorded failures are a
+      # subset of (or equal to) this run's failures, i.e. nothing left in
+      # it is new or unfixed relative to the issue this run just
+      # filed/matched. See scripts/lib/nightly-compliance-sweep.mjs.
+      - name: Close superseded nightly-compliance issues
+        if: steps.drift.outputs.drift == 'true' && (github.event_name == 'schedule' || inputs.file_issue == true) && steps.file-issue.outputs.issue-number != ''
+        run: |
+          new_issue_url="${{ github.server_url }}/${{ github.repository }}/issues/${{ steps.file-issue.outputs.issue-number }}"
+          node scripts/sweep-nightly-compliance.mjs \
+            --report /tmp/report.md \
+            --exclude-issue "${{ steps.file-issue.outputs.issue-number }}" \
+            --new-issue-url "$new_issue_url"
 
       - name: File issue on scan failure
         if: failure()
