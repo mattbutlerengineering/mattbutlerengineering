@@ -65,10 +65,15 @@ describe("nightly-compliance.yml Lint, typecheck, test step", () => {
   // dead code for the workflow's entire 100-day life. Reproduced locally:
   // an `ok, ok, fail` loop of that exact shape exits early and never prints
   // a FAILED line.
-  it("captures pnpm's exit status in an -e-safe form, never a bare statement", () => {
-    const invocationLines = stripComments(step)
-      .split("\n")
-      .filter((l) => l.includes('pnpm "$cmd"'));
+  it("captures the command's exit status in an -e-safe form, never a bare statement", () => {
+    // The command is built into an `argv` array first (so `test` can carry
+    // its own flags) and then invoked once. Assignment lines are not
+    // invocations and cannot abort the step; `"${argv[@]}"` is the one line
+    // that runs anything, and it is the line that has to be guarded.
+    const lines = stripComments(step).split("\n");
+    const invocationLines = lines.filter(
+      (l) => l.includes('"${argv[@]}"') || (l.includes('pnpm "$cmd"') && !/\w+=\(/.test(l))
+    );
 
     expect(invocationLines.length).toBeGreaterThan(0);
 
@@ -77,7 +82,7 @@ describe("nightly-compliance.yml Lint, typecheck, test step", () => {
       const isGuarded = trimmed.startsWith("if ") || trimmed.includes("||");
       expect(
         isGuarded,
-        `"${line}" invokes pnpm "$cmd" without an if/|| guard — a non-zero ` +
+        `"${line}" invokes the command without an if/|| guard — a non-zero ` +
           "exit here aborts the step under bash -e before any status can be read"
       ).toBe(true);
     }
@@ -85,6 +90,68 @@ describe("nightly-compliance.yml Lint, typecheck, test step", () => {
 
   it("never reintroduces the dead bare-statement-then-$? shape", () => {
     expect(step).not.toMatch(/pnpm "\$cmd"[^\n]*\n\s*cmd_status=\$\?/);
+    expect(step).not.toMatch(/"\$\{argv\[@\]\}"[^\n]*\n\s*cmd_status=\$\?/);
+  });
+
+  // Regression test for the ten-red-nights bug (#5203 … #5517). The nightly
+  // ran bare `pnpm test`, which takes turbo's default concurrency of 10,
+  // while ci.yml's Test job has been capped at 2 since #4519 — so the
+  // nightly ran the same suite at 5x the parallelism of the gate that stays
+  // green. Measured on one machine, same commit, same cold cache: default
+  // concurrency failed (`@mbe/rialto-web#test`, page-registry.test.ts timing
+  // out at 15000ms), `--concurrency=2` passed 50/50.
+  it("runs the test task at the same concurrency cap ci.yml's Test job uses", () => {
+    const body = stripComments(step);
+    const testInvocation = body.split("\n").find((l) => /^\s*test\)/.test(l));
+
+    expect(
+      testInvocation,
+      "no `test)` case branch — the test task must carry its own concurrency cap"
+    ).toBeTruthy();
+    expect(testInvocation).toMatch(/--concurrency=(\d+)/);
+
+    const nightlyCap = Number(testInvocation.match(/--concurrency=(\d+)/)[1]);
+    const ci = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
+    const ciCaps = [...ci.matchAll(/turbo test(?::coverage)?[^\n]*--concurrency=(\d+)/g)].map((m) =>
+      Number(m[1])
+    );
+
+    expect(ciCaps.length, "ci.yml's test job no longer declares a concurrency cap").toBeGreaterThan(
+      0
+    );
+    expect(
+      nightlyCap,
+      `nightly runs the test task at --concurrency=${nightlyCap} while ci.yml ` +
+        `caps it at ${ciCaps.join("/")}. A nightly more parallel than the green ` +
+        "gate re-creates the timeout treadmill of #5203…#5517."
+    ).toBeLessThanOrEqual(Math.min(...ciCaps));
+  });
+
+  // Regression test for the un-diagnosable report (#5517). `tail -10` of a
+  // turbo transcript is always `Tasks:`/`Failed:` and never the failing
+  // test, so ten consecutive nightly issues named a package and nothing else.
+  it("quotes the failure through the summarizer, never a bare tail", () => {
+    const body = stripComments(step);
+
+    expect(body).toMatch(/node scripts\/summarize-task-failure\.mjs "\/tmp\/\$cmd\.out"/);
+    expect(
+      body,
+      "the failure branch is back to `tail -N` of the captured output, which " +
+        "cannot reach the failing test name in a turbo transcript"
+    ).not.toMatch(/tail -\d+ "\/tmp\/\$cmd\.out"/);
+  });
+});
+
+describe("nightly-compliance.yml captured-output artifact", () => {
+  // The in-issue summary is capped by design, so the full transcripts have to
+  // stay retrievable — otherwise diagnosing a nightly failure still means
+  // reproducing it by hand, which is what #5517 cost.
+  it("uploads the captured command output, even when the run failed", () => {
+    const step = extractStep(WORKFLOW, "Upload captured command output");
+
+    expect(step).toMatch(/if:\s*always\(\)/);
+    expect(step).toMatch(/uses:\s*actions\/upload-artifact@[0-9a-f]{40}/);
+    expect(step).toMatch(/path:\s*\/tmp\/\*\.out/);
   });
 });
 
