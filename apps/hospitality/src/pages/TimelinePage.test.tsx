@@ -1857,6 +1857,50 @@ describe("TimelinePage", () => {
     });
   });
 
+  // ── Deferred audit finding (#5272): the opener, not just the URL path, owns focus return ──
+
+  describe("dismissal returns focus to whichever opener launched the dialog (#5272)", () => {
+    it("returns focus to the toolbar Walk-in button after it opens the dialog and it is dismissed", async () => {
+      renderPage();
+      const walkIn = await waitFor(() => screen.getByRole("button", { name: "Walk-in" }));
+      walkIn.focus();
+      fireEvent.click(walkIn);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      // The real dialog moves focus onto its own first control; the test double doesn't, so blur
+      // explicitly to reproduce the pre-dismissal state Verify measured: focus owned by the dialog,
+      // not the opener, right before Escape/Cancel/overlay-click fires `onClose`.
+      (document.activeElement as HTMLElement | null)?.blur();
+      expect(document.activeElement).toBe(document.body);
+
+      fireEvent.click(screen.getByTestId("walkin-close"));
+      await waitFor(() => {
+        expect(document.activeElement).toBe(walkIn);
+      });
+    });
+
+    it("returns focus to the quiet-night Walk-in CTA (not the toolbar button) after it opens the dialog", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage();
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      const cta = within(quiet).getByRole("button", { name: "Walk-in (quiet night)" });
+      cta.focus();
+      fireEvent.click(cta);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      (document.activeElement as HTMLElement | null)?.blur();
+      expect(document.activeElement).toBe(document.body);
+
+      fireEvent.click(screen.getByTestId("walkin-close"));
+      await waitFor(() => {
+        expect(document.activeElement).toBe(cta);
+      });
+      expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "Walk-in" }));
+    });
+  });
+
   describe("mutation outcomes: one sentence, one focus target (item 15)", () => {
     it("mounts the page's single live region empty from the first render", async () => {
       renderPage();
