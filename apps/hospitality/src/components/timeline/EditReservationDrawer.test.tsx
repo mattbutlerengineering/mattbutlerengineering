@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ApiClientError } from "@mbe/api-client";
@@ -436,5 +439,16 @@ describe("EditReservationDrawer", () => {
     render(<EditReservationDrawer {...defaultProps} />);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(defaultProps.onClose).toHaveBeenCalledOnce();
+  });
+
+  describe("focus ring token", () => {
+    it("uses the rialto gold focus-ring token instead of a hardcoded Tailwind-blue box-shadow", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "EditReservationDrawer.module.css"),
+        "utf-8"
+      );
+      expect(css).not.toMatch(/rgba\(\s*59,\s*130,\s*246/);
+      expect(css).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
+    });
   });
 });
