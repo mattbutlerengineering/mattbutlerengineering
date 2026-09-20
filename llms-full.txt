@@ -48298,6 +48298,14 @@
     
       return { registerCheck, evaluate };
     }
+    async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> {
+      try {
+        return await probe();
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
+        return probe();
+      }
+    }
     export function buildJwksUrl(authority: string | undefined): string | undefined {
       if (!authority) {
         return undefined;
@@ -48346,24 +48354,28 @@
     
       const resolvedAuth0Url = resolveAuth0Url(auth0Url);
     
-      tracker.registerCheck("database", async () => {
-        await prisma.$queryRaw`SELECT 1`;
-      });
+      tracker.registerCheck("database", () =>
+        withTransientRetry(async () => {
+          await prisma.$queryRaw`SELECT 1`;
+        })
+      );
     
       tracker.registerCheck("auth", async () => {
         if (resolvedAuth0Url === null) {
           throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
         }
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
-        try {
-          const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
-          if (!response.ok) {
-            throw new Error(`JWKS returned ${response.status}`);
+        await withTransientRetry(async () => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
+          try {
+            const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
+            if (!response.ok) {
+              throw new Error(`JWKS returned ${response.status}`);
+            }
+          } finally {
+            clearTimeout(timeout);
           }
-        } finally {
-          clearTimeout(timeout);
-        }
+        });
       });
     }
   </file>
