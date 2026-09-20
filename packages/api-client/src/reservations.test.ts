@@ -259,6 +259,26 @@ describe("ReservationsClient", () => {
       expect(url).toBe("https://api.test.com/api/v1/reservations/walk-in");
       expect(options?.method).toBe("POST");
     });
+
+    it("passes guestId through in the POST body when supplied (booking-guest-reuse M1.2)", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeReservation }));
+
+      await makeClient().walkIn({ partySize: 2, tableId: "t1", venueId: "v1", guestId: "gst_1" });
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      const body = JSON.parse(options?.body as string) as Record<string, unknown>;
+      expect(body.guestId).toBe("gst_1");
+    });
+
+    it("sends no guestId key at all when it is omitted (never defaults to null)", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeReservation }));
+
+      await makeClient().walkIn({ partySize: 2, tableId: "t1", venueId: "v1" });
+
+      const [, options] = mockFetch.mock.calls[0]!;
+      const body = JSON.parse(options?.body as string) as Record<string, unknown>;
+      expect(body).not.toHaveProperty("guestId");
+    });
   });
 
   describe("error handling", () => {

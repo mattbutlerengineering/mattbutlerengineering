@@ -2402,6 +2402,9 @@
         if (!enabled) return;
     
         const handler = (e: KeyboardEvent) => {
+          // An Escape a nested widget already consumed (a combobox closing its listbox calls
+          // preventDefault, as Autocomplete/Combobox/useCombobox do) must not also close the overlay.
+          if (e.defaultPrevented) return;
           if (e.key === "Escape") onClose();
         };
     

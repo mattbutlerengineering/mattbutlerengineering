@@ -8,6 +8,14 @@ function pressEscape() {
   return e;
 }
 
+/** The same cancelable Escape, already consumed by a nested widget before it reaches the document. */
+function pressConsumedEscape() {
+  const e = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  e.preventDefault();
+  document.dispatchEvent(e);
+  return e;
+}
+
 function pressEnter() {
   const e = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
   document.dispatchEvent(e);
@@ -30,6 +38,14 @@ describe("useEscapeKey", () => {
     const onClose = vi.fn();
     renderHook(() => useEscapeKey(onClose, false));
     pressEscape();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("ignores an Escape whose default was already prevented (consumed by a nested listbox)", () => {
+    const onClose = vi.fn();
+    renderHook(() => useEscapeKey(onClose, true));
+    const e = pressConsumedEscape();
+    expect(e.defaultPrevented).toBe(true);
     expect(onClose).not.toHaveBeenCalled();
   });
 

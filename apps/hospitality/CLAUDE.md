@@ -39,6 +39,8 @@ Build-time env vars (set in CI and `.env`):
 - `booking-widget/` — Embeddable reservation widget components
 - `floor-plan/` — Interactive drag-and-drop floor plan editor
 - `timeline/` — Time-grid reservation visualization
+- `crm/GuestLookup` — The guest-name field that is also a typeahead over returning guests (combobox → portaled listbox, name or phone, 2+ chars, 300 ms debounce via `hooks/useGuestLookup`); used by the New Reservation dialog, the walk-in dialog and the waitlist. A pick links the booking (`guestId`); no pick keeps today's payload
+- `crm/GuestHistoryStrip` — What the Host sees once a returning guest is picked (linked) or recognised: segment, visits, no-shows with risk, dietary tags with allergies flagged, and a Clear button
 - `TableStatusBadge` — Status indicator (AVAILABLE/OCCUPIED/DIRTY/READY)
 
 ## Patterns

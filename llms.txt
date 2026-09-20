@@ -1861,6 +1861,61 @@
   </file>
   </section>
   <section priority="medium" role="crm">
+  <file path="apps/hospitality/src/components/crm/guest-lookup-rows.ts">
+    <item priority="low">
+      type GuestLookupMode = "linked" | "recognised";
+    </item>
+    <item priority="medium">
+      function plural(count: number, noun: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visitsSentence(visitCount: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function noShowsSentence(noShowCount: number): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatGuestRowDetail(guest: Guest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stripTitle(mode: GuestLookupMode, name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/crm/guest-prefill.ts">
+    <item priority="low">
+      interface PrefillFields {
+        guestEmail?: string;
+        guestPhone?: string;
+      }
+    </item>
+    <item priority="low">
+      interface PrefillProfile {
+        email: string | null;
+        phone: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface PrefillEntry {
+        before: string;
+        filled: string;
+      }
+    </item>
+    <item priority="low">
+      type PrefillSnapshot = Partial<Record<keyof PrefillFields, PrefillEntry>>;
+    </item>
+    <item priority="high">
+      export function applyPick<T extends PrefillFields>(
+        current: T,
+        profile: PrefillProfile
+      ): { next: T; snapshot: PrefillSnapshot } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyClear<T extends PrefillFields>(current: T, snapshot: PrefillSnapshot): T { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/crm/guest-signals.ts">
     <item priority="high">
       export const ALLERGY_KEYWORDS: readonly string[];
@@ -1871,6 +1926,9 @@
     <item priority="low">
       type GuestSegmentVariant = "accent" | "success" | "neutral";
     </item>
+    <item priority="low">
+      type GuestRiskVariant = "error" | "warning" | "neutral";
+    </item>
     <item priority="high">
       export function isAllergyTag(tag: string): boolean { /* ... */ }
     </item>
@@ -1879,6 +1937,12 @@
     </item>
     <item priority="high">
       export function getSegmentVariant(label: string): GuestSegmentVariant { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getRiskLabel(score: GuestRiskScore): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -3566,6 +3630,26 @@
     </item>
     <item priority="high">
       export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGuestDirectoryResult { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useGuestLookup.ts">
+    <item priority="low">
+      interface UseGuestLookupParams {
+        venueId: string | null | undefined;
+        text: string;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestLookupResult {
+        rows: Guest[];
+        hasMore: boolean;
+        isLoading: boolean;
+        failed: boolean;
+        query: string;
+      }
+    </item>
+    <item priority="high">
+      export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGuestLookupResult { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
@@ -5809,6 +5893,13 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
+    <item priority="low">
+      async function isVenueMember(
+        user: AuthUser | undefined,
+        venueId: string | undefined,
+        lookup: VenueMembershipLookup
+      ): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;
     </item>
@@ -7564,6 +7655,33 @@
       ): Prisma.GuestUpdateInput { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/guest-link.ts">
+    <item priority="low">
+      interface GuestLinkInput {
+        venueId: string;
+        guestId?: string | null;
+        guestEmail?: string | null;
+        guestPhone?: string | null;
+      }
+    </item>
+    <item priority="low">
+      type GuestLinkResult = { ok: true; guestId: string |  | { ok: false; code: "GUEST_NOT_;
+    </item>
+    <item priority="high">
+      export async function resolveGuestLink(input: GuestLinkInput): Promise<GuestLinkResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface LinkOrCreateGuestInput {
+        guestName?: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function isPrismaUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function linkOrCreateGuest(input: LinkOrCreateGuestInput): Promise<GuestLinkResult> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
     <item priority="medium">
       function extractFirstName(fullName: string): string { /* ... */ }
@@ -7997,6 +8115,9 @@
     </item>
     <item priority="high">
       export function serializeManagedReservation(reservation: Reservation): ManagedReservationView { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withoutGuestLink(reservation: Reservation): Reservation { /* ... */ }
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
@@ -14005,8 +14126,8 @@
         partySize: number;
         tableId: string;
         venueId: string;
+        guestId?: string;
         guestName?: string;
-        durationMinutes?: number;
       }
     </item>
     <item priority="low">

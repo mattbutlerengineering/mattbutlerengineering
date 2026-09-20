@@ -15,7 +15,7 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import type { Reservation, Table, WaitlistEntry } from "@mbe/types";
+import type { Guest, Reservation, Table, WaitlistEntry } from "@mbe/types";
 import { useVenue } from "../contexts/VenueContext.js";
 import {
   useCancelWaitlistEntry,
@@ -29,6 +29,10 @@ import { useApiClient } from "../hooks/useApiClient.js";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LiveStatus } from "../components/LiveStatus.js";
+import { GuestLookup } from "../components/crm/GuestLookup.js";
+import { GuestHistoryStrip } from "../components/crm/GuestHistoryStrip.js";
+import { pickAnnouncement } from "../components/crm/guest-lookup-rows.js";
+import { applyClear, applyPick, type PrefillSnapshot } from "../components/crm/guest-prefill.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { describeApiError } from "../lib/describe-api-error.js";
@@ -36,6 +40,17 @@ import { localDateString } from "../utils/local-clock.js";
 import styles from "./WaitlistPage.module.css";
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+// ux.md § Copy — the waitlist lookup hint and the clear sentence. The strip carries no caption:
+// recognition here only prefills the phone, nothing links (SC9).
+const GUEST_NAME_HINT = "Name or phone — returning guests appear as you type.";
+const GUEST_CLEARED = "Guest cleared.";
+
+/** The recognised guest plus what the phone field held before prefill, so Clear can restore it. */
+interface RecognisedGuest {
+  guest: Guest;
+  snapshot: PrefillSnapshot;
+}
 
 /** What a failed action shows: the surface title (what did not happen), the sentence, the raw line behind "Show details". */
 interface ActionFailure {
@@ -90,22 +105,53 @@ interface WaitlistFormData {
 function AddToWaitlistForm({
   venueId,
   onAdded,
+  announce,
 }: {
   venueId: string;
   onAdded: (entry: WaitlistEntry) => void;
+  /** The page's polite region: pick and Clear are spoken there, like every other outcome. */
+  announce: (text: string) => void;
 }) {
   const { mutateAsync: createEntry, isPending } = useCreateWaitlistEntry();
   const [partySize, setPartySize] = useState(2);
   const [submitFailure, setSubmitFailure] = useState<ActionFailure | null>(null);
+  // Recognition only prefills: the payload never carries the guest's id (SC9).
+  const [recognised, setRecognised] = useState<RecognisedGuest | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
+    getValues,
+    setValue,
+    setFocus,
+    watch,
     formState: { errors },
   } = useForm<WaitlistFormData>({
     defaultValues: { guestName: "", guestPhone: "" },
   });
+  const guestName = watch("guestName");
+
+  const handlePick = (guest: Guest) => {
+    setValue("guestName", guest.name);
+    const { next, snapshot } = applyPick(
+      { guestPhone: getValues("guestPhone") },
+      { email: guest.email, phone: guest.phone }
+    );
+    setValue("guestPhone", next.guestPhone);
+    setRecognised({ guest, snapshot });
+    announce(pickAnnouncement("recognised", guest));
+  };
+
+  const handleClear = () => {
+    if (!recognised) return;
+    const restored = applyClear({ guestPhone: getValues("guestPhone") }, recognised.snapshot);
+    setValue("guestPhone", restored.guestPhone);
+    setRecognised(null);
+    // The typed name stays; selecting it makes "type a different name" a single keystroke.
+    setFocus("guestName", { shouldSelect: true });
+    announce(GUEST_CLEARED);
+  };
 
   const onSubmit = async (data: WaitlistFormData) => {
     setSubmitFailure(null);
@@ -118,6 +164,7 @@ function AddToWaitlistForm({
       });
       reset();
       setPartySize(2);
+      setRecognised(null);
       onAdded(entry);
     } catch (err) {
       setSubmitFailure(actionFailure("Not added.", err));
@@ -144,10 +191,16 @@ function AddToWaitlistForm({
           )}
 
           <div className={styles.fieldRow}>
-            <Input
+            <GuestLookup
+              venueId={venueId}
               label="Guest Name"
-              type="text"
+              hint={GUEST_NAME_HINT}
               placeholder="e.g. Smith"
+              query={guestName}
+              picked={recognised?.guest ?? null}
+              onPick={handlePick}
+              onClear={handleClear}
+              announce={announce}
               disabled={isPending}
               data-testid="waitlist-guest-name"
               {...register("guestName", { required: "Guest name is required." })}
@@ -163,6 +216,9 @@ function AddToWaitlistForm({
               })}
             />
           </div>
+          {recognised && (
+            <GuestHistoryStrip guest={recognised.guest} mode="recognised" onClear={handleClear} />
+          )}
 
           <div>
             <Text
@@ -490,7 +546,7 @@ export function WaitlistPage() {
 
       {selectedVenueId && (
         <div ref={addToWaitlistFormRef} style={{ marginBlock: "var(--rialto-space-md)" }}>
-          <AddToWaitlistForm venueId={selectedVenueId} onAdded={handleAdded} />
+          <AddToWaitlistForm venueId={selectedVenueId} onAdded={handleAdded} announce={announce} />
         </div>
       )}
 

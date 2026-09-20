@@ -107,6 +107,7 @@ export interface WalkInRequest {
   partySize: number;
   tableId: string;
   venueId: string;
+  guestId?: string;
   guestName?: string;
   durationMinutes?: number;
   occasion?: Occasion;

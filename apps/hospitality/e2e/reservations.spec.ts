@@ -121,7 +121,9 @@ test.describe("CF-6: Reservations page with filtering", () => {
     failing = false;
     await alert.getByRole("button", { name: "Retry", exact: true }).click();
 
-    await expect(mockedPage.getByText("Alice Johnson")).toBeVisible();
+    // Scoped to a row: the page's New Reservation dialog carries a guest combobox whose portaled
+    // options can also read "Alice Johnson" once it is open.
+    await expect(mockedPage.getByRole("row").filter({ hasText: "Alice Johnson" })).toBeVisible();
     await expect(alert).toHaveCount(0);
     await expect(mockedPage.getByRole("group", { name: "Total", exact: true })).toHaveText(
       /^Total\s*4$/

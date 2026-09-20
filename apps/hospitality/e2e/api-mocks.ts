@@ -414,6 +414,13 @@ export async function mockApi(page: Page): Promise<void> {
     }
     const first = fixture.data[0] ?? {};
     const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
+    // A picked returning guest arrives as `guestId`; the service answers with the linked guest's
+    // summary, which the timeline block turns into its visit ordinal ("12th visit").
+    const guests = JSON.parse(loadFixture("guests-list")) as {
+      data: Array<Record<string, unknown>>;
+    };
+    const linked =
+      typeof body.guestId === "string" ? guests.data.find((g) => g.id === body.guestId) : undefined;
     const newRes: Record<string, unknown> = {
       ...first,
       ...body,
@@ -422,6 +429,9 @@ export async function mockApi(page: Page): Promise<void> {
       notes: "Walk-in",
       tableId,
       table: allTables().find((t) => t.id === tableId) ?? first.table,
+      guest: linked
+        ? { visitCount: linked.visitCount, communicationPreference: linked.communicationPreference }
+        : null,
     };
     extraReservations.push(newRes);
     return jsonOk(route, newRes);
@@ -531,10 +541,18 @@ export async function mockApi(page: Page): Promise<void> {
       pagination: Record<string, unknown>;
     };
     const lower = query.toLowerCase();
+    // A query that carries digits also matches on the phone's digits ("555123" finds +15551234567),
+    // mirroring the service's name-or-phone lookup behind the guest-name combobox.
+    const digits = query.replace(/\D/g, "");
     const filtered = fixture.data.filter((g) => {
       const name = String(g.name ?? "").toLowerCase();
       const email = String(g.email ?? "").toLowerCase();
-      return name.includes(lower) || email.includes(lower);
+      const phoneDigits = String(g.phone ?? "").replace(/\D/g, "");
+      return (
+        name.includes(lower) ||
+        email.includes(lower) ||
+        (digits.length > 0 && phoneDigits.includes(digits))
+      );
     });
     return route.fulfill({
       status: 200,

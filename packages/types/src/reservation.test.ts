@@ -117,6 +117,26 @@ describe("ReservationSchema", () => {
     expect(ReservationSchema.safeParse(withTable).success).toBe(true);
   });
 
+  it("preserves the optional guest relation through parse (booking-guest-reuse M1.1)", () => {
+    const guest = { visitCount: 12, communicationPreference: "both", unsubscribed: false };
+    const result = ReservationSchema.safeParse({ ...validReservation, guest });
+    expect(result.success).toBe(true);
+    // Zod strips undeclared keys, so an undeclared `guest` would parse but vanish.
+    expect(result.success && result.data.guest).toEqual(guest);
+  });
+
+  it("accepts guest: null and a guest without the optional unsubscribed flag", () => {
+    expect(ReservationSchema.safeParse({ ...validReservation, guest: null }).success).toBe(true);
+    const bare = { visitCount: 1, communicationPreference: null };
+    const result = ReservationSchema.safeParse({ ...validReservation, guest: bare });
+    expect(result.success && result.data.guest).toEqual(bare);
+  });
+
+  it("rejects a guest relation whose visitCount is not a number", () => {
+    const bad = { visitCount: "12", communicationPreference: "both" };
+    expect(ReservationSchema.safeParse({ ...validReservation, guest: bad }).success).toBe(false);
+  });
+
   it("rejects missing required fields", () => {
     const { id: _, ...noId } = validReservation;
     expect(ReservationSchema.safeParse(noId).success).toBe(false);

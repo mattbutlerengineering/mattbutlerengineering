@@ -810,10 +810,80 @@
   </file>
   </section>
   <section priority="medium" role="crm">
+  <file path="src/components/crm/guest-lookup-rows.ts">
+    export type GuestLookupMode = "linked" | "recognised";
+    function plural(count: number, noun: string): string {
+      return `${count} ${noun}${count === 1 ? "" : "s"}`;
+    }
+    export function visitsSentence(visitCount: number): string {
+      return visitCount > 0 ? plural(visitCount, "visit") : ZERO_VISITS;
+    }
+    export function noShowsSentence(noShowCount: number): string | null {
+      return noShowCount > 0 ? plural(noShowCount, "no-show") : null;
+    }
+    export function formatGuestRowDetail(guest: Guest): string {
+      const contacts = [guest.phone, guest.email].filter((part): part is string => Boolean(part));
+      if (contacts.length === 0 && guest.visitCount === 0) return "no contact on file";
+      const visits = guest.visitCount > 0 ? [plural(guest.visitCount, "visit")] : [];
+      return [...contacts, ...visits].join(" · ");
+    }
+    export function stripTitle(mode: GuestLookupMode, name: string): string {
+      return mode === "linked" ? `Using ${name}'s profile` : `Recognised ${name}`;
+    }
+    export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string {
+      const history = [
+        guest.visitCount > 0 ? plural(guest.visitCount, "visit") : ZERO_VISITS.toLowerCase(),
+        noShowsSentence(guest.noShowCount),
+      ]
+        .filter((part) => part !== null)
+        .join(", ");
+      const allergies = (guest.dietaryRestrictions ?? []).filter(isAllergyTag);
+      const allergyClause = allergies.length > 0 ? ` Allergy: ${allergies.join(", ")}.` : "";
+      return `${stripTitle(mode, guest.name)} — ${history}.${allergyClause}`;
+    }
+  </file>
+  <file path="src/components/crm/guest-prefill.ts">
+    export interface PrefillFields {
+      guestEmail?: string;
+      guestPhone?: string;
+    }
+    export interface PrefillProfile {
+      email: string | null;
+      phone: string | null;
+    }
+    export interface PrefillEntry {
+      before: string;
+      filled: string;
+    }
+    export type PrefillSnapshot = Partial<Record<keyof PrefillFields, PrefillEntry>>;
+    export function applyPick<T extends PrefillFields>(
+      current: T,
+      profile: PrefillProfile
+    ): { next: T; snapshot: PrefillSnapshot } {
+      const next: T = { ...current };
+      const snapshot: PrefillSnapshot = {};
+      for (const [field, source] of FIELD_SOURCES) {
+        const filled = profile[source];
+        if (!(field in current) || !filled) continue;
+        snapshot[field] = { before: current[field] ?? "", filled };
+        next[field] = filled;
+      }
+      return { next, snapshot };
+    }
+    export function applyClear<T extends PrefillFields>(current: T, snapshot: PrefillSnapshot): T {
+      const next: T = { ...current };
+      for (const [field] of FIELD_SOURCES) {
+        const entry = snapshot[field];
+        if (entry && current[field] === entry.filled) next[field] = entry.before;
+      }
+      return next;
+    }
+  </file>
   <file path="src/components/crm/guest-signals.ts">
     export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
     export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     export type GuestSegmentVariant = "accent" | "success" | "neutral";
+    export type GuestRiskVariant = "error" | "warning" | "neutral";
     export function isAllergyTag(tag: string): boolean {
       const lower = tag.toLowerCase();
       return ALLERGY_KEYWORDS.some((keyword) => lower.includes(keyword));
@@ -828,6 +898,16 @@
       if (label === "VIP") return "accent";
       if (label === "Repeat") return "success";
       return "neutral";
+    }
+    export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant {
+      if (score === "risky") return "error";
+      if (score === "standard") return "warning";
+      return "neutral";
+    }
+    export function getRiskLabel(score: GuestRiskScore): string {
+      if (score === "risky") return "Risky";
+      if (score === "standard") return "Standard";
+      return "Trusted";
     }
   </file>
   </section>
@@ -1200,6 +1280,13 @@
         }
         const first = fixture.data[0] ?? {};
         const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
+        // A picked returning guest arrives as `guestId`; the service answers with the linked guest's
+        // summary, which the timeline block turns into its visit ordinal ("12th visit").
+        const guests = JSON.parse(loadFixture("guests-list")) as {
+          data: Array<Record<string, unknown>>;
+        };
+        const linked =
+          typeof body.guestId === "string" ? guests.data.find((g) => g.id === body.guestId) : undefined;
         const newRes: Record<string, unknown> = {
           ...first,
           ...body,
@@ -1208,6 +1295,9 @@
           notes: "Walk-in",
           tableId,
           table: allTables().find((t) => t.id === tableId) ?? first.table,
+          guest: linked
+            ? { visitCount: linked.visitCount, communicationPreference: linked.communicationPreference }
+            : null,
         };
         extraReservations.push(newRes);
         return jsonOk(route, newRes);
@@ -1317,10 +1407,18 @@
           pagination: Record<string, unknown>;
         };
         const lower = query.toLowerCase();
+        // A query that carries digits also matches on the phone's digits ("555123" finds +15551234567),
+        // mirroring the service's name-or-phone lookup behind the guest-name combobox.
+        const digits = query.replace(/\D/g, "");
         const filtered = fixture.data.filter((g) => {
           const name = String(g.name ?? "").toLowerCase();
           const email = String(g.email ?? "").toLowerCase();
-          return name.includes(lower) || email.includes(lower);
+          const phoneDigits = String(g.phone ?? "").replace(/\D/g, "");
+          return (
+            name.includes(lower) ||
+            email.includes(lower) ||
+            (digits.length > 0 && phoneDigits.includes(digits))
+          );
         });
         return route.fulfill({
           status: 200,
@@ -2591,6 +2689,52 @@
       };
     }
   </file>
+  <file path="src/hooks/useGuestLookup.ts">
+    export interface UseGuestLookupParams {
+      venueId: string | null | undefined;
+      /** The field's current text, straight from the form (`watch("guestName")`). */
+      text: string;
+    }
+    export interface UseGuestLookupResult {
+      /** At most six matches for `query`. */
+      rows: Guest[];
+      /** A seventh match exists — the Host should keep typing to narrow. */
+      hasMore: boolean;
+      /** The search for `query` is in flight (never during the pause itself). */
+      isLoading: boolean;
+      /** The search for `query` errored; the next keystroke retries by changing the key. */
+      failed: boolean;
+      /** The text the rows answer, or "" while under the minimum or still inside the pause. */
+      query: string;
+    }
+    export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGuestLookupResult {
+      const trimmed = text.trim();
+      const eligible = trimmed.length >= MIN_CHARS;
+      const [settled, setSettled] = useState("");
+      const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+      useEffect(() => {
+        if (!eligible) return;
+        timerRef.current = setTimeout(() => setSettled(trimmed), DEBOUNCE_MS);
+        return () => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = null;
+        };
+      }, [trimmed, eligible]);
+    
+      const query = eligible && settled === trimmed ? trimmed : "";
+      const { data, isLoading, error } = useGuestSearch({ venueId, query, enabled: query !== "" });
+      const matches = query !== "" ? (data ?? []) : [];
+    
+      return {
+        rows: matches.slice(0, MAX_ROWS),
+        hasMore: matches.length > MAX_ROWS,
+        isLoading: query !== "" && isLoading,
+        failed: query !== "" && error !== null,
+        query,
+      };
+    }
+  </file>
   <file path="src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;
@@ -3098,6 +3242,7 @@
         tableId: string;
         venueId: string;
         guestName?: string;
+        guestId?: string;
       }) => Promise<Reservation>;
       updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
     }
@@ -3206,6 +3351,7 @@
         tableId: string;
         venueId: string;
         guestName?: string;
+        guestId?: string;
       }): Promise<Reservation> => {
         const created = await api.reservations.walkIn(data);
         invalidateAll();

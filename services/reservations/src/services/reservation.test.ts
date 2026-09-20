@@ -980,6 +980,98 @@ describe("reservationService", () => {
       });
     });
 
+    it("persists a supplied guestId and includes the guest relation (booking-guest-reuse M1.5)", async () => {
+      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
+      const guest = { visitCount: 12, communicationPreference: "both", unsubscribed: false };
+      let createArgs: any;
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: vi.fn().mockImplementation((args) => {
+                createArgs = args;
+                return makePrismaReservation({
+                  status: "CONFIRMED",
+                  guestName: "Walk-in",
+                  guestId: "gst_1",
+                  guest,
+                });
+              }),
+            },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
+          };
+          return fn(tx);
+        }
+      );
+
+      const result = await reservationService.createWalkIn({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+        guestId: "gst_1",
+      });
+
+      expect(createArgs.data.guestId).toBe("gst_1");
+      expect(createArgs.data.guestEmail).toBeNull();
+      expect(createArgs.data.guestPhone).toBeNull();
+      expect(createArgs.include.guest.select).toEqual({
+        visitCount: true,
+        communicationPreference: true,
+        unsubscribed: true,
+      });
+      expect(createArgs.include.table).toBe(true);
+      expect(result.success).toBe(true);
+      expect(result.reservation!.guestId).toBe("gst_1");
+      expect(result.reservation!.guest).toEqual(guest);
+    });
+
+    it("writes guestId null and links nothing when no guestId is supplied (SC7)", async () => {
+      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
+      let createArgs: any;
+
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: vi.fn().mockImplementation((args) => {
+                createArgs = args;
+                return makePrismaReservation({ status: "CONFIRMED", guestName: "Walk-in" });
+              }),
+            },
+            table: {
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
+          };
+          return fn(tx);
+        }
+      );
+
+      const result = await reservationService.createWalkIn({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+
+      expect(createArgs.data.guestId).toBeNull();
+      expect(result.success).toBe(true);
+      expect(result.reservation).toMatchObject({
+        id: "res-1",
+        status: "CONFIRMED",
+        guestName: "Walk-in",
+        guestId: null,
+        guest: null,
+        tableId: "table-1",
+        venueId: "venue-1",
+      });
+    });
+
     it("returns failure when assertBookable reports CONFLICT", async () => {
       vi.mocked(assertBookable).mockReturnValueOnce({
         code: "CONFLICT",

@@ -56,6 +56,7 @@ export interface UseTimelineDataResult {
     tableId: string;
     venueId: string;
     guestName?: string;
+    guestId?: string;
   }) => Promise<Reservation>;
   updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
 }
@@ -167,6 +168,7 @@ export function useTimelineData({ venueId, date }: UseTimelineDataParams): UseTi
     tableId: string;
     venueId: string;
     guestName?: string;
+    guestId?: string;
   }): Promise<Reservation> => {
     const created = await api.reservations.walkIn(data);
     invalidateAll();

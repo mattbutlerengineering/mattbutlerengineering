@@ -22,7 +22,10 @@ import {
   optionalAuth,
   requireOwnershipOrAdmin,
   requireVenueAccess,
+  hasPermission,
+  type AuthUser,
   type VenueIdResolver,
+  type VenueMembershipLookup,
 } from "@mbe/auth/fastify";
 
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
@@ -32,6 +35,7 @@ import { recordNoShow } from "../services/reservation-no-show.js";
 import { isPartySizeDepositBlocked } from "../services/reservation-modification.js";
 import { venueService } from "../services/venue.js";
 import { guestService } from "../services/guest.js";
+import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { resolveReservationGuestEmail, resolveCurrentUserEmail } from "./reservation-owner.js";
 import { generateManageToken } from "./public-reservations.js";
 import { venueIdFromBody } from "./venue-access.js";
@@ -63,6 +67,22 @@ const requireReservationOwnerOrAdmin = requireOwnershipOrAdmin(
   resolveReservationGuestEmail((id) => reservationService.getById(id)),
   resolveCurrentUserEmail
 );
+
+/**
+ * Membership decision for the optionalAuth create route, mirroring
+ * `requireVenueAccess`: anonymous → no; platform admin → yes; otherwise the
+ * injected membership lookup. Without a venue there is nothing to be a member
+ * of, so a body with no `venueId` is treated as non-member.
+ */
+async function isVenueMember(
+  user: AuthUser | undefined,
+  venueId: string | undefined,
+  lookup: VenueMembershipLookup
+): Promise<boolean> {
+  if (!user || !venueId) return false;
+  if (hasPermission(user, "admin")) return true;
+  return lookup(user.raw.sub, venueId);
+}
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -219,6 +239,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
               data: { $ref: "Reservation#" },
             },
           },
+          400: {
+            description: "Unknown guest for this venue",
+            $ref: "Error#",
+          },
           401: {
             description: "Authentication required",
             $ref: "Error#",
@@ -236,6 +260,19 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) => {
       const userId = request.user?.id;
+      // A picked guest must belong to this venue; unknown and foreign ids get
+      // the same answer, before anything is written.
+      if (request.body.guestId) {
+        const link = await resolveGuestLink({
+          venueId: request.body.venueId,
+          guestId: request.body.guestId,
+        });
+        if (!link.ok) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+        }
+      }
       // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
       // a single transaction. If the table update fails the whole thing rolls
       // back and rejects, so we only reach the SSE emits below after a
@@ -339,7 +376,12 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           400: {
-            description: "Invalid request body or pacing limit exceeded",
+            description:
+              "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
+            $ref: "Error#",
+          },
+          403: {
+            description: "guestId supplied by a caller who is not a member of the venue",
             $ref: "Error#",
           },
           409: {
@@ -370,7 +412,40 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           );
       }
 
-      const result = await reservationService.createWithConflictCheck(request.body, userId);
+      // CRM linking of any kind runs only for a venue member (the same decision
+      // requireVenueAccess makes); everyone else gets today's call exactly, and
+      // a guestId from anyone else is refused rather than silently dropped.
+      const isMember = await isVenueMember(
+        request.user,
+        request.body.venueId,
+        fastify.venueMembershipLookup
+      );
+      if (!isMember && request.body.guestId) {
+        return reply
+          .code(403)
+          .send(createProblemDetails(403, "Forbidden", "You do not have access to this venue"));
+      }
+
+      let body = request.body;
+      if (isMember && request.body.venueId) {
+        const link = await linkOrCreateGuest({
+          venueId: request.body.venueId,
+          guestId: request.body.guestId,
+          guestEmail: request.body.guestEmail,
+          guestPhone: request.body.guestPhone,
+          guestName: request.body.guestName,
+        });
+        if (!link.ok) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+        }
+        if (link.guestId) {
+          body = { ...request.body, guestId: link.guestId };
+        }
+      }
+
+      const result = await reservationService.createWithConflictCheck(body, userId);
 
       if (!result.success) {
         const statusCode = result.conflict?.hasConflict ? 409 : 400;

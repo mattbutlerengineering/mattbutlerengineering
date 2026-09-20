@@ -371,6 +371,13 @@
     </item>
   </file>
   <file path="src/routes/reservations.ts">
+    <item priority="low">
+      async function isVenueMember(
+        user: AuthUser | undefined,
+        venueId: string | undefined,
+        lookup: VenueMembershipLookup
+      ): Promise<boolean> { /* ... */ }
+    </item>
     <item priority="high">
       export const reservationRoutes: FastifyPluginAsync;
     </item>
@@ -898,6 +905,33 @@
       ): Prisma.GuestUpdateInput { /* ... */ }
     </item>
   </file>
+  <file path="src/services/guest-link.ts">
+    <item priority="low">
+      interface GuestLinkInput {
+        venueId: string;
+        guestId?: string | null;
+        guestEmail?: string | null;
+        guestPhone?: string | null;
+      }
+    </item>
+    <item priority="low">
+      type GuestLinkResult = { ok: true; guestId: string |  | { ok: false; code: "GUEST_NOT_;
+    </item>
+    <item priority="high">
+      export async function resolveGuestLink(input: GuestLinkInput): Promise<GuestLinkResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface LinkOrCreateGuestInput {
+        guestName?: string | null;
+      }
+    </item>
+    <item priority="medium">
+      function isPrismaUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function linkOrCreateGuest(input: LinkOrCreateGuestInput): Promise<GuestLinkResult> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/guest-recognition.ts">
     <item priority="medium">
       function extractFirstName(fullName: string): string { /* ... */ }
@@ -1331,6 +1365,9 @@
     </item>
     <item priority="high">
       export function serializeManagedReservation(reservation: Reservation): ManagedReservationView { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withoutGuestLink(reservation: Reservation): Reservation { /* ... */ }
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }

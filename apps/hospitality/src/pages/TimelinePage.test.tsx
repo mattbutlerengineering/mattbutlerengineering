@@ -224,6 +224,7 @@ vi.mock("../components/timeline/WalkInDialog", async () => {
         tableId: string;
         venueId?: string;
         guestName: string;
+        guestId?: string;
       }) => Promise<void>;
       onClose: () => void;
     }) => {
@@ -238,6 +239,7 @@ vi.mock("../components/timeline/WalkInDialog", async () => {
                 tableId: tables?.[0]?.id ?? "t1",
                 venueId,
                 guestName: "Walk-in Guest",
+                guestId: "gst_1",
               }).then(
                 () => setOutcome("resolved"),
                 () => setOutcome("rejected")
@@ -1095,7 +1097,12 @@ describe("TimelinePage", () => {
       fireEvent.click(screen.getByTestId("walkin-confirm"));
       await waitFor(() => {
         expect(createWalkIn).toHaveBeenCalledWith(
-          expect.objectContaining({ partySize: 2, tableId: "t1", venueId: "venue-1" })
+          expect.objectContaining({
+            partySize: 2,
+            tableId: "t1",
+            venueId: "venue-1",
+            guestId: "gst_1",
+          })
         );
       });
     });

@@ -74,6 +74,8 @@ vi.mock("../services/guest.js", () => ({
     list: vi.fn(),
     getById: vi.fn(),
     search: vi.fn(),
+    findByEmail: vi.fn(),
+    findByPhone: vi.fn(),
     findOrCreate: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -180,6 +182,8 @@ describe("Reservation Routes", () => {
 
   afterEach(async () => {
     await app.close();
+    // Linking never goes through findOrCreate (booking-guest-reuse M1.7 (h)).
+    expect(guestService.findOrCreate).not.toHaveBeenCalled();
     vi.clearAllMocks();
     process.env = originalEnv;
   });
@@ -453,6 +457,14 @@ describe("Reservation Routes", () => {
         }),
         undefined
       );
+      // Anonymous callers get today's behaviour exactly: no CRM linking of any
+      // kind, and no guestId key is invented (booking-guest-reuse M1.7 (g)).
+      expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
+        expect.not.objectContaining({ guestId: expect.anything() }),
+        undefined
+      );
+      expect(guestService.create).not.toHaveBeenCalled();
+      expect(guestService.findByEmail).not.toHaveBeenCalled();
     });
 
     it("creates a user reservation with auth", async () => {
@@ -1305,6 +1317,91 @@ describe("Reservation Routes", () => {
       );
     });
 
+    it("(a) rejects a guestId from another venue with 400 before any write (booking-guest-reuse M1.6)", async () => {
+      vi.mocked(guestService.getById).mockResolvedValueOnce({
+        id: "gst_1",
+        venueId: "venue-other",
+      } as never);
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123", guestId: "gst_1" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      const body = JSON.parse(response.body);
+      expect(body.status).toBe(400);
+      expect(body.title).toBe("Bad Request");
+      expect(body.detail).toBe("Unknown guest for this venue");
+      expect(guestService.getById).toHaveBeenCalledWith("gst_1");
+      expect(reservationService.createWalkIn).not.toHaveBeenCalled();
+      expect(stubEvents.emitReservationCreated).not.toHaveBeenCalled();
+      expect(stubEvents.emitTableUpdated).not.toHaveBeenCalled();
+    });
+
+    it("(b) persists an in-venue guestId and returns reservation.guest on the 201 body", async () => {
+      vi.mocked(guestService.getById).mockResolvedValueOnce({
+        id: "gst_1",
+        venueId: "venue-123",
+      } as never);
+      // The shared fixture has no `guest` key (@mbe/test-fixtures predates the
+      // relation), so spread into a fresh object rather than widening the fixture.
+      const linked = {
+        ...createMockReservation({
+          id: "res-walkin",
+          status: "CONFIRMED",
+          guestName: "Ada",
+          guestId: "gst_1",
+        }),
+        guest: { visitCount: 12, communicationPreference: "both", unsubscribed: false },
+      };
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: linked,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123", guestId: "gst_1" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(guestService.getById).toHaveBeenCalledWith("gst_1");
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.objectContaining({ guestId: "gst_1", venueId: "venue-123" }),
+        "auth0|user-123"
+      );
+      const body = JSON.parse(response.body);
+      expect(body.data.guestId).toBe("gst_1");
+      expect(body.data.guest.visitCount).toBe(12);
+      expect(stubEvents.emitReservationCreated).toHaveBeenCalledWith(linked);
+    });
+
+    it("(c) never looks a guest up when no guestId is supplied", async () => {
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({ id: "res-walkin", status: "CONFIRMED" }),
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(guestService.getById).not.toHaveBeenCalled();
+      expect(reservationService.createWalkIn).toHaveBeenCalledWith(
+        expect.not.objectContaining({ guestId: expect.anything() }),
+        "auth0|user-123"
+      );
+    });
+
     it("returns 401 without auth", async () => {
       const response = await app.inject({
         method: "POST",
@@ -1864,5 +1961,235 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
 
     expect(response.statusCode).toBe(403);
     expect(guestService.getById).not.toHaveBeenCalled();
+  });
+});
+
+// booking-guest-reuse M1.7: the staff create route (optionalAuth, no venue
+// guard) decides membership the way requireVenueAccess does and only then
+// links or creates a guest. Built with an injected membership lookup, as the
+// #4865 suite above does.
+describe("POST /v1/reservations — member gate and guest linking (booking-guest-reuse M1.7)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  const validBody = {
+    date: "2026-02-15",
+    startTime: "2026-02-15T18:00:00.000Z",
+    endTime: "2026-02-15T20:00:00.000Z",
+    partySize: 4,
+    tableId: "table-123",
+    venueId: "venue-123",
+  };
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    expect(guestService.findOrCreate).not.toHaveBeenCalled();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  async function buildAppWithMembership(lookup: VenueMembershipLookup): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await built.ready();
+    return built;
+  }
+
+  function signInAsStaff(sub = "auth0|operator-A") {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub, permissions: ["staff"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+  }
+
+  const memberOf = (venueId: string) =>
+    vi.fn<VenueMembershipLookup>().mockImplementation(async (_sub, id) => id === venueId);
+
+  it("(a) anonymous caller supplying guestId → 403, nothing created", async () => {
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      payload: { ...validBody, guestId: "gst_1" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    const body = JSON.parse(response.body);
+    expect(body.status).toBe(403);
+    expect(body.title).toBe("Forbidden");
+    expect(body.detail).toBe("You do not have access to this venue");
+    expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+    expect(guestService.getById).not.toHaveBeenCalled();
+  });
+
+  it("(b) authenticated non-member supplying guestId → 403", async () => {
+    signInAsStaff();
+    const lookup = memberOf("venue-elsewhere");
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { ...validBody, guestId: "gst_1" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(response.body).detail).toBe("You do not have access to this venue");
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-123");
+    expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("(c) member supplying an in-venue guestId → 201 with the id passed through (SC1)", async () => {
+    signInAsStaff();
+    const lookup = memberOf("venue-123");
+    vi.mocked(guestService.getById).mockResolvedValueOnce({
+      id: "gst_1",
+      venueId: "venue-123",
+    } as never);
+    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: createMockReservation({ guestId: "gst_1" }),
+    });
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { ...validBody, guestId: "gst_1" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-123");
+    expect(guestService.getById).toHaveBeenCalledWith("gst_1");
+    expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ guestId: "gst_1", venueId: "venue-123" }),
+      "auth0|operator-A"
+    );
+    expect(guestService.create).not.toHaveBeenCalled();
+  });
+
+  it("(d) member supplying a foreign guestId → 400 Unknown guest for this venue", async () => {
+    signInAsStaff();
+    vi.mocked(guestService.getById).mockResolvedValueOnce({
+      id: "gst_1",
+      venueId: "venue-other",
+    } as never);
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { ...validBody, guestId: "gst_1" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.title).toBe("Bad Request");
+    expect(body.detail).toBe("Unknown guest for this venue");
+    expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+  });
+
+  it("(e) member with no guestId and an exact email match → linked to the match, nothing created (SC3)", async () => {
+    signInAsStaff();
+    vi.mocked(guestService.findByEmail).mockResolvedValueOnce({
+      id: "gst_match",
+      venueId: "venue-123",
+    } as never);
+    vi.mocked(guestService.findByPhone).mockResolvedValueOnce(null);
+    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: createMockReservation({ guestId: "gst_match" }),
+    });
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: {
+        ...validBody,
+        guestName: "Ada",
+        guestEmail: "ada@example.com",
+        guestPhone: "+15550001",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(guestService.findByEmail).toHaveBeenCalledWith("venue-123", "ada@example.com");
+    expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ guestId: "gst_match", guestName: "Ada" }),
+      "auth0|operator-A"
+    );
+    expect(guestService.create).not.toHaveBeenCalled();
+  });
+
+  it("(f) member with no match, email and name → one Guest created and its id passed (SC4)", async () => {
+    signInAsStaff();
+    vi.mocked(guestService.findByEmail).mockResolvedValueOnce(null);
+    vi.mocked(guestService.create).mockResolvedValueOnce({
+      id: "gst_new",
+      venueId: "venue-123",
+    } as never);
+    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: createMockReservation({ guestId: "gst_new" }),
+    });
+    app = await buildAppWithMembership(memberOf("venue-123"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { ...validBody, guestName: "Ada", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(guestService.create).toHaveBeenCalledTimes(1);
+    expect(guestService.create).toHaveBeenCalledWith({
+      venueId: "venue-123",
+      name: "Ada",
+      email: "ada@example.com",
+    });
+    expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ guestId: "gst_new" }),
+      "auth0|operator-A"
+    );
+  });
+
+  it("non-member without guestId gets today's call exactly — no lookup, no link", async () => {
+    signInAsStaff();
+    const lookup = memberOf("venue-elsewhere");
+    vi.mocked(reservationService.createWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: createMockReservation(),
+    });
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/reservations",
+      headers: { authorization: "Bearer operator-token" },
+      payload: { ...validBody, guestName: "Ada", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(guestService.findByEmail).not.toHaveBeenCalled();
+    expect(guestService.create).not.toHaveBeenCalled();
+    expect(reservationService.createWithConflictCheck).toHaveBeenCalledWith(
+      expect.not.objectContaining({ guestId: expect.anything() }),
+      "auth0|operator-A"
+    );
   });
 });
