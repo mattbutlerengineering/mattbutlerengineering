@@ -722,4 +722,15 @@ describe("WalkInDialog", () => {
       expect(coarseBlock?.[1]).toMatch(/\.actions > button\s*\{[^}]*min-block-size:\s*44px/);
     });
   });
+
+  describe("focus ring token", () => {
+    it("uses the rialto gold focus-ring token instead of a hardcoded Tailwind-blue box-shadow", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "WalkInDialog.module.css"),
+        "utf-8"
+      );
+      expect(css).not.toMatch(/rgba\(\s*59,\s*130,\s*246/);
+      expect(css).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
+    });
+  });
 });

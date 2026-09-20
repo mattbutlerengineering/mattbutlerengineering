@@ -35,6 +35,19 @@ function FloorPlansLoadingSkeleton() {
   );
 }
 
+/* ── Clone failure ───────────────────────────── */
+
+interface CloneFailure {
+  title: string;
+  detail: string;
+  raw?: string;
+}
+
+function cloneFailureFrom(err: unknown): CloneFailure {
+  const description = describeApiError(err);
+  return { title: "Floor plan not cloned.", detail: description.detail, raw: description.raw };
+}
+
 /* ── Main component ─────────────────────────── */
 
 export function FloorPlansPage() {
@@ -43,6 +56,7 @@ export function FloorPlansPage() {
   const api = useApiClient();
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
+  const [cloneFailure, setCloneFailure] = useState<CloneFailure | null>(null);
 
   const {
     data: floorPlans = [],
@@ -63,12 +77,13 @@ export function FloorPlansPage() {
 
   const handleClone = useCallback(
     async (id: string) => {
+      setCloneFailure(null);
       try {
         const cloned = await cloneMutation.mutateAsync(id);
         setLiveMessage(`Floor plan "${cloned.name}" cloned successfully`);
         navigate(`/floor-plans/${cloned.id}`);
       } catch (err) {
-        setLiveMessage(`Floor plan not cloned. ${describeApiError(err).detail}`);
+        setCloneFailure(cloneFailureFrom(err));
       }
     },
     [cloneMutation, navigate]
@@ -140,6 +155,15 @@ export function FloorPlansPage() {
         />
       )}
 
+      {cloneFailure && (
+        <ErrorRetryBanner
+          title={cloneFailure.title}
+          error={cloneFailure.detail}
+          details={cloneFailure.raw}
+          onDismiss={() => setCloneFailure(null)}
+        />
+      )}
+
       {!isLoading && !error && floorPlans.length === 0 && (
         <EmptyState
           heading="No floor plans yet"
@@ -159,64 +183,63 @@ export function FloorPlansPage() {
       {!isLoading && !error && floorPlans.length > 0 && (
         <div className={styles.cardGrid}>
           {floorPlans.map((floorPlan) => (
-            <Button
-              key={floorPlan.id}
-              onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
-              className={styles.card}
-              type="button"
-              aria-label={`Open floor plan: ${floorPlan.name}`}
-            >
-              {/* Placeholder for floor plan preview */}
-              <div className={styles.cardPreview}>
-                <svg
-                  className={styles.cardPreviewIcon}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                  />
-                </svg>
-              </div>
-              <div className={styles.cardBody}>
-                <div className={styles.cardActions}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleClone(floorPlan.id);
-                    }}
-                    aria-label={`Clone floor plan: ${floorPlan.name}`}
+            <article key={floorPlan.id} className={styles.card}>
+              <Button
+                variant="ghost"
+                onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
+                className={styles.cardOpenButton}
+                type="button"
+                aria-label={`Open floor plan: ${floorPlan.name}`}
+              >
+                {/* Placeholder for floor plan preview */}
+                <div className={styles.cardPreview}>
+                  <svg
+                    className={styles.cardPreviewIcon}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
-                    Clone
-                  </Button>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+                    />
+                  </svg>
                 </div>
-                <div className={styles.cardMeta}>
-                  <Text variant="body" color="primary" className={styles.cardName}>
-                    {floorPlan.name}
-                  </Text>
-                  {floorPlan.isActive && (
-                    <Badge variant="success" size="sm">
-                      Active
-                    </Badge>
-                  )}
+                <div className={styles.cardBody}>
+                  <div className={styles.cardMeta}>
+                    <Text variant="body" color="primary" className={styles.cardName}>
+                      {floorPlan.name}
+                    </Text>
+                    {floorPlan.isActive && (
+                      <Badge variant="success" size="sm">
+                        Active
+                      </Badge>
+                    )}
+                  </div>
+                  <div className={styles.cardDetails}>
+                    <Text variant="caption" color="secondary">
+                      {floorPlan.tables?.length ?? 0} tables
+                    </Text>
+                    <Text variant="caption" color="secondary">
+                      Updated {formatDate(floorPlan.updatedAt)}
+                    </Text>
+                  </div>
                 </div>
-                <div className={styles.cardDetails}>
-                  <Text variant="caption" color="secondary">
-                    {floorPlan.tables?.length ?? 0} tables
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    Updated {formatDate(floorPlan.updatedAt)}
-                  </Text>
-                </div>
+              </Button>
+              <div className={styles.cardActions}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleClone(floorPlan.id)}
+                  aria-label={`Clone floor plan: ${floorPlan.name}`}
+                >
+                  Clone
+                </Button>
               </div>
-            </Button>
+            </article>
           ))}
         </div>
       )}

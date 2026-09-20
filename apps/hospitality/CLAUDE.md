@@ -121,7 +121,7 @@ When implementing features, evaluate against (from `docs/USER-FLOWS.md`):
 
 ### Known Gaps (see backlog for full list)
 
-- **P0:** Error recovery missing on most pages (no retry, no timeout handling)
+- **P0:** `ErrorRetryBanner` retry is wired on 12 pages (AdminPage, BookingWidgetDemoPage, BriefingPage, FloorPlanEditorPage, FloorPlansPage, GuestsPage, HomePage, ProfilePage, ReservationsPage, SettingsPage, TimelinePage, WaitlistPage) — no per-request timeout or staleness warning yet (see `docs/IMPROVEMENT-BACKLOG.md` P0 #1)
 - **P0:** Timeline unusable on mobile (grid + sidebar = no room)
 - **P0:** Cross-page data divergence (no SSE on ReservationsPage)
 - **P1:** Multi-venue filtering inconsistent (some pages have it, some don't)

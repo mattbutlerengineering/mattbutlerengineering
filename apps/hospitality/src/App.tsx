@@ -4,7 +4,8 @@ import { Outlet, Navigate } from "react-router";
 import { Suspense } from "react";
 import { useAuth, isSafeReturnTo, hasAuthParams } from "@mbe/auth/react";
 import { Text, GlobalNav, Footer } from "@mattbutlerengineering/rialto";
-import { useTheme, resolveTheme } from "./hooks/use-theme";
+import { useTheme, useThemeServerHydration, resolveTheme } from "./hooks/use-theme";
+import { useCurrentUser } from "./hooks/useUsers.js";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
 import { CallbackPage } from "./components/CallbackPage";
@@ -39,6 +40,18 @@ function UnauthenticatedShell({
       </Footer>
     </div>
   );
+}
+
+/**
+ * Hydrates the local theme from the server-saved preference once the current
+ * user resolves — see `useThemeServerHydration`. Renders nothing; only
+ * mounted once a user is authenticated, so `/users/me` is never fetched
+ * ahead of a token.
+ */
+function ThemeServerSync() {
+  const { data: user } = useCurrentUser();
+  useThemeServerHydration(user?.preferences.theme);
+  return null;
 }
 
 /**
@@ -123,6 +136,7 @@ export function App() {
 
   return (
     <div className={styles.authLayout} data-testid="auth-layout">
+      <ThemeServerSync />
       {nav}
       <Suspense fallback={<LoadingPage />}>
         <Outlet />

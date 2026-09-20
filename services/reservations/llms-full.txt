@@ -245,6 +245,41 @@
       request.manageToken = token;
     }
   </file>
+  <file path="src/middleware/venue-context.ts">
+    export interface VenueContextClient {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    }
+    export async function setVenueContext(
+      client: VenueContextClient,
+      venueId: string | null | undefined
+    ): Promise<void> {
+      if (!venueId) return;
+      await client.$executeRaw`SELECT set_config('app.venue_id', ${venueId}, true)`;
+    }
+    export function venueContextPreHandler(
+      resolveVenueId: VenueIdResolver
+    ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+      return async function setVenueContextPreHandler(
+        request: FastifyRequest,
+        _reply: FastifyReply
+      ): Promise<void> {
+        const result = resolveVenueId(request);
+        if (isThenable(result)) {
+          const venueId = await result;
+          enterVenueContext(typeof venueId === "string" ? venueId : null);
+          return;
+        }
+        enterVenueContext(typeof result === "string" ? result : null);
+      };
+    }
+    function isThenable(value: unknown): value is PromiseLike<string | null | undefined> {
+      return (
+        typeof value === "object" &&
+        value !== null &&
+        typeof (value as { then?: unknown }).then === "function"
+      );
+    }
+  </file>
   </section>
   <section priority="medium" role="prisma">
   <file path="prisma/seed.ts">
@@ -900,7 +935,9 @@
   </file>
   <file path="src/routes/cancel-reservation.ts">
     export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.delete(
+      fastify.delete<{
+        Body?: { cancellationReason?: string; cancellationNote?: string };
+      }>(
         "/public/v1/reservations/manage",
         {
           config: {
@@ -914,10 +951,15 @@
             return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
-          const result = await cancelReservationWithDeposit(preamble.reservation, request.manageToken, {
-            bookingNotifier: fastify.bookingNotifier,
-            logger: request.log,
-          });
+          const result = await cancelReservationWithDeposit(
+            preamble.reservation,
+            request.manageToken,
+            { bookingNotifier: fastify.bookingNotifier, logger: request.log },
+            {
+              cancellationReason: request.body?.cancellationReason,
+              cancellationNote: request.body?.cancellationNote,
+            }
+          );
     
           if (!result.success) {
             return reply
@@ -2568,7 +2610,13 @@
             data: {
               reservation: serializeManagedReservation(reservation),
               venue: venue
-                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
+                ? {
+                    id: venue.id,
+                    name: venue.name,
+                    slug: venue.slug,
+                    ianaTimezone: venue.ianaTimezone,
+                    phone: venue.settings?.phone,
+                  }
                 : null,
             },
           });
@@ -6242,6 +6290,12 @@
       } = intent;
     
       return prisma.$transaction(async (tx): Promise<SlotWriteResult<T>> => {
+        // This `prisma.$transaction` call bypasses the per-call auto-wrap
+        // `services/venue-scoped-prisma.ts` gives the `prisma` export — set
+        // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026 part
+        // 6), using the intent's own (already-resolved) venueId.
+        await setVenueContext(tx, venueId);
+    
         // Serialize conflict-checked writes per table BEFORE any conflict check so
         // concurrent slot writes cannot both pass and double-book. Released
         // automatically when the transaction ends.
@@ -6846,7 +6900,7 @@
   </file>
   <file path="src/services/database.ts">
     export const db = createDatabase(PrismaClient as never);
-    export const prisma = db.prisma as unknown as PrismaClient;
+    export const prisma = withVenueScopedQueries(db.prisma as unknown as PrismaClient);
   </file>
   <file path="src/services/deposit-state-machine.ts">
     export const depositMachine = createStateMachine<DepositStatus>(DEPOSIT_TRANSITIONS, "deposit");
@@ -7629,6 +7683,13 @@
         }
     
         const cloned = await prisma.$transaction(async (tx) => {
+          // This `prisma.$transaction` call bypasses the per-call auto-wrap
+          // `services/venue-scoped-prisma.ts` gives the `prisma` export — set
+          // app.venue_id on THIS transaction's own `tx` explicitly (ADR-026
+          // part 6), using the source floor plan's own (already-resolved)
+          // venue rather than the request-scoped store, since it's more precise.
+          await setVenueContext(tx, source.venueId);
+    
           const newFloorPlan = await tx.floorPlan.create({
             data: {
               venueId: source.venueId,
@@ -7707,6 +7768,10 @@
       async setActive(id: string, venueId: string): Promise<FloorPlan | null> {
         try {
           const floorPlan = await prisma.$transaction(async (tx) => {
+            // See the `clone()` comment above — this `$transaction` call also
+            // bypasses the per-call auto-wrap, so it sets app.venue_id itself.
+            await setVenueContext(tx, venueId);
+    
             await tx.floorPlan.updateMany({
               where: { venueId, isActive: true },
               data: { isActive: false },
@@ -7770,28 +7835,37 @@
           )
         );
     
-        const tables = await prisma.$queryRaw<PrismaTable[]>`
-          UPDATE tables AS t
-          SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
-          FROM (VALUES ${values}) AS v(id, shape_metadata)
-          WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
-          RETURNING
-            t.id,
-            t.name,
-            t.table_number AS "tableNumber",
-            t.capacity,
-            t.min_covers AS "minCovers",
-            t.max_covers AS "maxCovers",
-            t.location,
-            t.is_active AS "isActive",
-            t.status,
-            t.priority,
-            t.venue_id AS "venueId",
-            t.floor_plan_id AS "floorPlanId",
-            t.shape_metadata AS "shapeMetadata",
-            t.created_at AS "createdAt",
-            t.updated_at AS "updatedAt"
-        `;
+        // A raw `$queryRaw` call bypasses `venue-scoped-prisma.ts`'s per-call
+        // auto-wrap (`$`-prefixed methods pass through unwrapped, on purpose —
+        // see that module's doc comment) and, unlike `prisma.model.method(...)`,
+        // is not itself a single implicit transaction Postgres would wrap
+        // `set_config` around — so it must open its own explicit transaction and
+        // set app.venue_id there (ADR-026 part 6).
+        const tables = await prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, floorPlan.venueId);
+          return tx.$queryRaw<PrismaTable[]>`
+            UPDATE tables AS t
+            SET floor_plan_id = ${floorPlanId}, shape_metadata = v.shape_metadata
+            FROM (VALUES ${values}) AS v(id, shape_metadata)
+            WHERE t.id = v.id AND t.venue_id = ${floorPlan.venueId}
+            RETURNING
+              t.id,
+              t.name,
+              t.table_number AS "tableNumber",
+              t.capacity,
+              t.min_covers AS "minCovers",
+              t.max_covers AS "maxCovers",
+              t.location,
+              t.is_active AS "isActive",
+              t.status,
+              t.priority,
+              t.venue_id AS "venueId",
+              t.floor_plan_id AS "floorPlanId",
+              t.shape_metadata AS "shapeMetadata",
+              t.created_at AS "createdAt",
+              t.updated_at AS "updatedAt"
+          `;
+        });
     
         // An unknown/deleted tableId — or, since the venue predicate above, one
         // belonging to another venue — simply doesn't match any row: the UPDATE
@@ -9857,7 +9931,14 @@
     
             const updated =
               data.status === "NO_SHOW" && existing.guestId
-                ? await prisma.$transaction((tx) => writeStatusChange(tx))
+                ? await prisma.$transaction(async (tx) => {
+                    // This `prisma.$transaction` call bypasses the per-call
+                    // auto-wrap `services/venue-scoped-prisma.ts` gives the
+                    // `prisma` export — set app.venue_id on THIS transaction's
+                    // own `tx` explicitly (ADR-026 part 6).
+                    await setVenueContext(tx, getCurrentVenueId());
+                    return writeStatusChange(tx);
+                  })
                 : await writeStatusChange(prisma);
     
             return updated ? toReservation(updated) : null;
@@ -11157,6 +11238,14 @@
       },
     };
   </file>
+  <file path="src/services/venue-context-store.ts">
+    export function enterVenueContext(venueId: string | null): void {
+      venueContextStorage.enterWith(venueId);
+    }
+    export function getCurrentVenueId(): string | null {
+      return venueContextStorage.getStore() ?? null;
+    }
+  </file>
   <file path="src/services/venue-membership.ts">
     export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup {
       return async (userSub: string, venueId: string): Promise<boolean> => {
@@ -11169,6 +11258,53 @@
         const count = await client.venueMembership.count({ where: { userSub } });
         return count > 0;
       };
+    }
+  </file>
+  <file path="src/services/venue-scoped-prisma.ts">
+    type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
+    type DynamicTransactionClient = Record<string, DynamicDelegate> & {
+      $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<number>;
+    };
+    export function withVenueScopedQueries(client: PrismaClient): PrismaClient {
+      return new Proxy(client, {
+        get(target, prop, receiver) {
+          if (typeof prop !== "string" || prop.startsWith("$")) {
+            const value: unknown = Reflect.get(target, prop, receiver);
+            // Bind pass-through methods to the real client so Prisma's own
+            // internal `this.<field>` accesses never re-enter this Proxy with
+            // `this` set to the wrapper (see trap 1 above).
+            return typeof value === "function" ? value.bind(target) : value;
+          }
+    
+          const delegate: unknown = Reflect.get(target, prop, receiver);
+          if (delegate === null || typeof delegate !== "object") {
+            return delegate;
+          }
+    
+          const modelName = prop;
+          return new Proxy(delegate as DynamicDelegate, {
+            get(delegateTarget, methodProp, methodReceiver) {
+              const method = Reflect.get(delegateTarget, methodProp, methodReceiver);
+              if (typeof method !== "function") {
+                return method;
+              }
+    
+              return (...args: unknown[]) =>
+                target.$transaction(async (tx) => {
+                  const dynamicTx = tx as unknown as DynamicTransactionClient;
+                  await setVenueContext(dynamicTx, getCurrentVenueId());
+                  // Non-null: the outer trap already confirmed `methodProp` is a
+                  // function on the (non-transacted) delegate for `modelName`;
+                  // the transaction client's delegate has the identical shape.
+                  // Invoked directly (not hoisted to a variable first) so the
+                  // receiver — `dynamicTx[modelName]` — stays the call's `this`
+                  // (see trap 2 above).
+                  return dynamicTx[modelName]![methodProp as string]!(...args);
+                });
+            },
+          });
+        },
+      });
     }
   </file>
   <file path="src/services/venue.ts">
@@ -11832,12 +11968,19 @@
       const rows = Prisma.join(
         updated.map((entry) => Prisma.sql`(${entry.id}, ${entry.position}::int)`)
       );
-      await prisma.$executeRaw`
-        UPDATE "waitlist_entries" AS w
-        SET position = v.position
-        FROM (VALUES ${rows}) AS v(id, position)
-        WHERE w.id = v.id
-      `;
+      // A raw `$executeRaw` call bypasses `venue-scoped-prisma.ts`'s per-call
+      // auto-wrap (`$`-prefixed methods pass through unwrapped, on purpose) —
+      // open its own explicit transaction and set app.venue_id there (ADR-026
+      // part 6), using the already-known venueId parameter.
+      await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.$executeRaw`
+          UPDATE "waitlist_entries" AS w
+          SET position = v.position
+          FROM (VALUES ${rows}) AS v(id, position)
+          WHERE w.id = v.id
+        `;
+      });
     }
     export const waitlistService = {
       async create(input: CreateWaitlistEntryInput): Promise<WaitlistEntryData> {
@@ -12054,6 +12197,37 @@
       // route registration so child route plugins inherit it.
       const services: DomainServices = { ...defaultDomainServices, ...options.services };
       fastify.decorate("services", services);
+    
+      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
+      // (#5469). `@mbe/database`'s createDatabase() registers its own
+      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
+      // SIGINT handler always ends with an explicit `process.exit(0)` — which
+      // never fires `beforeExit` — so the pool was previously torn down by abrupt
+      // process termination on every deploy instead of a graceful disconnect.
+      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
+      // jobWorker below) runs deterministically after requests drain, so wire
+      // db.shutdown() here instead. Registered unconditionally (not gated on
+      // NODE_ENV !== "test" like the background jobs below) since it has no
+      // observable side effect beyond closing a connection that tests mock out.
+      fastify.addHook("onClose", async () => db.shutdown());
+    
+      // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
+      // `app.venue_id` session variable for every request whose venue is
+      // resolvable from its own query/body/params, so the RLS policies already
+      // enabled on floor_plans/tables/guests/reservations/deposits/waitlist_entries
+      // (parts 2-4) see the same venue scope the application layer does.
+      //
+      // Registered as a shared `addHook`, which Fastify always runs BEFORE a
+      // route's own `preHandler` option array — so this necessarily runs before
+      // `requireAuth`/`requireVenueAccess`, not after, despite those guards
+      // being the more familiar "runs first" preHandlers. That ordering is safe:
+      // this hook never makes an authorization decision (it can only narrow
+      // which rows are visible, exactly like the app-level `where: { venueId }`
+      // filters it backstops) and `requireVenueAccess` still independently
+      // 403s a non-member on every route that has it, after this hook runs. A
+      // request with no resolvable venue id (public routes, health checks,
+      // entity-addressed routes) is a deliberate no-op — ADR-026 §4 default-deny.
+      fastify.addHook("preHandler", venueContextPreHandler(resolveGlobalVenueId));
     
       // Register routes
       await fastify.register(healthRoutes);

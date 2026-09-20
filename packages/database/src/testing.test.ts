@@ -9,6 +9,12 @@ describe("createMockDatabaseService", () => {
     expect(vi.isMockFunction(mock.prisma.$queryRaw)).toBe(true);
   });
 
+  it("returns prisma with $executeRaw mock by default", () => {
+    const mock = createMockDatabaseService();
+    expect(typeof mock.prisma.$executeRaw).toBe("function");
+    expect(vi.isMockFunction(mock.prisma.$executeRaw)).toBe(true);
+  });
+
   it("returns getSlowQueryStats that returns default stats", () => {
     const mock = createMockDatabaseService();
     const stats: SlowQueryStats = mock.getSlowQueryStats();

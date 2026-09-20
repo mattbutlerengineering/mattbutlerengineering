@@ -44,6 +44,7 @@ vi.mock("./SetupPage.module.css", () => ({
     stepDescription: "stepDescription",
     ctaButton: "ctaButton",
     reviewButton: "reviewButton",
+    doneLabel: "doneLabel",
   },
 }));
 
@@ -97,7 +98,21 @@ describe("SetupPage", () => {
     expect(steps.length).toBe(3);
   });
 
-  it("completed step shows Review button that navigates to step path", async () => {
+  it("completed Venue Basics step never routes to the creation wizard — renders a static Done row instead", () => {
+    render(<SetupPage />);
+
+    expect(screen.queryByText("Review")).toBeNull();
+    expect(screen.getByText("Done — Bella Italia")).toBeDefined();
+  });
+
+  it("completed step with a real review destination shows a Review button that navigates there", async () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "setup",
+      progress: 67,
+      completedSteps: ["onboarding", "operating-hours"],
+      nextStep: "floor-plan",
+    });
+
     const user = userEvent.setup();
     render(<SetupPage />);
 
@@ -105,7 +120,7 @@ describe("SetupPage", () => {
     expect(reviewButton).toBeDefined();
 
     await user.click(reviewButton);
-    expect(mockNavigate).toHaveBeenCalledWith("/onboarding");
+    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
   });
 
   it("completed step has correct aria label", () => {
@@ -167,7 +182,7 @@ describe("SetupPage", () => {
     ).toBeDefined();
   });
 
-  it("renders multiple completed steps with Review buttons", async () => {
+  it("renders a single Review button when multiple steps are completed, one of which has no review destination", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "setup",
       progress: 67,
@@ -175,14 +190,12 @@ describe("SetupPage", () => {
       nextStep: "floor-plan",
     });
 
-    const user = userEvent.setup();
     render(<SetupPage />);
 
+    // Venue Basics is completed but has no review view yet — static row only.
+    expect(screen.getByText("Done — Bella Italia")).toBeDefined();
+    // Operating Hours has a real review destination — a single Review button.
     const reviewButtons = screen.getAllByText("Review");
-    expect(reviewButtons.length).toBe(2);
-
-    // Click second Review button (operating-hours)
-    await user.click(reviewButtons[1]);
-    expect(mockNavigate).toHaveBeenCalledWith("/setup/hours");
+    expect(reviewButtons.length).toBe(1);
   });
 });

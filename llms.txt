@@ -1265,6 +1265,11 @@
       export function hasOperatingHours(operatingHours: OperatingHours | null | undefined): boolean { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/booking-widget/todayInTimezone.ts">
+    <item priority="high">
+      export function todayInTimezone(now: Date, timeZone?: string): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/booking-widget/useBookingFlow.ts">
     <item priority="low">
       type BookingStep = "date-party" | "time-slot" | "guest-details" | "payment" | "confirmation" | "waitlist-join" | "waitlist-confirmation";
@@ -1291,7 +1296,10 @@
       }
     </item>
     <item priority="high">
-      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "GO_BACK_TO_GUEST_DETA | { type: "EXPIRE_HOLD" } | { type: "RESET" } | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+      type BookingFlowAction = { type: "SET_DATE"; date: stri | { type: "SET_END_DATE"; date:  | { type: "SET_PARTY_SIZE"; size | { type: "GO_TO_TIME_SLOT" } | { type: "GO_TO_DATE_PARTY" } | { type: "SET_SLOTS"; slots: Ti | { type: "SET_SLOTS_ERROR"; err | { type: "HOLD_START"; slot: Ti | { type: "HOLD_SUCCESS"; hold:  | { type: "HOLD_ERROR"; error: s | { type: "CONFIRM_START" } | { type: "CONFIRM_SUCCESS_NO_DE | { type: "CONFIRM_SUCCESS_WITH_ | { type: "CONFIRM_ERROR"; error | { type: "DEPOSIT_SUCCESS"; pay | { type: "GO_BACK_TO_GUEST_DETA | { type: "EXPIRE_HOLD" } | { type: "RESET"; selectedDate: | { type: "SET_DEPOSIT_CONFIG";  | { type: "SET_VENUE_CONFIG"; co | { type: "GO_TO_WAITLIST_JOIN"  | { type: "WAITLIST_JOINED"; res | { type: "SET_GUEST_DETAILS"; d;
+    </item>
+    <item priority="medium">
+      function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
     </item>
     <item priority="high">
       export const STEP_KEYS_NO_DEPOSIT: BookingStep[];
@@ -1340,6 +1348,7 @@
         stripePublishableKey,
         holdDurationMinutes = 10,
         onHoldChange,
+        venueTimezone,
       }: UseBookingFlowDeps): BookingFlowResult { /* ... */ }
     </item>
   </file>
@@ -3372,6 +3381,9 @@
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/use-theme.ts">
+    <item priority="medium">
+      function hasStoredThemePreference(): boolean { /* ... */ }
+    </item>
     <item priority="low">
       interface ThemeContextValue {
         theme: ThemePreference;
@@ -3386,6 +3398,9 @@
     </item>
     <item priority="high">
       export function useThemeState(): ThemeContextValue { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/use-url-params.ts">
@@ -3673,6 +3688,9 @@
     <item priority="high">
       export const GUEST_SEGMENTS_QUERY_KEY: unknown;
     </item>
+    <item priority="high">
+      export const LAPSING_GUESTS_QUERY_KEY: unknown;
+    </item>
     <item priority="low">
       interface UseGuestsParams {
         venueId?: string | null;
@@ -3710,6 +3728,20 @@
     </item>
     <item priority="high">
       export function useGuestSegments(venueId: string | null | undefined): UseGuestSegmentsResult { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UseLapsingGuestsResult {
+        data: LapsingGuest[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useLapsingGuests(venueId: string | null | undefined): UseLapsingGuestsResult { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useSendWinBack: unknown;
     </item>
     <item priority="low">
       interface UseGuestResult {
@@ -4749,6 +4781,27 @@
       ): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/middleware/venue-context.ts">
+    <item priority="low">
+      interface VenueContextClient {
+        $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Pr...;
+      }
+    </item>
+    <item priority="high">
+      export async function setVenueContext(
+        client: VenueContextClient,
+        venueId: string | null | undefined
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venueContextPreHandler(
+        resolveVenueId: VenueIdResolver
+      ): (request: FastifyRequest, reply: FastifyReply) => Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isThenable(value: unknown): value is PromiseLike<string | null | undefined> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="pages">
   <file path="apps/gen/src/pages/createRefinementPrompt.ts">
@@ -5314,6 +5367,13 @@
     </item>
   </file>
   <file path="apps/rialto-web/token-count.config.ts">
+    <item priority="high">
+      export function findScopedPackageRoot(
+        searchPaths: readonly string[],
+        packageName: string,
+        fileExists: (path: string) => boolean
+      ): string | undefined { /* ... */ }
+    </item>
     <item priority="high">
       export function resolveRialtoTokenCount(): number { /* ... */ }
     </item>
@@ -8350,12 +8410,32 @@
       export const tableService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/venue-context-store.ts">
+    <item priority="high">
+      export function enterVenueContext(venueId: string | null): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getCurrentVenueId(): string | null { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/venue-membership.ts">
     <item priority="high">
       export function createVenueMembershipLookup(client: PrismaClient = prisma): VenueMembershipLookup { /* ... */ }
     </item>
     <item priority="high">
       export function createHasAnyVenueMembership(client: PrismaClient = prisma): HasAnyVenueMembership { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/venue-scoped-prisma.ts">
+    <item priority="high">
+      type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
+    </item>
+    <item priority="high">
+      type DynamicTransactionClient = Record<string, DynamicDelegate> & {
+        $executeRaw: (query...;
+    </item>
+    <item priority="high">
+      export function withVenueScopedQueries(client: PrismaClient): PrismaClient { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/venue.ts">
@@ -11657,6 +11737,7 @@
         name: string;
         slug: string;
         ianaTimezone: string;
+        phone?: string;
       }
     </item>
     <item priority="low">
@@ -11938,6 +12019,7 @@
     <item priority="low">
       interface MockPrisma {
         $queryRaw: ReturnType<typeof vi.fn>;
+        $executeRaw: ReturnType<typeof vi.fn>;
       }
     </item>
     <item priority="low">
@@ -11957,6 +12039,7 @@
         getSlowQueryStats?: ReturnType<typeof vi.fn>;
         getServiceStatus?: ReturnType<typeof vi.fn>;
         getPoolMetrics?: ReturnType<typeof vi.fn>;
+        shutdown?: ReturnType<typeof vi.fn>;
       }
     </item>
     <item priority="high">
@@ -14728,11 +14811,14 @@
     <item priority="high">
       export function canSeat(reservation: Reservation, table: Table | undefined): boolean { /* ... */ }
     </item>
+    <item priority="medium">
+      function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean { /* ... */ }
+    </item>
     <item priority="high">
       export function occupiedCaption(
         reservation: Reservation,
         table: Table | undefined,
-        seated: boolean
+        now: Date
       ): string | null { /* ... */ }
     </item>
     <item priority="low">
@@ -15045,15 +15131,15 @@
       }
     </item>
     <item priority="medium">
-      function buildEventTitle(venue: PublicVenueConfig): string { /* ... */ }
+      function buildEventTitle(venue: IcsVenue): string { /* ... */ }
     </item>
     <item priority="medium">
-      function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string { /* ... */ }
+      function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function buildGoogleCalendarUrl(
-        reservation: Reservation,
-        venue: PublicVenueConfig,
+        reservation: IcsReservation,
+        venue: IcsVenue,
         opts: BuildCalendarLinkOptions = {}
       ): string { /* ... */ }
     </item>
@@ -15068,8 +15154,8 @@
     </item>
     <item priority="high">
       export function buildOutlookCalendarUrl(
-        reservation: Reservation,
-        venue: PublicVenueConfig,
+        reservation: IcsReservation,
+        venue: IcsVenue,
         opts: BuildCalendarLinkOptions = {}
       ): string { /* ... */ }
     </item>
@@ -15102,6 +15188,12 @@
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">
     <item priority="low">
+      type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "party...;
+    </item>
+    <item priority="low">
+      type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
+    </item>
+    <item priority="low">
       interface BuildReservationIcsOptions {
         cancellationUrl?: string;
         now?: Date;
@@ -15124,14 +15216,17 @@
       export function formatIcsLocalDateTime(isoInstant: string, timeZone: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function buildDescription(reservation: Reservation, cancellationUrl?: string): string { /* ... */ }
+      function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string { /* ... */ }
     </item>
     <item priority="high">
       export function buildReservationIcs(
-        reservation: Reservation,
-        venue: PublicVenueConfig,
+        reservation: IcsReservation,
+        venue: IcsVenue,
         opts: BuildReservationIcsOptions = {}
       ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function downloadIcsFile(icsContent: string, filename: string): void { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/local-clock.ts">

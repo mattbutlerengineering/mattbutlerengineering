@@ -355,6 +355,18 @@ describe("FloorPlanCanvas", () => {
     });
   });
 
+  describe("grid background", () => {
+    it("draws the grid using the rialto border token, not a hardcoded hex color", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      const wrapper = screen.getByTestId("floor-plan-canvas-wrapper");
+      const backgroundImage = wrapper.style.backgroundImage;
+      expect(backgroundImage).toContain("var(--rialto-border)");
+      // #f8f6f3 / #d8d4cd were the pre-fix hardcoded light-theme grid colors
+      // baked into a data-URI SVG — they never adapted to dark theme.
+      expect(backgroundImage).not.toMatch(/#f8f6f3|#d8d4cd/i);
+    });
+  });
+
   describe("zoom level", () => {
     it("adjusts zoom level based on container width", () => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({

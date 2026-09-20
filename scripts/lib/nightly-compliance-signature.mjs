@@ -88,6 +88,24 @@ export function extractFailingChecks(report) {
 }
 
 /**
+ * Normalizes a nightly-compliance report.md into a sorted, deduplicated list
+ * of `<check> :: <detail>` strings, one per failing check, with volatile
+ * tokens stripped (see `normalize()`). This is the intermediate value
+ * `computeDriftSignature()` hashes — exposed separately (#5454) because the
+ * completion-sweep decision needs the actual failure *content* to compare
+ * two reports for a subset relationship, not just their combined hash.
+ *
+ * @param {string} report
+ * @returns {string[]}
+ */
+export function computeNormalizedFailureSet(report) {
+  const checks = extractFailingChecks(report);
+  return [
+    ...new Set(checks.map(({ name, detail }) => `${normalize(name)} :: ${normalize(detail)}`)),
+  ].sort();
+}
+
+/**
  * Computes a stable drift signature from a nightly-compliance report.md.
  * Pure and deterministic: the same report content always yields the same
  * signature, in this process or any other, and the date is never an input.
@@ -96,10 +114,6 @@ export function extractFailingChecks(report) {
  * @returns {string} a short hex signature
  */
 export function computeDriftSignature(report) {
-  const checks = extractFailingChecks(report);
-  const normalized = checks
-    .map(({ name, detail }) => `${normalize(name)} :: ${normalize(detail)}`)
-    .sort();
-
+  const normalized = computeNormalizedFailureSet(report);
   return createHash("sha256").update(normalized.join("\n")).digest("hex").slice(0, 16);
 }

@@ -1,20 +1,20 @@
 {
-  "generatedAt": "2026-09-16T03:41:02.410Z",
+  "generatedAt": "2026-09-20T04:57:18.072Z",
   "patterns": {
     "magicTimeouts": {
       "count": 29,
       "description": "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)"
     },
     "emptyCatch": {
-      "count": 5,
-      "description": "Empty catch blocks that swallow errors silently"
+      "count": 76,
+      "description": "Empty or comment-only catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
       "count": 19,
       "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
     },
     "hardcodedRoutes": {
-      "count": 703,
+      "count": 706,
       "description": "Hardcoded /api/... route strings instead of route constants"
     },
     "anyType": {
@@ -22,7 +22,7 @@
       "description": "TypeScript `as any` casts or `: any` type annotations"
     },
     "consoleLogs": {
-      "count": 712,
+      "count": 713,
       "description": "console.log() calls in production (non-test) source files"
     },
     "unusedParams": {

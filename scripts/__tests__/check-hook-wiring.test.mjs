@@ -6,12 +6,12 @@
  */
 
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { findOrphanedHooks, formatOrphanFinding, buildFailMessage } from "../check-hook-wiring.mjs";
+import { REPO_AUDIT_CHECKS } from "../run-repo-audit.mjs";
 
 /** Builds a throwaway repo root with the given files, returns its path. */
 function makeFixture({ hooks = {}, settings = "{}", workflows = {} }) {
@@ -161,12 +161,13 @@ describe("findOrphanedHooks", () => {
   });
 });
 
+// #5465 moved the check list out of package.json's `&&` chain into
+// REPO_AUDIT_CHECKS — the audit's source of truth is now that array.
 describe("the real repository — repo-audit wiring (#4628)", () => {
   it("repo-audit runs this check, so a regression fails CI instead of sitting unnoticed", () => {
-    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-    const pkg = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8"));
-
-    expect(pkg.scripts["repo-audit"]).toContain("check-hook-wiring.mjs");
+    expect(REPO_AUDIT_CHECKS.flatMap((check) => check.args)).toContain(
+      "scripts/check-hook-wiring.mjs"
+    );
   });
 });
 

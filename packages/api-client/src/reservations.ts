@@ -44,6 +44,8 @@ export interface ManagedReservationVenue {
   name: string;
   slug: string;
   ianaTimezone: string;
+  /** Contact phone number shown to guests on the manage-reservation page (#4979). */
+  phone?: string;
 }
 
 export interface ManageReservationData {
@@ -69,6 +71,7 @@ const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object
       name: z.string(),
       slug: z.string(),
       ianaTimezone: z.string(),
+      phone: z.string().optional(),
     })
     .nullable(),
 });
@@ -181,5 +184,27 @@ export class ReservationsClient {
       undefined,
       manageReservationDataSchema
     );
+  }
+
+  /**
+   * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
+   * The token is sent as an `Authorization: Bearer` header rather than a query
+   * param — the manage-token middleware prefers it for mutating requests.
+   */
+  async cancelManaged(
+    token: string,
+    reason?: { cancellationReason?: string; cancellationNote?: string }
+  ): Promise<{ status: ReservationStatus }> {
+    const schema = z.object({ status: ReservationStatusSchema });
+    const response = await this.client.request<{ data: { status: ReservationStatus } }>(
+      "/public/v1/reservations/manage",
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+        body: reason ? JSON.stringify(reason) : undefined,
+      },
+      z.object({ data: schema })
+    );
+    return response.data;
   }
 }

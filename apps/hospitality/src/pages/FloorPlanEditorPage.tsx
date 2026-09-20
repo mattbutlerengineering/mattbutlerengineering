@@ -28,6 +28,7 @@ export function FloorPlanEditorPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   // Track pending position updates for batch save
   const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number }>>(
@@ -129,21 +130,23 @@ export function FloorPlanEditorPage() {
     }
   }, [pendingUpdates, tables, bulkUpdateMutation, floorPlan]);
 
-  const handleDeleteTable = useCallback(
-    async (tableId: string) => {
-      const confirmed = window.confirm("Delete this table? This action cannot be undone.");
-      if (!confirmed) return;
+  const requestDeleteTable = useCallback((tableId: string) => {
+    setPendingDeleteId(tableId);
+  }, []);
 
-      try {
-        await deleteTableMutation.mutateAsync(tableId);
-        setTables((prev) => prev.filter((t) => t.id !== tableId));
-        setSelectedTableId((prev) => (prev === tableId ? null : prev));
-      } catch (err) {
-        setSaveError(err instanceof Error ? err.message : "Failed to delete table");
-      }
-    },
-    [deleteTableMutation]
-  );
+  const confirmDeleteTable = useCallback(async () => {
+    const tableId = pendingDeleteId;
+    if (!tableId) return;
+    setPendingDeleteId(null);
+
+    try {
+      await deleteTableMutation.mutateAsync(tableId);
+      setTables((prev) => prev.filter((t) => t.id !== tableId));
+      setSelectedTableId((prev) => (prev === tableId ? null : prev));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to delete table");
+    }
+  }, [pendingDeleteId, deleteTableMutation]);
 
   // Auto-save with 1s debounce after changes.
   // Skip when saveError is set — user must retry manually to avoid an infinite retry loop.
@@ -171,7 +174,7 @@ export function FloorPlanEditorPage() {
 
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedTableId) {
-          handleDeleteTable(selectedTableId);
+          requestDeleteTable(selectedTableId);
         }
         return;
       }
@@ -195,7 +198,7 @@ export function FloorPlanEditorPage() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedTableId, tables, handleSave, handleDeleteTable, handleTableMove]);
+  }, [selectedTableId, tables, handleSave, requestDeleteTable, handleTableMove]);
 
   const handleActivate = async () => {
     if (!floorPlan) return;
@@ -349,7 +352,7 @@ export function FloorPlanEditorPage() {
               </div>
               <Button
                 className={styles.deleteTableButton}
-                onClick={() => handleDeleteTable(selectedTable.id)}
+                onClick={() => requestDeleteTable(selectedTable.id)}
               >
                 Delete Table
               </Button>
@@ -389,6 +392,20 @@ export function FloorPlanEditorPage() {
           variant="destructive"
           onConfirm={() => blocker.proceed()}
           onCancel={() => blocker.reset()}
+        />
+      )}
+
+      {/* Delete table confirmation */}
+      {pendingDeleteId && (
+        <ConfirmDialog
+          open
+          title="Delete this table?"
+          description="This action cannot be undone."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          variant="destructive"
+          onConfirm={confirmDeleteTable}
+          onCancel={() => setPendingDeleteId(null)}
         />
       )}
     </div>

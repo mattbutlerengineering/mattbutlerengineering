@@ -226,4 +226,29 @@ describe("nightly-compliance.yml File meta-improvement issue if drift detected s
   it("still keeps the date in the title for readability", () => {
     expect(step).toMatch(/title="\[nightly-compliance \$\{today\}\] Drift detected"/);
   });
+
+  it("captures the filed/matched issue number as a step output for the completion sweep", () => {
+    expect(step).toMatch(/echo "issue-number=\$\{issue_number\}" >> "\$GITHUB_OUTPUT"/);
+  });
+});
+
+describe("nightly-compliance.yml Close superseded nightly-compliance issues step (#5454)", () => {
+  const step = extractStep(WORKFLOW, "Close superseded nightly-compliance issues");
+
+  // Regression test for the meta-issue this fixes: #5084 stopped duplicate
+  // filing but nothing ever closed an OLDER superseded issue, so 8 near-
+  // identical issues stayed open across 09-02 to 09-16.
+  it("runs the sweep script, excluding this run's own filed/matched issue", () => {
+    expect(step).toMatch(/node scripts\/sweep-nightly-compliance\.mjs/);
+    expect(step).toMatch(/--exclude-issue "\$\{\{ steps\.file-issue\.outputs\.issue-number \}\}"/);
+  });
+
+  it("links the sweep to the newest issue, not a silent close", () => {
+    expect(step).toMatch(/--new-issue-url "\$new_issue_url"/);
+  });
+
+  it("only runs when drift was actually filed this run", () => {
+    expect(step).toMatch(/steps\.drift\.outputs\.drift == 'true'/);
+    expect(step).toMatch(/steps\.file-issue\.outputs\.issue-number != ''/);
+  });
 });

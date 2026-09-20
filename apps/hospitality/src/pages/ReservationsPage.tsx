@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState, useReducer, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useReducer, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { z } from "zod";
-import type { CreateReservationRequest } from "@mbe/types";
+import type { CreateReservationRequest, Reservation, Table } from "@mbe/types";
 import { useUrlParams } from "../hooks/use-url-params.js";
 import {
   Badge,
@@ -27,7 +27,11 @@ import {
   formatReservationTime,
 } from "../utils/reservation-display.js";
 import { formatServiceDate } from "../utils/format.js";
-import { parseReservationsIntent, stripReservationsIntent } from "../utils/timeline-intent.js";
+import {
+  parseReservationsIntent,
+  stripReservationsIntent,
+  SELECTED_PARAM,
+} from "../utils/timeline-intent.js";
 import { ordinalVisit } from "../utils/ordinal.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { KpiStat } from "../components/KpiStat.js";
@@ -71,6 +75,20 @@ function ReservationsLoadingRows() {
         <Skeleton key={index} variant="text" width="100%" />
       ))}
     </div>
+  );
+}
+
+/* ── Table name resolution (#4986 — never surface a raw tbl_ id) ────────────── */
+
+/**
+ * A reservation's embedded `table` relation wins; falling back to the
+ * venue's tables query by id covers the (common) shape where the list
+ * endpoint doesn't hydrate the relation. Never falls through to the raw
+ * `tableId` — that's the recognition failure this resolver exists to fix.
+ */
+function resolveTableName(reservation: Reservation, tablesById: Map<string, Table>): string {
+  return (
+    reservation.table?.name ?? tablesById.get(reservation.tableId)?.name ?? "Table unavailable"
   );
 }
 
@@ -124,6 +142,10 @@ export function ReservationsPage() {
     limit: 100,
     enabled: !!selectedVenueId,
   });
+  const tablesById = useMemo(
+    () => new Map((tables ?? []).map((table) => [table.id, table])),
+    [tables]
+  );
   const { mutateAsync: createReservation } = useCreateReservation();
 
   const errorDescription = queryError ? describeApiError(queryError) : null;
@@ -297,24 +319,13 @@ export function ReservationsPage() {
                   <th className={styles.th}>Table</th>
                   <th className={styles.th}>Status</th>
                   <th className={styles.th}>Notes</th>
+                  <th className={styles.th}>Actions</th>
                 </tr>
               </thead>
               <tbody className={styles.tbody}>
                 {filteredReservations.map((reservation) => (
                   <tr key={reservation.id}>
                     <td className={styles.td}>
-                      <button
-                        type="button"
-                        className={styles.rowButton}
-                        onClick={() => navigate(`/timeline?date=${reservation.date}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            navigate(`/timeline?date=${reservation.date}`);
-                          }
-                        }}
-                        aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
-                      />
                       {formatReservationTime(reservation.startTime)} -{" "}
                       {formatReservationTime(reservation.endTime)}
                     </td>
@@ -334,13 +345,27 @@ export function ReservationsPage() {
                       )}
                     </td>
                     <td className={styles.td}>{reservation.partySize}</td>
-                    <td className={styles.td}>{reservation.table?.name ?? reservation.tableId}</td>
+                    <td className={styles.td}>{resolveTableName(reservation, tablesById)}</td>
                     <td className={styles.td}>
                       <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
                         {STATUS_LABEL[reservation.status]}
                       </Badge>
                     </td>
                     <td className={styles.tdMuted}>{reservation.notes ?? "-"}</td>
+                    <td className={styles.td}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          navigate(
+                            `/timeline?date=${reservation.date}&${SELECTED_PARAM}=${reservation.id}`
+                          )
+                        }
+                        aria-label={`View ${reservation.guestName ?? "Guest"} reservation on timeline`}
+                      >
+                        View
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

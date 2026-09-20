@@ -122,6 +122,7 @@
     <item priority="low">
       interface MockPrisma {
         $queryRaw: ReturnType<typeof vi.fn>;
+        $executeRaw: ReturnType<typeof vi.fn>;
       }
     </item>
     <item priority="low">
@@ -141,6 +142,7 @@
         getSlowQueryStats?: ReturnType<typeof vi.fn>;
         getServiceStatus?: ReturnType<typeof vi.fn>;
         getPoolMetrics?: ReturnType<typeof vi.fn>;
+        shutdown?: ReturnType<typeof vi.fn>;
       }
     </item>
     <item priority="high">

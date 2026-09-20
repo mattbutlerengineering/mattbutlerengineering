@@ -334,6 +334,7 @@ export function TimelinePage() {
       reservation={selectedReservation}
       tables={tables}
       seated={seatedIds.has(selectedReservation.id)}
+      now={now}
       onEdit={openEditDrawer}
       onSeat={() => handleSeat(selectedReservation)}
       onCancel={() => setShowCancelDialog(true)}
@@ -549,6 +550,7 @@ export function TimelinePage() {
           reservation={selectedReservation}
           tables={tables}
           seated={seatedIds.has(selectedReservation.id)}
+          now={now}
           open
           onClose={clearSelection}
           onSeat={() => handleSeat(selectedReservation)}

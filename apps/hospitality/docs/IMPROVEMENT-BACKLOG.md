@@ -11,13 +11,13 @@
 - [x] **#11** ARIA live regions — added to ActivityFeed, ReservationsPage, GuestsPage, AdminPage
 - [x] **#4** VenueContext — created, wired into DashboardLayout, adopted by HomePage, ReservationsPage, GuestsPage, FloorPlansPage
 - [x] **P0 #3** (partial) Cross-page sync — SSE added to ReservationsPage via `useReservationEvents`
-- [x] **P0 #1** Error recovery — `useApiCall` hook + `ErrorRetryBanner` adopted on HomePage, FloorPlansPage, FloorPlanEditorPage, GuestsPage (20 unit tests)
+- [x] **P0 #1** Error recovery — `ErrorRetryBanner` (with per-page retry handlers, no shared `useApiCall` hook) adopted on AdminPage, BookingWidgetDemoPage, BriefingPage, FloorPlanEditorPage, FloorPlansPage, GuestsPage, HomePage, ProfilePage, ReservationsPage, SettingsPage, TimelinePage, WaitlistPage
 - [x] **#8** Deep link support — Timeline and ReservationsPage read/write date+status to URL search params
 - [x] **#9** Breadcrumb navigation — route-aware breadcrumbs in DashboardLayout
 - [x] **#2** Timeline mobile — already handled (sidebar hides, Drawer opens, responsive CSS)
 - [x] **#6** Guest edit flow — edit mode in GuestDetailDrawer with name/email/phone/notes editing
 - [x] **#12** Unsaved changes warning — beforeunload + useBlocker + ConfirmDialog on FloorPlanEditorPage
-- [x] All hardcoded CSS colors replaced with Rialto tokens (all pages + all components)
+- [ ] (partial) Hardcoded CSS colors replaced with Rialto tokens — floor-plan canvas grid (#4991) and the WalkInDialog/CancelReservationDialog/EditReservationDrawer focus rings (#4991) fixed; a `hospitality-service-ux` audit at `5f642aa42` (2026-09-03) still counted ~12 remaining literals (e.g. the 5 dialog-overlay `rgba(0,0,0,.5)` scrims) not yet swept — do not refile those without checking current state first
 - [x] **#10** Keyboard accessibility for Timeline grid — arrow-key navigation + focus tracking (#4402), Enter/Space activation (#4408), visible focus ring (#4444), keyboard-only E2E coverage (#4453)
 - [x] **#13** Floor plan templates — five layouts (Restaurant, Cafe, Bar, Patio, Blank) added to the venue-onboarding wizard's Floor Plan step
 
@@ -36,9 +36,9 @@
 - [ ] Buttons show "Saving..." for max 10 seconds, then revert with error
 - [ ] Stale data (>60s since last successful fetch) shows a subtle "Data may be out of date" warning
 
-**Implementation Hint:** Create a `useApiCall` hook that wraps fetch with timeout, retry, and loading/error states. Use AbortController for timeout.
+**Implementation Hint:** `ErrorRetryBanner` + a page-local `refetch()`/`onRetry` callback (see `HomePage.tsx`) already covers the "Retry" button criterion on every page listed below. The remaining criteria — a 10s per-request timeout and a "data may be out of date" staleness warning — are still open; no shared hook exists yet for them.
 
-**Files to modify:** All pages that call APIs (HomePage, TimelinePage, ReservationsPage, GuestsPage, FloorPlansPage, FloorPlanEditorPage, AdminPage, ProfilePage, SettingsPage)
+**Files to modify:** Remaining criteria only. Retry is already wired on: HomePage, TimelinePage, ReservationsPage, GuestsPage, FloorPlansPage, FloorPlanEditorPage, AdminPage, ProfilePage, SettingsPage, BookingWidgetDemoPage, BriefingPage, WaitlistPage
 
 ---
 

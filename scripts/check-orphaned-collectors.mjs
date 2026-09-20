@@ -59,10 +59,21 @@ export const GUARDED_MODULES = [
 /** Directories scanned for in-repo modules. */
 export const SCAN_DIRS = ["scripts", "plugins/acmm/scripts"];
 
-/** Files whose text can make a script a live root. */
+/**
+ * Files whose text can make a script a live root.
+ *
+ * `.claude/settings.json` and `.claude/hooks/**` are load-bearing: without
+ * them, `scripts/hook-input.mjs` and `scripts/secret-scan.mjs` read as
+ * unreachable even though `.claude/settings.json` invokes their `.claude/hooks/`
+ * wrappers directly and those wrappers name the two scripts by path in their
+ * own comments. Widening GUARDED_MODULES before adding these two entries
+ * would have produced false positives on both.
+ */
 export const REFERENCE_GLOBS = [
   { dir: ".github/workflows", match: (n) => n.endsWith(".yml") || n.endsWith(".yaml") },
   { dir: ".claude/skills", match: (n) => n === "SKILL.md" },
+  { dir: ".claude", match: (n) => n === "settings.json" },
+  { dir: ".claude/hooks", match: () => true },
 ];
 
 const MODULE_RE = /\.(mjs|cjs|js)$/;
@@ -199,7 +210,6 @@ export function formatFinding(finding) {
     : `${finding.path} — no live root reaches it (${finding.reason})`;
 }
 
-/* c8 ignore start -- CLI entrypoint, exercised via repo-audit not unit tests */
 /**
  * Collect POSIX repo-relative module paths under the scan dirs.
  *
@@ -237,6 +247,7 @@ export function collectReferenceTexts(repoRoot = root) {
   return texts;
 }
 
+/* c8 ignore start -- CLI entrypoint, exercised via repo-audit not unit tests */
 const isMain = process.argv[1] && process.argv[1].endsWith("check-orphaned-collectors.mjs");
 
 if (isMain) {

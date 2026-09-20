@@ -1188,10 +1188,15 @@ describe("reservationService", () => {
 
       const callOrder: string[] = [];
       const executeRaw = vi.fn().mockImplementation((sql: any) => {
-        callOrder.push("lock");
-        expect(sql.sql ?? String(sql)).toContain("pg_advisory_xact_lock");
-        // tableId bound as a parameter, never string-interpolated.
-        expect(sql.values).toContain("table-1");
+        // The transaction's $executeRaw also carries setVenueContext's
+        // set_config call (ADR-026 part 6) as its first invocation — only
+        // the advisory-lock call itself is asserted/ordered here.
+        const sqlText = sql.sql ?? String(sql);
+        if (sqlText.includes("pg_advisory_xact_lock")) {
+          callOrder.push("lock");
+          // tableId bound as a parameter, never string-interpolated.
+          expect(sql.values).toContain("table-1");
+        }
         return Promise.resolve(0);
       });
 
@@ -1221,7 +1226,9 @@ describe("reservationService", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(executeRaw).toHaveBeenCalledTimes(1);
+      // Two $executeRaw calls: setVenueContext's set_config (ADR-026 part 6)
+      // first, then the advisory lock.
+      expect(executeRaw).toHaveBeenCalledTimes(2);
       expect(callOrder[0]).toBe("lock");
       expect(callOrder.indexOf("lock")).toBeLessThan(callOrder.indexOf("reservation.findFirst"));
     });

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
@@ -299,6 +302,17 @@ describe("CancelReservationDialog", () => {
       expect(defaultProps.onClose).toHaveBeenCalledOnce();
       expect(document.activeElement).not.toBe(trigger);
       document.body.removeChild(trigger);
+    });
+  });
+
+  describe("focus ring token", () => {
+    it("uses the rialto gold focus-ring token instead of a hardcoded Tailwind-blue box-shadow", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "CancelReservationDialog.module.css"),
+        "utf-8"
+      );
+      expect(css).not.toMatch(/rgba\(\s*59,\s*130,\s*246/);
+      expect(css).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
     });
   });
 });
