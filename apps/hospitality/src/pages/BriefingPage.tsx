@@ -33,11 +33,37 @@ import styles from "./BriefingPage.module.css";
 
 /* ── Time slot segments ─────────────────────────── */
 
+/**
+ * Bucket boundaries as local 24h hours. `segmentForHour` and the filter labels
+ * below are both derived from these, so the wording cannot drift from the
+ * bucketing again (#5276): the labels used to read "Dinner (6–8 PM)" / "Late
+ * (after 8 PM)" against an 18:00–20:59 / ≥21:00 split, so a Host filtering
+ * Late at 20:30 got "No late seatings tonight." while a 20:30 party sat on the
+ * book under Dinner. ux.md:89 owns the split; only the printed hours were wrong.
+ */
+const EARLY_END_HOUR = 18;
+const LATE_START_HOUR = 21;
+
+const meridiem = (hour24: number): string => (hour24 < 12 ? "AM" : "PM");
+const clockHour = (hour24: number): number => (hour24 % 12 === 0 ? 12 : hour24 % 12);
+
+/** 18 -> "6 PM". Whole hours only; these boundaries are never fractional. */
+function hourLabel(hour24: number): string {
+  return `${clockHour(hour24)} ${meridiem(hour24)}`;
+}
+
+/** (18, 21) -> "6–9 PM"; collapses a shared meridiem the way the door says it. */
+function hourRangeLabel(from24: number, to24: number): string {
+  return meridiem(from24) === meridiem(to24)
+    ? `${clockHour(from24)}–${clockHour(to24)} ${meridiem(to24)}`
+    : `${hourLabel(from24)}–${hourLabel(to24)}`;
+}
+
 const TIME_SEGMENTS = [
   { id: "all", label: "All" },
-  { id: "early", label: "Early (before 6 PM)" },
-  { id: "dinner", label: "Dinner (6–8 PM)" },
-  { id: "late", label: "Late (after 8 PM)" },
+  { id: "early", label: `Early (before ${hourLabel(EARLY_END_HOUR)})` },
+  { id: "dinner", label: `Dinner (${hourRangeLabel(EARLY_END_HOUR, LATE_START_HOUR)})` },
+  { id: "late", label: `Late (from ${hourLabel(LATE_START_HOUR)})` },
 ] as const;
 
 type TimeSegmentId = (typeof TIME_SEGMENTS)[number]["id"];
@@ -50,8 +76,8 @@ export type BriefingSegment = "early" | "dinner" | "late";
  * `localHour(startTime)` so segment and printed time read the same clock (audit A2).
  */
 export function segmentForHour(hour: number): BriefingSegment {
-  if (hour < 18) return "early";
-  if (hour < 21) return "dinner";
+  if (hour < EARLY_END_HOUR) return "early";
+  if (hour < LATE_START_HOUR) return "dinner";
   return "late";
 }
 
