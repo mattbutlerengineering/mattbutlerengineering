@@ -45,6 +45,7 @@ vi.mock("@mbe/agent-core", () => ({
 
 import { sessionService } from "../services/session.js";
 import { runOrchestrator } from "@mbe/agent-core";
+import { defaultConcurrency } from "../services/session-concurrency.js";
 import { buildApp } from "../app.js";
 
 const mockParentSession = {
@@ -328,6 +329,117 @@ describe("Orchestrate Routes", () => {
       });
 
       expect(response.statusCode).toBe(400);
+    });
+  });
+
+  /**
+   * #5148: orchestrate created its parent session with `sessionService.create()`
+   * and ran it through `runOrchestrator()` inline, never touching the admission
+   * path `POST /v1/sessions` uses. The parent was invisible to the gate, so an
+   * authenticated caller could start unbounded concurrent orchestrations — each
+   * holding a request thread and each able to spawn `maxConcurrentSessions`
+   * children — while the service was already at `MAX_CONCURRENT_SESSIONS`.
+   *
+   * A `canStart()`-only check would NOT have fixed this: parents never entered
+   * the active set, so the check could never go false no matter how many
+   * orchestrations were in flight. The slot has to actually be reserved, which
+   * is what these tests pin.
+   */
+  describe("concurrency admission (#5148)", () => {
+    const held: string[] = [];
+
+    afterEach(() => {
+      for (const id of held) defaultConcurrency.release(id);
+      held.length = 0;
+    });
+
+    function fillToCapacity() {
+      for (let i = 0; i < defaultConcurrency.limit; i++) {
+        const id = `filler-${i}`;
+        defaultConcurrency.acquire(id);
+        held.push(id);
+      }
+    }
+
+    it("rejects with 429 when the gate is at capacity, without creating a session row", async () => {
+      fillToCapacity();
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: { taskDescription: "Build a notification system" },
+      });
+
+      expect(response.statusCode).toBe(429);
+      // No DB row for a session that was never admitted.
+      expect(sessionService.create).not.toHaveBeenCalled();
+      expect(runOrchestrator).not.toHaveBeenCalled();
+    });
+
+    it("holds a slot for the whole run and releases it afterward", async () => {
+      vi.mocked(sessionService.create).mockResolvedValueOnce(mockParentSession);
+      vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
+      vi.mocked(sessionService.addEvent).mockResolvedValue({
+        id: "event-1",
+        sessionId: "parent-session-1",
+        type: "orchestrator:start",
+        data: {},
+        createdAt: "2026-02-27T00:00:00.000Z",
+      });
+
+      const before = defaultConcurrency.activeCount();
+      let duringRun = -1;
+
+      vi.mocked(runOrchestrator).mockImplementationOnce(async () => {
+        // Observed from inside the orchestration: this is the assertion a
+        // decorative `canStart()` check cannot satisfy.
+        duringRun = defaultConcurrency.activeCount();
+        return {
+          status: "succeeded" as const,
+          childSessionIds: [],
+          summary: "Done",
+          totalCostUsd: 0.05,
+          durationMs: 5000,
+        };
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: { taskDescription: "Build a notification system" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(duringRun).toBe(before + 1);
+      expect(defaultConcurrency.activeCount()).toBe(before);
+    });
+
+    it("releases the slot when the orchestration throws", async () => {
+      vi.mocked(sessionService.create).mockResolvedValueOnce(mockParentSession);
+      vi.mocked(sessionService.updateStatus).mockResolvedValue(null);
+      vi.mocked(sessionService.addEvent).mockResolvedValue({
+        id: "event-1",
+        sessionId: "parent-session-1",
+        type: "orchestrator:start",
+        data: {},
+        createdAt: "2026-02-27T00:00:00.000Z",
+      });
+
+      const before = defaultConcurrency.activeCount();
+      vi.mocked(runOrchestrator).mockRejectedValueOnce(new Error("orchestrator exploded"));
+
+      await app.inject({
+        method: "POST",
+        url: "/v1/orchestrate",
+        headers: { "x-auth-bypass": "true" },
+        payload: { taskDescription: "Build a notification system" },
+      });
+
+      // A leaked slot is permanent: it would shrink capacity for the process
+      // lifetime, which is worse than the unbounded-admission bug being fixed.
+      expect(defaultConcurrency.activeCount()).toBe(before);
     });
   });
 });
