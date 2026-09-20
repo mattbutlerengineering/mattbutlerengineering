@@ -94,21 +94,27 @@ test.describe("Briefing: Tonight's Service", () => {
   }) => {
     await openBriefing(mockedPage);
 
+    // Segments match on the leading word only. Early/Dinner/Late is the stable
+    // vocabulary; the parenthesised hours beside it are copy that has already
+    // drifted from the bucketing once (#5276), so an exact-text locator turns
+    // any future copy edit into a red E2E. BriefingPage.test.tsx owns the exact
+    // wording (against a mocked SegmentedControl); this spec owns the filtering
+    // behaviour against the real one, which renders role=radio and no test id.
     // All: three parties, no leading zeros.
     await expect(mockedPage.getByText("5:30 PM")).toBeVisible();
     await expect(mockedPage.getByText("6:30 PM")).toBeVisible();
     await expect(mockedPage.getByText("9:00 PM")).toBeVisible();
 
-    await mockedPage.getByRole("radio", { name: "Early (before 6 PM)", exact: true }).click();
+    await mockedPage.getByRole("radio", { name: /^Early/ }).click();
     await expect(mockedPage.getByText("Early Guest")).toBeVisible();
     await expect(mockedPage.getByText("Priya Shah")).toHaveCount(0);
     await expect(mockedPage.getByText("Jordan Lee")).toHaveCount(0);
 
-    await mockedPage.getByRole("radio", { name: "Dinner (6–8 PM)", exact: true }).click();
+    await mockedPage.getByRole("radio", { name: /^Dinner/ }).click();
     await expect(mockedPage.getByText("Priya Shah")).toBeVisible();
     await expect(mockedPage.getByText("Early Guest")).toHaveCount(0);
 
-    await mockedPage.getByRole("radio", { name: "Late (after 8 PM)", exact: true }).click();
+    await mockedPage.getByRole("radio", { name: /^Late/ }).click();
     await expect(mockedPage.getByText("Jordan Lee")).toBeVisible();
     await expect(mockedPage.getByText("Priya Shah")).toHaveCount(0);
     await mockedPage.screenshot({ path: "e2e/screenshots/briefing-late.png", fullPage: true });

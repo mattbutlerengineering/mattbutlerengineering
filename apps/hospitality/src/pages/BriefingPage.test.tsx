@@ -435,6 +435,37 @@ describe("BriefingPage", () => {
       expect(screen.getByText("9:00 PM")).toBeInTheDocument();
     });
 
+    // #5276: the labels used to read "Dinner (6–8 PM)" / "Late (after 8 PM)" against an
+    // 18:00–20:59 / ≥21:00 split, so a Host filtering Late at 20:30 was told "No late
+    // seatings tonight." while a 20:30 party sat on the book under Dinner. ux.md:89 owns
+    // the split; only the printed hours were wrong. These two tests pin label and bucket
+    // together — move a boundary constant and the label assertion fails with it.
+    it("the printed segment labels state the same boundaries the buckets enforce (#5276)", () => {
+      mockBriefing({ data: night() });
+
+      renderPage();
+
+      expect(screen.getByTestId("segment-early")).toHaveTextContent("Early (before 6 PM)");
+      expect(screen.getByTestId("segment-dinner")).toHaveTextContent("Dinner (6–9 PM)");
+      expect(screen.getByTestId("segment-late")).toHaveTextContent("Late (from 9 PM)");
+    });
+
+    it("a 20:30 party files under the segment whose label covers 8:30 PM (#5276)", () => {
+      mockBriefing({
+        data: [
+          makeEntry({ id: "half-eight", guestName: "Half Eight", startTime: atLocal("20:30") }),
+        ],
+      });
+
+      renderPage();
+
+      fireEvent.click(screen.getByTestId("segment-late"));
+      expect(screen.queryByText("Half Eight")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("segment-dinner"));
+      expect(screen.getByText("Half Eight")).toBeInTheDocument();
+    });
+
     it.each([
       ["early", "Early Guest", "5:30 PM"],
       ["dinner", "Dinner Guest", "6:30 PM"],
