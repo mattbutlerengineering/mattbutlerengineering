@@ -1998,6 +1998,12 @@ None new this run (`agent-skip` unchanged at 4, same as 09-15).
 **Sentry triage (Step 1b):** skipped — Sentry MCP host (`sentry.io`) not in this cloud session's egress allowlist (403)
 **Threshold notes:** verify-fixes threshold auto-tuner found no per-sensor metrics to compute (all 5 verifications skipped, none verified/failed) — no tuning signal this run. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors for at least the 4th consecutive day (09-17, 09-18, 09-19) — budgets file left at defaults (3/category). Moot again this run since regressions was empty, but this gap will block issue filing (Step 3 dedup search) the next time a regression actually fires — candidate for `/gotcha-harvest` promotion given the repeat count.
 
+## 2026-09-20
+
+**queueEfficiency:** composite 0.964 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:14, size:s:15, size:l:1, size:m:2, size:xl:1
+**Issues filed:** 0
+
 ## 2026-09-20 (mbe-evening)
 
 ### Metrics
