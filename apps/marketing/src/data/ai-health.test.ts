@@ -254,3 +254,68 @@ describe("normalizeSensorReport — acmm", () => {
     expect(metrics.acmm.failingGates).toEqual([]);
   });
 });
+describe("normalizeSensorReport — reviewBurden", () => {
+  // Matches scripts/sensors-registry.mjs's reviewBurden registry entry, which
+  // reads the latest entry appended by scripts/acmm/review-burden-metrics.js.
+  const REVIEW_BURDEN_REPORT = {
+    generated_at: "2026-09-20T12:00:00.000Z",
+    sensors: {
+      reviewBurden: {
+        available: true,
+        collected_at: "2026-09-19T04:52:03.798Z",
+        window_days: 7,
+        total_closed_prs: 73,
+        total_reviewers: 3,
+        total_reviews: 11,
+        overall_rubber_stamp_ratio: 0.09,
+        overall_approvals: 11,
+        overall_rubber_stamps: 1,
+      },
+    },
+    summary: {
+      sensors_available: 1,
+      sensors_total: 1,
+      regressions_detected: 0,
+    },
+    regressions: [],
+  };
+
+  it("extracts the summary counts the panel renders", () => {
+    const metrics = normalizeSensorReport(REVIEW_BURDEN_REPORT);
+
+    expect(metrics.reviewBurden.available).toBe(true);
+    expect(metrics.reviewBurden.collectedAt).toBe("2026-09-19T04:52:03.798Z");
+    expect(metrics.reviewBurden.windowDays).toBe(7);
+    expect(metrics.reviewBurden.totalClosedPrs).toBe(73);
+    expect(metrics.reviewBurden.totalReviewers).toBe(3);
+    expect(metrics.reviewBurden.totalReviews).toBe(11);
+    expect(metrics.reviewBurden.rubberStampRatio).toBe(0.09);
+  });
+
+  it("degrades to unavailable without throwing when the sensor key is absent", () => {
+    const metrics = normalizeSensorReport({ sensors: {} });
+    expect(metrics.reviewBurden.available).toBe(false);
+    expect(metrics.reviewBurden.totalReviewers).toBeNull();
+    expect(metrics.reviewBurden.totalReviews).toBeNull();
+    expect(metrics.reviewBurden.rubberStampRatio).toBeNull();
+    expect(metrics.reviewBurden.collectedAt).toBeNull();
+  });
+
+  it("degrades to unavailable when the collector ran but the metrics file was empty", () => {
+    // Exactly what the registry entry returns for an empty review-burden.json:
+    // an honest `{ available: false }`, never zeroes that look like real data.
+    const metrics = normalizeSensorReport({
+      sensors: { reviewBurden: { available: false } },
+    });
+    expect(metrics.reviewBurden.available).toBe(false);
+    expect(metrics.reviewBurden.totalReviews).toBeNull();
+  });
+
+  it("does not invent numbers from a malformed sensor entry", () => {
+    const metrics = normalizeSensorReport({
+      sensors: { reviewBurden: { available: true, total_reviews: "eleven" } },
+    });
+    expect(metrics.reviewBurden.available).toBe(true);
+    expect(metrics.reviewBurden.totalReviews).toBeNull();
+  });
+});
