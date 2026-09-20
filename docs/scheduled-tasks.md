@@ -45,6 +45,7 @@ further down describe _why_, not _what_.
 | `mbe-evening`              | `trig_01PHwfbFQcFveYajVPaTrbZk`  | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `11 0 * * *`  | sonnet   | PRs / metrics                                   | `/implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                    |
 | `mbe-night` _(new)_        | `trig_01E6UxiwdsWcjBNwRGZSjmSV`  | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *`  | sonnet   | PRs / issues                                    | Overnight drain (`/implement-queue`) + CI health check                                                         |
 | `mbe-auditor` _(new)_      | `trig_019cUkf16QbqTL7RrVXXqXsw`  | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *`  | sonnet   | issues                                          | Read-only rotating 7-lens audit (see lens table below)                                                         |
+| `mbe-daily-issue` _(new)_  | `trig_01Df3XFeJnGYeH33NeqE1Mp3`  | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` | sonnet   | 1 merged PR                                     | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                |
 | `mbe-morning`              | `trig_01QYoHCMjUgJybAoXUvjjrWX`  | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `3 16 * * *`  | sonnet   | issues / PRs                                    | ACMM audit + `/ideate` (cycle-check + ideation)                                                                |
 | `mbe-learning-loop`        | `trig_018hcYeu5uCXgiddRwqaeYwd`  | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *`  | sonnet   | issues                                          | Sensor report → verify past fixes → triage regressions                                                         |
 | `mbe-midday`               | `trig_0118ZgGfEndrMqQSuTQNXQwT`  | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *`  | sonnet   | PRs                                             | `/implement-queue` (batch ≤3) + CI monitor                                                                     |
@@ -66,6 +67,24 @@ further down describe _why_, not _what_.
 > the `ready` backlog while Matt is offline, then a CI health check confirms
 > `main` is still green before the next morning's routines run. Prompt:
 > [`routines/mbe-night.md`](./routines/mbe-night.md).
+
+> **`mbe-daily-issue`** is the only routine whose unit of success is an issue
+> **CLOSED**, not a PR opened. `mbe-midday`/`mbe-evening`/`mbe-night` each drain a
+> batch of up to 3 `ready` issues and leave the merge to someone else; this one
+> takes a single oldest-`ready` issue through TDD, the `reviewer` subagent gate,
+> a green `CI Gate`, a squash merge whose **commit** body carries `Closes #N`,
+> and a post-merge check that the issue actually closed. Throughput is
+> deliberately 1/day. It stops rather than looping on three states: a `reviewer`
+> FLAG, a twice-red `CI Gate`, and an absent `CI Gate` (a cloud session has no
+> `actions:write`, so it cannot dispatch `ci.yml` — it comments and labels
+> `needs-review` instead). Prompt:
+> [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md).
+>
+> On **Fridays it starts 21 minutes after `mbe-weekly-improve`** (7:00am PT), so
+> two cloud sessions can be live on the same repo at once. The `in-progress`
+> label claim is the race guard. Added 2026-09-20 alongside the three batch
+> routines rather than replacing one — prune after a week of runs if the queue
+> turns out to be drained before it fires.
 
 > **`mbe-auditor`** runs a read-only rotating 7-lens audit — one lens per day,
 > cycling through the week. Prompt:
