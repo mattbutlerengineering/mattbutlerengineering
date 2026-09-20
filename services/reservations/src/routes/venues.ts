@@ -731,6 +731,10 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Authentication required",
             $ref: "Error#",
           },
+          403: {
+            description: "Admin role required to change the venue's venue group",
+            $ref: "Error#",
+          },
           404: {
             description: "Venue not found",
             $ref: "Error#",
@@ -739,6 +743,31 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
+      const { venueGroupId } = request.body;
+      if (venueGroupId !== undefined && !hasPermission(request.user, "admin")) {
+        // requireVenueAccess above proves MEMBERSHIP of this venue only — it
+        // never inspects a per-venue role (ADR-020). Re-parenting a venue into
+        // a different venue group is an org-hierarchy-defining mutation, the
+        // same class as venue-group CRUD and venue creation, both admin-gated
+        // in this file. Every other editable field stays open to members, so
+        // the check is scoped to an actual CHANGE of venueGroupId rather than
+        // gating the whole route.
+        const current = await venueService.getById(request.params.id);
+        // A venue that does not exist is not a reassignment — fall through so
+        // the update below surfaces the existing 404.
+        if (current && (venueGroupId ?? null) !== current.venueGroupId) {
+          return reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                "Forbidden",
+                "Admin role required to change a venue's venue group"
+              )
+            );
+        }
+      }
+
       const venue = await venueService.update(request.params.id, request.body);
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
