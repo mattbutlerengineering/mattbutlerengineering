@@ -2039,3 +2039,14 @@ None new this run (`agent-skip` unchanged at 4, same as 09-15).
 ### Skipped Issues
 
 None this run (`agent-skip` empty, 0 open).
+
+## 2026-09-20
+
+**Sensors:** 8/16 available (acmm, prMetrics, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency) — domainActivity, agentCost, lighthouse, mutationScore, flakyTests, e2eStability unavailable; issues + issueFeedback queries failed (GitHub auth 403 — REST fallback credential invalid for direct API calls)
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 96/114, CI 100% pass rate 22/22, code churn 0%, queueEfficiency composite 0.959)
+**Verifications:** 5 checked (issues closed in 48h window: #5494, #5492, #5491, #5490, #5469), 0 verified, 0 failed, 5 skipped (no matching verifier / missing Lighthouse inventory / no completed CI runs / Sentry MCP not authenticated at query time)
+**AI issue feedback:** collection failed (same 403 REST-fallback-credential issue as the `issues`/`issueFeedback` sensors) — defaulted to budget 3/category, moot since 0 regressions this run
+**Sentry triage:** skipped (MCP disconnected mid-run, optional step)
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** auto-tuner ran, no per-sensor metrics computed (all 5 verifications were skips, not verified/failed) — nothing to tune this run
+**Environment notes:** fresh cloud checkout had no `node_modules` and no built `@mbe/gh-client` dist — ran `pnpm install --frozen-lockfile` then `pnpm --filter @mbe/gh-client build` before sensors would resolve; worth pre-baking into the routine's setup if this recurs
