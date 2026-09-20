@@ -87,7 +87,16 @@
 
 .metricsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  /* Each figure is a flip-board: em-sized cells that cannot wrap or shrink, so
+     a column narrower than the rendered number spills out of its card rather
+     than reflowing inside it. At the old 180px floor a four-across strip gave
+     each card a 180px content box, and `Test files` crossing 1,000 rendered
+     `1,132` 317px wide — a 137px spill on production (#5459). The floor is the
+     widest figure's own width (317px) plus the card's 2 x 32px padding, rounded
+     up: auto-fit now drops a column instead of overflowing, and the reserve
+     covers growth to five digits. `min(100%, ...)` keeps a container narrower
+     than the floor on one column instead of overflowing it. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 384px), 1fr));
   gap: var(--rialto-space-lg);
 }
 
