@@ -85,12 +85,37 @@ export function findGuestsForVenue(
   );
 }
 
+/**
+ * Reads every venue id, for the per-venue cron loop below.
+ *
+ * Like `findGuestsForVenue`, this is a cross-venue read with no HTTP
+ * request context, so `getCurrentVenueId()`/`app.venue_id` is never set.
+ * `venues` gained its own RLS policy in the
+ * `20260919000000_enable_rls_venues` migration (ADR-026 §5), so an
+ * unwrapped `prisma.venue.findMany()` here is now just as exposed to the
+ * "silently returns zero rows" failure mode (ADR-026 §4 default-deny) as
+ * the guest read already was. Table ownership currently masks this in
+ * production -- the app's DB role owns `venues` and bypasses RLS
+ * unconditionally until #5369 changes that -- so this has no live
+ * functional impact today, but the code's own invariant should not depend
+ * on that. Wrapped in the same `withRlsBypass` escape hatch as
+ * `findGuestsForVenue` to remove the landmine before it matters.
+ *
+ * Exported for the same reason `findGuestsForVenue` is: so it can be
+ * exercised directly against a real Postgres instance in
+ * `lapsed-guest-cron.rls.integration.test.ts`.
+ */
+export function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
+  return withRlsBypass(prisma, (tx) =>
+    tx.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id))
+  );
+}
+
 function buildPrismaCallbacks(
   prisma: PrismaClient
 ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
   return {
-    getVenueIds: () =>
-      prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
+    getVenueIds: () => getAllVenueIds(prisma),
     runScan: (venueId) =>
       runLapsedGuestScan(venueId, {
         findGuestsForScan: (vid) => findGuestsForVenue(prisma, vid),

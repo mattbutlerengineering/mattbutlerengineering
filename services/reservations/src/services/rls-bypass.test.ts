@@ -28,8 +28,8 @@ function createFakeClient() {
 }
 
 describe("withRlsBypass", () => {
-  it("issues SET ROLE app_rls_bypass before, and RESET ROLE after, the callback on the SAME tx", async () => {
-    const { client, guestFindMany, getLastTxExecuteRaw } = createFakeClient();
+  it("issues SET LOCAL ROLE app_rls_bypass on the tx before running the callback, with a generous transaction timeout", async () => {
+    const { client, $transaction, guestFindMany, getLastTxExecuteRaw } = createFakeClient();
 
     const result = await withRlsBypass(
       client,
@@ -37,22 +37,26 @@ describe("withRlsBypass", () => {
     );
 
     const txExecuteRaw = getLastTxExecuteRaw();
-    expect(txExecuteRaw).toHaveBeenCalledTimes(2);
-    expect(txExecuteRaw?.mock.calls[0]?.[0]).toEqual(["SET ROLE app_rls_bypass"]);
-    expect(txExecuteRaw?.mock.calls[1]?.[0]).toEqual(["RESET ROLE"]);
+    // Only one statement is ever issued -- SET LOCAL reverts automatically
+    // when the transaction ends, so there is no paired RESET/undo call.
+    expect(txExecuteRaw).toHaveBeenCalledTimes(1);
+    expect(txExecuteRaw?.mock.calls[0]?.[0]).toEqual(["SET LOCAL ROLE app_rls_bypass"]);
 
-    // Ordering: SET ROLE before the callback's query, RESET ROLE after.
+    // Ordering: SET LOCAL ROLE before the callback's query.
     const setRoleOrder = txExecuteRaw?.mock.invocationCallOrder[0] ?? Infinity;
     const findManyOrder = guestFindMany.mock.invocationCallOrder[0] ?? -Infinity;
-    const resetRoleOrder = txExecuteRaw?.mock.invocationCallOrder[1] ?? -Infinity;
     expect(setRoleOrder).toBeLessThan(findManyOrder);
-    expect(findManyOrder).toBeLessThan(resetRoleOrder);
+
+    // The default Prisma interactive-transaction timeout (5s) is too tight
+    // for a per-venue scan against a large venue -- withRlsBypass must
+    // override it explicitly.
+    expect($transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30_000 });
 
     expect(result).toEqual([{ id: "guest-1" }]);
   });
 
-  it("still issues RESET ROLE when the callback throws, and rethrows", async () => {
-    const { client, getLastTxExecuteRaw } = createFakeClient();
+  it("propagates the callback's error without issuing any additional statement", async () => {
+    const { getLastTxExecuteRaw, client } = createFakeClient();
 
     await expect(
       withRlsBypass(client, async () => {
@@ -60,8 +64,48 @@ describe("withRlsBypass", () => {
       })
     ).rejects.toThrow("boom");
 
+    // Nothing to reset on error either -- SET LOCAL's revert happens at
+    // ROLLBACK, which Prisma's $transaction issues on its own when the
+    // callback throws. If withRlsBypass ever needed a second `$executeRaw`
+    // call here (e.g. an explicit RESET ROLE), it would risk running that
+    // statement inside an already-aborted transaction and masking this
+    // error with a new one -- exactly the failure mode SET LOCAL avoids.
     const txExecuteRaw = getLastTxExecuteRaw();
-    expect(txExecuteRaw).toHaveBeenCalledTimes(2);
-    expect(txExecuteRaw?.mock.calls[1]?.[0]).toEqual(["RESET ROLE"]);
+    expect(txExecuteRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not leak the elevated role onto a later query on the same underlying client", async () => {
+    // SET LOCAL is scoped to the transaction that issued it. A mocked
+    // $transaction can't reproduce Postgres's own revert-on-commit
+    // behavior, but it CAN prove withRlsBypass never issues a statement
+    // outside the transaction it opened -- each call gets its own tx and
+    // its own $executeRaw spy, and neither call's tx is reused by the
+    // other. The real "does the role actually revert" proof is the
+    // real-Postgres assertion in
+    // `lapsed-guest-cron.rls.integration.test.ts` ("SET LOCAL ROLE does
+    // not persist past the transaction").
+    const { client } = createFakeClient();
+
+    const firstTxExecuteRaw = { current: undefined as ReturnType<typeof vi.fn> | undefined };
+    await withRlsBypass(client, async (tx) => {
+      firstTxExecuteRaw.current = (
+        tx as unknown as { $executeRaw: ReturnType<typeof vi.fn> }
+      ).$executeRaw;
+      return null;
+    });
+
+    const secondTxExecuteRaw = { current: undefined as ReturnType<typeof vi.fn> | undefined };
+    await withRlsBypass(client, async (tx) => {
+      secondTxExecuteRaw.current = (
+        tx as unknown as { $executeRaw: ReturnType<typeof vi.fn> }
+      ).$executeRaw;
+      return null;
+    });
+
+    expect(firstTxExecuteRaw.current).not.toBe(secondTxExecuteRaw.current);
+    expect(secondTxExecuteRaw.current).toHaveBeenCalledTimes(1);
+    expect(secondTxExecuteRaw.current?.mock.calls[0]?.[0]).toEqual([
+      "SET LOCAL ROLE app_rls_bypass",
+    ]);
   });
 });

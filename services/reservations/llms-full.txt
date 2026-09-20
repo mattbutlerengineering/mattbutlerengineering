@@ -8790,12 +8790,16 @@
         })
       );
     }
+    export function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
+      return withRlsBypass(prisma, (tx) =>
+        tx.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id))
+      );
+    }
     function buildPrismaCallbacks(
       prisma: PrismaClient
     ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
       return {
-        getVenueIds: () =>
-          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
+        getVenueIds: () => getAllVenueIds(prisma),
         runScan: (venueId) =>
           runLapsedGuestScan(venueId, {
             findGuestsForScan: (vid) => findGuestsForVenue(prisma, vid),
@@ -10066,14 +10070,13 @@
       prisma: PrismaClient,
       callback: (tx: Prisma.TransactionClient) => Promise<T>
     ): Promise<T> {
-      return prisma.$transaction(async (tx) => {
-        await tx.$executeRaw`SET ROLE app_rls_bypass`;
-        try {
-          return await callback(tx);
-        } finally {
-          await tx.$executeRaw`RESET ROLE`;
-        }
-      });
+      return prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SET LOCAL ROLE app_rls_bypass`;
+          return callback(tx);
+        },
+        { timeout: TRANSACTION_TIMEOUT_MS }
+      );
     }
   </file>
   <file path="src/services/serializers.ts">

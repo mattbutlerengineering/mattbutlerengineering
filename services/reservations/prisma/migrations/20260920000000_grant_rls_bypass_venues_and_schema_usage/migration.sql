@@ -1,0 +1,23 @@
+-- Postgres Row-Level Security venue-scoping backstop (ADR-026), follow-up.
+-- Two additions to the app_rls_bypass role created by
+-- 20260916050743_add_rls_bypass_role, prompted by two review findings on
+-- the PR that introduced it (#5409):
+--
+-- 1. `venues` gained its own RLS policy in 20260919000000_enable_rls_venues,
+--    landed after app_rls_bypass was created. lapsed-guest-cron.ts's
+--    per-venue loop now reads the venue list itself through the same
+--    `withRlsBypass` escape hatch as its guest scan (src/services/
+--    rls-bypass.ts), so app_rls_bypass needs SELECT on "venues" too --
+--    without it, SET (LOCAL) ROLE app_rls_bypass would replace the
+--    session's privilege set with one that can no longer see "venues" at
+--    all, RLS-protected or not.
+-- 2. Explicit `GRANT USAGE ON SCHEMA public` for defense-in-depth. This
+--    currently works only because Postgres 15+ still grants schema USAGE
+--    to PUBLIC by default -- making it explicit means app_rls_bypass's
+--    access to "public" doesn't silently depend on that default staying in
+--    place. No behavior change today.
+--
+-- Both grants are idempotent (re-granting is a no-op) -- no guard needed,
+-- matching the existing migrations' style.
+GRANT USAGE ON SCHEMA public TO app_rls_bypass;
+GRANT SELECT ON "venues" TO app_rls_bypass;

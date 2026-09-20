@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/index.js";
-import { findGuestsForVenue } from "./lapsed-guest-cron.js";
+import { findGuestsForVenue, getAllVenueIds } from "./lapsed-guest-cron.js";
 
 /**
  * Real-Postgres regression test for ADR-026 §3's `app_rls_bypass` escape
@@ -38,7 +38,12 @@ describe.skipIf(!DATABASE_URL)(
   "lapsed-guest-cron RLS integration (ADR-026 §3 app_rls_bypass, issue #5401)",
   () => {
     const nonOwnerRole = `rls_it_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
-    const nonOwnerPassword = "rls-integration-test-password";
+    // Generated per test run rather than hardcoded -- this role is
+    // NOLOGIN-adjacent-but-not-quite (it does have LOGIN, scoped to this
+    // test's own lifetime and dropped in afterAll), so no fixed password
+    // literal should sit in a public repo even though it grants nothing
+    // beyond this test's own throwaway fixture data.
+    const nonOwnerPassword = randomBytes(24).toString("hex");
 
     let ownerPool: pg.Pool;
     let ownerPrisma: PrismaClient;
@@ -116,6 +121,24 @@ describe.skipIf(!DATABASE_URL)(
 
       expect(guestsA.map((g) => g.name)).toEqual(["RLS IT Guest A"]);
       expect(guestsB.map((g) => g.name)).toEqual(["RLS IT Guest B"]);
+    });
+
+    it("getAllVenueIds (the cron's venue-list read path) reads BOTH venues under app_rls_bypass, now that venues carries its own RLS policy", async () => {
+      const venueIds = await getAllVenueIds(appPrisma);
+
+      expect(venueIds).toEqual(expect.arrayContaining([venueA.id, venueB.id]));
+    });
+
+    it("SET LOCAL ROLE does not persist past the transaction — a later, non-bypassed query on the same pooled connection still sees zero rows under RLS", async () => {
+      // Exercise the bypass first, so if `SET LOCAL ROLE` ever regressed to
+      // a plain `SET ROLE` (which persists for the rest of the session,
+      // not just the transaction), this would catch it: the next query
+      // below reuses the pool and would silently keep seeing every venue's
+      // guests instead of reverting to default-deny.
+      await findGuestsForVenue(appPrisma, venueA.id);
+
+      const rows = await appPrisma.guest.findMany({ where: { venueId: venueA.id } });
+      expect(rows).toEqual([]);
     });
   }
 );

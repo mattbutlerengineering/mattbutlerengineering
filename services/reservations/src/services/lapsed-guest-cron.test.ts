@@ -24,23 +24,30 @@ type MockPrisma = {
 };
 
 /**
- * `findGuestsForVenue` (ADR-026 §3 bypass) wraps the guest query in
- * `prisma.$transaction`, issuing `SET ROLE`/`RESET ROLE` on the transaction
- * client before running the real `guest.findMany` on that SAME client — see
+ * `getAllVenueIds` and `findGuestsForVenue` (ADR-026 §3 bypass) each wrap
+ * their query in `prisma.$transaction`, issuing `SET LOCAL ROLE
+ * app_rls_bypass` on the transaction client before running the real
+ * `venue.findMany`/`guest.findMany` on that SAME client — see
  * `rls-bypass.test.ts` for the dedicated unit test of that mechanism. This
  * mock mirrors `venue-scoped-prisma.test.ts`'s fake-client shape so
- * `guest.findMany` here reflects calls made on the `tx` handed to the
- * `$transaction` callback, not the bare (never-called) top-level delegate.
+ * `venue.findMany`/`guest.findMany` here reflect calls made on the `tx`
+ * handed to each `$transaction` callback, not the bare (never-called)
+ * top-level delegate.
  */
 function makePrisma(overrides: Partial<Omit<MockPrisma, "$transaction">> = {}): MockPrisma {
+  const venueFindMany = overrides.venue?.findMany ?? vi.fn().mockResolvedValue([{ id: "venue-1" }]);
   const guestFindMany = overrides.guest?.findMany ?? vi.fn().mockResolvedValue([]);
   const $transaction = vi.fn(async (fn: (tx: unknown) => unknown) => {
-    const tx = { $executeRaw: vi.fn().mockResolvedValue(0), guest: { findMany: guestFindMany } };
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
+      venue: { findMany: venueFindMany },
+      guest: { findMany: guestFindMany },
+    };
     return fn(tx);
   });
 
   return {
-    venue: { findMany: vi.fn().mockResolvedValue([{ id: "venue-1" }]) },
+    venue: { findMany: venueFindMany },
     guest: { findMany: guestFindMany },
     $transaction,
     ...overrides,
@@ -71,6 +78,33 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
         where: expect.objectContaining({ venueId: "venue-1", visitCount: { gte: 3 } }),
       })
     );
+  });
+
+  it("reads the venue list through the same withRlsBypass transaction as the guest scan (ADR-026 §3)", async () => {
+    const prisma = makePrisma();
+    const monitor = createLapsedGuestMonitor({
+      prisma: prisma as never,
+      startupDelayMs: 0,
+      intervalMs: 100,
+    });
+    const log = makeLogger();
+
+    monitor.start(log);
+    await new Promise((r) => setTimeout(r, 10));
+    monitor.stop();
+
+    // One $transaction for getAllVenueIds, one more per venue for
+    // findGuestsForVenue -- with a single venue that's two calls total.
+    // Both go through withRlsBypass, so both carry its explicit 30s
+    // transaction timeout (see rls-bypass.test.ts for the SET LOCAL ROLE
+    // mechanism itself).
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction).toHaveBeenNthCalledWith(1, expect.any(Function), {
+      timeout: 30_000,
+    });
+    expect(prisma.$transaction).toHaveBeenNthCalledWith(2, expect.any(Function), {
+      timeout: 30_000,
+    });
   });
 
   it("logs when lapsing guests are found via prisma", async () => {

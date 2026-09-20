@@ -7735,6 +7735,9 @@
         venueId: string
       ): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> { /* ... */ }
     </item>
+    <item priority="high">
+      export function getAllVenueIds(prisma: PrismaClient): Promise<string[]> { /* ... */ }
+    </item>
     <item priority="medium">
       function buildPrismaCallbacks(
         prisma: PrismaClient
