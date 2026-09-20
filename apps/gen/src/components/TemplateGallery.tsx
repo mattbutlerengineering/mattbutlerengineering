@@ -304,6 +304,39 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       "Delete-item flow where the delete button starts disabled with a tooltip explaining that you must check an acknowledgment checkbox first, and once checked the button becomes enabled and opens a confirmation dialog warning that the action is permanent before the item is actually removed",
   },
+
+  // Data Display (continued)
+  {
+    id: "record-detail-panel",
+    title: "Record Detail Panel",
+    description:
+      "Read-only record detail view pairing each field label with its value in a striped spec sheet",
+    category: "Data Display",
+    prompt:
+      "Read-only record detail panel for a single reservation, showing its fields as a DataList of label-and-value pairs — guest name, party size, table, status, booking reference, and created date — laid out as a striped horizontal spec sheet beneath the record title",
+  },
+
+  // Feedback (continued)
+  {
+    id: "integration-handshake",
+    title: "Integration Handshake",
+    description:
+      "Connection status for a multi-party exchange, showing each station and the credential moving between them",
+    category: "Feedback",
+    prompt:
+      "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result list underneath",
+  },
+
+  // Data Display (continued)
+  {
+    id: "row-actions-menu",
+    title: "Row Actions Menu",
+    description:
+      "Record list where each row's overflow button opens a menu of per-row actions with shortcut hints",
+    category: "Data Display",
+    prompt:
+      "Record list where every row ends with an overflow button that opens a DropdownMenu of per-row actions — edit and duplicate with their keyboard shortcut hints, a divider, then a destructive delete entry styled as dangerous, and a disabled archive entry",
+  },
 ] as const;
 
 // ---------------------------------------------------------------------------
