@@ -148,6 +148,9 @@ export function TimelinePage() {
   const walkInButtonRef = useRef<HTMLButtonElement>(null);
   // Captured at event time (architecture § Decisions): the Edit button that opened the drawer.
   const editOpenerRef = useRef<HTMLElement | null>(null);
+  // Captured at event time, same pattern: whichever control opened the Walk-in dialog (the
+  // toolbar button or the quiet-night CTA — #5272) is where every dismissal path restores focus.
+  const walkInOpenerRef = useRef<HTMLElement | null>(null);
   const walkInCaptionId = useId();
 
   const {
@@ -212,14 +215,21 @@ export function TimelinePage() {
     stripIntent();
   };
 
+  const openWalkInDialog = () => {
+    const active = document.activeElement;
+    walkInOpenerRef.current = active instanceof HTMLElement ? active : null;
+    setShowWalkInDialog(true);
+  };
+
   const handleWalkInClose = () => {
     const openedFromUrl = intent.walkIn;
     closeWalkInDialog();
-    // A URL-opened dialog captured `body` as the element to restore; land focus where a click-open
-    // would have — the Walk-in button (ux.md Decision (d)). A click-opened dialog keeps its own.
-    if (openedFromUrl && walkInButtonRef.current) {
-      focusAfter({ kind: "element", element: walkInButtonRef.current });
-    }
+    // A URL-opened dialog has no opener to restore; land focus where a click-open would have — the
+    // Walk-in button (ux.md Decision (d)). A click-opened dialog restores its own captured opener —
+    // the toolbar button or the quiet-night CTA (#5272) — on all three dismissal paths (Escape,
+    // Cancel, overlay-click all route through this one `onClose`).
+    const target = openedFromUrl ? walkInButtonRef.current : walkInOpenerRef.current;
+    if (target) focusAfter({ kind: "element", element: target });
   };
 
   /* ── Day navigation ── */
@@ -333,6 +343,7 @@ export function TimelinePage() {
       reservation={selectedReservation}
       tables={tables}
       seated={seatedIds.has(selectedReservation.id)}
+      now={now}
       onEdit={openEditDrawer}
       onSeat={() => handleSeat(selectedReservation)}
       onCancel={() => setShowCancelDialog(true)}
@@ -396,7 +407,7 @@ export function TimelinePage() {
             ? {
                 variant: isToday ? "today" : "otherDate",
                 dateLabel: formatServiceDate(selectedDate),
-                onWalkIn: () => setShowWalkInDialog(true),
+                onWalkIn: openWalkInDialog,
                 onToday: handleToday,
               }
             : null
@@ -447,7 +458,7 @@ export function TimelinePage() {
               ref={walkInButtonRef}
               variant="primary"
               size="md"
-              onClick={() => setShowWalkInDialog(true)}
+              onClick={openWalkInDialog}
               className={styles.walkInButton}
               disabled={walkInDisabled}
               aria-describedby={walkInDisabled ? walkInCaptionId : undefined}
@@ -548,6 +559,7 @@ export function TimelinePage() {
           reservation={selectedReservation}
           tables={tables}
           seated={seatedIds.has(selectedReservation.id)}
+          now={now}
           open
           onClose={clearSelection}
           onSeat={() => handleSeat(selectedReservation)}

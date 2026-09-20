@@ -935,7 +935,9 @@
   </file>
   <file path="src/routes/cancel-reservation.ts">
     export const cancelReservationRoutes: FastifyPluginAsync = async (fastify) => {
-      fastify.delete(
+      fastify.delete<{
+        Body?: { cancellationReason?: string; cancellationNote?: string };
+      }>(
         "/public/v1/reservations/manage",
         {
           config: {
@@ -949,10 +951,15 @@
             return reply.status(preamble.status).send(manageProblemDetails(preamble, "cancel"));
           }
     
-          const result = await cancelReservationWithDeposit(preamble.reservation, request.manageToken, {
-            bookingNotifier: fastify.bookingNotifier,
-            logger: request.log,
-          });
+          const result = await cancelReservationWithDeposit(
+            preamble.reservation,
+            request.manageToken,
+            { bookingNotifier: fastify.bookingNotifier, logger: request.log },
+            {
+              cancellationReason: request.body?.cancellationReason,
+              cancellationNote: request.body?.cancellationNote,
+            }
+          );
     
           if (!result.success) {
             return reply
@@ -2603,7 +2610,13 @@
             data: {
               reservation: serializeManagedReservation(reservation),
               venue: venue
-                ? { id: venue.id, name: venue.name, slug: venue.slug, ianaTimezone: venue.ianaTimezone }
+                ? {
+                    id: venue.id,
+                    name: venue.name,
+                    slug: venue.slug,
+                    ianaTimezone: venue.ianaTimezone,
+                    phone: venue.settings?.phone,
+                  }
                 : null,
             },
           });
@@ -11130,7 +11143,11 @@
       return new Proxy(client, {
         get(target, prop, receiver) {
           if (typeof prop !== "string" || prop.startsWith("$")) {
-            return Reflect.get(target, prop, receiver);
+            const value: unknown = Reflect.get(target, prop, receiver);
+            // Bind pass-through methods to the real client so Prisma's own
+            // internal `this.<field>` accesses never re-enter this Proxy with
+            // `this` set to the wrapper (see trap 1 above).
+            return typeof value === "function" ? value.bind(target) : value;
           }
     
           const delegate: unknown = Reflect.get(target, prop, receiver);
@@ -11153,8 +11170,10 @@
                   // Non-null: the outer trap already confirmed `methodProp` is a
                   // function on the (non-transacted) delegate for `modelName`;
                   // the transaction client's delegate has the identical shape.
-                  const txMethod = dynamicTx[modelName]![methodProp as string]!;
-                  return txMethod(...args);
+                  // Invoked directly (not hoisted to a variable first) so the
+                  // receiver — `dynamicTx[modelName]` — stays the call's `this`
+                  // (see trap 2 above).
+                  return dynamicTx[modelName]![methodProp as string]!(...args);
                 });
             },
           });
@@ -12052,6 +12071,19 @@
       // route registration so child route plugins inherit it.
       const services: DomainServices = { ...defaultDomainServices, ...options.services };
       fastify.decorate("services", services);
+    
+      // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
+      // (#5469). `@mbe/database`'s createDatabase() registers its own
+      // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
+      // SIGINT handler always ends with an explicit `process.exit(0)` — which
+      // never fires `beforeExit` — so the pool was previously torn down by abrupt
+      // process termination on every deploy instead of a graceful disconnect.
+      // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
+      // jobWorker below) runs deterministically after requests drain, so wire
+      // db.shutdown() here instead. Registered unconditionally (not gated on
+      // NODE_ENV !== "test" like the background jobs below) since it has no
+      // observable side effect beyond closing a connection that tests mock out.
+      fastify.addHook("onClose", async () => db.shutdown());
     
       // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
       // `app.venue_id` session variable for every request whose venue is

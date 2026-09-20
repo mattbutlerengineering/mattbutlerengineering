@@ -11,6 +11,7 @@ export default defineVitestConfig({
   // vitest if a broader glob picked it up too.
   include: [
     "src/**/*.test.{ts,tsx}",
+    "token-count.config.test.ts",
     "e2e/workflow-coverage.test.ts",
     "e2e/noise-floor-coverage.test.ts",
     "e2e/eager-route-manifest.test.ts",
@@ -52,6 +53,20 @@ export default defineVitestConfig({
     test: {
       setupFiles: ["./src/setupTests.ts"],
       exclude: [...defaultExclude, "**/*.spec.ts"],
+      // 15s, not the 5s vitest default: src/data/page-registry.test.ts's
+      // "non-comingSoon entries resolve to an object with a default export"
+      // (and its siblings) dynamically import every showcase page in one
+      // test, measured at ~1.7s warm and isolated — comfortably under 5s
+      // locally, but nightly-compliance's `pnpm test` runs cold via turbo
+      // with ~50 concurrent test tasks (the same full-parallel contention
+      // documented at packages/rialto/vitest.config.ts, which hit this
+      // exact wall and was fixed the same way). Recurring nightly-compliance
+      // drift issues (#5102, #5203, #5243, #5302, #5334, #5360, #5494) never
+      // reproduced under `ci.yml`'s warmer/less-contended test job — only
+      // under nightly-compliance's cold full-repo run — which matches a
+      // timeout tipping over under contention rather than a real assertion
+      // failure. 15s matches the repo's established tier for this class.
+      testTimeout: 15000,
       css: {
         modules: {
           classNameStrategy: "non-scoped",

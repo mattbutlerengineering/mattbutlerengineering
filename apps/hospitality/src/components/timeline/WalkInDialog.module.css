@@ -120,7 +120,7 @@
 .input:focus {
   outline: none;
   border-color: var(--rialto-accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  box-shadow: var(--rialto-shadow-focus);
 }
 
 .select:disabled,

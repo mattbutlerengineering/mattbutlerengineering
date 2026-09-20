@@ -302,9 +302,10 @@ jobs:
     name: Playwright Smoke Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
-    # 18 min covers setup (~1 min) + the poll budget below (12 min) + room for
-    # the smoke tests themselves once confirmed. See "Poll for deploy to
-    # land"'s MAX_ATTEMPTS/SLEEP_SECS comment for why the poll budget grew.
+    # 18 min covers setup (~1 min) + the poll budget below (12 min, worst case
+    # only for a "Deploy Static Sites" trigger -- see "Poll for deploy to
+    # land"'s TRIGGER_NAME/MAX_ATTEMPTS comments) + room for the smoke tests
+    # themselves once confirmed.
     timeout-minutes: 18
     permissions:
       contents: read
@@ -331,15 +332,29 @@ jobs:
         id: poll-deploy
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
-          # 48x15s = 12 minutes. Was 24x15s (6 min, #5006). That 6-minute
-          # budget itself started timing out routinely: #5098/#5123/#5124/
-          # #5133/#5134 all auto-filed "could not confirm deploy" within one
-          # ~24h window, and job logs for those runs show the "Poll for
-          # deploy to land" step consistently burning the *entire* 6-minute
-          # budget (e.g. runs 34193374786, 34192473847, 34176995119 -- all
-          # 5m47s-5m48s, i.e. exactly 24 attempts). Doubling again gives real
-          # headroom instead of re-running at the edge of a budget that's
-          # already proven too tight once. See scripts/check-deploy-sha.mjs.
+          # workflow_run.name is the workflow that completed and triggered
+          # this run: "Deploy Services", "Deploy Static Sites", or "Pulumi
+          # Deploy" (empty for a manual workflow_dispatch). Passed through so
+          # check-deploy-sha.mjs's resolveExpectedSha() can decide whether
+          # EXPECTED_SHA is even meaningful here -- see that function's doc
+          # comment. This is the actual fix for the recurring "could not
+          # confirm deploy" flake (#5098, #5123, #5124, #5133, #5134, #5153):
+          # the polled URL is the marketing homepage, whose build-id is set
+          # ONLY by "Deploy Static Sites" (VITE_BUILD_ID: github.sha in
+          # deploy-static.yml). Every one of those six issues fired on a
+          # "Deploy Services" or "Pulumi Deploy" trigger -- a backend/infra
+          # deploy that never touches the marketing build -- so the poll was
+          # waiting on a match that could never happen. That is a category
+          # error, not a propagation delay: no budget, however wide, fixes it.
+          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+          # 48x15s = 12 minutes for the one trigger this poll can actually
+          # confirm ("Deploy Static Sites"). Was 24x15s (6 min, #5006), then
+          # doubled for #5098/#5123/#5124/#5133/#5134 -- but none of those
+          # five (nor #5153, filed after the doubling) were ever a "Deploy
+          # Static Sites" run; all were the category error described above.
+          # There is zero evidence this budget is too tight for the trigger it
+          # actually applies to, so it is left as-is rather than widened
+          # again on no evidence. See scripts/check-deploy-sha.mjs.
           MAX_ATTEMPTS: 48
           SLEEP_SECS: 15
         run: |
@@ -353,6 +368,7 @@ jobs:
           if RESULT=$(node scripts/check-deploy-sha.mjs \
             --url "https://mattbutlerengineering.com/" \
             --expected-sha "$EXPECTED_SHA" \
+            --trigger-name "$TRIGGER_NAME" \
             --max-attempts "$MAX_ATTEMPTS" \
             --sleep-secs "$SLEEP_SECS"); then
             SCRIPT_EXIT=0

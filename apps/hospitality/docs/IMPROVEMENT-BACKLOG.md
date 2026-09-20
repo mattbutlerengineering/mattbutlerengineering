@@ -17,7 +17,7 @@
 - [x] **#2** Timeline mobile — already handled (sidebar hides, Drawer opens, responsive CSS)
 - [x] **#6** Guest edit flow — edit mode in GuestDetailDrawer with name/email/phone/notes editing
 - [x] **#12** Unsaved changes warning — beforeunload + useBlocker + ConfirmDialog on FloorPlanEditorPage
-- [x] All hardcoded CSS colors replaced with Rialto tokens (all pages + all components)
+- [ ] (partial) Hardcoded CSS colors replaced with Rialto tokens — floor-plan canvas grid (#4991) and the WalkInDialog/CancelReservationDialog/EditReservationDrawer focus rings (#4991) fixed; a `hospitality-service-ux` audit at `5f642aa42` (2026-09-03) still counted ~12 remaining literals (e.g. the 5 dialog-overlay `rgba(0,0,0,.5)` scrims) not yet swept — do not refile those without checking current state first
 - [x] **#10** Keyboard accessibility for Timeline grid — arrow-key navigation + focus tracking (#4402), Enter/Space activation (#4408), visible focus ring (#4444), keyboard-only E2E coverage (#4453)
 - [x] **#13** Floor plan templates — five layouts (Restaurant, Cafe, Bar, Patio, Blank) added to the venue-onboarding wizard's Floor Plan step
 

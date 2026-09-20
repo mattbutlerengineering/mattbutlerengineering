@@ -63,6 +63,28 @@
       });
     }
   </file>
+  <file path="src/components/booking-widget/todayInTimezone.ts">
+    export function todayInTimezone(now: Date, timeZone?: string): string {
+      if (!timeZone) return toDateString(now);
+      try {
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(now);
+        const get = (type: string): string | undefined =>
+          parts.find((part) => part.type === type)?.value;
+        const year = get("year");
+        const month = get("month");
+        const day = get("day");
+        if (!year || !month || !day) return toDateString(now);
+        return `${year}-${month}-${day}`;
+      } catch {
+        return toDateString(now);
+      }
+    }
+  </file>
   <file path="src/components/booking-widget/useBookingFlow.ts">
     export type BookingStep =
       | "date-party"
@@ -145,12 +167,18 @@
       | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
       | { type: "GO_BACK_TO_GUEST_DETAILS" }
       | { type: "EXPIRE_HOLD" }
-      | { type: "RESET" }
+      | { type: "RESET"; selectedDate: string }
       | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
       | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
       | { type: "GO_TO_WAITLIST_JOIN" }
       | { type: "WAITLIST_JOINED"; result: WaitlistResult }
       | { type: "SET_GUEST_DETAILS"; details: GuestDetails };
+    function createInitialState(venueTimezone?: string): BookingFlowState {
+      return {
+        step: "date-party",
+        data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
+      };
+    }
     export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
     export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
       "date-party",
@@ -291,7 +319,7 @@
           };
     
         case "RESET":
-          return INITIAL_STATE;
+          return { step: "date-party", data: { ...INITIAL_DATA, selectedDate: action.selectedDate } };
     
         case "SET_DEPOSIT_CONFIG":
           // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
@@ -379,6 +407,12 @@
        * used to create it, which lives inside `api.holds`, not component state.
        */
       onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
+      /**
+       * IANA timezone the venue operates in — used to default `selectedDate` to
+       * "today" on the venue's clock rather than a UTC midnight boundary
+       * (#4981). Omit only when unknown; falls back to UTC-based `toDateString`.
+       */
+      venueTimezone?: string;
     }
     export function useBookingFlow({
       api,
@@ -387,8 +421,9 @@
       stripePublishableKey,
       holdDurationMinutes = 10,
       onHoldChange,
+      venueTimezone,
     }: UseBookingFlowDeps): BookingFlowResult {
-      const [flowState, dispatch] = useReducer(reducer, INITIAL_STATE);
+      const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
     
       // Ref pattern (see hospitality app conventions) — onHoldChange is commonly
       // passed as a fresh inline arrow on every render; reading it through a ref
@@ -614,8 +649,8 @@
       }, []);
     
       const resetFlow = useCallback(() => {
-        dispatch({ type: "RESET" });
-      }, []);
+        dispatch({ type: "RESET", selectedDate: todayInTimezone(new Date(), venueTimezone) });
+      }, [venueTimezone]);
     
       const setDepositConfig = useCallback(
         (config: DepositConfig | null) => {
@@ -2031,6 +2066,14 @@
     }
   </file>
   <file path="src/hooks/use-theme.ts">
+    function hasStoredThemePreference(): boolean {
+      try {
+        return localStorage.getItem(THEME_STORAGE_KEY) !== null;
+      } catch {
+        // Storage unavailable — treat as "has one" so we never overwrite silently.
+        return true;
+      }
+    }
     export interface ThemeContextValue {
       readonly theme: ThemePreference;
       readonly setTheme: (theme: ThemePreference) => void;
@@ -2052,6 +2095,21 @@
         }),
         [preference, setTheme]
       );
+    }
+    export function useThemeServerHydration(serverTheme: ThemePreference | undefined): void {
+      const { setTheme } = useTheme();
+      const hydratedRef = useRef(false);
+    
+      useEffect(() => {
+        if (hydratedRef.current) return;
+        if (hasStoredThemePreference()) {
+          hydratedRef.current = true;
+          return;
+        }
+        if (!serverTheme) return;
+        hydratedRef.current = true;
+        setTheme(serverTheme);
+      }, [serverTheme, setTheme]);
     }
   </file>
   <file path="src/hooks/use-url-params.ts">
@@ -4400,12 +4458,20 @@
     export function canSeat(reservation: Reservation, table: Table | undefined): boolean {
       return isSeatableStatus(reservation) && table?.status !== "OCCUPIED";
     }
+    function isOccupiedByThisReservation(reservation: Reservation, now: Date): boolean {
+      if (reservation.status !== "CONFIRMED") return false;
+      const start = new Date(reservation.startTime).getTime();
+      const at = now.getTime();
+      if (Number.isNaN(start) || Number.isNaN(at)) return false;
+      return at >= start - SEATED_EARLY_WINDOW_MS;
+    }
     export function occupiedCaption(
       reservation: Reservation,
       table: Table | undefined,
-      seated: boolean
+      now: Date
     ): string | null {
-      if (seated || !isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      if (!isSeatableStatus(reservation) || table?.status !== "OCCUPIED") return null;
+      if (isOccupiedByThisReservation(reservation, now)) return null;
       return `${table.name} is still occupied — turn it or move the party.`;
     }
     export interface SeatGuestState {
@@ -4575,16 +4641,16 @@
       /** Guest-facing cancellation/manage-reservation link, included in the event description. */
       cancellationUrl?: string;
     }
-    function buildEventTitle(venue: PublicVenueConfig): string {
+    function buildEventTitle(venue: IcsVenue): string {
       return `${venue.name} Reservation`;
     }
-    function buildEventDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildEventDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildGoogleCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const start = formatIcsLocalDateTime(reservation.startTime, venue.ianaTimezone);
@@ -4627,8 +4693,8 @@
       return `${year}-${month}-${day}T${hour}:${minute}:${second}${formatUtcOffset(offsetMinutes)}`;
     }
     export function buildOutlookCalendarUrl(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildCalendarLinkOptions = {}
     ): string {
       const params = new URLSearchParams({
@@ -4708,6 +4774,8 @@
     }
   </file>
   <file path="src/utils/ics.ts">
+    export type IcsReservation = Pick<Reservation, "id" | "startTime" | "endTime" | "partySize">;
+    export type IcsVenue = Pick<PublicVenueConfig, "name" | "ianaTimezone">;
     export interface BuildReservationIcsOptions {
       /** Guest-facing cancellation/manage-reservation link, included in DESCRIPTION. */
       cancellationUrl?: string;
@@ -4767,13 +4835,13 @@
       const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "00";
       return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
     }
-    function buildDescription(reservation: Reservation, cancellationUrl?: string): string {
+    function buildDescription(reservation: IcsReservation, cancellationUrl?: string): string {
       const partyLine = `Party of ${reservation.partySize}.`;
       return cancellationUrl ? `${partyLine} Cancel or modify: ${cancellationUrl}` : partyLine;
     }
     export function buildReservationIcs(
-      reservation: Reservation,
-      venue: PublicVenueConfig,
+      reservation: IcsReservation,
+      venue: IcsVenue,
       opts: BuildReservationIcsOptions = {}
     ): string {
       const now = opts.now ?? new Date();
@@ -4798,6 +4866,17 @@
       ];
     
       return properties.map(foldLine).join(CRLF);
+    }
+    export function downloadIcsFile(icsContent: string, filename: string): void {
+      const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
     }
   </file>
   <file path="src/utils/local-clock.ts">

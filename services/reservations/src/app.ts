@@ -47,7 +47,7 @@ import { createLapsedGuestMonitor } from "./services/lapsed-guest-cron.js";
 import { createReservationJobHandlers, createReservationJobWorker } from "./services/job-worker.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
-import { prisma } from "./services/database.js";
+import { db, prisma } from "./services/database.js";
 import {
   createHasAnyVenueMembership,
   createVenueMembershipLookup,
@@ -186,6 +186,19 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   // route registration so child route plugins inherit it.
   const services: DomainServices = { ...defaultDomainServices, ...options.services };
   fastify.decorate("services", services);
+
+  // Disconnect the Prisma/pg pool once fastify has drained in-flight requests
+  // (#5469). `@mbe/database`'s createDatabase() registers its own
+  // `process.on("beforeExit", shutdown)`, but startServiceServer's SIGTERM/
+  // SIGINT handler always ends with an explicit `process.exit(0)` — which
+  // never fires `beforeExit` — so the pool was previously torn down by abrupt
+  // process termination on every deploy instead of a graceful disconnect.
+  // fastify's own `onClose` hook (already used for lapsedGuestMonitor/
+  // jobWorker below) runs deterministically after requests drain, so wire
+  // db.shutdown() here instead. Registered unconditionally (not gated on
+  // NODE_ENV !== "test" like the background jobs below) since it has no
+  // observable side effect beyond closing a connection that tests mock out.
+  fastify.addHook("onClose", async () => db.shutdown());
 
   // Postgres RLS venue-scoping backstop (ADR-026 part 6/7): set the
   // `app.venue_id` session variable for every request whose venue is

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import React from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -487,10 +487,9 @@ describe("FloorPlanEditorPage", () => {
       });
     });
 
-    it("deletes table when Delete Table button is clicked and confirmed", async () => {
+    it("deletes table when Delete Table button is clicked and confirmed via the rialto ConfirmDialog", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       mockTablesDelete.mockResolvedValue(undefined);
-      vi.spyOn(window, "confirm").mockReturnValue(true);
 
       renderPage();
 
@@ -500,14 +499,16 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("Delete Table"));
       fireEvent.click(screen.getByText("Delete Table"));
 
+      const dialog = await screen.findByRole("dialog", { name: "Delete this table?" });
+      fireEvent.click(within(dialog).getByText("Delete"));
+
       await waitFor(() => {
         expect(mockTablesDelete).toHaveBeenCalledWith("table-a");
       });
     });
 
-    it("does not delete table when confirm dialog is cancelled", async () => {
+    it("does not delete table when the ConfirmDialog is cancelled", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
-      vi.spyOn(window, "confirm").mockReturnValue(false);
 
       renderPage();
 
@@ -517,7 +518,44 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("Delete Table"));
       fireEvent.click(screen.getByText("Delete Table"));
 
+      const dialog = await screen.findByRole("dialog", { name: "Delete this table?" });
+      fireEvent.click(within(dialog).getByText("Cancel"));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name: "Delete this table?" })).toBeNull();
+      });
       expect(mockTablesDelete).not.toHaveBeenCalled();
+    });
+
+    it("uses the rialto ConfirmDialog, never window.confirm, for the Delete Table flow", async () => {
+      const confirmSpy = vi.spyOn(window, "confirm");
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+
+      renderPage();
+
+      await waitFor(() => screen.getByText("A1"));
+      fireEvent.click(screen.getByText("A1"));
+
+      await waitFor(() => screen.getByText("Delete Table"));
+      fireEvent.click(screen.getByText("Delete Table"));
+
+      expect(await screen.findByRole("dialog", { name: "Delete this table?" })).toBeDefined();
+      expect(confirmSpy).not.toHaveBeenCalled();
+    });
+
+    it("shows the rialto ConfirmDialog when the Delete key is pressed with a table selected", async () => {
+      const confirmSpy = vi.spyOn(window, "confirm");
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      fireEvent.focus(tableButton); // selects the table via the mocked canvas
+
+      fireEvent.keyDown(window, { key: "Delete" });
+
+      expect(await screen.findByRole("dialog", { name: "Delete this table?" })).toBeDefined();
+      expect(confirmSpy).not.toHaveBeenCalled();
     });
 
     it("activates floor plan when Set as Active is clicked", async () => {
@@ -557,7 +595,6 @@ describe("FloorPlanEditorPage", () => {
     it("shows error when delete fails", async () => {
       mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
       mockTablesDelete.mockRejectedValue(new Error("Delete failed"));
-      vi.spyOn(window, "confirm").mockReturnValue(true);
 
       renderPage();
 
@@ -566,6 +603,9 @@ describe("FloorPlanEditorPage", () => {
 
       await waitFor(() => screen.getByText("Delete Table"));
       fireEvent.click(screen.getByText("Delete Table"));
+
+      const dialog = await screen.findByRole("dialog", { name: "Delete this table?" });
+      fireEvent.click(within(dialog).getByText("Delete"));
 
       await waitFor(() => {
         expect(screen.getByText("Delete failed")).toBeDefined();

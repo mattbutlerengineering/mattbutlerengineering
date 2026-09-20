@@ -100,5 +100,8 @@ File structure: `src/components/Name/Name.tsx` + `Name.module.css`. Extend nativ
 
 ## Auto-Generated Reference
 
-For complete per-component props, slots, and character limits, see the generated reference:
-[component-reference.md](../../generated/component-reference.md)
+For complete per-component props, slots, and character limits, generate the reference locally — it is not committed and no automated pipeline produces it:
+
+```bash
+pnpm --filter @mbe/rialto-plugin build   # writes generated/component-reference.md
+```

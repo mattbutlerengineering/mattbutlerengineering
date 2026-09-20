@@ -66,8 +66,16 @@ describe("isTransientAuditError (#4993)", () => {
 describe("package.json — pnpm audit is no longer inside repo-audit's chain (#4993)", () => {
   const scripts = JSON.parse(PACKAGE_JSON).scripts;
 
-  it("repo-audit no longer runs `pnpm audit` directly", () => {
+  // #5465: repo-audit's checks moved from the `&&` chain into
+  // REPO_AUDIT_CHECKS, so that array — not the script string — is where a
+  // `pnpm audit` could creep back in.
+  it("repo-audit no longer runs `pnpm audit` directly", async () => {
+    const { REPO_AUDIT_CHECKS } = await import("../run-repo-audit.mjs");
+
     expect(scripts["repo-audit"]).not.toContain("pnpm audit");
+    expect(
+      REPO_AUDIT_CHECKS.map((check) => [check.command, ...check.args].join(" "))
+    ).not.toContain("pnpm audit --audit-level=high");
   });
 
   it("exposes a standalone audit:security script", () => {

@@ -12,12 +12,19 @@ import styles from "./FloorPlanCanvas.module.css";
 // Grid pattern background — pure function of GRID_SIZE, computed once at
 // module load rather than on every render (draggingTableId/dimensions/scale/
 // tableStatuses all change far more often than the grid itself does).
-const GRID_PATTERN_URL = `data:image/svg+xml,${encodeURIComponent(`
-  <svg width="${GRID_SIZE}" height="${GRID_SIZE}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="${GRID_SIZE}" height="${GRID_SIZE}" fill="#f8f6f3"/>
-    <path d="M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}" fill="none" stroke="#d8d4cd" stroke-width="1"/>
-  </svg>
-`)}`;
+//
+// Drawn as two repeating-linear-gradients using the rialto border token
+// instead of a data-URI SVG with baked-in hex fill/stroke — a data URI is a
+// separate resource and can't resolve `var(--rialto-*)`, which is how the
+// old version painted a light-theme-only grid in dark mode. CSS custom
+// properties in a plain background-image resolve live against whichever
+// theme is active, and the wrapper's own `--rialto-surface-recessed`
+// background (FloorPlanCanvas.module.css) shows through as the grid fill.
+const GRID_LINE_COLOR = "var(--rialto-border)";
+const GRID_PATTERN = [
+  `repeating-linear-gradient(0deg, ${GRID_LINE_COLOR} 0, ${GRID_LINE_COLOR} 1px, transparent 1px, transparent ${GRID_SIZE}px)`,
+  `repeating-linear-gradient(90deg, ${GRID_LINE_COLOR} 0, ${GRID_LINE_COLOR} 1px, transparent 1px, transparent ${GRID_SIZE}px)`,
+].join(", ");
 
 export interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
@@ -116,9 +123,10 @@ export function FloorPlanCanvas({
   return (
     <div
       ref={containerRef}
+      data-testid="floor-plan-canvas-wrapper"
       className={styles.canvasWrapper}
       style={{
-        backgroundImage: `url("${GRID_PATTERN_URL}")`,
+        backgroundImage: GRID_PATTERN,
         backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
       }}
     >

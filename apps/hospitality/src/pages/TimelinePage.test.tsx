@@ -116,9 +116,13 @@ vi.mock("../components/timeline", () => ({
   }) => (
     <div data-testid="timeline-mobile-view">
       {reservations?.map((r) => (
-        <button key={r.id} data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
-          {r.guestName}
-        </button>
+        <React.Fragment key={r.id}>
+          <button data-testid={`res-${r.id}`} onClick={() => onReservationClick?.(r)}>
+            {r.guestName}
+          </button>
+          {/* The real card's test id (B3.2, #5271): useFocusAfter's phone-viewport target. */}
+          <button data-testid={`reservation-block-${r.id}`}>block {r.id}</button>
+        </React.Fragment>
       ))}
     </div>
   ),
@@ -1712,6 +1716,67 @@ describe("TimelinePage", () => {
         expect(seatGuest).toHaveBeenCalledWith(expect.objectContaining({ id: "r1" }));
       });
     });
+
+    // ── Issue #5271 (B3.2): phone-viewport focus after seat / cancel / walk-in ──
+    // Deferred from the review of #5269 — B3.2 carries no viewport qualifier, but
+    // `TimelineMobileView` had no `reservation-block-<id>` node for `focusAfter` to resolve,
+    // so focus dropped to `<body>` on all three success paths.
+
+    it("focuses the mobile reservation block after a successful seat (B3.2)", async () => {
+      setMobile();
+      const seatGuest = vi.fn().mockResolvedValue(defaultReservation);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ seatGuest }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      const drawer = await waitFor(() => screen.getByTestId("drawer"));
+      fireEvent.click(within(drawer).getByText("Seat Guest"));
+      await waitFor(() => {
+        expect(seatGuest).toHaveBeenCalled();
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+      });
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it("focuses the mobile reservation block after a successful cancel (B3.2)", async () => {
+      setMobile();
+      const cancelReservation = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ cancelReservation }));
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByTestId("res-r1")));
+      const drawer = await waitFor(() => screen.getByTestId("drawer"));
+      fireEvent.click(within(drawer).getByText("Cancel Reservation"));
+      fireEvent.click(await waitFor(() => screen.getByTestId("cancel-confirm")));
+      await waitFor(() => {
+        expect(screen.queryByTestId("cancel-dialog")).toBeNull();
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r1"));
+      });
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it("focuses the new mobile reservation block after a successful walk-in (B3.2)", async () => {
+      setMobile();
+      const createWalkIn = vi.fn().mockResolvedValue(WALK_IN_RESERVATION);
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({ reservations: [defaultReservation, WALK_IN_RESERVATION], createWalkIn })
+      );
+
+      renderPage();
+      fireEvent.click(await waitFor(() => screen.getByText("Walk-in")));
+      fireEvent.click(await waitFor(() => screen.getByTestId("walkin-confirm")));
+      await waitFor(() => {
+        expect(screen.queryByTestId("walkin-dialog")).toBeNull();
+      });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByTestId("reservation-block-r-walkin"));
+      });
+      expect(document.activeElement).not.toBe(document.body);
+    });
   });
 
   // ── Item 15 (#5034): the orchestrator's contract ─────────────────────────────
@@ -1789,6 +1854,50 @@ describe("TimelinePage", () => {
         expect(screen.getByTestId("timeline-grid")).toBeDefined();
       });
       expect(screen.queryByText("Reservation Details")).toBeNull();
+    });
+  });
+
+  // ── Deferred audit finding (#5272): the opener, not just the URL path, owns focus return ──
+
+  describe("dismissal returns focus to whichever opener launched the dialog (#5272)", () => {
+    it("returns focus to the toolbar Walk-in button after it opens the dialog and it is dismissed", async () => {
+      renderPage();
+      const walkIn = await waitFor(() => screen.getByRole("button", { name: "Walk-in" }));
+      walkIn.focus();
+      fireEvent.click(walkIn);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      // The real dialog moves focus onto its own first control; the test double doesn't, so blur
+      // explicitly to reproduce the pre-dismissal state Verify measured: focus owned by the dialog,
+      // not the opener, right before Escape/Cancel/overlay-click fires `onClose`.
+      (document.activeElement as HTMLElement | null)?.blur();
+      expect(document.activeElement).toBe(document.body);
+
+      fireEvent.click(screen.getByTestId("walkin-close"));
+      await waitFor(() => {
+        expect(document.activeElement).toBe(walkIn);
+      });
+    });
+
+    it("returns focus to the quiet-night Walk-in CTA (not the toolbar button) after it opens the dialog", async () => {
+      vi.mocked(useTimelineData).mockReturnValue(makeTimelineData({ reservations: [] }));
+      renderPage();
+      const quiet = await waitFor(() => screen.getByTestId("timeline-empty-night"));
+      const cta = within(quiet).getByRole("button", { name: "Walk-in (quiet night)" });
+      cta.focus();
+      fireEvent.click(cta);
+      await waitFor(() => {
+        expect(screen.getByTestId("walkin-dialog")).toBeDefined();
+      });
+      (document.activeElement as HTMLElement | null)?.blur();
+      expect(document.activeElement).toBe(document.body);
+
+      fireEvent.click(screen.getByTestId("walkin-close"));
+      await waitFor(() => {
+        expect(document.activeElement).toBe(cta);
+      });
+      expect(document.activeElement).not.toBe(screen.getByRole("button", { name: "Walk-in" }));
     });
   });
 

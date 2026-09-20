@@ -12,6 +12,11 @@ const STEP_CONFIG = [
     description: "Set up your venue name, timezone, and currency.",
     path: "/onboarding",
     ctaLabel: "Review Venue Details",
+    // No read-only review view exists yet — /onboarding is create-only, so
+    // routing "Review" there re-opens the wizard on a blank Step 1 instead
+    // of showing what was already saved (#4984). Render a static Done row
+    // for the completed state until a review view exists.
+    reviewPath: null,
   },
   {
     id: "operating-hours" as const,
@@ -19,6 +24,7 @@ const STEP_CONFIG = [
     description: "Configure which days and hours your venue is open.",
     path: "/setup/hours",
     ctaLabel: "Set Operating Hours",
+    reviewPath: "/setup/hours",
   },
   {
     id: "floor-plan" as const,
@@ -26,6 +32,7 @@ const STEP_CONFIG = [
     description: "Add a floor plan with at least one table to enable reservations.",
     path: "/floor-plans",
     ctaLabel: "Create Floor Plan",
+    reviewPath: "/floor-plans",
   },
 ];
 
@@ -150,14 +157,17 @@ export function SetupPage() {
                     {step.ctaLabel}
                   </button>
                 )}
-                {isCompleted && (
+                {isCompleted && step.reviewPath && (
                   <button
                     type="button"
                     className={styles.reviewButton}
-                    onClick={() => navigate(step.path)}
+                    onClick={() => navigate(step.reviewPath)}
                   >
                     Review
                   </button>
+                )}
+                {isCompleted && !step.reviewPath && (
+                  <p className={styles.doneLabel}>Done — {venueName}</p>
                 )}
               </div>
             </li>
