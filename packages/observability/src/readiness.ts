@@ -97,6 +97,23 @@ const DEV_AUTH0_JWKS_URL = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com/.well-know
 const DEFAULT_JWKS_TIMEOUT_MS = 2000;
 const AUTH0_UNCONFIGURED_MESSAGE =
   "Auth0 JWKS not configured: set AUTH_AUTHORITY (or AUTH0_JWKS_URL)";
+const TRANSIENT_RETRY_DELAY_MS = 50;
+
+/**
+ * Retries a flaky external-dependency probe once after a short delay before
+ * giving up. A readiness check runs on every scrape (unlike a boot-time
+ * check), so a single transient blip — a dropped connection, a slow DNS
+ * lookup — must not flip `/ready` to 503 on its own; a real outage still
+ * fails both attempts and reports not-ready (#5534).
+ */
+async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> {
+  try {
+    return await probe();
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
+    return probe();
+  }
+}
 
 /**
  * Builds the Auth0 JWKS URL from an `AUTH_AUTHORITY` origin.
@@ -187,23 +204,27 @@ export function registerStandardChecks(
 
   const resolvedAuth0Url = resolveAuth0Url(auth0Url);
 
-  tracker.registerCheck("database", async () => {
-    await prisma.$queryRaw`SELECT 1`;
-  });
+  tracker.registerCheck("database", () =>
+    withTransientRetry(async () => {
+      await prisma.$queryRaw`SELECT 1`;
+    })
+  );
 
   tracker.registerCheck("auth", async () => {
     if (resolvedAuth0Url === null) {
       throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
-    try {
-      const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
-      if (!response.ok) {
-        throw new Error(`JWKS returned ${response.status}`);
+    await withTransientRetry(async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
+      try {
+        const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`JWKS returned ${response.status}`);
+        }
+      } finally {
+        clearTimeout(timeout);
       }
-    } finally {
-      clearTimeout(timeout);
-    }
+    });
   });
 }
