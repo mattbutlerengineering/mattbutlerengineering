@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { ERROR_COPY } from "../src/lib/describe-api-error.js";
+import { SERVER_ERROR_BODY } from "./problem-details.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 // The page's single live region (LiveStatus). Every sentence is asserted with `timeout: 1000` —
@@ -127,7 +128,7 @@ test.describe("Hospitality waitlist [6/6]: add -> list -> seat", () => {
         ? route.fulfill({
             status: 500,
             contentType: "application/json",
-            body: '{"error":"server error"}',
+            body: SERVER_ERROR_BODY,
           })
         : route.fallback()
     );

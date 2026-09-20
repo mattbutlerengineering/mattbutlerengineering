@@ -107,7 +107,9 @@ async function createMockedApi(): Promise<MockedApi> {
 }
 
 const TABLES = "/api/v1/tables?venueId=ven_e2e_001";
-const RESERVATIONS = "/api/v1/reservations?venueId=ven_e2e_001&limit=100";
+const RESERVATIONS_PATH = "/api/v1/reservations";
+const RESERVATIONS = `${RESERVATIONS_PATH}?venueId=ven_e2e_001&limit=100`;
+const reservationById = (id: string) => `${RESERVATIONS_PATH}/${id}`;
 
 describe("api-mocks — table-status overlay (#5023)", () => {
   afterEach(() => {
@@ -156,7 +158,10 @@ describe("api-mocks — table-status overlay (#5023)", () => {
     });
 
     expect(walkIn.data.date).toBe(localToday);
-    expect(String(walkIn.data.startTime).startsWith(localToday)).toBe(true);
+    // The instant, not its ISO prefix: `startsWith(localToday)` was true of a `…T18:00:00Z`
+    // string that reads 11:00 in this zone — half the coverage it looked like (#5275).
+    expect(new Date(walkIn.data.startTime).toLocaleDateString("en-CA")).toBe(localToday);
+    expect(new Date(walkIn.data.startTime).getHours()).toBe(18);
     expect(walkIn.data).toMatchObject({
       tableId: "tbl_e2e_003",
       guestName: "Test Guest",
@@ -178,13 +183,56 @@ describe("api-mocks — table-status overlay (#5023)", () => {
     expect(list.data.length).toBeGreaterThan(0);
     for (const r of list.data) {
       expect(r.date).toBe("2026-09-04");
-      expect(String(r.startTime).startsWith("2026-09-04")).toBe(true);
+      expect(new Date(String(r.startTime)).toLocaleDateString("en-CA")).toBe("2026-09-04");
     }
+  });
+
+  // #5275: the day was re-dated and the clock was not, so `…T18:00:00.000Z` survived the
+  // transform. The grid positions blocks by browser-local hours (`reservationLayout.ts`
+  // `start.getHours()`, window 11:00–23:00), which put an 18:00Z block at left = −120 px in PST
+  // — off the grid, yet still green under `toBeVisible()`. Assert the clock, not the prefix.
+  it("re-dates the clock too: fixture times read as local wall-clock hours, inside the grid window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-05T06:30:00Z")); // 23:30 on 2026-09-04, Pacific
+    const api = await createMockedApi();
+
+    const list = await api.request("GET", RESERVATIONS);
+    const first = list.data.find((r: { id: string }) => r.id === "res_e2e_001");
+    // 18:00 local on 2026-09-04 is 01:00Z on 2026-09-05 in PDT — never 18:00Z.
+    expect(first.startTime).toBe("2026-09-05T01:00:00.000Z");
+    expect(first.endTime).toBe("2026-09-05T02:30:00.000Z");
+    expect(new Date(first.startTime).getHours()).toBe(18);
+
+    // Every fixture booking lands inside the grid's own 11:00–23:00 local window.
+    for (const r of list.data) {
+      const hour = new Date(String(r.startTime)).getHours();
+      expect(hour).toBeGreaterThanOrEqual(11);
+      expect(hour).toBeLessThan(23);
+    }
+  });
+
+  it("the detail handler answers with the same day, clock and id as the list (#5279)", async () => {
+    const api = await createMockedApi();
+
+    const list = await api.request("GET", RESERVATIONS);
+    const fromList = list.data.find((r: { id: string }) => r.id === "res_e2e_002");
+    const detail = await api.request("GET", reservationById("res_e2e_002"));
+    expect(detail.data).toMatchObject({
+      id: "res_e2e_002",
+      date: fromList.date,
+      startTime: fromList.startTime,
+      endTime: fromList.endTime,
+    });
+
+    // An unknown id never comes back wearing the first fixture row's identity.
+    const unknown = await api.request("GET", reservationById("res_e2e_nope"));
+    expect(unknown.data.id).toBe("res_e2e_nope");
   });
 
   it("no UTC date slice remains in api-mocks.ts", () => {
     const source = readFileSync(join(import.meta.dirname, "..", "api-mocks.ts"), "utf-8");
     expect(source).not.toContain("toISOString().slice(0, 10)");
-    expect(source).toContain('toLocaleDateString("en-CA")');
+    // The local day and the local wall clock both come from the one helper (#5275/#5279).
+    expect(source).toContain('from "./local-day.js"');
   });
 });

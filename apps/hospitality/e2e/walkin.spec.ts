@@ -1,9 +1,9 @@
 import { test, expect } from "./fixtures.js";
+import { SERVER_ERROR_BODY } from "./problem-details.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 /** ux.md Screen 3: after a failure the dialog is back at rest — Seat now enabled — within a second. */
 const RESTING_DEADLINE_MS = 1_000;
-const SERVER_ERROR_BODY = '{"error":"server error"}';
 
 test.describe("CF-3: Walk-in creation", () => {
   test("opens walk-in dialog and lists available tables", async ({ mockedPage }) => {
