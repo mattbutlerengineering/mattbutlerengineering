@@ -4328,7 +4328,7 @@
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singleton directly — tests inject fakes via
       // buildApp({ services }).
-      const { tableService } = fastify.services;
+      const { tableService, floorPlanService } = fastify.services;
     
       /**
        * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
@@ -4530,6 +4530,10 @@
                 description: "Authentication required",
                 $ref: "Error#",
               },
+              403: {
+                description: "Requested floor plan belongs to a different venue",
+                $ref: "Error#",
+              },
               404: {
                 description: "Table not found",
                 $ref: "Error#",
@@ -4541,7 +4545,36 @@
             },
           },
         },
-        async (request) => {
+        async (request, reply) => {
+          const { floorPlanId } = request.body;
+          if (floorPlanId) {
+            // The guard above only proves the caller belongs to the TABLE's own
+            // venue. `floorPlanId` is a client-supplied id that the update connects
+            // with no venue awareness of its own, so a member of the table's venue
+            // could otherwise re-point it onto ANOTHER venue's floor plan. Same bug
+            // class as #5008 (/tables/:tableId/assign) and #5042
+            // (/tables/positions) in floor-plans.ts. Checked here rather than in
+            // the DB layer because `Table` has no compound floorPlanId/venueId
+            // constraint, and ADR-026's RLS does not apply to the app's own role.
+            const [current, floorPlan] = await Promise.all([
+              tableService.getById(request.params.id),
+              floorPlanService.getById(floorPlanId),
+            ]);
+            // A missing table or floor plan is not a cross-venue reassignment —
+            // fall through so the update below surfaces the existing 404.
+            if (current && floorPlan && floorPlan.venueId !== current.venueId) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    titleForStatus(403),
+                    "The requested floor plan does not belong to this table's venue"
+                  )
+                );
+            }
+          }
+    
           const table = await tableService.update(request.params.id, request.body);
           if (!table) {
             const error = new Error("Table not found") as Error & { statusCode?: number };
@@ -5381,6 +5414,10 @@
                 description: "Authentication required",
                 $ref: "Error#",
               },
+              403: {
+                description: "Admin role required to change the venue's venue group",
+                $ref: "Error#",
+              },
               404: {
                 description: "Venue not found",
                 $ref: "Error#",
@@ -5389,6 +5426,31 @@
           },
         },
         async (request, reply) => {
+          const { venueGroupId } = request.body;
+          if (venueGroupId !== undefined && !hasPermission(request.user, "admin")) {
+            // requireVenueAccess above proves MEMBERSHIP of this venue only — it
+            // never inspects a per-venue role (ADR-020). Re-parenting a venue into
+            // a different venue group is an org-hierarchy-defining mutation, the
+            // same class as venue-group CRUD and venue creation, both admin-gated
+            // in this file. Every other editable field stays open to members, so
+            // the check is scoped to an actual CHANGE of venueGroupId rather than
+            // gating the whole route.
+            const current = await venueService.getById(request.params.id);
+            // A venue that does not exist is not a reassignment — fall through so
+            // the update below surfaces the existing 404.
+            if (current && (venueGroupId ?? null) !== current.venueGroupId) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    "Forbidden",
+                    "Admin role required to change a venue's venue group"
+                  )
+                );
+            }
+          }
+    
           const venue = await venueService.update(request.params.id, request.body);
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
