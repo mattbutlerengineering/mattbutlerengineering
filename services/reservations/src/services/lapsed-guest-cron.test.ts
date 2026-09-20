@@ -81,6 +81,7 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
   });
 
   it("reads the venue list through the same withRlsBypass transaction as the guest scan (ADR-026 §3)", async () => {
+    const SCAN_SETTLE_MS = 10;
     const prisma = makePrisma();
     const monitor = createLapsedGuestMonitor({
       prisma: prisma as never,
@@ -90,7 +91,7 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     const log = makeLogger();
 
     monitor.start(log);
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, SCAN_SETTLE_MS));
     monitor.stop();
 
     // One $transaction for getAllVenueIds, one more per venue for
