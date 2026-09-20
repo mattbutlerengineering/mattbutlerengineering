@@ -139,6 +139,9 @@
     <item priority="high">
       export function createReadinessTracker(): ReadinessTracker { /* ... */ }
     </item>
+    <item priority="low">
+      async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> { /* ... */ }
+    </item>
     <item priority="high">
       export function buildJwksUrl(authority: string | undefined): string | undefined { /* ... */ }
     </item>
