@@ -1997,3 +1997,39 @@ None new this run (`agent-skip` unchanged at 4, same as 09-15).
 **Skill proposals:** 0 (Saturday — Friday-only)
 **Sentry triage (Step 1b):** skipped — Sentry MCP host (`sentry.io`) not in this cloud session's egress allowlist (403)
 **Threshold notes:** verify-fixes threshold auto-tuner found no per-sensor metrics to compute (all 5 verifications skipped, none verified/failed) — no tuning signal this run. `collect-ai-issue-feedback` 403'd on the same REST fallback gap as the `issues`/`issueFeedback` sensors for at least the 4th consecutive day (09-17, 09-18, 09-19) — budgets file left at defaults (3/category). Moot again this run since regressions was empty, but this gap will block issue filing (Step 3 dedup search) the next time a regression actually fires — candidate for `/gotcha-harvest` promotion given the repeat count.
+
+## 2026-09-20 (mbe-evening)
+
+### Metrics
+
+| Metric                                       | Value                                                                            | Target            | Status               |
+| -------------------------------------------- | -------------------------------------------------------------------------------- | ----------------- | -------------------- |
+| Created (7d, audit+ci-fix)                   | 19 (11 audit + 8 ci-fix)                                                         | -                 | -                    |
+| Closed (7d, proxy: updated≥09-13 & CLOSED)   | 24 (17 audit + 7 ci-fix)                                                         | -                 | -                    |
+| Closure Rate (7d)                            | 126% (backlog draining faster than new creation)                                 | >80%              | green                |
+| Agent Success (this run's batch)             | 2/2 = 100% (#4991 → PR #5505, #5454 → PR #5504, both reviewer-passed and merged) | >70%              | green                |
+| CI Pass (main, last 30 runs)                 | 28/28 = 100% (2 cancelled excluded from denominator per the ciHealth gotcha)     | >95%              | green                |
+| Queue (ready)                                | 13 (down from 19 on 09-19)                                                       | <5                | red                  |
+| Stale (ready>7d)                             | 10: #5102, #5203, #5243, #5302, #5272, #5275, #5276, #5278, #5279, #5144         | 0                 | red                  |
+| Blocked (agent-failed)                       | 4: #5119, #5091, #5055, #4914 — unchanged since 09-19                            | 0                 | red                  |
+| Skipped (agent-skip)                         | 0                                                                                | 0                 | green                |
+| Spend (`.claude/agent-spend/sessions.jsonl`) | 0 rows (file empty) — same standing gap as #4618, not re-filing                  | <$10/day, <$50/7d | unmeasured, same gap |
+
+### Patterns
+
+- **This run's `/implement-queue` iteration claimed 2 of a possible 3** (batch capped by zone-spread — all remaining `audit` candidates share the `apps/hospitality` zone with #4991, so only one could be scheduled per ADR-023 — and by an explicit skip of `ci-fix` #5144, whose own body states the 403 is a GitHub platform/blob-storage-intermediary failure that "no source file change can fix"). Both claimed issues merged clean: #4991 (floor-plan dark-theme grid + off-brand focus rings + false backlog claim, PR #5505, reviewer score 9/10) and #5454 (nightly-compliance completion-sweep mechanism, PR #5504, reviewer score 8/10). Zero failures, zero circuit-breaker trips, zero retries needed.
+- **#5454's merged fix (PR #5504) should start draining the nightly-compliance portion of today's stale backlog on its own.** 7 of the 13 open `ready` issues are `[nightly-compliance ...]` duplicates (#5102, #5203, #5243, #5302, #5334, #5360, #5494); the new completion-sweep step closes an older one automatically once a newer run's failure signature shows it superseded. Worth checking after the next scheduled `nightly-compliance.yml` run whether #5102/#5203/#5243/#5302 (today's 4 stale ones) get auto-closed.
+- **The `apps/hospitality`-zone audit concentration flagged 09-17 and 09-18 persists**, now with a different 5 issues (#5272, #5275, #5276, #5278, #5279 — all created 09-11, all e2e/UX audit findings in the same zone as #4991, which was itself finally worked this iteration after sitting since 09-04). One zone-locked pick per iteration means this class continues to drain at roughly 1/iteration regardless of queue depth.
+- **`ci-fix` #5144 has now sat in `ready` for 12 days** (since 09-08) explicitly unclaimable by the TDD-new-PR worker pattern — same class flagged in the 09-18 entry's recommendation for a `needs-human` label, still not implemented. Third consecutive entry to note this exact issue sitting idle for the same reason.
+- No `gh` CLI in this cloud session (expected); GitHub MCP tools used throughout, plus a direct `git`/local build for the `mbe check-model`/freshness/review-gate steps. Worktree reaper ran post-merge: 0 of 2 examined worktrees reclaimed (retained pending merge-evidence reconciliation, fails closed as designed — both PRs merged seconds before the reap ran).
+
+### Recommendations
+
+- File the `needs-human` label proposal for issues like #5144 whose body explicitly rules out an automated code fix — recommended in the 09-18 entry, restated here for the third time; consider this the trigger to actually file it next run if still unaddressed.
+- Re-check the nightly-compliance backlog (#5102/#5203/#5243/#5302/#5334/#5360/#5494) after the next scheduled run now that PR #5504's completion sweep is live — expect some of these to auto-close.
+- The visual-regression `agent-failed` pair (#5119, #5091) is unchanged since at least 09-19 — now 13+ days stale, still needs the `visual-actuals-replica-a` CI-artifact regeneration procedure from gotchas.md.
+- `apps/hospitality`-zone audit concentration (#5272/#5275/#5276/#5278/#5279) — same standing recommendation from 09-17/09-18 to consider a `/claude-automation-recommender` look if it persists past this week; it has.
+
+### Skipped Issues
+
+None this run (`agent-skip` empty, 0 open).
