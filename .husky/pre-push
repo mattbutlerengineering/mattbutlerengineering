@@ -1,5 +1,21 @@
 #!/bin/sh
 
+# Guard: refuse a push whose destination ref is `main` (#4664).
+#
+# Runs FIRST and costs milliseconds: a commit pushed straight to main never
+# runs pull_request CI, so the cheapest possible refusal is the right one.
+# The refs being pushed arrive on this hook's STDIN as
+# "<local ref> <local sha> <remote ref> <remote sha>" lines — never from the
+# command line — so the guard reads stdin and nothing below it does. The
+# decision itself is the pure, unit-tested classifyPushTarget()
+# (scripts/__tests__/guard-direct-push-to-main.test.mjs); this is the wiring.
+# The refusal message names the ALLOW_DIRECT_MAIN_PUSH override, which exists
+# so repo policy's "security fixes go straight to main" stays possible without
+# reaching for `--no-verify` (which would disable every gate below too).
+if ! node scripts/guard-direct-push-to-main.mjs check; then
+  exit 1
+fi
+
 # Guard: check for destructive Prisma migrations before pushing.
 # Uses the same script as CI so local and remote gates never drift.
 # Service discovery is automatic — reads services/*/prisma/schema.prisma.
