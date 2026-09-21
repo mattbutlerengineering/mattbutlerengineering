@@ -305,6 +305,12 @@
     </item>
   </file>
   <file path="src/routes/public-holds.ts">
+    <item priority="low">
+      async function resolveVenueBySlug(slug: string, reply: FastifyReply) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
+    </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
     </item>
@@ -698,6 +704,7 @@
         sessionId?: string;
         guestDetails: ConfirmHoldRequest;
         userId?: string;
+        venueId?: string;
       }
     </item>
     <item priority="low">

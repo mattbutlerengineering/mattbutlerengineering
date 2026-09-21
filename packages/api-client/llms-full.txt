@@ -182,6 +182,85 @@
     
         return { reservation: response.data, manageToken: response.manageToken };
       }
+    
+      /* ── Public, slug-scoped hold surface (#4487) ───────────────────────────
+       * The four methods above target the staff hold routes, which require a JWT.
+       * Anonymous callers (the embeddable booking widget) use the methods below:
+       * the venue is named by slug and resolved server-side, never taken from a
+       * client-supplied `venueId`, and the per-IP active-hold cap applies. Each
+       * carries the same `x-session-id` capability token, which for this path is
+       * minted by the server at create time and returned on the hold.
+       */
+    
+      /**
+       * Create a hold on a time slot for a venue addressed by slug. `endTime` is
+       * derived server-side from the venue's turn-time rules, so it is not sent.
+       */
+      async createForVenue(
+        slug: string,
+        data: { date: string; startTime: string; partySize: number }
+      ): Promise<{ hold: ReservationHold; sessionId: string }> {
+        const response = await this.client.request<{ data: ReservationHold }>(publicHoldsPath(slug), {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+    
+        // Unlike the staff route, the server mints the session id here — adopt it
+        // so the subsequent get/release/confirm can prove ownership.
+        this.sessionId = response.data.sessionId;
+        return { hold: response.data, sessionId: response.data.sessionId };
+      }
+    
+      /** Get a hold by ID, scoped to the venue slug that created it. */
+      async getForVenue(slug: string, holdId: string): Promise<ReservationHold> {
+        const response = await this.client.request<{ data: ReservationHold }>(
+          `${publicHoldsPath(slug)}/${holdId}`,
+          { headers: this.sessionHeaders("read") }
+        );
+    
+        return response.data;
+      }
+    
+      /** Release a hold, scoped to the venue slug that created it. */
+      async releaseForVenue(slug: string, holdId: string): Promise<void> {
+        await this.client.request<void>(`${publicHoldsPath(slug)}/${holdId}`, {
+          method: "DELETE",
+          headers: this.sessionHeaders("release"),
+        });
+      }
+    
+      /**
+       * Confirm a hold into a reservation, scoped to the venue slug that created
+       * it. `guestId` is deliberately absent from the accepted details — only the
+       * authenticated staff route may attach a hold to an existing guest record.
+       */
+      async confirmForVenue(
+        slug: string,
+        holdId: string,
+        details: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string }
+      ): Promise<{ reservation: Reservation; manageToken?: string }> {
+        const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
+          `${publicHoldsPath(slug)}/${holdId}/confirm`,
+          {
+            method: "POST",
+            body: JSON.stringify(details),
+            headers: this.sessionHeaders("confirm"),
+          }
+        );
+    
+        return { reservation: response.data, manageToken: response.manageToken };
+      }
+    
+      /** Session-id header for the public path; throws when ownership is unprovable. */
+      private sessionHeaders(action: string): Record<string, string> {
+        if (!this.sessionId) {
+          throw new Error(`Session ID required to ${action} hold`);
+        }
+        return { "x-session-id": this.sessionId };
+      }
+    }
+    function publicHoldsPath(slug: string): string {
+      return `/public/v1/venues/${slug}/holds`;
     }
   </file>
   <file path="src/briefing.ts">

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, InjectOptions } from "fastify";
 
 // Mock the hold service
 vi.mock("../services/hold.js", () => ({
@@ -166,6 +166,11 @@ describe("Hold Routes", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
+    // The auth plugin only registers (and only honours the x-auth-bypass
+    // header) when both authority and audience resolve — without them
+    // `requireAuth` 401s every request, bypass header or not.
+    process.env.AUTH_AUTHORITY = "https://test.auth0.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
     process.env.AUTH_BYPASS_IN_TESTS = "true";
     app = await buildApp({ logger: false });
     await app.ready();
@@ -181,6 +186,18 @@ describe("Hold Routes", () => {
     await app.close();
   });
 
+  /**
+   * Injects an authenticated request. Every route in this file requires a JWT
+   * (#4487), so the behaviour suites below go through here; the
+   * "auth enforcement" suite at the bottom calls `app.inject` directly to
+   * exercise the anonymous case.
+   */
+  const authInject = (options: InjectOptions) =>
+    app.inject({
+      ...options,
+      headers: { "x-auth-bypass": "true", ...options.headers },
+    });
+
   describe("POST /v1/holds", () => {
     it("should create a hold successfully", async () => {
       vi.mocked(holdService.create).mockResolvedValue({
@@ -188,7 +205,7 @@ describe("Hold Routes", () => {
         hold: mockHold,
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: HOLDS_URL,
         headers: {
@@ -222,7 +239,7 @@ describe("Hold Routes", () => {
         hold: mockHold,
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: HOLDS_URL,
         payload: {
@@ -243,7 +260,7 @@ describe("Hold Routes", () => {
         error: "No available tables for this time slot",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: HOLDS_URL,
         headers: {
@@ -268,7 +285,7 @@ describe("Hold Routes", () => {
         error: "Venue not found",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: HOLDS_URL,
         headers: {
@@ -292,7 +309,7 @@ describe("Hold Routes", () => {
     it("should return hold by ID", async () => {
       vi.mocked(holdService.getById).mockResolvedValue(mockHold);
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "GET",
         url: HOLD_URL,
       });
@@ -305,7 +322,7 @@ describe("Hold Routes", () => {
     it("should return 404 for non-existent hold", async () => {
       vi.mocked(holdService.getById).mockResolvedValue(null);
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "GET",
         url: `${HOLDS_URL}/non-existent`,
       });
@@ -320,7 +337,7 @@ describe("Hold Routes", () => {
     it("should release hold successfully", async () => {
       vi.mocked(holdService.release).mockResolvedValue(true);
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "DELETE",
         url: HOLD_URL,
         headers: {
@@ -335,7 +352,7 @@ describe("Hold Routes", () => {
     });
 
     it("should return 400 without session ID", async () => {
-      const response = await app.inject({
+      const response = await authInject({
         method: "DELETE",
         url: HOLD_URL,
       });
@@ -347,7 +364,7 @@ describe("Hold Routes", () => {
     it("should return 404 when hold not found or wrong session", async () => {
       vi.mocked(holdService.release).mockResolvedValue(false);
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "DELETE",
         url: HOLD_URL,
         headers: {
@@ -366,7 +383,7 @@ describe("Hold Routes", () => {
         reservation: mockReservation,
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -409,7 +426,7 @@ describe("Hold Routes", () => {
         reservation: { ...mockReservation, guestEmail: null, guestPhone: "555-0100" },
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -426,7 +443,7 @@ describe("Hold Routes", () => {
     });
 
     it("should return 400 without session ID", async () => {
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         payload: {
@@ -445,7 +462,7 @@ describe("Hold Routes", () => {
         errorCode: "EXPIRED",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -469,7 +486,7 @@ describe("Hold Routes", () => {
         errorCode: "NOT_FOUND",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -493,7 +510,7 @@ describe("Hold Routes", () => {
         errorCode: "SESSION_MISMATCH",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -516,7 +533,7 @@ describe("Hold Routes", () => {
         errorCode: "CONFLICT",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -539,7 +556,7 @@ describe("Hold Routes", () => {
         errorCode: "PACING_EXCEEDED",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: {
@@ -565,7 +582,7 @@ describe("Hold Routes", () => {
     it("GET /:id carries the service-wide x-ratelimit-limit header", async () => {
       vi.mocked(holdService.getById).mockResolvedValue(null);
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "GET",
         url: HOLD_URL,
       });
@@ -578,7 +595,7 @@ describe("Hold Routes", () => {
     it("DELETE /:id carries the service-wide x-ratelimit-limit header", async () => {
       vi.mocked(holdService.release).mockResolvedValue(false);
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "DELETE",
         url: HOLD_URL,
         headers: { "x-session-id": "session-abc" },
@@ -594,7 +611,7 @@ describe("Hold Routes", () => {
         errorCode: "NOT_FOUND",
       });
 
-      const response = await app.inject({
+      const response = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: { "x-session-id": "session-abc" },
@@ -610,21 +627,21 @@ describe("Hold Routes", () => {
       // Exhaust the shared per-IP bucket (no venue slug in these URLs, so the
       // hook keys all three routes on the same ip:global bucket).
       for (let i = 0; i < PUBLIC_CAP; i++) {
-        const warmup = await app.inject({
+        const warmup = await authInject({
           method: "GET",
           url: HOLD_URL,
         });
         expect(warmup.statusCode).toBe(404);
       }
 
-      const limitedGet = await app.inject({
+      const limitedGet = await authInject({
         method: "GET",
         url: HOLD_URL,
       });
       expect(limitedGet.statusCode).toBe(429);
       expect(limitedGet.headers["retry-after"]).toBeDefined();
 
-      const limitedDelete = await app.inject({
+      const limitedDelete = await authInject({
         method: "DELETE",
         url: HOLD_URL,
         headers: { "x-session-id": "session-abc" },
@@ -633,13 +650,67 @@ describe("Hold Routes", () => {
       // The limiter must halt the request before the handler runs.
       expect(holdService.release).not.toHaveBeenCalled();
 
-      const limitedConfirm = await app.inject({
+      const limitedConfirm = await authInject({
         method: "POST",
         url: CONFIRM_URL,
         headers: { "x-session-id": "session-abc" },
         payload: { guestName: "John Doe" },
       });
       expect(limitedConfirm.statusCode).toBe(429);
+      expect(confirmHold).not.toHaveBeenCalled();
+    });
+  });
+
+  // #4487: /api/v1/holds is the STAFF surface. This service's own CLAUDE.md
+  // contract is "all /api/v1/* routes require a JWT except /api/v1/availability",
+  // and holds was silently exempt — the live public booking widget called it
+  // anonymously. The widget now uses the hardened /public/v1/venues/:slug/holds
+  // routes (server-side slug resolution + per-IP active-hold cap), so every
+  // route here is authenticated.
+  describe("auth enforcement (#4487)", () => {
+    it("returns 401 for anonymous POST /v1/holds", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: HOLDS_URL,
+        payload: {
+          venueId: "venue-123",
+          date: "2024-02-15",
+          time: "2024-02-15T18:00:00.000Z",
+          partySize: 4,
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(holdService.create).not.toHaveBeenCalled();
+    });
+
+    it("returns 401 for anonymous GET /v1/holds/:id", async () => {
+      const response = await app.inject({ method: "GET", url: HOLD_URL });
+
+      expect(response.statusCode).toBe(401);
+      expect(holdService.getById).not.toHaveBeenCalled();
+    });
+
+    it("returns 401 for anonymous DELETE /v1/holds/:id", async () => {
+      const response = await app.inject({
+        method: "DELETE",
+        url: HOLD_URL,
+        headers: { "x-session-id": "session-abc" },
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(holdService.release).not.toHaveBeenCalled();
+    });
+
+    it("returns 401 for anonymous POST /v1/holds/:id/confirm", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe" },
+      });
+
+      expect(response.statusCode).toBe(401);
       expect(confirmHold).not.toHaveBeenCalled();
     });
   });

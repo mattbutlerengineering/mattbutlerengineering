@@ -75,6 +75,9 @@
         async create(): Promise<unknown>;
       }
     </item>
+    <item priority="medium">
+      function publicHoldsPath(slug: string): string { /* ... */ }
+    </item>
   </file>
   <file path="src/briefing.ts">
     <item priority="low">

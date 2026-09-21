@@ -4259,6 +4259,8 @@
         data: { ...INITIAL_DATA, selectedDate: todayInTimezone(new Date(), venueTimezone) },
       };
     }
+    export const MISSING_VENUE_SLUG_ERROR =
+      "Online booking isn't available here. Please contact the venue directly to reserve.";
     export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
     export const STEP_KEYS_WITH_DEPOSIT: BookingStep[] = [
       "date-party",
@@ -4473,11 +4475,17 @@
       /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
       api: BookingWidgetApiClient;
       venueId: string;
-      /** Slug backing the public venue-config + guest-risk endpoints; omit to skip deposit config and risk gating entirely. */
+      /**
+       * Slug backing every public endpoint this flow calls — venue config, guest
+       * risk, and (since #4487) the whole hold lifecycle, which now goes through
+       * `/public/v1/venues/:slug/holds` instead of the authenticated staff hold
+       * routes. Omitting it skips deposit config and risk gating as before, and
+       * additionally makes holding impossible: `selectSlotAndHold` reports an
+       * error rather than calling a route that would 401.
+       */
       venueSlug?: string;
       /** Present when the venue's Stripe integration is configured; required (with venueSlug) for a deposit to ever be required. */
       stripePublishableKey?: string;
-      holdDurationMinutes?: number;
       /**
        * Notified whenever the flow's active (unconfirmed) hold changes —
        * created, released, expired, or consumed by a successful confirm. Lets
@@ -4499,7 +4507,6 @@
       venueId,
       venueSlug,
       stripePublishableKey,
-      holdDurationMinutes = 10,
       onHoldChange,
       venueTimezone,
     }: UseBookingFlowDeps): BookingFlowResult {
@@ -4539,15 +4546,18 @@
       }, [api, venueId, flowState.data.selectedDate, flowState.data.partySize]);
     
       // Release a hold by ID — errors are ignored, the hold expires anyway.
+      // Goes through the slug-scoped public route (#4487); a hold can only exist
+      // when venueSlug is set, so the guard is just for the type.
       const releaseHold = useCallback(
         async (holdId: string) => {
+          if (!venueSlug) return;
           try {
-            await api.holds.release(holdId);
+            await api.holds.releaseForVenue(venueSlug, holdId);
           } catch {
             // Ignore — hold expires anyway
           }
         },
-        [api]
+        [api, venueSlug]
       );
     
       // Guest-risk lookup — owned here (not the component) so the risk-gated
@@ -4641,25 +4651,32 @@
         async (slot: TimeSlot): Promise<void> => {
           if (!flowState.data.selectedDate) return;
           dispatch({ type: "HOLD_START", slot });
+          if (!venueSlug) {
+            dispatch({ type: "HOLD_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+            return;
+          }
           try {
-            const { hold } = await api.holds.create({
-              venueId,
+            // Slug-scoped public route (#4487): the server resolves the venue from
+            // the slug and derives the hold's end time and duration from the
+            // venue's own settings, so neither is sent from here.
+            const { hold } = await api.holds.createForVenue(venueSlug, {
               date: flowState.data.selectedDate,
-              time: slot.time,
+              startTime: slot.time,
               partySize: flowState.data.partySize,
-              holdDurationMinutes,
             });
             dispatch({ type: "HOLD_SUCCESS", hold, slot });
           } catch (err) {
             dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
           }
         },
-        [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
+        [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]
       );
     
       const confirmReservation = useCallback(
         async (details: GuestDetails): Promise<void> => {
-          if (!flowState.data.hold) return;
+          // A hold can only exist when venueSlug is set (selectSlotAndHold refuses
+          // otherwise), so the slug guard here is just for the type.
+          if (!flowState.data.hold || !venueSlug) return;
     
           // Only check guest risk when it could actually change the verdict
           // (guestRiskMatters — the shared deposit-verdict module's own gating)
@@ -4682,12 +4699,16 @@
     
           dispatch({ type: "CONFIRM_START" });
           try {
-            const { reservation, manageToken } = await api.holds.confirm(flowState.data.hold.id, {
-              guestName: details.name,
-              guestEmail: details.email || undefined,
-              guestPhone: details.phone || undefined,
-              notes: details.notes || undefined,
-            });
+            const { reservation, manageToken } = await api.holds.confirmForVenue(
+              venueSlug,
+              flowState.data.hold.id,
+              {
+                guestName: details.name,
+                guestEmail: details.email || undefined,
+                guestPhone: details.phone || undefined,
+                notes: details.notes || undefined,
+              }
+            );
             // `depositConfig` is the resolved output of effectiveDepositPolicy —
             // per its contract, a non-null result (which may itself carry
             // `enabled: false` on the risky-guest override path) means a deposit
@@ -21167,6 +21188,7 @@
       }>(
         "/",
         {
+          preHandler: requireAuth,
           config: {
             rateLimit: {
               max: 20,
@@ -21227,12 +21249,12 @@
       }>(
         "/:id",
         {
-          // Issue #4487 (shared-subset hardening): same per-IP public cap as the
-          // /public/v1 sibling (public-holds.ts), as a preHandler ON TOP of the
-          // service-wide 100/min onRequest limiter. Deliberately NOT a route-level
+          // Issue #4487: the per-IP cap runs BEFORE requireAuth so anonymous
+          // 401-probing is bounded too, as a preHandler ON TOP of the service-wide
+          // 100/min onRequest limiter. Deliberately NOT a route-level
           // config.rateLimit — that would replace the global limiter and (#4492)
           // leave stages before the preHandler with no bound at all.
-          preHandler: publicRateLimitHook,
+          preHandler: [publicRateLimitHook, requireAuth],
           schema: {
             summary: "Get hold status",
             operationId: "getHold",
@@ -21276,8 +21298,8 @@
       }>(
         "/:id",
         {
-          // See the GET /:id comment — per-IP public cap on top of the global limiter.
-          preHandler: publicRateLimitHook,
+          // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
+          preHandler: [publicRateLimitHook, requireAuth],
           schema: {
             summary: "Release a hold",
             operationId: "releaseHold",
@@ -21344,8 +21366,8 @@
       }>(
         "/:id/confirm",
         {
-          // See the GET /:id comment — per-IP public cap on top of the global limiter.
-          preHandler: publicRateLimitHook,
+          // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
+          preHandler: [publicRateLimitHook, requireAuth],
           schema: {
             summary: "Confirm a hold and create reservation",
             operationId: "confirmHold",
@@ -21951,6 +21973,29 @@
     };
   </file>
   <file path="services/reservations/src/routes/public-holds.ts">
+    async function resolveVenueBySlug(slug: string, reply: FastifyReply) {
+      const venue = await venueService.getBySlug(slug);
+      if (!venue) {
+        reply
+          .status(404)
+          .send(createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`));
+        return null;
+      }
+      return venue;
+    }
+    function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null {
+      const sessionId = request.headers[SESSION_ID_HEADER];
+      if (typeof sessionId !== "string" || sessionId.length === 0) {
+        reply.status(401).send({
+          type: "https://httpproblems.com/http-status/401",
+          title: "Unauthorized",
+          status: 401,
+          detail: `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to ${verb} it.`,
+        });
+        return null;
+      }
+      return sessionId;
+    }
     export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{
         Params: { slug: string };
@@ -21988,14 +22033,8 @@
               );
           }
     
-          const venue = await venueService.getBySlug(slug);
-          if (!venue) {
-            return reply
-              .status(404)
-              .send(
-                createProblemDetails(404, "Venue Not Found", `No venue found with slug '${slug}'.`)
-              );
-          }
+          const venue = await resolveVenueBySlug(slug, reply);
+          if (venue === null) return reply;
     
           const sessionId = randomUUID();
           const result = await holdService.create(
@@ -22035,19 +22074,10 @@
           const { holdId } = request.params;
           const ip = request.ip;
     
-          // The high-entropy sessionId returned at hold creation is the caller's
-          // capability token. Requiring it prevents one guest from releasing
-          // another guest's hold — the hold id itself is a low-entropy, guessable
-          // cuid and must not be treated as proof of ownership.
-          const sessionId = request.headers["x-session-id"];
-          if (typeof sessionId !== "string" || sessionId.length === 0) {
-            return reply.status(401).send({
-              type: "https://httpproblems.com/http-status/401",
-              title: "Unauthorized",
-              status: 401,
-              detail: "Pass the hold's session ID via the x-session-id header to release it.",
-            });
-          }
+          // Session-id ownership check — see readSessionId's doc comment for why
+          // the hold id itself is not proof of ownership.
+          const sessionId = readSessionId(request, reply, "release");
+          if (sessionId === null) return reply;
     
           const released = await holdService.release(holdId, sessionId);
           if (released) {
@@ -22055,6 +22085,111 @@
           }
     
           return reply.status(204).send();
+        }
+      );
+    
+      // GET the hold's status. The staff counterpart (/api/v1/holds/:id) is
+      // addressed by hold id alone; this one resolves the venue from the slug and
+      // requires the creating session, so a guessed hold id reveals nothing (#4487).
+      fastify.get<{
+        Params: { slug: string; holdId: string };
+        Reply: ApiResponse<ReservationHold> | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/holds/:holdId",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Get a reservation hold's status (public)",
+            tags: ["Public"],
+          },
+        },
+        async (request, reply) => {
+          const { slug, holdId } = request.params;
+    
+          const sessionId = readSessionId(request, reply, "read");
+          if (sessionId === null) return reply;
+    
+          const venue = await resolveVenueBySlug(slug, reply);
+          if (venue === null) return reply;
+    
+          const hold = await holdService.getById(holdId);
+          // A hold from another venue, or one this session does not own, is
+          // reported as absent — never as a distinct status that would confirm it
+          // exists somewhere.
+          if (!hold || hold.venueId !== venue.id || hold.sessionId !== sessionId) {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "Hold not found or expired."));
+          }
+    
+          return reply.send({ data: hold });
+        }
+      );
+    
+      // Confirm the hold into a reservation. Mirrors the staff route's response
+      // shape (`{ data, manageToken? }`) so one api-client method covers both, but
+      // adds slug scoping and drops `guestId` from the accepted body (#4487).
+      fastify.post<{
+        Params: { slug: string; holdId: string };
+        Body: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string };
+        Reply:
+          | (ApiResponse<Reservation> & { manageToken?: string })
+          | ReturnType<typeof createProblemDetails>;
+      }>(
+        "/:slug/holds/:holdId/confirm",
+        {
+          preHandler: publicRateLimitHook,
+          schema: {
+            summary: "Confirm a reservation hold (public)",
+            tags: ["Public"],
+            params: {
+              type: "object",
+              required: ["slug", "holdId"],
+              properties: { slug: { type: "string" }, holdId: { type: "string" } },
+            },
+            body: publicHoldConfirmBodyJsonSchema,
+          },
+        },
+        async (request, reply) => {
+          const { slug, holdId } = request.params;
+          const ip = request.ip;
+    
+          const sessionId = readSessionId(request, reply, "confirm");
+          if (sessionId === null) return reply;
+    
+          const venue = await resolveVenueBySlug(slug, reply);
+          if (venue === null) return reply;
+    
+          // Fields are named explicitly rather than forwarding the parsed body:
+          // Fastify leaves unknown properties on `request.body`, so spreading it
+          // would let an anonymous caller smuggle a `guestId` and attach its
+          // reservation to someone else's guest record.
+          const { guestName, guestEmail, guestPhone, notes } = request.body;
+          const result = await confirmHold({
+            holdId,
+            sessionId,
+            venueId: venue.id,
+            guestDetails: { guestName, guestEmail, guestPhone, notes },
+          });
+    
+          if (!result.success) {
+            const httpStatus = CONFIRM_ERROR_STATUS[result.errorCode] ?? 409;
+            const title = CONFIRM_ERROR_TITLE[result.errorCode] ?? "Conflict";
+            return reply.status(httpStatus).send(createProblemDetails(httpStatus, title, result.error));
+          }
+    
+          // The hold is consumed, so it no longer counts against the per-IP
+          // active-hold cap — same bookkeeping the release path does.
+          decrementHoldCount(ip);
+    
+          // Only mint a manage token when an email was actually supplied: a
+          // phone-only booking is stored with `guestEmail: null`, and a token
+          // signed with "" could never validate against it.
+          const manageToken = guestEmail
+            ? generateManageToken(result.reservation.id, guestEmail)
+            : undefined;
+    
+          return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
         }
       );
     };
@@ -25521,6 +25656,7 @@
     );
     export const publicGuestRiskQueryJsonSchema = toRequestJsonSchema(PublicGuestRiskQuerySchema);
     export const publicHoldBodyJsonSchema = toRequestJsonSchema(PublicHoldBodySchema);
+    export const publicHoldConfirmBodyJsonSchema = toRequestJsonSchema(PublicHoldConfirmBodySchema);
     export const publicReservationBodyJsonSchema = toRequestJsonSchema(PublicReservationBodySchema);
     export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
     export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
@@ -25842,8 +25978,18 @@
     export const PublicHoldBodySchema = z.object({
       date: z.string().min(1),
       startTime: z.string().min(1),
-      endTime: z.string().min(1),
+      // Optional because the hold's end is always derived server-side from the
+      // venue's turn-time rules (`estimateDuration`); the public create handler has
+      // never read this field. Requiring it only forced callers to invent a value
+      // (#4487, when the booking widget migrated onto this route).
+      endTime: z.string().min(1).optional(),
       partySize: z.number().int().min(1).max(20),
+    });
+    export const PublicHoldConfirmBodySchema = z.object({
+      guestName: z.string().describe("Guest name").optional(),
+      guestEmail: z.email().describe("Guest email").optional(),
+      guestPhone: z.string().describe("Guest phone number").optional(),
+      notes: z.string().describe("Special requests or notes").optional(),
     });
     export const PublicReservationBodySchema = z.object({
       holdId: z.string().min(1),
@@ -29830,12 +29976,20 @@
       sessionId?: string;
       guestDetails: ConfirmHoldRequest;
       userId?: string;
+      /**
+       * When provided, the hold must belong to this venue. Set by the slug-scoped
+       * public route (#4487) so a hold id from one venue cannot be confirmed
+       * through another venue's URL. A mismatch is reported as `NOT_FOUND`, never
+       * as a distinct error — the caller must not learn the hold exists elsewhere.
+       * Checked in the same lookup as the session id, before any write.
+       */
+      venueId?: string;
     }
     export type ConfirmHoldResult =
       | { success: true; reservation: Reservation }
       | { success: false; error: string; errorCode: ConfirmHoldErrorCode };
     export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
-      const { holdId, sessionId, guestDetails, userId } = input;
+      const { holdId, sessionId, guestDetails, userId, venueId } = input;
     
       // Step 1: Look up hold
       const hold = await prisma.reservationHold.findUnique({
@@ -29843,6 +29997,11 @@
       });
     
       if (!hold) {
+        return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
+      }
+    
+      // Step 1.5: Venue scoping (only when venueId is provided — slug-scoped public path)
+      if (venueId !== undefined && hold.venueId !== venueId) {
         return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
       }
     
@@ -44631,6 +44790,85 @@
     
         return { reservation: response.data, manageToken: response.manageToken };
       }
+    
+      /* ── Public, slug-scoped hold surface (#4487) ───────────────────────────
+       * The four methods above target the staff hold routes, which require a JWT.
+       * Anonymous callers (the embeddable booking widget) use the methods below:
+       * the venue is named by slug and resolved server-side, never taken from a
+       * client-supplied `venueId`, and the per-IP active-hold cap applies. Each
+       * carries the same `x-session-id` capability token, which for this path is
+       * minted by the server at create time and returned on the hold.
+       */
+    
+      /**
+       * Create a hold on a time slot for a venue addressed by slug. `endTime` is
+       * derived server-side from the venue's turn-time rules, so it is not sent.
+       */
+      async createForVenue(
+        slug: string,
+        data: { date: string; startTime: string; partySize: number }
+      ): Promise<{ hold: ReservationHold; sessionId: string }> {
+        const response = await this.client.request<{ data: ReservationHold }>(publicHoldsPath(slug), {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+    
+        // Unlike the staff route, the server mints the session id here — adopt it
+        // so the subsequent get/release/confirm can prove ownership.
+        this.sessionId = response.data.sessionId;
+        return { hold: response.data, sessionId: response.data.sessionId };
+      }
+    
+      /** Get a hold by ID, scoped to the venue slug that created it. */
+      async getForVenue(slug: string, holdId: string): Promise<ReservationHold> {
+        const response = await this.client.request<{ data: ReservationHold }>(
+          `${publicHoldsPath(slug)}/${holdId}`,
+          { headers: this.sessionHeaders("read") }
+        );
+    
+        return response.data;
+      }
+    
+      /** Release a hold, scoped to the venue slug that created it. */
+      async releaseForVenue(slug: string, holdId: string): Promise<void> {
+        await this.client.request<void>(`${publicHoldsPath(slug)}/${holdId}`, {
+          method: "DELETE",
+          headers: this.sessionHeaders("release"),
+        });
+      }
+    
+      /**
+       * Confirm a hold into a reservation, scoped to the venue slug that created
+       * it. `guestId` is deliberately absent from the accepted details — only the
+       * authenticated staff route may attach a hold to an existing guest record.
+       */
+      async confirmForVenue(
+        slug: string,
+        holdId: string,
+        details: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string }
+      ): Promise<{ reservation: Reservation; manageToken?: string }> {
+        const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
+          `${publicHoldsPath(slug)}/${holdId}/confirm`,
+          {
+            method: "POST",
+            body: JSON.stringify(details),
+            headers: this.sessionHeaders("confirm"),
+          }
+        );
+    
+        return { reservation: response.data, manageToken: response.manageToken };
+      }
+    
+      /** Session-id header for the public path; throws when ownership is unprovable. */
+      private sessionHeaders(action: string): Record<string, string> {
+        if (!this.sessionId) {
+          throw new Error(`Session ID required to ${action} hold`);
+        }
+        return { "x-session-id": this.sessionId };
+      }
+    }
+    function publicHoldsPath(slug: string): string {
+      return `/public/v1/venues/${slug}/holds`;
     }
   </file>
   <file path="packages/api-client/src/briefing.ts">

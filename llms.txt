@@ -1302,6 +1302,9 @@
       function createInitialState(venueTimezone?: string): BookingFlowState { /* ... */ }
     </item>
     <item priority="high">
+      export const MISSING_VENUE_SLUG_ERROR: unknown;
+    </item>
+    <item priority="high">
       export const STEP_KEYS_NO_DEPOSIT: BookingStep[];
     </item>
     <item priority="high">
@@ -1337,7 +1340,7 @@
         venueId: string;
         venueSlug?: string;
         stripePublishableKey?: string;
-        holdDurationMinutes?: number;
+        onHoldChange?: (info: { holdId: string; sessionId: string | null } | nul...;
       }
     </item>
     <item priority="high">
@@ -1346,7 +1349,6 @@
         venueId,
         venueSlug,
         stripePublishableKey,
-        holdDurationMinutes = 10,
         onHoldChange,
         venueTimezone,
       }: UseBookingFlowDeps): BookingFlowResult { /* ... */ }
@@ -5861,6 +5863,12 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/public-holds.ts">
+    <item priority="low">
+      async function resolveVenueBySlug(slug: string, reply: FastifyReply) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
+    </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
     </item>
@@ -6337,6 +6345,9 @@
       export const publicHoldBodyJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicHoldConfirmBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const publicReservationBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -6478,6 +6489,9 @@
     </item>
     <item priority="high">
       export const PublicHoldBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicHoldConfirmBodySchema: unknown;
     </item>
     <item priority="high">
       export const PublicReservationBodySchema: unknown;
@@ -7482,6 +7496,7 @@
         sessionId?: string;
         guestDetails: ConfirmHoldRequest;
         userId?: string;
+        venueId?: string;
       }
     </item>
     <item priority="low">
@@ -11537,6 +11552,9 @@
         async getSessionId(): Promise<unknown>;
         async create(): Promise<unknown>;
       }
+    </item>
+    <item priority="medium">
+      function publicHoldsPath(slug: string): string { /* ... */ }
     </item>
   </file>
   <file path="packages/api-client/src/briefing.ts">

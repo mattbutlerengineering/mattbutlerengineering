@@ -300,11 +300,22 @@ type WaitlistStatus = "waiting" | "notified" | "seated" | "expired" | "cancelled
 
 ### Availability
 
-| Method | Path                        | Description                     |
-| ------ | --------------------------- | ------------------------------- |
-| GET    | `/api/v1/availability`      | Get available time slots        |
-| POST   | `/api/v1/holds`             | Create reservation hold (5 min) |
-| PUT    | `/api/v1/holds/:id/confirm` | Confirm hold → reservation      |
+| Method | Path                   | Description              |
+| ------ | ---------------------- | ------------------------ |
+| GET    | `/api/v1/availability` | Get available time slots |
+
+### Holds (authenticated — staff)
+
+All four require a JWT (#4487). Anonymous guests use the `/public/v1` hold
+routes below, which resolve the venue by slug instead of trusting a
+client-supplied `venueId`.
+
+| Method | Path                        | Description                                  |
+| ------ | --------------------------- | -------------------------------------------- |
+| POST   | `/api/v1/holds`             | Create reservation hold (venue default 10 m) |
+| GET    | `/api/v1/holds/:id`         | Get hold status                              |
+| DELETE | `/api/v1/holds/:id`         | Release hold (requires `x-session-id`)       |
+| POST   | `/api/v1/holds/:id/confirm` | Confirm hold → reservation                   |
 
 ### Guests
 
@@ -362,7 +373,9 @@ Raw body access is required for HMAC signature verification — this route must 
 | GET    | `/public/v1/venues/:slug`                         | Get public venue info                   |
 | GET    | `/public/v1/venues/:slug/availability`            | Get available slots (public)            |
 | POST   | `/public/v1/venues/:slug/holds`                   | Create hold (public)                    |
+| GET    | `/public/v1/venues/:slug/holds/:holdId`           | Get hold status (public)                |
 | DELETE | `/public/v1/venues/:slug/holds/:holdId`           | Release hold (public)                   |
+| POST   | `/public/v1/venues/:slug/holds/:holdId/confirm`   | Confirm hold → reservation (public)     |
 | POST   | `/public/v1/venues/:slug/reservations`            | Confirm hold → reservation (public)     |
 | POST   | `/public/v1/venues/:slug/deposits/payment-intent` | Create Stripe PaymentIntent for deposit |
 | GET    | `/public/v1/reservations/manage`                  | Get reservation via manage token        |
@@ -371,6 +384,13 @@ Raw body access is required for HMAC signature verification — this route must 
 | GET    | `/public/v1/reservations/confirm`                 | Confirm attendance via token            |
 
 The public deposit route creates a Stripe PaymentIntent (manual capture) and a `Deposit` record in `pending` state, returning the `clientSecret` for Stripe.js to confirm on the frontend.
+
+Every `/holds` route above requires the `x-session-id` returned at hold
+creation (a high-entropy capability token) for reads, releases and confirms —
+the hold id is a guessable cuid and is never treated as proof of ownership.
+`…/holds/:holdId/confirm` (#4487) is what the booking widget uses; the older
+`…/reservations` route does the same job but takes the hold id in the body,
+performs no session check, and requires `guestName` + `guestEmail`.
 
 ### Events (SSE)
 
@@ -480,9 +500,9 @@ Hospitality UI ──> Reservations API ──> SSE ──> Hospitality UI (upda
 ### Booking Widget
 
 ```
-Booking Widget ──> GET /availability ──> Time slots
-               ──> POST /holds ──> Hold created (5 min)
-               ──> PUT /holds/:id/confirm ──> Reservation created
+Booking Widget ──> GET /public/v1/venues/:slug/availability ──> Time slots
+               ──> POST /public/v1/venues/:slug/holds ──> Hold created (venue default 10 m) + x-session-id
+               ──> POST /public/v1/venues/:slug/holds/:holdId/confirm ──> Reservation created
                ──> POST /public/v1/venues/:slug/deposits/payment-intent ──> Stripe PaymentIntent (if deposit enabled)
 ```
 

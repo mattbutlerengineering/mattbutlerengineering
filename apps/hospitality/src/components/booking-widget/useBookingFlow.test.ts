@@ -106,11 +106,20 @@ function makeFakeApi() {
       getTimeSlots: vi.fn().mockResolvedValue([]),
     },
     holds: {
+      // Staff surface (/api/v1/holds) — present so tests can assert the widget
+      // never touches it (#4487), never to be called.
       create: vi.fn().mockResolvedValue({ hold: mockHold, sessionId: "s1" }),
       confirm: vi
         .fn()
         .mockResolvedValue({ reservation: mockReservation, manageToken: "tok_test123" }),
       release: vi.fn().mockResolvedValue(undefined),
+      // Public, slug-scoped surface (/public/v1/venues/:slug/holds) — what the
+      // widget actually calls.
+      createForVenue: vi.fn().mockResolvedValue({ hold: mockHold, sessionId: "s1" }),
+      confirmForVenue: vi
+        .fn()
+        .mockResolvedValue({ reservation: mockReservation, manageToken: "tok_test123" }),
+      releaseForVenue: vi.fn().mockResolvedValue(undefined),
       getSessionId: vi.fn().mockReturnValue("s1"),
     },
     venues: {
@@ -126,20 +135,24 @@ function makeFakeApi() {
 
 type FakeApi = ReturnType<typeof makeFakeApi>;
 
+/** Slug every hold-exercising test runs under — the widget cannot hold without one (#4487). */
+const DEFAULT_SLUG = "the-oak-table";
+
 interface RenderBookingFlowOptions {
   venueId?: string;
-  venueSlug?: string;
+  /** Pass `null` to render with no slug at all (the misconfigured-embed case). */
+  venueSlug?: string | null;
   stripePublishableKey?: string;
   venueTimezone?: string;
 }
 
 function renderBookingFlow(fakeApi: FakeApi, options: RenderBookingFlowOptions = {}) {
-  const { venueId = "v1", venueSlug, stripePublishableKey, venueTimezone } = options;
+  const { venueId = "v1", venueSlug = DEFAULT_SLUG, stripePublishableKey, venueTimezone } = options;
   return renderHook(() =>
     useBookingFlow({
       api: fakeApi as unknown as BookingWidgetApiClient,
       venueId,
-      venueSlug,
+      venueSlug: venueSlug ?? undefined,
       stripePublishableKey,
       venueTimezone,
     })
@@ -307,7 +320,7 @@ describe("useBookingFlow", () => {
   describe("transition: time-slot -> guest-details (Hold create owned by the hook)", () => {
     it("selectSlotAndHold sets holdLoading true while the create is pending", () => {
       const fakeApi = makeFakeApi();
-      fakeApi.holds.create.mockReturnValue(new Promise(() => {}));
+      fakeApi.holds.createForVenue.mockReturnValue(new Promise(() => {}));
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -326,12 +339,14 @@ describe("useBookingFlow", () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
       });
 
-      expect(fakeApi.holds.create).toHaveBeenCalledWith({
-        venueId: "v1",
+      // #4487: the hold goes through the slug-scoped public route, which
+      // resolves the venue server-side — never the anonymous /api/v1/holds,
+      // which now requires a JWT.
+      expect(fakeApi.holds.create).not.toHaveBeenCalled();
+      expect(fakeApi.holds.createForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, {
         date: "2026-05-20",
-        time: mockSlot.time,
+        startTime: mockSlot.time,
         partySize: 2,
-        holdDurationMinutes: 10,
       });
       expect(result.current.data.hold).toEqual(mockHold);
       expect(result.current.data.selectedSlot).toEqual(mockSlot);
@@ -342,7 +357,9 @@ describe("useBookingFlow", () => {
 
     it("selectSlotAndHold rejects: sets holdError, stays on time-slot", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.holds.create.mockRejectedValue(serverError("POST", "/api/v1/holds"));
+      fakeApi.holds.createForVenue.mockRejectedValue(
+        serverError("POST", "/public/v1/venues/the-oak-table/holds")
+      );
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -356,12 +373,31 @@ describe("useBookingFlow", () => {
       expect(result.current.state).toBe("time-slot");
       expect(result.current.data.holdLoading).toBe(false);
     });
+
+    // A widget embedded without a venueSlug has no hardened route to call.
+    // It must surface that as an error rather than fall back to the
+    // now-authenticated /api/v1/holds and 401 (#4487).
+    it("selectSlotAndHold without a venueSlug errors instead of calling the staff route", async () => {
+      const fakeApi = makeFakeApi();
+      const { result } = renderBookingFlow(fakeApi, { venueSlug: null });
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+
+      expect(fakeApi.holds.create).not.toHaveBeenCalled();
+      expect(fakeApi.holds.createForVenue).not.toHaveBeenCalled();
+      expect(result.current.data.holdError).not.toBeNull();
+      expect(result.current.data.hold).toBeNull();
+      expect(result.current.data.holdLoading).toBe(false);
+    });
   });
 
   describe("transition: guest-details -> confirmation (Hold confirm owned by the hook)", () => {
     it("confirmReservation sets confirmLoading true while pending", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.holds.confirm.mockReturnValue(new Promise(() => {}));
+      fakeApi.holds.confirmForVenue.mockReturnValue(new Promise(() => {}));
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -386,7 +422,8 @@ describe("useBookingFlow", () => {
         await result.current.actions.confirmReservation(guestDetails);
       });
 
-      expect(fakeApi.holds.confirm).toHaveBeenCalledWith(mockHold.id, {
+      expect(fakeApi.holds.confirm).not.toHaveBeenCalled();
+      expect(fakeApi.holds.confirmForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, mockHold.id, {
         guestName: guestDetails.name,
         guestEmail: guestDetails.email,
         guestPhone: undefined,
@@ -400,7 +437,9 @@ describe("useBookingFlow", () => {
 
     it("confirmReservation rejects: sets confirmError, stays on guest-details", async () => {
       const fakeApi = makeFakeApi();
-      fakeApi.holds.confirm.mockRejectedValue(serverError("POST", "/api/v1/holds/hold-1/confirm"));
+      fakeApi.holds.confirmForVenue.mockRejectedValue(
+        serverError("POST", "/public/v1/venues/the-oak-table/holds/hold-1/confirm")
+      );
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -453,7 +492,7 @@ describe("useBookingFlow", () => {
 
     it("does not fetch deposit config when venueSlug is omitted", () => {
       const fakeApi = makeFakeApi();
-      renderBookingFlow(fakeApi);
+      renderBookingFlow(fakeApi, { venueSlug: null });
       expect(fakeApi.venues.getPublicConfig).not.toHaveBeenCalled();
     });
 
@@ -712,7 +751,7 @@ describe("useBookingFlow", () => {
         await result.current.actions.selectSlotAndHold(mockSlot);
       });
       act(() => result.current.actions.goToDateParty());
-      expect(fakeApi.holds.release).toHaveBeenCalledWith("hold-1");
+      expect(fakeApi.holds.releaseForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, "hold-1");
       expect(result.current.data.hold).toBeNull();
     });
 
@@ -726,7 +765,7 @@ describe("useBookingFlow", () => {
       await act(async () => {
         await result.current.actions.goToTimeSlot();
       });
-      expect(fakeApi.holds.release).toHaveBeenCalledWith("hold-1");
+      expect(fakeApi.holds.releaseForVenue).toHaveBeenCalledWith(DEFAULT_SLUG, "hold-1");
       expect(result.current.state).toBe("time-slot");
     });
   });
@@ -746,7 +785,7 @@ describe("useBookingFlow", () => {
         ...mockHold,
         expiresAt: new Date(Date.now() + 5_000).toISOString(),
       };
-      fakeApi.holds.create.mockResolvedValue({ hold: soonToExpireHold, sessionId: "s1" });
+      fakeApi.holds.createForVenue.mockResolvedValue({ hold: soonToExpireHold, sessionId: "s1" });
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));
@@ -787,7 +826,7 @@ describe("useBookingFlow", () => {
         ...mockHold,
         expiresAt: new Date(Date.now() + 5_000).toISOString(),
       };
-      fakeApi.holds.create.mockResolvedValue({ hold: soonToExpireHold, sessionId: "s1" });
+      fakeApi.holds.createForVenue.mockResolvedValue({ hold: soonToExpireHold, sessionId: "s1" });
       const { result } = renderBookingFlow(fakeApi);
 
       act(() => result.current.actions.setSelectedDate("2026-05-20"));

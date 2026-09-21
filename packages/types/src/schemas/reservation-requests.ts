@@ -393,8 +393,26 @@ export const PublicGuestRiskQuerySchema = z.object({
 export const PublicHoldBodySchema = z.object({
   date: z.string().min(1),
   startTime: z.string().min(1),
-  endTime: z.string().min(1),
+  // Optional because the hold's end is always derived server-side from the
+  // venue's turn-time rules (`estimateDuration`); the public create handler has
+  // never read this field. Requiring it only forced callers to invent a value
+  // (#4487, when the booking widget migrated onto this route).
+  endTime: z.string().min(1).optional(),
   partySize: z.number().int().min(1).max(20),
+});
+
+/**
+ * Body for the public hold-confirm route (`POST
+ * /public/v1/venues/:slug/holds/:holdId/confirm`). Deliberately
+ * `ConfirmHoldBodySchema` minus `guestId`: the authenticated staff route may
+ * attach a hold to an existing guest record, but an anonymous caller must not
+ * be able to name one.
+ */
+export const PublicHoldConfirmBodySchema = z.object({
+  guestName: z.string().describe("Guest name").optional(),
+  guestEmail: z.email().describe("Guest email").optional(),
+  guestPhone: z.string().describe("Guest phone number").optional(),
+  notes: z.string().describe("Special requests or notes").optional(),
 });
 
 export const PublicReservationBodySchema = z.object({

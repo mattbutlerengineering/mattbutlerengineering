@@ -60,12 +60,17 @@ export function PublicBookingPage() {
   // confirming — a `pagehide` handler firing a `DELETE` (release is DELETE,
   // never POST — `sendBeacon` only sends POST, which is why the previous
   // implementation never actually released anything; see #4978).
-  // `keepalive: true` lets the request outlive the unloading page.
+  // `keepalive: true` lets the request outlive the unloading page, which is
+  // why this is a raw `fetch` rather than `api.holds.releaseForVenue` —
+  // @mbe/api-client has no keepalive seam. The URL is the slug-scoped public
+  // route (#4487); the authenticated /api/v1/holds would 401 here.
   useEffect(() => {
+    if (!venueSlug) return undefined;
+
     const handlePageHide = () => {
       const activeHold = activeHoldRef.current;
       if (!activeHold) return;
-      fetch(`${BASE_URL}/api/v1/holds/${activeHold.holdId}`, {
+      fetch(`${BASE_URL}/public/v1/venues/${venueSlug}/holds/${activeHold.holdId}`, {
         method: "DELETE",
         keepalive: true,
         headers: activeHold.sessionId ? { "x-session-id": activeHold.sessionId } : undefined,
@@ -74,7 +79,7 @@ export function PublicBookingPage() {
 
     window.addEventListener("pagehide", handlePageHide);
     return () => window.removeEventListener("pagehide", handlePageHide);
-  }, []);
+  }, [venueSlug]);
 
   // Branded, deliberately generic not-found. The raw transport error carries
   // the internal endpoint path (e.g. "GET /api/v1/venues/by-slug/... failed: 404")

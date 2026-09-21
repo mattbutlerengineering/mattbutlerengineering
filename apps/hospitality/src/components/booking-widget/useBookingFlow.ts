@@ -145,6 +145,14 @@ function createInitialState(venueTimezone?: string): BookingFlowState {
   };
 }
 
+/**
+ * Shown when the widget is embedded without a `venueSlug` (#4487). Holding
+ * requires the slug-scoped public route, so there is nothing to fall back to —
+ * the guest gets an honest dead end instead of a 401 from the staff route.
+ */
+export const MISSING_VENUE_SLUG_ERROR =
+  "Online booking isn't available here. Please contact the venue directly to reserve.";
+
 /** Step keys when no deposit is required — single source of truth for step-set derivation. */
 export const STEP_KEYS_NO_DEPOSIT: BookingStep[] = ["date-party", "time-slot", "guest-details"];
 /** Step keys when a deposit is required — appends the "payment" step. */
@@ -370,11 +378,17 @@ export interface UseBookingFlowDeps {
   /** The public (unauthenticated) api client — the injected seam for the whole flow's effects. */
   api: BookingWidgetApiClient;
   venueId: string;
-  /** Slug backing the public venue-config + guest-risk endpoints; omit to skip deposit config and risk gating entirely. */
+  /**
+   * Slug backing every public endpoint this flow calls — venue config, guest
+   * risk, and (since #4487) the whole hold lifecycle, which now goes through
+   * `/public/v1/venues/:slug/holds` instead of the authenticated staff hold
+   * routes. Omitting it skips deposit config and risk gating as before, and
+   * additionally makes holding impossible: `selectSlotAndHold` reports an
+   * error rather than calling a route that would 401.
+   */
   venueSlug?: string;
   /** Present when the venue's Stripe integration is configured; required (with venueSlug) for a deposit to ever be required. */
   stripePublishableKey?: string;
-  holdDurationMinutes?: number;
   /**
    * Notified whenever the flow's active (unconfirmed) hold changes —
    * created, released, expired, or consumed by a successful confirm. Lets
@@ -397,7 +411,6 @@ export function useBookingFlow({
   venueId,
   venueSlug,
   stripePublishableKey,
-  holdDurationMinutes = 10,
   onHoldChange,
   venueTimezone,
 }: UseBookingFlowDeps): BookingFlowResult {
@@ -437,15 +450,18 @@ export function useBookingFlow({
   }, [api, venueId, flowState.data.selectedDate, flowState.data.partySize]);
 
   // Release a hold by ID — errors are ignored, the hold expires anyway.
+  // Goes through the slug-scoped public route (#4487); a hold can only exist
+  // when venueSlug is set, so the guard is just for the type.
   const releaseHold = useCallback(
     async (holdId: string) => {
+      if (!venueSlug) return;
       try {
-        await api.holds.release(holdId);
+        await api.holds.releaseForVenue(venueSlug, holdId);
       } catch {
         // Ignore — hold expires anyway
       }
     },
-    [api]
+    [api, venueSlug]
   );
 
   // Guest-risk lookup — owned here (not the component) so the risk-gated
@@ -539,25 +555,32 @@ export function useBookingFlow({
     async (slot: TimeSlot): Promise<void> => {
       if (!flowState.data.selectedDate) return;
       dispatch({ type: "HOLD_START", slot });
+      if (!venueSlug) {
+        dispatch({ type: "HOLD_ERROR", error: MISSING_VENUE_SLUG_ERROR });
+        return;
+      }
       try {
-        const { hold } = await api.holds.create({
-          venueId,
+        // Slug-scoped public route (#4487): the server resolves the venue from
+        // the slug and derives the hold's end time and duration from the
+        // venue's own settings, so neither is sent from here.
+        const { hold } = await api.holds.createForVenue(venueSlug, {
           date: flowState.data.selectedDate,
-          time: slot.time,
+          startTime: slot.time,
           partySize: flowState.data.partySize,
-          holdDurationMinutes,
         });
         dispatch({ type: "HOLD_SUCCESS", hold, slot });
       } catch (err) {
         dispatch({ type: "HOLD_ERROR", error: describeApiError(err).detail });
       }
     },
-    [api, venueId, holdDurationMinutes, flowState.data.selectedDate, flowState.data.partySize]
+    [api, venueSlug, flowState.data.selectedDate, flowState.data.partySize]
   );
 
   const confirmReservation = useCallback(
     async (details: GuestDetails): Promise<void> => {
-      if (!flowState.data.hold) return;
+      // A hold can only exist when venueSlug is set (selectSlotAndHold refuses
+      // otherwise), so the slug guard here is just for the type.
+      if (!flowState.data.hold || !venueSlug) return;
 
       // Only check guest risk when it could actually change the verdict
       // (guestRiskMatters — the shared deposit-verdict module's own gating)
@@ -580,12 +603,16 @@ export function useBookingFlow({
 
       dispatch({ type: "CONFIRM_START" });
       try {
-        const { reservation, manageToken } = await api.holds.confirm(flowState.data.hold.id, {
-          guestName: details.name,
-          guestEmail: details.email || undefined,
-          guestPhone: details.phone || undefined,
-          notes: details.notes || undefined,
-        });
+        const { reservation, manageToken } = await api.holds.confirmForVenue(
+          venueSlug,
+          flowState.data.hold.id,
+          {
+            guestName: details.name,
+            guestEmail: details.email || undefined,
+            guestPhone: details.phone || undefined,
+            notes: details.notes || undefined,
+          }
+        );
         // `depositConfig` is the resolved output of effectiveDepositPolicy —
         // per its contract, a non-null result (which may itself carry
         // `enabled: false` on the risky-guest override path) means a deposit
