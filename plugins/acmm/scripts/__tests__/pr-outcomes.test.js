@@ -6,6 +6,8 @@ import {
   isAgentPr,
   extractRevertedPrNumbers,
   selectRecentChanges,
+  isNonHumanAuthor,
+  commitsShowHumanTouch,
 } from "../pr-outcomes.js";
 
 const NOW = new Date("2026-04-26T12:00:00Z");
@@ -239,4 +241,67 @@ test("selectRecentChanges: caps the list at the requested limit", () => {
     selectRecentChanges(prs, { now: NOW, recentLimit: 3 }).map((c) => c.number),
     [25, 24, 23]
   );
+});
+
+// ── human-touch detection (#5613) ────────────────────────────────────────────
+//
+// The L6 human-touch-ratio gate caps the repo's ACMM level. Before this fix it
+// read 97.5% across the last 40 merged agent PRs in the 30-day window, because
+// `Co-Authored-By: Claude <noreply@anthropic.com>` resolves to the GitHub login
+// `claude` — so every commit carrying the repo's own attribution trailer was
+// counted as a human stepping in, which is the opposite of what it means.
+
+const HUMAN = "mattbutlerengineering";
+
+test("isNonHumanAuthor: the claude co-author login is not a human", () => {
+  assert.equal(isNonHumanAuthor("claude"), true);
+  assert.equal(isNonHumanAuthor("Claude"), true);
+});
+
+test("isNonHumanAuthor: any [bot] suffix is non-human, including unlisted ones", () => {
+  assert.equal(isNonHumanAuthor("dependabot[bot]"), true);
+  assert.equal(isNonHumanAuthor("github-actions[bot]"), true);
+  assert.equal(isNonHumanAuthor("some-future-thing[bot]"), true);
+});
+
+test("isNonHumanAuthor: a real login is human", () => {
+  assert.equal(isNonHumanAuthor(HUMAN), false);
+  assert.equal(isNonHumanAuthor("octocat"), false);
+});
+
+test("isNonHumanAuthor: a missing login is not counted as a human touch", () => {
+  assert.equal(isNonHumanAuthor(""), true);
+  assert.equal(isNonHumanAuthor(undefined), true);
+});
+
+test("commitsShowHumanTouch: PR #5615's real shape is not human-touched", () => {
+  // One commit, sole author `claude`, PR author mattbutlerengineering. No human
+  // involvement of any kind — and counted as human-touched before this fix.
+  const commits = [{ authors: [{ login: "claude", email: "noreply@anthropic.com" }] }];
+  assert.equal(commitsShowHumanTouch(commits, HUMAN), false);
+});
+
+test("commitsShowHumanTouch: a dependabot PR is not human-touched", () => {
+  assert.equal(commitsShowHumanTouch([{ authors: [{ login: "dependabot[bot]" }] }], HUMAN), false);
+});
+
+test("commitsShowHumanTouch: the PR author's own commits are not a human touch", () => {
+  assert.equal(commitsShowHumanTouch([{ authors: [{ login: HUMAN }] }], HUMAN), false);
+});
+
+test("commitsShowHumanTouch: a different human IS a touch — the signal must survive", () => {
+  const commits = [{ authors: [{ login: HUMAN }] }, { authors: [{ login: "a-reviewer" }] }];
+  assert.equal(commitsShowHumanTouch(commits, HUMAN), true);
+});
+
+test("commitsShowHumanTouch: a human co-author alongside claude still counts", () => {
+  const commits = [{ authors: [{ login: "claude" }, { login: "a-reviewer" }] }];
+  assert.equal(commitsShowHumanTouch(commits, HUMAN), true);
+});
+
+test("commitsShowHumanTouch: tolerates missing or malformed commit data", () => {
+  assert.equal(commitsShowHumanTouch(undefined, HUMAN), false);
+  assert.equal(commitsShowHumanTouch([], HUMAN), false);
+  assert.equal(commitsShowHumanTouch([{}], HUMAN), false);
+  assert.equal(commitsShowHumanTouch([{ authors: null }], HUMAN), false);
 });
