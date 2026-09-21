@@ -11,6 +11,16 @@ describe("downloadJson", () => {
       if (tag === "a") return anchorMock;
       return originalCreateElement(tag);
     });
+    // jsdom's object-URL support is an implementation detail, not a contract:
+    // whether `URL.createObjectURL` accepts the `Blob` this module constructs
+    // depends on jsdom's internal Blob backing store. jsdom 30.1.0 changed it
+    // and every test here that did NOT stub the pair started throwing
+    // `Cannot read properties of undefined (reading '_buffer')` from
+    // downloadJson.ts:9 — three of five, exactly the three without a stub.
+    // Stub it for all of them: these tests are about the anchor element this
+    // module builds, and none of them should care how a blob URL is minted.
+    vi.spyOn(globalThis.URL, "createObjectURL").mockReturnValue("blob:mock");
+    vi.spyOn(globalThis.URL, "revokeObjectURL").mockImplementation(() => {});
   });
 
   afterEach(() => {
