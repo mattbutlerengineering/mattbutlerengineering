@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { classifySentryIssueActionability } from "../../../../scripts/sentry-triage-recency.mjs";
+
 const SENTRY_TOKEN = process.env.SENTRY_ACCESS_TOKEN;
 if (!SENTRY_TOKEN) {
   console.error("SENTRY_ACCESS_TOKEN not set");
@@ -8,6 +10,13 @@ const GITHUB_TOKEN = process.env.GH_TOKEN || "";
 const ORG_SLUG = "mattbutlerengineering";
 const REPO = "mattbutlerengineering/mattbutlerengineering";
 const SEVERITY_THRESHOLD = 5;
+/**
+ * Triage window. Used for BOTH the Sentry query's `statsPeriod` and the
+ * recency classification, so the two can never drift — the defect behind
+ * #5534/#5535 was a query that said "14d" paired with a filter that
+ * silently read the lifetime event total instead.
+ */
+const STATS_PERIOD = "14d";
 
 async function sentryApi(endpoint) {
   const response = await fetch(`https://sentry.io/api/0${endpoint}`, {
@@ -47,15 +56,42 @@ async function triage() {
 
   const allIssues = [];
   for (const project of projects) {
-    const issues = await sentryApi(`/projects/${ORG_SLUG}/${project.slug}/issues/?statsPeriod=14d`);
+    const issues = await sentryApi(
+      `/projects/${ORG_SLUG}/${project.slug}/issues/?statsPeriod=${STATS_PERIOD}`
+    );
     allIssues.push(...issues.map((i) => ({ ...i, project: project.slug })));
   }
 
   console.log(`\nTotal issues: ${allIssues.length}`);
-  const filtered = allIssues.filter(
-    (i) => (i.level === "error" || i.level === "fatal") && parseInt(i.count) >= SEVERITY_THRESHOLD
+
+  // Classify on events INSIDE the window, not the lifetime `count`. A
+  // long-dead issue keeps its lifetime total forever, which is how two
+  // already-fixed errors were re-filed as #5534 and #5535 — 17 and 18 days
+  // after their last event.
+  const classified = allIssues.map((issue) => ({
+    ...issue,
+    ...classifySentryIssueActionability(issue, {
+      severityThreshold: SEVERITY_THRESHOLD,
+      period: STATS_PERIOD,
+    }),
+  }));
+
+  const filtered = classified.filter((i) => i.actionable);
+
+  const skipCounts = {};
+  for (const i of classified) {
+    if (!i.actionable) skipCounts[i.reason] = (skipCounts[i.reason] || 0) + 1;
+  }
+  const skipSummary = Object.entries(skipCounts)
+    .map(([reason, n]) => `${reason}=${n}`)
+    .join(", ");
+  // Printed even when empty: a silent skip tally is how a payload-shape
+  // change (everything -> `window-unknown`) would look identical to a
+  // genuinely quiet day.
+  console.log(`Not actionable: ${skipSummary || "none"}`);
+  console.log(
+    `Actionable (>=${SEVERITY_THRESHOLD} events in last ${STATS_PERIOD}): ${filtered.length}\n`
   );
-  console.log(`Filtered (>${SEVERITY_THRESHOLD} events): ${filtered.length}\n`);
 
   if (filtered.length === 0) {
     console.log("No actionable issues found. System is healthy!");
@@ -77,7 +113,7 @@ async function triage() {
       continue;
     }
 
-    const body = `## Sentry Production Error\n\n**Sentry Issue:** https://sentry.io/organizations/${ORG_SLUG}/issues/${issue.id}/\n**Project:** ${issue.project}\n**Level:** ${issue.level}\n**Events:** ${issue.count} in last 14 days\n**Affected Users:** ${issue.userCount || 0}\n\n## Acceptance Criteria\n\n- [ ] Error rate drops >50% after fix\n- [ ] Verified by learning-loop post-fix check\n\n_Detected by sentry-triage_`;
+    const body = `## Sentry Production Error\n\n**Sentry Issue:** https://sentry.io/organizations/${ORG_SLUG}/issues/${issue.id}/\n**Project:** ${issue.project}\n**Level:** ${issue.level}\n**Events:** ${issue.eventsInWindow} in last ${STATS_PERIOD} (${issue.count} lifetime)\n**Affected Users:** ${issue.userCount || 0}\n\n## Acceptance Criteria\n\n- [ ] Error rate drops >50% after fix\n- [ ] Verified by learning-loop post-fix check\n\n_Detected by sentry-triage_`;
 
     const result = await createIssue(`fix(${issue.project}): ${title}`, body, [
       "ready",
