@@ -1,0 +1,83 @@
+name: Preview Teardown Sweep
+
+# Reclaims leaked `mbe-preview-<pr>-<app>` Cloudflare Workers (#4670).
+#
+# This does NOT duplicate `preview-deploy.yml`'s per-PR `cleanup` job. That job
+# already exists, already runs on `pull_request: [closed]`, and was verified
+# working while this workflow was written: PR #5555 merged 2026-09-21T00:20:46Z,
+# and run 35547410837's Cleanup Preview job (106175712028) logged
+# "Successfully deleted mbe-preview-5555-marketing". Adding a second
+# closed-event teardown would race it, and the loser's 404 would read as a
+# failure.
+#
+# What was missing is a *reconciler*. `resource-audit.yml` detects orphans
+# weekly and files "Orphaned resources found (N)", but nothing could act on the
+# finding, so the count only grew (165 -> 199 -> 201). A per-PR hook also
+# structurally cannot cover the gaps that produced that backlog — see the
+# root-cause analysis at the top of scripts/preview-worker-sweep.mjs
+# (preview-deploy.yml's `paths:` filter, its cancel-in-progress concurrency
+# group, and its `2>/dev/null` delete that reports failure and already-gone
+# identically).
+#
+# Deliberately dispatch-only, not scheduled: it deletes production
+# infrastructure, so a human decides when it runs and a human types `confirm`.
+# Without that input it reports and deletes nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Actually delete. Leave unchecked to report only (dry run)."
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  # `gh pr view --json state` — the fail-closed gate deciding whether a
+  # preview's owning PR is finished. Read-only; this workflow never writes to a PR.
+  pull-requests: read
+
+jobs:
+  sweep:
+    name: Sweep leaked preview Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          persist-credentials: false
+
+      # No setup-workspace / pnpm install: scripts/preview-worker-sweep.mjs
+      # imports Node builtins only (see scripts/check-workflow-deps.mjs for
+      # the rule that makes this a deliberate choice rather than an omission).
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+
+      - name: Sweep
+        env:
+          # MBE_CLOUDFLARE_API_TOKEN is the canonical CF token secret every
+          # other workflow uses (docs/SECRETS.md); preview-deploy.yml deploys
+          # AND deletes preview Workers with it, so it already carries the
+          # Workers Scripts edit scope this sweep needs.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          # GitHub's default shell is `bash -e` with NO pipefail, so a gate
+          # whose exit code is the point must ask for it explicitly. This step
+          # reds the job when a delete genuinely failed (as opposed to the
+          # worker already being gone), and that signal is the whole reason the
+          # step exists.
+          set -euo pipefail
+
+          if [ "$CONFIRM" = "true" ]; then
+            echo "::warning::Deleting preview Workers for closed PRs. Open PRs and any name outside mbe-preview-<pr>-<app> are skipped."
+            node scripts/preview-worker-sweep.mjs --confirm
+          else
+            echo "Dry run — reporting only. Re-dispatch with confirm=true to delete."
+            node scripts/preview-worker-sweep.mjs
+          fi
