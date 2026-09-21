@@ -115,20 +115,43 @@ function runCheck() {
   // llms-txt: real source→output check per package (see isLlmsPackageStale).
   const stalePackages = llmsFamily ? llmsPackages().filter(isLlmsPackageStale) : [];
 
-  if (staleOther.length === 0 && stalePackages.length === 0) {
+  // ...AND the git signal, which #3635 replaced rather than unioned. Both are
+  // needed because each is blind to what the other sees:
+  //
+  //   - `mbe pack --check` re-derives from source and compares to the FILE on
+  //     disk. It cannot see that the file disagrees with what is COMMITTED, so
+  //     anything that writes the correct bytes first makes it pass.
+  //   - `git diff` sees only drift already materialised in the tree, so it
+  //     cannot see an un-regenerated source edit (the #3635 false negative).
+  //
+  // ci.yml's "Verify generated artifacts are in sync" step is the first case:
+  // it runs `pnpm regen` (writing the correct output) and then `pnpm regen
+  // --check`, so the llms half of that gate could never fail. Measured: #5574
+  // merged as `1c721c9c8` with `apps/hospitality/llms-full.txt` regenerated but
+  // the root `llms-full.txt` stale, and that push plus `11461c11d` after it were
+  // both CI-Gate green; it was corrected only because a later PR happened to
+  // regen it. Reported as the same one `[llms-txt]` finding, not a separate
+  // family, so a package stale by both signals is named once.
+  const llmsOutputsDirty = llmsFamily ? !isClean(llmsFamily.outputs) : false;
+  const llmsStale = stalePackages.length > 0 || llmsOutputsDirty;
+
+  if (staleOther.length === 0 && !llmsStale) {
     console.log("All generated artifacts are up to date.");
     process.exit(0);
     return;
   }
 
-  const staleCount = staleOther.length + (stalePackages.length > 0 ? 1 : 0);
+  const staleCount = staleOther.length + (llmsStale ? 1 : 0);
   console.error(`\nStale artifacts detected (${staleCount}):\n`);
   for (const f of staleOther) {
     console.error(`  [${f.id}]  ${f.label}`);
     console.error(`          fix: ${f.command}\n`);
   }
-  if (stalePackages.length > 0 && llmsFamily) {
-    console.error(`  [${llmsFamily.id}]  ${llmsFamily.label} (${stalePackages.join(", ")})`);
+  if (llmsStale && llmsFamily) {
+    // Name the packages when the source→output check identified them; fall back
+    // to the git signal's wording when only the committed files disagree.
+    const detail = stalePackages.length > 0 ? stalePackages.join(", ") : "committed output differs";
+    console.error(`  [${llmsFamily.id}]  ${llmsFamily.label} (${detail})`);
     console.error(`          fix: ${llmsFamily.command}\n`);
   }
   process.exit(1);
