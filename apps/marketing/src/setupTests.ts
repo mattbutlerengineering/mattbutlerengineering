@@ -1,4 +1,4 @@
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 
 // jsdom lacks matchMedia + IntersectionObserver; Rialto (useDeviceContext,
 // useReducedMotion, useScrollReveal/useInView) relies on both. Stub them so

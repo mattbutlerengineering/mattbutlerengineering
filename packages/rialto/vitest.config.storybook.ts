@@ -28,6 +28,18 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
+            // Pinned, not inherited. `browser.viewport` has documented the same
+            // 414x896 default since vitest 4, but only vitest 5 actually sizes
+            // the test iframe to it — so the bump silently moved every story
+            // under rialto's `(max-width: 479px)` mobile breakpoint. Measured
+            // on 5.0.1: `TapeChart > Overlaps` failed 4/4 runs with
+            // `Found multiple elements with the role "button"`, because the
+            // mobile branch (`TapeChartMobileStack`) renders one row per night
+            // of a stay instead of one bar per reservation; the same story
+            // passed 4/4 on 4.1.11 and passes again here. Stories assert
+            // desktop layout, so state the desktop viewport explicitly rather
+            // than depend on what the runner happens to apply.
+            viewport: { width: 1280, height: 720 },
             provider: playwright({}),
             instances: [{ browser: "chromium" }],
           },

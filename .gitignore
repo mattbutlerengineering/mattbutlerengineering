@@ -99,6 +99,10 @@ test.txt
 # Test artifacts
 playwright-report/
 test-results/
+# vitest 5 consolidated every generated artifact it owns (attachments, blob
+# reports, html/json/junit reporter defaults, browser failure screenshots) under
+# one .vitest directory per project root, so one entry covers all of them.
+.vitest/
 
 # Stryker mutation testing artifacts
 .stryker-tmp/
