@@ -1,12 +1,5 @@
 # Session Summary
 
-## 2026-05-12
-
-Session focus: ACMM gap closure, CI fix, PR conflict resolution.
-Key outcomes: Fixed lockfile sync, merged 12 PRs, closed 4 superseded PRs.
-
----
-
 > `.claude/session-summary.template.md` is the pristine template; `.claude/session-summary.md` is the live scratchpad, which starts as a copy of it.
 > At session end `.claude/hooks/session-archive.sh` compares the two: byte-identical means nothing was written this session, so nothing is archived. Anything else is copied to `.claude/sessions/`.
 > Rows left on their `_placeholder_` are fine — placeholders are not what the hook keys on (#5598).
