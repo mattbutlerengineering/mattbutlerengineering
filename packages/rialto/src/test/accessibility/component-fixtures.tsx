@@ -68,6 +68,7 @@ import { ImageUpload } from "../../components/ImageUpload/ImageUpload";
 import { Input } from "../../components/Input/Input";
 import { InputGroup } from "../../components/InputGroup/InputGroup";
 import { Kbd } from "../../components/Kbd/Kbd";
+import { Letterboard } from "../../components/Letterboard/Letterboard";
 import { MasterOverride } from "../../components/MasterOverride/MasterOverride";
 import { Meter } from "../../components/Meter/Meter";
 import { Navbar } from "../../components/Navbar/Navbar";
@@ -168,6 +169,7 @@ export type BarrelExportName =
   | "Input"
   | "InputGroup"
   | "Kbd"
+  | "Letterboard"
   | "MasterOverride"
   | "Meter"
   | "Navbar"
@@ -545,6 +547,12 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Kbd: {
     element: <Kbd>Cmd</Kbd>,
+  },
+
+  Letterboard: {
+    element: (
+      <Letterboard lines={["TODAY ONLY", [{ text: "OYSTERS " }, { text: "$1", accent: true }]]} />
+    ),
   },
 
   MasterOverride: {

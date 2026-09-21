@@ -193,6 +193,7 @@ const DATA_COMPONENTS = [
   "Badge",
   "Card",
   "Chalkboard",
+  "Letterboard",
   "ChalkboardItem",
   "ChalkboardSection",
   "DataList",
