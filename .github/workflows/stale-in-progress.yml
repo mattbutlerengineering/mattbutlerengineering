@@ -24,6 +24,13 @@ on:
 
 permissions:
   issues: write
+  # The staleness decision hinges on `gh pr list --search "#<n>"` finding an
+  # open PR with recent activity. Without pull-request read that search
+  # returns an empty list rather than throwing, so the `catch` never fires,
+  # `recentPR` is always null, and every stale in-progress issue is
+  # transitioned back to `ready` even while a worker has a live PR open on
+  # it — which is how an issue already being worked gets picked up twice.
+  pull-requests: read
 
 jobs:
   detect-stale:

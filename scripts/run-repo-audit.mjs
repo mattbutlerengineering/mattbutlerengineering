@@ -94,6 +94,11 @@ export const REPO_AUDIT_CHECKS = [
     command: "node",
     args: ["scripts/check-queue-telemetry-dupes.mjs"],
   },
+  {
+    name: "check-workflow-pr-scope",
+    command: "node",
+    args: ["scripts/check-workflow-pr-scope.mjs"],
+  },
   { name: "check-memory-refs", command: "node", args: ["scripts/check-memory-refs.mjs"] },
   {
     name: "check-skill-references",

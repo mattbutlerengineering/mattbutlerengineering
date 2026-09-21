@@ -13,6 +13,11 @@ concurrency:
 permissions:
   contents: write
   issues: write
+  # This job reads a PR body with `gh pr view --json body` to match a revert
+  # to its original PR. A token without pull-request read gets an empty
+  # result rather than a 403, and the `|| echo ""` fallback turns that into
+  # an empty body the RCA then reasons over. See #5556.
+  pull-requests: read
 
 jobs:
   detect:
