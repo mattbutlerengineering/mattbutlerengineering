@@ -108,7 +108,7 @@ export const ROUTINE_MANIFEST = [
     periodDays: 1,
     unverifiable: true,
     unverifiableReason:
-      "No enforced distinguishing PR/issue signature yet — its merged PRs are indistinguishable from ordinary implement-queue traffic, the exact gap #5344/#5373 fixed for mbe-weekly-improve. Needs the same title-convention fix before this routine can be verified.",
+      'docs/routines/mbe-daily-issue.md:41 now requires every PR this routine opens to end with the suffix `(mbe-daily-issue #<ISSUE>)` (#5605 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still opens PRs indistinguishable from ordinary implement-queue traffic, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`, strictly worse than this honest `unverifiable`. An `issue-label` signature is not an alternative: this routine CLOSES an existing issue rather than filing one, so liveness would key off the createdAt of that issue — the date it was filed, not the date the routine ran. Flip to a real signature (`searchTerm: "mbe-daily-issue"`, matching the suffix) in a follow-up PR once a PR carrying the new suffix is observed, proving the live trigger was updated.',
   },
   {
     name: "mbe-morning",
@@ -174,7 +174,7 @@ export const ROUTINE_MANIFEST = [
     periodDays: 31,
     unverifiable: true,
     unverifiableReason:
-      "No enforced PR title convention documented in docs/routines/mbe-monthly-meta-audit.md — needs the same signature fix mbe-weekly-improve got (#5344) before this routine can be verified.",
+      'docs/routines/mbe-monthly-meta-audit.md:25 now specifies a distinct `chore(meta): monthly meta-audit <YYYY-MM-DD>` PR title (#5612 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine opens its PR under no enforced convention, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`, strictly worse than this honest `unverifiable`. The PR is the signature target rather than the `ready` issues this routine also files: those are conditional ("for the rest") and carry no distinct label. Flip to a real signature (`searchTerm: "monthly meta-audit"`) in a follow-up PR once a PR carrying the new title is observed, proving the live trigger was updated.',
   },
 ];
 

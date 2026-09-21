@@ -22,7 +22,7 @@ You are the monthly mbe-monthly-meta-audit routine for the mattbutlerengineering
 
 Run the `claude-md-improver` and `claude-automation-recommender` skills (or the equivalent analysis if the skills aren't present in the checkout), targeting Claude Code configuration quality: stale CLAUDE.md references, missing guidance, and worthwhile new hooks/agents/skills.
 
-Then: open ONE PR for the best doc/automation improvement, and file `ready` issues (self-contained acceptance criteria) for the rest.
+Then: open ONE PR for the best doc/automation improvement, titled `chore(meta): monthly meta-audit <YYYY-MM-DD> — <what it changes>` (e.g. `chore(meta): monthly meta-audit 2026-10-01 — prune dangling CLAUDE.md paths`). That PR is this routine's only unconditional artifact, and the `monthly meta-audit` prefix is what makes it distinguishable from every other docs PR, so its liveness can be verified at all (issue #5612). Then file `ready` issues (self-contained acceptance criteria) for the rest.
 
 Do not merge anything — every change lands as a reviewable PR. Never fetch live-site URLs (no egress to production, issue #2920).
 ```
