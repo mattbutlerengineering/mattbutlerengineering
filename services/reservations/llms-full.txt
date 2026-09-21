@@ -8966,34 +8966,45 @@
     ): config is LapsedGuestMonitorPrismaConfig {
       return "prisma" in config;
     }
+    export function findGuestsForVenue(
+      prisma: PrismaClient,
+      venueId: string
+    ): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> {
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.guest.findMany({
+          where: {
+            venueId,
+            visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
+            lastVisit: { not: null },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            communicationPreference: true,
+            reservations: {
+              where: { status: "COMPLETED" },
+              select: { startTime: true },
+              orderBy: { startTime: "asc" },
+            },
+          },
+        });
+      });
+    }
+    export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
+      const venues = await prisma.venue.findMany({ select: { id: true } });
+      return venues.map((venue) => venue.id);
+    }
     function buildPrismaCallbacks(
       prisma: PrismaClient
     ): Pick<LapsedGuestMonitorCallbackConfig, "getVenueIds" | "runScan"> {
       return {
-        getVenueIds: () =>
-          prisma.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id)),
+        getVenueIds: () => getAllVenueIds(prisma),
         runScan: (venueId) =>
           runLapsedGuestScan(venueId, {
-            findGuestsForScan: (vid) =>
-              prisma.guest.findMany({
-                where: {
-                  venueId: vid,
-                  visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
-                  lastVisit: { not: null },
-                },
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                  communicationPreference: true,
-                  reservations: {
-                    where: { status: "COMPLETED" },
-                    select: { startTime: true },
-                    orderBy: { startTime: "asc" },
-                  },
-                },
-              }),
+            findGuestsForScan: (vid) => findGuestsForVenue(prisma, vid),
             emitLapsingGuests,
           }),
       };
