@@ -327,15 +327,15 @@ const TEMPLATES: readonly Template[] = [
       "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result list underneath",
   },
 
-  // Data Display (continued)
+  // Forms (continued)
   {
-    id: "row-actions-menu",
-    title: "Row Actions Menu",
+    id: "modal-form-dialog",
+    title: "Modal Form Dialog",
     description:
-      "Record list where each row's overflow button opens a menu of per-row actions with shortcut hints",
-    category: "Data Display",
+      "Create-record form inside a modal dialog, with cancel and save actions in the footer",
+    category: "Forms",
     prompt:
-      "Record list where every row ends with an overflow button that opens a DropdownMenu of per-row actions — edit and duplicate with their keyboard shortcut hints, a divider, then a destructive delete entry styled as dangerous, and a disabled archive entry",
+      "Create-a-new-guest flow where an Add Guest button opens a Dialog containing an editable form — name, email, phone, and a notes field — with Cancel and Save buttons in the dialog footer, the dialog title naming the record being created, and validation errors shown inline beneath each field while the dialog stays open",
   },
 ] as const;
 

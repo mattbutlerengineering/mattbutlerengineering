@@ -87,8 +87,8 @@ describe("TemplateGallery", () => {
   it("renders per-category sidebar counts matching the template catalog", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
-    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("9");
-    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("10");
+    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("10");
+    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("9");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("6");
     expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("7");
   });
@@ -258,18 +258,22 @@ describe("TemplateGallery", () => {
     expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Handshake/));
   });
 
-  it("includes a Row Actions Menu template that elicits DropdownMenu usage", () => {
+  it("includes a Modal Form Dialog template that elicits non-confirmation Dialog usage", () => {
     const onSelect = vi.fn();
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
-    fireEvent.change(searchInput, { target: { value: "row actions" } });
+    fireEvent.change(searchInput, { target: { value: "modal form" } });
 
-    const card = screen.getByRole("button", { name: /use row actions menu template/i });
+    const card = screen.getByRole("button", { name: /use modal form dialog template/i });
     expect(card).toBeDefined();
-    expect(card.textContent).toContain("Data Display");
+    expect(card.textContent).toContain("Forms");
 
     fireEvent.click(card);
-    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DropdownMenu/));
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Dialog/));
+    // The audit credits every existing "confirmation dialog" mention to
+    // ConfirmDialog, which is why Dialog still reads uncovered. This prompt only
+    // counts if it steers somewhere a confirmation prompt would not.
+    expect(onSelect).not.toHaveBeenCalledWith(expect.stringMatching(/confirmation dialog/i));
   });
 
   it("resets to All category and clears search when reopened", () => {
