@@ -108,6 +108,25 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
   });
 }
 
+/**
+ * The hold every public (slug-scoped) hold route returns. Shape-identical to
+ * the staff `/api/v1/holds` mock below it, including the deliberately fixed
+ * past `expiresAt` — a test that needs the hold to outlive confirmation
+ * overrides the route with a future expiry (see booking-widget-calendar.spec.ts).
+ */
+const PUBLIC_HOLD = {
+  id: "hold_e2e_001",
+  venueId: "ven_e2e_001",
+  tableId: "tbl_e2e_001",
+  date: "2026-05-17",
+  startTime: "2026-05-17T18:00:00.000Z",
+  endTime: "2026-05-17T19:30:00.000Z",
+  partySize: 4,
+  sessionId: "sess_e2e_001",
+  expiresAt: "2026-05-17T18:10:00.000Z",
+  createdAt: "2026-05-17T17:50:00.000Z",
+};
+
 export async function mockApi(page: Page): Promise<void> {
   // Signal to QueryProvider to disable react-query retries so error states
   // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
@@ -744,6 +763,28 @@ export async function mockApi(page: Page): Promise<void> {
       createdAt: "2026-05-17T17:50:00.000Z",
     })
   );
+
+  // Public (slug-scoped) holds — #4487 put `requireAuth` on the staff hold
+  // routes above and moved the booking widget onto
+  // `/public/v1/venues/:slug/holds`. These are distinct paths, not aliases,
+  // and the globs above do not reach them (`*` never crosses `/`) — without
+  // these three the widget's hold create/confirm hit the real network and the
+  // flow stalls before step 3 (`getByLabel("Name")` times out).
+  await page.route("**/public/v1/venues/*/holds/*/confirm", (route) => {
+    const reservations = JSON.parse(loadFixture("reservations-list"));
+    return jsonOk(route, reservations.data[0]);
+  });
+  await page.route(/\/public\/v1\/venues\/[^/]+\/holds\/[^/?]+$/, (route) => {
+    if (route.request().method() === "DELETE") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true }),
+      });
+    }
+    return jsonOk(route, PUBLIC_HOLD);
+  });
+  await page.route("**/public/v1/venues/*/holds", (route) => jsonOk(route, PUBLIC_HOLD));
 
   // Intercept the SSE stream request so the app's SseClient (built on
   // @microsoft/fetch-event-source, which requires an Authorization header

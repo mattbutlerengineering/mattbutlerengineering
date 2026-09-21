@@ -1631,6 +1631,28 @@
         })
       );
     
+      // Public (slug-scoped) holds — #4487 put `requireAuth` on the staff hold
+      // routes above and moved the booking widget onto
+      // `/public/v1/venues/:slug/holds`. These are distinct paths, not aliases,
+      // and the globs above do not reach them (`*` never crosses `/`) — without
+      // these three the widget's hold create/confirm hit the real network and the
+      // flow stalls before step 3 (`getByLabel("Name")` times out).
+      await page.route("**/public/v1/venues/*/holds/*/confirm", (route) => {
+        const reservations = JSON.parse(loadFixture("reservations-list"));
+        return jsonOk(route, reservations.data[0]);
+      });
+      await page.route(/\/public\/v1\/venues\/[^/]+\/holds\/[^/?]+$/, (route) => {
+        if (route.request().method() === "DELETE") {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ success: true }),
+          });
+        }
+        return jsonOk(route, PUBLIC_HOLD);
+      });
+      await page.route("**/public/v1/venues/*/holds", (route) => jsonOk(route, PUBLIC_HOLD));
+    
       // Intercept the SSE stream request so the app's SseClient (built on
       // @microsoft/fetch-event-source, which requires an Authorization header
       // EventSource cannot send) fires onopen (→ "Live") without ever erroring.
