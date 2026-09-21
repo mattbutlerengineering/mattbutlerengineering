@@ -80,7 +80,15 @@ jobs:
   hospitality-e2e:
     name: Hospitality E2E
     needs: changes
-    if: needs.changes.outputs.hospitality == 'true'
+    # Dependabot PRs run with the Dependabot secret scope, which is empty here
+    # (`gh api repos/.../dependabot/secrets` -> total_count: 0), not the Actions
+    # scope that holds the credentials below. So this job cannot authenticate on
+    # such a PR and fails every time for a reason that has nothing to do with the
+    # dependency — permanent red that trains readers to ignore red (#5623).
+    # Skip rather than fail. Do NOT "fix" this by copying the secrets into the
+    # Dependabot scope: that would hand a live credential to a build whose whole
+    # content is a third-party dependency change.
+    if: needs.changes.outputs.hospitality == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -401,7 +409,15 @@ jobs:
   marketing-e2e:
     name: Marketing E2E
     needs: changes
-    if: needs.changes.outputs.marketing == 'true'
+    # Dependabot PRs run with the Dependabot secret scope, which is empty here
+    # (`gh api repos/.../dependabot/secrets` -> total_count: 0), not the Actions
+    # scope that holds the credentials below. So this job cannot authenticate on
+    # such a PR and fails every time for a reason that has nothing to do with the
+    # dependency — permanent red that trains readers to ignore red (#5623).
+    # Skip rather than fail. Do NOT "fix" this by copying the secrets into the
+    # Dependabot scope: that would hand a live credential to a build whose whole
+    # content is a third-party dependency change.
+    if: needs.changes.outputs.marketing == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
