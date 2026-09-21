@@ -13,6 +13,13 @@ on:
 permissions:
   contents: read
   issues: write
+  # scripts/routine-liveness.mjs resolves every `pr-title` signature with
+  # `gh pr list --search`, which is a read of pull requests. Without this
+  # scope GitHub does not refuse the query — it filters the unreadable
+  # results out and answers 200 with an empty list, so all six pr-title
+  # routines observe zero artifacts and classify as `dark` (#5603, #5606,
+  # #5607, #5609, #5610, #5611). Same mechanism as #5556.
+  pull-requests: read
 
 jobs:
   check-routine-liveness:
