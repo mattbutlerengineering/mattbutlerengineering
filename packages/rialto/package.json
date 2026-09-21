@@ -214,6 +214,10 @@
       "types": "./dist/lib/components/Kbd/index.d.ts",
       "import": "./dist/lib/components/Kbd/index.js"
     },
+    "./Letterboard": {
+      "types": "./dist/lib/components/Letterboard/index.d.ts",
+      "import": "./dist/lib/components/Letterboard/index.js"
+    },
     "./MasterOverride": {
       "types": "./dist/lib/components/MasterOverride/index.d.ts",
       "import": "./dist/lib/components/MasterOverride/index.js"

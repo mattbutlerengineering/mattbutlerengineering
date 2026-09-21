@@ -2510,6 +2510,55 @@
       ]
     },
     {
+      "name": "Letterboard",
+      "description": "A vintage diner letterboard: one moulded letter piece per character, slotted\ninto the ridges of a recessed plate.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "lines",
+          "type": "readonly LetterboardLine[]",
+          "required": true,
+          "description": "One entry per ridge, top to bottom."
+        },
+        {
+          "name": "size",
+          "type": "\"sm\" | \"md\" | \"lg\" | undefined",
+          "required": false,
+          "description": "Letter-piece scale."
+        },
+        {
+          "name": "align",
+          "type": "\"start\" | \"center\" | \"end\" | undefined",
+          "required": false,
+          "description": "Where each row sits on its ridge."
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "LetterboardLine",
+      "description": "One row of the board: a plain string for an all-ink row, or coloured runs\nwhen some of its letters are red.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "LetterboardSegment",
+      "description": "A run of characters that shares one colour.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "LetterboardTile",
+      "description": "One letter piece — or the bare ridge a space leaves behind.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "MasterOverride",
       "description": "A safety-cover toggle: a hinged protective cover flips up to reveal a\ntwo-position switch beneath. Designed for destructive or irreversible actions\nthat warrant a deliberate, tactile commitment — the digital equivalent of a\nmissile-silo arming switch.",
       "importPath": "@mattbutlerengineering/rialto",
