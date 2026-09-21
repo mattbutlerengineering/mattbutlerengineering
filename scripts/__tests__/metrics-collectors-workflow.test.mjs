@@ -168,4 +168,37 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
     expect(WORKFLOW).toMatch(/\.blocked \| length/);
     expect(WORKFLOW).toMatch(/\.failures \| length/);
   });
+
+  it("routes blocked and actionable agent-spend verdicts to SEPARATE dedupe keys", () => {
+    // The #5561 masking defect, one step further down the same file (#4618).
+    // `uninstrumented` is human-blocked on the #3585 decision and its issue
+    // stays open indefinitely; `stalled` is a genuine regression in the spend
+    // path. Under one shared key the permanent blocker absorbs the regression
+    // and `fileIssue()` returns `skip` — the real failure announces nothing.
+    //
+    // The global uniqueness assertion above does NOT catch this: a single key
+    // for three states is perfectly unique and still wrong.
+    expect(WORKFLOW).toMatch(/--dedupe-key "agent-spend-uninstrumented"/);
+    expect(WORKFLOW).toMatch(/--dedupe-key "agent-spend-telemetry-broken"/);
+  });
+
+  it("asks the agent-spend check for machine-readable output so it CAN route", () => {
+    // Same reasoning as the freshness partition: the split is decorative
+    // unless the workflow actually reads which class the verdict is in.
+    expect(WORKFLOW).toMatch(/agent-spend-telemetry\.mjs --json/);
+    expect(WORKFLOW).toMatch(/jq -r '\.blocked'/);
+  });
+
+  it("gives the human-blocked agent-spend issue a distinct --contains probe", () => {
+    // `fileIssue()` dedupes on the `--contains` substring as well as the key.
+    // Two issues whose probes overlap dedupe into each other regardless of
+    // how distinct their keys are.
+    const probes = [...WORKFLOW.matchAll(/--contains "([^"]+)"/g)].map((m) => m[1]);
+    expect(new Set(probes).size).toBe(probes.length);
+    for (const a of probes) {
+      for (const b of probes) {
+        if (a !== b) expect(a.includes(b)).toBe(false);
+      }
+    }
+  });
 });
