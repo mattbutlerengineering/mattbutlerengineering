@@ -1993,6 +1993,87 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="apps/marketing/src/data/ai-health-trends.ts">
+    <item priority="low">
+      interface TrendPointPayload {
+        date?: unknown;
+        value?: unknown;
+        note?: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface TrendSeriesPayload {
+        label?: unknown;
+        source?: unknown;
+        points?: readonly TrendPointPayload[];
+      }
+    </item>
+    <item priority="low">
+      interface HealthTrendsPayload {
+        generated_at?: unknown;
+        window_days?: unknown;
+        acmmLevel?: TrendSeriesPayload;
+        queueEfficiency?: TrendSeriesPayload;
+      }
+    </item>
+    <item priority="low">
+      interface TrendPoint {
+        date: string;
+        value: number | null;
+        note: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface TrendReading {
+        date: string;
+        value: number;
+      }
+    </item>
+    <item priority="low">
+      interface TrendSeries {
+        label: string;
+        points: readonly TrendPoint[];
+        reported: number;
+        missing: number;
+        first: TrendReading | null;
+      }
+    </item>
+    <item priority="low">
+      interface HealthTrends {
+        generatedAt: string | null;
+        windowDays: number | null;
+        acmmLevel: TrendSeries;
+        queueEfficiency: TrendSeries;
+      }
+    </item>
+    <item priority="medium">
+      function asRecord(value: unknown): Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readNumber(value: unknown): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readString(value: unknown): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizePoint(raw: unknown): TrendPoint | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeSeries(raw: unknown, defaultLabel: string): TrendSeries { /* ... */ }
+    </item>
+    <item priority="high">
+      export function normalizeHealthTrends(payload: unknown): HealthTrends { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pluralizeDays(count: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function describeTrendSeries(
+        series: TrendSeries,
+        formatValue: (value: number) => string
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/src/data/ai-health.ts">
     <item priority="low">
       interface QueueEfficiencyTierStats {

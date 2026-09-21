@@ -7654,6 +7654,113 @@
   </file>
   </section>
   <section priority="medium" role="data">
+  <file path="apps/marketing/src/data/ai-health-trends.ts">
+    export interface TrendPointPayload {
+      readonly date?: unknown;
+      readonly value?: unknown;
+      readonly note?: unknown;
+    }
+    export interface TrendSeriesPayload {
+      readonly label?: unknown;
+      readonly source?: unknown;
+      readonly points?: readonly TrendPointPayload[];
+    }
+    export interface HealthTrendsPayload {
+      readonly generated_at?: unknown;
+      readonly window_days?: unknown;
+      readonly acmmLevel?: TrendSeriesPayload;
+      readonly queueEfficiency?: TrendSeriesPayload;
+    }
+    export interface TrendPoint {
+      readonly date: string;
+      readonly value: number | null;
+      readonly note: string | null;
+    }
+    export interface TrendReading {
+      readonly date: string;
+      readonly value: number;
+    }
+    export interface TrendSeries {
+      readonly label: string;
+      readonly points: readonly TrendPoint[];
+      /** Days carrying a measurement. */
+      readonly reported: number;
+      /** Days present in the window but explicitly unmeasured. */
+      readonly missing: number;
+      /** Oldest measured reading, skipping leading holes. */
+      readonly first: TrendReading | null;
+      /** Newest measured reading, skipping trailing holes. */
+      readonly latest: TrendReading | null;
+    }
+    export interface HealthTrends {
+      readonly generatedAt: string | null;
+      readonly windowDays: number | null;
+      readonly acmmLevel: TrendSeries;
+      readonly queueEfficiency: TrendSeries;
+    }
+    function asRecord(value: unknown): Record<string, unknown> {
+      return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+    }
+    function readNumber(value: unknown): number | null {
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    }
+    function readString(value: unknown): string | null {
+      return typeof value === "string" ? value : null;
+    }
+    function normalizePoint(raw: unknown): TrendPoint | null {
+      const point = asRecord(raw);
+      const date = readString(point.date);
+      if (date === null) return null;
+      return { date, value: readNumber(point.value), note: readString(point.note) };
+    }
+    function normalizeSeries(raw: unknown, defaultLabel: string): TrendSeries {
+      const series = asRecord(raw);
+      const rawPoints = Array.isArray(series.points) ? series.points : [];
+      const points = rawPoints
+        .map(normalizePoint)
+        .filter((point): point is TrendPoint => point !== null);
+      const measured = points.filter((point) => point.value !== null);
+    
+      const toReading = (point: TrendPoint | undefined): TrendReading | null =>
+        point === undefined || point.value === null ? null : { date: point.date, value: point.value };
+    
+      return {
+        label: readString(series.label) ?? defaultLabel,
+        points,
+        reported: measured.length,
+        missing: points.length - measured.length,
+        first: toReading(measured[0]),
+        latest: toReading(measured[measured.length - 1]),
+      };
+    }
+    export function normalizeHealthTrends(payload: unknown): HealthTrends {
+      const raw = asRecord(payload);
+      return {
+        generatedAt: readString(raw.generated_at),
+        windowDays: readNumber(raw.window_days),
+        acmmLevel: normalizeSeries(raw.acmmLevel, DEFAULT_LABELS.acmmLevel),
+        queueEfficiency: normalizeSeries(raw.queueEfficiency, DEFAULT_LABELS.queueEfficiency),
+      };
+    }
+    function pluralizeDays(count: number): string {
+      return count === 1 ? "1 day" : `${count} days`;
+    }
+    export function describeTrendSeries(
+      series: TrendSeries,
+      formatValue: (value: number) => string
+    ): string {
+      if (series.first === null || series.latest === null) {
+        return `${series.label}: no history yet.`;
+      }
+    
+      const span = `${series.label} over ${pluralizeDays(series.points.length)}`;
+      const from = `${formatValue(series.first.value)} on ${series.first.date}`;
+      const to = `${formatValue(series.latest.value)} on ${series.latest.date}`;
+      const counts = `${pluralizeDays(series.reported)} measured, ${pluralizeDays(series.missing)} with no measurement`;
+    
+      return `${span}: ${from} to ${to}. ${counts}.`;
+    }
+  </file>
   <file path="apps/marketing/src/data/ai-health.ts">
     export interface QueueEfficiencyTierStats {
       readonly count: number;
