@@ -246,6 +246,51 @@ function fetchRevertedPrNumbers({ sinceDays }) {
   }
 }
 
+/**
+ * Logins that are never a human stepping in.
+ *
+ * `claude` is the one that mattered: `Co-Authored-By: Claude
+ * <noreply@anthropic.com>` resolves to that GitHub login, so *every* commit
+ * carrying the repo's attribution trailer looked like a non-author commit.
+ * The trailer is evidence the work was agent-authored; without this set the
+ * gate read it as evidence a human intervened, which is the opposite.
+ *
+ * Measured before the fix, over the last 40 merged agent PRs in the 30-day
+ * window: 39 of 40 "human-touched", 97.5% — against a gate that requires
+ * below 50%. PR #5615 is the clean case: one commit, sole author `claude`,
+ * no human involvement of any kind, counted as human-touched.
+ */
+const NON_HUMAN_AUTHOR_LOGINS = new Set(["claude", "dependabot", "github-actions", "copilot"]);
+
+/**
+ * @param {string} login
+ * @returns {boolean} true when the login is a bot or agent identity
+ */
+export function isNonHumanAuthor(login) {
+  if (!login) return true;
+  const normalized = login.toLowerCase();
+  // Any future bot arrives with the `[bot]` suffix, so match it structurally
+  // rather than waiting for this list to be updated after the next surprise.
+  if (normalized.endsWith("[bot]")) return true;
+  return NON_HUMAN_AUTHOR_LOGINS.has(normalized.replace(/\[bot\]$/, ""));
+}
+
+/**
+ * Did a human *other than the PR author* push a commit to this PR?
+ *
+ * @param {Array<{authors?: Array<{login?: string}>}>} commits
+ * @param {string} author - the PR author's login
+ * @returns {boolean}
+ */
+export function commitsShowHumanTouch(commits, author) {
+  if (!Array.isArray(commits)) return false;
+  return commits.some((c) =>
+    (Array.isArray(c?.authors) ? c.authors : []).some(
+      (a) => a?.login && a.login !== author && !isNonHumanAuthor(a.login)
+    )
+  );
+}
+
 function prHasNonAuthorCommit(ghBin, prNumber, author) {
   try {
     const stdout = execFileSync(ghBin, ["pr", "view", String(prNumber), "--json", "commits"], {
@@ -253,11 +298,7 @@ function prHasNonAuthorCommit(ghBin, prNumber, author) {
       stdio: ["ignore", "pipe", "pipe"],
     });
     const data = JSON.parse(stdout);
-    const commits = Array.isArray(data?.commits) ? data.commits : [];
-    return commits.some((c) => {
-      const authors = Array.isArray(c.authors) ? c.authors : [];
-      return authors.some((a) => a.login && a.login !== author);
-    });
+    return commitsShowHumanTouch(data?.commits, author);
   } catch {
     return false;
   }
