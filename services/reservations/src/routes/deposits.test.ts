@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
+const { mockDepositDb, mockGuestDb, mockReservationDb } = vi.hoisted(() => ({
   mockDepositDb: {
     findFirst: vi.fn(),
     findUnique: vi.fn(),
@@ -12,11 +12,18 @@ const { mockDepositDb, mockGuestDb } = vi.hoisted(() => ({
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  // ADR-026: `deposits` carries no venue_id column, so every deposit route
+  // resolves its venue scope through the owning reservation.
+  mockReservationDb: {
+    findUnique: vi.fn(),
+  },
 }));
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
-  return createMockDatabaseService({ prisma: { deposit: mockDepositDb, guest: mockGuestDb } });
+  return createMockDatabaseService({
+    prisma: { deposit: mockDepositDb, guest: mockGuestDb, reservation: mockReservationDb },
+  });
 });
 
 const { mockPaymentIntents, mockCustomers } = vi.hoisted(() => ({
@@ -88,6 +95,7 @@ vi.mock("@mbe/auth/fastify", () => ({
 
 import { requireAuth } from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
+import { getCurrentVenueId } from "../services/venue-context-store.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
 function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
@@ -112,10 +120,20 @@ function makeDeposit(overrides: Partial<Deposit> = {}): Deposit {
 }
 
 const ADMIN_TOKEN = "Bearer test-token";
+const VENUE_ID = "venue-1";
+
+/** Route constants — the one place this suite spells the deposits path. */
+const DEPOSITS_URL = "/api/v1/deposits";
+const depositUrl = (id: string, action?: string): string =>
+  action ? `${DEPOSITS_URL}/${id}/${action}` : `${DEPOSITS_URL}/${id}`;
 
 describe("Deposit API routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // ADR-026 venue scoping: every deposit route resolves its venue through
+    // the owning reservation. Default to a resolvable venue so the existing
+    // specs exercise the happy path; the fail-closed specs override it.
+    mockReservationDb.findUnique.mockResolvedValue({ venueId: VENUE_ID });
   });
 
   describe("POST /api/v1/deposits", () => {
@@ -128,7 +146,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits",
+        url: DEPOSITS_URL,
         headers: { authorization: ADMIN_TOKEN },
         payload: {
           reservationId: "res-123",
@@ -149,7 +167,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits",
+        url: DEPOSITS_URL,
         headers: { authorization: ADMIN_TOKEN },
         payload: {
           amountCents: 5000,
@@ -166,7 +184,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits",
+        url: DEPOSITS_URL,
         headers: { authorization: ADMIN_TOKEN },
         payload: {
           reservationId: "res-123",
@@ -181,14 +199,16 @@ describe("Deposit API routes", () => {
   describe("GET /api/v1/deposits/:id", () => {
     it("returns a deposit by id", async () => {
       const mockDeposit = makeDeposit();
-      mockDepositDb.findUnique.mockResolvedValueOnce(mockDeposit);
+      // Two reads: the scope-determining lookup, then the venue-scoped read
+      // whose row is actually returned (ADR-026).
+      mockDepositDb.findUnique.mockResolvedValue(mockDeposit);
 
       const app = await buildApp({ logger: false });
       await app.ready();
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/deposits/dep-123",
+        url: depositUrl("dep-123"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -206,7 +226,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/deposits/not-found",
+        url: depositUrl("not-found"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -240,7 +260,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/capture",
+        url: depositUrl("dep-123", "capture"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -258,7 +278,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/not-found/capture",
+        url: depositUrl("not-found", "capture"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -278,7 +298,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/capture",
+        url: depositUrl("dep-123", "capture"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -311,7 +331,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/refund",
+        url: depositUrl("dep-123", "refund"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -332,7 +352,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/refund",
+        url: depositUrl("dep-123", "refund"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -365,7 +385,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/forfeit",
+        url: depositUrl("dep-123", "forfeit"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -386,7 +406,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/forfeit",
+        url: depositUrl("dep-123", "forfeit"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -419,7 +439,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits",
+        url: DEPOSITS_URL,
         headers: { authorization: ADMIN_TOKEN },
         payload: { reservationId: "res-123", amountCents: 5000 },
       });
@@ -434,7 +454,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "GET",
-        url: "/api/v1/deposits/dep-123",
+        url: depositUrl("dep-123"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -448,7 +468,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/capture",
+        url: depositUrl("dep-123", "capture"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -462,7 +482,7 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/refund",
+        url: depositUrl("dep-123", "refund"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
@@ -476,12 +496,206 @@ describe("Deposit API routes", () => {
 
       const response = await app.inject({
         method: "POST",
-        url: "/api/v1/deposits/dep-123/forfeit",
+        url: depositUrl("dep-123", "forfeit"),
         headers: { authorization: ADMIN_TOKEN },
       });
 
       expect(response.statusCode).toBe(403);
       await app.close();
     });
+  });
+
+  /**
+   * ADR-026 (#5382): these five admin routes carry no venueId of their own —
+   * only an opaque deposit/reservation id — so nothing set `app.venue_id` for
+   * them and the `deposit_isolation` policy would make every deposit
+   * invisible to staff under default-deny. Each spec below proves the venue
+   * context is actually LIVE at the moment the deposit query is issued, by
+   * reading `getCurrentVenueId()` from inside the Prisma mock.
+   */
+  describe("ADR-026 venue context", () => {
+    /** Records the venue context observed at the moment the query ran. */
+    function observeVenueContext(): { current: string | null | undefined } {
+      return { current: undefined };
+    }
+
+    it("POST / runs the create inside the reservation's resolved venue context", async () => {
+      const observed = observeVenueContext();
+      mockDepositDb.create.mockImplementationOnce(async () => {
+        observed.current = getCurrentVenueId();
+        return makeDeposit();
+      });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-123", amountCents: 5000, currency: "usd" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(observed.current).toBe(VENUE_ID);
+      expect(mockReservationDb.findUnique).toHaveBeenCalledWith({
+        where: { id: "res-123" },
+        select: { venueId: true },
+      });
+      await app.close();
+    });
+
+    it("GET /:id returns the row read inside the resolved venue context", async () => {
+      const observed = observeVenueContext();
+      mockDepositDb.findUnique
+        .mockResolvedValueOnce(makeDeposit()) // scope-determining lookup
+        .mockImplementationOnce(async () => {
+          observed.current = getCurrentVenueId();
+          return makeDeposit();
+        });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: depositUrl("dep-123"),
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(observed.current).toBe(VENUE_ID);
+      await app.close();
+    });
+
+    // Acceptance criterion 3: admin capture/refund/forfeit still succeed with
+    // `app.venue_id` scoping active — the transition's compare-and-swap write
+    // (the money-adjacent statement the RLS policy governs) sees the venue.
+    it.each([
+      ["capture", "applied", mockPaymentIntents.capture],
+      ["refund", "refunded", mockPaymentIntents.cancel],
+      ["forfeit", "forfeited", mockPaymentIntents.capture],
+    ] as const)(
+      "%s succeeds and writes inside the resolved venue context",
+      async (action, expectedStatus, stripeCall) => {
+        const heldDeposit = makeDeposit({
+          status: "held",
+          stripePaymentIntentId: "pi_test_123",
+          heldAt: new Date(),
+        });
+        const transitioned = makeDeposit({ status: expectedStatus });
+        mockDepositDb.findUnique
+          .mockResolvedValueOnce(heldDeposit) // route existence check
+          .mockResolvedValueOnce(heldDeposit) // service._requireDeposit
+          .mockResolvedValueOnce(transitioned); // post-CAS fetch
+
+        const observed = observeVenueContext();
+        mockDepositDb.updateMany.mockImplementationOnce(async () => {
+          observed.current = getCurrentVenueId();
+          return { count: 1 };
+        });
+        stripeCall.mockResolvedValueOnce({ id: "pi_test_123", status: "succeeded" });
+
+        const app = await buildApp({ logger: false });
+        await app.ready();
+
+        const response = await app.inject({
+          method: "POST",
+          url: depositUrl("dep-123", action),
+          headers: { authorization: ADMIN_TOKEN },
+        });
+
+        expect(response.statusCode).toBe(200);
+        const body = JSON.parse(response.body) as { data: Deposit };
+        expect(body.data.status).toBe(expectedStatus);
+        expect(observed.current).toBe(VENUE_ID);
+        // The Stripe call still fires, unchanged, with its idempotency key.
+        expect(stripeCall).toHaveBeenCalledTimes(1);
+        await app.close();
+      }
+    );
+
+    it("POST / rejects a reservation that does not exist, without creating a deposit", async () => {
+      mockReservationDb.findUnique.mockResolvedValue(null);
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-missing", amountCents: 5000 },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(mockDepositDb.create).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it("POST / rejects a reservation with no venue (never treated as venue-less)", async () => {
+      mockReservationDb.findUnique.mockResolvedValue({ venueId: null });
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "POST",
+        url: DEPOSITS_URL,
+        headers: { authorization: ADMIN_TOKEN },
+        payload: { reservationId: "res-123", amountCents: 5000 },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(mockDepositDb.create).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it("GET /:id rejects a deposit whose reservation is gone", async () => {
+      mockDepositDb.findUnique.mockResolvedValue(makeDeposit());
+      mockReservationDb.findUnique.mockResolvedValue(null);
+
+      const app = await buildApp({ logger: false });
+      await app.ready();
+
+      const response = await app.inject({
+        method: "GET",
+        url: depositUrl("dep-123"),
+        headers: { authorization: ADMIN_TOKEN },
+      });
+
+      expect(response.statusCode).toBe(404);
+      await app.close();
+    });
+
+    // Fail closed on a PAYMENT surface: an unresolvable venue must stop the
+    // transition before any money moves — no CAS write, no Stripe call.
+    it.each([
+      ["capture", mockPaymentIntents.capture],
+      ["refund", mockPaymentIntents.cancel],
+      ["forfeit", mockPaymentIntents.capture],
+    ] as const)(
+      "%s rejects an unresolvable venue before any money moves",
+      async (action, stripeCall) => {
+        mockDepositDb.findUnique.mockResolvedValue(
+          makeDeposit({ status: "held", stripePaymentIntentId: "pi_test_123", heldAt: new Date() })
+        );
+        mockReservationDb.findUnique.mockResolvedValue({ venueId: null });
+
+        const app = await buildApp({ logger: false });
+        await app.ready();
+
+        const response = await app.inject({
+          method: "POST",
+          url: depositUrl("dep-123", action),
+          headers: { authorization: ADMIN_TOKEN },
+        });
+
+        expect(response.statusCode).toBe(404);
+        expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+        expect(stripeCall).not.toHaveBeenCalled();
+        await app.close();
+      }
+    );
   });
 });

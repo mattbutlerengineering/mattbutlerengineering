@@ -6,7 +6,13 @@ vi.mock("../services/deposit.js", () => ({
   DepositTransitionError: class DepositTransitionError extends Error {},
 }));
 
+vi.mock("../services/deposit-venue.js", () => ({
+  resolveReservationVenueId: vi.fn(),
+}));
+
 import { depositService, DepositTransitionError } from "../services/deposit.js";
+import { resolveReservationVenueId } from "../services/deposit-venue.js";
+import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { depositTransitionHandler } from "./deposit-transition-handler.js";
 
 type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
@@ -29,6 +35,9 @@ function makeReply() {
 describe("depositTransitionHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // ADR-026 (#5382): the handler resolves the deposit's venue through its
+    // reservation before transitioning. Default to a resolvable venue.
+    vi.mocked(resolveReservationVenueId).mockResolvedValue("venue-1");
   });
 
   it("returns 404 without calling the transition when the deposit does not exist", async () => {
@@ -43,6 +52,41 @@ describe("depositTransitionHandler", () => {
       expect.objectContaining({ status: 404, title: "Not Found", detail: "Deposit not found" })
     );
     expect(transition).not.toHaveBeenCalled();
+    // No venue lookup either — a missing deposit is refused before it.
+    expect(resolveReservationVenueId).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 without calling the transition when the venue cannot be resolved", async () => {
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      id: "dep-1",
+      reservationId: "res-1",
+    } as never);
+    vi.mocked(resolveReservationVenueId).mockResolvedValue(null);
+    const transition = vi.fn();
+    const reply = makeReply();
+
+    await depositTransitionHandler(transition)(makeRequest("dep-1"), reply);
+
+    expect(resolveReservationVenueId).toHaveBeenCalledWith("res-1");
+    expect(reply.code).toHaveBeenCalledWith(404);
+    // Fail closed on a payment surface: the state machine never runs.
+    expect(transition).not.toHaveBeenCalled();
+  });
+
+  it("runs the transition inside the resolved venue context", async () => {
+    vi.mocked(depositService.getById).mockResolvedValueOnce({
+      id: "dep-1",
+      reservationId: "res-1",
+    } as never);
+    let observed: string | null | undefined;
+    const transition = vi.fn().mockImplementation(async () => {
+      observed = getCurrentVenueId();
+      return { id: "dep-1", status: "applied" } as never;
+    });
+
+    await depositTransitionHandler(transition)(makeRequest("dep-1"), makeReply());
+
+    expect(observed).toBe("venue-1");
   });
 
   it("returns 422 when the transition throws DepositTransitionError", async () => {
