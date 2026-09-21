@@ -74,6 +74,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Input",
   "InputGroup",
   "Kbd",
+  "Letterboard",
   "MasterOverride",
   "Meter",
   "Navbar",

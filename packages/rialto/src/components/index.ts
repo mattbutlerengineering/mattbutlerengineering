@@ -90,6 +90,7 @@ export * from "./SplitFlap";
 export * from "./DepartureBoard";
 export * from "./Odometer";
 export * from "./Chalkboard";
+export * from "./Letterboard";
 export * from "./SplitScreenExit";
 export * from "./Ferrofluid";
 export * from "./SilkFlow";

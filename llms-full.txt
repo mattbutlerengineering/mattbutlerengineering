@@ -1179,6 +1179,37 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Letterboard">
+  <file path="packages/rialto/src/components/Letterboard/tiles.ts">
+    export interface LetterboardSegment {
+      /** The characters of the run. */
+      readonly text: string;
+      /** Slot this run's pieces as accent (red) letters. @default false */
+      readonly accent?: boolean;
+    }
+    export type LetterboardLine = string | readonly LetterboardSegment[];
+    export interface LetterboardTile {
+      /** The upper-cased glyph moulded on the piece. */
+      readonly char: string;
+      /** True for an accent (red) piece. */
+      readonly accent: boolean;
+      /** True when the character is whitespace: no piece, just ridge. */
+      readonly empty: boolean;
+    }
+    export function toSegments(line: LetterboardLine): readonly LetterboardSegment[] {
+      return typeof line === "string" ? [{ text: line }] : line;
+    }
+    export function toTiles(line: LetterboardLine): readonly LetterboardTile[] {
+      return toSegments(line).flatMap((segment) =>
+        [...segment.text].map((char) => ({
+          char: char.toUpperCase(),
+          accent: segment.accent === true,
+          empty: char.trim() === "",
+        }))
+      );
+    }
+  </file>
+  </section>
   <section priority="medium" role="NavigationMenu">
   <file path="packages/rialto/src/components/NavigationMenu/NavigationMenu.catalog.ts">
     export const navigationMenuCatalogMeta = {
@@ -9251,6 +9282,28 @@
           createdAt: "2026-05-17T17:50:00.000Z",
         })
       );
+    
+      // Public (slug-scoped) holds — #4487 put `requireAuth` on the staff hold
+      // routes above and moved the booking widget onto
+      // `/public/v1/venues/:slug/holds`. These are distinct paths, not aliases,
+      // and the globs above do not reach them (`*` never crosses `/`) — without
+      // these three the widget's hold create/confirm hit the real network and the
+      // flow stalls before step 3 (`getByLabel("Name")` times out).
+      await page.route("**/public/v1/venues/*/holds/*/confirm", (route) => {
+        const reservations = JSON.parse(loadFixture("reservations-list"));
+        return jsonOk(route, reservations.data[0]);
+      });
+      await page.route(/\/public\/v1\/venues\/[^/]+\/holds\/[^/?]+$/, (route) => {
+        if (route.request().method() === "DELETE") {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ success: true }),
+          });
+        }
+        return jsonOk(route, PUBLIC_HOLD);
+      });
+      await page.route("**/public/v1/venues/*/holds", (route) => jsonOk(route, PUBLIC_HOLD));
     
       // Intercept the SSE stream request so the app's SseClient (built on
       // @microsoft/fetch-event-source, which requires an Authorization header
@@ -22358,6 +22411,21 @@
           const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
           const ip = request.ip;
     
+          // The high-entropy sessionId minted at hold creation is this caller's
+          // capability token and the only proof the hold is theirs — mirrors the
+          // release path in public-holds.ts. Reading it here is what makes
+          // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
+          // without a sessionId skipped ownership entirely, so anyone who guessed a
+          // live holdId could confirm another guest's hold under their own name.
+          const sessionId = request.headers[SESSION_ID_HEADER];
+          if (typeof sessionId !== "string" || sessionId.length === 0) {
+            throw new AppError(
+              "SESSION_REQUIRED",
+              401,
+              `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
+            );
+          }
+    
           const venue = await venueService.getBySlug(slug);
           if (!venue) {
             throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
@@ -22372,6 +22440,7 @@
     
           const result = await confirmHold({
             holdId,
+            sessionId,
             guestDetails: {
               guestName,
               guestEmail,
@@ -22382,10 +22451,14 @@
           });
     
           if (!result.success) {
+            // A hold the caller does not own answers exactly as a hold that does not
+            // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
+            if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
+              throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+            }
+    
             const statusMap: Record<string, number> = {
-              NOT_FOUND: 404,
               EXPIRED: 410,
-              SESSION_MISMATCH: 403,
               CONFLICT: 409,
               PACING_EXCEEDED: 422,
             };
