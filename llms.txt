@@ -2430,6 +2430,19 @@
       export const test: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/e2e/local-day.ts">
+    <item priority="high">
+      export function localDay(offsetDays = 0): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function atLocal(time: string, day: string = localDay()): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/problem-details.ts">
+    <item priority="high">
+      export const SERVER_ERROR_BODY: unknown;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="eval">
   <file path="packages/agent-core/src/eval/calibrate.ts">

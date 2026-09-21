@@ -1,5 +1,6 @@
 import type { Request } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
+import { localDay } from "./local-day.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 test.describe("CF-2: Timeline loads and displays reservations", () => {
@@ -9,8 +10,12 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
     // PageHeader shows "Timeline"
     await expect(mockedPage.getByRole("heading", { name: "Timeline" })).toBeVisible();
 
-    // Live indicator is green
-    const liveIndicator = mockedPage.getByText("Live");
+    // Live indicator is green. Scoped to the stats row and exact: a bare `getByText("Live")` is
+    // a case-insensitive *substring* match, so a guest named Oliver or Clive on the grid makes it
+    // resolve to two nodes and strict-mode-fail.
+    const liveIndicator = mockedPage.getByTestId("timeline-stats").getByText("Live", {
+      exact: true,
+    });
     await expect(liveIndicator).toBeVisible();
 
     // TimelineGrid renders
@@ -64,19 +69,21 @@ test.describe("CF-2: Timeline loads and displays reservations", () => {
 // Item 15: "seated" is derived — CONFIRMED, the table OCCUPIED, the clock inside the slot — and
 // the details panel hides Seat Guest for a seated party, shows it for a pending one.
 test.describe("Seated is a fact about the floor, not a status the Host sets", () => {
-  // The instant below is a UTC wall-clock time on the runner's local day; the browser must read
-  // the same day from it, so this describe runs the browser in UTC.
-  test.use({ timezoneId: "UTC" });
-  // The mock re-dates the fixtures to the runner's local day and keeps their UTC clock times:
+  // The mock re-dates the fixtures' *clock* as well as their day (#5275), so its instants are
+  // local wall-clock times on the runner's day — the clock the grid positions blocks by. That
+  // retires the `test.use({ timezoneId: "UTC" })` pin this describe used to carry: it existed
+  // only so the browser would read the fixtures' surviving `Z` times as local ones.
+  //
   // Carol Davis (res_e2e_003, CONFIRMED on tbl_e2e_002, which tables-list.json marks OCCUPIED)
-  // sits at 20:00–21:30Z. Fix the browser clock 30 minutes into that slot.
-  const localToday = new Date().toLocaleDateString("en-CA");
-  const insideCarolsSlot = new Date(`${localToday}T20:30:00.000Z`);
+  // sits at 20:00–21:30 local; Bob Smith (res_e2e_002, PENDING on tbl_e2e_003, AVAILABLE) at
+  // 19:00–20:30. Read the day when the test runs, never when the file is collected (#5279).
+  const insideCarolsSlot = () => new Date(`${localDay()}T20:30:00`);
+  const insideBobsSlot = () => new Date(`${localDay()}T19:30:00`);
 
   test("hides Seat Guest for a CONFIRMED party on an OCCUPIED table inside its slot", async ({
     mockedPage,
   }) => {
-    await mockedPage.clock.setFixedTime(insideCarolsSlot);
+    await mockedPage.clock.setFixedTime(insideCarolsSlot());
     await mockedPage.goto("timeline");
 
     await mockedPage.getByTestId("reservation-block-res_e2e_003").click();
@@ -87,7 +94,7 @@ test.describe("Seated is a fact about the floor, not a status the Host sets", ()
   });
 
   test("shows Seat Guest for a PENDING party on a free table", async ({ mockedPage }) => {
-    await mockedPage.clock.setFixedTime(insideCarolsSlot);
+    await mockedPage.clock.setFixedTime(insideCarolsSlot());
     await mockedPage.goto("timeline");
 
     // Bob Smith (res_e2e_002) is PENDING on tbl_e2e_003, AVAILABLE in the fixture.
@@ -95,6 +102,35 @@ test.describe("Seated is a fact about the floor, not a status the Host sets", ()
     const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
     await expect(sidebar).toContainText("Bob Smith");
     await expect(sidebar.getByRole("button", { name: "Seat Guest", exact: true })).toBeVisible();
+  });
+
+  // #5279 item 5: the run's headline interaction had no E2E coverage of its *success* path —
+  // only of when the button appears and when it doesn't. Seating is two PATCHes (the booking to
+  // CONFIRMED, the table to OCCUPIED) and a refetch; "seated" is then re-derived from that pair,
+  // never read back from a stored flag, so the block is where the outcome has to be asserted.
+  test("Seat Guest seats the party: the block flips to seated and the button retires", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.clock.setFixedTime(insideBobsSlot());
+    await mockedPage.goto("timeline");
+
+    const block = mockedPage.getByTestId("reservation-block-res_e2e_002");
+    await expect(block).toBeVisible();
+    await expect(block).not.toHaveAccessibleName(/seated/);
+
+    await block.click();
+    const sidebar = mockedPage.getByTestId("reservation-detail-sidebar");
+    const seatGuest = sidebar.getByRole("button", { name: "Seat Guest", exact: true });
+    await expect(seatGuest).toBeVisible();
+    await seatGuest.click();
+
+    await expect(block).toHaveAccessibleName(/, seated/);
+    // Seated, so there is nothing left to seat: tbl_e2e_003 now reads OCCUPIED.
+    await expect(seatGuest).toHaveCount(0);
+    await expect(sidebar.getByText("Seated", { exact: true })).toBeVisible();
+    await expect(mockedPage.getByRole("status").filter({ hasText: "Seated Bob Smith" })).toHaveText(
+      "Seated Bob Smith at Table 3."
+    );
   });
 });
 
@@ -140,11 +176,14 @@ test.describe("Table status from the row header", () => {
     await mockedPage.goto("timeline");
 
     // Rows sort by priority; Table 1 (AVAILABLE) is the bottom row of the fixture.
-    const rows = mockedPage.getByRole("row", { name: /^Table / });
-    await expect(rows.last()).toHaveAttribute("data-testid", "table-row-tbl_e2e_001");
-    await mockedPage
-      .getByRole("button", { name: "Table 1: Available. Change status", exact: true })
-      .click();
+    // Located by test id, not `getByRole("row", { name: /^Table / })`: every row's aria-label is
+    // `Table ${table.name}`, so that filter matched all five rows (Bar 1 included) and narrowed
+    // nothing — it read as a row selector while only ever excluding the header (#5279 item 2).
+    const rows = mockedPage.getByTestId(/^table-row-/);
+    const lastRow = rows.last();
+    await expect(lastRow).toHaveAttribute("data-testid", "table-row-tbl_e2e_001");
+    // Open the bottom row's own trigger, so the menu under test is provably that row's.
+    await lastRow.getByTestId("table-status-tbl_e2e_001").click();
     const item = mockedPage.getByRole("menu").getByRole("menuitem", { name: "Mark occupied" });
     await expect(item).toBeVisible();
     const itemBox = await item.boundingBox();
