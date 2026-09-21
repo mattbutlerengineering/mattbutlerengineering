@@ -1,3 +1,4 @@
+// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.
 import { useState } from "react";
 import { Card, Badge, Heading, Text, Button } from "@mattbutlerengineering/rialto";
 import { weeklyResources } from "../data/weekly-intake";
