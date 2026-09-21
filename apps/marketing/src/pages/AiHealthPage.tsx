@@ -207,7 +207,11 @@ function ReviewBurdenPanel({ reviewBurden }: { reviewBurden: ReviewBurdenMetrics
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Rubber-Stamped</Text>
           <Text className={styles.statValue}>
-            {reviewBurden.rubberStampRatio == null
+            {/* A structural zero has no ratio to report. Rendering 0.0% here
+                would read as a passing score for a repo that has no formal
+                review stage to score (#5619). The flag comes from the
+                collector's own classification — never inferred from a zero. */}
+            {reviewBurden.noFormalReviewStage || reviewBurden.rubberStampRatio == null
               ? PLACEHOLDER
               : formatRatio(reviewBurden.rubberStampRatio)}
           </Text>
@@ -222,6 +226,13 @@ function ReviewBurdenPanel({ reviewBurden }: { reviewBurden: ReviewBurdenMetrics
           </Text>
         </Card>
       </div>
+      {reviewBurden.noFormalReviewStage && (
+        <Text className={styles.panelNote} data-testid="review-burden-no-formal-stage">
+          No formal review stage: all {formatCount(reviewBurden.totalClosedPrs)} sampled PRs merged
+          on green CI with zero GitHub review submissions. There is no review burden to measure
+          here, so the rubber-stamp ratio is not reported rather than shown as 0%.
+        </Text>
+      )}
     </div>
   );
 }

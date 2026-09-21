@@ -529,11 +529,19 @@ export const SENSORS = [
         overall_rubber_stamp_ratio: summary.overall_rubber_stamp_ratio ?? 0,
         overall_approvals: summary.overall_approvals ?? 0,
         overall_rubber_stamps: summary.overall_rubber_stamps ?? 0,
+        // #5619: why the counts are what they are. An entry written before
+        // #5619 carries neither field, and `unknown` is deliberately NOT
+        // collapsed into "no-formal-review-stage" — a zero whose cause was
+        // never recorded must not read as a confirmed structural zero.
+        review_coverage: summary.review_coverage ?? "unknown",
+        no_formal_review_stage: summary.no_formal_review_stage === true,
       };
     },
     format: (data, name) =>
-      `${name}: ${data.total_reviewers} reviewers, ${data.total_reviews} reviews, ` +
-      `${Math.round((data.overall_rubber_stamp_ratio ?? 0) * 100)}% rubber-stamped`,
+      data.no_formal_review_stage
+        ? `${name}: no formal review stage — ${data.total_closed_prs} PRs, 0 review submissions`
+        : `${name}: ${data.total_reviewers} reviewers, ${data.total_reviews} reviews, ` +
+          `${Math.round((data.overall_rubber_stamp_ratio ?? 0) * 100)}% rubber-stamped`,
   },
   {
     id: "prCategoryMetrics",

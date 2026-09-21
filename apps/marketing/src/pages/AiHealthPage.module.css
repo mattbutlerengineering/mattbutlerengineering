@@ -84,6 +84,14 @@
   opacity: 0.5;
 }
 
+/* Caveat printed under a panel when its headline numbers need qualifying. */
+.panelNote {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  opacity: 0.75;
+}
+
 /* Sensor status list */
 .sensorGrid {
   border: 1px solid var(--rialto-border);

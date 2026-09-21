@@ -1437,6 +1437,8 @@ describe("reviewBurden sensor (#5530)", () => {
       overall_rubber_stamp_ratio: 0.09,
       overall_rubber_stamps: 1,
       overall_approvals: 11,
+      review_coverage: "measured",
+      no_formal_review_stage: false,
     },
     ...overrides,
   });
@@ -1461,7 +1463,64 @@ describe("reviewBurden sensor (#5530)", () => {
       overall_rubber_stamp_ratio: 0.09,
       overall_approvals: 11,
       overall_rubber_stamps: 1,
+      review_coverage: "measured",
+      no_formal_review_stage: false,
     });
+  });
+
+  // #5619: the panel must be able to tell a structural zero from a broken
+  // collector, so the classification has to survive the sensor hop.
+  it("carries the structural-zero classification through to the report", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
+    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "metrics", "review-burden.json"),
+      JSON.stringify([
+        entry({
+          reviewers: [],
+          summary: {
+            total_reviewers: 0,
+            total_reviews: 0,
+            overall_rubber_stamp_ratio: 0,
+            overall_rubber_stamps: 0,
+            overall_approvals: 0,
+            review_coverage: "no-formal-review-stage",
+            no_formal_review_stage: true,
+          },
+        }),
+      ])
+    );
+
+    const result = sensor().collect({ root: tmpDir });
+
+    expect(result.review_coverage).toBe("no-formal-review-stage");
+    expect(result.no_formal_review_stage).toBe(true);
+  });
+
+  // An entry written before #5619 has neither field; it must not be read as a
+  // confirmed structural zero.
+  it("reports an unclassified legacy entry as unknown, never as a structural zero", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
+    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "metrics", "review-burden.json"),
+      JSON.stringify([
+        entry({
+          summary: {
+            total_reviewers: 0,
+            total_reviews: 0,
+            overall_rubber_stamp_ratio: 0,
+            overall_rubber_stamps: 0,
+            overall_approvals: 0,
+          },
+        }),
+      ])
+    );
+
+    const result = sensor().collect({ root: tmpDir });
+
+    expect(result.review_coverage).toBe("unknown");
+    expect(result.no_formal_review_stage).toBe(false);
   });
 
   it("returns { available: false } when metrics/review-burden.json does not exist", () => {
