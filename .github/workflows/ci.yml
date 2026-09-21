@@ -3,9 +3,15 @@ name: CI
 on:
   push:
     branches: [main]
+    # `docs/**` and `**.md` are deliberately NOT ignored. `detect-changes` sets
+    # has_code=false for a docs-only commit and every expensive job chains to
+    # `prepare`, which is gated on has_code == 'true' — so such a push runs
+    # only detect-changes + docs-format + trivy + ci-gate. Ignoring them here
+    # instead meant a docs-only commit reaching main (by merge or by direct
+    # push) was never prettier-checked, and the dirty files then failed "Run
+    # Full Repository Audit" on the next code PR (#4787 -> #4790/#4792/#4797
+    # and main a4473b0f9; the direct-push half is #4664, 7d259272a).
     paths-ignore:
-      - "**.md"
-      - "docs/**"
       - "*.png"
       - ".gitignore"
       - "LICENSE"
@@ -703,8 +709,13 @@ jobs:
 
   report-health:
     name: Report CI Health
-    needs: [lint, typecheck, build, test, migrations]
-    if: always() && github.ref == 'refs/heads/main'
+    needs: [detect-changes, lint, typecheck, build, test, migrations]
+    # has_code is load-bearing, not decoration. The loop below treats anything
+    # that is not `failure`/`cancelled` as success, and `skipped` is neither —
+    # so on a docs-only push (where lint/typecheck/build/test/migrations all
+    # skip) this would write conclusion=success to ci/latest and mask a red
+    # code run that preceded it. Only report health for runs that tested code.
+    if: always() && github.ref == 'refs/heads/main' && needs.detect-changes.outputs.has_code == 'true'
     runs-on: ubuntu-latest
 
     steps:
