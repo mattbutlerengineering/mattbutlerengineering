@@ -32453,7 +32453,7 @@
       });
     }
     export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
-      const venues = await prisma.venue.findMany({ select: { id: true } });
+      const venues = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM app_cross_venue_venues()`;
       return venues.map((venue) => venue.id);
     }
     function buildPrismaCallbacks(
@@ -34893,6 +34893,49 @@
         createdAt: group.createdAt.toISOString(),
       };
     }
+    interface CrossVenueVenueRow {
+      id: string;
+      venue_group_id: string | null;
+      name: string;
+      slug: string;
+      iana_timezone: string;
+      currency_code: string;
+      operating_hours: unknown;
+      settings: unknown;
+      created_at: Date;
+      updated_at: Date;
+      group_id: string | null;
+      group_name: string | null;
+      group_slug: string | null;
+      group_settings: unknown;
+      group_created_at: Date | null;
+    }
+    function mapCrossVenueRow(row: CrossVenueVenueRow): Venue {
+      const group =
+        row.group_id !== null && row.group_name !== null && row.group_slug !== null
+          ? {
+              id: row.group_id,
+              name: row.group_name,
+              slug: row.group_slug,
+              settings: row.group_settings,
+              createdAt: row.group_created_at ?? row.created_at,
+            }
+          : null;
+    
+      return mapPrismaVenue({
+        id: row.id,
+        venueGroupId: row.venue_group_id,
+        venueGroup: group,
+        name: row.name,
+        slug: row.slug,
+        ianaTimezone: row.iana_timezone,
+        currencyCode: row.currency_code,
+        operatingHours: row.operating_hours,
+        settings: row.settings,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      });
+    }
     function mapPrismaVenue(venue: {
       id: string;
       venueGroupId: string | null;
@@ -34998,26 +35041,57 @@
       },
     };
     export const venueService = {
+      /**
+       * Lists venues across every venue — the platform-`admin` surface
+       * (`GET /api/v1/venues` when the caller is an admin; non-admins get
+       * {@link venueService.listForMember}).
+       *
+       * This is one of the two irreducibly cross-venue reads ADR-026 §3 tracked as
+       * open prerequisites, so it goes through that ADR's one escape hatch,
+       * `app_cross_venue_venues()`
+       * (`prisma/migrations/20260920000000_add_cross_venue_read_escape_hatch`): a
+       * `SECURITY DEFINER` function admitted by a `SELECT`-only policy keyed on the
+       * transaction-local marker the function sets and restores around its own
+       * `venues` scan. `venues`' `venue_isolation` policy compares each row's own
+       * `id` against a single `app.venue_id`, so no value of that setting makes a
+       * cross-venue list correct — a Prisma delegate read here returns every row
+       * today only because the service connects as the table owner (#5369), and
+       * would return ZERO rows under `FORCE ROW LEVEL SECURITY`.
+       *
+       * `$queryRaw` is required (Prisma cannot call a set-returning function
+       * through a delegate) and is safe: the tagged template binds every value as
+       * a parameter, never interpolating SQL. `venue_groups` carries no RLS policy
+       * of its own, so the group join needs no escape hatch. Ordering, pagination
+       * and the count stay in this query rather than in the function, so the
+       * function has no pagination contract to keep in sync.
+       */
       async list(
         page: number,
         limit: number,
         venueGroupId?: string
       ): Promise<PaginatedResponse<Venue>> {
-        const where = venueGroupId ? { venueGroupId } : {};
+        const { skip, take } = paginate({ page, limit });
+        const groupFilter = venueGroupId ?? null;
     
-        const [venues, total] = await Promise.all([
-          prisma.venue.findMany({
-            where,
-            ...paginate({ page, limit }),
-            orderBy: { name: "asc" },
-            include: { venueGroup: true },
-          }),
-          prisma.venue.count({ where }),
+        const [rows, totals] = await Promise.all([
+          prisma.$queryRaw<CrossVenueVenueRow[]>`
+            SELECT v.*,
+                   g.id AS group_id,
+                   g.name AS group_name,
+                   g.slug AS group_slug,
+                   g.settings AS group_settings,
+                   g.created_at AS group_created_at
+            FROM app_cross_venue_venues(${groupFilter}::text) v
+            LEFT JOIN venue_groups g ON g.id = v.venue_group_id
+            ORDER BY v.name ASC
+            LIMIT ${take} OFFSET ${skip}`,
+          prisma.$queryRaw<{ total: number }[]>`
+            SELECT count(*)::int AS total FROM app_cross_venue_venues(${groupFilter}::text)`,
         ]);
     
         return {
-          data: venues.map(mapPrismaVenue),
-          pagination: toPaginationMeta(page, limit, total),
+          data: rows.map(mapCrossVenueRow),
+          pagination: toPaginationMeta(page, limit, totals[0]?.total ?? 0),
         };
       },
     

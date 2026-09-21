@@ -38,18 +38,21 @@ type MockTx = {
  * transaction that set `app.venue_id` — precisely the ADR-026 part 6 bug
  * documented in `../middleware/venue-context.ts`.
  *
- * `venue.findMany` is asserted on the top-level client on purpose: the
- * venue-list read is not venue-scopable by construction, and is the one
- * remaining pre-`FORCE ROW LEVEL SECURITY` prerequisite — see
- * `getAllVenueIds`'s doc comment and ADR-026 §3.
+ * The venue-list read is asserted on `$queryRaw`, not on a model delegate:
+ * it is not venue-scopable by construction, so it goes through ADR-026 §3's
+ * `app_cross_venue_venues()` escape hatch (issue #5369) instead of
+ * `prisma.venue.findMany`. `bareVenueFindMany` must never be called — a bare
+ * delegate read is exactly the owner-bypass-dependent shape this replaced.
  */
 function makePrisma(
   overrides: {
-    venueFindMany?: ReturnType<typeof vi.fn>;
+    queryRawVenueIds?: ReturnType<typeof vi.fn>;
     guestFindMany?: ReturnType<typeof vi.fn>;
   } = {}
 ) {
-  const venueFindMany = overrides.venueFindMany ?? vi.fn().mockResolvedValue([{ id: "venue-1" }]);
+  const queryRawVenueIds =
+    overrides.queryRawVenueIds ?? vi.fn().mockResolvedValue([{ id: "venue-1" }]);
+  const bareVenueFindMany = vi.fn().mockResolvedValue([]);
   // Shared implementation behind every per-transaction guest spy: controls
   // what the scan reads, and records the query arguments once, regardless of
   // which venue's transaction issued it.
@@ -72,12 +75,21 @@ function makePrisma(
   });
 
   const client = {
-    venue: { findMany: venueFindMany },
+    venue: { findMany: bareVenueFindMany },
     guest: { findMany: bareGuestFindMany },
+    $queryRaw: queryRawVenueIds,
     $transaction,
   };
 
-  return { client, $transaction, venueFindMany, guestFindMany, bareGuestFindMany, txs };
+  return {
+    client,
+    $transaction,
+    queryRawVenueIds,
+    guestFindMany,
+    bareVenueFindMany,
+    bareGuestFindMany,
+    txs,
+  };
 }
 
 /** Long enough for the 0ms startup timer plus the scan's own microtasks. */
@@ -108,11 +120,11 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
   });
 
   it("queries venues and guests using prisma client", async () => {
-    const { client, venueFindMany, guestFindMany } = makePrisma();
+    const { client, queryRawVenueIds, guestFindMany } = makePrisma();
 
     await runOneScan(client);
 
-    expect(venueFindMany).toHaveBeenCalledWith({ select: { id: true } });
+    expect(queryRawVenueIds).toHaveBeenCalledTimes(1);
     expect(guestFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ venueId: "venue-1", visitCount: { gte: 3 } }),
@@ -155,7 +167,7 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
 
   it("scopes each venue to its OWN transaction, each carrying that venue's id", async () => {
     const { client, txs } = makePrisma({
-      venueFindMany: vi.fn().mockResolvedValue([{ id: "venue-1" }, { id: "venue-2" }]),
+      queryRawVenueIds: vi.fn().mockResolvedValue([{ id: "venue-1" }, { id: "venue-2" }]),
     });
 
     await runOneScan(client);
@@ -177,15 +189,19 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     }
   });
 
-  it("reads the venue list WITHOUT a transaction (the one cross-venue read left unscoped, ADR-026 §3)", async () => {
-    const { client, venueFindMany, $transaction } = makePrisma();
+  it("reads the venue list through the cross-venue escape hatch, WITHOUT a transaction (ADR-026 §3)", async () => {
+    const { client, queryRawVenueIds, bareVenueFindMany, $transaction } = makePrisma();
 
     await runOneScan(client);
 
     // `venues` is keyed on the row's own id, so there is no single venue id
-    // to scope this read to — it deliberately stays a plain query. Only the
-    // per-venue guest scan opens a transaction.
-    expect(venueFindMany).toHaveBeenCalledTimes(1);
+    // to scope this read to — it goes through `app_cross_venue_venues()`
+    // instead, as one statement whose own lifetime is the marker's lifetime
+    // (issue #5369). A bare delegate read would be the owner-bypass shape.
+    const [strings] = (queryRawVenueIds.mock.calls[0] ?? []) as [string[]];
+    expect(strings?.join("")).toContain("app_cross_venue_venues()");
+    expect(bareVenueFindMany).not.toHaveBeenCalled();
+    expect(queryRawVenueIds).toHaveBeenCalledTimes(1);
     expect($transaction).toHaveBeenCalledTimes(1);
   });
 
@@ -222,7 +238,7 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
   it("logs error when prisma query throws", async () => {
     const err = new Error("db failure");
     const { client } = makePrisma({
-      venueFindMany: vi.fn().mockRejectedValue(err),
+      queryRawVenueIds: vi.fn().mockRejectedValue(err),
     });
 
     const log = await runOneScan(client);
@@ -231,7 +247,7 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
   });
 
   it("stop() prevents further scans from running", async () => {
-    const { client, venueFindMany } = makePrisma();
+    const { client, queryRawVenueIds } = makePrisma();
     const monitor = createLapsedGuestMonitor({
       prisma: client as never,
       startupDelayMs: 0,
@@ -243,9 +259,9 @@ describe("createLapsedGuestMonitor (prisma interface)", () => {
     await new Promise((r) => setTimeout(r, SCAN_SETTLE_MS));
     monitor.stop();
 
-    const callsAfterStop = venueFindMany.mock.calls.length;
+    const callsAfterStop = queryRawVenueIds.mock.calls.length;
     await new Promise((r) => setTimeout(r, PAST_NEXT_INTERVAL_MS));
-    expect(venueFindMany.mock.calls.length).toBe(callsAfterStop);
+    expect(queryRawVenueIds.mock.calls.length).toBe(callsAfterStop);
   });
 
   it("guest query selects required fields and filters by COMPLETED reservations", async () => {
