@@ -2050,3 +2050,16 @@ None this run (`agent-skip` empty, 0 open).
 **Skill proposals:** 0 (Sunday — Friday-only)
 **Threshold notes:** auto-tuner ran, no per-sensor metrics computed (all 5 verifications were skips, not verified/failed) — nothing to tune this run
 **Environment notes:** fresh cloud checkout had no `node_modules` and no built `@mbe/gh-client` dist — ran `pnpm install --frozen-lockfile` then `pnpm --filter @mbe/gh-client build` before sensors would resolve; worth pre-baking into the routine's setup if this recurs
+
+## 2026-09-21
+
+**Sensors:** 10/18 available (acmm, prMetrics, metricsFreshness, reviewBurden, prCategoryMetrics, ccusageCost, ciHealth, sessionLogs, codeChurn, queueEfficiency) — domainActivity, agentCost, lighthouse, mutationScore, flakyTests, e2eStability unavailable; issues + issueFeedback queries failed (GitHub auth 403 — REST fallback credential invalid for direct API calls, same recurring class as 09-20)
+**Regressions:** 1 detected (`metricsFreshness.domain-metrics`: null → unconfigured, severity low), 0 issues created — already tracked by open issue #5561 "Metrics collection blocked on an unset credential", skipped as duplicate per Step 3.3
+**Status:** Healthy otherwise — ACMM L5 95/114, CI 100% pass rate (16/16), code churn 0%, queueEfficiency composite 1 (no baseline yet), reviewBurden 0 reviewers/0 reviews (window too quiet to signal)
+**Verifications:** 5 checked (issues closed in 48h window: #5623, #5586, #5585, #5580, #5554), 0 verified, 0 failed, 5 skipped (no matching verifier for `meta-improvement` label / no completed CI runs found)
+**AI issue feedback:** collection failed (same 403 REST-fallback-credential issue as the `issues`/`issueFeedback` sensors) — defaulted to budget 3/category, moot since the one regression was a dedup skip
+**Sentry triage:** skipped (`SENTRY_ACCESS_TOKEN` not set in this session's env, optional step)
+**Skill proposals:** 0 (Monday — Friday-only)
+**Threshold notes:** auto-tuner ran, no per-sensor metrics computed (all 5 verifications were skips, not verified/failed) — nothing to tune this run
+**Environment notes:** same as 09-20 — fresh cloud checkout needed `pnpm install --frozen-lockfile` + `pnpm --filter @mbe/gh-client... build` before sensors would resolve. Third occurrence of this exact setup gap (09-19 implied, 09-20, 09-21 confirmed) — worth pre-baking into the routine or documenting as a gotcha if it recurs again.
+**Meta:** noticed a batch of `ci-fix`-labeled "routine X is dark/unverifiable" issues (#5603-#5612) filed ~15:05 UTC today by what looks like a separate liveness-watchdog routine, including #5607 "routine mbe-learning-loop is dark — no expected artifact observed". Out of scope for this run's triage (not a sensor-report regression), but flagging since it concerns this same routine's own observability — worth a look next run or by a human.
