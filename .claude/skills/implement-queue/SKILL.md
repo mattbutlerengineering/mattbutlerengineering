@@ -103,10 +103,20 @@ Dispatch one subagent per issue — **all in a single message** — using the Ag
 - `haiku` / `sonnet` tiers: use `--adapter auto` — enables rate-limit failover cascade (claude → gemini → opencode on 429), preventing stalls on busy days.
 - `opus` tier: pin `--adapter claude` — stays on the Claude provider; failover to gemini/opencode is inappropriate for deep architecture tasks.
 
+**Before dispatching, verify this checkout's own base** — worktrees are cut from its object store, so its staleness is inherited by every worker (measured 2026-09-20: the main checkout sat 368 commits behind `origin/main` with a divergent local commit, and every worktree cut from it started there):
+
+```bash
+node scripts/worktree-base-freshness.mjs check
+# exit 0 -> base shares history with a recent origin/main
+# exit 1 -> "unrelated" | "stale" | "unknown", all fail closed
+```
+
+On exit 1, remediate before dispatching — for a worker starting fresh work the fix is `git fetch origin && git reset --hard origin/main`, which is also exactly what the worker's own step 0 re-runs in its worktree. This is the same fail-closed posture as `scripts/agent-core-build-freshness.mjs check` in the worker→train boundary below, on a different input: `unrelated` (#5296 — no common ancestor, so `git merge` answers `fatal: refusing to merge unrelated histories` and `gh pr update-branch` cannot repair it) must never be softened into `stale`, and an undeterminable base is never read as usable.
+
 Each agent prompt MUST include:
 
 1. The issue number, title, and full body.
-2. **First step: `pnpm install --frozen-lockfile`** (worktrees have no `node_modules`).
+2. **First step: `node scripts/worktree-base-freshness.mjs check`, then `pnpm install --frozen-lockfile`** (a worktree's base can be stale or disconnected; worktrees also have no `node_modules`).
 3. TDD: failing test first, then minimal implementation, per vertical slice.
 4. Gates on affected packages before declaring done: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest does NOT typecheck — typecheck is mandatory).
 5. Push branch and open a PR with `Closes #<N>` in the body; **verify the PR's base ref is `main`** (worktree agents can branch from the wrong base). Do NOT merge.
