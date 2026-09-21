@@ -8970,8 +8970,9 @@
       prisma: PrismaClient,
       venueId: string
     ): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> {
-      return withRlsBypass(prisma, (tx) =>
-        tx.guest.findMany({
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        return tx.guest.findMany({
           where: {
             venueId,
             visitCount: { gte: LAPSE_MIN_VISIT_COUNT },
@@ -8989,13 +8990,12 @@
               orderBy: { startTime: "asc" },
             },
           },
-        })
-      );
+        });
+      });
     }
-    export function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
-      return withRlsBypass(prisma, (tx) =>
-        tx.venue.findMany({ select: { id: true } }).then((vs) => vs.map((v) => v.id))
-      );
+    export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> {
+      const venues = await prisma.venue.findMany({ select: { id: true } });
+      return venues.map((venue) => venue.id);
     }
     function buildPrismaCallbacks(
       prisma: PrismaClient
@@ -10271,20 +10271,6 @@
         };
       },
     };
-  </file>
-  <file path="src/services/rls-bypass.ts">
-    export function withRlsBypass<T>(
-      prisma: PrismaClient,
-      callback: (tx: Prisma.TransactionClient) => Promise<T>
-    ): Promise<T> {
-      return prisma.$transaction(
-        async (tx) => {
-          await tx.$executeRaw`SET LOCAL ROLE app_rls_bypass`;
-          return callback(tx);
-        },
-        { timeout: TRANSACTION_TIMEOUT_MS }
-      );
-    }
   </file>
   <file path="src/services/serializers.ts">
     export interface PrismaTableRow {

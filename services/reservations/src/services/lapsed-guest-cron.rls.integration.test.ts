@@ -6,23 +6,25 @@ import { PrismaClient } from "../generated/prisma/index.js";
 import { findGuestsForVenue, getAllVenueIds } from "./lapsed-guest-cron.js";
 
 /**
- * Real-Postgres regression test for ADR-026 §3's `app_rls_bypass` escape
- * hatch (issue #5401). Every other test touching this code path
- * (`rls-bypass.test.ts`, `lapsed-guest-cron.test.ts`) mocks Prisma, which
- * proves the wiring shape but cannot prove the RLS policies + bypass role
- * actually behave correctly against a real database.
+ * Real-Postgres regression test for issue #5401: the lapsed-guest cron
+ * reading RLS-protected `guests` from a background interval with no HTTP
+ * request context. The fix is per-venue `setVenueContext` (ADR-026 §4) —
+ * each venue's scan opens its own transaction and sets `app.venue_id` to
+ * that venue as the first statement. `lapsed-guest-cron.test.ts` proves that
+ * wiring shape against a mock; only a real database can prove the RLS
+ * policies then actually let the rows through.
  *
  * Deliberately does NOT reuse `DATABASE_URL`'s own role for the assertions:
- * Postgres skips every RLS policy for a table's OWNER (and for a
- * superuser) unconditionally, regardless of `app.venue_id` — and the role
- * that ran this service's migrations, which `DATABASE_URL` points at, is
- * exactly that owner. Testing through it would prove nothing about RLS and
- * would rediscover nothing if the bypass role/grants regressed (see the
- * separate, already-tracked #5369 for the "app's own connection role IS
- * the owner" gap this sidesteps rather than fixes). Instead this test
- * creates its own fresh, non-owner, non-superuser role — the same shape
- * this service's real connecting role is expected to have — and runs every
- * assertion through it.
+ * Postgres skips every RLS policy for a table's OWNER unconditionally,
+ * regardless of `app.venue_id` — and the role that ran this service's
+ * migrations, which `DATABASE_URL` points at, is exactly that owner (no
+ * table sets `FORCE ROW LEVEL SECURITY`). Testing through it would prove
+ * nothing about the policies and would rediscover nothing if the venue
+ * scoping regressed; it is also why #5401 is latent rather than live in
+ * production today (tracked separately as #5369). Instead this test creates
+ * its own fresh, non-owner, non-superuser role — the shape this service's
+ * connecting role is eventually expected to have — and runs every assertion
+ * through it.
  *
  * Requires a real, reachable Postgres at `DATABASE_URL` with this service's
  * migrations already applied (the `postgresql://test:test@localhost:5432/test`
@@ -35,14 +37,13 @@ import { findGuestsForVenue, getAllVenueIds } from "./lapsed-guest-cron.js";
 const DATABASE_URL = process.env.DATABASE_URL;
 
 describe.skipIf(!DATABASE_URL)(
-  "lapsed-guest-cron RLS integration (ADR-026 §3 app_rls_bypass, issue #5401)",
+  "lapsed-guest-cron RLS integration (ADR-026 §4 per-venue set_config, issue #5401)",
   () => {
     const nonOwnerRole = `rls_it_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
-    // Generated per test run rather than hardcoded -- this role is
-    // NOLOGIN-adjacent-but-not-quite (it does have LOGIN, scoped to this
-    // test's own lifetime and dropped in afterAll), so no fixed password
-    // literal should sit in a public repo even though it grants nothing
-    // beyond this test's own throwaway fixture data.
+    // Generated per test run rather than hardcoded -- this role has LOGIN,
+    // scoped to this test's own lifetime and dropped in afterAll, so no fixed
+    // password literal should sit in a public repo even though it grants
+    // nothing beyond this test's own throwaway fixture data.
     const nonOwnerPassword = randomBytes(24).toString("hex");
 
     let ownerPool: pg.Pool;
@@ -60,11 +61,12 @@ describe.skipIf(!DATABASE_URL)(
     beforeAll(async () => {
       [ownerPool, ownerPrisma] = connect(DATABASE_URL!);
 
-      // A fresh, non-owner, non-superuser role — see the module doc comment
-      // above for why testing through the owning connection would prove
-      // nothing here.
+      // A fresh, non-owner, non-superuser role with ordinary DML privileges
+      // only -- deliberately no BYPASSRLS and no role membership granting it.
+      // See the module doc comment above for why testing through the owning
+      // connection would prove nothing here.
       await ownerPrisma.$executeRawUnsafe(
-        `CREATE ROLE "${nonOwnerRole}" LOGIN PASSWORD '${nonOwnerPassword}' IN ROLE app_rls_bypass`
+        `CREATE ROLE "${nonOwnerRole}" LOGIN PASSWORD '${nonOwnerPassword}'`
       );
       await ownerPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO "${nonOwnerRole}"`);
       await ownerPrisma.$executeRawUnsafe(
@@ -98,13 +100,11 @@ describe.skipIf(!DATABASE_URL)(
       await ownerPrisma.guest.deleteMany({ where: { venueId: { in: [venueA.id, venueB.id] } } });
       await ownerPrisma.venue.deleteMany({ where: { id: { in: [venueA.id, venueB.id] } } });
       // Table-level grants are separate ACL entries from the schema-level
-      // USAGE grant and from the app_rls_bypass membership -- all three
-      // must be revoked (in any order) before DROP ROLE will succeed.
+      // USAGE grant -- both must be revoked before DROP ROLE will succeed.
       await ownerPrisma.$executeRawUnsafe(
         `REVOKE SELECT, INSERT ON "venues", "guests", "reservations" FROM "${nonOwnerRole}"`
       );
       await ownerPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM "${nonOwnerRole}"`);
-      await ownerPrisma.$executeRawUnsafe(`REVOKE app_rls_bypass FROM "${nonOwnerRole}"`);
       await ownerPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS "${nonOwnerRole}"`);
       await ownerPrisma.$disconnect();
       await ownerPool.end();
@@ -115,7 +115,10 @@ describe.skipIf(!DATABASE_URL)(
       expect(rows).toEqual([]);
     });
 
-    it("findGuestsForVenue (the cron's real read path) reads each venue's own guest across MULTIPLE venues under app_rls_bypass", async () => {
+    it("findGuestsForVenue (the cron's real read path) reads each venue's own guest across MULTIPLE venues", async () => {
+      // The #5401 regression: before per-venue setVenueContext, both of these
+      // came back empty for a non-owner role -- the cron silently scanning
+      // nothing, for every venue.
       const guestsA = await findGuestsForVenue(appPrisma, venueA.id);
       const guestsB = await findGuestsForVenue(appPrisma, venueB.id);
 
@@ -123,18 +126,48 @@ describe.skipIf(!DATABASE_URL)(
       expect(guestsB.map((g) => g.name)).toEqual(["RLS IT Guest B"]);
     });
 
-    it("getAllVenueIds (the cron's venue-list read path) reads BOTH venues under app_rls_bypass, now that venues carries its own RLS policy", async () => {
+    it("each venue's scan sees ONLY its own venue, so the loop stays venue-scoped rather than bypassing RLS wholesale", async () => {
+      // A blanket BYPASSRLS escape hatch would make every scan able to see
+      // every venue's rows, with only the query's own `where` clause standing
+      // between them. Per-venue set_config keeps the database itself as the
+      // backstop: venue B's id is not visible from inside venue A's
+      // transaction at all.
+      const leaked = await appPrisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.venue_id', ${venueA.id}, true)`;
+        return tx.guest.findMany({ where: { venueId: venueB.id } });
+      });
+
+      expect(leaked).toEqual([]);
+    });
+
+    it("getAllVenueIds is the ONE remaining cross-venue read: as a non-owner it sees zero venues (OPEN prerequisite, ADR-026 §3)", async () => {
+      // NOT a desired behavior -- this pins a known, documented gap so it
+      // cannot change silently. `venues`' RLS policy is keyed on each row's
+      // own `id` (20260919000000_enable_rls_venues), so a query whose whole
+      // purpose is to discover those ids has no single `app.venue_id` that
+      // would make it correct. In production this still returns every venue,
+      // because the service connects as the table owner and no table sets
+      // FORCE ROW LEVEL SECURITY -- which is exactly why the cron is not
+      // broken today. When that changes (FORCE lands, or #5369 moves the app
+      // off the owner role), this assertion is what should force the
+      // conversation instead of the cron quietly becoming a no-op.
       const venueIds = await getAllVenueIds(appPrisma);
+
+      expect(venueIds).toEqual([]);
+    });
+
+    it("confirms the owner role still reads every venue, so the cron's venue list works in production today", async () => {
+      // The other half of the assertion above: the gap is real but latent.
+      const venueIds = await getAllVenueIds(ownerPrisma);
 
       expect(venueIds).toEqual(expect.arrayContaining([venueA.id, venueB.id]));
     });
 
-    it("SET LOCAL ROLE does not persist past the transaction — a later, non-bypassed query on the same pooled connection still sees zero rows under RLS", async () => {
-      // Exercise the bypass first, so if `SET LOCAL ROLE` ever regressed to
-      // a plain `SET ROLE` (which persists for the rest of the session,
-      // not just the transaction), this would catch it: the next query
-      // below reuses the pool and would silently keep seeing every venue's
-      // guests instead of reverting to default-deny.
+    it("set_config(..., true) does not persist past its transaction — a later query on the same pooled connection is back to default-deny", async () => {
+      // `is_local = true` gives set_config the same transaction scope as SET
+      // LOCAL. If it ever regressed to a session-scoped setting, the next
+      // query below would silently keep seeing venue A's guests after
+      // reusing that pooled connection.
       await findGuestsForVenue(appPrisma, venueA.id);
 
       const rows = await appPrisma.guest.findMany({ where: { venueId: venueA.id } });
