@@ -127,6 +127,49 @@ describe("check-deps command", () => {
     expect(warnOutput).toContain("vitest");
   });
 
+  it("skips a deliberate INTENTIONAL_MISMATCHES entry instead of reporting it", async () => {
+    mockGlob.mockResolvedValue(["package.json", "tools/mutation-testing/package.json"] as never);
+    mockReadFileSync.mockImplementation((filePath: unknown) => {
+      const path = String(filePath);
+      if (path.includes("tools/mutation-testing")) {
+        return JSON.stringify({
+          name: "@mbe/mutation-testing",
+          devDependencies: { vitest: "4.1.10" },
+        });
+      }
+      return JSON.stringify({
+        name: "root",
+        devDependencies: { vitest: "^5.0.1" },
+      });
+    });
+
+    await expect(runCheckDeps()).resolves.not.toThrow();
+    const logOutput = logSpy.mock.calls.flat().join(" ");
+    expect(logOutput).toContain("All external dependencies are consistent");
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
+  it("still reports a real vitest mismatch from a package NOT in INTENTIONAL_MISMATCHES", async () => {
+    mockGlob.mockResolvedValue(["package.json", "packages/a/package.json"] as never);
+    mockReadFileSync.mockImplementation((filePath: unknown) => {
+      const path = String(filePath);
+      if (path.includes("packages/a")) {
+        return JSON.stringify({
+          name: "@mbe/a",
+          devDependencies: { vitest: "4.1.10" },
+        });
+      }
+      return JSON.stringify({
+        name: "root",
+        devDependencies: { vitest: "^5.0.1" },
+      });
+    });
+
+    await expect(runCheckDeps()).rejects.toThrow("Found 1 dependencies with version mismatches.");
+    const warnOutput = warnSpy.mock.calls.flat().join(" ");
+    expect(warnOutput).toContain("vitest");
+  });
+
   it("handles packages with no dependencies gracefully", async () => {
     mockGlob.mockResolvedValue(["package.json"] as never);
     mockReadFileSync.mockReturnValue(JSON.stringify({ name: "root" }));

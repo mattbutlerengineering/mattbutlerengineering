@@ -42,6 +42,7 @@ flowchart TD
   end
   subgraph tools["Developer Tools"]
     cli["cli"]
+    mutation_testing["mutation-testing"]
   end
   subgraph scripts_dir["Automation Scripts"]
     scripts["scripts"]
@@ -182,6 +183,7 @@ flowchart TD
   class test_fixtures shared
   class types shared
   class cli tooling
+  class mutation_testing tooling
   class scripts shared
 ```
 

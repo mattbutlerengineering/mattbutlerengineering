@@ -52,7 +52,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "test:contract": "turbo run test:contract",
-    "test:mutations": "stryker run",
+    "test:mutations": "tools/mutation-testing/node_modules/.bin/stryker run",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
@@ -73,8 +73,6 @@
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.63.0",
     "@size-limit/file": "^14.0.0",
-    "@stryker-mutator/core": "^10.0.0",
-    "@stryker-mutator/vitest-runner": "^10.0.0",
     "dependency-cruiser": "^18.3.1",
     "esbuild": "^0.28.2",
     "glob": "^13.0.6",
@@ -142,6 +140,9 @@
       "deepmerge-ts@<8.0.0": "^8.0.0",
       "browserslist@<4.28.7": "^4.28.7",
       "mysql2@<3.22.0": "^3.22.0"
+    },
+    "patchedDependencies": {
+      "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator__vitest-runner@10.0.0.patch"
     }
   },
   "license": "MIT"

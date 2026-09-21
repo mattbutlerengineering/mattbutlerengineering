@@ -72,6 +72,43 @@ describe("check-dep-versions", () => {
 
       expect(findVersionMismatches(packages, ["vitest"])).toHaveLength(0);
     });
+
+    test("skips a package:dep pair listed in intentionalMismatches", async () => {
+      const { findVersionMismatches } = await import("../check-dep-versions.js");
+      const packages = [
+        { name: "@mbe/a", path: "packages/a/package.json", deps: { vitest: "^5.0.0" } },
+        {
+          name: "@mbe/mutation-testing",
+          path: "tools/mutation-testing/package.json",
+          deps: { vitest: "4.1.10" },
+        },
+      ];
+
+      expect(
+        findVersionMismatches(packages, ["vitest"], ["tools/mutation-testing/package.json:vitest"])
+      ).toHaveLength(0);
+    });
+
+    test("still reports a real mismatch not covered by intentionalMismatches", async () => {
+      const { findVersionMismatches } = await import("../check-dep-versions.js");
+      const packages = [
+        { name: "@mbe/a", path: "packages/a/package.json", deps: { vitest: "^5.0.0" } },
+        { name: "@mbe/b", path: "packages/b/package.json", deps: { vitest: "^4.0.0" } },
+        {
+          name: "@mbe/mutation-testing",
+          path: "tools/mutation-testing/package.json",
+          deps: { vitest: "4.1.10" },
+        },
+      ];
+
+      const mismatches = findVersionMismatches(
+        packages,
+        ["vitest"],
+        ["tools/mutation-testing/package.json:vitest"]
+      );
+      expect(mismatches).toHaveLength(1);
+      expect([...mismatches[0].versions.keys()].sort()).toEqual(["^4.0.0", "^5.0.0"]);
+    });
   });
 
   describe("findDepVersionFindings", () => {

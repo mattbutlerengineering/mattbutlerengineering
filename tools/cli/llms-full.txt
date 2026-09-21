@@ -1612,6 +1612,8 @@
           for (const [name, version] of Object.entries(allDeps as Record<string, string>)) {
             if (version.startsWith("workspace:") || version.startsWith("catalog:")) continue;
     
+            if (INTENTIONAL_MISMATCHES.has(`${pkgName}:${name}`)) continue;
+    
             if (!dependencyMap.has(name)) {
               dependencyMap.set(name, new Map());
             }
