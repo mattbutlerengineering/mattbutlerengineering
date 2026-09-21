@@ -18,7 +18,23 @@ model: sonnet
 
 You are implementing a specific GitHub issue in an isolated git worktree. Your job is to:
 
-0. **Install dependencies** — worktrees are bare checkouts without `node_modules`:
+0. **Verify the base, then install dependencies.** Both run before any other work.
+
+   Claude Code provisions your worktree from the owning checkout's object store, which can be arbitrarily stale — or, as in #5296, rooted in a snapshot with **no common ancestor to `main` at all**, so the merge train later dies on `fatal: refusing to merge unrelated histories`. Nothing in the PR's own metadata disagrees (the GitHub API reports a current `base.sha` regardless), so this must be checked here, at the start, not discovered at merge time:
+
+   ```bash
+   node scripts/worktree-base-freshness.mjs check
+   ```
+
+   Exit 0 means the base shares history with a recent `origin/main`. Exit 1 reports `unrelated`, `stale`, or `unknown` — it fails closed on all three, and an undeterminable base is never treated as usable. You are starting fresh work, so remediate before writing anything:
+
+   ```bash
+   git fetch origin && git reset --hard origin/main
+   ```
+
+   Then re-run the check and confirm exit 0. Report and stop if it still fails.
+
+   Worktrees are also bare checkouts without `node_modules`:
 
    ```bash
    pnpm install --frozen-lockfile && touch .worktree-installed
