@@ -40,20 +40,37 @@ async function ghApi(endpoint, options = {}) {
 }
 
 /**
- * Fetches every existing `sentry`-labeled GitHub issue to dedup against, in
- * ANY state — #5553: restricting the search to `state:open` is exactly
- * what let a closed duplicate go unnoticed and get re-filed four times.
- * Returns `null` — never `[]` — on any failure (network error, non-2xx
- * response, malformed payload), so a broken search can never be mistaken
- * for "no existing issues found"; see sentry-triage-dedup.mjs's
- * fail-closed contract.
+ * The search this dedup depends on. Omitting `state:` is how the Search API
+ * spells "any state" — #5553: restricting it to `state:open` is exactly what
+ * let a closed duplicate go unnoticed and get re-filed four times.
+ *
+ * Do NOT add `state:all` here. It is not a Search API qualifier (`state=all`
+ * belongs to the REST *list* endpoint, which is the easy confusion), and the
+ * API does not reject it — it silently matches nothing. Measured on this repo:
+ * this query returns **17**; the same query plus `state:all` returns **0**,
+ * HTTP 200, no error. A dedup fed zero rows reports "no existing issue" and
+ * files the duplicate it exists to prevent. `sentry-triage-query.test.mjs`
+ * pins the qualifier for that reason.
+ */
+export const SENTRY_ISSUE_SEARCH_QUERY = `repo:${REPO}+is:issue+label:sentry`;
+
+/**
+ * Fetches every existing `sentry`-labeled GitHub issue to dedup against.
+ *
+ * Returns `null` — never `[]` — on any failure, so a broken search can never
+ * be mistaken for "no existing issues found"; see sentry-triage-dedup.mjs's
+ * fail-closed contract. A *truncated* search counts as a failure for the same
+ * reason: the Search API caps a page at 100, this query spans all history and
+ * so only grows, and a silently dropped older match fails in the file-a-
+ * duplicate direction — the exact direction of the bug being fixed.
  */
 async function fetchExistingSentryIssues() {
   try {
-    const result = await ghApi(
-      `/search/issues?q=repo:${REPO}+is:issue+label:sentry+state:all&per_page=100`
-    );
+    const result = await ghApi(`/search/issues?q=${SENTRY_ISSUE_SEARCH_QUERY}&per_page=100`);
     if (!Array.isArray(result.items)) return null;
+    if (typeof result.total_count === "number" && result.total_count > result.items.length) {
+      return null;
+    }
     return result.items.map((item) => ({
       number: item.number,
       state: item.state,

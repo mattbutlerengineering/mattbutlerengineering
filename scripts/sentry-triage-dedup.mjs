@@ -53,6 +53,16 @@ export function decideSentryDedup(sentryIssueId, existingIssues) {
     return { action: "skip", reason: "search-unavailable" };
   }
 
+  // Without this guard the `=== sentryIssueId` comparison below matches
+  // `null === null`, so an unparseable candidate would "match" the first
+  // existing issue that also carries no Sentry URL — a fabricated match
+  // reported with that issue's number. Not reachable from triage.mjs today
+  // (it passes `String(issue.id)`), but this module is exported as a reusable
+  // pure decision, so it guards its own contract.
+  if (!sentryIssueId) {
+    return { action: "skip", reason: "unparseable-candidate-id" };
+  }
+
   const match = existingIssues.find((issue) => extractSentryIssueId(issue.body) === sentryIssueId);
   if (!match) {
     return { action: "file", reason: "no-match" };

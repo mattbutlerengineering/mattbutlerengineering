@@ -120,3 +120,24 @@ describe("sentry-triage-dedup", () => {
     });
   });
 });
+
+describe("decideSentryDedup guards its own contract", () => {
+  test("skips an unparseable candidate id instead of matching null to null", async () => {
+    const { decideSentryDedup } = await import("../sentry-triage-dedup.mjs");
+    // Before the guard, `extractSentryIssueId(body) === sentryIssueId` compared
+    // null to null, so an issue carrying no Sentry URL was reported as a match
+    // — complete with that issue's number.
+    expect(decideSentryDedup(null, [{ number: 3, state: "open", body: "no url here" }])).toEqual({
+      action: "skip",
+      reason: "unparseable-candidate-id",
+    });
+  });
+
+  test("still skips on an empty-string id", async () => {
+    const { decideSentryDedup } = await import("../sentry-triage-dedup.mjs");
+    expect(decideSentryDedup("", [{ number: 3, state: "open", body: "no url here" }])).toEqual({
+      action: "skip",
+      reason: "unparseable-candidate-id",
+    });
+  });
+});
