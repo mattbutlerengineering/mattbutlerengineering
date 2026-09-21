@@ -385,28 +385,36 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-weekly-improve"]).toBe("dark");
   });
 
+  // mbe-night and mbe-midday have artifacts in this fixture (dated with
+  // their new routine-prefixed titles, docs/routines/mbe-{night,midday}.md
+  // step 1 post-#5604/#5608) and are still NOT alive: the manifest keeps
+  // them `unverifiable` on purpose until the live RemoteTrigger prompts are
+  // confirmed updated to actually emit those titles (see routine-manifest.mjs
+  // unverifiableReason) — flipping the manifest signature ahead of the live
+  // trigger would search for a title nothing emits yet and misclassify a
+  // healthy routine as `dark`, worse than `unverifiable`.
+  const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = ["mbe-night", "mbe-midday"];
+
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
-      if (name === "mbe-weekly-improve") continue;
+      if (
+        name === "mbe-weekly-improve" ||
+        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name)
+      )
+        continue;
       expect(byRoutine[name]).toBe("alive");
     }
   });
 
-  // mbe-night and mbe-midday used to share the exact same
-  // `chore(metrics): queue telemetry <date>` PR title (#5604/#5608) — a single
-  // PR from either routine marked BOTH alive, and a dead one hid behind its
-  // twin. docs/routines/mbe-night.md and mbe-midday.md now emit
-  // routine-prefixed titles ("night ..." / "midday ..."); guard against the
-  // collision reappearing by asserting each routine's PR does NOT match the
-  // other's signature.
-  it("does not let mbe-night's PR match mbe-midday's signature, or vice versa", () => {
-    const nightSignature = ROUTINE_MANIFEST.find((e) => e.name === "mbe-night").signature;
-    const middaySignature = ROUTINE_MANIFEST.find((e) => e.name === "mbe-midday").signature;
-    const [nightArtifact] = observedArtifactsByRoutine["mbe-night"];
-    const [middayArtifact] = observedArtifactsByRoutine["mbe-midday"];
-
-    expect(matchesSignature(nightArtifact, middaySignature)).toBe(false);
-    expect(matchesSignature(middayArtifact, nightSignature)).toBe(false);
+  it("keeps mbe-night and mbe-midday unverifiable until the live trigger is confirmed updated", () => {
+    // The fixture gives them a real, in-window PR under their NEW titles —
+    // proving this is not the pre-fix "no artifact" gap. They still report
+    // `unverifiable`, not `alive`, because the manifest has no live evidence
+    // yet that the RemoteTrigger prompt (not just docs/routines/*.md) emits
+    // this title.
+    for (const name of PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION) {
+      expect(byRoutine[name]).toBe("unverifiable");
+    }
   });
 
   it("reports mbe-daily-issue and mbe-monthly-meta-audit as unverifiable, not silently omitted", () => {
