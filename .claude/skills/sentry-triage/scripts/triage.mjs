@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { classifySentryIssueActionability } from "../../../../scripts/sentry-triage-recency.mjs";
+import { decideSentryDedup } from "../../../../scripts/sentry-triage-dedup.mjs";
 
 const SENTRY_TOKEN = process.env.SENTRY_ACCESS_TOKEN;
 if (!SENTRY_TOKEN) {
@@ -38,8 +39,29 @@ async function ghApi(endpoint, options = {}) {
   return response.json();
 }
 
-async function searchExistingIssues(query) {
-  return ghApi(`/search/issues?q=${encodeURIComponent(query)}+repo:${REPO}+is:issue+state:open`);
+/**
+ * Fetches every existing `sentry`-labeled GitHub issue to dedup against, in
+ * ANY state — #5553: restricting the search to `state:open` is exactly
+ * what let a closed duplicate go unnoticed and get re-filed four times.
+ * Returns `null` — never `[]` — on any failure (network error, non-2xx
+ * response, malformed payload), so a broken search can never be mistaken
+ * for "no existing issues found"; see sentry-triage-dedup.mjs's
+ * fail-closed contract.
+ */
+async function fetchExistingSentryIssues() {
+  try {
+    const result = await ghApi(
+      `/search/issues?q=repo:${REPO}+is:issue+label:sentry+state:all&per_page=100`
+    );
+    if (!Array.isArray(result.items)) return null;
+    return result.items.map((item) => ({
+      number: item.number,
+      state: item.state,
+      body: item.body ?? "",
+    }));
+  } catch {
+    return null;
+  }
 }
 
 async function createIssue(title, body, labels) {
@@ -98,17 +120,19 @@ async function triage() {
     return { created: 0, skipped: 0, found: 0 };
   }
 
+  // Fetched once per run, not once per candidate — the dedup search result
+  // doesn't change mid-run, and a null (search-unavailable) result must
+  // fail every candidate closed, not just the first one that hits it.
+  const existingSentryIssues = await fetchExistingSentryIssues();
+
   let created = 0,
     skipped = 0;
   for (const issue of filtered.slice(0, 3)) {
     const title = issue.title.slice(0, 100);
-    const existing = await searchExistingIssues(`sentry ${issue.id}`);
-    if (existing.total_count > 0) {
-      skipped++;
-      continue;
-    }
-    const byTitle = await searchExistingIssues(title);
-    if (byTitle.total_count > 0) {
+    const decision = decideSentryDedup(String(issue.id), existingSentryIssues);
+    if (decision.action === "skip") {
+      const matched = decision.matchedIssue ? `, matches #${decision.matchedIssue}` : "";
+      console.log(`Skipping Sentry issue ${issue.id} (${decision.reason}${matched})`);
       skipped++;
       continue;
     }
