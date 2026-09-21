@@ -1,7 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Resources intentionally not managed by IaC. Add entries here to suppress audit warnings.",
-  "workers": [],
+  "workers": [
+    {
+      "name": "butler-api",
+      "reason": "Pre-existing legacy Worker — predates this repo's IaC, not managed here"
+    },
+    {
+      "name": "eat-sheet",
+      "reason": "Separate live side project in the same Cloudflare account — never delete"
+    }
+  ],
   "digitalocean_apps": [],
   "dns_records": [
     {
