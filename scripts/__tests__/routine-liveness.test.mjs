@@ -323,7 +323,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     "mbe-night": [
       {
         type: "pr",
-        title: "chore(metrics): queue telemetry 2026-09-20",
+        title: "chore(metrics): night queue telemetry 2026-09-20",
         observedAt: "2026-09-20T05:00:00Z", // cron 47 4 * * *
       },
     ],
@@ -347,7 +347,7 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     "mbe-midday": [
       {
         type: "pr",
-        title: "chore(metrics): queue telemetry 2026-09-20",
+        title: "chore(metrics): midday queue telemetry 2026-09-20",
         observedAt: "2026-09-20T20:15:00Z", // cron 7 20 * * *
       },
     ],
@@ -385,24 +385,34 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-weekly-improve"]).toBe("dark");
   });
 
-  // mbe-night and mbe-midday have artifacts in this fixture and are still NOT
-  // alive: their prompts emit the same `chore(metrics): queue telemetry <date>`
-  // title, so a single PR would mark both alive and a dead one would hide
-  // behind its twin. They are `unverifiable` in the manifest for that reason.
-  const SIGNATURE_COLLIDING = ["mbe-night", "mbe-midday"];
+  // mbe-night and mbe-midday have artifacts in this fixture (dated with
+  // their new routine-prefixed titles, docs/routines/mbe-{night,midday}.md
+  // step 1 post-#5604/#5608) and are still NOT alive: the manifest keeps
+  // them `unverifiable` on purpose until the live RemoteTrigger prompts are
+  // confirmed updated to actually emit those titles (see routine-manifest.mjs
+  // unverifiableReason) — flipping the manifest signature ahead of the live
+  // trigger would search for a title nothing emits yet and misclassify a
+  // healthy routine as `dark`, worse than `unverifiable`.
+  const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = ["mbe-night", "mbe-midday"];
 
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
-      if (name === "mbe-weekly-improve" || SIGNATURE_COLLIDING.includes(name)) continue;
+      if (
+        name === "mbe-weekly-improve" ||
+        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name)
+      )
+        continue;
       expect(byRoutine[name]).toBe("alive");
     }
   });
 
-  it("refuses to call the two title-colliding routines alive off one shared PR", () => {
-    // The fixture gives them a real, in-window queue-telemetry PR. Before the
-    // collision was recorded, that one artifact marked BOTH alive — the exact
-    // false negative this checker exists to remove.
-    for (const name of SIGNATURE_COLLIDING) {
+  it("keeps mbe-night and mbe-midday unverifiable until the live trigger is confirmed updated", () => {
+    // The fixture gives them a real, in-window PR under their NEW titles —
+    // proving this is not the pre-fix "no artifact" gap. They still report
+    // `unverifiable`, not `alive`, because the manifest has no live evidence
+    // yet that the RemoteTrigger prompt (not just docs/routines/*.md) emits
+    // this title.
+    for (const name of PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION) {
       expect(byRoutine[name]).toBe("unverifiable");
     }
   });

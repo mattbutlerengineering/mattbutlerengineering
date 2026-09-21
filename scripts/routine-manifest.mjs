@@ -94,7 +94,7 @@ export const ROUTINE_MANIFEST = [
     periodDays: 1,
     unverifiable: true,
     unverifiableReason:
-      "Shares a PR-title signature with mbe-midday — both routines' prompts (docs/routines/mbe-night.md:22, docs/routines/mbe-midday.md:22) instruct the same `chore(metrics): queue telemetry <date>` title, so one routine's PR marks BOTH alive and a dead one hides behind its twin. Verified on a real world containing only 2026-09-20's single queue-telemetry PR: the pre-fix manifest classified both `alive`. Same class as mbe-daily-issue below, so same verdict — fail closed until #5344/#5373's title-convention fix is applied to these two prompts.",
+      'docs/routines/mbe-night.md:22 now specifies a distinct `chore(metrics): night queue telemetry <date>` PR title (#5604/#5608 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still emits the old shared `chore(metrics): queue telemetry <date>` title, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`. Flip to a real signature (`searchTerm: "night queue telemetry"`) in a follow-up PR once a PR with the new title is observed, proving the live trigger was updated.',
   },
   {
     name: "mbe-auditor",
@@ -136,7 +136,7 @@ export const ROUTINE_MANIFEST = [
     periodDays: 1,
     unverifiable: true,
     unverifiableReason:
-      "Shares a PR-title signature with mbe-night — both routines' prompts (docs/routines/mbe-night.md:22, docs/routines/mbe-midday.md:22) instruct the same `chore(metrics): queue telemetry <date>` title, so one routine's PR marks BOTH alive and a dead one hides behind its twin. Verified on a real world containing only 2026-09-20's single queue-telemetry PR: the pre-fix manifest classified both `alive`. Same class as mbe-daily-issue below, so same verdict — fail closed until #5344/#5373's title-convention fix is applied to these two prompts.",
+      'docs/routines/mbe-midday.md:22 now specifies a distinct `chore(metrics): midday queue telemetry <date>` PR title (#5604/#5608 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still emits the old shared `chore(metrics): queue telemetry <date>` title, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`. Flip to a real signature (`searchTerm: "midday queue telemetry"`) in a follow-up PR once a PR with the new title is observed, proving the live trigger was updated.',
   },
   {
     name: "mbe-weekly-improve",
