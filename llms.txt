@@ -1985,6 +1985,15 @@
       }
     </item>
     <item priority="low">
+      interface ReviewBurdenSensor {
+        available: boolean;
+        collected_at?: string | null;
+        window_days?: number | null;
+        total_closed_prs?: number;
+        total_reviewers?: number;
+      }
+    </item>
+    <item priority="low">
       interface AcmmFailingGate {
         name: string;
         description: string;
@@ -2034,6 +2043,15 @@
       }
     </item>
     <item priority="low">
+      interface ReviewBurdenMetrics {
+        available: boolean;
+        collectedAt: string | null;
+        windowDays: number | null;
+        totalClosedPrs: number | null;
+        totalReviewers: number | null;
+      }
+    </item>
+    <item priority="low">
       interface AcmmMetrics {
         available: boolean;
         level: number | null;
@@ -2068,6 +2086,9 @@
     </item>
     <item priority="medium">
       function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivityMetrics { /* ... */ }
+    </item>
+    <item priority="medium">
+      function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMetrics { /* ... */ }
     </item>
     <item priority="medium">
       function normalizeFailingGate(gate: unknown): AcmmFailingGate { /* ... */ }
@@ -2428,6 +2449,19 @@
   <file path="apps/hospitality/e2e/fixtures.ts">
     <item priority="high">
       export const test: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/local-day.ts">
+    <item priority="high">
+      export function localDay(offsetDays = 0): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function atLocal(time: string, day: string = localDay()): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/problem-details.ts">
+    <item priority="high">
+      export const SERVER_ERROR_BODY: unknown;
     </item>
   </file>
   </section>

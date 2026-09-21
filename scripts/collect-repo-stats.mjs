@@ -109,6 +109,24 @@ export async function collectRepoStats({
 }) {
   try {
     const totalPrsMerged = await searchPrCount(TOTAL_MERGED_QUERY);
+
+    // A token that cannot read pull requests is not refused by the search API
+    // — results it cannot see are filtered out, so it answers HTTP 200 with
+    // `total_count: 0`. The deploy job shipped exactly that: its log read
+    // "wrote apps/marketing/src/data/generated/repo-stats.json" while the live
+    // proof strip claimed 0 pull requests merged. A repository whose landing
+    // page counts its own merged PRs has merged PRs, so a zero total is the
+    // query failing to see them rather than a measurement — degrade as a unit
+    // and keep the committed fallback. A zero *agent* count is left alone: a
+    // repo can legitimately have none.
+    if (totalPrsMerged === 0) {
+      throw new Error(
+        `search matched no merged pull request — \`${TOTAL_MERGED_QUERY}\` returned 0, ` +
+          "which means the credential cannot read them (the search reports that as an " +
+          "empty result, not an error)"
+      );
+    }
+
     const agentPrsMerged = await searchPrCount(AGENT_MERGED_QUERY);
 
     return {

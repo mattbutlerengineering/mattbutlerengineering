@@ -1,6 +1,7 @@
 import { test, expect } from "./fixtures.js";
 import { ERROR_COPY } from "../src/lib/describe-api-error.js";
 import { DB_NAME } from "../src/lib/offline-cache.js";
+import { SERVER_ERROR_BODY } from "./problem-details.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 const KPI_LABELS = ["Total", "Confirmed", "Pending", "Cancelled"] as const;
@@ -87,7 +88,7 @@ test.describe("CF-6: Reservations page with filtering", () => {
         ? route.fulfill({
             status: 500,
             contentType: "application/json",
-            body: '{"error":"server error"}',
+            body: SERVER_ERROR_BODY,
           })
         : route.fallback()
     );

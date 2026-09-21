@@ -304,6 +304,39 @@ const TEMPLATES: readonly Template[] = [
     prompt:
       "Delete-item flow where the delete button starts disabled with a tooltip explaining that you must check an acknowledgment checkbox first, and once checked the button becomes enabled and opens a confirmation dialog warning that the action is permanent before the item is actually removed",
   },
+
+  // Data Display (continued)
+  {
+    id: "record-detail-panel",
+    title: "Record Detail Panel",
+    description:
+      "Read-only record detail view pairing each field label with its value in a striped spec sheet",
+    category: "Data Display",
+    prompt:
+      "Read-only record detail panel for a single reservation, showing its fields as a DataList of label-and-value pairs — guest name, party size, table, status, booking reference, and created date — laid out as a striped horizontal spec sheet beneath the record title",
+  },
+
+  // Feedback (continued)
+  {
+    id: "integration-handshake",
+    title: "Integration Handshake",
+    description:
+      "Connection status for a multi-party exchange, showing each station and the credential moving between them",
+    category: "Feedback",
+    prompt:
+      "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result list underneath",
+  },
+
+  // Forms (continued)
+  {
+    id: "modal-form-dialog",
+    title: "Modal Form Dialog",
+    description:
+      "Create-record form inside a modal dialog, with cancel and save actions in the footer",
+    category: "Forms",
+    prompt:
+      "Create-a-new-guest flow where an Add Guest button opens a Dialog containing an editable form — name, email, phone, and a notes field — with Cancel and Save buttons in the dialog footer, the dialog title naming the record being created, and validation errors shown inline beneath each field while the dialog stays open",
+  },
 ] as const;
 
 // ---------------------------------------------------------------------------

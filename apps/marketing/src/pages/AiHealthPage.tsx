@@ -13,6 +13,7 @@ import {
   type SensorReport,
   type QueueEfficiencyMetrics,
   type DomainActivityMetrics,
+  type ReviewBurdenMetrics,
   type AcmmMetrics,
 } from "../data/ai-health.js";
 import styles from "./AiHealthPage.module.css";
@@ -156,6 +157,55 @@ function DomainActivityPanel({ domainActivity }: { domainActivity: DomainActivit
           <Text className={styles.statLabel}>Deposits Forfeited</Text>
           <Text className={styles.statValue} data-testid="deposits-forfeited">
             {formatCount(domainActivity.depositsForfeited)}
+          </Text>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function ReviewBurdenPanel({ reviewBurden }: { reviewBurden: ReviewBurdenMetrics }) {
+  if (!reviewBurden.available) {
+    return (
+      <div className={styles.sensorGrid} data-testid="review-burden-panel">
+        <div className={styles.sensorRow}>
+          <Text className={styles.sensorName}>reviewBurden</Text>
+          <div className={styles.sensorBadge}>
+            <Badge color="red" size="sm">
+              Unavailable
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="review-burden-panel">
+      <div className={styles.statGrid}>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Reviewers</Text>
+          <Text className={styles.statValue}>{formatCount(reviewBurden.totalReviewers)}</Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Reviews</Text>
+          <Text className={styles.statValue}>{formatCount(reviewBurden.totalReviews)}</Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Rubber-Stamped</Text>
+          <Text className={styles.statValue}>
+            {reviewBurden.rubberStampRatio == null
+              ? PLACEHOLDER
+              : formatRatio(reviewBurden.rubberStampRatio)}
+          </Text>
+        </Card>
+        <Card className={styles.statCard}>
+          <Text className={styles.statLabel}>Closed PRs</Text>
+          <Text className={styles.statValue}>{formatCount(reviewBurden.totalClosedPrs)}</Text>
+          <Text className={styles.statNote}>
+            {reviewBurden.windowDays == null
+              ? PLACEHOLDER
+              : `${reviewBurden.windowDays}-day window`}
           </Text>
         </Card>
       </div>
@@ -314,6 +364,11 @@ export function AiHealthPage() {
       <section className={styles.section}>
         <Heading level={2}>Domain Activity</Heading>
         <DomainActivityPanel domainActivity={metrics.domainActivity} />
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>Review Burden</Heading>
+        <ReviewBurdenPanel reviewBurden={metrics.reviewBurden} />
       </section>
 
       <section className={styles.section}>
