@@ -14,6 +14,8 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { substanceCheckers, runSubstanceChecks } from "../substance.js";
+import { evaluate } from "../evaluate.js";
+import { ALL_CRITERIA } from "../sources/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -245,6 +247,42 @@ describe("feedback loop substance checker", () => {
     writeFileSync(filePath, "");
     const result = checker([filePath], dir);
     assert.equal(result.passed, false);
+    assert.match(result.evidence, /no dated entries/, result.evidence);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("stale verdict names the newest entry, its age, and the window", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, "log.md");
+    writeFileSync(
+      filePath,
+      `## ${isoDaysAgo(120)}\n\nAn old run.\n\n## ${isoDaysAgo(31)}\n\nThe last run.\n`
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, false);
+    assert.match(
+      result.evidence,
+      /newest entry \d{4}-\d{2}-\d{2} is 31 days old \(window: 30 days\)/,
+      result.evidence
+    );
+    rmSync(dir, { recursive: true });
+  });
+
+  // A missing log and a log that stopped being written are different failures: the first says
+  // the loop was never wired up, the second says it died on a knowable date. Reporting them
+  // identically is what let the criterion sit red without anyone knowing which one to fix.
+  test("a missing log fails with evidence distinguishable from a stale log", () => {
+    const dir = makeTmpDir();
+    const stalePath = join(dir, "log.md");
+    writeFileSync(stalePath, `## ${isoDaysAgo(400)}\n\nThe last run.\n`);
+    const stale = checker([stalePath], dir);
+    const missing = checker([join(dir, "absent.md")], dir);
+
+    assert.equal(stale.passed, false);
+    assert.equal(missing.passed, false);
+    assert.notEqual(missing.evidence, stale.evidence);
+    assert.match(stale.evidence, /\d{4}-\d{2}-\d{2}/, stale.evidence);
+    assert.doesNotMatch(missing.evidence, /\d{4}-\d{2}-\d{2}/, missing.evidence);
     rmSync(dir, { recursive: true });
   });
 });
@@ -318,6 +356,60 @@ describe("correction-capture integration — real repo files", () => {
     const files = readdirSync(correctionDir).map((f) => join(correctionDir, f));
     const result = checker(files, repoRoot);
     assert.match(result.evidence, /\d{4}-\d{2}-\d{2} is \d+ days old/, result.evidence);
+  });
+});
+
+describe("feedback-loops integration — real repo files", () => {
+  const repoRoot = resolve(__dirname, "../../../..");
+  const criterion = ALL_CRITERIA.find((c) => c.id === "acmm:feedback-loops");
+  const loopDir = join(repoRoot, ".claude/improvement-loop");
+  const loopLog = join(loopDir, "log.md");
+
+  /** Newest ISO date across the whole loop record — the same set of files the checker reads. */
+  function newestLoggedDate() {
+    const dates = readdirSync(loopDir)
+      .flatMap((f) => [
+        ...readFileSync(join(loopDir, f), "utf-8").matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g),
+      ])
+      .map((m) => m[1]);
+    return dates.sort().at(-1);
+  }
+
+  test("detection resolves the dated loop record, not an instruction file", () => {
+    assert.ok(existsSync(loopLog), `loop log should exist: ${loopLog}`);
+    const patterns = Array.isArray(criterion.detection.pattern)
+      ? criterion.detection.pattern
+      : [criterion.detection.pattern];
+    assert.ok(
+      patterns.includes(".claude/improvement-loop/log.md"),
+      `expected the loop record in detection patterns, got: ${patterns.join(", ")}`
+    );
+  });
+
+  // Deliberately does NOT pin pass/fail, for the same reason the correction-capture block above
+  // doesn't: a test that reds when the *repo* goes quiet fails for a reason unrelated to any PR's
+  // diff, and under this repo's green-main policy that blocks every other PR until someone works
+  // out the cause was "the loop stopped", not "your change broke something". Real staleness has a
+  // non-blocking channel already — nightly-compliance reports ACMM drift as a GitHub issue, which
+  // is how #5613 (the defect this criterion's re-pointing fixes) got filed in the first place.
+  //
+  // What IS pinned here is the mechanism: that detection resolves the loop record, and that the
+  // verdict is computed from that record's newest entry rather than from some other file's dates.
+  // The hermetic fixture tests above pin the pass/fail behaviour itself.
+  test("detection resolves against the real repo (verdict either way, never not-found)", () => {
+    const result = evaluate(criterion, repoRoot);
+    assert.notEqual(result.verdict, "not-found", result.evidence);
+    assert.match(result.evidence, /detected at: \.claude\/improvement-loop\//, result.evidence);
+  });
+
+  test("verdict on the real loop record names its newest entry and that entry's age", () => {
+    const results = runSubstanceChecks(new Set([criterion.id]), [criterion], repoRoot);
+    const { substanceEvidence } = results[criterion.id];
+    assert.match(substanceEvidence, /\d{4}-\d{2}-\d{2} is \d+ days old/, substanceEvidence);
+    assert.ok(
+      substanceEvidence.includes(newestLoggedDate()),
+      `expected evidence to name ${newestLoggedDate()}, got: ${substanceEvidence}`
+    );
   });
 });
 
