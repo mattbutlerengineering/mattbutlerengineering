@@ -44,7 +44,8 @@ const unsubscribeTokenSecret = config.getSecret("unsubscribeTokenSecret");
 // var that disappears when its config is missing is the shape that hid the
 // Sentry blackout for five months; an empty value is at least visible in
 // `doctl apps spec get`. The real values are delivered by deploy-services.yml's
-// yq bridge (ignoreChanges: ["spec"] below blocks env pushes from Pulumi), and
+// yq bridge — the `ignoreChanges` list below still ignores `spec.services`
+// and `spec.jobs`, so Pulumi pushes no env vars — and
 // an absent one is refused at boot by validateStartupConfig().
 const sentryDsnByService: Record<string, pulumi.Input<string>> = {
   "users-api": config.getSecret("sentryDsnUsersApi") ?? "",

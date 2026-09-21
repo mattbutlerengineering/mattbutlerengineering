@@ -81,6 +81,29 @@ Manual local deploys (documented in [CLAUDE.md](../../CLAUDE.md#manual-deploymen
 - Use GitHub Actions job dependencies to enforce serialization: `deploy-services` then `pulumi-up`.
 - Document the hazard in `.claude/rules/gotchas.md` so future operators understand the constraint.
 
+### Coordination Hazard: `ignoreChanges` on the DO App Resource
+
+**Issue**: the hazard above is mitigated partly by _not letting Pulumi manage_ the fields `doctl` and DO itself write. That mitigation is expressed as `ignoreChanges` on the `digitalocean.App` resource in `infrastructure/pulumi/index.ts`, and it is a load-bearing correctness boundary, not a noise filter: every path listed there is a path where source and production are free to disagree silently, because Pulumi will not diff it.
+
+It was originally the single blanket path `spec`, chosen to suppress the DO-injected defaults that diff on every run (top-level `features`, `scope` on env entries, `instance_count` / `instance_size_slug` on jobs and services) and trigger a ~30-minute full deployment. The blanket also made the **ingress rules** unmanaged, and that is not a hypothetical cost: #4511's `/public` → `reservations-api` rule sat correct in source while `pulumi up` reported the App `unchanged`, and the entire public booking surface returned 404 in production for three months. A green `pulumi up` was the signal everyone trusted, and it meant nothing.
+
+**Decision**: `ignoreChanges` is narrowed to the specific drift-tolerant paths, never to an ancestor of something that must ship. As of #4565 it is:
+
+```ts
+ignoreChanges: ["spec.features", "spec.jobs", "spec.services"];
+```
+
+so `spec.name`, `spec.region`, `spec.domainNames` and `spec.ingress` are managed by Pulumi again.
+
+**Constraints that come with it:**
+
+- **Paths are depth-2 object keys only — no `[*]`, no `[0]`, no array traversal.** Whether this provider version honors array-index or wildcard paths is unvalidated; #4565 removed its dependency on that syntax rather than proving it works. Anything deeper needs evidence first.
+- **The evidence is `pulumi preview --diff`, never a green `pulumi up`.** A successful apply cannot distinguish "nothing changed" from "the change was not diffed" — that indistinguishability is the whole defect. #4565's narrowing was verified by reading a read-only preview (CLI 3.253.0, `@pulumi/digitalocean` 4.79.0) and confirming the App diff was confined to `spec.ingress.rules`.
+- **Narrowing further surfaces real production drift**, which must be reconciled inside a deploy window before the next apply. That is why the remaining reconciliation (`spec.jobs` / `spec.services` — env vars, instance sizes, per-component config) is human-gated rather than incremental: see issue #3277 and `docs/backlog.md`.
+- **Env vars are deliberately still unmanaged.** `spec.services` and `spec.jobs` stay ignored, which is what lets `deploy-services.yml`'s `yq` bridge own the real values. Removing either path from the list means Pulumi starts pushing env vars and the bridge becomes a conflict, not a complement.
+
+**Enforcement**: `infrastructure/pulumi/ingress-coverage.test.ts` reads the live `ignoreChanges` array out of `index.ts` source (comment-stripped, so a commented-out list cannot satisfy it) and fails if any entry would make the ingress rules unmanaged — `spec` itself, `spec.ingress`, or anything below it. It cross-checks the DO ingress prefixes against the Cloudflare edge worker's `originRoutes`, because a correct DO rule behind an edge that does not forward the prefix is still unreachable.
+
 ### Trade-Offs
 
 - **Complexity**: Three deployment paths (wrangler, doctl, pulumi) require coordination.
