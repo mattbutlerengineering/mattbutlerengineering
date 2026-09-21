@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { classifySentryIssueActionability } from "../../../../scripts/sentry-triage-recency.mjs";
+import { decideSentryDedup } from "../../../../scripts/sentry-triage-dedup.mjs";
 
 const SENTRY_TOKEN = process.env.SENTRY_ACCESS_TOKEN;
 if (!SENTRY_TOKEN) {
@@ -38,8 +39,46 @@ async function ghApi(endpoint, options = {}) {
   return response.json();
 }
 
-async function searchExistingIssues(query) {
-  return ghApi(`/search/issues?q=${encodeURIComponent(query)}+repo:${REPO}+is:issue+state:open`);
+/**
+ * The search this dedup depends on. Omitting `state:` is how the Search API
+ * spells "any state" — #5553: restricting it to `state:open` is exactly what
+ * let a closed duplicate go unnoticed and get re-filed four times.
+ *
+ * Do NOT add `state:all` here. It is not a Search API qualifier (`state=all`
+ * belongs to the REST *list* endpoint, which is the easy confusion), and the
+ * API does not reject it — it silently matches nothing. Measured on this repo:
+ * this query returns **17**; the same query plus `state:all` returns **0**,
+ * HTTP 200, no error. A dedup fed zero rows reports "no existing issue" and
+ * files the duplicate it exists to prevent. `sentry-triage-query.test.mjs`
+ * pins the qualifier for that reason.
+ */
+export const SENTRY_ISSUE_SEARCH_QUERY = `repo:${REPO}+is:issue+label:sentry`;
+
+/**
+ * Fetches every existing `sentry`-labeled GitHub issue to dedup against.
+ *
+ * Returns `null` — never `[]` — on any failure, so a broken search can never
+ * be mistaken for "no existing issues found"; see sentry-triage-dedup.mjs's
+ * fail-closed contract. A *truncated* search counts as a failure for the same
+ * reason: the Search API caps a page at 100, this query spans all history and
+ * so only grows, and a silently dropped older match fails in the file-a-
+ * duplicate direction — the exact direction of the bug being fixed.
+ */
+async function fetchExistingSentryIssues() {
+  try {
+    const result = await ghApi(`/search/issues?q=${SENTRY_ISSUE_SEARCH_QUERY}&per_page=100`);
+    if (!Array.isArray(result.items)) return null;
+    if (typeof result.total_count === "number" && result.total_count > result.items.length) {
+      return null;
+    }
+    return result.items.map((item) => ({
+      number: item.number,
+      state: item.state,
+      body: item.body ?? "",
+    }));
+  } catch {
+    return null;
+  }
 }
 
 async function createIssue(title, body, labels) {
@@ -98,17 +137,19 @@ async function triage() {
     return { created: 0, skipped: 0, found: 0 };
   }
 
+  // Fetched once per run, not once per candidate — the dedup search result
+  // doesn't change mid-run, and a null (search-unavailable) result must
+  // fail every candidate closed, not just the first one that hits it.
+  const existingSentryIssues = await fetchExistingSentryIssues();
+
   let created = 0,
     skipped = 0;
   for (const issue of filtered.slice(0, 3)) {
     const title = issue.title.slice(0, 100);
-    const existing = await searchExistingIssues(`sentry ${issue.id}`);
-    if (existing.total_count > 0) {
-      skipped++;
-      continue;
-    }
-    const byTitle = await searchExistingIssues(title);
-    if (byTitle.total_count > 0) {
+    const decision = decideSentryDedup(String(issue.id), existingSentryIssues);
+    if (decision.action === "skip") {
+      const matched = decision.matchedIssue ? `, matches #${decision.matchedIssue}` : "";
+      console.log(`Skipping Sentry issue ${issue.id} (${decision.reason}${matched})`);
       skipped++;
       continue;
     }

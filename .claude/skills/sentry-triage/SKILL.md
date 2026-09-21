@@ -34,7 +34,11 @@ Run `fetch-issues.mjs` or `triage.mjs` to get production errors.
 
 ### Step 3: Deduplicate
 
-Check existing GitHub issues by Sentry ID and title.
+Search existing `sentry`-labeled GitHub issues in **every** state (open and
+closed, never `state:open` alone), then key the match on the Sentry issue ID
+parsed out of each candidate's body URL — never the title string. If the
+search itself can't run (network failure, bad credential, non-2xx response),
+skip filing rather than risk a duplicate (`scripts/sentry-triage-dedup.mjs`).
 
 ### Step 4: Create Issues
 
