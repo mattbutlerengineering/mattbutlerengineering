@@ -1,15 +1,32 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createProblemDetails } from "@mbe/types";
 import { depositService, DepositTransitionError } from "../services/deposit.js";
+import { resolveReservationVenueId } from "../services/deposit-venue.js";
+import { runWithVenueContext } from "../services/venue-context-store.js";
 import type { Deposit } from "../generated/prisma/index.js";
 
 type DepositTransitionRequest = FastifyRequest<{ Params: { id: string } }>;
 
 /**
  * Factory for the capture/refund/forfeit route handlers, which all share the
- * same load → 404-if-missing → try transition → 422-on-DepositTransitionError
- * shape. `transition` is the deposit-service call specific to the route
- * (apply, refund, forfeit).
+ * same load → 404-if-missing → resolve venue → try transition →
+ * 422-on-DepositTransitionError shape. `transition` is the deposit-service
+ * call specific to the route (apply, refund, forfeit).
+ *
+ * Venue scoping (ADR-026, issue #5382): these routes are addressed only by an
+ * opaque deposit id, so the app-wide venue-context preHandler resolves nothing
+ * for them. The venue is resolved here from the deposit's own reservation and
+ * the transition then runs inside it, so every statement the state machine
+ * issues — the compare-and-swap write included — is covered by the
+ * `deposit_isolation` policy instead of running venue-less (ADR-026 §4
+ * default-deny, i.e. silently invisible under `FORCE ROW LEVEL SECURITY`).
+ *
+ * An unresolvable venue (reservation deleted, or `venue_id IS NULL`) FAILS
+ * CLOSED with the same 404 a missing deposit gets: the deposit is not
+ * addressable within any venue scope, and this is a payment surface — the
+ * refusal happens before the state machine runs, so no DB write and no Stripe
+ * call can have happened. `transition` itself is untouched; its ordering and
+ * idempotency keys are entirely the deposit service's, unchanged.
  */
 export function depositTransitionHandler(transition: (id: string) => Promise<Deposit>) {
   return async (request: DepositTransitionRequest, reply: FastifyReply) => {
@@ -18,14 +35,23 @@ export function depositTransitionHandler(transition: (id: string) => Promise<Dep
       return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
     }
 
-    try {
-      const deposit = await transition(request.params.id);
-      return { data: deposit };
-    } catch (err) {
-      if (err instanceof DepositTransitionError) {
-        return reply.code(422).send(createProblemDetails(422, "Unprocessable Entity", err.message));
-      }
-      throw err;
+    const venueId = await resolveReservationVenueId(existing.reservationId);
+    if (!venueId) {
+      return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
     }
+
+    return runWithVenueContext(venueId, async () => {
+      try {
+        const deposit = await transition(request.params.id);
+        return { data: deposit };
+      } catch (err) {
+        if (err instanceof DepositTransitionError) {
+          return reply
+            .code(422)
+            .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+        }
+        throw err;
+      }
+    });
   };
 }

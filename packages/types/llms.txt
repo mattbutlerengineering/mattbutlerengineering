@@ -317,6 +317,9 @@
       export const publicHoldBodyJsonSchema: unknown;
     </item>
     <item priority="high">
+      export const publicHoldConfirmBodyJsonSchema: unknown;
+    </item>
+    <item priority="high">
       export const publicReservationBodyJsonSchema: unknown;
     </item>
     <item priority="high">
@@ -458,6 +461,9 @@
     </item>
     <item priority="high">
       export const PublicHoldBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const PublicHoldConfirmBodySchema: unknown;
     </item>
     <item priority="high">
       export const PublicReservationBodySchema: unknown;

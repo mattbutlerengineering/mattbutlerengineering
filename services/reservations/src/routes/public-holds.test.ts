@@ -26,7 +26,11 @@ vi.mock("../services/hold.js", () => ({
     release: vi.fn(),
     confirm: vi.fn(),
     getById: vi.fn(),
+    maybeCleanup: vi.fn(),
   },
+}));
+vi.mock("../services/confirm-hold.js", () => ({
+  confirmHold: vi.fn(),
 }));
 vi.mock("../services/availability.js", () => ({
   availabilityService: { getTimeSlots: vi.fn(), getDateAvailability: vi.fn() },
@@ -86,6 +90,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 import { holdService } from "../services/hold.js";
+import { confirmHold } from "../services/confirm-hold.js";
 import { resetRateLimitState, MAX_ACTIVE_HOLDS } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
@@ -356,5 +361,338 @@ describe("DELETE /public/v1/venues/:slug/holds/:holdId", () => {
       payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
     });
     expect(afterRelease.statusCode).toBe(201);
+  });
+});
+const HOLD_URL = "/public/v1/venues/the-oak-table/holds/hold_1";
+const CONFIRM_URL = `${HOLD_URL}/confirm`;
+
+const mockReservation = {
+  id: "res_1",
+  date: "2026-06-15",
+  startTime: "2026-06-15T19:00:00.000Z",
+  endTime: "2026-06-15T21:00:00.000Z",
+  partySize: 4,
+  status: "CONFIRMED" as const,
+  notes: null,
+  cancellationReason: null,
+  cancellationNote: null,
+  occasion: null,
+  seatingPreference: null,
+  guestName: "Ada Lovelace",
+  guestEmail: "ada@example.com",
+  guestPhone: null,
+  guestId: null,
+  userId: null,
+  tableId: "table_1",
+  venueId: "venue_1",
+  createdAt: "2026-06-15T18:55:00.000Z",
+  updatedAt: "2026-06-15T18:55:00.000Z",
+};
+
+// #4487: the `get` counterpart the public surface was missing. The booking
+// widget used to read hold status through the anonymous /api/v1/holds/:id,
+// which trusted the (low-entropy, guessable) hold id alone.
+describe("GET /public/v1/venues/:slug/holds/:holdId", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  beforeEach(() => {
+    resetRateLimitState();
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 when the x-session-id header is missing (no ID-only read)", async () => {
+    const response = await app.inject({ method: "GET", url: HOLD_URL });
+
+    expect(response.statusCode).toBe(401);
+    expect(holdService.getById).not.toHaveBeenCalled();
+  });
+
+  it("returns the hold to its owning session", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.getById).mockResolvedValueOnce(mockHold);
+
+    const response = await app.inject({
+      method: "GET",
+      url: HOLD_URL,
+      headers: { "x-session-id": "sess_1" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.id).toBe("hold_1");
+  });
+
+  it("returns 404 for an unknown venue slug", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/fake/holds/hold_1",
+      headers: { "x-session-id": "sess_1" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(holdService.getById).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the hold belongs to another venue (slug scoping)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.getById).mockResolvedValueOnce({
+      ...mockHold,
+      venueId: "venue_other",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: HOLD_URL,
+      headers: { "x-session-id": "sess_1" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("returns 404 when the session does not own the hold (no ID-only read)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(holdService.getById).mockResolvedValueOnce(mockHold);
+
+    const response = await app.inject({
+      method: "GET",
+      url: HOLD_URL,
+      headers: { "x-session-id": "not-my-session" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+});
+
+// #4487: the `confirm` counterpart the public surface was missing.
+describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    app = await buildApp({ logger: false });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  beforeEach(() => {
+    resetRateLimitState();
+    vi.clearAllMocks();
+  });
+
+  it("returns 401 when the x-session-id header is missing (no ID-only confirm)", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(confirmHold).not.toHaveBeenCalled();
+  });
+
+  it("confirms the hold, scoping it to the slug's venue, and returns 201", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: {
+        guestName: "Ada Lovelace",
+        guestEmail: "ada@example.com",
+        notes: "Window seat",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().data.id).toBe("res_1");
+    expect(typeof response.json().manageToken).toBe("string");
+    expect(confirmHold).toHaveBeenCalledWith({
+      holdId: "hold_1",
+      sessionId: "sess_1",
+      venueId: "venue_1",
+      guestDetails: {
+        guestName: "Ada Lovelace",
+        guestEmail: "ada@example.com",
+        guestPhone: undefined,
+        notes: "Window seat",
+      },
+    });
+  });
+
+  // An anonymous caller must not be able to attach its reservation to an
+  // arbitrary existing guest record — the staff route accepts guestId, this
+  // one must drop it even if a client posts one.
+  it("ignores a client-supplied guestId", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace", guestId: "guest_someone_else" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(vi.mocked(confirmHold).mock.calls[0]![0].guestDetails).not.toHaveProperty("guestId");
+  });
+
+  it("returns 404 for an unknown venue slug without touching the hold", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(null);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/fake/holds/hold_1/confirm",
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(confirmHold).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the hold is not found (or belongs to another venue)", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "Hold not found",
+      errorCode: "NOT_FOUND",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("returns 403 when the session does not own the hold", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "Session ID does not match the hold",
+      errorCode: "SESSION_MISMATCH",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "not-my-session" },
+      payload: { guestName: "Ada Lovelace" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("returns 410 for an expired hold", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "Hold has expired",
+      errorCode: "EXPIRED",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace" },
+    });
+
+    expect(response.statusCode).toBe(410);
+  });
+
+  // Mirrors the staff route: a manage token signed with "" can never validate
+  // against a reservation stored with guestEmail: null.
+  it("does not return a manage token for a phone-only booking", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: {
+        ...mockReservation,
+        guestEmail: null,
+        guestPhone: "555-0100",
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace", guestPhone: "555-0100" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().manageToken).toBeUndefined();
+  });
+
+  it("decrements the active-hold counter on confirm, unblocking a rate-limited guest", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+    vi.mocked(holdService.create).mockResolvedValue({
+      success: true,
+      hold: mockHold,
+    });
+
+    for (let i = 0; i < MAX_ACTIVE_HOLDS; i++) {
+      const created = await app.inject({
+        method: "POST",
+        url: "/public/v1/venues/the-oak-table/holds",
+        payload: { date: "2026-06-15", startTime: "19:00", partySize: 4 },
+      });
+      expect(created.statusCode).toBe(201);
+    }
+
+    const blocked = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", partySize: 4 },
+    });
+    expect(blocked.statusCode).toBe(429);
+
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+    const confirmed = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace" },
+    });
+    expect(confirmed.statusCode).toBe(201);
+
+    const afterConfirm = await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      payload: { date: "2026-06-15", startTime: "19:00", partySize: 4 },
+    });
+    expect(afterConfirm.statusCode).toBe(201);
   });
 });

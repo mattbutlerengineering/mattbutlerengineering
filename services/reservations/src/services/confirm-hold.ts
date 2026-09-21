@@ -14,6 +14,14 @@ export interface ConfirmHoldInput {
   sessionId?: string;
   guestDetails: ConfirmHoldRequest;
   userId?: string;
+  /**
+   * When provided, the hold must belong to this venue. Set by the slug-scoped
+   * public route (#4487) so a hold id from one venue cannot be confirmed
+   * through another venue's URL. A mismatch is reported as `NOT_FOUND`, never
+   * as a distinct error — the caller must not learn the hold exists elsewhere.
+   * Checked in the same lookup as the session id, before any write.
+   */
+  venueId?: string;
 }
 
 export type ConfirmHoldResult =
@@ -38,7 +46,7 @@ export type ConfirmHoldResult =
  * cannot both pass their conflict checks and commit (write-skew double-booking).
  */
 export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldResult> {
-  const { holdId, sessionId, guestDetails, userId } = input;
+  const { holdId, sessionId, guestDetails, userId, venueId } = input;
 
   // Step 1: Look up hold
   const hold = await prisma.reservationHold.findUnique({
@@ -46,6 +54,11 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
   });
 
   if (!hold) {
+    return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
+  }
+
+  // Step 1.5: Venue scoping (only when venueId is provided — slug-scoped public path)
+  if (venueId !== undefined && hold.venueId !== venueId) {
     return { success: false, error: "Hold not found", errorCode: "NOT_FOUND" };
   }
 

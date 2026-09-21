@@ -16,6 +16,24 @@
       export function getManageTokenConfig(input: ManageTokenConfigInput): ManageTokenConfig { /* ... */ }
     </item>
   </file>
+  <file path="src/config/public-api-base-url.ts">
+    <item priority="low">
+      interface PublicApiBaseUrlConfig {
+        baseUrl: string | null;
+      }
+    </item>
+    <item priority="high">
+      interface PublicApiBaseUrlConfigInput {
+        baseUrl: string | undefined;
+        emailEnabled: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function getPublicApiBaseUrlConfig(
+        input: PublicApiBaseUrlConfigInput
+      ): PublicApiBaseUrlConfig { /* ... */ }
+    </item>
+  </file>
   <file path="src/config/stripe.ts">
     <item priority="low">
       interface StripeConfig {
@@ -305,6 +323,12 @@
     </item>
   </file>
   <file path="src/routes/public-holds.ts">
+    <item priority="low">
+      async function resolveVenueBySlug(slug: string, reply: FastifyReply) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readSessionId(request: FastifyRequest, reply: FastifyReply, verb: string): string | null { /* ... */ }
+    </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
     </item>
@@ -698,6 +722,7 @@
         sessionId?: string;
         guestDetails: ConfirmHoldRequest;
         userId?: string;
+        venueId?: string;
       }
     </item>
     <item priority="low">
@@ -740,6 +765,11 @@
     </item>
     <item priority="high">
       export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/deposit-venue.ts">
+    <item priority="high">
+      export async function resolveReservationVenueId(reservationId: string): Promise<string | null> { /* ... */ }
     </item>
   </file>
   <file path="src/services/deposit.ts">
@@ -1672,6 +1702,9 @@
   <file path="src/services/venue-context-store.ts">
     <item priority="high">
       export function enterVenueContext(venueId: string | null): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> { /* ... */ }
     </item>
     <item priority="high">
       export function getCurrentVenueId(): string | null { /* ... */ }

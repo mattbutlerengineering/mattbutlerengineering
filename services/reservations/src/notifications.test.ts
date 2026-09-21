@@ -110,6 +110,40 @@ describe("createResendAdapter", () => {
     );
   });
 
+  // ── #4517: the unsubscribe link needs the API origin, not the web origin ──
+  it("passes PUBLIC_API_BASE_URL through as publicApiBaseUrl", async () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.MANAGE_BASE_URL = "https://web.example.com";
+    process.env.PUBLIC_API_BASE_URL = "https://api.example.com";
+
+    const { createResendAdapter } = await importNotifications();
+    createResendAdapter();
+
+    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    expect(ResendNotificationAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        manageBaseUrl: "https://web.example.com",
+        publicApiBaseUrl: "https://api.example.com",
+      })
+    );
+  });
+
+  it("passes publicApiBaseUrl: null when PUBLIC_API_BASE_URL is unset, never the manage base", async () => {
+    delete process.env.RESEND_API_KEY;
+    delete process.env.PUBLIC_API_BASE_URL;
+    process.env.MANAGE_BASE_URL = "https://web.example.com";
+
+    const { createResendAdapter } = await importNotifications();
+    createResendAdapter();
+
+    const { ResendNotificationAdapter } = await import("@mbe/notifications");
+    expect(ResendNotificationAdapter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicApiBaseUrl: null,
+      })
+    );
+  });
+
   it("builds the Resend client with the API key when provided", async () => {
     process.env.RESEND_API_KEY = "re_live_secretkey";
 

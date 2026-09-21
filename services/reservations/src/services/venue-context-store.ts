@@ -35,6 +35,30 @@ export function enterVenueContext(venueId: string | null): void {
 }
 
 /**
+ * Runs `fn` with `venueId` as the venue context, restoring whatever context
+ * surrounded the call once `fn` settles (including on rejection).
+ *
+ * This is the counterpart to `enterVenueContext` for the case where a
+ * continuation to wrap DOES exist — a route handler that has just resolved a
+ * venue id of its own and wants the rest of its work scoped to it (ADR-026
+ * part 6; `../routes/deposits.ts` is the first caller, per issue #5382).
+ *
+ * `run` — not `enterWith` — is load-bearing here, and the two are NOT
+ * interchangeable: `enterWith` mutates the CURRENT async execution context,
+ * so calling it after an `await` (which a DB-backed venue lookup always
+ * needs) sets the store on the awaiting microtask rather than on the caller's
+ * continuation. That is the measured one-request-late propagation failure
+ * documented on `venueContextPreHandler` (`../middleware/venue-context.ts`),
+ * and it is exactly the shape a route handler resolving its venue from the
+ * database would hit. `run(store, fn)` scopes the store to `fn`'s own async
+ * context instead, so every `await` INSIDE `fn` observes it, and nothing
+ * outside `fn` is affected.
+ */
+export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
+  return venueContextStorage.run(venueId, fn);
+}
+
+/**
  * Reads the current request's resolved venue id. Returns `null` outside any
  * request context (e.g. a background job) or when no venue id was resolved —
  * both are the ADR-026 §4 default-deny case, not an error.

@@ -2,7 +2,8 @@ import { readFileSync } from "fs";
 import { test, expect } from "./fixtures.js";
 
 // Deterministic — the shared api-mocks.ts fixture for
-// **/api/v1/holds/*/confirm always returns reservations-list.json's first
+// **/public/v1/venues/*/holds/*/confirm always returns
+// reservations-list.json's first
 // entry regardless of the requested date/party size, so the reservation
 // (and therefore the calendar artifacts built from it) is fixed.
 const VENUE_SLUG = "e2e-test-bistro";
@@ -44,7 +45,7 @@ test.describe("Public booking flow — Add to Calendar", () => {
     // (useBookingFlow.ts) fires ~1s after confirmation and resets the flow
     // back to time-slot before the download assertions below run. Override
     // with a future expiry scoped to this test only.
-    await mockedPage.route("**/api/v1/holds", (route) =>
+    await mockedPage.route("**/public/v1/venues/*/holds", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",

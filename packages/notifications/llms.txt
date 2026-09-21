@@ -143,6 +143,7 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
+        publicApiBaseUrl: string | null;
       }
     </item>
     <item priority="high">
@@ -150,7 +151,7 @@
         resend: ResendClient | null;
         fromAddress: string;
         manageBaseUrl: string;
-        async sendBookingConfirmation(): Promise<unknown>;
+        publicApiBaseUrl: string | null;
       }
     </item>
   </file>

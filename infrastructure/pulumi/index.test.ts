@@ -451,6 +451,33 @@ describe("Configuration Validation", () => {
       expect(unsubscribeToken).toBeDefined();
       expect(unsubscribeToken.type).toBe("SECRET");
     });
+
+    // #4517: the guest-facing manage link and the guest-facing unsubscribe link
+    // have different destinations (a web page vs. an API endpoint). Both bases
+    // are declared here so neither lives only in a code `??` default.
+    it("reservations-api declares MANAGE_BASE_URL as the WEB origin", () => {
+      const spec = getAppSpec();
+      const reservations = spec.services.find(
+        (s: { name: string }) => s.name === "reservations-api"
+      );
+      const manageBase = reservations.envs.find(
+        (e: { key: string }) => e.key === "MANAGE_BASE_URL"
+      );
+      expect(manageBase).toBeDefined();
+      expect(manageBase.value).toBe(`https://${TEST_DOMAIN}`);
+    });
+
+    it("reservations-api declares PUBLIC_API_BASE_URL as the API origin", () => {
+      const spec = getAppSpec();
+      const reservations = spec.services.find(
+        (s: { name: string }) => s.name === "reservations-api"
+      );
+      const publicApiBase = reservations.envs.find(
+        (e: { key: string }) => e.key === "PUBLIC_API_BASE_URL"
+      );
+      expect(publicApiBase).toBeDefined();
+      expect(publicApiBase.value).toBe(`https://api.${TEST_DOMAIN}`);
+    });
   });
 
   describe("Ingress Rules", () => {

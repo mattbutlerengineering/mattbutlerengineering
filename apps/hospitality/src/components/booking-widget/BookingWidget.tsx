@@ -15,10 +15,15 @@ import styles from "./BookingWidget.module.css";
 
 export interface BookingWidgetProps {
   venueId: string;
+  /**
+   * Required for booking: since #4487 the hold lifecycle runs through
+   * `/public/v1/venues/:slug/holds`, the only hold route an unauthenticated
+   * widget may call. Omitting it leaves the widget browsable but unable to
+   * hold a slot (it reports `MISSING_VENUE_SLUG_ERROR`).
+   */
   venueSlug?: string;
   apiBaseUrl?: string;
   maxPartySize?: number;
-  holdDurationMinutes?: number;
   enableDateRange?: boolean;
   minDate?: string;
   maxDate?: string;
@@ -84,7 +89,6 @@ export function BookingWidget({
   venueSlug,
   apiBaseUrl = import.meta.env.VITE_API_URL ?? "",
   maxPartySize = 8,
-  holdDurationMinutes = 10,
   enableDateRange = false,
   minDate,
   maxDate,
@@ -111,7 +115,6 @@ export function BookingWidget({
     venueId,
     venueSlug,
     stripePublishableKey,
-    holdDurationMinutes,
     onHoldChange,
     venueTimezone,
   });

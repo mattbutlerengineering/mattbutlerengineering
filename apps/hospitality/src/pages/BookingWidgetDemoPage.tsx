@@ -223,6 +223,10 @@ export function BookingWidgetDemoPage() {
                 {effectiveVenueId ? (
                   <BookingWidget
                     venueId={effectiveVenueId}
+                    // The preview holds real slots through the public,
+                    // slug-scoped route (#4487) — without the slug it could
+                    // browse but never hold.
+                    venueSlug={selectedVenue?.slug}
                     audience="staff"
                     hasOperatingHours={hasOperatingHours(selectedVenue?.operatingHours)}
                     venueTimezone={selectedVenue?.ianaTimezone}

@@ -304,3 +304,125 @@ describe("HoldsClient", () => {
     });
   });
 });
+// #4487: the slug-scoped public surface. The `/api/v1/holds` methods above are
+// the authenticated staff path; anonymous callers (the embeddable booking
+// widget) must use these, which resolve the venue server-side from the slug.
+describe("HoldsClient — public, slug-scoped (#4487)", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  describe("createForVenue", () => {
+    it("sends POST /public/v1/venues/:slug/holds", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ...fakeHold, sessionId: "sess-1" } }));
+
+      await new HoldsClient(makeApiClient()).createForVenue("the-oak-table", {
+        date: "2026-06-01",
+        startTime: "19:00",
+        partySize: 2,
+      });
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/public/v1/venues/the-oak-table/holds");
+      expect(options?.method).toBe("POST");
+      expect(JSON.parse(String(options?.body))).toEqual({
+        date: "2026-06-01",
+        startTime: "19:00",
+        partySize: 2,
+      });
+    });
+
+    // The public create route mints the session id server-side and returns it
+    // on the hold, unlike the staff route which accepts a client-generated one.
+    it("adopts the server-minted sessionId so release/confirm can prove ownership", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: { ...fakeHold, sessionId: "sess-from-server" } })
+      );
+
+      const holdsClient = new HoldsClient(makeApiClient());
+      const result = await holdsClient.createForVenue("the-oak-table", {
+        date: "2026-06-01",
+        startTime: "19:00",
+        partySize: 2,
+      });
+
+      expect(result.sessionId).toBe("sess-from-server");
+      expect(holdsClient.getSessionId()).toBe("sess-from-server");
+    });
+  });
+
+  describe("getForVenue", () => {
+    it("sends GET /public/v1/venues/:slug/holds/:holdId with x-session-id", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: fakeHold }));
+
+      const holdsClient = new HoldsClient(makeApiClient());
+      holdsClient.setSessionId("sess-abc");
+
+      const hold = await holdsClient.getForVenue("the-oak-table", "h1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/public/v1/venues/the-oak-table/holds/h1");
+      expect((options?.headers as Record<string, string>)["x-session-id"]).toBe("sess-abc");
+      expect(hold).toEqual(fakeHold);
+    });
+
+    it("throws when no session ID is set", async () => {
+      await expect(
+        new HoldsClient(makeApiClient()).getForVenue("the-oak-table", "h1")
+      ).rejects.toThrow("Session ID required");
+    });
+  });
+
+  describe("releaseForVenue", () => {
+    it("sends DELETE /public/v1/venues/:slug/holds/:holdId with x-session-id", async () => {
+      mockFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+      const holdsClient = new HoldsClient(makeApiClient());
+      holdsClient.setSessionId("sess-abc");
+
+      await holdsClient.releaseForVenue("the-oak-table", "h1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/public/v1/venues/the-oak-table/holds/h1");
+      expect(options?.method).toBe("DELETE");
+      expect((options?.headers as Record<string, string>)["x-session-id"]).toBe("sess-abc");
+    });
+
+    it("throws when no session ID is set", async () => {
+      await expect(
+        new HoldsClient(makeApiClient()).releaseForVenue("the-oak-table", "h1")
+      ).rejects.toThrow("Session ID required");
+    });
+  });
+
+  describe("confirmForVenue", () => {
+    it("sends POST /public/v1/venues/:slug/holds/:holdId/confirm with x-session-id", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: fakeReservation, manageToken: "tok_abc123" })
+      );
+
+      const holdsClient = new HoldsClient(makeApiClient());
+      holdsClient.setSessionId("sess-abc");
+
+      const result = await holdsClient.confirmForVenue("the-oak-table", "h1", {
+        guestName: "Ada Lovelace",
+        guestEmail: "ada@example.com",
+      });
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/public/v1/venues/the-oak-table/holds/h1/confirm");
+      expect(options?.method).toBe("POST");
+      expect((options?.headers as Record<string, string>)["x-session-id"]).toBe("sess-abc");
+      expect(result.reservation).toEqual(fakeReservation);
+      expect(result.manageToken).toBe("tok_abc123");
+    });
+
+    it("throws when no session ID is set", async () => {
+      await expect(
+        new HoldsClient(makeApiClient()).confirmForVenue("the-oak-table", "h1", {
+          guestName: "Ada Lovelace",
+        })
+      ).rejects.toThrow("Session ID required");
+    });
+  });
+});

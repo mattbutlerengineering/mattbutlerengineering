@@ -344,8 +344,13 @@ describe("PublicBookingPage", () => {
       fireEvent.click(screen.getByTestId("trigger-hold-change"));
       window.dispatchEvent(new Event("pagehide"));
 
+      // #4487: the release must target the hardened slug-scoped public route.
+      // The staff hold routes now require a JWT this page never has, so an
+      // anonymous DELETE there would 401 and leave the table held until expiry.
+      // Asserting the full public path (not just the hold id) is what pins
+      // that the staff path is not used.
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("v1/holds/hold-abc"),
+        expect.stringContaining("/public/v1/venues/the-grand-table/holds/hold-abc"),
         expect.objectContaining({
           method: "DELETE",
           keepalive: true,
