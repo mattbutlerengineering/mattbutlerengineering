@@ -36,9 +36,18 @@
  * metrics assessed is the "nothing ever entered the counted set" shape this
  * check exists to detect, not a vacuous pass.
  *
+ * ## Two kinds of finding
+ *
+ * `unconfigured` (empty AND a declared prerequisite env var is absent) is
+ * human-blocked; every other non-fresh state is actionable. They must file
+ * under DIFFERENT dedupe keys — sharing one let the permanently-blocked
+ * domain-metrics issue absorb a real review-burden failure (#5561). Both are
+ * still findings, so the exit code is unchanged.
+ *
  * Usage:
- *   node scripts/metrics-freshness.mjs
- * Exit code: 0 when every watched metric is fresh, 1 otherwise.
+ *   node scripts/metrics-freshness.mjs           # human-readable
+ *   node scripts/metrics-freshness.mjs --json    # { blocked, failures, lines }
+ * Exit code: 0 when every watched metric is fresh, 1 otherwise — in both modes.
  */
 
 import { fileURLToPath } from "node:url";
@@ -62,6 +71,9 @@ export const FRESHNESS_POLICY = [
     timestampField: "collected_at",
     maxAgeDays: 3,
     producer: "scripts/collect-domain-metrics.mjs",
+    // A real production venue identifier no agent can invent, so an empty
+    // domain-metrics is human-blocked rather than broken (#5561).
+    requiresEnv: "DOMAIN_METRICS_VENUE_ID",
   },
   {
     metric: "review-burden",
@@ -73,6 +85,34 @@ export const FRESHNESS_POLICY = [
 
 /** The one passing state. Anything else — named or not — is a finding. */
 export const FRESH = "fresh";
+
+/**
+ * Empty *because a declared prerequisite is absent* — a human-blocked state,
+ * not a broken collector.
+ *
+ * Still a finding (see `freshnessFindings`), so the exit code stays non-zero
+ * and nothing here becomes a silent pass. It exists only so the workflow can
+ * route it to its OWN deduped issue: when a permanently-blocked metric and a
+ * genuinely-failing one shared a dedupe key, the blocker's already-open issue
+ * absorbed the real failure and it announced nothing (#5561).
+ */
+export const UNCONFIGURED = "unconfigured";
+
+/**
+ * Whether a metric's declared prerequisite env var is absent.
+ *
+ * A blank string counts as absent: `gh secret set NAME` with empty stdin
+ * silently sets `""` (.claude/rules/gotchas.md § Auth0 / E2E), so a blank
+ * value is the realistic shape of "never configured", not of a real value.
+ *
+ * @param {string|undefined} requiresEnv
+ * @param {Record<string, string|undefined>} env
+ * @returns {boolean}
+ */
+export function isPrerequisiteMissing(requiresEnv, env) {
+  if (!requiresEnv) return false;
+  return (env?.[requiresEnv] ?? "").trim() === "";
+}
 
 /**
  * Newest parseable timestamp across `entries`, as epoch ms.
@@ -104,11 +144,22 @@ export function newestTimestampMs(entries, timestampField) {
  * @param {string} params.timestampField
  * @param {number} params.maxAgeDays
  * @param {Date} params.now
- * @returns {{ state: "fresh"|"stale"|"empty"|"undated", latest: string|null, ageDays: number|null }}
+ * @returns {{ state: "fresh"|"stale"|"empty"|"undated"|"unconfigured", latest: string|null, ageDays: number|null }}
  */
-export function classifyFreshness({ entries, timestampField, maxAgeDays, now }) {
+export function classifyFreshness({
+  entries,
+  timestampField,
+  maxAgeDays,
+  now,
+  requiresEnv,
+  env = {},
+}) {
   if (!Array.isArray(entries) || entries.length === 0) {
-    return { state: "empty", latest: null, ageDays: null };
+    return {
+      state: isPrerequisiteMissing(requiresEnv, env) ? UNCONFIGURED : "empty",
+      latest: null,
+      ageDays: null,
+    };
   }
 
   const newestMs = newestTimestampMs(entries, timestampField);
@@ -138,6 +189,7 @@ export function assessFreshness({
   readMetric = (metric) => read(metric),
   now = new Date(),
   policy = FRESHNESS_POLICY,
+  env = process.env,
 } = {}) {
   return policy.map((entry) => {
     let entries;
@@ -152,7 +204,7 @@ export function assessFreshness({
         error: error instanceof Error ? error.message : String(error),
       };
     }
-    return { ...entry, ...classifyFreshness({ ...entry, entries, now }) };
+    return { ...entry, ...classifyFreshness({ ...entry, entries, now, env }) };
   });
 }
 
@@ -164,6 +216,28 @@ export function assessFreshness({
  */
 export function freshnessFindings(results) {
   return results.filter((result) => result.state !== FRESH);
+}
+
+/**
+ * Split findings into the ones a human must unblock and the ones that are
+ * genuinely broken.
+ *
+ * The two must file under DIFFERENT dedupe keys. A permanently-blocked metric
+ * opens its issue once and keeps it open forever; if a real collector failure
+ * dedupes into that same issue, it is absorbed and nobody is told (#5561).
+ * Every non-fresh state that is not explicitly `unconfigured` counts as a
+ * failure — including states this module does not yet name, so a new state
+ * defaults to "actionable" rather than to "someone else's problem".
+ *
+ * @param {Array<{ state: string }>} results
+ * @returns {{ blocked: Array<object>, failures: Array<object> }}
+ */
+export function partitionFindings(results) {
+  const findings = freshnessFindings(results);
+  return {
+    blocked: findings.filter((result) => result.state === UNCONFIGURED),
+    failures: findings.filter((result) => result.state !== UNCONFIGURED),
+  };
 }
 
 /**
@@ -183,7 +257,9 @@ export function freshnessExitCode(results) {
  * already consumes (see `buildReport` in scripts/build-sensor-report.mjs).
  *
  * `empty` outranks `stale`: a metric that has never produced a row is a
- * broken pipeline, while a stale one at least worked once.
+ * broken pipeline, while a stale one at least worked once. `unconfigured`
+ * ranks below both — it is waiting on a human, so it must not keep
+ * re-entering the loop's triage as a fresh actionable regression (#5561).
  *
  * @param {Array<{ metric: string, state: string, ageDays: number|null, latest?: string|null }>} results
  * @returns {Array<object>}
@@ -195,7 +271,7 @@ export function freshnessRegressions(results) {
     current: result.state,
     previous: result.latest ?? null,
     delta: result.ageDays,
-    severity: result.state === "stale" ? "medium" : "high",
+    severity: result.state === UNCONFIGURED ? "low" : result.state === "stale" ? "medium" : "high",
   }));
 }
 
@@ -222,6 +298,21 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     results.length === 0
       ? [{ metric: "(none)", state: "unassessed", ageDays: null, latest: null }]
       : freshnessFindings(results);
+
+  if (process.argv.includes("--json")) {
+    // Machine-readable routing for metrics-collectors.yml: the two arrays get
+    // separate issues under separate dedupe keys. `lines` is the same text the
+    // human mode prints, so the step summary need not re-derive it.
+    //
+    // An `unassessed` synthetic finding (empty policy) has no `state` the
+    // partition recognises, so it lands in `failures` — the correct side: a
+    // policy that assessed nothing is broken, not waiting on a human.
+    const { blocked, failures } = partitionFindings(findings);
+    process.stdout.write(
+      `${JSON.stringify({ blocked, failures, lines: findings.map(formatFinding) }, null, 2)}\n`
+    );
+    process.exit(freshnessExitCode(results));
+  }
 
   process.exit(
     runCheck({

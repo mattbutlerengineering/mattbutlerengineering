@@ -136,8 +136,36 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
     // The most likely cause is a missing production secret only a human can
     // supply (#5527). A `ready` label would feed an unfixable issue to
     // implement-queue, where an agent burns a budget failing to fix it.
+    //
+    // Anchored on the label's END (closing quote or end-of-word), not just its
+    // start: the looser /--label "?ready"?/ this replaced also matched
+    // `--label "ready-for-human"`, which is a DIFFERENT label and the correct
+    // one for the human-blocked issue. A guard that cannot tell `ready` from
+    // `ready-for-human` either blocks the right label or waves through the
+    // wrong one.
     const issueStep = WORKFLOW.slice(WORKFLOW.indexOf("file-issue-cli.mjs"));
-    expect(issueStep).not.toMatch(/--label "?ready"?/);
+    expect(issueStep).not.toMatch(/--label\s+"?ready"(?!-)|--label\s+ready(?![-\w])/);
     expect(issueStep).toMatch(/--label/);
+  });
+
+  it("routes human-blocked and actionable findings to SEPARATE dedupe keys", () => {
+    // #5561: they shared `metrics-collection-stale`, so the permanently-open
+    // credential-blocked issue absorbed any genuine collector failure and it
+    // announced nothing. Two keys is the whole fix — if these ever collapse
+    // back to one, the masking returns silently.
+    expect(WORKFLOW).toMatch(/--dedupe-key "metrics-collection-stale"/);
+    expect(WORKFLOW).toMatch(/--dedupe-key "metrics-collection-unconfigured"/);
+
+    const keys = [...WORKFLOW.matchAll(/--dedupe-key "([^"]+)"/g)].map((m) => m[1]);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("asks the check for machine-readable output so it CAN route", () => {
+    // The partition only exists if the workflow reads it. A bare
+    // `metrics-freshness.mjs` invocation cannot tell the two classes apart,
+    // which would make the split decorative.
+    expect(WORKFLOW).toMatch(/metrics-freshness\.mjs --json/);
+    expect(WORKFLOW).toMatch(/\.blocked \| length/);
+    expect(WORKFLOW).toMatch(/\.failures \| length/);
   });
 });
