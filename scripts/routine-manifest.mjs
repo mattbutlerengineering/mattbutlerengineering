@@ -92,9 +92,15 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-night",
     triggerId: "trig_01E6UxiwdsWcjBNwRGZSjmSV",
     periodDays: 1,
-    unverifiable: true,
-    unverifiableReason:
-      "Shares a PR-title signature with mbe-midday — both routines' prompts (docs/routines/mbe-night.md:22, docs/routines/mbe-midday.md:22) instruct the same `chore(metrics): queue telemetry <date>` title, so one routine's PR marks BOTH alive and a dead one hides behind its twin. Verified on a real world containing only 2026-09-20's single queue-telemetry PR: the pre-fix manifest classified both `alive`. Same class as mbe-daily-issue below, so same verdict — fail closed until #5344/#5373's title-convention fix is applied to these two prompts.",
+    // Was `unverifiable` (#5604) — shared the same `chore(metrics): queue
+    // telemetry <date>` PR title with mbe-midday, so one routine's PR marked
+    // BOTH alive and a dead one hid behind its twin. docs/routines/mbe-night.md
+    // step 1 now emits a "night"-prefixed title unique to this routine.
+    signature: {
+      type: "pr-title",
+      pattern: String.raw`chore\(metrics\): night queue telemetry \d{4}-\d{2}-\d{2}`,
+      searchTerm: "night queue telemetry",
+    },
   },
   {
     name: "mbe-auditor",
@@ -134,9 +140,15 @@ export const ROUTINE_MANIFEST = [
     name: "mbe-midday",
     triggerId: "trig_0118ZgGfEndrMqQSuTQNXQwT",
     periodDays: 1,
-    unverifiable: true,
-    unverifiableReason:
-      "Shares a PR-title signature with mbe-night — both routines' prompts (docs/routines/mbe-night.md:22, docs/routines/mbe-midday.md:22) instruct the same `chore(metrics): queue telemetry <date>` title, so one routine's PR marks BOTH alive and a dead one hides behind its twin. Verified on a real world containing only 2026-09-20's single queue-telemetry PR: the pre-fix manifest classified both `alive`. Same class as mbe-daily-issue below, so same verdict — fail closed until #5344/#5373's title-convention fix is applied to these two prompts.",
+    // Was `unverifiable` (#5608) — shared the same `chore(metrics): queue
+    // telemetry <date>` PR title with mbe-night, so one routine's PR marked
+    // BOTH alive and a dead one hid behind its twin. docs/routines/mbe-midday.md
+    // step 1 now emits a "midday"-prefixed title unique to this routine.
+    signature: {
+      type: "pr-title",
+      pattern: String.raw`chore\(metrics\): midday queue telemetry \d{4}-\d{2}-\d{2}`,
+      searchTerm: "midday queue telemetry",
+    },
   },
   {
     name: "mbe-weekly-improve",
