@@ -46,7 +46,9 @@
  * author, and resolvable only by a human setting a secret — exactly the shape
  * `scripts/metrics-freshness.mjs` documents for `DOMAIN_METRICS_VENUE_ID`. It
  * reports through `.github/workflows/metrics-collectors.yml`, which turns a
- * non-zero verdict into one deduped issue rather than a red workflow.
+ * non-zero verdict into a deduped issue rather than a red workflow — routed by
+ * `--json`'s `blocked` flag to one of two dedupe keys, so the permanently-open
+ * `uninstrumented` issue can never absorb a `stalled` regression (#5561).
  *
  * ## Fail-closed
  *
@@ -56,8 +58,10 @@
  * explained is never reported as health.
  *
  * Usage:
- *   node scripts/agent-spend-telemetry.mjs
- * Exit code: 0 when the invariant holds (or is vacuous), 1 otherwise.
+ *   node scripts/agent-spend-telemetry.mjs           # human-readable line
+ *   node scripts/agent-spend-telemetry.mjs --json    # verdict + `blocked` flag
+ * Exit code: 0 when the invariant holds (or is vacuous), 1 otherwise — in both
+ * modes.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -111,6 +115,22 @@ export const DEFAULT_WINDOW_HOURS = 24;
 
 /** The states that count as the invariant holding. */
 export const PASSING_STATES = new Set(["healthy", "idle"]);
+
+/**
+ * Failing states that are waiting on a human, not on a fix.
+ *
+ * `uninstrumented` needs the #3585 decision (route AI features through the
+ * Claude CLI, or remove them) or an `ANTHROPIC_API_KEY` secret — neither of
+ * which an agent can do — so its issue stays open indefinitely.
+ *
+ * This set exists so the workflow can file it under its OWN dedupe key. When a
+ * permanently-blocked finding and a genuinely-failing one shared a key, the
+ * blocker's already-open issue absorbed the real failure and it announced
+ * nothing (#5561, fixed for this workflow's sibling freshness check in #5565).
+ * `stalled` — a writer that could have run and recorded nothing — is exactly
+ * the regression that must never be absorbed that way.
+ */
+export const BLOCKED_STATES = new Set(["uninstrumented"]);
 
 // ---------------------------------------------------------------------------
 // Pure logic — no side effects below this section boundary comment.
@@ -232,7 +252,21 @@ export function classifySpendTelemetry({
  * @param {string} reason
  */
 function verdict(state, reason) {
-  return { state, ok: PASSING_STATES.has(state), reason };
+  return { state, ok: PASSING_STATES.has(state), blocked: isBlockedState(state), reason };
+}
+
+/**
+ * Pure: whether a state is waiting on a human rather than on a fix.
+ *
+ * Fails toward `false` — actionable — for anything unrecognised. A state
+ * nobody has classified must reach a human as a failure, never be filed under
+ * the permanently-open blocked issue where it would be absorbed.
+ *
+ * @param {string} state
+ * @returns {boolean}
+ */
+export function isBlockedState(state) {
+  return BLOCKED_STATES.has(state);
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +375,18 @@ export function formatVerdict(result) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const result = assessAgentSpendTelemetry();
+
+  if (process.argv.includes("--json")) {
+    // Machine-readable routing for metrics-collectors.yml, matching
+    // `metrics-freshness.mjs --json`: the workflow reads `.blocked` and files
+    // the verdict under one of two dedupe keys. `line` is the same text the
+    // human mode prints, so the step summary need not re-derive it.
+    process.stdout.write(
+      `${JSON.stringify({ ...result, line: formatVerdict(result) }, null, 2)}\n`
+    );
+    process.exit(result.ok ? 0 : 1);
+  }
+
   process.exit(
     runCheck({
       name: "agent-spend telemetry",

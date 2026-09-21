@@ -222,11 +222,12 @@ jobs:
           fi
 
       # The agent-spend paired-growth check (#4618). Same reporting contract as
-      # the freshness self-check above — a verdict becomes one deduped issue,
-      # never a red workflow. The condition it reports today
-      # (`uninstrumented`: no ANTHROPIC_API_KEY, so no agent-core session can
-      # reach `recordSpend`) is resolvable only by a human setting a secret,
-      # exactly like DOMAIN_METRICS_VENUE_ID above.
+      # the freshness self-check above — a verdict becomes a deduped issue,
+      # never a red workflow — and the same two-key split (#5561/#5565): the
+      # human-blocked class gets its own key so it cannot absorb a genuine
+      # regression. The condition it reports today (`uninstrumented`: no
+      # ANTHROPIC_API_KEY, so no agent-core session can reach `recordSpend`) is
+      # resolvable only by a human, exactly like DOMAIN_METRICS_VENUE_ID above.
       - name: Agent-spend telemetry self-check
         id: spend-telemetry
         env:
@@ -238,11 +239,13 @@ jobs:
           # code and has to survive to the branch below, and a bare
           # `cmd; verdict=$?` would abort the step under `bash -e` before the
           # read (scripts/__tests__/workflow-set-e-assignment.test.mjs).
-          if node scripts/agent-spend-telemetry.mjs | tee /tmp/spend-telemetry.txt; then
+          if node scripts/agent-spend-telemetry.mjs --json > /tmp/spend-telemetry.json; then
             verdict=0
           else
             verdict=$?
           fi
+
+          jq -r '.line' /tmp/spend-telemetry.json > /tmp/spend-telemetry.txt
 
           {
             echo "### Agent-spend telemetry"
@@ -257,48 +260,107 @@ jobs:
             exit 0
           fi
 
-          {
-            echo "## Agent spend telemetry is not tracking queue telemetry"
-            echo
-            echo "\`.claude/agent-spend/sessions.jsonl\` and \`metrics/queue-telemetry.jsonl\`"
-            echo "describe the same agent work from opposite ends, so they should gain rows"
-            echo "together. \`node scripts/agent-spend-telemetry.mjs\` reports:"
-            echo
-            echo '```'
-            cat /tmp/spend-telemetry.txt
-            echo '```'
-            echo
-            echo "### Reading the verdict"
-            echo
-            echo "- **\`uninstrumented\`** — no spend writer can run. \`ANTHROPIC_API_KEY\` is"
-            echo "  not a configured repo secret, so every agent-core entry point skips"
-            echo "  before reaching \`recordSpend\`, and Claude Code subagent runs never enter"
-            echo "  agent-core at all. This is the state #4618 root-caused: the write path is"
-            echo "  intact and simply unreachable. **Do not \"fix\" \`recordSpend\`** — that was"
-            echo "  already done three times (#1830, #2974, #3695). The open decision is #3585."
-            echo "- **\`stalled\`** — a writer could have run and recorded nothing. This IS a"
-            echo "  regression in the spend path; start at \`recordSpend\`'s two call sites"
-            echo "  (\`packages/agent-core/src/session-runner.ts\`,"
-            echo "  \`packages/agent-core/src/adapters/run-cli-adapter-session.ts\`)."
-            echo "- **\`undeterminable\`** — a file is missing, unreadable, or holds rows"
-            echo "  nothing can date. The check fails closed here by design."
-            echo
-            echo "States and thresholds live in \`scripts/agent-spend-telemetry.mjs\`."
-            echo
-            echo "---"
-            echo "*Auto-created by the metrics-collectors workflow*"
-          } > /tmp/spend-telemetry-issue.md
+          # Two classes of verdict, two dedupe keys — the same #5561 split the
+          # freshness step above makes. `uninstrumented` is waiting on the
+          # #3585 decision and its issue stays open indefinitely; if `stalled`
+          # (a genuine regression in the spend path) shared that key, the
+          # already-open blocked issue would absorb it and announce nothing.
+          BLOCKED=$(jq -r '.blocked' /tmp/spend-telemetry.json)
+          echo "blocked=$BLOCKED"
 
-          # Deliberately NOT labeled `ready`: the likely resolution is a repo
-          # secret or the #3585 architecture decision, neither of which
-          # implement-queue can autonomously make.
-          node scripts/lib/file-issue-cli.mjs \
-            --title "Agent spend telemetry is not tracking queue telemetry" \
-            --label "meta-improvement" \
-            --body-file /tmp/spend-telemetry-issue.md \
-            --dedupe-key "agent-spend-telemetry-untracked" \
-            --search-label "meta-improvement" \
-            --contains "Agent spend telemetry is not tracking"
+          # ── Human-blocked: no writer can run at all ──
+          if [ "$BLOCKED" = "true" ]; then
+            {
+              echo "## Agent spend recording is not instrumented"
+              echo
+              echo "\`.claude/agent-spend/sessions.jsonl\` gained no rows while"
+              echo "\`metrics/queue-telemetry.jsonl\` did, and **no spend writer could have"
+              echo "run**, so 0 rows is the expected output of the current architecture:"
+              echo
+              echo '```'
+              cat /tmp/spend-telemetry.txt
+              echo '```'
+              echo
+              echo "### Do NOT \"fix\" \`recordSpend\`"
+              echo
+              echo "That was already done three times (#1830, #2974, #3695) and the write"
+              echo "path was never broken. \`recordSpend\` is a plain \`appendFileSync\` with"
+              echo "two call sites, both inside \`@mbe/agent-core\`. It is simply unreachable:"
+              echo "\`ANTHROPIC_API_KEY\` is not a configured repo secret, so every agent-core"
+              echo "entry point skips before reaching it, and the Claude Code subagent runs"
+              echo "that actually produce the PRs never enter agent-core at all."
+              echo
+              echo "The open decision is **#3585** (route AI features through the Claude CLI,"
+              echo "or remove them). Either resolve it, or set the secret:"
+              echo
+              echo '```'
+              echo 'gh secret set ANTHROPIC_API_KEY --body "<key>"'
+              echo '```'
+              echo
+              echo "Never omit \`--body\` — empty stdin silently sets an empty secret, and a"
+              echo "blank value reads as unset here."
+              echo
+              echo "This issue stays open until that decision lands, so it deliberately does"
+              echo "NOT share a dedupe key with the actionable \"stopped recording\" issue —"
+              echo "otherwise a genuine spend-path regression would dedupe into this"
+              echo "permanently-open one and announce nothing (#5561)."
+              echo
+              echo "---"
+              echo "*Auto-created by the metrics-collectors workflow*"
+            } > /tmp/spend-telemetry-blocked.md
+
+            # `ready-for-human`, never `ready`: no agent can make the #3585
+            # call or supply the secret, so it must stay out of
+            # implement-queue's autonomous pickup set.
+            node scripts/lib/file-issue-cli.mjs \
+              --title "Agent spend recording is not instrumented" \
+              --label "ready-for-human" \
+              --body-file /tmp/spend-telemetry-blocked.md \
+              --dedupe-key "agent-spend-uninstrumented" \
+              --search-label "ready-for-human" \
+              --contains "Agent spend recording is not"
+          else
+            # ── Actionable: a writer could have run, or the state is opaque ──
+            {
+              echo "## Agent spend telemetry stopped recording"
+              echo
+              echo "\`.claude/agent-spend/sessions.jsonl\` and \`metrics/queue-telemetry.jsonl\`"
+              echo "describe the same agent work from opposite ends, so they should gain rows"
+              echo "together. \`node scripts/agent-spend-telemetry.mjs\` reports:"
+              echo
+              echo '```'
+              cat /tmp/spend-telemetry.txt
+              echo '```'
+              echo
+              echo "### Reading the verdict"
+              echo
+              echo "- **\`stalled\`** — a writer could have run and recorded nothing. This IS a"
+              echo "  regression in the spend path. Start at \`recordSpend\`'s two call sites"
+              echo "  (\`packages/agent-core/src/session-runner.ts\`,"
+              echo "  \`packages/agent-core/src/adapters/run-cli-adapter-session.ts\`) and at"
+              echo "  the \`catch {}\` each one wraps the call in."
+              echo "- **\`undeterminable\`** — a file is missing, unreadable, holds a non-array"
+              echo "  payload, or holds rows nothing can date. The check fails closed here by"
+              echo "  design; an absence it cannot explain is never reported as health."
+              echo
+              echo "States live in \`scripts/agent-spend-telemetry.mjs\` (\`BLOCKED_STATES\`,"
+              echo "\`classifySpendTelemetry\`). Background: #4618."
+              echo
+              echo "---"
+              echo "*Auto-created by the metrics-collectors workflow*"
+            } > /tmp/spend-telemetry-issue.md
+
+            # Deliberately NOT labeled `ready`: diagnosing why a reachable
+            # writer recorded nothing needs judgement about the agent runtime,
+            # not a queue pickup.
+            node scripts/lib/file-issue-cli.mjs \
+              --title "Agent spend telemetry stopped recording" \
+              --label "ci-fix" \
+              --body-file /tmp/spend-telemetry-issue.md \
+              --dedupe-key "agent-spend-telemetry-broken" \
+              --search-label "ci-fix" \
+              --contains "Agent spend telemetry stopped"
+          fi
 
       - name: Open PR with collected metrics
         id: create-pr
