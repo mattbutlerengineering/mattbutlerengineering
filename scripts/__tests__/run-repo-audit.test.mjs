@@ -137,6 +137,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-claude-md-table-drift",
       "check-ci-gate-coverage",
       "check-memory-refs",
+      "check-skill-references",
       "boundaries",
     ]);
   });

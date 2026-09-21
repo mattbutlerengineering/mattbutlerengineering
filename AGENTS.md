@@ -250,7 +250,7 @@ Files agents should know about (in load order):
 
 Before adding any new tool, skill, plugin, or MCP server to the workflow, run `/evaluate-tool <repo-url>` from the [`ai-tooling`](https://github.com/mattbutlerengineering/ai-tooling) plugin. It checks overlap against the catalog, maps the tool to a dev loop stage and quality signal, and outputs an ADOPT / REPLACE / SKIP / DEFER verdict.
 
-The authoritative installed-vs-STACK gap report is at [`docs/ai-tooling-audit.md`](docs/ai-tooling-audit.md). Re-run `/audit-workflow` whenever you add or remove tools to keep the report current.
+The authoritative installed-vs-STACK gap report is at [`docs/ai-tooling-audit.md`](docs/ai-tooling-audit.md). Keep the report current whenever you add or remove tools. `/audit-workflow` does **not** resolve from a session here — it lives in the external `ai-tooling` marketplace, which that report itself records as not registered; the current report was produced by following its `SKILL.md` protocol by hand.
 
 **Install the ai-tooling marketplace:**
 

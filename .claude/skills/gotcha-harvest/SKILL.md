@@ -1,13 +1,13 @@
 ---
 name: gotcha-harvest
-description: "Harvest discovery-driven lessons from autonomous loops. Scans a session (or --days N of history) for 'CI/check failed → fix → passed' arcs and recurring tool-errors, then proposes entries for .claude/rules/gotchas.md (repo-specific) or your frontmatter-per-fact memory (cross-repo). Use after /implement-queue or /ship-loop runs, or invoke /gotcha-harvest. Complements /reflect, which is correction-driven and misses these."
+description: "Harvest discovery-driven lessons from autonomous loops. Scans a session (or --days N of history) for 'CI/check failed → fix → passed' arcs and recurring tool-errors, then proposes entries for .claude/rules/gotchas.md (repo-specific) or your frontmatter-per-fact memory (cross-repo). Use after /implement-queue runs, or invoke /gotcha-harvest. Complements hand-written corrections, which are correction-driven and miss these."
 user-invocable: true
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash, AskUserQuestion, TodoWrite
 ---
 
 # Gotcha Harvest
 
-`/reflect` captures **corrections** — places where a human told the agent "no, do X." Autonomous loops (`/implement-queue`, `/ship-loop`) rarely produce those; their lessons are **discovery-driven**: a CI check fails, the agent diagnoses and fixes it, the check passes. That arc is the richest source of reusable gotchas and `/reflect` structurally never sees it. This skill harvests it.
+Hand-written corrections in `.claude/memory/corrections/` capture places where a human told the agent "no, do X." Autonomous loops (`/implement-queue`) rarely produce those; their lessons are **discovery-driven**: a CI check fails, the agent diagnoses and fixes it, the check passes. That arc is the richest source of reusable gotchas and a human-correction capture structurally never sees it. This skill harvests it.
 
 **Output is a proposal, never a silent write.** Always show findings and get a human decision before editing any file.
 
@@ -116,7 +116,7 @@ On `--dry-run`, stop after the table regardless of mode.
 
 ## Memory schema (cross-repo facts)
 
-Cross-repo facts go to `~/.claude/projects/<project>/memory/` as **one file per fact** with this frontmatter — the same schema as `MEMORY.md`, so the manual memory protocol, this skill, and any future `/reflect` auto-memory all converge on one format (resolves the two-schema split in that directory):
+Cross-repo facts go to `~/.claude/projects/<project>/memory/` as **one file per fact** with this frontmatter — the same schema as `MEMORY.md`, so the manual memory protocol, this skill, and any future auto-memory path all converge on one format (resolves the two-schema split in that directory):
 
 ```markdown
 ---
@@ -131,9 +131,9 @@ metadata:
 
 After writing the file, add one index line to `MEMORY.md`: `- [Title](file.md) — hook`. Never put fact bodies in `MEMORY.md`.
 
-## Relationship to `/reflect`
+## Relationship to hand-written corrections
 
-- `/reflect` → human corrections, routed to CLAUDE.md / rules / skills. Run it for interactive sessions.
+- **Hand-written correction** → human corrections, routed to CLAUDE.md / rules / skills. Written directly to `.claude/memory/corrections/` during interactive sessions; there is no skill that does this for you.
 - `/gotcha-harvest` → agent-discovered CI/build lessons, routed to `gotchas.md` / memory. Run it after autonomous loops.
 
-They are complementary; running both loses nothing because each dedupes against the shared targets.
+They are complementary; doing both loses nothing because each dedupes against the shared targets.

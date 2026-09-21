@@ -14,7 +14,7 @@ reflections/
 
 Reflections are generated:
 
-1. **End of session** -- via the `/reflect` skill or a Stop hook, the agent reviews the session for corrections made, patterns discovered, and conventions reinforced.
+1. **End of session** -- by hand, or prompted by a Stop hook, the agent reviews the session for corrections made, patterns discovered, and conventions reinforced. There is no `/reflect` skill; this is a plain file write.
 2. **After multi-step failures** -- when a task requires more than two retries, a reflection captures the debugging path and root cause.
 3. **After architecture decisions** -- significant design choices are reflected on so future sessions understand the rationale.
 
@@ -46,7 +46,7 @@ Each reflection file contains:
 
 ## How reflections are indexed
 
-The `/reflect` skill scans this directory and cross-references entries with:
+Whoever writes a reflection scans this directory and cross-references entries with:
 
 - `.claude/preferences.json` -- to update preference weights
 - `.claude/memory/` -- to link reflections to their source corrections or reinforcements
