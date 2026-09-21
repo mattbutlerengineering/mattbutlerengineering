@@ -131,6 +131,14 @@ non-admin path) already scopes through `VenueMembership`, and every other
 `findMany`/`findFirst`/`$queryRaw` reviewed filters by a `venueId` (or a FK
 that resolves to one venue) already.
 
+> **Wrong, on both counts — see §3.2 (#5369).** `listForMember`'s membership
+> filter is an application predicate, not a value of `app.venue_id`, so it is
+> cross-venue for any staff user who belongs to more than one venue; and
+> `GET /api/v1/reservations/me` is cross-venue for the same reason. The
+> sentence above is left standing because the mistake it encodes — answering
+> "does this read across venues?" from a query's `where` clause rather than
+> from whether it can name one venue id — is the point of §3.2.
+
 **Superseded — the `app_rls_bypass` role this ADR originally specified is not
 implementable on this deployment.** The plan was a dedicated Postgres role
 granted `BYPASSRLS`, entered via `SET LOCAL ROLE` inside the same
@@ -148,19 +156,141 @@ degrade quietly — it would fail the `db-migrate` deploy outright.
 
 **Where each case stands, therefore:**
 
-| Cross-venue read                                                 | Status                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cron's per-venue guest scan                                      | **Resolved** (#5401), and without a bypass: per-venue `set_config` (§4) on the scan's own transaction. Correct today and under `FORCE ROW LEVEL SECURITY`.                                                                                                                                                                                                                              |
-| Cron's venue-list read (`getAllVenueIds`)                        | **OPEN PREREQUISITE.** Works today only because Postgres skips RLS for a table's owner and this service connects as the role that owns `venues`; no table sets `FORCE ROW LEVEL SECURITY`. Returns zero rows — silently turning the cron into a no-op — as soon as either of those changes (#5369). Pinned by a real-Postgres assertion in `lapsed-guest-cron.rls.integration.test.ts`. |
-| Admin `venueService.list()` / `venueGroupService.list()` (above) | **OPEN PREREQUISITE**, for the same reason and with the same owner-bypass dependency.                                                                                                                                                                                                                                                                                                   |
+| Cross-venue read                                                       | Status                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cron's per-venue guest scan                                            | **Resolved** (#5401), and without a bypass: per-venue `set_config` (§4) on the scan's own transaction. Correct today and under `FORCE ROW LEVEL SECURITY`.                                                                                                               |
+| Cron's venue-list read (`getAllVenueIds`)                              | **Resolved** (#5369) via `app_cross_venue_venues()` — see §3.1. Correct today and under FORCE, proven as a non-owner role in `routes/rls-isolation.integration.test.ts`.                                                                                                 |
+| Admin `venueService.list()`                                            | **Resolved** (#5369) via the same function, with the venue-group filter passed as its one argument.                                                                                                                                                                      |
+| Admin `venueGroupService.list()`                                       | **Not an RLS problem at all** — corrected here. `venue_groups` carries no RLS policy: §1's table list never included it and no migration enables it (measured against a migrated database, 2026-09-20: `relrowsecurity` is false for `venue_groups`). It needs no hatch. |
+| Staff `venueService.listForMember()` and `GET /api/v1/reservations/me` | **NEWLY OPEN** — two cross-venue reads this audit missed. See §3.2.                                                                                                                                                                                                      |
 
-Both open cases need a mechanism this ADR does not yet specify, decided
-together with whichever change removes owner-bypass — candidates include a
-`SECURITY DEFINER` function owned by the table owner (no role attribute
-required), a policy predicate that admits a second GUC such as
-`app.cross_venue = on`, or a separately-provisioned role on a platform that
-permits `BYPASSRLS`. Nothing should claim the audit is closed until one is
-chosen: the two reads above are the remaining blockers to forcing RLS.
+### 3.1 The cross-venue mechanism: a `SECURITY DEFINER` function plus one admitting policy
+
+**Decision.** Cross-venue reads go through
+`app_cross_venue_venues(p_venue_group_id text DEFAULT NULL)` — a
+`SECURITY DEFINER` set-returning function owned by the table owner, which sets
+the transaction-local marker `app.cross_venue = 'on'` inside its own body, scans
+`venues`, and restores the marker before returning — admitted by exactly one
+additive policy on `venues`:
+
+```sql
+CREATE POLICY venue_cross_venue_read ON "venues"
+  FOR SELECT
+  USING (
+    current_setting('app.cross_venue', true) = 'on'
+    AND pg_catalog.pg_has_role(
+      current_user,
+      (SELECT c.relowner FROM pg_catalog.pg_class c WHERE c.oid = 'public.venues'::regclass),
+      'USAGE'
+    )
+  );
+```
+
+`venue_isolation` is untouched, and nothing sets `FORCE ROW LEVEL SECURITY`.
+Migration: `20260920000000_add_cross_venue_read_escape_hatch`.
+
+**Why the mechanism is the composition and not just the function.** The three
+candidates this section previously listed were measured against Postgres 16.13
+with a **non-superuser** table owner — the shape DO Managed Postgres gives us.
+(The first run of that measurement used the image's default `postgres`
+superuser and every owner-side result was worthless: a superuser bypasses RLS
+unconditionally and FORCE does not apply to it. Check `rolsuper`/`rolbypassrls`
+before trusting any owner-side RLS measurement.)
+
+| Measurement (non-superuser owner, RLS enabled, 2 venues)               | FORCE absent | FORCE set  |
+| ---------------------------------------------------------------------- | ------------ | ---------- |
+| Owner reads the table directly, `app.venue_id` unset                   | all rows     | 0 rows     |
+| Owner reads the table directly, `app.venue_id` set to one venue        | all rows     | that venue |
+| Owner's `UPDATE` / `INSERT` / `DELETE` across venues                   | all succeed  | blocked    |
+| Non-owner reads directly, `app.venue_id` unset / set to one venue      | 0 / 1 row    | 0 / 1 row  |
+| **Plain `SECURITY DEFINER` function owned by the owner (candidate 1)** | **all rows** | **0 rows** |
+| Marked function + admitting policy (this decision), owner or non-owner | all rows     | all rows   |
+| Caller sets the marker itself, then reads directly — **non-owner**     | 0 rows       | 0 rows     |
+| Caller sets the marker itself, then reads directly — **owner (today)** | all rows     | all rows   |
+| `UPDATE` / `INSERT` / `DELETE` across venues with the marker set       | blocked      | blocked    |
+| Marker still set after the function returns                            | no           | no         |
+
+The decisive row is the fifth: **a `SECURITY DEFINER` function owned by the
+table owner does not survive the FORCE flip.** Inside the definer's context
+`current_user` _is_ the owner, and FORCE is precisely the flag that stops the
+owner being exempt — so on its own that function reads every venue today only
+through the owner-bypass this issue exists to remove. It is the same bug wearing
+a function. Candidate 1 is therefore necessary (it is the only thing that can
+carry a privileged marker without a role attribute) but not sufficient: it needs
+a policy to admit it, and it cannot admit itself.
+
+**Candidate 2 (a bare `app.cross_venue` GUC set by application code) is
+rejected as the whole mechanism and kept only as the policy's predicate.** As a
+standalone hatch it has no named database object to grant, revoke or audit, no
+bounded projection, and it stays set for the rest of the caller's transaction
+rather than for one statement. Two further measured constraints shaped how the
+function carries it:
+
+- A non-superuser owner **cannot** name a custom GUC in `CREATE FUNCTION`'s
+  `SET` clause — `ERROR: permission denied to set parameter "app.cross_venue"`.
+  So Postgres cannot be asked to set-and-restore the marker around the function
+  body for us (that needs superuser, or `GRANT SET ON PARAMETER`, which also
+  needs superuser). The function sets it in its body and restores it before
+  returning; on error the (sub)transaction abort unwinds the GUC stack, so no
+  exception handler is required.
+- The function must be `LANGUAGE plpgsql`, not `LANGUAGE sql`: a SQL-language
+  set-returning function can be inlined into the calling query, which would
+  hoist the `venues` scan out of the context that sets the marker.
+
+**Candidate 3 (a separately-provisioned `BYPASSRLS` role) stays rejected** on
+the measurement already recorded above — unprovisionable on this platform at
+all, not merely inconvenient.
+
+**What the second conjunct buys, and what it does not.** The `pg_has_role`
+clause asks whether the reader is (a member of) the table's real owner, read
+from `pg_class.relowner` rather than from a literal role name, so it follows the
+owner across deployments (`doadmin` in production, a scratch role in CI) and
+across a restore instead of silently going false on a rename. Today the service
+connects **as** the owner, so that conjunct is satisfied by every query and the
+marker alone gates the hatch — which is **no weaker than the
+`SET ROLE app_rls_bypass` marker this ADR originally specified**, since any
+application code could equally have issued that. Nor is it a boundary today: with
+one role owning the schema, every escape hatch is reachable from application
+code, which is exactly why #5369's other half (moving the service onto a
+non-owner role) is the real fix. What the conjunct does is make that fix pay off
+with no further migration — measured, a non-owner that sets the marker itself
+still reads zero rows, while the same role calling the function reads every
+venue. `EXECUTE` is revoked from `PUBLIC` for the same reason: it becomes the
+gate the moment the app is not the owner, and until then it costs nothing.
+
+**Writes stay out of the hatch by construction.** The admitting policy is
+`FOR SELECT`, so `venue_isolation` remains the only policy governing writes and
+no cross-venue `INSERT`/`UPDATE`/`DELETE` is reachable through the marker
+(measured above). That is the property that keeps this from reopening the hole
+the ADR exists to close, and it is why the hatch returns rows rather than
+granting a mode.
+
+### 3.2 Two more cross-venue reads this audit missed (open)
+
+The sweep accompanying §3.1 found two reads with the same irreducible shape as
+the admin venue list, both of which this section previously waved past:
+
+1. **`venueService.listForMember()`** (`services/venue.ts`, reached from
+   `routes/venues.ts`'s `GET /api/v1/venues` for a non-admin). §3 above says it
+   "already scopes through `VenueMembership`" — true, and irrelevant to RLS: a
+   membership filter is an application predicate, not a value of
+   `app.venue_id`. A staff user belonging to two venues has no single venue id
+   that makes the query correct, so under FORCE it returns **zero rows** and the
+   venue picker goes blank.
+2. **`GET /api/v1/reservations/me`** (`routes/reservations.ts` →
+   `reservationService.listByUserId`). A diner's own reservations span whatever
+   venues they booked at; same shape, same zero-rows outcome.
+
+Neither is fixed here — they are reported rather than patched, so each gets its
+own reviewed change. They sit in the table above so nothing claims this audit is
+closed on the strength of §3.1 alone.
+
+**The general lesson is #5382's, in the other direction:** "does this query read
+across venues" was asked of the query but answered from the route's intent.
+`listForMember` reads like a scoped list because it has a `where` clause; it is
+cross-venue because the clause it has is not the one RLS enforces. The question
+that actually separates the classes is _can this query name exactly one venue
+id_ — and a query can have a perfectly good filter and still answer no.
 
 **Addendum (issue #5382) — a separate class this audit's question did not
 reach: single-venue queries that could not _name_ their venue.** Everything
@@ -223,6 +353,41 @@ owner-bypass or sets `FORCE`, alongside the two open cross-venue cases. The
 same class is already recorded for the venue-self-addressed
 `GET/PATCH/DELETE /api/v1/venues/:id` family in
 `services/reservations/CLAUDE.md`.
+
+### 3.3 What the `FORCE ROW LEVEL SECURITY` flip still needs
+
+§3.1 makes the flip _decidable_; it does not make it safe on its own, and no
+migration in this repo sets FORCE. The flip is gated on these, all identified by
+the #5369 sweep and none of them fixed by it:
+
+1. **The two newly-open cross-venue reads in §3.2** (`listForMember`,
+   `GET /api/v1/reservations/me`) — zero rows under FORCE.
+2. **Every entity-addressed route.** `venueIdFromEntity`
+   (`routes/venue-access.ts`) resolves a route's venue by loading the addressed
+   entity, and that load is itself an unscoped read of an RLS table — so under
+   FORCE it resolves `null` and `requireVenueAccess` answers **403**, on every
+   `/:id` route of `tables`, `guests`, `floor-plans`, `waitlist` and
+   `reservations`. This is the residual already recorded below the #5382
+   addendum, now enumerated: it fails loudly rather than silently, but it fails.
+3. **The whole public booking funnel.** Every `/public/v1/venues/:slug/*` route
+   opens with `venueService.getBySlug`/`getPublicConfigBySlug`/`getPolicyBySlug`
+   — a `venues` read addressed by slug, which the global resolver cannot turn
+   into an `app.venue_id` — so under FORCE each answers 404 before reaching the
+   feature behind it.
+4. **The token-addressed guest surfaces** (`/public/v1/reservations/manage`,
+   `/confirm`, `/public/v1/guests/unsubscribe`) and the **Stripe webhook**'s
+   `depositService.getByPaymentIntentId` lookup, all of which address a row by
+   an opaque id or token with no venue in the request.
+5. **The venue-self-addressed family** (`GET/PATCH/DELETE /api/v1/venues/:id`,
+   `/:id/table-statuses`), already recorded in
+   `services/reservations/CLAUDE.md`.
+
+Items 2–4 share one shape, and it is the shape the deposits fix (#5382) solved
+for five routes: the lookup that _determines_ the venue cannot run inside the
+scope it is computing. Whatever closes them generally — a resolver that reads
+through a `SECURITY DEFINER` projection, or a scope-free lookup table of
+`(entity id → venue id)` — is a larger change than this ADR, and it must land
+before FORCE, not after.
 
 ### 4. Session variable design
 
@@ -347,10 +512,12 @@ with §2.
   exact hole RLS exists to close — a real ongoing maintenance burden, not a
   one-time cost, and worth revisiting with a second reviewer whenever a new
   bypass call site is proposed. The `app_rls_bypass` role originally planned
-  for this turned out to be unprovisionable here (§3), so the two remaining
-  cross-venue reads currently depend on owner-bypass instead — which is the
-  same burden, just unnamed, and is why §3 tracks them as open prerequisites
-  rather than as a solved escape hatch.
+  for this turned out to be unprovisionable here (§3), and the hatch that
+  replaced it (§3.1) narrows the burden rather than removing it: it is
+  `SELECT`-only, so no write path can be added to it without a new policy, and
+  it returns rows from one named function rather than granting a mode — but it
+  is still a second privileged path, and `grep -rn app_cross_venue_venues` is
+  the review surface for it.
 
 ## Alternatives Considered
 
@@ -390,5 +557,7 @@ decided — a backstop, not a second authority.
   remains open.
 - **Issue #5401**: the lapsed-guest cron's per-venue scan, resolved with
   per-venue `set_config` rather than a bypass role.
-- **Issue #5369**: the app connecting as the table owner — the dependency the
-  two remaining cross-venue reads in §3 currently rest on.
+- **Issue #5369**: the app connecting as the table owner, which made the whole
+  backstop inert. Its first half — a cross-venue mechanism that does not depend
+  on owner-bypass — is §3.1; its sweep produced §3.2 and §3.3. Still open under
+  it: moving the service onto a non-owner role, and the FORCE flip itself.

@@ -33,8 +33,25 @@ import { findGuestsForVenue, getAllVenueIds } from "./lapsed-guest-cron.js";
  * rather than reporting a hidden pass for a suite that never ran — the
  * "invisible spec" antipattern documented in
  * .claude/rules/gotchas.md#build--pnpm--turbo.
+ *
+ * Serialised against `../routes/rls-isolation.integration.test.ts` by the
+ * advisory lock below: that suite enables `FORCE ROW LEVEL SECURITY` on these
+ * same tables for its duration, and vitest runs test files in parallel
+ * workers, so without the lock this suite's owner-side seed writes can land
+ * inside that window and be rejected — measured, `42501 new row violates
+ * row-level security policy for table "guests"` on roughly one run in ten.
  */
 const DATABASE_URL = process.env.DATABASE_URL;
+
+/**
+ * Advisory-lock key shared with `../routes/rls-isolation.integration.test.ts`
+ * — both real-Postgres suites hold it for their whole run so neither observes
+ * the other's `FORCE ROW LEVEL SECURITY` window. Held on a DEDICATED
+ * `pg.Client`: `pg_advisory_lock` is session-scoped, and a pool hands out an
+ * arbitrary connection per query, so a lock taken through one could be
+ * released on a different session than took it — i.e. never released.
+ */
+const RLS_SUITE_LOCK_KEY = 5369;
 
 describe.skipIf(!DATABASE_URL)(
   "lapsed-guest-cron RLS integration (ADR-026 §4 per-venue set_config, issue #5401)",
@@ -46,6 +63,7 @@ describe.skipIf(!DATABASE_URL)(
     // nothing beyond this test's own throwaway fixture data.
     const nonOwnerPassword = randomBytes(24).toString("hex");
 
+    let lockClient: pg.Client;
     let ownerPool: pg.Pool;
     let ownerPrisma: PrismaClient;
     let appPool: pg.Pool;
@@ -59,6 +77,10 @@ describe.skipIf(!DATABASE_URL)(
     }
 
     beforeAll(async () => {
+      lockClient = new pg.Client({ connectionString: DATABASE_URL! });
+      await lockClient.connect();
+      await lockClient.query("SELECT pg_advisory_lock($1)", [RLS_SUITE_LOCK_KEY]);
+
       [ownerPool, ownerPrisma] = connect(DATABASE_URL!);
 
       // A fresh, non-owner, non-superuser role with ordinary DML privileges
@@ -71,6 +93,12 @@ describe.skipIf(!DATABASE_URL)(
       await ownerPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO "${nonOwnerRole}"`);
       await ownerPrisma.$executeRawUnsafe(
         `GRANT SELECT, INSERT ON "venues", "guests", "reservations" TO "${nonOwnerRole}"`
+      );
+      // ADR-026 §3's cross-venue escape hatch revokes EXECUTE from PUBLIC, so a
+      // non-owner needs it granted explicitly — the same GRANT whichever change
+      // moves the service onto a non-owner role will have to issue.
+      await ownerPrisma.$executeRawUnsafe(
+        `GRANT EXECUTE ON FUNCTION app_cross_venue_venues(text) TO "${nonOwnerRole}"`
       );
 
       const appUrl = new URL(DATABASE_URL!);
@@ -102,12 +130,18 @@ describe.skipIf(!DATABASE_URL)(
       // Table-level grants are separate ACL entries from the schema-level
       // USAGE grant -- both must be revoked before DROP ROLE will succeed.
       await ownerPrisma.$executeRawUnsafe(
+        `REVOKE EXECUTE ON FUNCTION app_cross_venue_venues(text) FROM "${nonOwnerRole}"`
+      );
+      await ownerPrisma.$executeRawUnsafe(
         `REVOKE SELECT, INSERT ON "venues", "guests", "reservations" FROM "${nonOwnerRole}"`
       );
       await ownerPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM "${nonOwnerRole}"`);
       await ownerPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS "${nonOwnerRole}"`);
       await ownerPrisma.$disconnect();
       await ownerPool.end();
+
+      await lockClient.query("SELECT pg_advisory_unlock($1)", [RLS_SUITE_LOCK_KEY]);
+      await lockClient.end();
     });
 
     it("baseline: a plain query as the non-owner role with no app.venue_id set sees zero guests (ADR-026 §4 default-deny)", async () => {
@@ -140,24 +174,22 @@ describe.skipIf(!DATABASE_URL)(
       expect(leaked).toEqual([]);
     });
 
-    it("getAllVenueIds is the ONE remaining cross-venue read: as a non-owner it sees zero venues (OPEN prerequisite, ADR-026 §3)", async () => {
-      // NOT a desired behavior -- this pins a known, documented gap so it
-      // cannot change silently. `venues`' RLS policy is keyed on each row's
-      // own `id` (20260919000000_enable_rls_venues), so a query whose whole
-      // purpose is to discover those ids has no single `app.venue_id` that
-      // would make it correct. In production this still returns every venue,
-      // because the service connects as the table owner and no table sets
-      // FORCE ROW LEVEL SECURITY -- which is exactly why the cron is not
-      // broken today. When that changes (FORCE lands, or #5369 moves the app
-      // off the owner role), this assertion is what should force the
-      // conversation instead of the cron quietly becoming a no-op.
+    it("getAllVenueIds reads every venue AS A NON-OWNER, through the cross-venue escape hatch (#5369)", async () => {
+      // This assertion used to pin the opposite (`toEqual([])`) as a known,
+      // documented gap: `venues`' RLS policy is keyed on each row's own `id`
+      // (20260919000000_enable_rls_venues), so a query whose whole purpose is
+      // to discover those ids has no single `app.venue_id` that would make it
+      // correct, and the read worked in production only because the service
+      // connects as the table owner (#5369). It now goes through
+      // `app_cross_venue_venues()` (ADR-026 §3's chosen mechanism), so it no
+      // longer depends on the caller owning the table -- which is what makes
+      // the `FORCE ROW LEVEL SECURITY` flip safe for the cron.
       const venueIds = await getAllVenueIds(appPrisma);
 
-      expect(venueIds).toEqual([]);
+      expect(venueIds).toEqual(expect.arrayContaining([venueA.id, venueB.id]));
     });
 
-    it("confirms the owner role still reads every venue, so the cron's venue list works in production today", async () => {
-      // The other half of the assertion above: the gap is real but latent.
+    it("getAllVenueIds still reads every venue as the owner, so nothing regressed for today's deployed role", async () => {
       const venueIds = await getAllVenueIds(ownerPrisma);
 
       expect(venueIds).toEqual(expect.arrayContaining([venueA.id, venueB.id]));

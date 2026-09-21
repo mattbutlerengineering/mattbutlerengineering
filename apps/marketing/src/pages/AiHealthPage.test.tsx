@@ -529,4 +529,110 @@ describe("AiHealthPage", () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  // #5443: the page's whole stated purpose is honesty about self-improvement,
+  // which a point-in-time snapshot cannot demonstrate. Both trends come from
+  // one extra payload, fetched the same way the snapshot panels already are.
+  describe("trend panels", () => {
+    // Matches scripts/generate-health-trends.mjs's output.
+    const MOCK_TRENDS = {
+      generated_at: "2026-09-20T12:00:00.000Z",
+      window_days: 60,
+      acmmLevel: {
+        label: "ACMM maturity level",
+        source: ".claude/acmm/state.json",
+        points: [
+          { date: "2026-09-18", value: 4, note: null },
+          { date: "2026-09-19", value: 5, note: null },
+          { date: "2026-09-20", value: 5, note: null },
+        ],
+      },
+      queueEfficiency: {
+        label: "Queue efficiency composite",
+        source: "metrics/process-metrics.jsonl",
+        points: [
+          { date: "2026-09-13", value: 0.923, note: null },
+          { date: "2026-09-15", value: null, note: "query_error" },
+          { date: "2026-09-16", value: 0.911, note: null },
+        ],
+      },
+    };
+
+    /** Routes each URL to its own payload, or to a rejection. */
+    function mockByUrl(responses: Record<string, unknown>) {
+      mockFetch.mockImplementation((url: string) => {
+        const payload = responses[url];
+        if (payload instanceof Error) return Promise.reject(payload);
+        return Promise.resolve({ ok: true, json: async () => payload });
+      });
+    }
+
+    it("fetches /ai-health-trends.json alongside the sensor report", async () => {
+      mockByUrl({ "/sensor-report.json": MOCK_REPORT, "/ai-health-trends.json": MOCK_TRENDS });
+      renderPage();
+
+      await waitFor(() =>
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/ai-health-trends.json",
+          expect.objectContaining({ signal: expect.any(AbortSignal) })
+        )
+      );
+    });
+
+    it("charts the ACMM level history and states it in text", async () => {
+      mockByUrl({ "/sensor-report.json": MOCK_REPORT, "/ai-health-trends.json": MOCK_TRENDS });
+      renderPage();
+
+      const panel = await screen.findByTestId("acmm-level-trend");
+      expect(panel).toHaveTextContent(
+        "ACMM maturity level over 3 days: 4 on 2026-09-18 to 5 on 2026-09-20. " +
+          "3 days measured, 0 days with no measurement."
+      );
+      expect(panel.querySelectorAll('[data-testid="trend-dot"]')).toHaveLength(3);
+    });
+
+    it("charts the queueEfficiency composite and surfaces its real gap", async () => {
+      mockByUrl({ "/sensor-report.json": MOCK_REPORT, "/ai-health-trends.json": MOCK_TRENDS });
+      renderPage();
+
+      const panel = await screen.findByTestId("queue-efficiency-trend");
+      expect(panel).toHaveTextContent("1 day with no measurement");
+      expect(panel.querySelectorAll('[data-testid="trend-gap"]')).toHaveLength(1);
+      expect(
+        within(panel).getByRole("cell", { name: "No data (query_error)" })
+      ).toBeInTheDocument();
+    });
+
+    it("still charts the history when today's snapshot reading is unavailable", async () => {
+      // A failed collection today says nothing about the trailing window, so
+      // hiding the trend behind the snapshot's availability would hide the
+      // history the panel exists to show.
+      mockByUrl({
+        "/sensor-report.json": {
+          ...MOCK_REPORT,
+          sensors: { ...MOCK_REPORT.sensors, queueEfficiency: { available: false } },
+        },
+        "/ai-health-trends.json": MOCK_TRENDS,
+      });
+      renderPage();
+
+      const panel = await screen.findByTestId("queue-efficiency-trend");
+      expect(panel).toHaveTextContent("2 days measured, 1 day with no measurement");
+    });
+
+    it("says the trend history is unavailable rather than showing an empty chart", async () => {
+      mockByUrl({
+        "/sensor-report.json": MOCK_REPORT,
+        "/ai-health-trends.json": new Error("Network error"),
+      });
+      renderPage();
+
+      await waitFor(() =>
+        expect(screen.getAllByText("Trend history unavailable.")).toHaveLength(2)
+      );
+      // The snapshot panels still render behind the missing trends.
+      expect(screen.getByText("Key Metrics")).toBeInTheDocument();
+      expect(screen.queryByTestId("acmm-level-trend")).not.toBeInTheDocument();
+    });
+  });
 });

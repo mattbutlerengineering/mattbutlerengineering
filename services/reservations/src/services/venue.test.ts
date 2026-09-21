@@ -25,6 +25,7 @@ vi.mock("./database.js", async () => {
         create: vi.fn(),
         count: vi.fn(),
       },
+      $queryRaw: vi.fn(),
       $transaction: vi.fn(),
     },
   });
@@ -75,6 +76,55 @@ function makePrismaVenue(overrides: Record<string, unknown> = {}) {
     updatedAt: NOW,
     ...overrides,
   };
+}
+
+/**
+ * A raw `venues` row joined to its group, as `venueService.list`'s
+ * `app_cross_venue_venues()` query returns it — Postgres column names and
+ * Postgres types, not Prisma's camelCase field names (ADR-026 §3, #5369).
+ */
+function makeCrossVenueRow(overrides: Record<string, unknown> = {}) {
+  const venue = makePrismaVenue();
+  return {
+    id: venue.id,
+    venue_group_id: venue.venueGroupId,
+    name: venue.name,
+    slug: venue.slug,
+    iana_timezone: venue.ianaTimezone,
+    currency_code: venue.currencyCode,
+    operating_hours: venue.operatingHours,
+    settings: venue.settings,
+    created_at: venue.createdAt,
+    updated_at: venue.updatedAt,
+    group_id: "group-1",
+    group_name: "Test Group",
+    group_slug: "test-group",
+    group_settings: null,
+    group_created_at: NOW,
+    ...overrides,
+  };
+}
+
+/**
+ * Answers `list`'s two `$queryRaw` calls by SQL shape rather than call order:
+ * they are issued concurrently, so a `mockResolvedValueOnce` pair would couple
+ * the test to `Promise.all`'s scheduling.
+ */
+function mockCrossVenueQueries(rows: unknown[], total: number): void {
+  vi.mocked(prisma.$queryRaw).mockImplementation(((strings: TemplateStringsArray) =>
+    Promise.resolve(strings.join("").includes("count(") ? [{ total }] : rows)) as never);
+}
+
+/** The SQL text of every `$queryRaw` call made so far, tagged template joined. */
+function crossVenueSqlCalls(): string[] {
+  return vi
+    .mocked(prisma.$queryRaw)
+    .mock.calls.map((call) => (call[0] as unknown as TemplateStringsArray).join(""));
+}
+
+/** The bound values of every `$queryRaw` call made so far. */
+function crossVenueValueCalls(): unknown[][] {
+  return vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call.slice(1));
 }
 
 /** Minimal interactive-transaction client shape used by create() seeding tests. */
@@ -218,10 +268,8 @@ describe("venueService", () => {
   });
 
   describe("list", () => {
-    it("returns paginated venues with venueGroup included", async () => {
-      const dbVenue = makePrismaVenue();
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([dbVenue] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(1 as never);
+    it("returns paginated venues with venueGroup included, read through the cross-venue escape hatch (#5369)", async () => {
+      mockCrossVenueQueries([makeCrossVenueRow()], 1);
 
       const result = await venueService.list(1, 10);
 
@@ -232,30 +280,68 @@ describe("venueService", () => {
       expect(venue.venueGroup?.name).toBe("Test Group");
       expect(venue.ianaTimezone).toBe("America/Los_Angeles");
       expect(typeof venue.createdAt).toBe("string");
+      expect(result.pagination.total).toBe(1);
     });
 
-    it("filters by venueGroupId when provided", async () => {
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(0 as never);
-
-      await venueService.list(1, 10, "group-1");
-
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { venueGroupId: "group-1" } })
-      );
-      // count query must also filter by venueGroupId so both use the venues_venue_group_id_idx index
-      expect(prisma.venue.count).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { venueGroupId: "group-1" } })
-      );
-    });
-
-    it("does not filter when venueGroupId is omitted", async () => {
-      vi.mocked(prisma.venue.findMany).mockResolvedValueOnce([] as never);
-      vi.mocked(prisma.venue.count).mockResolvedValueOnce(0 as never);
+    it("reads through app_cross_venue_venues(), never the venue delegate (which depends on owner-bypass)", async () => {
+      mockCrossVenueQueries([makeCrossVenueRow()], 1);
 
       await venueService.list(1, 10);
 
-      expect(prisma.venue.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+      // The admin list is irreducibly cross-venue, so under
+      // FORCE ROW LEVEL SECURITY a delegate read returns zero rows — see
+      // ADR-026 §3 and the migration that adds this function.
+      for (const sql of crossVenueSqlCalls()) {
+        expect(sql).toContain("app_cross_venue_venues(");
+      }
+      expect(prisma.venue.findMany).not.toHaveBeenCalled();
+      expect(prisma.venue.count).not.toHaveBeenCalled();
+    });
+
+    it("filters by venueGroupId when provided, as a bound parameter on both queries", async () => {
+      mockCrossVenueQueries([], 0);
+
+      await venueService.list(1, 10, "group-1");
+
+      // Both the page query and the count query go through the same function
+      // with the same filter, so the total matches the page's own scope.
+      expect(crossVenueSqlCalls()).toHaveLength(2);
+      for (const values of crossVenueValueCalls()) {
+        expect(values).toContain("group-1");
+      }
+    });
+
+    it("passes NULL when venueGroupId is omitted, so every venue is in scope", async () => {
+      mockCrossVenueQueries([], 0);
+
+      await venueService.list(1, 10);
+
+      for (const values of crossVenueValueCalls()) {
+        expect(values[0]).toBeNull();
+      }
+    });
+
+    it("maps a venue with no venue group to a null venueGroupId and no venueGroup", async () => {
+      mockCrossVenueQueries(
+        [
+          makeCrossVenueRow({
+            venue_group_id: null,
+            group_id: null,
+            group_name: null,
+            group_slug: null,
+            group_settings: null,
+            group_created_at: null,
+          }),
+        ],
+        1
+      );
+
+      const result = await venueService.list(1, 10);
+
+      const [venue] = result.data;
+      if (!venue) throw new Error("expected a venue");
+      expect(venue.venueGroupId).toBeNull();
+      expect(venue.venueGroup).toBeUndefined();
     });
   });
 
