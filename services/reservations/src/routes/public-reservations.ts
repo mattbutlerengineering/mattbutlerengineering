@@ -15,6 +15,14 @@ const TOKEN_SECRET = getManageTokenConfig({
   secret: process.env.MANAGE_TOKEN_SECRET,
 }).secret;
 
+const SESSION_ID_HEADER = "x-session-id";
+
+// One detail for "no such hold" and for "not your hold" alike. The hold id is a
+// low-entropy, guessable cuid (see public-holds.ts), so any wording that told
+// the two apart would be a hold-id oracle — an attacker could enumerate ids and
+// learn which are live. Deliberately says nothing about sessions.
+const HOLD_NOT_FOUND_DETAIL = "Hold not found.";
+
 export function generateManageToken(reservationId: string, guestEmail: string): string {
   const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
   const payload = `${reservationId}:${guestEmail}:${expiry}`;
@@ -102,6 +110,21 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
       const ip = request.ip;
 
+      // The high-entropy sessionId minted at hold creation is this caller's
+      // capability token and the only proof the hold is theirs — mirrors the
+      // release path in public-holds.ts. Reading it here is what makes
+      // confirmHold's SESSION_MISMATCH check run at all: calling confirmHold
+      // without a sessionId skipped ownership entirely, so anyone who guessed a
+      // live holdId could confirm another guest's hold under their own name.
+      const sessionId = request.headers[SESSION_ID_HEADER];
+      if (typeof sessionId !== "string" || sessionId.length === 0) {
+        throw new AppError(
+          "SESSION_REQUIRED",
+          401,
+          `Pass the hold's session ID via the ${SESSION_ID_HEADER} header to confirm it.`
+        );
+      }
+
       const venue = await venueService.getBySlug(slug);
       if (!venue) {
         throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
@@ -116,6 +139,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
 
       const result = await confirmHold({
         holdId,
+        sessionId,
         guestDetails: {
           guestName,
           guestEmail,
@@ -126,10 +150,14 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       if (!result.success) {
+        // A hold the caller does not own answers exactly as a hold that does not
+        // exist — same status, same code, same detail. See HOLD_NOT_FOUND_DETAIL.
+        if (result.errorCode === "NOT_FOUND" || result.errorCode === "SESSION_MISMATCH") {
+          throw new AppError("NOT_FOUND", 404, HOLD_NOT_FOUND_DETAIL);
+        }
+
         const statusMap: Record<string, number> = {
-          NOT_FOUND: 404,
           EXPIRED: 410,
-          SESSION_MISMATCH: 403,
           CONFLICT: 409,
           PACING_EXCEEDED: 422,
         };

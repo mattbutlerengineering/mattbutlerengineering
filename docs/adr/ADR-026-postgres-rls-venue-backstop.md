@@ -162,6 +162,68 @@ required), a policy predicate that admits a second GUC such as
 permits `BYPASSRLS`. Nothing should claim the audit is closed until one is
 chosen: the two reads above are the remaining blockers to forcing RLS.
 
+**Addendum (issue #5382) — a separate class this audit's question did not
+reach: single-venue queries that could not _name_ their venue.** Everything
+above answers "which queries read across venues". `services/reservations/src/routes/deposits.ts`
+answers it with "none of them" — and was still broken, which is why it does
+not appear in the list. Its five admin routes (`POST /`, `GET /:id`,
+`/:id/capture`, `/:id/refund`, `/:id/forfeit`) each address exactly one
+venue's data, but were gated only on `requireAdmin` (a stateless,
+platform-wide role check, not venue-scoped) and addressed only by an opaque
+deposit/reservation id — no `venueId` in the query, body, or params. The
+global venue-context preHandler therefore resolved `null` for all five and
+`app.venue_id` was never set. Under §4 that is default-deny, so the failure
+mode is not a leak but its opposite: every deposit becomes invisible to
+staff once `FORCE ROW LEVEL SECURITY` lands — capture/refund/forfeit
+silently broken, no error, just empty results. Found by the
+`migration-reviewer` subagent while reviewing the `deposits`/`waitlist_entries`
+part of this series.
+
+**This is not a third cross-venue path, and it does not reopen the two
+above.** "No other cross-venue query was found" remains true as written, and
+the two OPEN PREREQUISITE rows in the table are unchanged — neither is
+blocked or unblocked by this addendum. The lesson is about the audit's
+_question_, not its answer: "does this query read across venues" and "can
+this query state which venue it reads" are different questions, and only the
+first was asked. A route can pass the first and fail the second.
+
+Resolved by giving the routes a real venue context: each resolves the owning
+venue through the deposit's reservation (`resolveReservationVenueId` in
+`services/reservations/src/services/deposit-venue.ts` — a
+`reservation.findUnique` selecting only `venue_id`, matching the transitive
+scoping the `deposit_isolation` policy itself performs in §5, since
+`deposits` carries no `venue_id` column of its own per §1) and runs its
+deposit work inside that context via `runWithVenueContext`
+(`services/reservations/src/services/venue-context-store.ts`). An
+unresolvable venue — reservation deleted, or `Reservation.venueId` NULL per
+§2 — **fails closed with a 404 before any state transition or Stripe call**,
+rather than proceeding venue-less. `requireAdmin` is unchanged and still
+gates all five routes; this adds venue resolution beneath it, it does not
+replace the authorization check.
+
+No escape hatch was needed or used, and none was available: per the
+superseded-bypass finding above, `app_rls_bypass` is not implementable on
+this deployment at all. Even had it been, it would have been the wrong
+instrument here — a bypass exists for reads that must see _every_ venue at
+once, which none of these routes does, and routing an admin payment surface
+through it would discard venue scoping on the table family where a
+cross-tenant write is worst. These routes are the same shape as the cron's
+per-venue guest scan: a single known venue, resolved and set, no bypass.
+
+**Residual, deliberately not solved by #5382:** the single lookup that
+_determines_ the scope cannot itself run inside the scope it is computing —
+for the four `/:id` routes that is one primary-key read of the addressed
+deposit, plus the reservation's `venue_id`. This is a property of every
+entity-addressed route in this service (`venueIdFromEntity` in
+`services/reservations/src/routes/venue-access.ts` has the identical shape),
+not something `deposits.ts` can fix alone, and it is inert today for the same
+owner-bypass reason the table above records. It must be settled — for the
+whole service, not just deposits — by whichever change finally removes
+owner-bypass or sets `FORCE`, alongside the two open cross-venue cases. The
+same class is already recorded for the venue-self-addressed
+`GET/PATCH/DELETE /api/v1/venues/:id` family in
+`services/reservations/CLAUDE.md`.
+
 ### 4. Session variable design
 
 | Aspect                     | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

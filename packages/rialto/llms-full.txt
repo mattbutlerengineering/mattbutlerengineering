@@ -1088,6 +1088,37 @@
     } satisfies CatalogMeta;
   </file>
   </section>
+  <section priority="medium" role="Letterboard">
+  <file path="src/components/Letterboard/tiles.ts">
+    export interface LetterboardSegment {
+      /** The characters of the run. */
+      readonly text: string;
+      /** Slot this run's pieces as accent (red) letters. @default false */
+      readonly accent?: boolean;
+    }
+    export type LetterboardLine = string | readonly LetterboardSegment[];
+    export interface LetterboardTile {
+      /** The upper-cased glyph moulded on the piece. */
+      readonly char: string;
+      /** True for an accent (red) piece. */
+      readonly accent: boolean;
+      /** True when the character is whitespace: no piece, just ridge. */
+      readonly empty: boolean;
+    }
+    export function toSegments(line: LetterboardLine): readonly LetterboardSegment[] {
+      return typeof line === "string" ? [{ text: line }] : line;
+    }
+    export function toTiles(line: LetterboardLine): readonly LetterboardTile[] {
+      return toSegments(line).flatMap((segment) =>
+        [...segment.text].map((char) => ({
+          char: char.toUpperCase(),
+          accent: segment.accent === true,
+          empty: char.trim() === "",
+        }))
+      );
+    }
+  </file>
+  </section>
   <section priority="medium" role="NavigationMenu">
   <file path="src/components/NavigationMenu/NavigationMenu.catalog.ts">
     export const navigationMenuCatalogMeta = {
