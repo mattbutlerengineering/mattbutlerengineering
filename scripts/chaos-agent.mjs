@@ -13,6 +13,14 @@
  * 2. lighthouse-perf: Adds a large invisible image (caught by Lighthouse)
  * 3. accessibility: Removes an aria-label (caught by Lighthouse a11y)
  * 4. scout-todo: Adds a FIXME comment (caught by site-audit scout)
+ * 5. lint-violation: Adds an unused local (caught by ESLint in CI, on the PR)
+ *
+ * Types 1-4 are all checked by site-audit or Lighthouse, which run against
+ * `main` or the deployed site. Chaos PRs are never merged, so those detectors
+ * structurally cannot observe the seeded bug — four synthetic PRs produced zero
+ * detections and zero `chaos-audit` issues (#5624). `lint-violation` is the
+ * first type whose detector runs on the chaos branch itself, so a seeded bug
+ * is observed within minutes instead of never.
  *
  * Usage:
  *   node scripts/chaos-agent.mjs --type <type> [--file <path>]
