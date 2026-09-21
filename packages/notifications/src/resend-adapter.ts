@@ -16,18 +16,37 @@ interface ResendClient {
 export interface ResendAdapterConfig {
   resend: ResendClient | null;
   fromAddress: string;
+  /**
+   * Web origin for the guest-facing manage / cancel / modify PAGE. Never used
+   * to build an API path — see `publicApiBaseUrl`.
+   */
   manageBaseUrl: string;
+  /**
+   * API origin for guest-facing API links — currently only the unsubscribe
+   * endpoint (`/public/v1/guests/unsubscribe`), which is an API route that
+   * renders its own confirmation page, not a web page.
+   *
+   * Separate from `manageBaseUrl` because the two links have different
+   * destinations: one base serving both meant setting it correctly for one
+   * necessarily pointed the other at the wrong host (#4517).
+   *
+   * `null` means unconfigured, and post-visit emails are refused rather than
+   * sent with a link built from a guessed host.
+   */
+  publicApiBaseUrl: string | null;
 }
 
 export class ResendNotificationAdapter implements NotificationPort {
   private readonly resend: ResendClient | null;
   private readonly fromAddress: string;
   private readonly manageBaseUrl: string;
+  private readonly publicApiBaseUrl: string | null;
 
   constructor(config: ResendAdapterConfig) {
     this.resend = config.resend;
     this.fromAddress = config.fromAddress;
     this.manageBaseUrl = config.manageBaseUrl;
+    this.publicApiBaseUrl = config.publicApiBaseUrl;
   }
 
   async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
@@ -110,6 +129,17 @@ export class ResendNotificationAdapter implements NotificationPort {
   async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
     if (!this.resend) return;
 
+    // Throw rather than send: an email whose only unsubscribe link points at a
+    // host that cannot unsubscribe anyone is worse than no email, and a silent
+    // skip here would be recorded as emailStatus=SENT by the post-visit
+    // notifier. The rejection is what makes it FAILED instead.
+    if (!this.publicApiBaseUrl) {
+      throw new Error(
+        "Refusing to send post-visit email: publicApiBaseUrl is not configured " +
+          "(PUBLIC_API_BASE_URL), so the unsubscribe link cannot be built."
+      );
+    }
+
     const { guestEmail, guestFirstName, venueName, visitDate, feedbackUrl, unsubscribeToken } =
       input;
 
@@ -117,7 +147,7 @@ export class ResendNotificationAdapter implements NotificationPort {
     const safeVenueName = escapeHtml(venueName);
     const safeVisitDate = escapeHtml(visitDate);
     const safeUnsubscribeUrl = escapeHtml(
-      `${this.manageBaseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
+      `${this.publicApiBaseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
     );
 
     const safeFeedbackUrl = feedbackUrl ? sanitizeUrl(feedbackUrl) : null;

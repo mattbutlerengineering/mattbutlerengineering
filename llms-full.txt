@@ -7316,6 +7316,56 @@
       return { secret };
     }
   </file>
+  <file path="services/reservations/src/config/public-api-base-url.ts">
+    export interface PublicApiBaseUrlConfig {
+      /**
+       * Origin for guest-facing API links, trailing slash stripped.
+       * Null when PUBLIC_API_BASE_URL is unconfigured — deliberately NOT a default.
+       */
+      baseUrl: string | null;
+    }
+    interface PublicApiBaseUrlConfigInput {
+      baseUrl: string | undefined;
+      /** True when outbound email can actually send (RESEND_API_KEY present). */
+      emailEnabled: boolean;
+    }
+    export function getPublicApiBaseUrlConfig(
+      input: PublicApiBaseUrlConfigInput
+    ): PublicApiBaseUrlConfig {
+      const raw = (input.baseUrl ?? "").trim();
+    
+      if (raw === "") {
+        if (input.emailEnabled) {
+          console.error(
+            "[ERROR] PUBLIC_API_BASE_URL is not set while email sending is enabled. " +
+              "Refusing to build guest unsubscribe links from MANAGE_BASE_URL (that is a web " +
+              "host, not the API) — post-visit emails will fail until PUBLIC_API_BASE_URL is " +
+              "configured to the public API origin, e.g. https://api.mattbutlerengineering.com (see #4517)."
+          );
+        }
+        return { baseUrl: null };
+      }
+    
+      let parsed: URL;
+      try {
+        parsed = new URL(raw);
+      } catch {
+        throw new Error(
+          `Invalid PUBLIC_API_BASE_URL: "${raw}" is not an absolute URL. ` +
+            "Expected an origin such as https://api.mattbutlerengineering.com."
+        );
+      }
+    
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error(
+          `Invalid PUBLIC_API_BASE_URL: scheme must be http or https, got "${parsed.protocol}". ` +
+            "Expected an origin such as https://api.mattbutlerengineering.com."
+        );
+      }
+    
+      return { baseUrl: raw.replace(/\/+$/, "") };
+    }
+  </file>
   <file path="services/reservations/src/config/stripe.ts">
     export interface StripeConfig {
       secretKey: string;
@@ -48492,17 +48542,36 @@
     export interface ResendAdapterConfig {
       resend: ResendClient | null;
       fromAddress: string;
+      /**
+       * Web origin for the guest-facing manage / cancel / modify PAGE. Never used
+       * to build an API path — see `publicApiBaseUrl`.
+       */
       manageBaseUrl: string;
+      /**
+       * API origin for guest-facing API links — currently only the unsubscribe
+       * endpoint (`/public/v1/guests/unsubscribe`), which is an API route that
+       * renders its own confirmation page, not a web page.
+       *
+       * Separate from `manageBaseUrl` because the two links have different
+       * destinations: one base serving both meant setting it correctly for one
+       * necessarily pointed the other at the wrong host (#4517).
+       *
+       * `null` means unconfigured, and post-visit emails are refused rather than
+       * sent with a link built from a guessed host.
+       */
+      publicApiBaseUrl: string | null;
     }
     export class ResendNotificationAdapter implements NotificationPort {
       private readonly resend: ResendClient | null;
       private readonly fromAddress: string;
       private readonly manageBaseUrl: string;
+      private readonly publicApiBaseUrl: string | null;
     
       constructor(config: ResendAdapterConfig) {
         this.resend = config.resend;
         this.fromAddress = config.fromAddress;
         this.manageBaseUrl = config.manageBaseUrl;
+        this.publicApiBaseUrl = config.publicApiBaseUrl;
       }
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
@@ -48585,6 +48654,17 @@
       async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
         if (!this.resend) return;
     
+        // Throw rather than send: an email whose only unsubscribe link points at a
+        // host that cannot unsubscribe anyone is worse than no email, and a silent
+        // skip here would be recorded as emailStatus=SENT by the post-visit
+        // notifier. The rejection is what makes it FAILED instead.
+        if (!this.publicApiBaseUrl) {
+          throw new Error(
+            "Refusing to send post-visit email: publicApiBaseUrl is not configured " +
+              "(PUBLIC_API_BASE_URL), so the unsubscribe link cannot be built."
+          );
+        }
+    
         const { guestEmail, guestFirstName, venueName, visitDate, feedbackUrl, unsubscribeToken } =
           input;
     
@@ -48592,7 +48672,7 @@
         const safeVenueName = escapeHtml(venueName);
         const safeVisitDate = escapeHtml(visitDate);
         const safeUnsubscribeUrl = escapeHtml(
-          `${this.manageBaseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
+          `${this.publicApiBaseUrl}/public/v1/guests/unsubscribe?token=${unsubscribeToken}`
         );
     
         const safeFeedbackUrl = feedbackUrl ? sanitizeUrl(feedbackUrl) : null;
@@ -52333,10 +52413,16 @@
           })
         : null;
     
+      const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({
+        baseUrl: process.env.PUBLIC_API_BASE_URL,
+        emailEnabled: resendClient !== null,
+      });
+    
       return new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        publicApiBaseUrl,
       });
     }
     export function createNotificationPort(): NotificationDispatcher {

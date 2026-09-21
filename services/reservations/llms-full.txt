@@ -29,6 +29,56 @@
       return { secret };
     }
   </file>
+  <file path="src/config/public-api-base-url.ts">
+    export interface PublicApiBaseUrlConfig {
+      /**
+       * Origin for guest-facing API links, trailing slash stripped.
+       * Null when PUBLIC_API_BASE_URL is unconfigured — deliberately NOT a default.
+       */
+      baseUrl: string | null;
+    }
+    interface PublicApiBaseUrlConfigInput {
+      baseUrl: string | undefined;
+      /** True when outbound email can actually send (RESEND_API_KEY present). */
+      emailEnabled: boolean;
+    }
+    export function getPublicApiBaseUrlConfig(
+      input: PublicApiBaseUrlConfigInput
+    ): PublicApiBaseUrlConfig {
+      const raw = (input.baseUrl ?? "").trim();
+    
+      if (raw === "") {
+        if (input.emailEnabled) {
+          console.error(
+            "[ERROR] PUBLIC_API_BASE_URL is not set while email sending is enabled. " +
+              "Refusing to build guest unsubscribe links from MANAGE_BASE_URL (that is a web " +
+              "host, not the API) — post-visit emails will fail until PUBLIC_API_BASE_URL is " +
+              "configured to the public API origin, e.g. https://api.mattbutlerengineering.com (see #4517)."
+          );
+        }
+        return { baseUrl: null };
+      }
+    
+      let parsed: URL;
+      try {
+        parsed = new URL(raw);
+      } catch {
+        throw new Error(
+          `Invalid PUBLIC_API_BASE_URL: "${raw}" is not an absolute URL. ` +
+            "Expected an origin such as https://api.mattbutlerengineering.com."
+        );
+      }
+    
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        throw new Error(
+          `Invalid PUBLIC_API_BASE_URL: scheme must be http or https, got "${parsed.protocol}". ` +
+            "Expected an origin such as https://api.mattbutlerengineering.com."
+        );
+      }
+    
+      return { baseUrl: raw.replace(/\/+$/, "") };
+    }
+  </file>
   <file path="src/config/stripe.ts">
     export interface StripeConfig {
       secretKey: string;
@@ -12394,10 +12444,16 @@
           })
         : null;
     
+      const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({
+        baseUrl: process.env.PUBLIC_API_BASE_URL,
+        emailEnabled: resendClient !== null,
+      });
+    
       return new ResendNotificationAdapter({
         resend: resendClient,
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: process.env.MANAGE_BASE_URL ?? "https://mattbutlerengineering.com",
+        publicApiBaseUrl,
       });
     }
     export function createNotificationPort(): NotificationDispatcher {

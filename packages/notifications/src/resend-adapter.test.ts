@@ -31,6 +31,7 @@ describe("ResendNotificationAdapter", () => {
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendBookingConfirmation(defaultInput);
@@ -51,6 +52,7 @@ describe("ResendNotificationAdapter", () => {
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendBookingCancelled(defaultInput);
@@ -67,6 +69,7 @@ describe("ResendNotificationAdapter", () => {
       resend: null,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await expect(adapter.sendBookingConfirmation(defaultInput)).resolves.toBeUndefined();
@@ -79,6 +82,7 @@ describe("ResendNotificationAdapter", () => {
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendBookingModified({ ...defaultInput, sequence: 2 });
@@ -93,6 +97,7 @@ describe("ResendNotificationAdapter", () => {
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendBookingReminder(defaultInput);
@@ -108,6 +113,7 @@ describe("ResendNotificationAdapter", () => {
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendWinBack({
@@ -129,6 +135,7 @@ describe("ResendNotificationAdapter", () => {
       resend: mockResend as never,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await adapter.sendWinBack({
@@ -148,6 +155,7 @@ describe("ResendNotificationAdapter", () => {
       resend: null,
       fromAddress: "bookings@mbe.dev",
       manageBaseUrl: "https://app.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
     });
 
     await expect(
@@ -159,6 +167,21 @@ describe("ResendNotificationAdapter", () => {
     ).resolves.toBeUndefined();
 
     expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("keeps the manage link on manageBaseUrl when the two bases differ", async () => {
+    const adapter = new ResendNotificationAdapter({
+      resend: mockResend as never,
+      fromAddress: "bookings@mbe.dev",
+      manageBaseUrl: "https://web.mbe.dev/reservations/manage",
+      publicApiBaseUrl: "https://api.mbe.dev",
+    });
+
+    await adapter.sendBookingConfirmation(defaultInput);
+
+    const call = mockSend.mock.calls[0][0];
+    expect(call.html).toContain("https://web.mbe.dev/reservations/manage?token=tok_abc123");
+    expect(call.html).not.toContain("https://api.mbe.dev");
   });
 
   describe("sendThankYouEmail", () => {
@@ -176,6 +199,7 @@ describe("ResendNotificationAdapter", () => {
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail(thankYouInput);
@@ -194,6 +218,7 @@ describe("ResendNotificationAdapter", () => {
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail(thankYouInput);
@@ -207,6 +232,7 @@ describe("ResendNotificationAdapter", () => {
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail({ ...thankYouInput, feedbackUrl: null });
@@ -220,6 +246,7 @@ describe("ResendNotificationAdapter", () => {
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail({
@@ -239,6 +266,7 @@ describe("ResendNotificationAdapter", () => {
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail({
@@ -255,6 +283,7 @@ describe("ResendNotificationAdapter", () => {
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail(thankYouInput);
@@ -264,11 +293,48 @@ describe("ResendNotificationAdapter", () => {
       expect(call.html).toContain("unsubscribe");
     });
 
+    // ── #4517: two bases, two destinations ──────────────────────────────
+    // The unsubscribe link is an API endpoint; the manage link is a web page.
+    // Both were built from `manageBaseUrl`, so setting it correctly for one
+    // destination necessarily pointed the other at the wrong host.
+    it("builds the unsubscribe link from publicApiBaseUrl, not manageBaseUrl", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://web.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
+      });
+
+      await adapter.sendThankYouEmail(thankYouInput);
+
+      const call = mockSend.mock.calls[0][0];
+      expect(call.html).toContain(
+        "https://api.mbe.dev/public/v1/guests/unsubscribe?token=tok_unsub123"
+      );
+      expect(call.html).not.toContain("https://web.mbe.dev/public/v1/guests/unsubscribe");
+    });
+
+    it("refuses to send rather than emit an unsubscribe link when publicApiBaseUrl is absent", async () => {
+      const adapter = new ResendNotificationAdapter({
+        resend: mockResend as never,
+        fromAddress: "bookings@mbe.dev",
+        manageBaseUrl: "https://web.mbe.dev",
+        publicApiBaseUrl: null,
+      });
+
+      // Loud, not silent: the thrown error is what the post-visit notifier
+      // records as emailStatus=FAILED. Falling back to manageBaseUrl would put
+      // a link to the wrong host in a guest's inbox and still report success.
+      await expect(adapter.sendThankYouEmail(thankYouInput)).rejects.toThrow(/PUBLIC_API_BASE_URL/);
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
     it("uses 'Guest' as fallback when guestFirstName is null", async () => {
       const adapter = new ResendNotificationAdapter({
         resend: mockResend as never,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await adapter.sendThankYouEmail({ ...thankYouInput, guestFirstName: null });
@@ -282,6 +348,7 @@ describe("ResendNotificationAdapter", () => {
         resend: null,
         fromAddress: "bookings@mbe.dev",
         manageBaseUrl: "https://app.mbe.dev",
+        publicApiBaseUrl: "https://api.mbe.dev",
       });
 
       await expect(adapter.sendThankYouEmail(thankYouInput)).resolves.toBeUndefined();

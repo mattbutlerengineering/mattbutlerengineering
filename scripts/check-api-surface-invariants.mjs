@@ -142,6 +142,27 @@ export const API_SURFACE_PROBES = [
     requireHeaders: ["x-ratelimit-limit"],
   },
   {
+    // The one link a guest can receive that is an API endpoint rather than a
+    // web page. It is built from PUBLIC_API_BASE_URL (#4517), so the API origin
+    // is the host whose behaviour has to be gated.
+    //
+    // No `expectBodyIncludes` needed, unlike the venue-lookup pair above: there
+    // the expected status was 404 on BOTH sides of the fix, so only the body
+    // could say which service answered. Here 400 is itself the discriminator —
+    // it can only come from this route's own INVALID_TOKEN handler, and
+    // users-api's catch-all (which would answer if the /public ingress rule
+    // were lost) has no such route and can only 404.
+    //
+    // A token no signature can validate, so the probe reads config, never data:
+    // verifyUnsubscribeToken rejects it before any guest row is touched.
+    name: "public-guest-unsubscribe:reachable-at-origin",
+    method: "GET",
+    origin: "https://api.mattbutlerengineering.com",
+    path: "/public/v1/guests/unsubscribe?token=surface-probe-invalid-token",
+    expectStatus: 400,
+    requireHeaders: ["x-ratelimit-limit"],
+  },
+  {
     name: "guests-list:validation-stage",
     method: "GET",
     path: "/api/v1/guests",

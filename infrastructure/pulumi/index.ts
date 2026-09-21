@@ -242,6 +242,13 @@ const apiApp = new digitalocean.App(
           port: 3004,
           dockerfile: "services/reservations/Dockerfile",
           extraEnvs: [
+            // Two guest-facing bases, two destinations. MANAGE_BASE_URL is the
+            // web origin for the manage/cancel/modify PAGE; PUBLIC_API_BASE_URL
+            // is the API origin for the unsubscribe ENDPOINT. Both are declared
+            // here rather than left to a code `??` default — a production URL
+            // that exists only as a fallback is how #4517 stayed invisible.
+            extraEnv("MANAGE_BASE_URL", `https://${domain}`),
+            extraEnv("PUBLIC_API_BASE_URL", `https://api.${domain}`),
             ...(manageTokenSecret ? [secretEnv("MANAGE_TOKEN_SECRET", manageTokenSecret)] : []),
             ...(unsubscribeTokenSecret
               ? [secretEnv("UNSUBSCRIBE_TOKEN_SECRET", unsubscribeTokenSecret)]
