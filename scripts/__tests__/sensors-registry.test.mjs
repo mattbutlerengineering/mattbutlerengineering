@@ -1313,3 +1313,181 @@ describe("sensors-registry", () => {
     });
   });
 });
+describe("metricsFreshness sensor (#5529)", () => {
+  let tmpDir;
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+    tmpDir = undefined;
+  });
+
+  const sensor = () => SENSORS.find((s) => s.id === "metricsFreshness");
+
+  function seed(files) {
+    tmpDir = mkdtempSync(join(tmpdir(), "metrics-freshness-sensor-"));
+    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    for (const [name, content] of Object.entries(files)) {
+      writeFileSync(join(tmpDir, "metrics", name), content);
+    }
+    return tmpDir;
+  }
+
+  it("is registered — otherwise the check runs as part of nothing", () => {
+    expect(sensor()).toBeDefined();
+    expect(typeof sensor().collect).toBe("function");
+    expect(typeof sensor().detectRegression).toBe("function");
+  });
+
+  it("reports a regression for BOTH metrics when neither file exists", () => {
+    // The state the repo was actually in. If this ever returns [], the
+    // self-check has become decorative and this batch's whole point is lost.
+    const root = seed({});
+    const data = sensor().collect({
+      root,
+      now: new Date("2026-09-20T12:00:00.000Z"),
+    });
+
+    expect(data.available).toBe(true);
+    expect(data.stale_count).toBe(2);
+
+    const regressions = sensor().detectRegression(data, undefined, {});
+    expect(regressions.map((r) => r.metric).sort()).toEqual(["domain-metrics", "review-burden"]);
+    expect(regressions.every((r) => r.sensor === "metricsFreshness")).toBe(true);
+  });
+
+  it("reports a regression for a stale-but-present metric", () => {
+    const root = seed({
+      "review-burden.json": JSON.stringify([{ timestamp: "2026-06-14T04:52:03.798Z" }]),
+      "domain-metrics.jsonl": JSON.stringify({ collected_at: "2026-09-20T00:00:00.000Z" }) + "\n",
+    });
+    const data = sensor().collect({
+      root,
+      now: new Date("2026-09-20T12:00:00.000Z"),
+    });
+    const regressions = sensor().detectRegression(data, undefined, {});
+
+    expect(regressions).toHaveLength(1);
+    expect(regressions[0]).toMatchObject({
+      metric: "review-burden",
+      current: "stale",
+    });
+  });
+
+  it("reports no regression once both metrics are fresh", () => {
+    const root = seed({
+      "review-burden.json": JSON.stringify([{ timestamp: "2026-09-20T00:00:00.000Z" }]),
+      "domain-metrics.jsonl": JSON.stringify({ collected_at: "2026-09-20T00:00:00.000Z" }) + "\n",
+    });
+    const data = sensor().collect({
+      root,
+      now: new Date("2026-09-20T12:00:00.000Z"),
+    });
+
+    expect(data.stale_count).toBe(0);
+    expect(sensor().detectRegression(data, undefined, {})).toEqual([]);
+  });
+
+  it("fires without a previous report — staleness is absolute, not a delta", () => {
+    // Most sensors bail on `!previous?.available`. That would make this one
+    // silent on a first run, which is exactly when a dead pipeline shows up.
+    const root = seed({});
+    const data = sensor().collect({
+      root,
+      now: new Date("2026-09-20T12:00:00.000Z"),
+    });
+    expect(sensor().detectRegression(data, undefined, {}).length).toBeGreaterThan(0);
+  });
+
+  it("formats a display line naming each unhealthy metric", () => {
+    const line = sensor().format(
+      {
+        available: true,
+        stale_count: 1,
+        metrics: [
+          { metric: "domain-metrics", state: "fresh", age_days: 0.5 },
+          { metric: "review-burden", state: "stale", age_days: 98.6 },
+        ],
+      },
+      "metricsFreshness"
+    );
+    expect(line).toContain("review-burden");
+    expect(line).toContain("stale");
+  });
+});
+
+describe("reviewBurden sensor (#5530)", () => {
+  let tmpDir;
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const sensor = () => SENSORS.find((s) => s.id === "reviewBurden");
+
+  // Exact entry shape written by scripts/acmm/review-burden-metrics.js.
+  const entry = (overrides = {}) => ({
+    timestamp: "2026-09-19T04:52:03.798Z",
+    window_days: 7,
+    rubber_stamp_threshold_minutes: 5,
+    total_closed_prs: 73,
+    reviewers: [{ login: "someone", prs_reviewed: 4 }],
+    summary: {
+      total_reviewers: 3,
+      total_reviews: 11,
+      overall_rubber_stamp_ratio: 0.09,
+      overall_rubber_stamps: 1,
+      overall_approvals: 11,
+    },
+    ...overrides,
+  });
+
+  it("surfaces the latest entry's summary counts", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
+    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "metrics", "review-burden.json"),
+      JSON.stringify([entry({ timestamp: "2026-09-01T00:00:00.000Z" }), entry()])
+    );
+
+    const result = sensor().collect({ root: tmpDir });
+
+    expect(result).toEqual({
+      available: true,
+      collected_at: "2026-09-19T04:52:03.798Z",
+      window_days: 7,
+      total_closed_prs: 73,
+      total_reviewers: 3,
+      total_reviews: 11,
+      overall_rubber_stamp_ratio: 0.09,
+      overall_approvals: 11,
+      overall_rubber_stamps: 1,
+    });
+  });
+
+  it("returns { available: false } when metrics/review-burden.json does not exist", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
+    expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
+  });
+
+  it("returns { available: false } for an empty array", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
+    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    writeFileSync(join(tmpDir, "metrics", "review-burden.json"), "[]");
+    expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
+  });
+
+  it("formats a display line with reviewers, reviews, and rubber-stamp ratio", () => {
+    const line = sensor().format(
+      {
+        available: true,
+        total_reviewers: 3,
+        total_reviews: 11,
+        overall_rubber_stamp_ratio: 0.09,
+      },
+      "reviewBurden"
+    );
+    expect(line).toContain("3 reviewer");
+    expect(line).toContain("11 review");
+    expect(line).toContain("9%");
+  });
+});

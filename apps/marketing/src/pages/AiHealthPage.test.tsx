@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { AiHealthPage } from "./AiHealthPage.js";
@@ -475,6 +475,58 @@ describe("AiHealthPage", () => {
         expect(screen.getByRole("alert")).toBeInTheDocument();
         expect(screen.getByText(/As of/)).toBeInTheDocument();
       });
+    });
+  });
+
+  describe("Review Burden panel (#5530)", () => {
+    // The whole point of the panel: review-burden numbers were collected into
+    // a file nobody read. A panel that silently renders nothing when the
+    // sensor is missing would reproduce that, so both branches are asserted.
+    const withReviewBurden = {
+      ...MOCK_REPORT,
+      sensors: {
+        ...MOCK_REPORT.sensors,
+        reviewBurden: {
+          available: true,
+          collected_at: "2026-09-19T04:52:03.798Z",
+          window_days: 7,
+          total_closed_prs: 73,
+          total_reviewers: 3,
+          total_reviews: 11,
+          overall_rubber_stamp_ratio: 0.09,
+          overall_approvals: 11,
+          overall_rubber_stamps: 1,
+        },
+      },
+    };
+
+    it("renders reviewers, reviews, and the rubber-stamp ratio when available", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => withReviewBurden });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Review Burden")).toBeInTheDocument();
+      });
+      const panel = within(screen.getByTestId("review-burden-panel"));
+      expect(panel.getByText("Reviewers")).toBeInTheDocument();
+      expect(panel.getByText("3")).toBeInTheDocument();
+      expect(panel.getByText("Reviews")).toBeInTheDocument();
+      expect(panel.getByText("11")).toBeInTheDocument();
+      expect(panel.getByText("Rubber-Stamped")).toBeInTheDocument();
+      expect(panel.getByText("9.0%")).toBeInTheDocument();
+      expect(panel.getByText("73")).toBeInTheDocument();
+      expect(panel.getByText("7-day window")).toBeInTheDocument();
+    });
+
+    it("says Unavailable rather than rendering nothing when the sensor is missing", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => NEW_SCHEMA_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Review Burden")).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("review-burden-panel")).toHaveTextContent("Unavailable");
+      expect(
+        within(screen.getByTestId("review-burden-panel")).queryByText("Reviews")
+      ).not.toBeInTheDocument();
     });
   });
 });

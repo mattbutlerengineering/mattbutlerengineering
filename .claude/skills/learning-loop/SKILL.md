@@ -20,6 +20,8 @@ node scripts/collect-domain-metrics.mjs
 
 Requires `DOMAIN_METRICS_VENUE_ID` in the environment (optionally `DOMAIN_METRICS_API_BASE_URL`, `DOMAIN_METRICS_TOKEN`); without it, or on a network/API failure, the collector prints a skip message and exits 0 — it never blocks the loop. On success it appends one row to `metrics/domain-metrics.jsonl`, which the `domainActivity` sensor reads in Step 1.
 
+**This step is best-effort, and is no longer the collector's only home (#5528).** A Claude Code Remote session has no egress to production, so the call above skips every time the loop runs there — which is why `metrics/domain-metrics.jsonl` sat at 0 bytes for months without anything noticing. `.github/workflows/metrics-collectors.yml` now runs this collector (and `scripts/acmm/review-burden-metrics.js`) daily on a GitHub Actions runner, which has both production egress and the `gh` CLI, and commits the results back via PR. Leave this step in — it costs nothing and does produce data when the loop runs somewhere with egress — but do not read a skip here as a failure.
+
 ### Step 1: Collect Sensor Data
 
 Run the unified sensor report to gather metrics from all available sensors:
@@ -31,6 +33,8 @@ node scripts/sensor-report.mjs
 Read the output. The script queries every sensor registered in `scripts/sensors-registry.mjs` (the list-of-record — check there for the current count and coverage) and persists the report to `metrics/sensor-report.json`. It also detects regressions by comparing against the previous report.
 
 If the script exits with code 1, regressions were detected. Note them for Step 3.
+
+Among those sensors is `metricsFreshness` (#5529), which grades the collectors themselves: it reports `stale` when the newest entry in a watched metric is older than that metric's threshold in `FRESHNESS_POLICY` (`scripts/metrics-freshness.mjs`), and `empty` when the metric has no entries at all. Both are regressions like any other, so a collector that silently stops producing data arrives in Step 3 as a `ci-fix` issue instead of waiting for the next manual audit. Staleness is absolute, not a delta — this sensor fires on the first report, with no previous report to compare against.
 
 ### Step 1b: Sentry Triage
 
@@ -147,13 +151,14 @@ Do NOT enumerate paths by hand. Durability is declared once, as `durable: true` 
 
 ## Sensor Label Map
 
-| Sensor     | Issue Label | What It Checks               |
-| ---------- | ----------- | ---------------------------- |
-| CI Health  | `ci-fix`    | Pass rate on main branch     |
-| ACMM       | `acmm`      | Maturity criteria met        |
-| Lighthouse | `audit`     | Performance/a11y scores      |
-| Sentry     | `sentry`    | Error rates (needs MCP auth) |
-| General    | `bug`       | CI pass after fix            |
+| Sensor            | Issue Label | What It Checks                                |
+| ----------------- | ----------- | --------------------------------------------- |
+| CI Health         | `ci-fix`    | Pass rate on main branch                      |
+| ACMM              | `acmm`      | Maturity criteria met                         |
+| Lighthouse        | `audit`     | Performance/a11y scores                       |
+| Sentry            | `sentry`    | Error rates (needs MCP auth)                  |
+| Metrics Freshness | `ci-fix`    | domain-metrics / review-burden stale or empty |
+| General           | `bug`       | CI pass after fix                             |
 
 ## Scheduling
 

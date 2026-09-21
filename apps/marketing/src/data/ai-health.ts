@@ -56,6 +56,25 @@ export interface DomainActivitySensor {
   readonly deposits_forfeited?: number;
 }
 
+/**
+ * `reviewBurden` sensor entry shape — see `scripts/sensors-registry.mjs`'s
+ * `reviewBurden` registry entry, which reads the newest row of the
+ * review-burden metric (written by `scripts/acmm/review-burden-metrics.js`).
+ * `available` is `false` whenever that file is missing or empty, which is
+ * exactly the state #5530 exists to make visible rather than silent.
+ */
+export interface ReviewBurdenSensor {
+  readonly available: boolean;
+  readonly collected_at?: string | null;
+  readonly window_days?: number | null;
+  readonly total_closed_prs?: number;
+  readonly total_reviewers?: number;
+  readonly total_reviews?: number;
+  readonly overall_rubber_stamp_ratio?: number;
+  readonly overall_approvals?: number;
+  readonly overall_rubber_stamps?: number;
+}
+
 /** A single failing ACMM behavioral gate, per `state.computation.behavioralGates`. */
 export interface AcmmFailingGate {
   readonly name: string;
@@ -97,6 +116,7 @@ export interface SensorReport {
   readonly sensors: Record<string, unknown> & {
     readonly queueEfficiency?: QueueEfficiencySensor;
     readonly domainActivity?: DomainActivitySensor;
+    readonly reviewBurden?: ReviewBurdenSensor;
     readonly acmm?: AcmmSensor;
   };
   readonly thresholds?: Record<string, number>;
@@ -153,6 +173,17 @@ export interface DomainActivityMetrics {
   readonly depositsForfeited: number | null;
 }
 
+/** Safe view model for the reviewBurden panel — null fields when unavailable. */
+export interface ReviewBurdenMetrics {
+  readonly available: boolean;
+  readonly collectedAt: string | null;
+  readonly windowDays: number | null;
+  readonly totalClosedPrs: number | null;
+  readonly totalReviewers: number | null;
+  readonly totalReviews: number | null;
+  readonly rubberStampRatio: number | null;
+}
+
 /** Safe view model for the acmm panel — null/empty fields when unavailable. */
 export interface AcmmMetrics {
   readonly available: boolean;
@@ -179,6 +210,7 @@ export interface HealthMetrics {
   readonly regressionLabels: readonly string[];
   readonly queueEfficiency: QueueEfficiencyMetrics;
   readonly domainActivity: DomainActivityMetrics;
+  readonly reviewBurden: ReviewBurdenMetrics;
   readonly acmm: AcmmMetrics;
 }
 
@@ -239,6 +271,21 @@ function normalizeDomainActivity(sensors: Record<string, unknown>): DomainActivi
   };
 }
 
+/** Extracts the safe view model for the reviewBurden panel from the raw sensor entry. */
+function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMetrics {
+  const reviewBurden = asRecord(sensors.reviewBurden);
+
+  return {
+    available: reviewBurden.available === true,
+    collectedAt: readString(reviewBurden.collected_at),
+    windowDays: readNumber(reviewBurden.window_days),
+    totalClosedPrs: readNumber(reviewBurden.total_closed_prs),
+    totalReviewers: readNumber(reviewBurden.total_reviewers),
+    totalReviews: readNumber(reviewBurden.total_reviews),
+    rubberStampRatio: readNumber(reviewBurden.overall_rubber_stamp_ratio),
+  };
+}
+
 function normalizeFailingGate(gate: unknown): AcmmFailingGate {
   const g = asRecord(gate);
   return {
@@ -292,6 +339,7 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
     regressionLabels: regressions.map(formatRegressionLabel),
     queueEfficiency: normalizeQueueEfficiency(sensors),
     domainActivity: normalizeDomainActivity(sensors),
+    reviewBurden: normalizeReviewBurden(sensors),
     acmm: normalizeAcmm(sensors),
   };
 }
