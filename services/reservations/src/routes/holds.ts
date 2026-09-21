@@ -13,6 +13,7 @@ import {
   confirmHoldBodyJsonSchema,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
+import { requireAuth } from "@mbe/auth/fastify";
 import { holdService } from "../services/hold.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
@@ -76,6 +77,17 @@ function getSessionId(request: FastifyRequest): string {
   return randomUUID();
 }
 
+/**
+ * Authenticated (staff) hold routes, mounted under the api/v1 holds prefix.
+ *
+ * Every route here requires a JWT (#4487). This service's contract is that all
+ * api/v1 routes require auth except availability, but these four were exempt in
+ * practice because the anonymous public booking widget called them. The widget
+ * now uses the hardened public sibling (`public-holds.ts`,
+ * `/public/v1/venues/:slug/holds`), which resolves the venue by slug
+ * server-side instead of trusting a client-supplied `venueId` and applies a
+ * per-IP active-hold cap. This file stays as the staff surface.
+ */
 export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   // Register schemas
   fastify.addSchema(HoldSchema);
@@ -93,6 +105,7 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
+      preHandler: requireAuth,
       config: {
         rateLimit: {
           max: 20,
@@ -153,12 +166,12 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      // Issue #4487 (shared-subset hardening): same per-IP public cap as the
-      // /public/v1 sibling (public-holds.ts), as a preHandler ON TOP of the
-      // service-wide 100/min onRequest limiter. Deliberately NOT a route-level
+      // Issue #4487: the per-IP cap runs BEFORE requireAuth so anonymous
+      // 401-probing is bounded too, as a preHandler ON TOP of the service-wide
+      // 100/min onRequest limiter. Deliberately NOT a route-level
       // config.rateLimit — that would replace the global limiter and (#4492)
       // leave stages before the preHandler with no bound at all.
-      preHandler: publicRateLimitHook,
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Get hold status",
         operationId: "getHold",
@@ -202,8 +215,8 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id",
     {
-      // See the GET /:id comment — per-IP public cap on top of the global limiter.
-      preHandler: publicRateLimitHook,
+      // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Release a hold",
         operationId: "releaseHold",
@@ -270,8 +283,8 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/:id/confirm",
     {
-      // See the GET /:id comment — per-IP public cap on top of the global limiter.
-      preHandler: publicRateLimitHook,
+      // See the GET /:id comment — per-IP cap, then auth, on top of the global limiter.
+      preHandler: [publicRateLimitHook, requireAuth],
       schema: {
         summary: "Confirm a hold and create reservation",
         operationId: "confirmHold",

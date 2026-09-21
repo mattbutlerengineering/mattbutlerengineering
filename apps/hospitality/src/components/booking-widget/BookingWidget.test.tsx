@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BookingWidget } from "./BookingWidget.js";
+import { MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import React from "react";
@@ -112,6 +113,10 @@ describe("BookingWidget", () => {
       create: vi.fn(),
       confirm: vi.fn(),
       release: vi.fn().mockResolvedValue(undefined),
+      // Slug-scoped public surface — what the widget calls since #4487.
+      createForVenue: vi.fn(),
+      confirmForVenue: vi.fn(),
+      releaseForVenue: vi.fn().mockResolvedValue(undefined),
       getSessionId: vi.fn().mockReturnValue("s1"),
     },
     venues: {
@@ -130,7 +135,10 @@ describe("BookingWidget", () => {
     );
   });
 
-  const renderWidget = () => render(<BookingWidget venueId="v1" />);
+  // venueSlug is mandatory for booking since #4487 — the hold lifecycle runs
+  // through /public/v1/venues/:slug/holds, the only hold route an anonymous
+  // widget may call.
+  const renderWidget = () => render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
 
   it("completes the full booking flow", async () => {
     // Step 1: Date & Party
@@ -156,7 +164,7 @@ describe("BookingWidget", () => {
     expect(await screen.findByText(/6:00 PM/i)).toBeDefined();
     expect(screen.getByText(/7:00 PM/i)).toBeDefined();
 
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: {
         id: "hold-1",
         expiresAt: new Date(Date.now() + 600000).toISOString(),
@@ -171,7 +179,7 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "John Doe" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "john@example.com" } });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-123",
         status: "CONFIRMED",
@@ -244,7 +252,7 @@ describe("BookingWidget", () => {
 
     // Step 2: Time
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
     // Slots render asynchronously after the "Time" heading; await the slot so the
@@ -258,7 +266,7 @@ describe("BookingWidget", () => {
       target: { value: "risky@example.com" },
     });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-456",
         status: "CONFIRMED",
@@ -317,7 +325,7 @@ describe("BookingWidget", () => {
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
     fireEvent.click(await screen.findByText(/6:00 PM/i));
@@ -328,7 +336,7 @@ describe("BookingWidget", () => {
       target: { value: "guest@example.com" },
     });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-789",
         status: "CONFIRMED",
@@ -401,7 +409,7 @@ describe("BookingWidget", () => {
 
     // Step 2: Time
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
     fireEvent.click(await screen.findByText(/6:00 PM/i));
@@ -413,7 +421,7 @@ describe("BookingWidget", () => {
       target: { value: "party@example.com" },
     });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-per-person",
         status: "CONFIRMED",
@@ -499,7 +507,7 @@ describe("BookingWidget", () => {
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
     fireEvent.click(await screen.findByText(/6:00 PM/i));
@@ -510,7 +518,7 @@ describe("BookingWidget", () => {
       target: { value: "risky@example.com" },
     });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-risky-override",
         status: "CONFIRMED",
@@ -580,7 +588,7 @@ describe("BookingWidget", () => {
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
     fireEvent.click(await screen.findByText(/6:00 PM/i));
@@ -591,7 +599,7 @@ describe("BookingWidget", () => {
       target: { value: "trusted@example.com" },
     });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-no-override",
         status: "CONFIRMED",
@@ -640,7 +648,7 @@ describe("BookingWidget", () => {
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
+    mockApi.holds.createForVenue.mockResolvedValue({
       hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
     });
     fireEvent.click(await screen.findByText(/6:00 PM/i));
@@ -649,7 +657,7 @@ describe("BookingWidget", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Cal Guest" } });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "cal@example.com" } });
 
-    mockApi.holds.confirm.mockResolvedValue({
+    mockApi.holds.confirmForVenue.mockResolvedValue({
       reservation: {
         id: "res-cal-1",
         status: "CONFIRMED",
@@ -670,8 +678,13 @@ describe("BookingWidget", () => {
     expect(screen.getByText("Outlook")).toBeDefined();
   });
 
-  it("hides the Add to Calendar section on confirmation when no venueSlug is provided (no venue config to fetch)", async () => {
-    renderWidget();
+  // Replaces an earlier test that reached the confirmation view with no
+  // venueSlug (asserting Add to Calendar was hidden). That path no longer
+  // exists: since #4487 a slug-less widget cannot hold a slot at all, so it can
+  // never reach confirmation. What matters now is that it says so rather than
+  // falling back to the authenticated /api/v1/holds and 401ing.
+  it("cannot hold a slot when no venueSlug is provided, and never calls the staff route", async () => {
+    render(<BookingWidget venueId="v1" />);
     const dateInput = screen.getByLabelText("Date");
     fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
 
@@ -681,30 +694,13 @@ describe("BookingWidget", () => {
     fireEvent.click(screen.getByText("Find Available Times"));
 
     await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.create.mockResolvedValue({
-      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
-    });
     fireEvent.click(await screen.findByText(/6:00 PM/i));
 
-    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "No Venue Guest" } });
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "none@example.com" } });
-
-    mockApi.holds.confirm.mockResolvedValue({
-      reservation: {
-        id: "res-cal-2",
-        status: "CONFIRMED",
-        date: "2026-05-20",
-        startTime: "18:00",
-        partySize: 2,
-      },
-      manageToken: "tok_test123",
-    });
-
-    fireEvent.click(screen.getByText("Complete Reservation"));
-
-    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
-    expect(screen.queryByText("Add to Calendar")).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByText(MISSING_VENUE_SLUG_ERROR, { exact: false })).toBeDefined()
+    );
+    expect(mockApi.holds.create).not.toHaveBeenCalled();
+    expect(mockApi.holds.createForVenue).not.toHaveBeenCalled();
     expect(mockApi.venues.getPublicConfig).not.toHaveBeenCalled();
   });
 });

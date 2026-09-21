@@ -78,6 +78,7 @@ import {
   PublicGuestRecognitionQuerySchema,
   PublicGuestRiskQuerySchema,
   PublicHoldBodySchema,
+  PublicHoldConfirmBodySchema,
   PublicReservationBodySchema,
   PublicUnsubscribeQuerySchema,
   PublicWaitlistBodySchema,
@@ -329,6 +330,7 @@ export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
 );
 export const publicGuestRiskQueryJsonSchema = toRequestJsonSchema(PublicGuestRiskQuerySchema);
 export const publicHoldBodyJsonSchema = toRequestJsonSchema(PublicHoldBodySchema);
+export const publicHoldConfirmBodyJsonSchema = toRequestJsonSchema(PublicHoldConfirmBodySchema);
 export const publicReservationBodyJsonSchema = toRequestJsonSchema(PublicReservationBodySchema);
 export const publicUnsubscribeQueryJsonSchema = toRequestJsonSchema(PublicUnsubscribeQuerySchema);
 export const publicWaitlistBodyJsonSchema = toRequestJsonSchema(PublicWaitlistBodySchema);
