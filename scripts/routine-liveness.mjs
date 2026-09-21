@@ -186,6 +186,41 @@ export function buildRoutineFindingCreateArgs(title, body) {
  * }} deps
  * @returns {Array<{routine: string, status: string, action?: string, issueNumber?: number}>}
  */
+/**
+ * True when every signature-bearing routine observed ZERO candidate artifacts
+ * in one run.
+ *
+ * `classifyRoutineLiveness` returns `dark` both when it saw artifacts and none
+ * matched, and when it saw nothing at all. Those are very different facts: the
+ * first is evidence about the routine, the second is the absence of evidence
+ * about anything. A single routine observing nothing is ordinary (its search
+ * term is unique to it, and a routine that has never run has never produced a
+ * match). Every signature-bearing routine observing nothing at once is not —
+ * that is one shared input failing, not N independent routines dying on the
+ * same day.
+ *
+ * Measured on the checker's first real run (2026-09-21, run 35616408240): all
+ * six signature-bearing routines were filed `dark` in one pass, while
+ * `mbe-morning` had in fact produced a PR matching its regex on eight
+ * consecutive days — including 23 hours earlier, comfortably inside its 1-day
+ * period. See #5606.
+ *
+ * Same reasoning as the dedupe-search fail-closed below: a missed day is
+ * recoverable, but a stream of issues blaming healthy routines trains everyone
+ * to ignore this producer.
+ *
+ * @param {Array<{hasSignature: boolean, observedCount: number}>} observations
+ * @returns {boolean}
+ */
+export function isObservationBlackout(observations) {
+  const signed = (observations ?? []).filter((o) => o.hasSignature);
+  // At least TWO independent observers must agree on seeing nothing. With one,
+  // "the query is broken" and "this routine has genuinely never produced a
+  // matching artifact" are the same observation, and suppressing it would
+  // silently swallow the finding this checker exists to make.
+  return signed.length >= 2 && signed.every((o) => o.observedCount === 0);
+}
+
 export function runRoutineLivenessCheck({
   manifest,
   fetchObservedArtifacts,
@@ -196,72 +231,95 @@ export function runRoutineLivenessCheck({
   reopenIssue = () => {},
   log = () => {},
 }) {
-  return manifest
-    .filter((entry) => !entry.outOfScope)
-    .map((entry) => {
-      const observedArtifacts = entry.signature ? fetchObservedArtifacts(entry) : [];
-      const result = classifyRoutineLiveness({
-        signature: entry.signature,
-        periodDays: entry.periodDays,
-        observedArtifacts,
-        now,
-      });
+  const inScope = manifest.filter((entry) => !entry.outOfScope);
 
-      if (result.status !== "dark" && result.status !== "unverifiable") {
-        return { routine: entry.name, status: result.status };
-      }
+  // Observe every routine BEFORE classifying any, so a run-wide observation
+  // failure is visible as such instead of N separate "dark" verdicts.
+  const observations = inScope.map((entry) => {
+    const observedArtifacts = entry.signature ? fetchObservedArtifacts(entry) : [];
+    if (entry.signature) {
+      log(`observed ${observedArtifacts.length} candidate artifact(s) for ${entry.name}`);
+    }
+    return {
+      entry,
+      observedArtifacts,
+      hasSignature: Boolean(entry.signature),
+      observedCount: observedArtifacts.length,
+    };
+  });
 
-      const title = buildRoutineFindingTitle(entry.name, result.status);
-      const body = buildRoutineFindingBody({
-        name: entry.name,
-        triggerId: entry.triggerId,
-        status: result.status,
-        periodDays: entry.periodDays,
-        reason: entry.unverifiableReason,
-        matched: result.matched,
-      });
-      const labels = ["ci-fix", COORDINATION_LABELS.READY];
+  if (isObservationBlackout(observations)) {
+    log(
+      `every signature-bearing routine observed 0 candidate artifacts — treating this as an ` +
+        `artifact-query failure, not ${observations.filter((o) => o.hasSignature).length} dark routines. ` +
+        `Filing nothing this run (#5606).`
+    );
+    return observations.map(({ entry }) => ({ routine: entry.name, status: "unobserved" }));
+  }
 
-      // Fail CLOSED on a failed search. Failing open looks safer — never lose a
-      // finding — but this producer files every single day, so "proceed as
-      // no-match" means a duplicate issue on every run the search is down, and
-      // the finding it was protecting is already tracked by the issue it could
-      // not see. A missed day is recoverable; a self-multiplying issue stream is
-      // what #5553 is open about.
-      let candidates;
-      try {
-        candidates = searchCiFixIssues();
-      } catch (err) {
-        log(
-          `search for a prior routine-liveness issue failed — not filing for ${entry.name} ` +
-            `this run, to avoid duplicating an issue the search could not see: ${err.message}`
-        );
-        return { routine: entry.name, status: result.status, action: "search-failed" };
-      }
-      const priorNumber = findPriorRoutineFindingIssue(candidates, entry.name);
-      const ledger = priorNumber !== null ? { [entry.name]: priorNumber } : {};
-
-      const fileResult = fileIssue({ title, body, labels, dedupeKey: entry.name }, ledger, {
-        getIssueState,
-        createIssue,
-        reopenIssue,
-      });
-
-      log(
-        fileResult.action === "skip"
-          ? `Issue #${fileResult.issueNumber} already tracks ${entry.name}'s ${result.status} liveness — skipping.`
-          : fileResult.action === "reopen"
-            ? `Reopened issue #${fileResult.issueNumber} for ${entry.name}'s ${result.status} liveness.`
-            : `Created issue #${fileResult.issueNumber} for ${entry.name}'s ${result.status} liveness.`
-      );
-
-      return {
-        routine: entry.name,
-        status: result.status,
-        action: fileResult.action,
-        issueNumber: fileResult.issueNumber,
-      };
+  return observations.map(({ entry, observedArtifacts }) => {
+    const result = classifyRoutineLiveness({
+      signature: entry.signature,
+      periodDays: entry.periodDays,
+      observedArtifacts,
+      now,
     });
+
+    if (result.status !== "dark" && result.status !== "unverifiable") {
+      return { routine: entry.name, status: result.status };
+    }
+
+    const title = buildRoutineFindingTitle(entry.name, result.status);
+    const body = buildRoutineFindingBody({
+      name: entry.name,
+      triggerId: entry.triggerId,
+      status: result.status,
+      periodDays: entry.periodDays,
+      reason: entry.unverifiableReason,
+      matched: result.matched,
+    });
+    const labels = ["ci-fix", COORDINATION_LABELS.READY];
+
+    // Fail CLOSED on a failed search. Failing open looks safer — never lose a
+    // finding — but this producer files every single day, so "proceed as
+    // no-match" means a duplicate issue on every run the search is down, and
+    // the finding it was protecting is already tracked by the issue it could
+    // not see. A missed day is recoverable; a self-multiplying issue stream is
+    // what #5553 is open about.
+    let candidates;
+    try {
+      candidates = searchCiFixIssues();
+    } catch (err) {
+      log(
+        `search for a prior routine-liveness issue failed — not filing for ${entry.name} ` +
+          `this run, to avoid duplicating an issue the search could not see: ${err.message}`
+      );
+      return { routine: entry.name, status: result.status, action: "search-failed" };
+    }
+    const priorNumber = findPriorRoutineFindingIssue(candidates, entry.name);
+    const ledger = priorNumber !== null ? { [entry.name]: priorNumber } : {};
+
+    const fileResult = fileIssue({ title, body, labels, dedupeKey: entry.name }, ledger, {
+      getIssueState,
+      createIssue,
+      reopenIssue,
+    });
+
+    log(
+      fileResult.action === "skip"
+        ? `Issue #${fileResult.issueNumber} already tracks ${entry.name}'s ${result.status} liveness — skipping.`
+        : fileResult.action === "reopen"
+          ? `Reopened issue #${fileResult.issueNumber} for ${entry.name}'s ${result.status} liveness.`
+          : `Created issue #${fileResult.issueNumber} for ${entry.name}'s ${result.status} liveness.`
+    );
+
+    return {
+      routine: entry.name,
+      status: result.status,
+      action: fileResult.action,
+      issueNumber: fileResult.issueNumber,
+    };
+  });
 }
 
 /**

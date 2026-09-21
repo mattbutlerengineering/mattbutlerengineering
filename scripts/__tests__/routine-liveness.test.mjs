@@ -12,6 +12,7 @@ import {
   buildRoutineFindingBody,
   buildRoutineFindingCreateArgs,
   runRoutineLivenessCheck,
+  isObservationBlackout,
 } from "../routine-liveness.mjs";
 import { ROUTINE_MANIFEST, parseRoutineCatalog } from "../routine-manifest.mjs";
 
@@ -571,5 +572,104 @@ describe("dedupe search failure", () => {
       },
     });
     expect(created).toHaveLength(1);
+  });
+});
+
+describe("isObservationBlackout", () => {
+  const signed = (n) => ({ hasSignature: true, observedCount: n });
+  const unsigned = { hasSignature: false, observedCount: 0 };
+
+  it("is true when every signature-bearing routine observed nothing", () => {
+    expect(isObservationBlackout([signed(0), signed(0), unsigned])).toBe(true);
+  });
+
+  it("is false when any signature-bearing routine observed something", () => {
+    // One routine genuinely dark among healthy ones must still be filed.
+    expect(isObservationBlackout([signed(0), signed(12), signed(0)])).toBe(false);
+  });
+
+  it("is false for a lone signature-bearing routine — one observer cannot tell", () => {
+    // With a single observer, "the query is broken" and "this routine has
+    // genuinely never produced a match" are indistinguishable. Suppressing it
+    // would swallow the finding this checker exists to make.
+    expect(isObservationBlackout([signed(0)])).toBe(false);
+    expect(isObservationBlackout([signed(0), unsigned])).toBe(false);
+  });
+
+  it("is false when there is nothing signature-bearing to judge", () => {
+    // A manifest of only unverifiable/out-of-scope entries is not a blackout —
+    // those are filed on their own merits and must not be suppressed.
+    expect(isObservationBlackout([unsigned, unsigned])).toBe(false);
+    expect(isObservationBlackout([])).toBe(false);
+  });
+
+  it("ignores unsigned entries when deciding", () => {
+    expect(isObservationBlackout([signed(3), unsigned])).toBe(false);
+  });
+});
+
+describe("runRoutineLivenessCheck — observation blackout (#5606)", () => {
+  const manifest = [
+    { name: "alpha", triggerId: "t1", periodDays: 1, signature: PR_TITLE_SIGNATURE },
+    { name: "beta", triggerId: "t2", periodDays: 1, signature: PR_TITLE_SIGNATURE },
+  ];
+
+  it("files nothing when every signature-bearing routine observed zero artifacts", () => {
+    const created = [];
+    const results = runRoutineLivenessCheck({
+      manifest,
+      fetchObservedArtifacts: () => [],
+      now: "2026-09-21T15:04:00Z",
+      createIssue: (args) => {
+        created.push(args);
+        return "https://github.com/o/r/issues/1";
+      },
+    });
+
+    expect(created).toEqual([]);
+    expect(results.map((r) => r.status)).toEqual(["unobserved", "unobserved"]);
+  });
+
+  it("still files a genuinely dark routine when a sibling observed artifacts", () => {
+    // The guard must only suppress a RUN-WIDE blackout, never a real finding.
+    const created = [];
+    runRoutineLivenessCheck({
+      manifest,
+      fetchObservedArtifacts: (entry) =>
+        entry.name === "alpha"
+          ? [
+              {
+                type: "pr",
+                title: "chore(metrics): weekly improve 2026-09-21",
+                observedAt: "2026-09-21T14:00:00Z",
+              },
+            ]
+          : [],
+      now: "2026-09-21T15:04:00Z",
+      createIssue: (args) => {
+        created.push(args);
+        return "https://github.com/o/r/issues/1";
+      },
+    });
+
+    expect(created).toHaveLength(1);
+    expect(JSON.stringify(created[0])).toContain("beta");
+    expect(JSON.stringify(created[0])).not.toContain("alpha");
+  });
+
+  it("logs an observed-artifact count per signature-bearing routine", () => {
+    // The diagnostic gap that made #5606 a reconstruction instead of a lookup:
+    // the run log recorded verdicts but never what was seen.
+    const lines = [];
+    runRoutineLivenessCheck({
+      manifest,
+      fetchObservedArtifacts: () => [],
+      now: "2026-09-21T15:04:00Z",
+      createIssue: () => "https://github.com/o/r/issues/1",
+      log: (line) => lines.push(line),
+    });
+
+    expect(lines.some((l) => /observed 0 candidate artifact\(s\) for alpha/.test(l))).toBe(true);
+    expect(lines.some((l) => /observed 0 candidate artifact\(s\) for beta/.test(l))).toBe(true);
   });
 });
