@@ -44,6 +44,42 @@ permissions:
   actions: write
 
 jobs:
+  # The semantic pass needs ANTHROPIC_API_KEY, which this repo does not have
+  # (#3585). Deciding that in a step meant the step warned, exited 0, and the
+  # job reported SUCCESS — so five consecutive weekly runs were indistinguishable
+  # from five real documentation audits, and the fact that the accuracy half had
+  # never once executed only surfaced when someone read the job log by hand
+  # (#5458). Deciding it in a JOB output instead makes the semantic job report
+  # SKIPPED, which every reader and every API consumer can tell apart from a
+  # pass. This job does not decide what to do about the missing key — that is
+  # #3585's call — it only stops the absence from rendering as a success.
+  preflight:
+    name: Preflight (is the semantic pass runnable?)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      - name: Check for an agent credential
+        id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+            echo "Agent credential present — the semantic pass will run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Semantic pass skipped"
+              echo
+              echo "\`ANTHROPIC_API_KEY\` is not configured, so the \`/md-audit\` agent pass"
+              echo "did not run. **This week's audit covered links and directory trees only —"
+              echo "no prose claim was checked against the code.** Tracked in #3585."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   mechanical:
     name: Mechanical pass (links + trees)
     runs-on: ubuntu-latest
@@ -185,7 +221,10 @@ jobs:
 
   semantic:
     name: Semantic pass (/md-audit agent)
-    if: github.event.inputs.skip_agent != 'true'
+    needs: preflight
+    # Skipped, not silently passed, when the credential is absent — see the
+    # preflight job's comment.
+    if: github.event.inputs.skip_agent != 'true' && needs.preflight.outputs.has_key == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -213,10 +252,7 @@ jobs:
 
       - name: Run the /md-audit pass
         run: |
-          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "::warning::ANTHROPIC_API_KEY is not configured — skipping the semantic pass."
-            exit 0
-          fi
+          set -euo pipefail
           cat > /tmp/md-audit-prompt.txt <<'PROMPT_EOF'
           You are the weekly documentation auditor. Read and follow the skill at
           .claude/skills/md-audit/SKILL.md exactly.
