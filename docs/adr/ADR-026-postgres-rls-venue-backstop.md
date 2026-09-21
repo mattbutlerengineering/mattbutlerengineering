@@ -123,6 +123,55 @@ non-admin path) already scopes through `VenueMembership`, and every other
 `findMany`/`findFirst`/`$queryRaw` reviewed filters by a `venueId` (or a FK
 that resolves to one venue) already.
 
+**Amendment (issue #5382) — `deposits.ts` was missing from this audit, and is
+resolved WITHOUT a bypass.** The original audit asked "which queries read
+across venues", which is why `services/reservations/src/routes/deposits.ts`
+did not appear: none of its five admin routes (`POST /`, `GET /:id`,
+`/:id/capture`, `/:id/refund`, `/:id/forfeit`) is a cross-venue query. They
+are single-venue queries that could not _name_ their venue — gated only on
+`requireAdmin` (a stateless, platform-wide role check, not venue-scoped) and
+addressed only by an opaque deposit/reservation id, so the global
+venue-context preHandler resolved `null` for them and `app.venue_id` was
+never set. Under §4 default-deny that is not a leak but the opposite failure:
+every deposit would become silently invisible to staff — a broken
+capture/refund/forfeit with no error, just empty results. Found by the
+`migration-reviewer` subagent while reviewing the `deposits`/`waitlist_entries`
+part of this series.
+
+Resolved by **resolving a real venue context, not by adding a third bypass
+call site**: each of the five routes now resolves the owning venue through the
+deposit's reservation (`resolveReservationVenueId` in
+`services/reservations/src/services/deposit-venue.ts` — a
+`reservation.findUnique` selecting only `venue_id`, matching the transitive
+scoping the `deposit_isolation` policy itself performs in §5) and runs its
+deposit work inside that context via `runWithVenueContext`
+(`services/reservations/src/services/venue-context-store.ts`). An unresolvable
+venue — reservation deleted, or `Reservation.venueId` NULL per §2 — **fails
+closed with a 404 before any state transition or Stripe call**, rather than
+proceeding venue-less. `requireAdmin` is unchanged and still gates all five
+routes; this adds venue resolution beneath it, it does not replace the
+authorization check.
+
+Why option 1 (resolve) over option 2 (bypass): `app_rls_bypass` exists for
+paths that legitimately need to see _every_ venue at once, which none of these
+routes does. Routing an admin payment surface through `BYPASSRLS` would throw
+away venue scoping on the one table family where a cross-tenant write is worst,
+and would grow the standing bypass surface this ADR's own Trade-offs section
+names as an ongoing maintenance burden.
+
+**Residual, deliberately not solved by #5382:** the single lookup that
+_determines_ the scope cannot itself run inside the scope it is computing — for
+the four `/:id` routes that is one primary-key read of the addressed deposit,
+plus the reservation's `venue_id`. This is a property of every
+entity-addressed route in this service (`venueIdFromEntity` in
+`services/reservations/src/routes/venue-access.ts` has the identical shape),
+not something `deposits.ts` can fix alone, and it is inert today because
+`FORCE ROW LEVEL SECURITY` is deliberately not set and the service's own DB
+role owns these tables. It must be settled — for the whole service, not just
+deposits — by whichever change finally sets `FORCE`. The same class is already
+recorded for the venue-self-addressed `GET/PATCH/DELETE /api/v1/venues/:id`
+family in `services/reservations/CLAUDE.md`.
+
 **Escape hatch, not a blanket policy:** both cases will run under a dedicated
 Postgres role, e.g. `app_rls_bypass`, granted `BYPASSRLS`. The service issues
 `SET ROLE app_rls_bypass` immediately before the cross-venue query and `RESET

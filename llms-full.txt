@@ -19905,15 +19905,24 @@
           return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
         }
     
-        try {
-          const deposit = await transition(request.params.id);
-          return { data: deposit };
-        } catch (err) {
-          if (err instanceof DepositTransitionError) {
-            return reply.code(422).send(createProblemDetails(422, "Unprocessable Entity", err.message));
-          }
-          throw err;
+        const venueId = await resolveReservationVenueId(existing.reservationId);
+        if (!venueId) {
+          return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
         }
+    
+        return runWithVenueContext(venueId, async () => {
+          try {
+            const deposit = await transition(request.params.id);
+            return { data: deposit };
+          } catch (err) {
+            if (err instanceof DepositTransitionError) {
+              return reply
+                .code(422)
+                .send(createProblemDetails(422, "Unprocessable Entity", err.message));
+            }
+            throw err;
+          }
+        });
       };
     }
   </file>
@@ -19945,15 +19954,25 @@
                 },
               },
               400: { description: "Bad request", type: "object" },
+              404: { description: "Reservation not found, or not in any venue", type: "object" },
             },
           },
         },
         async (request, reply) => {
-          const deposit = await depositService.create({
-            reservationId: request.body.reservationId,
-            amountCents: request.body.amountCents,
-            currency: request.body.currency,
-          });
+          const venueId = await resolveReservationVenueId(request.body.reservationId);
+          if (!venueId) {
+            return reply
+              .code(404)
+              .send(createProblemDetails(404, "Not Found", "Reservation not found"));
+          }
+    
+          const deposit = await runWithVenueContext(venueId, () =>
+            depositService.create({
+              reservationId: request.body.reservationId,
+              amountCents: request.body.amountCents,
+              currency: request.body.currency,
+            })
+          );
           return reply.code(201).send({ data: deposit });
         }
       );
@@ -19989,7 +20008,23 @@
           },
         },
         async (request, reply) => {
-          const deposit = await depositService.getById(request.params.id);
+          // Scope-determining read (see the module comment): it cannot run inside
+          // the scope it computes, and is used ONLY to reach the owning venue.
+          const addressed = await depositService.getById(request.params.id);
+          if (!addressed) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          const venueId = await resolveReservationVenueId(addressed.reservationId);
+          if (!venueId) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
+          }
+    
+          // The row actually returned is the one read under the resolved venue
+          // context, so it is the row the `deposit_isolation` policy admits.
+          const deposit = await runWithVenueContext(venueId, () =>
+            depositService.getById(request.params.id)
+          );
           if (!deposit) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Deposit not found"));
           }
@@ -29997,6 +30032,15 @@
       return to;
     }
   </file>
+  <file path="services/reservations/src/services/deposit-venue.ts">
+    export async function resolveReservationVenueId(reservationId: string): Promise<string | null> {
+      const reservation = await prisma.reservation.findUnique({
+        where: { id: reservationId },
+        select: { venueId: true },
+      });
+      return reservation?.venueId ?? null;
+    }
+  </file>
   <file path="services/reservations/src/services/deposit.ts">
     export type StripePort = Pick<
       StripeService,
@@ -34329,6 +34373,9 @@
   <file path="services/reservations/src/services/venue-context-store.ts">
     export function enterVenueContext(venueId: string | null): void {
       venueContextStorage.enterWith(venueId);
+    }
+    export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> {
+      return venueContextStorage.run(venueId, fn);
     }
     export function getCurrentVenueId(): string | null {
       return venueContextStorage.getStore() ?? null;

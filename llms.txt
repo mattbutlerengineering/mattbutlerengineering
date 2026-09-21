@@ -7526,6 +7526,11 @@
       export function transitionDeposit(from: DepositStatus, to: DepositStatus): DepositStatus { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/deposit-venue.ts">
+    <item priority="high">
+      export async function resolveReservationVenueId(reservationId: string): Promise<string | null> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/deposit.ts">
     <item priority="low">
       type StripePort = Pick<
@@ -8447,6 +8452,9 @@
   <file path="services/reservations/src/services/venue-context-store.ts">
     <item priority="high">
       export function enterVenueContext(venueId: string | null): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function runWithVenueContext<T>(venueId: string, fn: () => Promise<T>): Promise<T> { /* ... */ }
     </item>
     <item priority="high">
       export function getCurrentVenueId(): string | null { /* ... */ }
