@@ -19,6 +19,25 @@ const tableService = {
   delete: vi.fn(),
 } as unknown as DomainServices["tableService"];
 
+// #5514: PATCH /v1/tables/:id now resolves the body's floorPlanId to check it
+// belongs to the table's own venue, so the floor-plan service is part of this
+// route's seam too.
+const floorPlanService = {
+  list: vi.fn(),
+  listForMember: vi.fn(),
+  getById: vi.fn(),
+  getActiveByVenueId: vi.fn(),
+  create: vi.fn(),
+  clone: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  setActive: vi.fn(),
+  updateTablePosition: vi.fn(),
+  bulkUpdateTablePositions: vi.fn(),
+  assignTableToFloorPlan: vi.fn(),
+  removeTableFromFloorPlan: vi.fn(),
+} as unknown as DomainServices["floorPlanService"];
+
 // Mock the database (needed for health check registration)
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -45,6 +64,22 @@ const mockTable = {
   venueId: null,
   floorPlanId: null,
   shapeMetadata: null,
+  createdAt: "2026-01-25T00:00:00.000Z",
+  updatedAt: "2026-01-25T00:00:00.000Z",
+};
+
+const mockFloorPlan = {
+  id: "floor-plan-123",
+  venueId: "venue-123",
+  name: "Main Dining",
+  isActive: true,
+  layoutJson: {
+    width: 1200,
+    height: 800,
+    gridSize: 20,
+    showGrid: true,
+  },
+  tables: [],
   createdAt: "2026-01-25T00:00:00.000Z",
   updatedAt: "2026-01-25T00:00:00.000Z",
 };
@@ -78,7 +113,7 @@ describe("Table Routes", () => {
     app = await buildApp({
       logger: false,
       reservationEvents: stubEvents,
-      services: { tableService },
+      services: { tableService, floorPlanService },
     });
     await app.ready();
   });
@@ -509,7 +544,7 @@ describe("Table Routes — venue-scoped staff authorization (#4865)", () => {
     };
     const built = await buildApp({
       logger: false,
-      services: { tableService },
+      services: { tableService, floorPlanService },
       venueMembershipLookup: lookup,
     });
     await built.ready();
@@ -566,5 +601,145 @@ describe("Table Routes — venue-scoped staff authorization (#4865)", () => {
 
     expect(response.statusCode).toBe(200);
     expect(tableService.list).toHaveBeenCalledWith(1, 10, false, "venue-in-group-A");
+  });
+});
+
+// #5514: PATCH /v1/tables/:id is authorized with requireVenueAccess scoped to
+// the TABLE's own venue, so a member of that venue passes the guard — but the
+// body's `floorPlanId` is a client-supplied id that the update connected with
+// no venue awareness of its own, letting a member of Venue A re-point their own
+// table onto Venue B's floor plan. Exactly the bug class already fixed twice in
+// floor-plans.ts (#5008 /assign, #5042 /tables/positions); these tests mirror
+// those, authenticating through a real (mocked jose) JWT with an injected
+// membership lookup rather than the admin-minting x-auth-bypass header.
+describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
+    // never consumes, so clear the queue to guarantee our payload is returned.
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  /** A staff caller who is a member of "venue-own" and nothing else. */
+  async function buildAppAsVenueOwnStaff(): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|venue-own-staff", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-own");
+    const built = await buildApp({
+      logger: false,
+      services: { tableService, floorPlanService },
+      venueMembershipLookup: lookup,
+    });
+    await built.ready();
+    return built;
+  }
+
+  it("returns 403 when floorPlanId belongs to a venue other than the table's", async () => {
+    // The caller legitimately owns the table (venue-own), so requireVenueAccess
+    // passes; only the floor plan is foreign. Without the handler check the
+    // connect below would succeed and corrupt venue-other's floor plan.
+    vi.mocked(tableService.getById).mockResolvedValue({
+      ...mockTable,
+      id: "table-own",
+      venueId: "venue-own",
+    });
+    vi.mocked(floorPlanService.getById).mockResolvedValue({
+      ...mockFloorPlan,
+      id: "floor-plan-other-venue",
+      venueId: "venue-other",
+    });
+    // The write itself is made to succeed, so an unguarded handler answers 200
+    // with the table re-pointed at the foreign floor plan — the defect, not an
+    // incidental 404 from an unstubbed service.
+    vi.mocked(tableService.update).mockResolvedValue({
+      ...mockTable,
+      id: "table-own",
+      venueId: "venue-own",
+      floorPlanId: "floor-plan-other-venue",
+    });
+    app = await buildAppAsVenueOwnStaff();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/tables/table-own",
+      headers: { authorization: "Bearer staff-token" },
+      payload: { floorPlanId: "floor-plan-other-venue" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    const body = JSON.parse(response.body);
+    expect(body.title).toBe("Forbidden");
+    expect(tableService.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a floorPlanId belonging to the table's own venue", async () => {
+    vi.mocked(tableService.getById).mockResolvedValue({
+      ...mockTable,
+      id: "table-own",
+      venueId: "venue-own",
+    });
+    vi.mocked(floorPlanService.getById).mockResolvedValue({
+      ...mockFloorPlan,
+      id: "floor-plan-own-venue",
+      venueId: "venue-own",
+    });
+    vi.mocked(tableService.update).mockResolvedValue({
+      ...mockTable,
+      id: "table-own",
+      venueId: "venue-own",
+      floorPlanId: "floor-plan-own-venue",
+    });
+    app = await buildAppAsVenueOwnStaff();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/tables/table-own",
+      headers: { authorization: "Bearer staff-token" },
+      payload: { floorPlanId: "floor-plan-own-venue" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(tableService.update).toHaveBeenCalledWith("table-own", {
+      floorPlanId: "floor-plan-own-venue",
+    });
+  });
+
+  it("leaves not-found behaviour unchanged when the floor plan does not exist", async () => {
+    // A floor plan that isn't there is not a cross-venue reassignment: the
+    // request must still surface the pre-existing 404, not a 403.
+    vi.mocked(tableService.getById).mockResolvedValue({
+      ...mockTable,
+      id: "table-own",
+      venueId: "venue-own",
+    });
+    vi.mocked(floorPlanService.getById).mockResolvedValue(null);
+    vi.mocked(tableService.update).mockResolvedValue(null);
+    app = await buildAppAsVenueOwnStaff();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/tables/table-own",
+      headers: { authorization: "Bearer staff-token" },
+      payload: { floorPlanId: "floor-plan-missing" },
+    });
+
+    expect(response.statusCode).toBe(404);
   });
 });
