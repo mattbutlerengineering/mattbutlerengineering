@@ -311,6 +311,47 @@ describe("normalizeSensorReport — reviewBurden", () => {
     expect(metrics.reviewBurden.totalReviews).toBeNull();
   });
 
+  // #5619: a zero with a recorded cause and a zero with no recorded cause are
+  // different facts, and the panel renders them differently.
+  it("carries the structural-zero classification through to the view model", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        reviewBurden: {
+          available: true,
+          window_days: 7,
+          total_closed_prs: 100,
+          total_reviewers: 0,
+          total_reviews: 0,
+          overall_rubber_stamp_ratio: 0,
+          review_coverage: "no-formal-review-stage",
+          no_formal_review_stage: true,
+        },
+      },
+    });
+
+    expect(metrics.reviewBurden.noFormalReviewStage).toBe(true);
+    expect(metrics.reviewBurden.reviewCoverage).toBe("no-formal-review-stage");
+  });
+
+  it("does not infer a structural zero from zero counts alone", () => {
+    const metrics = normalizeSensorReport({
+      sensors: {
+        reviewBurden: {
+          available: true,
+          total_closed_prs: 0,
+          total_reviewers: 0,
+          total_reviews: 0,
+          overall_rubber_stamp_ratio: 0,
+          review_coverage: "unknown",
+          no_formal_review_stage: false,
+        },
+      },
+    });
+
+    expect(metrics.reviewBurden.noFormalReviewStage).toBe(false);
+    expect(metrics.reviewBurden.reviewCoverage).toBe("unknown");
+  });
+
   it("does not invent numbers from a malformed sensor entry", () => {
     const metrics = normalizeSensorReport({
       sensors: { reviewBurden: { available: true, total_reviews: "eleven" } },

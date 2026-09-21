@@ -73,6 +73,13 @@ export interface ReviewBurdenSensor {
   readonly overall_rubber_stamp_ratio?: number;
   readonly overall_approvals?: number;
   readonly overall_rubber_stamps?: number;
+  /**
+   * Why the counts are what they are (#5619) — `"measured"`,
+   * `"no-formal-review-stage"`, `"no-prs-sampled"`, or `"unknown"` for an
+   * entry written before the collector recorded a reason.
+   */
+  readonly review_coverage?: string;
+  readonly no_formal_review_stage?: boolean;
 }
 
 /** A single failing ACMM behavioral gate, per `state.computation.behavioralGates`. */
@@ -182,6 +189,14 @@ export interface ReviewBurdenMetrics {
   readonly totalReviewers: number | null;
   readonly totalReviews: number | null;
   readonly rubberStampRatio: number | null;
+  /** See `ReviewBurdenSensor.review_coverage`. Null when the sensor is absent. */
+  readonly reviewCoverage: string | null;
+  /**
+   * True only when the collector explicitly recorded that PRs were sampled and
+   * none carried a formal review. Never inferred from zero counts — a zero of
+   * unrecorded cause stays unclassified (#5619).
+   */
+  readonly noFormalReviewStage: boolean;
 }
 
 /** Safe view model for the acmm panel — null/empty fields when unavailable. */
@@ -283,6 +298,8 @@ function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMe
     totalReviewers: readNumber(reviewBurden.total_reviewers),
     totalReviews: readNumber(reviewBurden.total_reviews),
     rubberStampRatio: readNumber(reviewBurden.overall_rubber_stamp_ratio),
+    reviewCoverage: readString(reviewBurden.review_coverage),
+    noFormalReviewStage: reviewBurden.no_formal_review_stage === true,
   };
 }
 

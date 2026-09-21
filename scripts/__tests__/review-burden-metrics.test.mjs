@@ -5,6 +5,8 @@ import {
   meanReviewTimePerReviewer,
   rubberStampRatio,
   buildEntry,
+  classifyReviewCoverage,
+  formatOverallLine,
 } from "../acmm/review-burden-metrics.js";
 
 /**
@@ -120,5 +122,75 @@ describe("buildEntry", () => {
     const bob = entry.reviewers.find((r) => r.login === "bob");
     expect(bob).toMatchObject({ prs_reviewed: 2, mean_review_minutes: 75, approvals: 2 });
     expect(typeof entry.timestamp).toBe("string");
+  });
+});
+
+// #5619. Measured 2026-09-21: `gh pr list --state closed --limit 100 --json
+// reviews` returns zero reviews for all 100 PRs, and
+// `GET /repos/.../pulls/{n}/reviews` agrees on 0 for the same PR numbers —
+// while both sources agree on 1 APPROVED review for PR #3711. The extraction
+// is therefore correct and the zero is structural: this repo merges on green
+// CI, and its "Automated PR Review" is a check run, not a review submission.
+//
+// The defect was that a structural zero and a collector that fetched nothing
+// both rendered as `total_reviews: 0`, so the marketing panel read a
+// no-review-stage repo as a healthy 0% rubber-stamp rate.
+describe("classifyReviewCoverage", () => {
+  it("reports no-formal-review-stage when PRs were sampled but none carry a review", () => {
+    expect(classifyReviewCoverage({ totalClosedPrs: 100, totalReviews: 0 })).toBe(
+      "no-formal-review-stage"
+    );
+  });
+
+  it("reports no-prs-sampled when the sample itself is empty, not a structural zero", () => {
+    expect(classifyReviewCoverage({ totalClosedPrs: 0, totalReviews: 0 })).toBe("no-prs-sampled");
+  });
+
+  it("reports measured once at least one review is counted", () => {
+    expect(classifyReviewCoverage({ totalClosedPrs: 100, totalReviews: 1 })).toBe("measured");
+  });
+});
+
+describe("buildEntry review-coverage state", () => {
+  it("marks a real sample with reviews as measured", () => {
+    const entry = buildEntry({ days: 30, thresholdMinutes: 5, prs: PRS });
+    expect(entry.summary.review_coverage).toBe("measured");
+    expect(entry.summary.no_formal_review_stage).toBe(false);
+  });
+
+  it("marks a sample of review-free PRs as a structural zero, not a collector miss", () => {
+    const unreviewed = PRS.map((pr) => ({ ...pr, reviews: [] }));
+    const entry = buildEntry({ days: 30, thresholdMinutes: 5, prs: unreviewed });
+    expect(entry.total_closed_prs).toBe(3);
+    expect(entry.summary.total_reviews).toBe(0);
+    expect(entry.summary.review_coverage).toBe("no-formal-review-stage");
+    expect(entry.summary.no_formal_review_stage).toBe(true);
+  });
+
+  it("does not claim a structural zero when nothing was sampled at all", () => {
+    const entry = buildEntry({ days: 30, thresholdMinutes: 5, prs: [] });
+    expect(entry.summary.review_coverage).toBe("no-prs-sampled");
+    expect(entry.summary.no_formal_review_stage).toBe(false);
+  });
+});
+
+describe("formatOverallLine", () => {
+  it("prints the percentage only when a ratio was actually measured", () => {
+    const entry = buildEntry({ days: 30, thresholdMinutes: 5, prs: PRS });
+    expect(formatOverallLine(entry)).toContain("33.0%");
+  });
+
+  it("never prints a percentage for a structural zero", () => {
+    const unreviewed = PRS.map((pr) => ({ ...pr, reviews: [] }));
+    const line = formatOverallLine(buildEntry({ days: 30, thresholdMinutes: 5, prs: unreviewed }));
+    expect(line).not.toMatch(/\d%/);
+    expect(line).toContain("no formal review stage");
+    expect(line).toContain("3 sampled PRs");
+  });
+
+  it("never prints a percentage when nothing was sampled", () => {
+    const line = formatOverallLine(buildEntry({ days: 30, thresholdMinutes: 5, prs: [] }));
+    expect(line).not.toMatch(/\d%/);
+    expect(line).toContain("no PRs in window");
   });
 });

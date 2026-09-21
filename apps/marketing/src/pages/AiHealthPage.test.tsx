@@ -9,7 +9,13 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children, className }: any) => <div className={className}>{children}</div>,
   Badge: ({ children, color }: any) => <span data-color={color}>{children}</span>,
   Heading: ({ children }: any) => <h2>{children}</h2>,
-  Text: ({ children, className }: any) => <span className={className}>{children}</span>,
+  // Rialto's real Text extends HTMLAttributes and spreads the rest, so the
+  // mock must too — dropping them silently swallowed a `data-testid` (#5619).
+  Text: ({ children, className, ...rest }: any) => (
+    <span className={className} {...rest}>
+      {children}
+    </span>
+  ),
   Spinner: ({ size }: any) => <div data-testid="spinner" data-size={size} />,
   Alert: ({
     children,
@@ -43,6 +49,7 @@ vi.mock("./AiHealthPage.module.css", () => ({
     statLabel: "statLabel",
     statValue: "statValue",
     statNote: "statNote",
+    panelNote: "panelNote",
     sensorGrid: "sensorGrid",
     sensorRow: "sensorRow",
     sensorName: "sensorName",
@@ -515,6 +522,83 @@ describe("AiHealthPage", () => {
       expect(panel.getByText("9.0%")).toBeInTheDocument();
       expect(panel.getByText("73")).toBeInTheDocument();
       expect(panel.getByText("7-day window")).toBeInTheDocument();
+    });
+
+    // #5619. Measured 2026-09-21: all 100 most-recently-closed PRs carry zero
+    // GitHub review submissions, confirmed independently against
+    // `GET /repos/.../pulls/{n}/reviews`. The rubber-stamp ratio is therefore
+    // undefined, not 0% — rendering "0.0%" reads as a clean bill of health for
+    // a repo that has no formal review stage to be clean about.
+    const structuralZero = {
+      ...MOCK_REPORT,
+      sensors: {
+        ...MOCK_REPORT.sensors,
+        reviewBurden: {
+          available: true,
+          collected_at: "2026-09-21T01:23:00.924Z",
+          window_days: 7,
+          total_closed_prs: 100,
+          total_reviewers: 0,
+          total_reviews: 0,
+          overall_rubber_stamp_ratio: 0,
+          overall_approvals: 0,
+          overall_rubber_stamps: 0,
+          review_coverage: "no-formal-review-stage",
+          no_formal_review_stage: true,
+        },
+      },
+    };
+
+    it("does not render a 0% rubber-stamp ratio when there is no formal review stage", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => structuralZero });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Review Burden")).toBeInTheDocument();
+      });
+      const panel = within(screen.getByTestId("review-burden-panel"));
+      expect(panel.queryByText("0.0%")).not.toBeInTheDocument();
+      expect(panel.getByTestId("review-burden-no-formal-stage")).toBeInTheDocument();
+    });
+
+    it("states the structural zero instead of implying reviewers are keeping up", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => structuralZero });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Review Burden")).toBeInTheDocument();
+      });
+      const note = within(screen.getByTestId("review-burden-panel")).getByTestId(
+        "review-burden-no-formal-stage"
+      );
+      expect(note).toHaveTextContent(/no formal review stage/i);
+      expect(note).toHaveTextContent(/100/);
+      // Still reports the honest sample size it is based on.
+      expect(
+        within(screen.getByTestId("review-burden-panel")).getByText("100")
+      ).toBeInTheDocument();
+    });
+
+    it("does not claim a structural zero when the collector never classified one", async () => {
+      const unclassified = {
+        ...structuralZero,
+        sensors: {
+          ...structuralZero.sensors,
+          reviewBurden: {
+            ...structuralZero.sensors.reviewBurden,
+            review_coverage: "unknown",
+            no_formal_review_stage: false,
+          },
+        },
+      };
+      mockFetch.mockResolvedValue({ ok: true, json: async () => unclassified });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Review Burden")).toBeInTheDocument();
+      });
+      expect(
+        within(screen.getByTestId("review-burden-panel")).queryByTestId(
+          "review-burden-no-formal-stage"
+        )
+      ).not.toBeInTheDocument();
     });
 
     it("says Unavailable rather than rendering nothing when the sensor is missing", async () => {

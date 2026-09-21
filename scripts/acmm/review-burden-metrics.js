@@ -264,6 +264,46 @@ function rubberStampRatio(prs, thresholdMinutes) {
   };
 }
 
+/* ── Review-coverage classification ──────────────────────── */
+
+/**
+ * The three ways a review count can end up at zero, kept distinguishable so a
+ * consumer can never read one as the other (#5619).
+ *
+ * Measured 2026-09-21 on this repo: `gh pr list --state closed --limit 100
+ * --json reviews` reports zero reviews on all 100 PRs, and
+ * `GET /repos/.../pulls/{n}/reviews` independently agrees on 0 for the same PR
+ * numbers — while both sources agree on 1 APPROVED review for PR #3711. So the
+ * extraction is correct and the zero is structural: PRs here merge on green CI,
+ * and the "Automated PR Review" that runs on every one of them is a GitHub
+ * *check run*, not a `PullRequestReview` submission. Only 3 PRs in the repo's
+ * entire history carry a formal review (#397, #3687, #3711).
+ *
+ * Without this field a structural zero and a collector that fetched nothing
+ * both serialize as `total_reviews: 0`, which is the silent-zero defect class
+ * documented in `.claude/rules/gotchas.md` § Metrics / staleness detection.
+ */
+const REVIEW_COVERAGE = {
+  /** At least one formal review was counted — the burden metrics mean something. */
+  MEASURED: "measured",
+  /** PRs were sampled, none carried a formal review. An honest structural zero. */
+  NO_FORMAL_REVIEW_STAGE: "no-formal-review-stage",
+  /** Nothing was sampled, so nothing was assessed. Never a clean bill of health. */
+  NO_PRS_SAMPLED: "no-prs-sampled",
+};
+
+/**
+ * Classify why (or whether) the review counts are zero.
+ *
+ * @param {{ totalClosedPrs: number, totalReviews: number }} counts
+ * @returns {"measured"|"no-formal-review-stage"|"no-prs-sampled"}
+ */
+function classifyReviewCoverage({ totalClosedPrs, totalReviews }) {
+  if (totalClosedPrs <= 0) return REVIEW_COVERAGE.NO_PRS_SAMPLED;
+  if (totalReviews <= 0) return REVIEW_COVERAGE.NO_FORMAL_REVIEW_STAGE;
+  return REVIEW_COVERAGE.MEASURED;
+}
+
 /* ── Output / persistence ────────────────────────────────── */
 
 /**
@@ -280,11 +320,15 @@ function buildEntry({ days, thresholdMinutes, prs }) {
   const meanTimes = meanReviewTimePerReviewer(prs);
   const stamps = rubberStampRatio(prs, thresholdMinutes);
 
+  const totalClosedPrs = prs.length;
+  const totalReviews = Object.values(prsPerReviewer).reduce((a, b) => a + b, 0);
+  const reviewCoverage = classifyReviewCoverage({ totalClosedPrs, totalReviews });
+
   return {
     timestamp: new Date().toISOString(),
     window_days: days,
     rubber_stamp_threshold_minutes: thresholdMinutes,
-    total_closed_prs: prs.length,
+    total_closed_prs: totalClosedPrs,
     reviewers: Object.keys(prsPerReviewer).map((login) => ({
       login,
       prs_reviewed: prsPerReviewer[login] ?? 0,
@@ -295,12 +339,43 @@ function buildEntry({ days, thresholdMinutes, prs }) {
     })),
     summary: {
       total_reviewers: Object.keys(prsPerReviewer).length,
-      total_reviews: Object.values(prsPerReviewer).reduce((a, b) => a + b, 0),
+      total_reviews: totalReviews,
       overall_rubber_stamp_ratio: stamps.overall.ratio,
       overall_rubber_stamps: stamps.overall.rubberStamped,
       overall_approvals: stamps.overall.total,
+      // #5619: the reason behind a zero, so a consumer never has to guess.
+      review_coverage: reviewCoverage,
+      no_formal_review_stage: reviewCoverage === REVIEW_COVERAGE.NO_FORMAL_REVIEW_STAGE,
     },
   };
+}
+
+/**
+ * Render the overall rubber-stamp line.
+ *
+ * #5619: a 0.0% ratio reads as a clean result, so a zero is never printed as a
+ * percentage — the line says which kind of zero it is instead.
+ *
+ * @param {object} entry
+ * @returns {string}
+ */
+function formatOverallLine(entry) {
+  const { review_coverage, overall_rubber_stamp_ratio, overall_rubber_stamps, overall_approvals } =
+    entry.summary;
+
+  if (review_coverage === REVIEW_COVERAGE.NO_FORMAL_REVIEW_STAGE) {
+    return (
+      "  Overall rubber-stamp ratio: not measured — no formal review stage.\n" +
+      `  All ${entry.total_closed_prs} sampled PRs merged with zero GitHub review submissions.`
+    );
+  }
+  if (review_coverage === REVIEW_COVERAGE.NO_PRS_SAMPLED) {
+    return "  Overall rubber-stamp ratio: not measured — no PRs in window.";
+  }
+  return (
+    `  Overall rubber-stamp ratio: ${(overall_rubber_stamp_ratio * 100).toFixed(1)}% ` +
+    `(${overall_rubber_stamps}/${overall_approvals})`
+  );
 }
 
 /**
@@ -330,10 +405,7 @@ function printSummary(entry) {
     console.log("");
   }
 
-  console.log(
-    `  Overall rubber-stamp ratio: ${(entry.summary.overall_rubber_stamp_ratio * 100).toFixed(1)}% ` +
-      `(${entry.summary.overall_rubber_stamps}/${entry.summary.overall_approvals})`
-  );
+  console.log(formatOverallLine(entry));
   console.log("");
 }
 
@@ -400,6 +472,9 @@ export {
   meanReviewTimePerReviewer,
   rubberStampRatio,
   buildEntry,
+  classifyReviewCoverage,
+  formatOverallLine,
+  REVIEW_COVERAGE,
 };
 
 /* Only run the collector when invoked directly, not when imported by tests. */

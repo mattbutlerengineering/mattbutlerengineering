@@ -153,12 +153,59 @@ Each entry's shape:
     "overall_rubber_stamp_ratio": 0.09,
     "overall_rubber_stamps": 1,
     "overall_approvals": 11,
+    "review_coverage": "measured",
+    "no_formal_review_stage": false,
   },
 }
 ```
 
 The metric math is unit-tested in
 [`scripts/__tests__/review-burden-metrics.test.mjs`](../../scripts/__tests__/review-burden-metrics.test.mjs).
+
+### This repo has no formal review stage — and the JSON now says so (#5619)
+
+Every entry carries `summary.review_coverage`, which is the reason behind the
+numbers rather than just the numbers:
+
+| `review_coverage`        | Meaning                                                                     |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `measured`               | At least one formal review was counted. The burden metrics mean something.  |
+| `no-formal-review-stage` | PRs were sampled, none carried a formal review. An honest structural zero.  |
+| `no-prs-sampled`         | Nothing was sampled, so nothing was assessed. Never a clean bill of health. |
+| `unknown`                | An entry written before #5619. Not classified, and never treated as a zero. |
+
+`summary.no_formal_review_stage` is the boolean form, true only for the second
+row. **It is never inferred from zero counts** — that is the whole point.
+
+Measured 2026-09-21, this repo sits in the `no-formal-review-stage` row and the
+zero is real, not a collector bug:
+
+```console
+$ gh pr list --state closed --limit 100 --json number,reviews \
+    | jq '[.[] | select((.reviews|length) > 0)] | length'
+0
+
+$ gh api repos/mattbutlerengineering/mattbutlerengineering/pulls/5640/reviews --jq 'length'
+0
+```
+
+`gh pr list --json reviews` and `GET /repos/.../pulls/{n}/reviews` were
+cross-checked on the same 20 PR numbers and agreed on zero for every one — while
+both report the single `APPROVED` review on PR #3711, which proves the
+extraction works and the field shape is right. Only three PRs in the repo's
+entire history carry a formal review (#397, #3687, #3711).
+
+The cause is structural: PRs here merge via auto-merge on green CI, and the
+`Automated PR Review` that runs on every one of them is a GitHub **check run**,
+not a `PullRequestReview` submission — the API the collector queries never sees
+it. So the rubber-stamp ratio is _undefined_, not 0%.
+
+This distinction matters because a collector that fetched nothing also produces
+`total_reviews: 0`. A metric that reads 0 for two different reasons is the
+silent-zero defect class in
+[`.claude/rules/gotchas.md`](../../.claude/rules/gotchas.md) § Metrics /
+staleness detection — the explicit `review_coverage` field is what keeps the two
+apart.
 
 ### Staleness self-check
 
@@ -183,6 +230,12 @@ and closed PRs in the window — render in the **Review Burden** panel on
 `/ai-health` (#5530), sourced from the `reviewBurden` sensor. When the sensor is
 unavailable the panel says so explicitly rather than rendering nothing, so an
 empty collector is visible on the page instead of looking like a quiet week.
+
+When `no_formal_review_stage` is true the panel stops reporting a rubber-stamp
+ratio at all (it renders the `—` placeholder) and prints a note naming the
+structural zero. A literal "0.0% rubber-stamped" reads as a passing score, which
+is exactly backwards for a repo whose human review gate does not exist: there is
+no burden being carried well, there is no burden being measured.
 
 ## Integration with /progress-tracker
 
