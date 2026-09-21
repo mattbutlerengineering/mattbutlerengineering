@@ -7886,6 +7886,15 @@
         config: LapsedGuestMonitorConfig
       ): config is LapsedGuestMonitorPrismaConfig { /* ... */ }
     </item>
+    <item priority="high">
+      export function findGuestsForVenue(
+        prisma: PrismaClient,
+        venueId: string
+      ): ReturnType<LapsedGuestScanDeps["findGuestsForScan"]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getAllVenueIds(prisma: PrismaClient): Promise<string[]> { /* ... */ }
+    </item>
     <item priority="medium">
       function buildPrismaCallbacks(
         prisma: PrismaClient

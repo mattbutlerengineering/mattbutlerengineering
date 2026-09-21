@@ -110,76 +110,119 @@ explicit escape hatch rather than being covered by the per-venue policies:
    `requireAdmin`); `GET /api/v1/venue-groups` is `requireAdmin`-only end to
    end (line ~117). Both are admin reporting/aggregation surfaces by design —
    the whole point is to list across venues.
-2. **`lapsed-guest-cron.ts`'s `buildPrismaCallbacks.getVenueIds`**
-   (`services/reservations/src/services/lapsed-guest-cron.ts` line 47). A
-   background interval job with no HTTP request and no authenticated user —
-   it iterates every venue's `id` to run a per-venue lapse scan
-   (`prisma.guest.findMany({ where: { venueId: vid, ... } })` per venue). It
-   cannot set `app.venue_id` to a single value because it needs all of them,
-   one at a time, in a loop with no per-request session boundary.
+2. **`lapsed-guest-cron.ts`'s venue loop**
+   (`services/reservations/src/services/lapsed-guest-cron.ts`). A background
+   interval job with no HTTP request and no authenticated user — it reads
+   every venue's `id` (`getAllVenueIds`), then runs a per-venue lapse scan
+   for each (`findGuestsForVenue`). These are two different problems, and
+   only one of them is genuinely cross-venue:
+   - The **per-venue guest scan** is not cross-venue at all. It already knows
+     which venue it is scanning, so it needs no escape hatch: it opens its
+     own transaction and sets `app.venue_id` to that venue as the first
+     statement, exactly like the request-path call sites that manage their
+     own transaction boundary (`book-slot.ts`, `waitlist.ts`). Resolved in
+     issue #5401 this way, not with a bypass role.
+   - The **venue-list read** is irreducibly cross-venue: `venues`' policy is
+     keyed on each row's own `id` (§5), and this query exists to discover
+     those ids, so no value of `app.venue_id` makes it correct.
 
 No other cross-venue query was found. `venueService.listForMember` (the
 non-admin path) already scopes through `VenueMembership`, and every other
 `findMany`/`findFirst`/`$queryRaw` reviewed filters by a `venueId` (or a FK
 that resolves to one venue) already.
 
-**Amendment (issue #5382) — `deposits.ts` was missing from this audit, and is
-resolved WITHOUT a bypass.** The original audit asked "which queries read
-across venues", which is why `services/reservations/src/routes/deposits.ts`
-did not appear: none of its five admin routes (`POST /`, `GET /:id`,
-`/:id/capture`, `/:id/refund`, `/:id/forfeit`) is a cross-venue query. They
-are single-venue queries that could not _name_ their venue — gated only on
-`requireAdmin` (a stateless, platform-wide role check, not venue-scoped) and
-addressed only by an opaque deposit/reservation id, so the global
-venue-context preHandler resolved `null` for them and `app.venue_id` was
-never set. Under §4 default-deny that is not a leak but the opposite failure:
-every deposit would become silently invisible to staff — a broken
-capture/refund/forfeit with no error, just empty results. Found by the
+**Superseded — the `app_rls_bypass` role this ADR originally specified is not
+implementable on this deployment.** The plan was a dedicated Postgres role
+granted `BYPASSRLS`, entered via `SET LOCAL ROLE` inside the same
+transaction as the cross-venue query. It cannot be provisioned here:
+Postgres permits the `BYPASSRLS` attribute to be set only by a superuser or
+by another role that already holds `BYPASSRLS` — `CREATEROLE` is explicitly
+not sufficient — and DigitalOcean Managed Postgres grants no true superuser,
+including to the `doadmin` role this service's migrations run as. Measured
+directly against Postgres 16.13 with a non-superuser `CREATEROLE` role
+(2026-09-20, while reworking PR #5409): that role creates a plain role fine,
+and `CREATE ROLE app_rls_bypass NOLOGIN BYPASSRLS` fails with `permission
+denied to create role` / `Only roles with the BYPASSRLS attribute may create
+roles with the BYPASSRLS attribute`. A migration attempting it would not
+degrade quietly — it would fail the `db-migrate` deploy outright.
+
+**Where each case stands, therefore:**
+
+| Cross-venue read                                                 | Status                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cron's per-venue guest scan                                      | **Resolved** (#5401), and without a bypass: per-venue `set_config` (§4) on the scan's own transaction. Correct today and under `FORCE ROW LEVEL SECURITY`.                                                                                                                                                                                                                              |
+| Cron's venue-list read (`getAllVenueIds`)                        | **OPEN PREREQUISITE.** Works today only because Postgres skips RLS for a table's owner and this service connects as the role that owns `venues`; no table sets `FORCE ROW LEVEL SECURITY`. Returns zero rows — silently turning the cron into a no-op — as soon as either of those changes (#5369). Pinned by a real-Postgres assertion in `lapsed-guest-cron.rls.integration.test.ts`. |
+| Admin `venueService.list()` / `venueGroupService.list()` (above) | **OPEN PREREQUISITE**, for the same reason and with the same owner-bypass dependency.                                                                                                                                                                                                                                                                                                   |
+
+Both open cases need a mechanism this ADR does not yet specify, decided
+together with whichever change removes owner-bypass — candidates include a
+`SECURITY DEFINER` function owned by the table owner (no role attribute
+required), a policy predicate that admits a second GUC such as
+`app.cross_venue = on`, or a separately-provisioned role on a platform that
+permits `BYPASSRLS`. Nothing should claim the audit is closed until one is
+chosen: the two reads above are the remaining blockers to forcing RLS.
+
+**Addendum (issue #5382) — a separate class this audit's question did not
+reach: single-venue queries that could not _name_ their venue.** Everything
+above answers "which queries read across venues". `services/reservations/src/routes/deposits.ts`
+answers it with "none of them" — and was still broken, which is why it does
+not appear in the list. Its five admin routes (`POST /`, `GET /:id`,
+`/:id/capture`, `/:id/refund`, `/:id/forfeit`) each address exactly one
+venue's data, but were gated only on `requireAdmin` (a stateless,
+platform-wide role check, not venue-scoped) and addressed only by an opaque
+deposit/reservation id — no `venueId` in the query, body, or params. The
+global venue-context preHandler therefore resolved `null` for all five and
+`app.venue_id` was never set. Under §4 that is default-deny, so the failure
+mode is not a leak but its opposite: every deposit becomes invisible to
+staff once `FORCE ROW LEVEL SECURITY` lands — capture/refund/forfeit
+silently broken, no error, just empty results. Found by the
 `migration-reviewer` subagent while reviewing the `deposits`/`waitlist_entries`
 part of this series.
 
-Resolved by **resolving a real venue context, not by adding a third bypass
-call site**: each of the five routes now resolves the owning venue through the
-deposit's reservation (`resolveReservationVenueId` in
+**This is not a third cross-venue path, and it does not reopen the two
+above.** "No other cross-venue query was found" remains true as written, and
+the two OPEN PREREQUISITE rows in the table are unchanged — neither is
+blocked or unblocked by this addendum. The lesson is about the audit's
+_question_, not its answer: "does this query read across venues" and "can
+this query state which venue it reads" are different questions, and only the
+first was asked. A route can pass the first and fail the second.
+
+Resolved by giving the routes a real venue context: each resolves the owning
+venue through the deposit's reservation (`resolveReservationVenueId` in
 `services/reservations/src/services/deposit-venue.ts` — a
 `reservation.findUnique` selecting only `venue_id`, matching the transitive
-scoping the `deposit_isolation` policy itself performs in §5) and runs its
+scoping the `deposit_isolation` policy itself performs in §5, since
+`deposits` carries no `venue_id` column of its own per §1) and runs its
 deposit work inside that context via `runWithVenueContext`
-(`services/reservations/src/services/venue-context-store.ts`). An unresolvable
-venue — reservation deleted, or `Reservation.venueId` NULL per §2 — **fails
-closed with a 404 before any state transition or Stripe call**, rather than
-proceeding venue-less. `requireAdmin` is unchanged and still gates all five
-routes; this adds venue resolution beneath it, it does not replace the
-authorization check.
+(`services/reservations/src/services/venue-context-store.ts`). An
+unresolvable venue — reservation deleted, or `Reservation.venueId` NULL per
+§2 — **fails closed with a 404 before any state transition or Stripe call**,
+rather than proceeding venue-less. `requireAdmin` is unchanged and still
+gates all five routes; this adds venue resolution beneath it, it does not
+replace the authorization check.
 
-Why option 1 (resolve) over option 2 (bypass): `app_rls_bypass` exists for
-paths that legitimately need to see _every_ venue at once, which none of these
-routes does. Routing an admin payment surface through `BYPASSRLS` would throw
-away venue scoping on the one table family where a cross-tenant write is worst,
-and would grow the standing bypass surface this ADR's own Trade-offs section
-names as an ongoing maintenance burden.
+No escape hatch was needed or used, and none was available: per the
+superseded-bypass finding above, `app_rls_bypass` is not implementable on
+this deployment at all. Even had it been, it would have been the wrong
+instrument here — a bypass exists for reads that must see _every_ venue at
+once, which none of these routes does, and routing an admin payment surface
+through it would discard venue scoping on the table family where a
+cross-tenant write is worst. These routes are the same shape as the cron's
+per-venue guest scan: a single known venue, resolved and set, no bypass.
 
 **Residual, deliberately not solved by #5382:** the single lookup that
-_determines_ the scope cannot itself run inside the scope it is computing — for
-the four `/:id` routes that is one primary-key read of the addressed deposit,
-plus the reservation's `venue_id`. This is a property of every
+_determines_ the scope cannot itself run inside the scope it is computing —
+for the four `/:id` routes that is one primary-key read of the addressed
+deposit, plus the reservation's `venue_id`. This is a property of every
 entity-addressed route in this service (`venueIdFromEntity` in
 `services/reservations/src/routes/venue-access.ts` has the identical shape),
-not something `deposits.ts` can fix alone, and it is inert today because
-`FORCE ROW LEVEL SECURITY` is deliberately not set and the service's own DB
-role owns these tables. It must be settled — for the whole service, not just
-deposits — by whichever change finally sets `FORCE`. The same class is already
-recorded for the venue-self-addressed `GET/PATCH/DELETE /api/v1/venues/:id`
-family in `services/reservations/CLAUDE.md`.
-
-**Escape hatch, not a blanket policy:** both cases will run under a dedicated
-Postgres role, e.g. `app_rls_bypass`, granted `BYPASSRLS`. The service issues
-`SET ROLE app_rls_bypass` immediately before the cross-venue query and `RESET
-ROLE` immediately after, inside the same transaction/connection-checkout so
-the elevated role can never leak onto an unrelated query on a pooled
-connection. This is implemented in issues #2–4, not here; this ADR fixes the
-mechanism (a named bypass role, narrowly and explicitly invoked) so all three
-issues implement the same shape instead of three different ones.
+not something `deposits.ts` can fix alone, and it is inert today for the same
+owner-bypass reason the table above records. It must be settled — for the
+whole service, not just deposits — by whichever change finally removes
+owner-bypass or sets `FORCE`, alongside the two open cross-venue cases. The
+same class is already recorded for the venue-self-addressed
+`GET/PATCH/DELETE /api/v1/venues/:id` family in
+`services/reservations/CLAUDE.md`.
 
 ### 4. Session variable design
 
@@ -281,9 +324,10 @@ with §2.
   leaking or corrupting cross-venue data.
 - The failure mode of an unset/misconfigured session variable is empty
   results or a rejected write, never silent cross-venue exposure.
-- The two identified cross-venue call sites are made explicit and auditable
-  (`SET ROLE app_rls_bypass` is greppable) instead of implicit "this Prisma
-  query happens not to filter."
+- The identified cross-venue call sites are made explicit and auditable — each
+  one is named in §3 with its current status — instead of implicit "this
+  Prisma query happens not to filter." (The originally-planned
+  `SET ROLE app_rls_bypass` marker is not available; see §3.)
 
 ### Trade-offs
 
@@ -298,11 +342,15 @@ with §2.
   statement adds a join the other six tables don't need; it is indexed
   (`deposits.reservation_id` is unique, `reservations.id` is the PK), so the
   cost is a single indexed lookup, not a scan.
-- `app_rls_bypass` is a second privileged path (alongside the app's normal
-  DB role) that must be provisioned, and any future write path added to it
-  reopens the exact hole RLS exists to close — this is a real ongoing
-  maintenance burden, not a one-time cost, and worth revisiting with a
-  second reviewer whenever a new bypass call site is proposed.
+- Any cross-venue escape hatch is a second privileged path alongside the
+  app's normal DB role, and any future write path added to it reopens the
+  exact hole RLS exists to close — a real ongoing maintenance burden, not a
+  one-time cost, and worth revisiting with a second reviewer whenever a new
+  bypass call site is proposed. The `app_rls_bypass` role originally planned
+  for this turned out to be unprovisionable here (§3), so the two remaining
+  cross-venue reads currently depend on owner-bypass instead — which is the
+  same burden, just unnamed, and is why §3 tracks them as open prerequisites
+  rather than as a solved escape hatch.
 
 ## Alternatives Considered
 
@@ -335,6 +383,12 @@ decided — a backstop, not a second authority.
   membership check this backstop sits behind, and the source of the
   `requireVenueAccess` null-`venueId` → 403 precedent this ADR reuses in §2.
 - **Issue #5107**: seeded this line of work.
-- **Issues #2–4** (children of this one): implement the migration, the
-  per-request `SET LOCAL` plumbing, and the `app_rls_bypass` escape hatch for
-  the two audited cross-venue call sites, per the policy SQL in §5.
+- **Issues #2–4** (children of this one): implement the migration and the
+  per-request `SET LOCAL` plumbing, per the policy SQL in §5. The third part —
+  an `app_rls_bypass` escape hatch for the audited cross-venue call sites —
+  was not implementable as specified; see §3 for what replaced it and what
+  remains open.
+- **Issue #5401**: the lapsed-guest cron's per-venue scan, resolved with
+  per-venue `set_config` rather than a bypass role.
+- **Issue #5369**: the app connecting as the table owner — the dependency the
+  two remaining cross-venue reads in §3 currently rest on.

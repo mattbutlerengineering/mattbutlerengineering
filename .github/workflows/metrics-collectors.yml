@@ -24,6 +24,12 @@ name: Metrics Collectors
 # can invent. Until it is set, the domain-metrics step degrades to a skip
 # (the script's own `main()` exits 0 on a missing venue id) and the freshness
 # self-check below reports it — loudly, in an issue, every day.
+#
+# That blocked report files under its OWN dedupe key, separate from the
+# actionable "stale or empty" one (#5561). They shared a key at first, so the
+# permanently-open blocked issue would have absorbed a genuine collector
+# failure and announced nothing — the human-gated condition masking the one
+# somebody could actually fix.
 
 on:
   schedule:
@@ -101,11 +107,13 @@ jobs:
           # abort the step under `bash -e` before the read could happen, and
           # scripts/__tests__/workflow-set-e-assignment.test.mjs fails any
           # workflow that reads `$?` after a non-exempt command.
-          if node scripts/metrics-freshness.mjs | tee /tmp/freshness.txt; then
+          if node scripts/metrics-freshness.mjs --json > /tmp/freshness.json; then
             verdict=0
           else
             verdict=$?
           fi
+
+          jq -r '.lines[]' /tmp/freshness.json > /tmp/freshness.txt
 
           {
             echo "### Metrics freshness"
@@ -120,43 +128,98 @@ jobs:
             exit 0
           fi
 
-          {
-            echo "## A metrics collector is producing nothing"
-            echo
-            echo "\`.github/workflows/metrics-collectors.yml\` ran, and the freshness"
-            echo "self-check (\`node scripts/metrics-freshness.mjs\`) still reports:"
-            echo
-            echo '```'
-            cat /tmp/freshness.txt
-            echo '```'
-            echo
-            echo "### Most likely causes"
-            echo
-            echo "1. **\`domain-metrics\` empty** — the \`DOMAIN_METRICS_VENUE_ID\` repo secret"
-            echo "   is unset, so \`scripts/collect-domain-metrics.mjs\` skips by design."
-            echo "   A human must supply it: \`gh secret set DOMAIN_METRICS_VENUE_ID --body \"<value>\"\`"
-            echo "   (never omit \`--body\` — empty stdin silently sets an empty secret)."
-            echo "2. **\`domain-metrics\` stale** — the production endpoint is unreachable or"
-            echo "   erroring. Check this run's step summary for the collector's skip reason."
-            echo "3. **\`review-burden\` stale** — the collector or its \`gh pr list\` call failed."
-            echo
-            echo "Thresholds and states live in \`scripts/metrics-freshness.mjs\`"
-            echo "(\`FRESHNESS_POLICY\`). Background: \`docs/fixes/silent-metrics-collectors/design.md\`."
-            echo
-            echo "---"
-            echo "*Auto-created by the metrics-collectors workflow*"
-          } > /tmp/freshness-issue.md
+          # Two classes of finding, two dedupe keys (#5561). `blocked` is
+          # waiting on a human credential and stays open indefinitely; if a
+          # genuine collector failure shared that key, the already-open blocked
+          # issue would absorb it and announce nothing.
+          BLOCKED_COUNT=$(jq '.blocked | length' /tmp/freshness.json)
+          FAILURE_COUNT=$(jq '.failures | length' /tmp/freshness.json)
+          echo "blocked=$BLOCKED_COUNT failures=$FAILURE_COUNT"
 
-          # Deliberately NOT labeled `ready`: the most likely fix is a
-          # production credential only a human can supply, so this must not
-          # enter implement-queue's autonomous pickup set.
-          node scripts/lib/file-issue-cli.mjs \
-            --title "Metrics collection is stale or empty" \
-            --label "ci-fix" \
-            --body-file /tmp/freshness-issue.md \
-            --dedupe-key "metrics-collection-stale" \
-            --search-label "ci-fix" \
-            --contains "Metrics collection is stale"
+          # ── Human-blocked: a declared prerequisite credential is unset ──
+          if [ "$BLOCKED_COUNT" -gt 0 ]; then
+            {
+              echo "## Metrics collection blocked on an unset credential"
+              echo
+              echo "\`.github/workflows/metrics-collectors.yml\` ran. These metrics are"
+              echo "empty because a credential they declare has never been configured —"
+              echo "not because a collector is broken:"
+              echo
+              echo '```'
+              jq -r '.blocked[] | "  \(.metric): requires \(.requiresEnv); written by \(.producer)"' /tmp/freshness.json
+              echo '```'
+              echo
+              echo "### The fix is a human step"
+              echo
+              echo "\`DOMAIN_METRICS_VENUE_ID\` is a real production venue identifier no"
+              echo "agent can invent:"
+              echo
+              echo '```'
+              echo 'gh secret set DOMAIN_METRICS_VENUE_ID --body "<value>"'
+              echo '```'
+              echo
+              echo "Never omit \`--body\` — empty stdin silently sets an empty secret, and"
+              echo "a blank value reads as unset here."
+              echo
+              echo "This issue stays open until the credential is set, so it deliberately"
+              echo "does NOT share a dedupe key with the actionable"
+              echo "\"stale or empty\" issue — otherwise a genuine collector failure would"
+              echo "dedupe into this permanently-open one and announce nothing (#5561)."
+              echo
+              echo "---"
+              echo "*Auto-created by the metrics-collectors workflow*"
+            } > /tmp/freshness-blocked.md
+
+            # `ready-for-human`, never `ready`: no agent can supply this value,
+            # so it must stay out of implement-queue's autonomous pickup set.
+            node scripts/lib/file-issue-cli.mjs \
+              --title "Metrics collection blocked on an unset credential" \
+              --label "ready-for-human" \
+              --body-file /tmp/freshness-blocked.md \
+              --dedupe-key "metrics-collection-unconfigured" \
+              --search-label "ready-for-human" \
+              --contains "Metrics collection blocked on"
+          fi
+
+          # ── Actionable: a collector that should be producing, is not ──
+          if [ "$FAILURE_COUNT" -gt 0 ]; then
+            {
+              echo "## A metrics collector is producing nothing"
+              echo
+              echo "\`.github/workflows/metrics-collectors.yml\` ran, and the freshness"
+              echo "self-check (\`node scripts/metrics-freshness.mjs\`) reports these as"
+              echo "genuinely broken — each one's prerequisites are satisfied, so an empty"
+              echo "or stale result is a defect, not a missing credential:"
+              echo
+              echo '```'
+              jq -r '.failures[] | "  \(.metric): \(.state); written by \(.producer)"' /tmp/freshness.json
+              echo '```'
+              echo
+              echo "### Most likely causes"
+              echo
+              echo "1. **\`domain-metrics\` stale** — the production endpoint is unreachable or"
+              echo "   erroring. Check this run's step summary for the collector's skip reason."
+              echo "2. **\`review-burden\` stale** — the collector or its \`gh pr list\` call failed."
+              echo "3. **\`undated\`/\`unreadable\`** — the file exists but its timestamp field"
+              echo "   moved, or the payload no longer parses."
+              echo
+              echo "Thresholds and states live in \`scripts/metrics-freshness.mjs\`"
+              echo "(\`FRESHNESS_POLICY\`). Background: \`docs/fixes/silent-metrics-collectors/design.md\`."
+              echo
+              echo "---"
+              echo "*Auto-created by the metrics-collectors workflow*"
+            } > /tmp/freshness-issue.md
+
+            # Deliberately NOT labeled `ready`: diagnosing a dead collector
+            # needs judgement about production access, not a queue pickup.
+            node scripts/lib/file-issue-cli.mjs \
+              --title "Metrics collection is stale or empty" \
+              --label "ci-fix" \
+              --body-file /tmp/freshness-issue.md \
+              --dedupe-key "metrics-collection-stale" \
+              --search-label "ci-fix" \
+              --contains "Metrics collection is stale"
+          fi
 
       - name: Open PR with collected metrics
         id: create-pr
