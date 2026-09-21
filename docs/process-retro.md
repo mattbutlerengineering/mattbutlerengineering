@@ -11,6 +11,268 @@ no retro.
 
 ---
 
+## 2026-09-20
+
+Window: **2026-09-13 → 2026-09-20**. Sources: GitHub MCP tool surface (PR/issue
+search, workflow-run and workflow-job endpoints), `metrics/stale-human-blocked.jsonl`
+(09-20 run), `.claude/improvement-loop/log.md`, `.claude/rules/gotchas.md`,
+`docs/scheduled-tasks.md`, `docs/routines/mbe-weekly-improve.md`,
+`docs/fixes/pulumi-refresh-blocks-apply/release.md`, `.github/workflows/pulumi-up.yml`,
+and the working tree at `02fc538`.
+
+**166 PRs merged, 3 closed unmerged, 0 reverted. 60 issues filed, 123 closed
+(net −63).** Median PR lived **16.2 minutes**; 138 of 166 (83.1%) merged inside an
+hour, only 3 took over 24 h. `ci.yml` on `main` passed **80 of 80** non-cancelled
+runs (100%; 4 cancelled by concurrency, excluded per the `ciHealth` denominator
+rule). The `ready` queue went **60 → 14**.
+
+**This was the cleanest week on record, and last week's escalations are the
+reason.** All three top-3 changes shipped inside 48 hours (#5343 → PR #5355,
+#5344 → PR #5373, #5345), the Pulumi outage is over, and auto-rollback opened
+**zero** false revert PRs against six last week — #5265's `isRegressionTransition()`
+held on its first full week.
+
+One finding survives the good news, and it is the one worth the routine:
+**`mbe-weekly-improve` is now provably dark.** Last week it was merely
+_unverifiable_. #5344's fix gave it a title convention, that instrument worked,
+and its first measurement is a definite negative.
+
+### Routine liveness
+
+Cross-checked `docs/scheduled-tasks.md`'s catalog against observed artifacts. A
+routine is "alive" only if it both ran and landed its expected artifact.
+
+| Routine                     | Expected artifact              | Observed 09-13 → 09-20                                      | Verdict               |
+| --------------------------- | ------------------------------ | ----------------------------------------------------------- | --------------------- |
+| `mbe-morning` (ACMM)        | `chore(acmm): daily audit` PR  | one per dated day, 09-13…09-20 (09-19's merged 09-20)       | **alive, 8/8**        |
+| `mbe-morning` (`/ideate`)   | proposal / decompose batch     | batch #5444 + proposals #5440–#5443, decomposed 09-20       | alive                 |
+| `mbe-evening` (queue)       | queue-telemetry PRs            | 22 PRs, every day                                           | alive, 8/8            |
+| `mbe-evening` (tracker)     | `progress-tracker` PR          | 7 PRs — **none dated 09-14**                                | alive, **7/8**        |
+| `mbe-evening` (optimize-IQ) | `optimize-implement-queue` PR  | 7 PRs — **none dated 09-14**                                | alive, **7/8**        |
+| `mbe-midday` / `mbe-night`  | implement-queue PRs            | PRs in both UTC bands every day                             | alive                 |
+| `mbe-auditor`               | ≤3 `audit` issues/day          | `audit`/`ci-fix` issues filed throughout                    | alive                 |
+| `mbe-learning-loop`         | metrics PR / sensor triage     | 8 PRs, every day                                            | alive, 8/8            |
+| `mbe-daily-issue`           | 1 merged PR                    | present in daily merge traffic                              | alive                 |
+| `mbe-weekly-improve` (Fri)  | PR `… weekly improve <date> …` | **none — convention landed 09-15, Friday 09-18 produced 0** | **DARK — see below**  |
+| `mbe-doc-rot` (Fri)         | 1 PR                           | #5466 `docs: weekly rot sweep 2026-09-18`                   | alive                 |
+| `mbe-weekly-retro` (Sun)    | 1 PR                           | #5342 merged 09-14T00:13Z                                   | alive                 |
+| `drift-fix.yml`             | PR when drifted                | ran; PR on 09-20                                            | alive                 |
+| `audit-sweep.yml` (Mon)     | issues                         | ran 09-14                                                   | alive                 |
+| `stale-human-blocked.yml`   | label + record stale issues    | 09-13 and 09-20 runs recorded (weekly cadence)              | alive                 |
+| `pulumi-up.yml`             | applied infra                  | **green since 09-19T05:18Z after 10 days red**              | **alive — recovered** |
+
+**`mbe-weekly-improve` is dark, and this is now a measurement, not a guess.**
+Last week's entry could not distinguish "ran and its PR is indistinguishable from
+implement-queue traffic" from "did not run". #5344 fixed exactly that:
+`docs/routines/mbe-weekly-improve.md:24` now requires the PR be titled
+`<type>(<scope>): weekly improve <YYYY-MM-DD> — <desc>`, merged as #5373 on
+**09-15T00:41Z** — three days before the 09-18 Friday slot. A repo-wide title
+search for `"weekly improve"` returns **exactly one PR: #5373, the fix itself.**
+Friday 09-18 merged 19 PRs and not one carries the signature. The instrument
+works; the routine did not produce. Trigger `trig_01G12wULcCweXSb2jmVkChPW` needs
+a human eye — **Escalations**.
+
+This is also the single best argument for the instrumentation pattern: a routine
+that had been unverifiable for two consecutive retros became a one-query answer
+the first week after it was given a signature. Every routine in the catalog whose
+artifact has no distinctive title is one dark week away from the same gap, and
+nothing but this weekly retro would notice — the original 2026-07-10 death went
+19 days unread. Filed as an issue.
+
+**One partial night, 09-14.** `progress-tracker` and `optimize-implement-queue`
+have entries for every dated day except 09-14, while `queue telemetry` and
+`learning-loop` landed normally that night. A single-night partial rather than a
+routine failure — recorded so a second occurrence reads as a pattern, not noise.
+
+### Blockers
+
+9 human-blocked issues in the 09-20 `stale-human-blocked.jsonl` run, **down from
+15** — the first material drop since this section began. **Read
+`last_human_touch_at`, never `updatedAt`** (#5345, now fixed and consumed
+correctly here).
+
+| Issue | Days since last **human** touch | The specific ask                                                                                                     |
+| ----- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| #4111 | 39                              | Set `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode `pk_test_…`) as a repo secret and wire it into the Hospitality E2E job. |
+| #3585 | 34                              | Decide: fund an `ANTHROPIC_API_KEY` for the agent service, or delete the AI features that need one.                  |
+| #3388 | 34                              | Add `TURBO_TOKEN` (+ `TURBO_TEAM`) to repo secrets to turn on Turborepo remote caching.                              |
+| #3253 | 34                              | Decide whether to take the TypeScript 7 migration now or pin and defer it with a date.                               |
+| #3978 | 34                              | Say yes or no to exploring video-game UI density patterns in rialto — an open-ended product call.                    |
+| #3322 | 33                              | Choose the npm publish credential: a GitHub Packages token, or an npmjs token matching rialto's `publishConfig`.     |
+| #4487 | 28                              | Pick a direction for `/api/v1/holds`: repoint the booking widget to `/public/v1`, or harden it in place.             |
+| #4706 | 20                              | Nothing — see below; this one is mislabeled, not blocked.                                                            |
+| #4876 | 19                              | Work the 2026-09 monthly reflection-review checklist, or close it.                                                   |
+
+The six carried from last week are now **33–39 days** stale and unchanged in
+substance: four are a credential or a one-line secret, two are a decision. They
+are the factory's standing throughput ceiling and no amount of agent work moves
+them.
+
+**#4706 is a labelling defect, not a human decision, and it has cost 20 days.**
+It carries `ready-for-human`, but its body already contains a concrete fix
+(`rest-pr-ops.ts` should map REST commit shape to the GraphQL shape callers
+expect), a named failure mode, and testable acceptance criteria. Nothing in it
+needs a human ruling — it needs the `ready` label. It is also **the same root
+cause** as the `issues`/`issueFeedback` sensor 403 the learning loop has logged
+for four consecutive days (below), so fixing it pays twice. Recommended relabel
+rather than a new issue.
+
+### Friction
+
+Median 16.2 min, 83.1% inside the hour, **3 PRs over 24 h** (six last week). Tier
+mix: 94 `tier:trivial`, 44 `tier:standard`, 21 `tier:sensitive`, 7 `tier:critical`.
+
+| PR    | Open→merge  | Why                                                                                                         |
+| ----- | ----------- | ----------------------------------------------------------------------------------------------------------- |
+| #5365 | **107.7 h** | Dependabot `@types/node` 26.5.0→26.5.1, `tier:sensitive` — tier gate, plus a real lockfile failure (#5385). |
+| #5405 | 106.7 h     | Returning-guest recognition at booking time, `tier:critical` — human review gate.                           |
+| #5368 | 25.5 h      | `hono` override bump for 3 moderate CVEs, `tier:sensitive`.                                                 |
+
+**Slowest PR: #5365, at 107.7 hours — 398× the median.** Unlike last week's #4565
+this is not a pure review stall: it was `tier:sensitive` (gate) _and_ genuinely
+red, failing `ERR_PNPM_OUTDATED_LOCKFILE` (#5385, filed 09-15, closed 09-19). The
+tier gate and the CI failure ran concurrently, so the review latency cost nothing
+extra — the PR could not have merged sooner regardless. Worth stating plainly
+because the naive read ("another 100-hour tier-gate stall") would point at the
+wrong fix.
+
+**Zero reverts and zero false rollbacks.** Six revert PRs last week, five of them
+spurious; this week the only revert-adjacent artifact is #5489, an RCA _document_
+for the already-closed #4924. #5265's regression-transition gate is holding.
+
+`update-branch` counts and per-PR red-then-green history remain unmeasured:
+GitHub does not expose `mergeStateStatus` retroactively and reconstructing it
+across 166 PRs is not worth the API budget. `main` is still not `strict`
+(gotchas § CI), so the N² tax should not be binding.
+
+### Recurring causes
+
+| Cause                                                          | Count                                | Genuine defect?               | In gotchas? |
+| -------------------------------------------------------------- | ------------------------------------ | ----------------------------- | ----------- |
+| `sentry-triage` re-files one Sentry issue as a new GH issue    | **4×** (#5418, #5446, #5469, #5536)  | **Yes** — dedup is broken     | **No**      |
+| Dependabot group PR fails bundle-size budget + zod snapshot    | **3×** (#5367, #5420, #5490)         | **Yes** — recurring, known    | **No**      |
+| `nightly-compliance` drift issues accumulate open              | 5 filed (#5334…#5517)                | Yes — fixed by #5454/PR #5504 | n/a — fixed |
+| `issues`/`issueFeedback` sensor 403 on gh-client REST fallback | **4 consecutive days** (09-17…09-20) | **Yes** — same cause as #4706 | Partially   |
+| `ci.yml` on `main`                                             | 0 failures / 80 runs                 | —                             | —           |
+
+**`sentry-triage`'s deduplication does not work, and the evidence is exact.**
+Sentry issue **`7734806348`** (`reservations-api`, `getTracingHelper` TypeError)
+was filed as a _new_ GitHub issue four times in five days: #5418 (09-16), #5446
+(09-17), #5469 (09-18), #5536 (09-20). #5469 and #5536 are byte-identical in body
+— same Sentry URL, same `Events: 94 in last 14 days`. #5469 was closed as
+completed by PR #5477 at 09-20T14:39Z and #5536 was filed **2 h 37 m later** for
+the same Sentry ID, so the dedup misses even same-day closures. The skill's own
+description claims it "deduplicate[s] against existing GitHub issues". Each
+duplicate consumes a queue slot and an agent run. Filed as an issue.
+
+**The Dependabot-group failure is on its third identical occurrence and is not
+written down.** #5367 (09-14, PR #5364, 25 updates), #5420 (09-16, PR #5397, 28
+updates) and #5490 (09-19, PR #5484) all pair a **bundle-size budget** failure
+with a **zod `.email()` regex snapshot** break in `services/users`; #5490's own
+title says "3rd occurrence". `.claude/rules/gotchas.md` has a Zod entry, but only
+for `z.record()` arity — nothing about the `.email()` regex snapshot, and nothing
+about grouped bumps blowing size budgets that #5437 independently found sitting
+under 10% headroom. This is precisely the "bitten twice or more and not
+documented" case the retro exists to convert into a gotchas entry. Filed as an
+issue.
+
+**The sensor 403 is #4706 wearing a different hat.** `.claude/improvement-loop/log.md`
+records `issues`/`issueFeedback` failing with a GitHub REST-fallback 403 on 09-17,
+09-18, 09-19 and 09-20; the 09-19 entry flags it as a `/gotcha-harvest` candidate
+itself and notes it "will block issue filing (Step 3 dedup search) the next time a
+regression actually fires". gotchas § Claude Code Remote documents the adjacent
+**401** class (#3689/#3937) but not this 403. Covered by relabelling #4706 rather
+than a fourth issue.
+
+### Throughput
+
+**60 issues filed, 123 closed — net −63.** The `ready` queue stands at **14 open**,
+down from 60 a week ago. `.claude/improvement-loop/log.md`'s 09-20 evening entry
+independently reports a 126% 7-day closure rate and the queue moving 19 → 13 in a
+single night.
+
+Three comparable weeks now exist: **+48 (09-06), +19 (09-13), −63 (09-20)**. That
+is a genuine three-point series and the direction is unambiguous — the backlog is
+being drained, not merely churned, and the composition improved too (the
+`nightly-compliance` duplicate chain that padded prior weeks is now
+auto-swept by PR #5504). One caution against over-reading it: 123 closures in a
+week against 60 filings implies a large one-off sweep of older issues, not a
+steady-state rate, so **do not extrapolate −63/week**.
+
+### Top 3 changes
+
+1. **Give every routine a detectable artifact signature, and check them
+   automatically.** `mbe-weekly-improve` proves the pattern in both directions: it
+   was unverifiable for two retros, got a signature on 09-15, and was caught dark
+   six days later. #5343 taught the workflow-health detector about non-scheduled
+   _GitHub Actions_ workflows, but claude.ai RemoteTriggers have no Actions
+   presence at all — nothing watches them, which is how the 2026-07-10 death went
+   19 days unread. A checker that reads the catalog and asserts each routine's
+   signature appeared within its expected period turns this entire Pass into a
+   cron job. Highest leverage available; agent-sized.
+2. **Fix `sentry-triage`'s dedup.** Four filings of one Sentry ID in five days,
+   each burning a `ready` slot and an agent run, against a skill that advertises
+   deduplication. Keying on the Sentry issue ID already present in every body is a
+   small, self-contained change with an obvious test.
+3. **Write the Dependabot-group failure into gotchas.** Third identical
+   occurrence, currently rediscovered from scratch each time by a different
+   routine. One entry converts a recurring 100-hour PR stall into a five-minute
+   known fix — the cheapest item on this list.
+
+Not in the top 3, but noted: the evening log has now recommended a `needs-human`
+label for issues like `ci-fix` #5144 (unclaimable by the TDD-new-PR worker by its
+own admission) on **three consecutive nights** without it being filed. That is
+`optimize-implement-queue`'s recommendation to act on, not this retro's to
+re-file, but a fourth restatement would make it this retro's problem.
+
+### Escalations
+
+Nothing here is agent-implementable; none of it is filed as `ready`.
+
+1. **Check whether `mbe-weekly-improve` (`trig_01G12wULcCweXSb2jmVkChPW`, Fri
+   7:00am, `0 14 * * 5`) fired on 2026-09-18** at https://claude.ai/code/scheduled
+   — and if it did, why it produced no PR. It is the one routine in the catalog
+   with no observed output this week, and it is the `opus`-budget one. Repair it
+   or retire it from the catalog; a routine that is listed but dead is worse than
+   one that is absent.
+2. **Retire the Pulumi `exclude:` bypass.** It worked exactly as designed — the
+   09-14 dispatch was the first passing `Pulumi Refresh` on `main` since 09-09 —
+   but it is still three `TEMPORARY BYPASS` blocks in `pulumi-up.yml` (:112, :144)
+   and `pulumi-preview.yml` (:160). Either grant the Pulumi Auth0 M2M app
+   `read:tenant_settings`, `update:tenant_settings`, `read:branding`,
+   `update:branding`, or `pulumi state delete` both orphaned URNs after a
+   `stack export`; then the removal PR, in the order gotchas § Pulumi specifies.
+   **A scope grant produces no pipeline signal**, so this only happens if a human
+   remembers.
+3. **Relabel #4706 from `ready-for-human` to `ready`.** It has a concrete fix and
+   acceptance criteria, needs no ruling, and unblocks the sensor 403 that has now
+   run four days.
+4. **#4119** — dispatch `pulumi-r2-checksum-validation.yml` and read its verdict,
+   so the Pulumi CLI 3.253.0 pin can stop drifting from the SDK.
+5. **#3388** — add `TURBO_TOKEN` and `TURBO_TEAM` to repo secrets. 34 days.
+6. **#3253** — decide: take the TypeScript 7 migration, or pin and defer with a date.
+7. **#3585** — decide: fund `ANTHROPIC_API_KEY`, or remove the AI features requiring it.
+8. **#3322** — choose the npm publish credential (GitHub Packages vs npmjs token).
+9. **#4111** — set `VITE_STRIPE_PUBLISHABLE_KEY` (test-mode) for the Hospitality E2E job.
+10. **#4487** — pick the `/api/v1/holds` direction (repoint the widget, or harden in place).
+11. **#4876** — work the 2026-09 reflection-review checklist or close it.
+
+A note on the 09-14 Cloudflare gate, for the record: last week's #1 escalation was
+"dispatch `pulumi-up.yml` and find out". Matt did, twice (runs `34801283091` and
+`34802756625`). The bypass worked and the refresh passed — and the apply then hit
+an **unrelated second human gate**, Cloudflare error `10089` ("enable Analytics
+Engine"), introduced by #5315's binding. That was cleared before 09-19 and the
+pipeline has been green since. The escalation was correct, it was actioned, and it
+surfaced a second gate that no amount of agent work could have found first. Worth
+remembering the next time an escalation looks like it "didn't work".
+
+Owned by other routines, noted and not re-filed: the `apps/hospitality` audit-zone
+concentration (#5272/#5275/#5276/#5278/#5279, `optimize-implement-queue`, third
+week), the visual-regression `agent-failed` pair (#5091/#5119, 13+ days), and the
+empty `.claude/agent-spend/sessions.jsonl` (#4618).
+
+---
+
 ## 2026-09-13
 
 Window: **2026-09-07 → 2026-09-13**. Sources: GitHub MCP tool surface (PR/issue
