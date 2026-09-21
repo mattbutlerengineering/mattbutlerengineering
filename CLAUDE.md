@@ -245,7 +245,7 @@ Three `.claude/` directories work together to capture agent learning across sess
 
 **What writes to it:**
 
-- `/reflect` skill (human-initiated at session end) writes human corrections to `corrections/`
+- A human (or an agent at the human's request) writing the capture file directly — see [Capturing a correction by hand](#capturing-a-correction-by-hand) below. **There is no `/reflect` skill**: these docs named one for months and it has never existed in this repo's history or in `~/.claude/skills/` (measured, https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5586)
 - `/gotcha-harvest` skill (also human-initiated, after autonomous loops) mines loop failures for **loop-discovered** gotchas and proposes them to `corrections/`
 - Manual session notes captured by the user
 
@@ -277,7 +277,7 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 
 **What writes to it:**
 
-- `/reflect` skill at session end (human-initiated) synthesizes corrections and reinforcements into actionable insights
+- A human writing the reflection file at session end, synthesizing corrections and reinforcements into actionable insights (same hand-written path as `corrections/` — no `/reflect` skill exists)
 - `/revert-rca-loop` skill files RCA documents after AI-authored PRs are reverted (e.g. `RCA-PR-3588.md`)
 
 **What reads it:**
@@ -312,14 +312,16 @@ The `.claude/rules/gotchas.md` file is the canonical source for project-specific
 
 | Source                                      | How it lands in gotchas                                                                               | Approval gate                                            | Example                                                                       |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **Human error** (from `/reflect`)           | Manual PR to CLAUDE.md after user says "this should be documented"                                    | User review during PR                                    | Rialto setState-in-useEffect ban                                              |
+| **Human error** (hand-written correction)   | Manual PR to CLAUDE.md after user says "this should be documented"                                    | User review during PR                                    | Rialto setState-in-useEffect ban                                              |
 | **Loop discovery** (from `/gotcha-harvest`) | `/gotcha-harvest` mines session logs for failed-then-fixed arcs, proposes entries, user reviews in PR | `/gotcha-harvest` proposes (human approves in PR review) | Missing `gh` CLI in cloud sessions (discovered 10 times in logs before entry) |
 
-The top of `gotchas.md` states this:
+`gotchas.md` restates this in its own header — read it there rather than from a copy here. This paragraph used to quote that header verbatim and drifted from it twice (it still named `/ship-loop`, removed in #5592, and `/reflect`, which never existed), so the quote is deliberately gone: a duplicated sentence that must be kept in sync is a drift generator, not documentation.
 
-> "**Adding entries:** after an autonomous loop (`/implement-queue`, `/ship-loop`), run `/gotcha-harvest` to mine the session for `CI failed → fix → passed` arcs and recurring tool-errors — it proposes new bullets here (and cross-repo facts to memory) with human review. `/reflect` only captures _human corrections_, so loop-discovered gotchas land here via `/gotcha-harvest`, not `/reflect`."
+**Why the distinction?** Hand-written corrections are interactive — the human has the transcript and is capturing intentional feedback. `/gotcha-harvest` is autonomous (runs after a session ends) and discovers patterns the human never said out loud. Both feed into corrections; only gotchas-via-gotcha-harvest entries become project traps.
 
-**Why the distinction?** `/reflect` is interactive (the user has your transcript) and captures intentional feedback. `/gotcha-harvest` is autonomous (runs after a session ends) and discovers patterns the user never said out loud. Both feed into corrections; only gotchas-via-gotcha-harvest entries become project traps.
+### Capturing a correction by hand
+
+`.claude/memory/corrections/` is written with an ordinary file write — no tooling stands between you and it, which is why the corpus stops growing the moment nobody remembers to write one (newest entry `2026-05-10`, the defect [#5585](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/5585) is about). Create `YYYY-MM-DD-<slug>.md` with the `date` / `session` / `trigger` / `correction` / `root_cause` / `prevention` frontmatter that [`.claude/memory/README.md`](./.claude/memory/README.md) specifies, and add `feeds_back_into:` once the lesson is promoted into `gotchas.md`. `plugins/acmm/scripts/substance.js` reads those frontmatter dates, so an entry with a body date but no frontmatter date does not count.
 
 ## Cross-Session Memory & Knowledge Graph
 

@@ -19,7 +19,7 @@ The slug should be short (3-5 words) and describe the primary task of the sessio
 ## How summaries are created
 
 1. During a session, the agent uses `.claude/session-summary.md` as a working scratchpad.
-2. At session end (via a Stop hook or manual `/reflect` invocation), the scratchpad is finalized.
+2. At session end (via a Stop hook, or by hand), the scratchpad is finalized.
 3. The finalized summary is copied to this directory with the date-slug filename.
 4. The scratchpad in `session-summary.md` is reset to its template state for the next session.
 
@@ -27,7 +27,7 @@ The slug should be short (3-5 words) and describe the primary task of the sessio
 
 - **Session continuity:** When a new session starts, the agent reads the most recent 3-5 summaries to restore context about what was done and what is pending.
 - **Trend analysis:** The `/progress-tracker` skill aggregates session summaries to compute metrics like tasks completed, correction frequency, and time-per-task.
-- **Reflection input:** The `/reflect` skill cross-references summaries with corrections and reinforcements in `.claude/memory/`.
+- **Reflection input:** Writing a `.claude/reflections/` entry means cross-referencing these summaries against the corrections and reinforcements in `.claude/memory/`. This is a manual step — no skill performs it.
 
 ## Retention policy
 

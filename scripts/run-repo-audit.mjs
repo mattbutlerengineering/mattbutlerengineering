@@ -90,6 +90,11 @@ export const REPO_AUDIT_CHECKS = [
   },
   { name: "check-ci-gate-coverage", command: "node", args: ["scripts/check-ci-gate-coverage.mjs"] },
   { name: "check-memory-refs", command: "node", args: ["scripts/check-memory-refs.mjs"] },
+  {
+    name: "check-skill-references",
+    command: "node",
+    args: ["scripts/check-skill-references.mjs"],
+  },
   { name: "boundaries", command: "pnpm", args: ["check:boundaries"] },
 ];
 
