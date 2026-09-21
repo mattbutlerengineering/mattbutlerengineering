@@ -39,7 +39,7 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@prisma/client-runtime-utils": "^7.10.0",
-    "@scalar/fastify-api-reference": "^1.68.0",
+    "@scalar/fastify-api-reference": "^1.69.0",
     "fastify": "catalog:",
     "jose": "^6.2.12",
     "pg": "^8.23.0",
