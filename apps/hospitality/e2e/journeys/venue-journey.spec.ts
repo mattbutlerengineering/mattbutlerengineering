@@ -4,8 +4,8 @@ import {
   authenticateNonAdmin,
   createVenueAs,
   deleteVenue,
-  isNonAdminAuthConfigured,
   listSyntheticVenues,
+  NON_ADMIN_AUTH_ENV_VARS,
   sweepSyntheticVenues,
   SYNTHETIC_VENUE_PREFIX,
 } from "./journey-api.js";
@@ -124,12 +124,14 @@ test("venue onboarding journey against the live site", async ({ page }) => {
     await expect(page.getByText("Active", { exact: true })).toBeVisible();
   });
 
-  // Deliberately LAST: a failed step marks every later step skipped, so an
-  // unprovisioned non-admin account here must not wipe out the wizard
-  // coverage above. Cleanup still runs — it is outside the step chain.
+  // Deliberately LAST: a failed step marks every later step skipped, so a
+  // genuine failure here must not wipe out the wizard coverage above. An
+  // unprovisioned account no longer can — that records `blocked`, which skips
+  // nothing. Cleanup still runs either way; it is outside the step chain.
   const NON_ADMIN_STEP_NAME = "A non-admin identity can bootstrap its first venue";
-  if (isNonAdminAuthConfigured()) {
-    await journey.step(NON_ADMIN_STEP_NAME, async () => {
+  await journey.step(
+    NON_ADMIN_STEP_NAME,
+    async () => {
       // ADR-020's third case. Runs against a SEPARATE, deliberately non-admin
       // account: the admin identity above takes requireVenueCreateAccess's
       // skip-the-lookup branch, so it would exercise none of this.
@@ -151,18 +153,19 @@ test("venue onboarding journey against the live site", async ({ page }) => {
       const second = await createVenueAs(nonAdmin.accessToken, `${venueName}-second`);
       createdVenueNames.push(`${venueName}-second`);
       expect(second.status).toBe(403);
-    });
-  } else {
-    // Environmental, not a code defect — E2E_NONADMIN_AUTH_EMAIL/PASSWORD were
-    // never provisioned (#4527, blocked on a human: creating the Auth0 test
-    // account). Skipping (not failing) stops this from hard-failing the whole
-    // journey daily over a gap no agent can close; the friction-log note keeps
-    // the gap visible without filing a repeat `ready` issue.
-    journey.note(
-      `${NON_ADMIN_STEP_NAME}: skipped — E2E_NONADMIN_AUTH_EMAIL/PASSWORD are not configured. See #4527.`
-    );
-    journey.skip(NON_ADMIN_STEP_NAME);
-  }
+    },
+    // Unset credentials record this step `blocked`, not `failed` (#4527):
+    // E2E_NONADMIN_AUTH_EMAIL/PASSWORD need an Auth0 account only a human can
+    // create, and a never-run step reported as a product failure is
+    // indistinguishable from a real regression here. `blocked` still fails the
+    // journey closed via assertGreen — it just says why.
+    //
+    // There is deliberately no fallback to the admin credentials, quoting
+    // resolveNonAdminAuthEnv's own reasoning: "the first-venue bootstrap case
+    // only exists for non-admins, so an admin fallback would make this journey
+    // pass without exercising it."
+    { requiredEnv: [...NON_ADMIN_AUTH_ENV_VARS], env: process.env }
+  );
 
   // Runs even when the wizard broke: the venue may already exist in prod. The
   // `finally` means a test-level timeout still leaves a report behind for the

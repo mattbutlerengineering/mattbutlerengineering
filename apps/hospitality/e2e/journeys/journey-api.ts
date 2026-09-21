@@ -40,17 +40,17 @@ export async function authenticateAgainstLiveSite(page: Page): Promise<string> {
 }
 
 /**
- * Whether the non-admin journey identity's credentials are provisioned.
- * `resolveNonAdminAuthEnv` throws once they're read, which is right for a
- * step already committed to running — this lets the caller check first and
- * skip the step instead (see #4527: unprovisioned repos should not hard-fail
- * the whole journey over one never-created Auth0 test account).
+ * The credentials the non-admin bootstrap case cannot run without.
+ *
+ * The journey step declares this as its `requiredEnv`, so
+ * `classifyJourneyStepOutcome` reports the step `blocked` — naming whichever
+ * of these is unset — instead of letting `resolveNonAdminAuthEnv`'s throw be
+ * recorded as a product failure (#4527).
  */
-export function isNonAdminAuthConfigured(
-  env: Record<string, string | undefined> = process.env
-): boolean {
-  return Boolean(env["E2E_NONADMIN_AUTH_EMAIL"]) && Boolean(env["E2E_NONADMIN_AUTH_PASSWORD"]);
-}
+export const NON_ADMIN_AUTH_ENV_VARS = [
+  "E2E_NONADMIN_AUTH_EMAIL",
+  "E2E_NONADMIN_AUTH_PASSWORD",
+] as const;
 
 /**
  * Builds the env the NON-ADMIN journey identity authenticates with: the same
@@ -68,10 +68,7 @@ export function resolveNonAdminAuthEnv(
 ): Record<string, string | undefined> {
   const email = env["E2E_NONADMIN_AUTH_EMAIL"];
   const password = env["E2E_NONADMIN_AUTH_PASSWORD"];
-
-  const missing: string[] = [];
-  if (!email) missing.push("E2E_NONADMIN_AUTH_EMAIL");
-  if (!password) missing.push("E2E_NONADMIN_AUTH_PASSWORD");
+  const missing = NON_ADMIN_AUTH_ENV_VARS.filter((name) => !env[name]);
 
   if (missing.length > 0) {
     throw new Error(

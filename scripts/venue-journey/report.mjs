@@ -8,13 +8,17 @@
  *
  * @typedef {object} JourneyStep
  * @property {string} name        Human-readable step name.
- * @property {"passed"|"failed"|"skipped"} status
+ * @property {"passed"|"failed"|"blocked"|"skipped"} status
  * @property {number} durationMs  Wall-clock duration of the step.
- * @property {string} [error]     Failure message (redacted before use).
+ * @property {string} [error]     Failure message, or the reason a `blocked`
+ *                                step never ran (redacted before use).
  * @property {string} [pageError] Visible `[role="alert"]` text at the moment
  *                                the step failed (redacted before use). This is
  *                                the app's own error message — usually the real
  *                                cause behind a bare locator timeout.
+ * @property {string[]} [missingCredentials] On a `blocked` step: the env vars
+ *                                that were unset, so the filed issue can name
+ *                                them and the remediation for each.
  *
  * @typedef {object} JourneyReport
  * @property {string} runId       GitHub Actions run id (also the venue suffix).
@@ -33,6 +37,84 @@ export const FRICTION_ISSUE_TITLE = "[Journey] venue-journey friction log";
 
 /** Artifact uploaded by the workflow that holds failure screenshots. */
 export const SCREENSHOT_ARTIFACT_NAME = "venue-journey-artifacts";
+
+/**
+ * Classifies how one journey step ended. The single decision behind the step
+ * table, the job summary, the journey's own verdict, and which issue (if any)
+ * gets filed — the recorder in journey-recorder.ts is a thin wrapper over it.
+ *
+ * Modelled on `scripts/ci-gate-status.mjs`'s `classifyCiGateStatus`: a small
+ * set of named states, one of which exists purely so an *absent* prerequisite
+ * can never be conflated with a real outcome. There it is `gate-missing`;
+ * here it is `blocked`.
+ *
+ * Why `blocked` has to be its own state (#4527): the daily journey reported
+ * "A non-admin identity can bootstrap its first venue" as `failed` after 4 ms,
+ * because `E2E_NONADMIN_AUTH_EMAIL`/`E2E_NONADMIN_AUTH_PASSWORD` have never
+ * been provisioned — an Auth0 account only a human can create. Every other
+ * step did real work and took 81–2892 ms. A never-run step reported as
+ * `failed` is crying wolf: a genuine regression in that step would look
+ * identical to the noise, so nobody would notice it.
+ *
+ * `blocked` is NOT a pass and is NOT a weakening of the check. The caller
+ * still fails the journey closed on it (`assertGreen` in journey-recorder.ts)
+ * — the only thing this state changes is that the failure is legible.
+ *
+ * It is deliberately NOT solved by falling back to the admin credentials,
+ * quoting `resolveNonAdminAuthEnv`'s own reasoning verbatim: "the first-venue
+ * bootstrap case only exists for non-admins, so an admin fallback would make
+ * this journey pass without exercising it."
+ *
+ * Pure and never throws. An unrecognised `requiredEnv`/`env` shape degrades to
+ * "this step needs no credentials", which can only mis-report a step as the
+ * `passed`/`failed` its body actually produced — it can never invent a green
+ * result for a step that never ran, because the caller consults this function
+ * for a `blocked` verdict *before* it is willing to run the body at all.
+ *
+ * @param {object} [input]
+ * @param {string[]} [input.requiredEnv] Env var names the step cannot run without.
+ * @param {Record<string, string|undefined>|null} [input.env] Environment to read.
+ *   Defaults to `{}` — an unsupplied environment reads as "nothing is set",
+ *   failing closed to `blocked` rather than assuming provisioned.
+ * @param {string|null} [input.error] The message the step threw with, or
+ *   null/undefined when it did not throw. An empty string is still a throw.
+ * @returns {{state: "passed"|"failed"|"blocked", missingCredentials: string[], reason: string}}
+ */
+export function classifyJourneyStepOutcome({ requiredEnv, env, error } = {}) {
+  const environment = env ?? {};
+  const missingCredentials = (Array.isArray(requiredEnv) ? requiredEnv : []).filter(
+    // An empty string counts as unset: `gh secret set NAME` with no `--body`
+    // reads empty stdin and silently stores "".
+    (name) => !environment[name]
+  );
+
+  // Checked BEFORE `error`, and that order is the whole point: a step gated on
+  // an absent credential throws *because* it is absent, so reading that throw
+  // as a product failure is exactly the misreport this function prevents.
+  if (missingCredentials.length > 0) {
+    return {
+      state: "blocked",
+      missingCredentials,
+      reason:
+        `Blocked on unset credentials: ${missingCredentials.join(", ")}. The step never ran, ` +
+        "so this is neither evidence the behaviour works nor evidence it is broken.",
+    };
+  }
+
+  if (error !== undefined && error !== null) {
+    return {
+      state: "failed",
+      missingCredentials: [],
+      reason: String(error) || "(no error message captured)",
+    };
+  }
+
+  return {
+    state: "passed",
+    missingCredentials: [],
+    reason: "The step ran and its assertions held.",
+  };
+}
 
 // Order matters: strip whole JWTs before the generic key/value rules, so a
 // token embedded in a header line is never partially left behind.
@@ -160,6 +242,102 @@ export function buildFailureIssue(report) {
 }
 
 /**
+ * The `gh secret set` lines that unblock a step, one per unset credential.
+ *
+ * `--body` is never omitted, and the omission is called out: `gh secret set
+ * NAME` with no `--body` reads empty stdin non-interactively and silently
+ * stores `""`, which `classifyJourneyStepOutcome` reads as still unset — so a
+ * remediation that looks done leaves the step blocked with no new signal.
+ *
+ * @param {string[]} credentials
+ * @returns {string[]} Markdown lines, or none when nothing is named.
+ */
+function remediationSection(credentials) {
+  if (credentials.length === 0) return [];
+
+  return [
+    "### Remediation (human)",
+    "",
+    "Set each credential below. **Always pass `--body`** — `gh secret set NAME` with no `--body`",
+    "reads empty stdin and silently stores an **empty** value, which reads as still unset.",
+    "",
+    "```bash",
+    ...credentials.map((name) => `gh secret set ${name} --body "<value>"`),
+    "```",
+    "",
+  ];
+}
+
+/**
+ * Builds the issue for a step that could not run at all, or null when no step
+ * was blocked.
+ *
+ * Kept separate from `buildFailureIssue` on purpose: same dedupe signature,
+ * very different body. This one says the step is blocked on an unset
+ * credential rather than failed, names which credentials, and carries the
+ * exact remediation. Precedence belongs to the caller — it reaches for this
+ * only once `buildFailureIssue` has returned null, so a real regression is
+ * always the thing reported.
+ *
+ * Labelled `ready-for-human`, never `ready`: no agent can create an Auth0
+ * account, so an agent-pickup label would feed this to the implement-queue to
+ * be picked up and abandoned forever.
+ *
+ * @param {JourneyReport} report
+ * @returns {{title: string, searchPhrase: string, body: string, commentBody: string, labels: string[]} | null}
+ */
+export function buildBlockedIssue(report) {
+  const blocked = stepsOf(report).find((step) => step.status === "blocked");
+  if (!blocked) return null;
+
+  const signature = buildStepSignature(blocked.name);
+  const credentials = Array.isArray(blocked.missingCredentials) ? blocked.missingCredentials : [];
+  const named = credentials.map((name) => `\`${name}\``).join(", ");
+  const detail = redactSecrets(blocked.error) || "(no detail captured)";
+
+  const body = [
+    `The daily synthetic venue-onboarding journey could not verify **${blocked.name}**: the step ` +
+      "is blocked on an unset credential. It did not fail — it never ran, so this is neither " +
+      "evidence the behaviour works nor evidence it is broken.",
+    "",
+    `- Signature: \`${signature}\``,
+    `- Run: ${report.runUrl}`,
+    `- Started: ${report.startedAt}`,
+    ...(named ? [`- Unset credentials: ${named}`] : []),
+    "",
+    "### Detail",
+    "",
+    "```",
+    detail,
+    "```",
+    "",
+    ...remediationSection(credentials),
+    "### Step timings",
+    "",
+    stepTable(report),
+    "",
+    "_Filed by the daily venue journey (.github/workflows/venue-journey.yml)._",
+  ].join("\n");
+
+  const commentBody = [
+    `Still blocked on ${runDate(report)} — run ${report.runUrl}`,
+    "",
+    ...(named ? [`Unset credentials: ${named}`, ""] : []),
+    "```",
+    detail,
+    "```",
+  ].join("\n");
+
+  return {
+    title: `[Journey] Venue onboarding blocked at ${blocked.name}`,
+    searchPhrase: signature,
+    body,
+    commentBody,
+    labels: ["audit", "ready-for-human"],
+  };
+}
+
+/**
  * Finds an already-open issue for the same failure so a recurrence
  * comment-bumps instead of filing a duplicate.
  *
@@ -235,13 +413,18 @@ export function buildFrictionEntry(report) {
  */
 export function buildJobSummary(report) {
   const failed = stepsOf(report).find((step) => step.status === "failed");
+  // A blocked step never greens the run — the heading has to say so, since
+  // this summary is the surface a human reads before opening any issue.
+  const blocked = stepsOf(report).find((step) => step.status === "blocked");
   const friction = buildFrictionEntry(report);
 
   const heading = failed
     ? `Journey failed at ${failed.name}`
-    : friction
-      ? "Journey green with friction"
-      : "Journey green";
+    : blocked
+      ? `Journey blocked at ${blocked.name}`
+      : friction
+        ? "Journey green with friction"
+        : "Journey green";
 
   const lines = [
     `## Venue journey — ${heading}`,
@@ -254,6 +437,8 @@ export function buildJobSummary(report) {
 
   if (failed) {
     lines.push("", "### Error", "", "```", redactSecrets(failed.error), "```");
+  } else if (blocked) {
+    lines.push("", "### Blocked", "", "```", redactSecrets(blocked.error), "```");
   }
   if (friction) {
     lines.push("", "### Friction", "", friction);

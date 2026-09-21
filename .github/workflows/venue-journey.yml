@@ -70,6 +70,9 @@ jobs:
           # fall back to E2E_AUTH_EMAIL/PASSWORD: an admin takes
           # requireVenueCreateAccess's skip-the-lookup branch, so the case
           # would pass while exercising none of the behaviour it exists for.
+          # Unset (the current state, #4527 — the Auth0 account needs a human):
+          # the step records as `blocked`, not `failed`, and the job still goes
+          # red, so an unverified step can never read as a green journey.
           E2E_NONADMIN_AUTH_EMAIL: ${{ secrets.E2E_NONADMIN_AUTH_EMAIL }}
           E2E_NONADMIN_AUTH_PASSWORD: ${{ secrets.E2E_NONADMIN_AUTH_PASSWORD }}
 
@@ -90,8 +93,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fail job on hard failure
+      # Red covers two distinct verdicts and the annotation must not pick one:
+      # a step that RAN AND BROKE (`failed`), and a step that COULD NOT RUN
+      # because a credential is unset (`blocked`, #4527). Both fail the job
+      # closed — the job summary and the filed issue say which.
+      - name: Fail job on a failed or blocked journey
         if: steps.journey.outcome == 'failure'
         run: |
-          echo "::error::Venue onboarding journey failed — see the job summary and the filed audit issue."
+          echo "::error::Venue onboarding journey did not complete green — see the job summary and the filed audit issue for whether a step failed or was blocked on an unset credential."
           exit 1

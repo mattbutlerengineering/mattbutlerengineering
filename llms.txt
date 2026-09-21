@@ -4577,9 +4577,7 @@
       export async function authenticateAgainstLiveSite(page: Page): Promise<string> { /* ... */ }
     </item>
     <item priority="high">
-      export function isNonAdminAuthConfigured(
-        env: Record<string, string | undefined> = process.env
-      ): boolean { /* ... */ }
+      export const NON_ADMIN_AUTH_ENV_VARS: unknown;
     </item>
     <item priority="high">
       export function resolveNonAdminAuthEnv(
@@ -4633,7 +4631,7 @@
   </file>
   <file path="apps/hospitality/e2e/journeys/journey-recorder.ts">
     <item priority="low">
-      type JourneyStepStatus = "passed" | "failed" | "skipped";
+      type JourneyStepStatus = "passed" | "failed" | "blocked" | "skipped";
     </item>
     <item priority="low">
       interface JourneyStepResult {
@@ -4642,6 +4640,12 @@
         durationMs: number;
         error?: string;
         pageError?: string;
+      }
+    </item>
+    <item priority="low">
+      interface JourneyStepRequirements {
+        requiredEnv?: string[];
+        env?: Record<string, string | undefined>;
       }
     </item>
     <item priority="low">

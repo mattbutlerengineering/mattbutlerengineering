@@ -181,27 +181,88 @@ describe("createJourneyRecorder page-error capture", () => {
   });
 });
 
-describe("createJourneyRecorder.skip", () => {
-  it("records the step as skipped, not passed or failed", async () => {
+describe("createJourneyRecorder.step with requiredEnv (#4527)", () => {
+  const NON_ADMIN_ENV = ["E2E_NONADMIN_AUTH_EMAIL", "E2E_NONADMIN_AUTH_PASSWORD"];
+  const STEP = "A non-admin identity can bootstrap its first venue";
+  const provisioned = {
+    E2E_NONADMIN_AUTH_EMAIL: "operator@example.com",
+    E2E_NONADMIN_AUTH_PASSWORD: "operator-secret",
+  };
+
+  it("records `passed` when the credentials are present and the step succeeds", async () => {
     const { page } = createFakePage(noAlert);
     const journey = createJourneyRecorder(page, "synthetic-journey-1");
 
-    journey.skip("A non-admin identity can bootstrap its first venue");
+    await journey.step(STEP, () => Promise.resolve(), {
+      requiredEnv: NON_ADMIN_ENV,
+      env: provisioned,
+    });
+
+    expect(journey.report().steps[0]).toMatchObject({ name: STEP, status: "passed" });
+    expect(() => journey.assertGreen()).not.toThrow();
+  });
+
+  it("records `failed` when the credentials are present and the step throws", async () => {
+    const { page } = createFakePage(noAlert);
+    const journey = createJourneyRecorder(page, "synthetic-journey-1");
+
+    await journey.step(STEP, () => Promise.reject(BOOM), {
+      requiredEnv: NON_ADMIN_ENV,
+      env: provisioned,
+    });
+
+    expect(journey.report().steps[0]).toMatchObject({ status: "failed", error: BOOM.message });
+    expect(() => journey.assertGreen()).toThrow(/failed/);
+  });
+
+  it("records `blocked` — not `failed` — when a required credential is unset", async () => {
+    const { page } = createFakePage(noAlert);
+    const journey = createJourneyRecorder(page, "synthetic-journey-1");
+
+    await journey.step(STEP, () => Promise.resolve(), { requiredEnv: NON_ADMIN_ENV, env: {} });
 
     expect(journey.report().steps[0]).toMatchObject({
-      name: "A non-admin identity can bootstrap its first venue",
-      status: "skipped",
+      name: STEP,
+      status: "blocked",
       durationMs: 0,
+      missingCredentials: NON_ADMIN_ENV,
     });
   });
 
-  it("does not count as a failure — assertGreen still passes the journey", async () => {
+  it("never runs the step body when a required credential is unset", async () => {
+    const { page } = createFakePage(noAlert);
+    const journey = createJourneyRecorder(page, "synthetic-journey-1");
+    let ran = false;
+
+    await journey.step(
+      STEP,
+      () => {
+        ran = true;
+        return Promise.resolve();
+      },
+      { requiredEnv: NON_ADMIN_ENV, env: {} }
+    );
+
+    expect(ran).toBe(false);
+  });
+
+  it("does not count a blocked step as a pass", async () => {
     const { page } = createFakePage(noAlert);
     const journey = createJourneyRecorder(page, "synthetic-journey-1");
 
-    journey.skip("Some optional step");
+    await journey.step(STEP, () => Promise.resolve(), { requiredEnv: NON_ADMIN_ENV, env: {} });
 
-    expect(() => journey.assertGreen()).not.toThrow();
+    expect(journey.report().steps[0]?.status).not.toBe("passed");
+  });
+
+  it("fails the journey closed — a blocked step can never leave the run green", async () => {
+    const { page } = createFakePage(noAlert);
+    const journey = createJourneyRecorder(page, "synthetic-journey-1");
+
+    await journey.step(STEP, () => Promise.resolve(), { requiredEnv: NON_ADMIN_ENV, env: {} });
+
+    expect(() => journey.assertGreen()).toThrow(/blocked/i);
+    expect(() => journey.assertGreen()).toThrow(/E2E_NONADMIN_AUTH_EMAIL/);
   });
 });
 

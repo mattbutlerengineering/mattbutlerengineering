@@ -6,6 +6,8 @@
  * apps/hospitality/e2e/journeys/venue-journey.spec.ts and:
  *   1. writes a per-step-timings job summary (always — green or not),
  *   2. files/comment-bumps ONE deduped `audit` + `ready` issue on hard failure,
+ *      or an `audit` + `ready-for-human` one when a step was `blocked` on an
+ *      unset credential instead (#4527),
  *   3. appends a dated entry to the single rolling `audit` friction-log issue
  *      when the run was green but slow or console-noisy.
  *
@@ -18,6 +20,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import {
+  buildBlockedIssue,
   buildFailureIssue,
   buildFrictionEntry,
   buildJobSummary,
@@ -90,27 +93,32 @@ function main() {
   const report = JSON.parse(readFileSync(reportPath, "utf-8"));
   writeSummary(buildJobSummary(report));
 
-  const failure = buildFailureIssue(report);
+  // Precedence: a hard failure is a product regression and outranks a step
+  // that could not run. Both share the step signature, so whichever is filed
+  // comment-bumps the same issue on a recurrence, and the step table in either
+  // body shows the other's state anyway.
+  const issue = buildFailureIssue(report) ?? buildBlockedIssue(report);
   const friction = buildFrictionEntry(report);
-  if (!failure && !friction) {
+  if (!issue && !friction) {
     log("::notice::Journey green with no friction — no issues filed.");
     return;
   }
 
-  // A `gh` outage must never turn a GREEN journey red. When there is a hard
-  // failure to report, filing is load-bearing and errors propagate; when the
-  // only thing to file is the advisory friction log, they degrade to warnings.
+  // A `gh` outage must never turn a GREEN journey red. When there is a failed
+  // or blocked step to report, filing is load-bearing and errors propagate;
+  // when the only thing to file is the advisory friction log, they degrade to
+  // warnings.
   let openIssues;
   try {
     openIssues = listOpenAuditIssues();
   } catch (err) {
-    if (failure) throw err;
+    if (issue) throw err;
     log(`::warning::Could not list open audit issues — friction log not updated: ${message(err)}`);
     return;
   }
 
-  if (failure) {
-    fileOrBump({ openIssues, ...failure });
+  if (issue) {
+    fileOrBump({ openIssues, ...issue });
   }
 
   // Friction is advisory: one rolling log issue, `audit` only (never `ready`),
