@@ -24,6 +24,12 @@ jobs:
       ISSUE_TITLE: ${{ github.event.issue.title }}
       ISSUE_BODY: ${{ github.event.issue.body }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # This job has no `actions/checkout`, so there is no `.git` for `gh` to
+      # read the target repository from. Without this, every `gh` call below
+      # dies with "failed to run git: fatal: not a git repository" — which is
+      # exactly what happened on every run from 2026-04-25 (#628) until
+      # 2026-09-21: 200+ green runs, zero labels ever applied.
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Compute labels
         id: compute
@@ -46,7 +52,13 @@ jobs:
           if (/\b(security|cve|vulnerab)/i.test(text)) labels.add('security');
           if (/\b(meta-improvement|process improvement|loop regression)\b/i.test(text)) labels.add('meta-improvement');
           if (/\b(rollback|revert)\b/i.test(text) && /\bproduction\b/i.test(text)) labels.add('rollback');
-          if (/\b(documentation|README|docs?)\b/i.test(text) && !/\bservice\b/i.test(text)) labels.add('docs');
+          // Title prefix, not a body keyword. The old body-keyword form
+          // matched 27 of the last 80 issues, because citing a `docs/...` path
+          // is routine here — so repairing this workflow would have turned a
+          // dead rule straight into a noisy one. The clean case needs no rule
+          // at all: .github/ISSUE_TEMPLATE/documentation.yml declares
+          // `labels: ["documentation"]`, which GitHub applies by itself.
+          if (/^docs[(:]/i.test(title) || /^\[docs\]/i.test(title)) labels.add('docs');
 
           // Path mentions in body — what part of the monorepo is affected.
           if (/\bpackages\/rialto\b/i.test(text)) labels.add('area:rialto');
@@ -75,8 +87,14 @@ jobs:
           LABELS_CSV: ${{ steps.compute.outputs.labels }}
         run: |
           # Idempotent: gh issue edit ignores already-applied labels.
+          #
+          # `gh label create` stays best-effort — the label almost always exists
+          # already, and that call is not the one doing the work. `gh issue edit`
+          # is, so its failure must be loud: suffixing it `|| true` is what let
+          # this step report success while applying nothing for five months.
+          set -o pipefail
           IFS=',' read -ra arr <<< "$LABELS_CSV"
           for L in "${arr[@]}"; do
             gh label create "$L" --color "ededed" --description "Auto-applied by auto-label.yml" --force >/dev/null 2>&1 || true
-            gh issue edit "$ISSUE_NUMBER" --add-label "$L" || true
+            gh issue edit "$ISSUE_NUMBER" --add-label "$L"
           done
