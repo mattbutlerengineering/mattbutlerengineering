@@ -68,6 +68,14 @@ export const ROUTINE_MANIFEST = [
       "Not a RemoteTrigger — runs in GitHub Actions (drift-fix.yml), already watched by scripts/scheduled-workflow-health.mjs.",
   },
   {
+    name: "metrics-collectors",
+    triggerId: null,
+    periodDays: 1,
+    outOfScope: true,
+    outOfScopeReason:
+      "Not a RemoteTrigger — runs in GitHub Actions (metrics-collectors.yml) because the domain-metrics and review-burden collectors need production egress and the gh CLI, neither available in a CCR session; already watched by scripts/scheduled-workflow-health.mjs.",
+  },
+  {
     name: "mbe-evening",
     triggerId: "trig_01PHwfbFQcFveYajVPaTrbZk",
     periodDays: 1,
