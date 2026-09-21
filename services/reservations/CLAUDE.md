@@ -637,6 +637,65 @@ join-based `deposits` policy all return zero rows — or, for `venues`, no
 other venue's row — with the app-level `venueId`/`id` filter deliberately
 removed).
 
+**The gap that caveat describes is now guarded, and the guard runs in ordinary
+CI (#5369).** "No `FORCE`" is not a footnote — it means every policy above is
+provably inert against the one role the service actually connects as, so the
+backstop reads as protection while providing none. Two checks now keep that from
+recurring silently:
+
+- `src/services/rls-force-coverage.ts` parses the committed migration SQL and
+  fails if any RLS-**enabled** table is neither forced nor listed in
+  `PENDING_FORCE_TABLES` with its reason. It needs no database, so it runs in the
+  normal `test` job on every PR — add an eighth venue-scoped table with `ENABLE`
+  alone and it fails at the moment the migration is written. (It strips SQL
+  comments first: the one migration in this service that mentions FORCE mentions
+  it only in prose saying it does _not_ set it.)
+- `src/routes/rls-owner-enforcement.integration.test.ts` is the real-Postgres
+  proof, and deliberately uses **no probe role** — it asserts its connection is
+  owner-privileged for all seven tables (checked against `pg_class.relowner`) and
+  is neither `SUPERUSER` nor `BYPASSRLS`, then measures enforcement. Both guards
+  are assertions, not comments, so a run that could not prove anything fails
+  instead of passing. Its expectations are derived from the migrations, so it
+  keeps working unchanged across the flip.
+
+ADR-026 §3.3 carries the measured route-by-route breakage (8 of 17 probed routes
+404 under FORCE, including `GET /public/v1/venues/:slug` — the first call of
+every public booking) and is the list to close before the flip.
+
+**If you ever smoke-test the FORCE flip, do NOT do it as a platform admin — the
+damage is a 404, not the 403 the ADR predicts, and an admin sees neither.**
+ADR-026 §3.3 item 2 says an entity-addressed route answers **403** under FORCE,
+because `venueIdFromEntity`'s unscoped load resolves `null` and
+`requireVenueAccess` rejects. That is true only for a non-admin. `requireVenueAccess`
+(`packages/auth/src/fastify/authz.ts`) short-circuits on `hasPermission(user, "admin")`
+**before** it ever calls the resolver, so for a platform admin the request sails
+past the guard and dies in the handler's own read instead — `404 Table not found`,
+`404 No venue found with slug '…'`. Measured 2026-09-21; the auth-bypass identity
+used by every route test in this service (`AUTH_BYPASS_IN_TESTS`) is exactly such
+an admin, so a test or manual check run through it observes the 404 path and never
+the 403 one.
+
+Why that matters more than the status code: a 404 from these routes is
+**indistinguishable from an empty venue**. Nothing goes red — no 5xx, no Sentry
+event, no failed health check (`/health` is liveness-only and stays 200; even
+`/api/v1/users/health`'s `$queryRaw` is unaffected, since RLS returns zero rows
+rather than erroring). The observable symptom is "no bookings today". Treat any
+post-flip verification that only checks for errors as having verified nothing.
+
+**Background jobs do not go through the request middleware at all, and one of
+them is unguarded.** `src/services/lapsed-guest-cron.ts` is fine (it sets
+per-venue context on its own transaction, #5401) — but
+`src/services/job-worker.ts`'s reminder handlers, wired in `app.ts`, call
+`reservationService.getById` / `venueService.getById` from a BullMQ consumer with
+no request, so `getCurrentVenueId()` is `null`. Under FORCE both return `null` and
+`deliverReminder` **returns early without throwing**: reminders silently stop
+being delivered. This is ADR-026 §3.3 item 7 — the one entry the original sweep
+missed, because a `findMany|findFirst|$queryRaw` grep cannot see a background
+caller that reaches those tables through a service function. When adding any new
+background/scheduled caller that touches the seven tables, wrap it in
+`runWithVenueContext(venueId, …)` and say so in its doc comment; nothing else in
+the service will do it for you.
+
 **Cross-venue reads go through one named function.** Two reads cannot name a
 single venue by construction — the lapsed-guest cron's venue list
 (`getAllVenueIds`) and the platform-admin venue list (`venueService.list`) —
