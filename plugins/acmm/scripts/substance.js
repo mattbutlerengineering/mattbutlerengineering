@@ -102,20 +102,39 @@ function checkSkill(filePaths, _cwd) {
   return { passed: false, evidence: "stub or insufficient instruction content (<100 chars)" };
 }
 
+/**
+ * Substance for acmm:feedback-loops — how recently the autonomous-loop record was written to.
+ *
+ * Reads the dated, append-only loop log (`.claude/improvement-loop/`), NOT an instruction file
+ * that merely describes the loop. Pointing this at `CLAUDE.md` made it a false negative: the only
+ * ISO dates in that file are the four promoted corrections it lists as examples, so the check was
+ * incidentally re-measuring correction-capture freshness while a loop writing an entry every day
+ * was reported dead (#5613).
+ *
+ * The 30-day window stays — see NINETY_DAYS_MS above for why this checker is the stricter of the
+ * two. Failure evidence distinguishes "no dated entry at all" (never wired up, or an empty log)
+ * from "newest entry is N days old" (the loop ran and then stopped, on a knowable date); a dead
+ * loop and an absent one are different problems and must not read identically.
+ */
 function checkFeedbackLoop(filePaths, _cwd) {
-  const now = Date.now();
+  let newest = null;
   for (const fp of filePaths) {
     const content = readFileSafe(fp);
     if (!content.trim()) continue;
-    const dates = extractISODates(content);
-    for (const d of dates) {
+    for (const d of extractISODates(content)) {
       const ts = new Date(d).getTime();
-      if (!isNaN(ts) && now - ts <= THIRTY_DAYS_MS) {
-        return { passed: true, evidence: `recent entry dated ${d}` };
-      }
+      if (isNaN(ts)) continue;
+      if (!newest || ts > newest.ts) newest = { date: d, ts };
     }
   }
-  return { passed: false, evidence: "no entries from last 30 days" };
+
+  if (!newest) return { passed: false, evidence: "no dated entries in the loop log" };
+
+  const age = Date.now() - newest.ts;
+  // Floor, not round: an entry dated today is 0 days old for the whole of today.
+  const evidence = `newest entry ${newest.date} is ${Math.floor(age / DAY_MS)} days old`;
+  if (age <= THIRTY_DAYS_MS) return { passed: true, evidence };
+  return { passed: false, evidence: `${evidence} (window: ${THIRTY_DAYS_MS / DAY_MS} days)` };
 }
 
 function checkTestCoverage(filePaths, _cwd) {

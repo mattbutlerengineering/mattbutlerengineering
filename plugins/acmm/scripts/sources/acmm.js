@@ -886,8 +886,15 @@ const CRITERIA = [
       "Each learning gets routed to the right output channel: knowledge base, antipattern rule, CLAUDE.md update, hook, or skill deletion.",
     scannable: false,
     details:
-      "A session retrospective skill that analyzes repeated commands, debugging cycles, and revert/fix chains. Routes learnings to the appropriate persistence layer.",
-    detection: { type: "path", pattern: "CLAUDE.md" },
+      "A session retrospective skill that analyzes repeated commands, debugging cycles, and revert/fix chains, routes learnings to the appropriate persistence layer, and appends each run to a dated, append-only loop record. Detection resolves that record; substance reads its newest entry, so the loop counts as live only if it wrote something in the last 30 days.",
+    detection: {
+      type: "any-of",
+      pattern: [
+        ".claude/improvement-loop/log.md",
+        ".claude/improvement-loop/",
+        "improvement-loop.md",
+      ],
+    },
     crossCutting: "learning",
   },
   {
