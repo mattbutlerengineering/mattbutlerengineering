@@ -191,7 +191,46 @@ const FIXTURE_WITH_TIMEOUT_AND_NO_COVERAGE = {
   },
 };
 
+/**
+ * The #5614 regression shape: a complete, parseable report in which the
+ * harness executed no tests, so every graded mutant trivially "Survived".
+ * This must NOT be reported as a genuine 0% score.
+ */
+const FIXTURE_HARNESS_BROKEN = {
+  schemaVersion: "1.0",
+  thresholds: { high: 80, low: 60, break: null },
+  files: {
+    "services/users/src/routes/health.ts": {
+      language: "typescript",
+      source: "// ...",
+      mutants: [
+        {
+          id: "0",
+          mutatorName: "BlockStatement",
+          status: "Survived",
+          testsCompleted: 0,
+          location: { start: { line: 5, column: 68 }, end: { line: 14, column: 2 } },
+        },
+        {
+          id: "1",
+          mutatorName: "ConditionalExpression",
+          status: "Survived",
+          testsCompleted: 0,
+          location: { start: { line: 25, column: 7 }, end: { line: 25, column: 43 } },
+        },
+      ],
+    },
+  },
+};
+
 describe("collectMutationScore", () => {
+  it("does not report a zero-test harness failure as a genuine 0% score", () => {
+    const result = collectMutationScore(FIXTURE_HARNESS_BROKEN);
+    expect(result.available).toBe(false);
+    expect(result.state).toBe("harness-broken");
+    expect(result.mutation_score).toBeUndefined();
+  });
+
   it("returns available: false when reportJson is null", () => {
     const result = collectMutationScore(null);
     expect(result.available).toBe(false);

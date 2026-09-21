@@ -16,6 +16,28 @@
 export default {
   // Test runner - auto-discovered from installed packages
   // The @stryker-mutator/vitest-runner must be installed as a devDependency
+  //
+  // This runner has a silent failure mode worth knowing about before you touch
+  // it, because it produces a confident wrong number rather than an error.
+  // 2026-09-21: the vitest 5 migration (#5590) landed at 14:33Z and the
+  // scheduled run 82 minutes later (35622179696) reported 101/101 mutants
+  // Survived, 0 Killed, `testsCompleted: 0` on every one — after five
+  // consecutive green weekly runs. The plugin's peer range is
+  // `vitest: ">=2.0.0"`, so pnpm installed it against a vitest it does not
+  // support without complaint. The dry run still reported 138 tests; the
+  // per-mutant runs ran none, and Stryker grades "no test failed" as Survived,
+  // so the report came out a clean, plausible 0%. Verified by hand that the
+  // "survivors" were trivially killable: applying mutant 0 (health.ts
+  // BlockStatement -> `{}`) to the source fails 5/5 health tests. See #5614
+  // for the full diagnosis and #5643 for the harness repair.
+  //
+  // The lesson that outlives any particular fix: a mutation score is only
+  // meaningful if tests actually ran, and nothing about this config can tell
+  // you whether they did. `scripts/classify-mutation-run.mjs` is the guard —
+  // it reads `testsCompleted` and reports `harness-broken` instead of a score
+  // whenever the run graded mutants without executing a single test. If you
+  // change the runner, the sandbox layout, or the vitest major, that guard is
+  // what will tell you it stopped measuring.
   testRunner: "vitest",
 
   // Files to mutate: only business logic and route handlers.
@@ -104,8 +126,10 @@ export default {
   // Baseline: 98.89% mutation score (89 killed / 90 tested, 1 survived) as
   // of 2026-08-02, run locally against this exact config — see
   // mattbutlerengineering/mattbutlerengineering#3628 and the PR that added
-  // this comment for the validating workflow_dispatch run. The 80% `high`
-  // threshold below is comfortably met by that baseline (this workflow's
+  // this comment for the validating workflow_dispatch run. Note a baseline is
+  // only a claim about a working harness — see the `testRunner` note above for
+  // the 2026-09-21 run that reported 0% without executing a test. The 80%
+  // `high` threshold below is comfortably met by that baseline (this workflow's
   // long red streak was a `.metrics.mutationScore` parsing bug in
   // .github/workflows/mutation-testing.yml, not a real quality gap — see
   // scripts/collect-mutation-score.mjs). Set explicitly (rather than left to
