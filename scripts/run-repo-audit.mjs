@@ -89,6 +89,11 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-claude-md-table-drift.mjs"],
   },
   { name: "check-ci-gate-coverage", command: "node", args: ["scripts/check-ci-gate-coverage.mjs"] },
+  {
+    name: "check-queue-telemetry-dupes",
+    command: "node",
+    args: ["scripts/check-queue-telemetry-dupes.mjs"],
+  },
   { name: "check-memory-refs", command: "node", args: ["scripts/check-memory-refs.mjs"] },
   {
     name: "check-skill-references",
