@@ -2485,7 +2485,7 @@
   </file>
   <file path="src/synthetic-bug-seeder.ts">
     <item priority="low">
-      type BugType = "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo";
+      type BugType = "console-error" | "lighthouse-perf" | "accessibility" | "scout-todo" | "lint-violation";
     </item>
     <item priority="low">
       interface BugInjector {
