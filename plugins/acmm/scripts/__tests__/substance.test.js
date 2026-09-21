@@ -17,13 +17,15 @@ function makeTmpDir() {
 describe("reflection substance checker", () => {
   const checker = substanceCheckers["acmm:correction-capture"];
 
-  test("passes when frontmatter has feeds_back_into and body > 50 chars", () => {
+  test("passes when frontmatter has feeds_back_into, a recent date, and body > 50 chars", () => {
     const dir = makeTmpDir();
     const filePath = join(dir, "reflection.md");
+    const recentDate = new Date().toISOString().split("T")[0];
     writeFileSync(
       filePath,
       [
         "---",
+        `date: ${recentDate}`,
         "feeds_back_into: CLAUDE.md",
         "---",
         "",
@@ -68,6 +70,48 @@ describe("reflection substance checker", () => {
     writeFileSync(filePath, "");
     const result = checker([filePath], dir);
     assert.equal(result.passed, false);
+    rmSync(dir, { recursive: true });
+  });
+
+  test("passes when a qualifying entry is dated within the recency window", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, "reflection.md");
+    const recentDate = new Date().toISOString().split("T")[0];
+    writeFileSync(
+      filePath,
+      [
+        "---",
+        `date: ${recentDate}`,
+        "feeds_back_into: CLAUDE.md",
+        "---",
+        "",
+        "This is a substantive reflection body that contains enough content to pass the minimum character threshold for validation.",
+      ].join("\n")
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, true);
+    assert.match(result.evidence, new RegExp(recentDate));
+    rmSync(dir, { recursive: true });
+  });
+
+  test("fails when the only qualifying entries are older than the recency window", () => {
+    const dir = makeTmpDir();
+    const filePath = join(dir, "reflection.md");
+    writeFileSync(
+      filePath,
+      [
+        "---",
+        "date: 2024-01-01",
+        "feeds_back_into: CLAUDE.md",
+        "---",
+        "",
+        "This is a substantive reflection body that contains enough content to pass the minimum character threshold for validation.",
+      ].join("\n")
+    );
+    const result = checker([filePath], dir);
+    assert.equal(result.passed, false);
+    assert.match(result.evidence, /2024-01-01/);
+    assert.match(result.evidence, /days? ago/);
     rmSync(dir, { recursive: true });
   });
 });
@@ -207,7 +251,14 @@ describe("correction-capture integration — real repo files", () => {
   const repoRoot = resolve(__dirname, "../../../..");
   const correctionDir = join(repoRoot, ".claude/memory/corrections");
 
-  test("at least one correction file passes feeds_back_into + body check", () => {
+  test("passes now that the corpus carries a dated review within the recency window", () => {
+    // #5567 (merged 2026-09-21, just ahead of this fix) added dated
+    // "## Verification" sections to several correction files as part of a
+    // monthly reflection review (#4876) — the most recent dated 2026-09-20,
+    // well inside the 60-day window. So the real corpus is not currently
+    // stale: this asserts the recency check reads that correctly. If the
+    // corpus goes 60+ days without a fresh entry again, this should start
+    // failing and the assertion below should flip to `false`.
     assert.ok(existsSync(correctionDir), `corrections dir should exist: ${correctionDir}`);
     const files = readdirSync(correctionDir).map((f) => join(correctionDir, f));
     const result = checker(files, repoRoot);

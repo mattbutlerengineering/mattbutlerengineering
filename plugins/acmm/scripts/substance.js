@@ -2,6 +2,15 @@ import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+// Corrections/reinforcements are human-initiated, not appended continuously
+// like the automated feedback-loop log checkFeedbackLoop watches, so its
+// 30-day window would flag a healthy-but-quiet corpus as abandoned. The
+// actual cadence is a monthly reflection review (see #4876 / #5567, which
+// re-verifies and dates every entry). 60 days (2x that cadence) tolerates
+// one skipped review cycle while still catching genuine abandonment — the
+// #5585 case this check exists for was 4+ months stale, well past this.
+const REFLECTION_RECENCY_DAYS = 60;
+const REFLECTION_RECENCY_MS = REFLECTION_RECENCY_DAYS * 24 * 60 * 60 * 1000;
 
 function readFileSafe(filePath) {
   try {
@@ -24,14 +33,46 @@ function extractISODates(text) {
 }
 
 function checkReflection(filePaths, _cwd) {
+  const now = Date.now();
+  let newestDate = null;
+  let newestTs = -Infinity;
+  let hasQualifying = false;
+
   for (const fp of filePaths) {
     const content = readFileSafe(fp);
     if (!content) continue;
     const { frontmatter, body } = parseFrontmatter(content);
-    if (frontmatter.includes("feeds_back_into:") && body.length > 50) {
-      return { passed: true, evidence: `has feeds_back_into + body ${body.length} chars` };
+    if (!(frontmatter.includes("feeds_back_into:") && body.length > 50)) continue;
+    hasQualifying = true;
+
+    for (const d of extractISODates(content)) {
+      const ts = new Date(d).getTime();
+      if (isNaN(ts)) continue;
+      if (now - ts <= REFLECTION_RECENCY_MS) {
+        return {
+          passed: true,
+          evidence: `has feeds_back_into + body, recent entry dated ${d}`,
+        };
+      }
+      if (ts > newestTs) {
+        newestTs = ts;
+        newestDate = d;
+      }
     }
   }
+
+  if (!hasQualifying) {
+    return { passed: false, evidence: "missing feeds_back_into frontmatter or body too short" };
+  }
+
+  if (newestDate) {
+    const ageDays = Math.floor((now - newestTs) / (24 * 60 * 60 * 1000));
+    return {
+      passed: false,
+      evidence: `newest qualifying entry dated ${newestDate} (${ageDays} days ago), older than the ${REFLECTION_RECENCY_DAYS}-day window`,
+    };
+  }
+
   return { passed: false, evidence: "missing feeds_back_into frontmatter or body too short" };
 }
 
