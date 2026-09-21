@@ -1,0 +1,11 @@
+{
+  "name": "@mbe/mutation-testing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Isolated devDependency host for the repo's Stryker mutation-testing tooling (see stryker.config.mjs at the repo root). Not a package anything imports.",
+  "devDependencies": {
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
+    "vitest": "4.1.10"
+  }
+}

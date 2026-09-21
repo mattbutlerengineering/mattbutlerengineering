@@ -144,6 +144,11 @@
       "path": "tools/cli"
     },
     {
+      "name": "@mbe/mutation-testing",
+      "type": "tool",
+      "path": "tools/mutation-testing"
+    },
+    {
       "name": "@mbe/infrastructure",
       "type": "tool",
       "path": "infrastructure/pulumi"

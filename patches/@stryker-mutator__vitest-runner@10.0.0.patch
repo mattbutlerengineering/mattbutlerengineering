@@ -1,0 +1,41 @@
+diff --git a/dist/src/vitest-test-runner.js b/dist/src/vitest-test-runner.js
+index 84f1ca026503b8e92b7adc952ec6c6a401943656..b9bd1645623c90a3dd0a0d20a6a41dd8ab421e1d 100644
+--- a/dist/src/vitest-test-runner.js
++++ b/dist/src/vitest-test-runner.js
+@@ -142,21 +142,24 @@ export class VitestTestRunner {
+                 : undefined;
+         let testFilesToRun = explicitTestFiles;
+         if (testIds.length > 0) {
++            // PATCHED (mattbutlerengineering/mattbutlerengineering#5614): only use
++            // testIds to narrow which FILES run, never build a testNamePattern
++            // regex from them. Building `project.config.testNamePattern` from a
++            // per-test regex made every covered mutant survive with
++            // testsCompleted: 0 in our environment, on both vitest 5.0.1 and
++            // 4.1.10 (this plugin's own tested version) -- vitest's internal
++            // testNamePattern matching (interpretTaskModes/getTaskFullName)
++            // did not select any task despite matching test names, so every
++            // test got skipped instead of run. Restricting to file-level
++            // selection (still real time savings vs. running every spec) and
++            // leaving testNamePattern unset lets every mutant run correctly
++            // execute its covered test files' real tests.
+             const parsedTests = testIds.map(fromTestId);
+-            const regexTestNameFilter = parsedTests
+-                .map(({ test: name }) => escapeRegExp(name))
+-                .join('|');
+-            const regex = new RegExp(regexTestNameFilter);
+             testFilesToRun = parsedTests.map(({ file }) => file);
+-            this.ctx.projects.forEach((project) => {
+-                project.config.testNamePattern = regex;
+-            });
+-        }
+-        else {
+-            this.ctx.projects.forEach((project) => {
+-                project.config.testNamePattern = undefined;
+-            });
+         }
++        this.ctx.projects.forEach((project) => {
++            project.config.testNamePattern = undefined;
++        });
+         try {
+             await this.ctx.start(testFilesToRun);
+         }

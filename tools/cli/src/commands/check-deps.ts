@@ -6,6 +6,13 @@ import { findMonorepoRoot } from "../monorepo-root.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
+// Deliberate, documented exceptions to the "one version per dependency"
+// rule, keyed as "packageName:depName". @mbe/mutation-testing pins vitest to
+// 4.1.10 (not the workspace catalog's 5.x) because @stryker-mutator/vitest-runner
+// only supports that major — see tools/mutation-testing/README.md and issue
+// mattbutlerengineering/mattbutlerengineering#5614.
+const INTENTIONAL_MISMATCHES = new Set<string>(["@mbe/mutation-testing:vitest"]);
+
 // ── Command ───────────────────────────────────────────────────────────────
 
 export const checkDepsCommand = new Command("check-deps")
@@ -43,6 +50,8 @@ export const checkDepsCommand = new Command("check-deps")
 
       for (const [name, version] of Object.entries(allDeps as Record<string, string>)) {
         if (version.startsWith("workspace:") || version.startsWith("catalog:")) continue;
+
+        if (INTENTIONAL_MISMATCHES.has(`${pkgName}:${name}`)) continue;
 
         if (!dependencyMap.has(name)) {
           dependencyMap.set(name, new Map());
