@@ -1347,3 +1347,118 @@ describe("Venue Routes", () => {
     });
   });
 });
+
+// #5515: PATCH /v1/venues/:id is guarded by requireVenueAccess, which proves
+// only MEMBERSHIP of the venue — it never inspects a per-venue role. The body
+// carries `venueGroupId`, so any staff member could re-parent their venue into
+// an arbitrary organisation's venue group, a mutation that is admin-gated
+// everywhere else in this file (venue-group CRUD, venue creation). Editing the
+// route's other fields stays open to members, so both halves are asserted.
+describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
+    // never consumes, so clear the queue to guarantee our payload is returned.
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  /** A non-admin staff caller who IS a member of the venue being edited. */
+  async function buildAppAsVenueMember(): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|venue-staff", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(true);
+    const built = await buildApp({ logger: false, venueMembershipLookup: lookup });
+    await built.ready();
+    return built;
+  }
+
+  it("returns 403 when a non-admin venue member changes venueGroupId", async () => {
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
+    // The write is made to succeed, so an unguarded route answers 200 with the
+    // venue re-parented — the defect, not an incidental failure.
+    vi.mocked(venueService.update).mockResolvedValue({
+      ...mockVenue,
+      venueGroupId: "group-someone-else",
+    });
+    app = await buildAppAsVenueMember();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/venues/venue-123",
+      headers: { authorization: "Bearer staff-token" },
+      payload: { name: "Renamed", venueGroupId: "group-someone-else" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    const body = JSON.parse(response.body);
+    expect(body.title).toBe("Forbidden");
+    expect(venueService.update).not.toHaveBeenCalled();
+  });
+
+  it("lets the same non-admin member update name in the same request shape", async () => {
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
+    vi.mocked(venueService.update).mockResolvedValue({ ...mockVenue, name: "Renamed" });
+    app = await buildAppAsVenueMember();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/venues/venue-123",
+      headers: { authorization: "Bearer staff-token" },
+      payload: { name: "Renamed" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.data.name).toBe("Renamed");
+    expect(venueService.update).toHaveBeenCalledWith("venue-123", { name: "Renamed" });
+  });
+
+  it("allows a platform admin to change venueGroupId", async () => {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|platform-admin", permissions: ["admin"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    vi.mocked(venueService.getById).mockResolvedValue(mockVenue);
+    vi.mocked(venueService.update).mockResolvedValue({
+      ...mockVenue,
+      venueGroupId: "group-456",
+    });
+    app = await buildApp({
+      logger: false,
+      venueMembershipLookup: vi.fn<VenueMembershipLookup>().mockResolvedValue(false),
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/venues/venue-123",
+      headers: { authorization: "Bearer admin-token" },
+      payload: { venueGroupId: "group-456" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(venueService.update).toHaveBeenCalledWith("venue-123", {
+      venueGroupId: "group-456",
+    });
+  });
+});

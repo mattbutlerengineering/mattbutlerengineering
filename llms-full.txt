@@ -7450,10 +7450,80 @@
   </file>
   </section>
   <section priority="medium" role="crm">
+  <file path="apps/hospitality/src/components/crm/guest-lookup-rows.ts">
+    export type GuestLookupMode = "linked" | "recognised";
+    function plural(count: number, noun: string): string {
+      return `${count} ${noun}${count === 1 ? "" : "s"}`;
+    }
+    export function visitsSentence(visitCount: number): string {
+      return visitCount > 0 ? plural(visitCount, "visit") : ZERO_VISITS;
+    }
+    export function noShowsSentence(noShowCount: number): string | null {
+      return noShowCount > 0 ? plural(noShowCount, "no-show") : null;
+    }
+    export function formatGuestRowDetail(guest: Guest): string {
+      const contacts = [guest.phone, guest.email].filter((part): part is string => Boolean(part));
+      if (contacts.length === 0 && guest.visitCount === 0) return "no contact on file";
+      const visits = guest.visitCount > 0 ? [plural(guest.visitCount, "visit")] : [];
+      return [...contacts, ...visits].join(" · ");
+    }
+    export function stripTitle(mode: GuestLookupMode, name: string): string {
+      return mode === "linked" ? `Using ${name}'s profile` : `Recognised ${name}`;
+    }
+    export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string {
+      const history = [
+        guest.visitCount > 0 ? plural(guest.visitCount, "visit") : ZERO_VISITS.toLowerCase(),
+        noShowsSentence(guest.noShowCount),
+      ]
+        .filter((part) => part !== null)
+        .join(", ");
+      const allergies = (guest.dietaryRestrictions ?? []).filter(isAllergyTag);
+      const allergyClause = allergies.length > 0 ? ` Allergy: ${allergies.join(", ")}.` : "";
+      return `${stripTitle(mode, guest.name)} — ${history}.${allergyClause}`;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/crm/guest-prefill.ts">
+    export interface PrefillFields {
+      guestEmail?: string;
+      guestPhone?: string;
+    }
+    export interface PrefillProfile {
+      email: string | null;
+      phone: string | null;
+    }
+    export interface PrefillEntry {
+      before: string;
+      filled: string;
+    }
+    export type PrefillSnapshot = Partial<Record<keyof PrefillFields, PrefillEntry>>;
+    export function applyPick<T extends PrefillFields>(
+      current: T,
+      profile: PrefillProfile
+    ): { next: T; snapshot: PrefillSnapshot } {
+      const next: T = { ...current };
+      const snapshot: PrefillSnapshot = {};
+      for (const [field, source] of FIELD_SOURCES) {
+        const filled = profile[source];
+        if (!(field in current) || !filled) continue;
+        snapshot[field] = { before: current[field] ?? "", filled };
+        next[field] = filled;
+      }
+      return { next, snapshot };
+    }
+    export function applyClear<T extends PrefillFields>(current: T, snapshot: PrefillSnapshot): T {
+      const next: T = { ...current };
+      for (const [field] of FIELD_SOURCES) {
+        const entry = snapshot[field];
+        if (entry && current[field] === entry.filled) next[field] = entry.before;
+      }
+      return next;
+    }
+  </file>
   <file path="apps/hospitality/src/components/crm/guest-signals.ts">
     export const ALLERGY_KEYWORDS: readonly string[] = ["allergy", "nut", "shellfish", "dairy"];
     export type GuestSegmentLabel = "VIP" | "Repeat" | "New";
     export type GuestSegmentVariant = "accent" | "success" | "neutral";
+    export type GuestRiskVariant = "error" | "warning" | "neutral";
     export function isAllergyTag(tag: string): boolean {
       const lower = tag.toLowerCase();
       return ALLERGY_KEYWORDS.some((keyword) => lower.includes(keyword));
@@ -7468,6 +7538,16 @@
       if (label === "VIP") return "accent";
       if (label === "Repeat") return "success";
       return "neutral";
+    }
+    export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant {
+      if (score === "risky") return "error";
+      if (score === "standard") return "warning";
+      return "neutral";
+    }
+    export function getRiskLabel(score: GuestRiskScore): string {
+      if (score === "risky") return "Risky";
+      if (score === "standard") return "Standard";
+      return "Trusted";
     }
   </file>
   </section>
@@ -7512,6 +7592,17 @@
       readonly deposits_refunded?: number;
       readonly deposits_forfeited?: number;
     }
+    export interface ReviewBurdenSensor {
+      readonly available: boolean;
+      readonly collected_at?: string | null;
+      readonly window_days?: number | null;
+      readonly total_closed_prs?: number;
+      readonly total_reviewers?: number;
+      readonly total_reviews?: number;
+      readonly overall_rubber_stamp_ratio?: number;
+      readonly overall_approvals?: number;
+      readonly overall_rubber_stamps?: number;
+    }
     export interface AcmmFailingGate {
       readonly name: string;
       readonly description: string;
@@ -7538,6 +7629,7 @@
       readonly sensors: Record<string, unknown> & {
         readonly queueEfficiency?: QueueEfficiencySensor;
         readonly domainActivity?: DomainActivitySensor;
+        readonly reviewBurden?: ReviewBurdenSensor;
         readonly acmm?: AcmmSensor;
       };
       readonly thresholds?: Record<string, number>;
@@ -7570,6 +7662,15 @@
       readonly depositsRefunded: number | null;
       readonly depositsForfeited: number | null;
     }
+    export interface ReviewBurdenMetrics {
+      readonly available: boolean;
+      readonly collectedAt: string | null;
+      readonly windowDays: number | null;
+      readonly totalClosedPrs: number | null;
+      readonly totalReviewers: number | null;
+      readonly totalReviews: number | null;
+      readonly rubberStampRatio: number | null;
+    }
     export interface AcmmMetrics {
       readonly available: boolean;
       readonly level: number | null;
@@ -7593,6 +7694,7 @@
       readonly regressionLabels: readonly string[];
       readonly queueEfficiency: QueueEfficiencyMetrics;
       readonly domainActivity: DomainActivityMetrics;
+      readonly reviewBurden: ReviewBurdenMetrics;
       readonly acmm: AcmmMetrics;
     }
     function asRecord(value: unknown): Record<string, unknown> {
@@ -7644,6 +7746,19 @@
         depositsForfeited: readNumber(domainActivity.deposits_forfeited),
       };
     }
+    function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMetrics {
+      const reviewBurden = asRecord(sensors.reviewBurden);
+    
+      return {
+        available: reviewBurden.available === true,
+        collectedAt: readString(reviewBurden.collected_at),
+        windowDays: readNumber(reviewBurden.window_days),
+        totalClosedPrs: readNumber(reviewBurden.total_closed_prs),
+        totalReviewers: readNumber(reviewBurden.total_reviewers),
+        totalReviews: readNumber(reviewBurden.total_reviews),
+        rubberStampRatio: readNumber(reviewBurden.overall_rubber_stamp_ratio),
+      };
+    }
     function normalizeFailingGate(gate: unknown): AcmmFailingGate {
       const g = asRecord(gate);
       return {
@@ -7693,6 +7808,7 @@
         regressionLabels: regressions.map(formatRegressionLabel),
         queueEfficiency: normalizeQueueEfficiency(sensors),
         domainActivity: normalizeDomainActivity(sensors),
+        reviewBurden: normalizeReviewBurden(sensors),
         acmm: normalizeAcmm(sensors),
       };
     }
@@ -8639,11 +8755,22 @@
     
       // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
       // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-      // "Today" is the browser-local calendar day (en-CA formats as YYYY-MM-DD) — the twin of
-      // `src/utils/local-clock.ts` `localDateString`, the clock the app filters on. A UTC slice rolls
-      // to tomorrow at 17:00 Pacific and emptied the grid for the whole evening service (A1 / P01).
+      // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
+      // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+      // Pacific and emptied the grid for the whole evening service (A1 / P01).
+      //
+      // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the
+      // fixture's `Z` suffix in place, while the grid positions blocks by browser-local hours
+      // (`reservationLayout.ts` `start.getHours()`, window 11:00–23:00) — so an 18:00Z block landed
+      // at left = −120 px in PST and −1200 px at UTC+5, off the grid in both. It failed as a pass:
+      // a negatively positioned block still has a bounding box, so `toBeVisible()` stayed green.
+      // Reading each fixture time as the *intended local wall clock* keeps both halves in one zone.
+      function localizeFixtureTime(iso: unknown, day: string): string {
+        return atLocal(String(iso).slice(11, 23), day); // "18:00:00.000" — the fixture's wall clock
+      }
+    
       function todayReservations(): string {
-        const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local day
+        const today = localDay();
         const fixture = JSON.parse(loadFixture("reservations-list")) as {
           data: Array<Record<string, unknown>>;
           pagination: unknown;
@@ -8653,8 +8780,8 @@
           data: fixture.data.map((r) => ({
             ...r,
             date: today,
-            startTime: String(r.startTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
-            endTime: String(r.endTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+            startTime: localizeFixtureTime(r.startTime, today),
+            endTime: localizeFixtureTime(r.endTime, today),
           })),
         });
       }
@@ -8687,12 +8814,24 @@
       // Individual reservation — generic handler.
       // Negative lookahead excludes "walk-in" from this regex as a safety net.
       // Registered BEFORE the walk-in glob so walk-in wins LIFO (later = higher priority).
+      //
+      // Reads through `todayReservations()`, never the raw fixture (#5279 item 4): the list handler
+      // re-dates every row, so a raw read made the detail disagree with the list it was opened from —
+      // a 2026-05-17 date and an 18:00Z clock behind a block the grid had drawn on today. An
+      // unrecognised id answers with the first row *carrying the requested id*, the way the
+      // tables-by-id handler does, so the detail never claims to be a different reservation.
       await page.route(/\/api\/v1\/reservations\/(?!walk-in)[^/?]+$/, (route) => {
         const method = route.request().method();
         const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
-        const reservations = JSON.parse(loadFixture("reservations-list"));
+        const reservations = JSON.parse(todayReservations()) as {
+          data: Array<Record<string, unknown>>;
+        };
+        const baseItem = reservations.data.find((r) => r.id === id) ?? {
+          ...reservations.data[0],
+          id,
+        };
         if (method === "DELETE") {
-          return jsonOk(route, { ...reservations.data[0], status: "CANCELLED" });
+          return jsonOk(route, { ...baseItem, status: "CANCELLED" });
         }
         if (method === "PATCH") {
           let body: Record<string, unknown> = {};
@@ -8707,14 +8846,8 @@
           const existing = reservationUpdates.get(id) ?? {};
           const merged = { ...existing, ...body };
           reservationUpdates.set(id, merged);
-          const baseItem =
-            (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
-            reservations.data[0];
           return jsonOk(route, { ...baseItem, ...merged, updatedAt: new Date().toISOString() });
         }
-        const baseItem =
-          (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
-          reservations.data[0];
         return jsonOk(route, { ...baseItem, ...(reservationUpdates.get(id) ?? {}) });
       });
     
@@ -8735,6 +8868,13 @@
         }
         const first = fixture.data[0] ?? {};
         const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
+        // A picked returning guest arrives as `guestId`; the service answers with the linked guest's
+        // summary, which the timeline block turns into its visit ordinal ("12th visit").
+        const guests = JSON.parse(loadFixture("guests-list")) as {
+          data: Array<Record<string, unknown>>;
+        };
+        const linked =
+          typeof body.guestId === "string" ? guests.data.find((g) => g.id === body.guestId) : undefined;
         const newRes: Record<string, unknown> = {
           ...first,
           ...body,
@@ -8743,6 +8883,9 @@
           notes: "Walk-in",
           tableId,
           table: allTables().find((t) => t.id === tableId) ?? first.table,
+          guest: linked
+            ? { visitCount: linked.visitCount, communicationPreference: linked.communicationPreference }
+            : null,
         };
         extraReservations.push(newRes);
         return jsonOk(route, newRes);
@@ -8852,10 +8995,18 @@
           pagination: Record<string, unknown>;
         };
         const lower = query.toLowerCase();
+        // A query that carries digits also matches on the phone's digits ("555123" finds +15551234567),
+        // mirroring the service's name-or-phone lookup behind the guest-name combobox.
+        const digits = query.replace(/\D/g, "");
         const filtered = fixture.data.filter((g) => {
           const name = String(g.name ?? "").toLowerCase();
           const email = String(g.email ?? "").toLowerCase();
-          return name.includes(lower) || email.includes(lower);
+          const phoneDigits = String(g.phone ?? "").replace(/\D/g, "");
+          return (
+            name.includes(lower) ||
+            email.includes(lower) ||
+            (digits.length > 0 && phoneDigits.includes(digits))
+          );
         });
         return route.fulfill({
           status: 200,
@@ -9256,6 +9407,21 @@
         await page.unrouteAll({ behavior: "ignoreErrors" });
       },
     });
+  </file>
+  <file path="apps/hospitality/e2e/local-day.ts">
+    export function localDay(offsetDays = 0): string {
+      const day = new Date();
+      day.setDate(day.getDate() + offsetDays);
+      return day.toLocaleDateString(LOCAL_DAY_LOCALE);
+    }
+    export function atLocal(time: string, day: string = localDay()): string {
+      return new Date(`${day}T${time}`).toISOString();
+    }
+  </file>
+  <file path="apps/hospitality/e2e/problem-details.ts">
+    export const SERVER_ERROR_BODY = JSON.stringify(
+      createProblemDetails(500, "Internal Server Error", "server error")
+    );
   </file>
   </section>
   <section priority="medium" role="eval">
@@ -12579,6 +12745,52 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestLookup.ts">
+    export interface UseGuestLookupParams {
+      venueId: string | null | undefined;
+      /** The field's current text, straight from the form (`watch("guestName")`). */
+      text: string;
+    }
+    export interface UseGuestLookupResult {
+      /** At most six matches for `query`. */
+      rows: Guest[];
+      /** A seventh match exists — the Host should keep typing to narrow. */
+      hasMore: boolean;
+      /** The search for `query` is in flight (never during the pause itself). */
+      isLoading: boolean;
+      /** The search for `query` errored; the next keystroke retries by changing the key. */
+      failed: boolean;
+      /** The text the rows answer, or "" while under the minimum or still inside the pause. */
+      query: string;
+    }
+    export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGuestLookupResult {
+      const trimmed = text.trim();
+      const eligible = trimmed.length >= MIN_CHARS;
+      const [settled, setSettled] = useState("");
+      const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+      useEffect(() => {
+        if (!eligible) return;
+        timerRef.current = setTimeout(() => setSettled(trimmed), DEBOUNCE_MS);
+        return () => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = null;
+        };
+      }, [trimmed, eligible]);
+    
+      const query = eligible && settled === trimmed ? trimmed : "";
+      const { data, isLoading, error } = useGuestSearch({ venueId, query, enabled: query !== "" });
+      const matches = query !== "" ? (data ?? []) : [];
+    
+      return {
+        rows: matches.slice(0, MAX_ROWS),
+        hasMore: matches.length > MAX_ROWS,
+        isLoading: query !== "" && isLoading,
+        failed: query !== "" && error !== null,
+        query,
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useGuestRecognition.ts">
     export interface GuestRecognitionResult {
       firstName: string | null;
@@ -13086,6 +13298,7 @@
         tableId: string;
         venueId: string;
         guestName?: string;
+        guestId?: string;
       }) => Promise<Reservation>;
       updateTableStatus: (tableId: string, status: TableStatus) => Promise<void>;
     }
@@ -13194,6 +13407,7 @@
         tableId: string;
         venueId: string;
         guestName?: string;
+        guestId?: string;
       }): Promise<Reservation> => {
         const created = await api.reservations.walkIn(data);
         invalidateAll();
@@ -13946,6 +14160,9 @@
         if (!enabled) return;
     
         const handler = (e: KeyboardEvent) => {
+          // An Escape a nested widget already consumed (a combobox closing its listbox calls
+          // preventDefault, as Autocomplete/Combobox/useCombobox do) must not also close the overlay.
+          if (e.defaultPrevented) return;
           if (e.key === "Escape") onClose();
         };
     
@@ -18308,91 +18525,122 @@
                 },
               },
               400: { $ref: "AgentProblemDetails#" },
+              429: { $ref: "AgentProblemDetails#" },
             },
           },
         },
         async (request, reply) => {
           const { taskDescription, ...overrides } = request.body;
     
-          // Resolve the API base URL — the orchestrator calls back into this service
-          const port = process.env.PORT ?? "3003";
-          const apiBaseUrl = process.env.AGENT_API_URL ?? `http://localhost:${port}`;
+          // Admit through the same gate POST /v1/sessions uses (#5148). The
+          // orchestrator's parent IS an agent session — it holds a request thread
+          // for the whole blocking call and runs its own `query` loop — so it has
+          // to consume a slot, not merely check for one. A `canStart()`-only check
+          // would be decorative here: parents would never enter the active set, so
+          // it could never go false however many orchestrations were in flight.
+          //
+          // The slot is keyed on a provisional id, not the parent session id,
+          // because nothing else manages this session's lifecycle — it never goes
+          // through executeSession, so the liveness monitor could otherwise
+          // release the slot out from under a still-running orchestration.
+          const slotId = `orchestrate:${randomUUID()}`;
+          if (!defaultConcurrency.acquire(slotId)) {
+            return reply
+              .code(429)
+              .send(
+                createProblemDetails(
+                  429,
+                  "Too Many Requests",
+                  `Maximum concurrent sessions (${defaultConcurrency.limit}) reached. Try again later.`
+                )
+              );
+          }
     
-          // Create a parent session to track the orchestration. Stamp the
-          // authenticated caller's id — sourced exclusively from the verified
-          // auth context (requireAuth preHandler, mandatory on this route) —
-          // the same pattern POST /v1/sessions uses, so the caller who starts
-          // the orchestration can read/cancel/delete it afterward instead of
-          // getting a 404 from requireSessionAccess's null-owner deny.
-          const parentSession = await sessionService.create({
-            taskDescription: `[Orchestrator] ${taskDescription}`,
-            model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
-            maxTurns: 200,
-            maxBudgetUsd:
-              (overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession) *
-              (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) *
-              2,
-            userId: request.user?.id,
-          });
+          try {
+            // Resolve the API base URL — the orchestrator calls back into this service
+            const port = process.env.PORT ?? "3003";
+            const apiBaseUrl = process.env.AGENT_API_URL ?? `http://localhost:${port}`;
     
-          await sessionService.updateStatus(parentSession.id, "RUNNING");
-          await sessionService.addEvent(parentSession.id, "orchestrator:start", {
-            message: `Decomposing: ${taskDescription}`,
-          });
-    
-          // Run orchestrator (blocking — this is a long-running request)
-          const result = await runOrchestrator(
-            {
-              taskDescription,
-              apiBaseUrl,
-              parentSessionId: parentSession.id,
+            // Create a parent session to track the orchestration. Stamp the
+            // authenticated caller's id — sourced exclusively from the verified
+            // auth context (requireAuth preHandler, mandatory on this route) —
+            // the same pattern POST /v1/sessions uses, so the caller who starts
+            // the orchestration can read/cancel/delete it afterward instead of
+            // getting a 404 from requireSessionAccess's null-owner deny.
+            const parentSession = await sessionService.create({
+              taskDescription: `[Orchestrator] ${taskDescription}`,
               model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
-              sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
-              maxBudgetPerSession:
-                overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession,
-              maxTurnsPerSession:
-                overrides.maxTurnsPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxTurnsPerSession,
-              baseBranch: overrides.baseBranch ?? DEFAULT_ORCHESTRATOR_CONFIG.baseBranch,
-              maxConcurrentSessions:
-                overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions,
-            },
-            async (event) => {
-              await sessionService.addEvent(parentSession.id, event.type, {
-                message: event.message,
-              });
-            }
-          );
+              maxTurns: 200,
+              maxBudgetUsd:
+                (overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession) *
+                (overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions) *
+                2,
+              userId: request.user?.id,
+            });
     
-          // Update parent session with final status. "in_progress" means children are still
-          // running/pending — leave the parent RUNNING rather than falsely marking it FAILED.
-          const finalStatus =
-            result.status === "succeeded"
-              ? "SUCCEEDED"
-              : result.status === "in_progress"
-                ? "RUNNING"
-                : "FAILED";
-          await sessionService.updateStatus(parentSession.id, finalStatus, {
-            resultText: result.summary,
-            costUsd: result.totalCostUsd,
-            durationMs: result.durationMs,
-          });
+            await sessionService.updateStatus(parentSession.id, "RUNNING");
+            await sessionService.addEvent(parentSession.id, "orchestrator:start", {
+              message: `Decomposing: ${taskDescription}`,
+            });
     
-          await sessionService.addEvent(parentSession.id, "orchestrator:complete", {
-            status: result.status,
-            childSessionIds: result.childSessionIds,
-            totalCostUsd: result.totalCostUsd,
-          });
+            // Run orchestrator (blocking — this is a long-running request)
+            const result = await runOrchestrator(
+              {
+                taskDescription,
+                apiBaseUrl,
+                parentSessionId: parentSession.id,
+                model: overrides.model ?? DEFAULT_ORCHESTRATOR_CONFIG.model,
+                sessionModel: overrides.sessionModel ?? DEFAULT_ORCHESTRATOR_CONFIG.sessionModel,
+                maxBudgetPerSession:
+                  overrides.maxBudgetPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxBudgetPerSession,
+                maxTurnsPerSession:
+                  overrides.maxTurnsPerSession ?? DEFAULT_ORCHESTRATOR_CONFIG.maxTurnsPerSession,
+                baseBranch: overrides.baseBranch ?? DEFAULT_ORCHESTRATOR_CONFIG.baseBranch,
+                maxConcurrentSessions:
+                  overrides.maxConcurrentSessions ?? DEFAULT_ORCHESTRATOR_CONFIG.maxConcurrentSessions,
+              },
+              async (event) => {
+                await sessionService.addEvent(parentSession.id, event.type, {
+                  message: event.message,
+                });
+              }
+            );
     
-          return reply.code(200).send({
-            data: {
-              parentSessionId: parentSession.id,
+            // Update parent session with final status. "in_progress" means children are still
+            // running/pending — leave the parent RUNNING rather than falsely marking it FAILED.
+            const finalStatus =
+              result.status === "succeeded"
+                ? "SUCCEEDED"
+                : result.status === "in_progress"
+                  ? "RUNNING"
+                  : "FAILED";
+            await sessionService.updateStatus(parentSession.id, finalStatus, {
+              resultText: result.summary,
+              costUsd: result.totalCostUsd,
+              durationMs: result.durationMs,
+            });
+    
+            await sessionService.addEvent(parentSession.id, "orchestrator:complete", {
               status: result.status,
               childSessionIds: result.childSessionIds,
-              summary: result.summary,
               totalCostUsd: result.totalCostUsd,
-              durationMs: result.durationMs,
-            },
-          });
+            });
+    
+            return reply.code(200).send({
+              data: {
+                parentSessionId: parentSession.id,
+                status: result.status,
+                childSessionIds: result.childSessionIds,
+                summary: result.summary,
+                totalCostUsd: result.totalCostUsd,
+                durationMs: result.durationMs,
+              },
+            });
+          } finally {
+            // Releasing in `finally` matters more than the acquire: a leaked
+            // slot is permanent, shrinking capacity for the process lifetime.
+            defaultConcurrency.release(slotId);
+          }
         }
       );
     };
@@ -21895,9 +22143,22 @@
             throw new AppError("VENUE_NOT_FOUND", 404, `No venue found with slug '${slug}'.`);
           }
     
+          // Read-only recognition by the contact the guest typed — never by an id in the body,
+          // which the schema does not declare and this handler never reads (SC12). Both lookups
+          // run whenever their input is present, so a known contact costs the same as an unknown
+          // one (SC11). Without a supplied id `resolveGuestLink` cannot reject, so the fallback
+          // branch only keeps the union honest.
+          const link = await resolveGuestLink({ venueId: venue.id, guestEmail, guestPhone });
+    
           const result = await confirmHold({
             holdId,
-            guestDetails: { guestName, guestEmail, guestPhone, notes: specialRequests },
+            guestDetails: {
+              guestName,
+              guestEmail,
+              guestPhone,
+              notes: specialRequests,
+              guestId: link.ok ? (link.guestId ?? undefined) : undefined,
+            },
           });
     
           if (!result.success) {
@@ -21921,9 +22182,10 @@
             .scheduleBookingNotifications(result.reservation, manageToken)
             .catch((err) => fastify.log.error({ err }, "Failed to schedule booking notifications"));
     
+          // The notifier above gets the linked reservation; the caller never learns of the link.
           return reply.status(201).send({
             data: {
-              reservation: result.reservation,
+              reservation: withoutGuestLink(result.reservation),
               manageToken,
             },
           });
@@ -22168,6 +22430,15 @@
     }
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
+    async function isVenueMember(
+      user: AuthUser | undefined,
+      venueId: string | undefined,
+      lookup: VenueMembershipLookup
+    ): Promise<boolean> {
+      if (!user || !venueId) return false;
+      if (hasPermission(user, "admin")) return true;
+      return lookup(user.raw.sub, venueId);
+    }
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
       /**
        * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
@@ -22323,6 +22594,10 @@
                   data: { $ref: "Reservation#" },
                 },
               },
+              400: {
+                description: "Unknown guest for this venue",
+                $ref: "Error#",
+              },
               401: {
                 description: "Authentication required",
                 $ref: "Error#",
@@ -22340,6 +22615,19 @@
         },
         async (request, reply) => {
           const userId = request.user?.id;
+          // A picked guest must belong to this venue; unknown and foreign ids get
+          // the same answer, before anything is written.
+          if (request.body.guestId) {
+            const link = await resolveGuestLink({
+              venueId: request.body.venueId,
+              guestId: request.body.guestId,
+            });
+            if (!link.ok) {
+              return reply
+                .code(400)
+                .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+            }
+          }
           // createWalkIn inserts the reservation AND flips the table to OCCUPIED in
           // a single transaction. If the table update fails the whole thing rolls
           // back and rejects, so we only reach the SSE emits below after a
@@ -22443,7 +22731,12 @@
                 },
               },
               400: {
-                description: "Invalid request body or pacing limit exceeded",
+                description:
+                  "Invalid request body, unknown guest for this venue, or pacing limit exceeded",
+                $ref: "Error#",
+              },
+              403: {
+                description: "guestId supplied by a caller who is not a member of the venue",
                 $ref: "Error#",
               },
               409: {
@@ -22474,7 +22767,40 @@
               );
           }
     
-          const result = await reservationService.createWithConflictCheck(request.body, userId);
+          // CRM linking of any kind runs only for a venue member (the same decision
+          // requireVenueAccess makes); everyone else gets today's call exactly, and
+          // a guestId from anyone else is refused rather than silently dropped.
+          const isMember = await isVenueMember(
+            request.user,
+            request.body.venueId,
+            fastify.venueMembershipLookup
+          );
+          if (!isMember && request.body.guestId) {
+            return reply
+              .code(403)
+              .send(createProblemDetails(403, "Forbidden", "You do not have access to this venue"));
+          }
+    
+          let body = request.body;
+          if (isMember && request.body.venueId) {
+            const link = await linkOrCreateGuest({
+              venueId: request.body.venueId,
+              guestId: request.body.guestId,
+              guestEmail: request.body.guestEmail,
+              guestPhone: request.body.guestPhone,
+              guestName: request.body.guestName,
+            });
+            if (!link.ok) {
+              return reply
+                .code(400)
+                .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+            }
+            if (link.guestId) {
+              body = { ...request.body, guestId: link.guestId };
+            }
+          }
+    
+          const result = await reservationService.createWithConflictCheck(body, userId);
     
           if (!result.success) {
             const statusCode = result.conflict?.hasConflict ? 409 : 400;
@@ -22899,7 +23225,7 @@
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singleton directly — tests inject fakes via
       // buildApp({ services }).
-      const { tableService } = fastify.services;
+      const { tableService, floorPlanService } = fastify.services;
     
       /**
        * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
@@ -23101,6 +23427,10 @@
                 description: "Authentication required",
                 $ref: "Error#",
               },
+              403: {
+                description: "Requested floor plan belongs to a different venue",
+                $ref: "Error#",
+              },
               404: {
                 description: "Table not found",
                 $ref: "Error#",
@@ -23112,7 +23442,36 @@
             },
           },
         },
-        async (request) => {
+        async (request, reply) => {
+          const { floorPlanId } = request.body;
+          if (floorPlanId) {
+            // The guard above only proves the caller belongs to the TABLE's own
+            // venue. `floorPlanId` is a client-supplied id that the update connects
+            // with no venue awareness of its own, so a member of the table's venue
+            // could otherwise re-point it onto ANOTHER venue's floor plan. Same bug
+            // class as #5008 (/tables/:tableId/assign) and #5042
+            // (/tables/positions) in floor-plans.ts. Checked here rather than in
+            // the DB layer because `Table` has no compound floorPlanId/venueId
+            // constraint, and ADR-026's RLS does not apply to the app's own role.
+            const [current, floorPlan] = await Promise.all([
+              tableService.getById(request.params.id),
+              floorPlanService.getById(floorPlanId),
+            ]);
+            // A missing table or floor plan is not a cross-venue reassignment —
+            // fall through so the update below surfaces the existing 404.
+            if (current && floorPlan && floorPlan.venueId !== current.venueId) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    titleForStatus(403),
+                    "The requested floor plan does not belong to this table's venue"
+                  )
+                );
+            }
+          }
+    
           const table = await tableService.update(request.params.id, request.body);
           if (!table) {
             const error = new Error("Table not found") as Error & { statusCode?: number };
@@ -23952,6 +24311,10 @@
                 description: "Authentication required",
                 $ref: "Error#",
               },
+              403: {
+                description: "Admin role required to change the venue's venue group",
+                $ref: "Error#",
+              },
               404: {
                 description: "Venue not found",
                 $ref: "Error#",
@@ -23960,6 +24323,31 @@
           },
         },
         async (request, reply) => {
+          const { venueGroupId } = request.body;
+          if (venueGroupId !== undefined && !hasPermission(request.user, "admin")) {
+            // requireVenueAccess above proves MEMBERSHIP of this venue only — it
+            // never inspects a per-venue role (ADR-020). Re-parenting a venue into
+            // a different venue group is an org-hierarchy-defining mutation, the
+            // same class as venue-group CRUD and venue creation, both admin-gated
+            // in this file. Every other editable field stays open to members, so
+            // the check is scoped to an actual CHANGE of venueGroupId rather than
+            // gating the whole route.
+            const current = await venueService.getById(request.params.id);
+            // A venue that does not exist is not a reassignment — fall through so
+            // the update below surfaces the existing 404.
+            if (current && (venueGroupId ?? null) !== current.venueGroupId) {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(
+                    403,
+                    "Forbidden",
+                    "Admin role required to change a venue's venue group"
+                  )
+                );
+            }
+          }
+    
           const venue = await venueService.update(request.params.id, request.body);
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
@@ -25157,6 +25545,10 @@
         partySize: z.number().int().min(1).describe("Number of guests"),
         tableId: z.string().describe("ID of the table to seat guests at"),
         venueId: z.string().describe("ID of the venue"),
+        guestId: z
+          .string()
+          .describe("ID of an existing guest at this venue to link the walk-in to")
+          .optional(),
         guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
         durationMinutes: z
           .number()
@@ -25179,6 +25571,10 @@
         guestName: z.string().describe("Guest name (for unauthenticated reservations)").optional(),
         guestEmail: z.email().describe("Guest email (for unauthenticated reservations)").optional(),
         guestPhone: z.string().describe("Guest phone number").optional(),
+        guestId: z
+          .string()
+          .describe("ID of an existing guest at this venue to link the reservation to")
+          .optional(),
         venueId: z.string().describe("ID of the venue for this reservation").optional(),
         occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
         seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
@@ -25519,6 +25915,14 @@
       userId: z.string().nullable(),
       tableId: z.string(),
       table: TableSchema.optional(),
+      guest: z
+        .object({
+          visitCount: z.number(),
+          communicationPreference: z.string().nullable(),
+          unsubscribed: z.boolean().optional(),
+        })
+        .nullable()
+        .optional(),
       venueId: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -30680,6 +31084,68 @@
       return updateData;
     }
   </file>
+  <file path="services/reservations/src/services/guest-link.ts">
+    export interface GuestLinkInput {
+      venueId: string;
+      guestId?: string | null;
+      guestEmail?: string | null;
+      guestPhone?: string | null;
+    }
+    export type GuestLinkResult =
+      { ok: true; guestId: string | null } | { ok: false; code: "GUEST_NOT_IN_VENUE" };
+    export async function resolveGuestLink(input: GuestLinkInput): Promise<GuestLinkResult> {
+      const { venueId, guestId, guestEmail, guestPhone } = input;
+    
+      if (guestId) {
+        const guest = await guestService.getById(guestId);
+        return guest && guest.venueId === venueId
+          ? { ok: true, guestId: guest.id }
+          : GUEST_NOT_IN_VENUE;
+      }
+    
+      // Both lookups run whenever their input is present — decided by input, never
+      // by a hit — so timing is the same for a matched and an unknown contact.
+      const [byEmail, byPhone] = await Promise.all([
+        guestEmail ? guestService.findByEmail(venueId, guestEmail) : null,
+        guestPhone ? guestService.findByPhone(venueId, guestPhone) : null,
+      ]);
+    
+      return { ok: true, guestId: byEmail?.id ?? byPhone?.id ?? null };
+    }
+    export interface LinkOrCreateGuestInput extends GuestLinkInput {
+      guestName?: string | null;
+    }
+    function isPrismaUniqueViolation(err: unknown): boolean {
+      return (
+        err !== null &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "P2002"
+      );
+    }
+    export async function linkOrCreateGuest(input: LinkOrCreateGuestInput): Promise<GuestLinkResult> {
+      const resolved = await resolveGuestLink(input);
+      if (!resolved.ok || resolved.guestId !== null) return resolved;
+    
+      const { venueId, guestName, guestEmail, guestPhone } = input;
+      if (!guestName || (!guestEmail && !guestPhone)) return resolved;
+    
+      try {
+        const created = await guestService.create({
+          venueId,
+          name: guestName,
+          ...(guestEmail ? { email: guestEmail } : {}),
+          ...(guestPhone ? { phone: guestPhone } : {}),
+        });
+        return { ok: true, guestId: created.id };
+      } catch (err) {
+        // Two first-time bookings for the same contact raced and the other one won:
+        // link to it instead of failing the booking.
+        if (isPrismaUniqueViolation(err)) return resolveGuestLink(input);
+        throw err;
+      }
+    }
+  </file>
   <file path="services/reservations/src/services/guest-recognition.ts">
     function extractFirstName(fullName: string): string {
       const [first] = fullName.split(" ");
@@ -32795,12 +33261,17 @@
                 guestName: data.guestName ?? "Walk-in",
                 guestEmail: null,
                 guestPhone: null,
-                guestId: null,
+                guestId: data.guestId ?? null,
                 userId: userId ?? null,
                 venueId: data.venueId ?? null,
                 notes: null,
               },
-              include: { table: true },
+              include: {
+                table: true,
+                guest: {
+                  select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+                },
+              },
             });
     
             const occupiedTable = await tx.table.update({
@@ -32929,6 +33400,9 @@
         status: reservation.status,
         notes: reservation.notes,
       };
+    }
+    export function withoutGuestLink(reservation: Reservation): Reservation {
+      return { ...reservation, guestId: null, guest: null };
     }
     export function toReservation(row: PrismaReservationRow): Reservation {
       return {
@@ -45109,6 +45583,7 @@
         partySize: number;
         tableId: string;
         venueId: string;
+        guestId?: string;
         guestName?: string;
         durationMinutes?: number;
       }): Promise<Reservation> {
@@ -48587,6 +49062,14 @@
     
       return { registerCheck, evaluate };
     }
+    async function withTransientRetry<T>(probe: () => Promise<T>): Promise<T> {
+      try {
+        return await probe();
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
+        return probe();
+      }
+    }
     export function buildJwksUrl(authority: string | undefined): string | undefined {
       if (!authority) {
         return undefined;
@@ -48635,24 +49118,28 @@
     
       const resolvedAuth0Url = resolveAuth0Url(auth0Url);
     
-      tracker.registerCheck("database", async () => {
-        await prisma.$queryRaw`SELECT 1`;
-      });
+      tracker.registerCheck("database", () =>
+        withTransientRetry(async () => {
+          await prisma.$queryRaw`SELECT 1`;
+        })
+      );
     
       tracker.registerCheck("auth", async () => {
         if (resolvedAuth0Url === null) {
           throw new Error(AUTH0_UNCONFIGURED_MESSAGE);
         }
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
-        try {
-          const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
-          if (!response.ok) {
-            throw new Error(`JWKS returned ${response.status}`);
+        await withTransientRetry(async () => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), jwksTimeoutMs);
+          try {
+            const response = await fetchFn(resolvedAuth0Url, { signal: controller.signal });
+            if (!response.ok) {
+              throw new Error(`JWKS returned ${response.status}`);
+            }
+          } finally {
+            clearTimeout(timeout);
           }
-        } finally {
-          clearTimeout(timeout);
-        }
+        });
       });
     }
   </file>
@@ -51071,6 +51558,7 @@
       partySize: number;
       tableId: string;
       venueId: string;
+      guestId?: string;
       guestName?: string;
       durationMinutes?: number;
       occasion?: Occasion;

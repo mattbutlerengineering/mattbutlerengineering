@@ -385,6 +385,55 @@ describe("useTimelineData", () => {
       expect(mockReservationsWalkIn).toHaveBeenCalledWith(walkInData);
     });
 
+    it("forwards guestId to reservations.walkIn when the dialog supplies one (M3.2, SC8)", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      mockReservationsWalkIn.mockResolvedValue({ id: "r-walkin" });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.createWalkIn({
+          partySize: 2,
+          tableId: "t1",
+          venueId: "venue-1",
+          guestName: "Alice Johnson",
+          guestId: "gst_1",
+        });
+      });
+
+      expect(mockReservationsWalkIn).toHaveBeenCalledWith({
+        partySize: 2,
+        tableId: "t1",
+        venueId: "venue-1",
+        guestName: "Alice Johnson",
+        guestId: "gst_1",
+      });
+    });
+
+    it("sends no guestId key at all when the dialog omits it (SC7)", async () => {
+      mockReservationsList.mockResolvedValue({ data: [] });
+      mockTablesList.mockResolvedValue({ data: [] });
+      mockReservationsWalkIn.mockResolvedValue({ id: "r-walkin" });
+
+      const { result } = renderHook(() => useTimelineData({ venueId: "venue-1", date: todayStr }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      await act(async () => {
+        await result.current.createWalkIn({ partySize: 2, tableId: "t1", venueId: "venue-1" });
+      });
+
+      expect(mockReservationsWalkIn).toHaveBeenCalledOnce();
+      expect(mockReservationsWalkIn.mock.calls[0][0]).not.toHaveProperty("guestId");
+    });
+
     it("resolves to the created reservation so the page can select and focus it (item 15)", async () => {
       mockReservationsList.mockResolvedValue({ data: [] });
       mockTablesList.mockResolvedValue({ data: [] });

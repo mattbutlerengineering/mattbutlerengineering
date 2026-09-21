@@ -8,7 +8,46 @@ import { FOCUSABLE_SELECTOR } from "@mattbutlerengineering/rialto/hooks";
 import { ApiClientError } from "@mbe/api-client";
 import { WalkInDialog } from "./WalkInDialog.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
-import type { Table } from "@mbe/types";
+import type { Guest, Table } from "@mbe/types";
+import type { UseGuestLookupParams, UseGuestLookupResult } from "../../hooks/useGuestLookup.js";
+import { pickAnnouncement } from "../crm/guest-lookup-rows.js";
+
+const mockUseGuestLookup = vi.fn<(params: UseGuestLookupParams) => UseGuestLookupResult>();
+
+vi.mock("../../hooks/useGuestLookup.js", () => ({
+  useGuestLookup: (params: UseGuestLookupParams) => mockUseGuestLookup(params),
+}));
+
+const idleLookup: UseGuestLookupResult = {
+  rows: [],
+  hasMore: false,
+  isLoading: false,
+  failed: false,
+  query: "",
+};
+
+/** The E2E fixture guest (`guests-list.json` gst_e2e_001): Alice, 12 visits, known phone. */
+function makeAlice(overrides: Partial<Guest> = {}): Guest {
+  return {
+    id: "gst_e2e_001",
+    venueId: "venue-1",
+    name: "Alice Johnson",
+    email: "alice@example.com",
+    phone: "+15551234567",
+    notes: "Prefers window seating",
+    visitCount: 12,
+    noShowCount: 0,
+    riskScore: "trusted",
+    lifetimeSpend: "1450.00",
+    lastVisit: "2026-05-10T18:00:00.000Z",
+    tags: ["VIP", "regular"],
+    dietaryRestrictions: ["vegetarian"],
+    staffNotes: [],
+    createdAt: "2025-06-01T00:00:00.000Z",
+    updatedAt: "2026-05-10T18:00:00.000Z",
+    ...overrides,
+  };
+}
 
 /** A 500 the way `@mbe/api-client` raises it: `raw` is "<METHOD> <path> failed: 500 …". */
 function serverError(method: string, path: string): ApiClientError {
@@ -112,6 +151,8 @@ describe("WalkInDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseGuestLookup.mockReset();
+    mockUseGuestLookup.mockReturnValue(idleLookup);
   });
 
   it("should render the dialog with title", () => {
@@ -521,6 +562,148 @@ describe("WalkInDialog", () => {
         expect(onConfirm).toHaveBeenCalledTimes(2);
       });
       expect(onConfirm.mock.calls[1][0]).toMatchObject({ partySize: 6, tableId: "table-4" });
+    });
+  });
+
+  describe("returning guest lookup (M3.1, #4990)", () => {
+    const alice = makeAlice();
+    const aliceRows: UseGuestLookupResult = { ...idleLookup, rows: [alice], query: "555123" };
+    const RESERVATION_CAPTION =
+      "Edits to email or phone below change this booking only — the profile isn't edited.";
+
+    function guestNameField() {
+      return screen.getByRole("combobox", { name: /guest name/i });
+    }
+
+    /** Type the known phone, tap the Alice row, then let the lookup go quiet again. */
+    function pickAlice() {
+      mockUseGuestLookup.mockReturnValue(aliceRows);
+      fireEvent.change(guestNameField(), { target: { value: "555123" } });
+      fireEvent.mouseDown(screen.getByRole("option", { name: /Alice Johnson/ }));
+      mockUseGuestLookup.mockReturnValue(idleLookup);
+    }
+
+    it("wires the lookup field with the walk-in hint, label unchanged", () => {
+      render(<WalkInDialog {...defaultProps} />);
+      expect(guestNameField()).toBeInTheDocument();
+      expect(screen.getByLabelText("Guest name (optional)")).toBe(guestNameField());
+      expect(
+        screen.getByText("Name or phone — returning guests appear as you type.")
+      ).toBeInTheDocument();
+      expect(mockUseGuestLookup).toHaveBeenLastCalledWith({ venueId: "venue-1", text: "" });
+    });
+
+    it("typing a known phone lists Alice; picking shows the caption-less strip and seats with her guestId (SC8)", async () => {
+      render(<WalkInDialog {...defaultProps} />);
+      mockUseGuestLookup.mockReturnValue(aliceRows);
+      fireEvent.change(guestNameField(), { target: { value: "555123" } });
+
+      const option = screen.getByRole("option", { name: /Alice Johnson/ });
+      expect(option).toHaveTextContent("Alice Johnson");
+      fireEvent.mouseDown(option);
+      mockUseGuestLookup.mockReturnValue(idleLookup);
+
+      const strip = screen.getByRole("group", { name: "Using Alice Johnson's profile" });
+      expect(strip).not.toHaveTextContent(RESERVATION_CAPTION);
+      expect(strip).toHaveTextContent("12 visits");
+      expect(guestNameField()).toHaveValue("Alice Johnson");
+      expect(screen.queryByRole("listbox", { name: "Guest suggestions" })).toBeNull();
+      const spoken = screen.getByText(pickAnnouncement("linked", alice));
+      expect(spoken.closest('[role="status"]')).not.toBeNull();
+      expect(screen.getByRole("dialog")).toContainElement(spoken);
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+      expect(defaultProps.onConfirm.mock.calls[0][0]).toStrictEqual({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+        guestName: "Alice Johnson",
+        guestId: "gst_e2e_001",
+      });
+    });
+
+    it("Clear drops the strip and the guestId, keeps the typed name focused and selected", async () => {
+      render(<WalkInDialog {...defaultProps} />);
+      pickAlice();
+
+      fireEvent.click(screen.getByRole("button", { name: "Clear Alice Johnson" }));
+
+      expect(screen.queryByRole("group", { name: /profile/ })).toBeNull();
+      expect(screen.getByText("Guest cleared.").closest('[role="status"]')).not.toBeNull();
+      // react-hook-form's setFocus defers to a macrotask; the name stays and is selected.
+      await waitFor(() => {
+        expect(document.activeElement).toBe(guestNameField());
+      });
+      const field = guestNameField() as HTMLInputElement;
+      expect(field).toHaveValue("Alice Johnson");
+      expect(field.selectionStart).toBe(0);
+      expect(field.selectionEnd).toBe("Alice Johnson".length);
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+      expect(defaultProps.onConfirm.mock.calls[0][0]).not.toHaveProperty("guestId");
+    });
+
+    it("leaves today's payload byte-for-byte when the lookup is ignored (SC7)", async () => {
+      render(<WalkInDialog {...defaultProps} />);
+      fireEvent.change(guestNameField(), { target: { value: "Johnson" } });
+
+      fireEvent.click(screen.getByRole("button", { name: "Seat now" }));
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+      expect(defaultProps.onConfirm.mock.calls[0][0]).toStrictEqual({
+        partySize: 2,
+        tableId: "table-1",
+        venueId: "venue-1",
+        guestName: "Johnson",
+      });
+    });
+
+    it("a failed lookup never blocks Seat now (SC6)", async () => {
+      mockUseGuestLookup.mockReturnValue({ ...idleLookup, failed: true, query: "smi" });
+      render(<WalkInDialog {...defaultProps} />);
+      expect(
+        screen.getAllByText("Can't look up guests right now — type the details as usual.").length
+      ).toBeGreaterThan(0);
+      const seatNow = screen.getByRole("button", { name: "Seat now" });
+      expect(seatNow).toBeEnabled();
+      fireEvent.click(seatNow);
+      await waitFor(() => {
+        expect(defaultProps.onConfirm).toHaveBeenCalledOnce();
+      });
+    });
+
+    it("keeps the Table Select's listbox distinct from the 'Guest suggestions' listbox", () => {
+      render(<WalkInDialog {...defaultProps} />);
+      mockUseGuestLookup.mockReturnValue(aliceRows);
+      fireEvent.change(guestNameField(), { target: { value: "555123" } });
+      expect(screen.getByRole("listbox", { name: "Guest suggestions" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("combobox", { name: /table/i }));
+
+      const tableListboxes = screen
+        .getAllByRole("listbox")
+        .filter((el) => el.getAttribute("aria-label") !== "Guest suggestions");
+      expect(tableListboxes).toHaveLength(1);
+      expect(tableListboxes[0]).toHaveTextContent("Table 1");
+    });
+
+    it("Escape with the listbox open closes the list, not the dialog", () => {
+      mockUseGuestLookup.mockReturnValue(aliceRows);
+      render(<WalkInDialog {...defaultProps} />);
+      fireEvent.change(guestNameField(), { target: { value: "555123" } });
+      expect(screen.getByRole("listbox", { name: "Guest suggestions" })).toBeInTheDocument();
+
+      fireEvent.keyDown(guestNameField(), { key: "Escape" });
+
+      expect(screen.queryByRole("listbox", { name: "Guest suggestions" })).toBeNull();
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
     });
   });
 

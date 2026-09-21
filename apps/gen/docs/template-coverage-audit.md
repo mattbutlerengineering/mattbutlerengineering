@@ -1,262 +1,292 @@
 # Template Gallery Coverage Audit
 
-Part 1/4 of widening the Gen app's Template Gallery beyond 12 templates. Grounds the
-two template-adding batches that follow (#4423 tracking).
+Regenerated for the fifth Template Gallery batch (#5441, this issue #5521 = part 1/5).
+`apps/gen/src/components/TemplateGallery.tsx` now ships **32** templates (verified via
+`grep -c '    id: "' apps/gen/src/components/TemplateGallery.tsx` → 32), up from the 12
+this audit's first pass covered and the 29 its batch-3 pass assumed. This regeneration
+re-runs the doc's own method end to end against the current state and replaces the
+coverage table, priority ordering, and batch-tier sections below — none of the prior
+passes' numbers are still accurate.
 
 ## Method
 
-`apps/gen/src/components/TemplateGallery.tsx` ships 12 templates, each a free-text
+`apps/gen/src/components/TemplateGallery.tsx` ships 32 templates, each a free-text
 `prompt` string handed to the AI generator — there is no literal prompt→component
 mapping, since generation is AI-driven and the model picks components at runtime.
 "Covered" below means: an existing prompt's wording plausibly steers the generator
-toward that component (keyword/semantic match between the prompt text and the
-component's name/purpose), not a guarantee the generator actually emits it.
+toward that component (keyword/semantic match between the **prompt** text — not the
+`description` field — and the component's name/purpose), not a guarantee the generator
+actually emits it.
 
-`packages/rialto/src/components/` has **85** component directories (verified via
-`ls packages/rialto/src/components | grep -v '\.' | wc -l` → 85; the 5 non-directory
+`packages/rialto/src/components/` now has **87** component directories (verified via
+`ls packages/rialto/src/components | grep -v '\.' | wc -l` → 87; the 5 non-directory
 entries — `catalog-meta.ts`, `index.ts`, `components.test.tsx`, `interactions.test.tsx`,
-`interactive.test.tsx` — are excluded).
+`interactive.test.tsx` — are excluded, `ls | wc -l` on the raw directory returns 92).
+This is **2 more than the 85 the previous passes audited** — `Handshake` and
+`NeonSign` were added to the catalog since the last audit and are scored fresh below
+(both come out uncovered; no template prompt mentions either).
 
-Usage-frequency evidence (§ Priority ordering) comes from two signals, gathered from
-inside this worktree:
+Usage-frequency evidence comes from a single signal: grep-count `\b<ComponentName>\b`
+occurrences across `apps/hospitality/src` + `apps/rialto-web/src` (`.ts`/`.tsx` files
+only), gathered fresh from inside this worktree. This reflects components proven out
+in real, shipping product surfaces, not just documented in Storybook. (The earlier
+git-recency signal was dropped after being found too flat to discriminate — see prior
+revisions of this file in `git log` — and is not re-run here.)
 
-1. **Grep usage counts** — `\b<ComponentName>\b` occurrences across
-   `apps/hospitality/src` + `apps/rialto-web/src` (`.ts`/`.tsx` files only). This is
-   the primary signal: it reflects components proven out in real, shipping product
-   surfaces, not just documented in Storybook.
-2. **Git recency** — `git log --oneline --since="30 days ago" -- packages/rialto/src/components/`
-   shows only 3 commits touching components in the last 30 days (`d48fa57`, `a29a4ae`,
-   `7d34815`), and all three are repo-wide lint/accessibility sweeps that touched
-   40–85 component directories each rather than targeted feature work on a handful of
-   components. That signal is too flat to discriminate — every component got touched
-   4–18 times by the same few sweep commits — so it is **not** used to break ties below;
-   usage-count is the sole ranking signal.
+## PageHeader ambiguity — resolved
 
-## Coverage table (all 85 components)
+Proposal #5441 assumed `PageHeader` is still fully uncovered, carried forward from
+the doc's earlier passes. A direct grep confirms `docs-wiki-page`'s **prompt** field
+(not just its `description`) literally contains the phrase "page header":
 
-| #   | Component        | Covered? | Template(s) that plausibly exercise it                                                                       | Usage count (hospitality+rialto-web) |
-| --- | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
-| 1   | Accordion        | **Yes**  | compact-toolbar (grouped advanced filters)                                                                   | 14                                   |
-| 2   | Alert            | No       | —                                                                                                            | 138                                  |
-| 3   | AppBar           | No       | —                                                                                                            | 0                                    |
-| 4   | AspectRatio      | **Yes**  | blog-layout (featured image)                                                                                 | 10                                   |
-| 5   | Autocomplete     | No       | —                                                                                                            | 24                                   |
-| 6   | Avatar           | **Yes**  | blog-layout (author bio)                                                                                     | 58                                   |
-| 7   | Badge            | **Yes**  | admin-dashboard (health indicators), pricing-page (tier badge)                                               | 301                                  |
-| 8   | Banner           | No       | —                                                                                                            | 57                                   |
-| 9   | Breadcrumb       | No       | —                                                                                                            | 29                                   |
-| 10  | Button           | **Yes**  | registration-form, checkout-form, admin-dashboard (quick actions), landing-page (CTA)                        | 956                                  |
-| 11  | Calendar         | **Yes**  | appointment-scheduler (month grid)                                                                           | 23                                   |
-| 12  | Card             | **Yes**  | analytics-dashboard, admin-dashboard, checkout-form (order summary), kanban-board, landing-page, blog-layout | 540                                  |
-| 13  | Chalkboard       | **Yes**  | restaurant-reservations-board (specials board)                                                               | 16                                   |
-| 14  | ChatPanel        | No       | —                                                                                                            | 8                                    |
-| 15  | Checkbox         | **Yes**  | registration-form (preferences), data-table (bulk actions), pricing-page (feature checklist)                 | 122                                  |
-| 16  | Collapsible      | **Yes**  | timeline (expandable details)                                                                                | 21                                   |
-| 17  | Combobox         | **Yes**  | compact-toolbar (search field)                                                                               | 14                                   |
-| 18  | CommandPalette   | **Yes**  | command-search-palette                                                                                       | 16                                   |
-| 19  | ConfirmDialog    | No       | —                                                                                                            | 21                                   |
-| 20  | ContextMenu      | No       | —                                                                                                            | 7                                    |
-| 21  | DataList         | No       | —                                                                                                            | 205                                  |
-| 22  | DataTable        | **Yes**  | data-table                                                                                                   | 40                                   |
-| 23  | DatePicker       | **Yes**  | appointment-scheduler (date jump field)                                                                      | 14                                   |
-| 24  | DateRange        | No       | —                                                                                                            | 5                                    |
-| 25  | DateRangePicker  | No       | —                                                                                                            | 0                                    |
-| 26  | DepartureBoard   | No       | —                                                                                                            | 11                                   |
-| 27  | Dialog           | No       | —                                                                                                            | 40                                   |
-| 28  | DisabledTooltip  | **Yes**  | command-search-palette (unavailable command explanation)                                                     | 18                                   |
-| 29  | Divider          | **Yes**  | blog-layout, generic section separator                                                                       | 112                                  |
-| 30  | Drawer           | No       | —                                                                                                            | 39                                   |
-| 31  | DropdownMenu     | No       | —                                                                                                            | 11                                   |
-| 32  | EmptyState       | No       | —                                                                                                            | 63                                   |
-| 33  | ErrorBoundary    | No       | —                                                                                                            | 10                                   |
-| 34  | Ferrofluid       | No       | —                                                                                                            | 8                                    |
-| 35  | FlipDot          | No       | —                                                                                                            | 8                                    |
-| 36  | Footer           | No       | —                                                                                                            | 32                                   |
-| 37  | Form             | **Yes**  | registration-form, checkout-form, survey-form                                                                | 18                                   |
-| 38  | FormField        | **Yes**  | registration-form, checkout-form, survey-form                                                                | 14                                   |
-| 39  | GlobalNav        | No       | —                                                                                                            | 14                                   |
-| 40  | Heading          | **Yes**  | landing-page, blog-layout (generic titles)                                                                   | 47                                   |
-| 41  | Hero             | **Yes**  | landing-page                                                                                                 | 33                                   |
-| 42  | HoverCard        | **Yes**  | command-search-palette (result previews)                                                                     | 18                                   |
-| 43  | IconButton       | **Yes**  | compact-toolbar (quick actions)                                                                              | 17                                   |
-| 44  | ImageUpload      | No       | —                                                                                                            | 0                                    |
-| 45  | Input            | **Yes**  | registration-form, checkout-form, data-table (search)                                                        | 264                                  |
-| 46  | InputGroup       | **Yes**  | checkout-form (address/payment groups)                                                                       | 21                                   |
-| 47  | Kbd              | No       | —                                                                                                            | 65                                   |
-| 48  | MasterOverride   | No       | —                                                                                                            | 27                                   |
-| 49  | Meter            | No       | —                                                                                                            | 43                                   |
-| 50  | Navbar           | No       | —                                                                                                            | 9                                    |
-| 51  | NavigationMenu   | No       | —                                                                                                            | 6                                    |
-| 52  | NumberInput      | No       | —                                                                                                            | 28                                   |
-| 53  | Odometer         | **Yes**  | metrics-ticker (rolling digit counters)                                                                      | 23                                   |
-| 54  | PageHeader       | No       | —                                                                                                            | 105                                  |
-| 55  | Pagination       | **Yes**  | data-table                                                                                                   | 31                                   |
-| 56  | PinInput         | No       | —                                                                                                            | 18                                   |
-| 57  | Popover          | **Yes**  | appointment-scheduler (time-slot popover)                                                                    | 18                                   |
-| 58  | Progress         | **Yes**  | survey-form (progress bar), sales-dashboard (conversion funnel)                                              | 38                                   |
-| 59  | ScrollArea       | No       | —                                                                                                            | 12                                   |
-| 60  | SegmentedControl | No       | —                                                                                                            | 59                                   |
-| 61  | Select           | **Yes**  | registration-form, checkout-form (shipping options)                                                          | 196                                  |
-| 62  | Sidebar          | No       | —                                                                                                            | 11                                   |
-| 63  | SilkFlow         | No       | —                                                                                                            | 7                                    |
-| 64  | Skeleton         | No       | —                                                                                                            | 117                                  |
-| 65  | Slider           | **Yes**  | survey-form (rating scales)                                                                                  | 25                                   |
-| 66  | SplitFlap        | **Yes**  | metrics-ticker (announcement display)                                                                        | 16                                   |
-| 67  | SplitScreenExit  | No       | —                                                                                                            | 5                                    |
-| 68  | Stack            | **Yes**  | generic layout primitive, all templates                                                                      | 993                                  |
-| 69  | Stat             | **Yes**  | analytics-dashboard, admin-dashboard, sales-dashboard (KPI/revenue)                                          | 78                                   |
-| 70  | StatusLED        | **Yes**  | admin-dashboard (system health indicators)                                                                   | 3                                    |
-| 71  | Steps            | **Yes**  | registration-form (multi-step)                                                                               | 38                                   |
-| 72  | Table            | **Yes**  | analytics-dashboard, sales-dashboard, pricing-page (comparison table)                                        | 337                                  |
-| 73  | Tabs             | No       | —                                                                                                            | 26                                   |
-| 74  | Tag              | **Yes**  | kanban-board, pricing-page                                                                                   | 111                                  |
-| 75  | TapeChart        | **Yes**  | restaurant-reservations-board                                                                                | 16                                   |
-| 76  | Text             | **Yes**  | generic body copy, all templates                                                                             | 1704                                 |
-| 77  | TextArea         | **Yes**  | survey-form                                                                                                  | 43                                   |
-| 78  | ThemeToggle      | No       | —                                                                                                            | 0                                    |
-| 79  | TimePicker       | No       | —                                                                                                            | 7                                    |
-| 80  | Timeline         | **Yes**  | timeline                                                                                                     | 43                                   |
-| 81  | Toast            | No       | —                                                                                                            | 6                                    |
-| 82  | Toggle           | No       | —                                                                                                            | 74                                   |
-| 83  | Tooltip          | No       | —                                                                                                            | 55                                   |
-| 84  | Tree             | No       | —                                                                                                            | 7                                    |
-| 85  | WatchLoader      | No       | —                                                                                                            | 0                                    |
+```
+$ grep -ni "pageheader\|page header" apps/gen/src/components/TemplateGallery.tsx
+126:    description: "Documentation article with a page header, body content, and inline help tooltips",
+221:    description: "Documentation page with a breadcrumb trail, page header, and site footer",
+224:      "Documentation wiki page with a breadcrumb trail showing the page's location in the docs hierarchy, a page header with the article title, body content, and a site footer with links",
+```
 
-**Summary: 41 of 85 components (48%) are plausibly covered by an existing template
-prompt; 44 (52%) are never mentioned or implied by any of the prompts.** (Updated by
-the batch-3 template additions — see the batch-3 candidate tier section below for
-which components those templates target.)
+Line 224 is `docs-wiki-page`'s `prompt` field, and it reads "...a page header with the
+article title...". Per this doc's own stated method (an existing prompt's wording
+plausibly steering the generator toward that component via keyword/semantic match),
+this is a direct, literal keyword match — not a stretch. **Verdict: `PageHeader` is
+`Yes` as of the current 32-template gallery**, covered by `docs-wiki-page`. This
+flips the assumption in proposal #5441 and in every prior revision of this table.
 
-Note: no template's language implies a chart component (`line chart`, `bar chart`,
-`revenue chart`), because **rialto has no `Chart` component at all** — the analytics/
-sales dashboard prompts approximate charts with `Stat`, `Table`, and `Progress`
-instead. This is a genuine catalog gap, not an audit miss; it's out of scope for
-templates alone (would need a new rialto component) so it's called out here rather
-than added to the priority list below.
+`DataList` remains `No` — the same grep command run for `datalist|data list` (see
+below) returns zero matches anywhere in the file, confirming the issue's own
+investigation note:
 
-## Priority ordering: top uncovered components to target next
+```
+$ grep -ni "datalist\|data list" apps/gen/src/components/TemplateGallery.tsx
+(no output)
+```
 
-Ranked by real usage-frequency evidence (grep count across `apps/hospitality/src` +
-`apps/rialto-web/src`, § Method signal 1), restricted to the 57 uncovered components,
-descending:
+**Related call, made for consistency:** the generic `Dialog` component is scored
+`No` even though the literal word "dialog" appears twice in prompt text
+(`settings-modal-flow`: "a confirmation dialog that appears before a destructive
+action"; `delete-confirmation-flow`: "opens a confirmation dialog warning that the
+action is permanent"). In both cases the phrase is specifically "confirmation
+dialog", which is a closer name/purpose match to the dedicated `ConfirmDialog`
+component (already scored `Yes` on both templates) than to the generic `Dialog`.
+Crediting both would double-count the same two words for two different components
+with no additional textual support for the generic one — unlike `PageHeader`, where
+there is no more-specific sibling component and the match is unambiguous.
 
-| Rank | Component        | Usage count | Category          |
-| ---- | ---------------- | ----------- | ----------------- |
-| 1    | DataList         | 205         | Data display      |
-| 2    | Alert            | 138         | Feedback/overlay  |
-| 3    | Skeleton         | 117         | Feedback/overlay  |
-| 4    | PageHeader       | 105         | Navigation/layout |
-| 5    | Toggle           | 74          | Form controls     |
-| 6    | Kbd              | 65          | Utility/content   |
-| 7    | EmptyState       | 63          | Feedback/overlay  |
-| 8    | SegmentedControl | 59          | Form controls     |
-| 9    | Banner           | 57          | Feedback/overlay  |
-| 10   | Tooltip          | 55          | Feedback/overlay  |
-| 11   | Meter            | 43          | Feedback/overlay  |
-| 12   | Dialog           | 40          | Feedback/overlay  |
-| 13   | Drawer           | 39          | Feedback/overlay  |
-| 14   | Footer           | 32          | Navigation/layout |
-| 15   | Breadcrumb       | 29          | Navigation/layout |
-| 16   | NumberInput      | 28          | Form controls     |
-| 17   | MasterOverride   | 27          | Form controls     |
-| 18   | Tabs             | 26          | Data display      |
-| 19   | Autocomplete     | 24          | Form controls     |
+## Coverage table (all 87 components)
 
-(Calendar and Odometer, both usage count 23, are the next two below the cutoff —
-candidates for a third batch if the two follow-up issues don't exhaust this list.)
+| #   | Component        | Covered? | Template(s) that plausibly exercise it                                                                    | Usage count (hospitality+rialto-web) |
+| --- | ---------------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 1   | Accordion        | **Yes**  | compact-toolbar (grouped filters), app-shell (FAQ accordion)                                              | 14                                   |
+| 2   | Alert            | **Yes**  | notification-center (feed of alert messages)                                                              | 140                                  |
+| 3   | AppBar           | No       | —                                                                                                         | 0                                    |
+| 4   | AspectRatio      | **Yes**  | blog-layout (featured image)                                                                              | 10                                   |
+| 5   | Autocomplete     | **Yes**  | feature-flags-panel (flag search field)                                                                   | 24                                   |
+| 6   | Avatar           | **Yes**  | team-directory (member avatars), blog-layout (author bio)                                                 | 60                                   |
+| 7   | Badge            | **Yes**  | admin-dashboard (health indicators), pricing-page (tier badge)                                            | 330                                  |
+| 8   | Banner           | **Yes**  | notification-center (site-wide announcement banner)                                                       | 62                                   |
+| 9   | Breadcrumb       | **Yes**  | docs-wiki-page (breadcrumb trail)                                                                         | 35                                   |
+| 10  | Button           | **Yes**  | registration-form, checkout-form, landing-page (CTA), delete-confirmation-flow (button)                   | 1087                                 |
+| 11  | Calendar         | **Yes**  | appointment-scheduler (month grid)                                                                        | 23                                   |
+| 12  | Card             | **Yes**  | analytics-dashboard (KPI cards), kanban-board (task cards), command-search-palette (hover cards)          | 617                                  |
+| 13  | Chalkboard       | **Yes**  | restaurant-reservations-board (specials board)                                                            | 16                                   |
+| 14  | ChatPanel        | No       | —                                                                                                         | 10                                   |
+| 15  | Checkbox         | **Yes**  | delete-confirmation-flow (acknowledgment checkbox), data-table (bulk actions)                             | 130                                  |
+| 16  | Collapsible      | **Yes**  | timeline (expandable details)                                                                             | 27                                   |
+| 17  | Combobox         | **Yes**  | compact-toolbar (search field)                                                                            | 14                                   |
+| 18  | CommandPalette   | **Yes**  | command-search-palette                                                                                    | 20                                   |
+| 19  | ConfirmDialog    | **Yes**  | settings-modal-flow, delete-confirmation-flow (both say "confirmation dialog")                            | 31                                   |
+| 20  | ContextMenu      | No       | —                                                                                                         | 7                                    |
+| 21  | DataList         | No       | — (double-confirmed: zero grep matches for "data list"/"datalist" in the file)                            | 220                                  |
+| 22  | DataTable        | **Yes**  | data-table                                                                                                | 41                                   |
+| 23  | DatePicker       | **Yes**  | appointment-scheduler (date jump field)                                                                   | 14                                   |
+| 24  | DateRange        | No       | —                                                                                                         | 5                                    |
+| 25  | DateRangePicker  | No       | —                                                                                                         | 0                                    |
+| 26  | DepartureBoard   | No       | —                                                                                                         | 18                                   |
+| 27  | Dialog           | No       | — (see "PageHeader ambiguity — resolved"; "confirmation dialog" credited to ConfirmDialog instead)        | 46                                   |
+| 28  | DisabledTooltip  | **Yes**  | command-search-palette (unavailable-command tooltips), delete-confirmation-flow (disabled-button tooltip) | 18                                   |
+| 29  | Divider          | **Yes**  | blog-layout, generic section separator (semantic, no literal keyword)                                     | 128                                  |
+| 30  | Drawer           | **Yes**  | settings-modal-flow (advanced-options drawer)                                                             | 48                                   |
+| 31  | DropdownMenu     | No       | —                                                                                                         | 18                                   |
+| 32  | EmptyState       | **Yes**  | loading-empty-states                                                                                      | 76                                   |
+| 33  | ErrorBoundary    | No       | —                                                                                                         | 10                                   |
+| 34  | Ferrofluid       | No       | —                                                                                                         | 8                                    |
+| 35  | FlipDot          | No       | —                                                                                                         | 8                                    |
+| 36  | Footer           | **Yes**  | docs-wiki-page (site footer)                                                                              | 33                                   |
+| 37  | Form             | **Yes**  | registration-form, checkout-form, survey-form                                                             | 19                                   |
+| 38  | FormField        | **Yes**  | registration-form, checkout-form, survey-form                                                             | 14                                   |
+| 39  | GlobalNav        | **Yes**  | app-shell ("a GlobalNav header for primary site navigation")                                              | 15                                   |
+| 40  | Handshake        | No       | — (new component since last audit; no prompt mentions it)                                                 | 61                                   |
+| 41  | Heading          | **Yes**  | landing-page, blog-layout (generic titles)                                                                | 66                                   |
+| 42  | Hero             | **Yes**  | landing-page, app-shell                                                                                   | 33                                   |
+| 43  | HoverCard        | **Yes**  | command-search-palette (result previews)                                                                  | 20                                   |
+| 44  | IconButton       | **Yes**  | compact-toolbar (quick actions)                                                                           | 22                                   |
+| 45  | ImageUpload      | No       | —                                                                                                         | 0                                    |
+| 46  | Input            | **Yes**  | registration-form, checkout-form, data-table (search)                                                     | 286                                  |
+| 47  | InputGroup       | **Yes**  | checkout-form (address/payment groups)                                                                    | 21                                   |
+| 48  | Kbd              | **Yes**  | keyboard-shortcuts                                                                                        | 66                                   |
+| 49  | MasterOverride   | **Yes**  | feature-flags-panel ("a master override toggle to disable all flags at once")                             | 27                                   |
+| 50  | Meter            | **Yes**  | capacity-monitor (storage/memory/quota meters)                                                            | 54                                   |
+| 51  | Navbar           | No       | —                                                                                                         | 9                                    |
+| 52  | NavigationMenu   | No       | —                                                                                                         | 6                                    |
+| 53  | NeonSign         | No       | — (new component since last audit; no prompt mentions it)                                                 | 10                                   |
+| 54  | NumberInput      | **Yes**  | inventory-editor ("stepper-based number inputs")                                                          | 31                                   |
+| 55  | Odometer         | **Yes**  | metrics-ticker (rolling digit counters)                                                                   | 27                                   |
+| 56  | PageHeader       | **Yes**  | docs-wiki-page — see "PageHeader ambiguity — resolved" above                                              | 128                                  |
+| 57  | Pagination       | **Yes**  | data-table                                                                                                | 37                                   |
+| 58  | PinInput         | **Yes**  | secure-verification ("a 6-digit PinInput for entering the one-time passcode")                             | 26                                   |
+| 59  | Popover          | **Yes**  | appointment-scheduler (time-slot popover)                                                                 | 18                                   |
+| 60  | Progress         | **Yes**  | survey-form (progress bar), sales-dashboard (conversion funnel, semantic)                                 | 51                                   |
+| 61  | ScrollArea       | No       | —                                                                                                         | 12                                   |
+| 62  | SegmentedControl | **Yes**  | preferences-panel (light/dark/system theme switcher)                                                      | 61                                   |
+| 63  | Select           | **Yes**  | registration-form, checkout-form (shipping options, semantic)                                             | 219                                  |
+| 64  | Sidebar          | No       | —                                                                                                         | 10                                   |
+| 65  | SilkFlow         | No       | —                                                                                                         | 7                                    |
+| 66  | Skeleton         | **Yes**  | loading-empty-states ("skeleton loading placeholders")                                                    | 126                                  |
+| 67  | Slider           | **Yes**  | survey-form (rating scales, semantic)                                                                     | 26                                   |
+| 68  | SplitFlap        | **Yes**  | metrics-ticker (announcement display)                                                                     | 19                                   |
+| 69  | SplitScreenExit  | No       | —                                                                                                         | 5                                    |
+| 70  | Stack            | **Yes**  | generic layout primitive, all templates                                                                   | 1098                                 |
+| 71  | Stat             | **Yes**  | analytics-dashboard, admin-dashboard, sales-dashboard (KPI/revenue, semantic)                             | 83                                   |
+| 72  | StatusLED        | **Yes**  | admin-dashboard (system health indicators, semantic)                                                      | 24                                   |
+| 73  | Steps            | **Yes**  | registration-form (multi-step)                                                                            | 57                                   |
+| 74  | Table            | **Yes**  | analytics-dashboard (activity table), data-table, pricing-page (comparison table)                         | 472                                  |
+| 75  | Tabs             | **Yes**  | tabbed-settings-panel ("organized into tabs")                                                             | 27                                   |
+| 76  | Tag              | **Yes**  | kanban-board, pricing-page (semantic)                                                                     | 141                                  |
+| 77  | TapeChart        | **Yes**  | restaurant-reservations-board                                                                             | 44                                   |
+| 78  | Text             | **Yes**  | generic body copy, all templates                                                                          | 1963                                 |
+| 79  | TextArea         | **Yes**  | survey-form ("text areas")                                                                                | 43                                   |
+| 80  | ThemeToggle      | No       | —                                                                                                         | 0                                    |
+| 81  | TimePicker       | No       | —                                                                                                         | 7                                    |
+| 82  | Timeline         | **Yes**  | timeline                                                                                                  | 84                                   |
+| 83  | Toast            | No       | —                                                                                                         | 6                                    |
+| 84  | Toggle           | **Yes**  | preferences-panel (toggle switches), feature-flags-panel (master override toggle)                         | 83                                   |
+| 85  | Tooltip          | **Yes**  | help-center-page (help tooltips), delete-confirmation-flow (explanatory tooltip)                          | 58                                   |
+| 86  | Tree             | No       | —                                                                                                         | 7                                    |
+| 87  | WatchLoader      | No       | —                                                                                                         | 7                                    |
 
-### Grouped by category (for the next two batches to split templates against)
+**Summary: 61 of 87 components (70%) are plausibly covered by an existing template
+prompt; 26 (30%) are never mentioned or implied by any of the prompts.** This is a
+substantial jump from the 41/85 (48%) the first audit pass reported — batches 2–4's
+template additions plus the `PageHeader` resolution above account for the gain.
 
-**Data display (2):** DataList, Tabs — e.g. a "Directory / Team Roster" template
-(DataList), a "Tabbed Settings Panel" template (Tabs).
+Note: as before, no template's language implies a dedicated chart component, because
+**rialto has no `Chart` component at all** — the analytics/sales dashboard prompts
+approximate charts with `Stat`, `Table`, and `Progress` instead. Still a genuine
+catalog gap, not an audit miss, and still out of scope for templates alone.
 
-**Feedback/overlay (8):** Alert, Banner, Skeleton, EmptyState, Tooltip, Meter, Dialog,
-Drawer — e.g. a "Notification Center" or "System Status" template (Alert, Banner,
-Meter), a "Loading/Empty States Showcase" template (Skeleton, EmptyState), a
-"Settings Modal Flow" template (Dialog, Drawer, Tooltip).
+## Priority ordering: all 26 uncovered components, ranked
 
-**Form controls (5):** Toggle, SegmentedControl, NumberInput, MasterOverride,
-Autocomplete — e.g. a "Preferences / Feature Flags" template (Toggle,
-SegmentedControl, MasterOverride), a "Quantity/Inventory Editor" template
-(NumberInput), a "Command Search" or "Tag Picker" template (Autocomplete).
-
-**Navigation/layout (3):** PageHeader, Footer, Breadcrumb — e.g. a fuller
-"Docs / Wiki Page" template (PageHeader, Breadcrumb), folded into a fuller
-"Marketing Site Shell" template alongside the existing Hero-based landing-page
-(Footer).
-
-**Utility/content (1):** Kbd — e.g. a "Command Search" or keyboard-shortcuts
-reference template.
-
-Total: **19 components** across the five groups, within the requested 15–20 range.
-The two follow-up issues should split this list (roughly by category, or by count)
-into two template-adding batches.
-
-## Batch 3 candidate tier: next uncovered components below rank 19
-
-Third batch (source proposal #4530), grounded by re-running the same method (§
-Method, signal 1) against the **57 − 19 = 38** components still marked "No" in the
-coverage table above that were _not_ already in the top-19 priority list. Ranked by
-usage count descending, ties broken alphabetically, taking the top 16 (a 4-way tie
-at usage count 14 lands exactly on ranks 13–16, within the requested 10–16 range —
-see the note on ties below):
+Ranked by usage-frequency (grep count across `apps/hospitality/src` +
+`apps/rialto-web/src`, § Method), ties broken alphabetically. This is now the
+**entire** uncovered set — earlier passes worked through a "top 19" then a
+"batch 3 candidate tier of 16"; both lists are now fully absorbed into the coverage
+table above as `Yes`, and what remains is short enough to rank in one pass:
 
 | Rank | Component       | Usage count | Category          |
 | ---- | --------------- | ----------- | ----------------- |
-| 1    | TapeChart       | 26          | Data display      |
-| 2    | Calendar        | 23          | Form controls     |
-| 3    | Odometer        | 23          | Data display      |
-| 4    | ConfirmDialog   | 21          | Feedback/overlay  |
-| 5    | DisabledTooltip | 18          | Feedback/overlay  |
-| 6    | HoverCard       | 18          | Feedback/overlay  |
-| 7    | PinInput        | 18          | Form controls     |
-| 8    | Popover         | 18          | Feedback/overlay  |
-| 9    | IconButton      | 17          | Form controls     |
-| 10   | Chalkboard      | 16          | Data display      |
-| 11   | CommandPalette  | 16          | Feedback/overlay  |
-| 12   | SplitFlap       | 16          | Data display      |
-| 13   | Accordion       | 14          | Navigation/layout |
-| 14   | Combobox        | 14          | Form controls     |
-| 15   | DatePicker      | 14          | Form controls     |
-| 16   | GlobalNav       | 14          | Navigation/layout |
+| 1    | DataList        | 220         | Data display      |
+| 2    | Handshake       | 61          | Visual/decorative |
+| 3    | Dialog          | 46          | Feedback/overlay  |
+| 4    | DepartureBoard  | 18          | Data display      |
+| 5    | DropdownMenu    | 18          | Navigation/layout |
+| 6    | ScrollArea      | 12          | Utility/content   |
+| 7    | ChatPanel       | 10          | Utility/content   |
+| 8    | ErrorBoundary   | 10          | Utility/content   |
+| 9    | NeonSign        | 10          | Visual/decorative |
+| 10   | Sidebar         | 10          | Navigation/layout |
+| 11   | Navbar          | 9           | Navigation/layout |
+| 12   | Ferrofluid      | 8           | Visual/decorative |
+| 13   | FlipDot         | 8           | Visual/decorative |
+| 14   | ContextMenu     | 7           | Navigation/layout |
+| 15   | SilkFlow        | 7           | Visual/decorative |
+| 16   | TimePicker      | 7           | Form controls     |
+| 17   | Tree            | 7           | Data display      |
+| 18   | WatchLoader     | 7           | Feedback/overlay  |
+| 19   | NavigationMenu  | 6           | Navigation/layout |
+| 20   | Toast           | 6           | Feedback/overlay  |
+| 21   | DateRange       | 5           | Form controls     |
+| 22   | SplitScreenExit | 5           | Utility/content   |
+| 23   | AppBar          | 0           | Navigation/layout |
+| 24   | DateRangePicker | 0           | Form controls     |
+| 25   | ImageUpload     | 0           | Form controls     |
+| 26   | ThemeToggle     | 0           | Form controls     |
 
-Note on ties: usage count 14 is a 4-way tie (Accordion, Combobox, DatePicker,
-GlobalNav) sitting exactly at ranks 13–16 — all four are included rather than
-truncated mid-tie, matching the existing table's own precedent of not breaking ties
-arbitrarily.
+`DataList` (220 uses) is by a wide margin the single highest-value uncovered
+component in the entire catalog — higher usage than most already-`Yes` components.
+`Dialog` (46) is worth a second look for a follow-up template despite the resolution
+above crediting its two existing "confirmation dialog" mentions to `ConfirmDialog` —
+a template using a _non-confirmation_ dialog (e.g. a generic modal form) would give
+it a clean, unambiguous `Yes`.
 
-Note on TapeChart: its live-verified count (26) is meaningfully higher than the
-count recorded in the main coverage table above (16, row 75) — the gap traces to
-visual-test-harness coverage added since that table was last populated
-(`apps/rialto-web/src/pages/data/TapeChartPage.tsx`,
-`apps/rialto-web/src/pages/visual-test/TapeChartSections.tsx`, and a TapeChart
-section in `DarkModeSection.tsx`), not a change in grep method. Membership in this
-tier is determined by exclusion from the original top-19 list, not by count, so
-TapeChart's higher current count doesn't retroactively belong in the batch-1/2
-list — it is ranked here on its own current merits.
+### Grouped by category (for issues 3/5 and 4/5 to split against)
 
-Calendar and Odometer (ranks 2–3, both count 23) were already named as "the next
-two below the cutoff" in § Priority ordering above; this table confirms that with a
-live re-run and extends the ranking further down.
+**Data display (3):** DataList, DepartureBoard, Tree — e.g. a "Directory / Team
+Roster" or "File Browser" template (DataList, Tree), a transit-style "Live Departures
+Board" template (DepartureBoard — pairs naturally with the existing TapeChart/
+Chalkboard restaurant-reservations-board).
 
-### Grouped by category (for batch 3)
+**Visual/decorative (5):** Handshake, NeonSign, Ferrofluid, FlipDot, SilkFlow — the
+catalog's animated/novelty display components (siblings of the already-covered
+Odometer/SplitFlap/Chalkboard/TapeChart). A "Brand Showcase" or "Storefront Sign"
+template could plausibly reach for several of these at once (NeonSign, FlipDot,
+Ferrofluid, SilkFlow); Handshake reads as a deal/agreement-confirmation motif and
+could fit a "Partnership / Deal Closed" template.
 
-**Data display (4):** TapeChart, Odometer, Chalkboard, SplitFlap — e.g. a
-"Live Departures / Ops Board" template (TapeChart, Chalkboard), a "Metrics Ticker"
-template (Odometer, SplitFlap).
+**Feedback/overlay (3):** Dialog, WatchLoader, Toast — e.g. a generic "Modal Form"
+template (Dialog, distinct from the confirmation-flow use already covered by
+ConfirmDialog), a "Background Job Status" template (WatchLoader, Toast for
+completion notices).
 
-**Feedback/overlay (5):** ConfirmDialog, DisabledTooltip, HoverCard, Popover,
-CommandPalette — e.g. a "Destructive Action Confirmation" template (ConfirmDialog,
-DisabledTooltip), a "Quick Actions / Search" template (CommandPalette, Popover,
-HoverCard).
+**Navigation/layout (6):** DropdownMenu, Sidebar, Navbar, ContextMenu,
+NavigationMenu, AppBar — e.g. a fuller "App Shell / Admin Layout" template
+(Sidebar, Navbar or AppBar, NavigationMenu) distinct from the existing GlobalNav-
+based app-shell/marketing template, a "Right-Click Actions" template (ContextMenu,
+DropdownMenu).
 
-**Form controls (5):** Calendar, PinInput, IconButton, Combobox, DatePicker — e.g.
-a "Booking / Scheduling" template (Calendar, DatePicker), a "Secure Verification"
-template (PinInput), a "Compact Toolbar" template (IconButton, Combobox).
+**Form controls (5):** TimePicker, DateRange, DateRangePicker, ImageUpload,
+ThemeToggle — e.g. a "Meeting Scheduler" template pairing TimePicker with the
+existing Calendar/DatePicker (appointment-scheduler), a "Date Range Report Filter"
+template (DateRange, DateRangePicker), a "Profile Photo / Media Upload" template
+(ImageUpload), a standalone "Theme Switcher" template distinct from the existing
+SegmentedControl-based preferences-panel (ThemeToggle).
 
-**Navigation/layout (2):** Accordion, GlobalNav — e.g. a "FAQ / Docs Sidebar"
-template (Accordion), folded into a fuller "App Shell" template alongside the
-existing landing-page Hero (GlobalNav).
+Total: **22 components** across five non-trivial groups (Data display, Visual/
+decorative, Feedback/overlay minus the ambiguous Dialog re-mention, Navigation/
+layout, Form controls) plus `Dialog` called out separately above — 26 uncovered in
+total. A follow-up batch should not feel obligated to cover all 26 in two issues;
+splitting by usage-rank (top 13 / bottom 13 from the ranked table) or by category
+(above) are both reasonable ways for issues 3/5 and 4/5 to divide this list.
 
-Total: **16 components** across the four groups, within the requested 10–16 range.
-A follow-up batch-3 issue should draw its template-adding work from this list.
+## Closed by batch 5 (#5526)
+
+Ranks 1–3 of the table above are closed by the three templates batch 5 adds
+(#5522, #5523, #5524), which land in the same pull request as this note. They are
+**not** yet reflected in the coverage table or the ranking above — the next
+regeneration is where they flip to `**Yes**`.
+
+| Rank | Component   | Usage | Template added (`id`)   | Category     | Issue |
+| ---- | ----------- | ----- | ----------------------- | ------------ | ----- |
+| 1    | `DataList`  | 220   | `record-detail-panel`   | Data Display | #5522 |
+| 2    | `Handshake` | 61    | `integration-handshake` | Feedback     | #5523 |
+| 3    | `Dialog`    | 46    | `modal-form-dialog`     | Forms        | #5524 |
+
+Each prompt names its target component literally, so none of the three repeats the
+"keyword appears but the component isn't really implied" ambiguity that
+§ PageHeader ambiguity documents.
+
+Two notes on the picks:
+
+- `record-detail-panel` asks for a striped label-and-value **spec sheet**, matching
+  `DataList`'s documented purpose ("a definition list of key-value pairs… for spec
+  sheets, metadata panels"). The directory/roster shape #5522's text suggested is
+  already served by `team-directory` and would not reach `DataList`.
+- `modal-form-dialog` is the "generic Modal Form template (Dialog, distinct from the
+  confirmation-flow use already covered by ConfirmDialog)" this document proposes in
+  § Grouped by category. It deliberately avoids the phrase "confirmation dialog", so
+  the steer cannot be re-credited to `ConfirmDialog` the way the existing
+  `settings-modal-flow` and `delete-confirmation-flow` prompts were.
+
+Gallery size after batch 5: **35** templates. `DropdownMenu` (rank 5) was drafted and
+then dropped in favour of `Dialog` once this regeneration landed and ranked `Dialog`
+third — it remains uncovered and is the obvious rank-shifted candidate for batch 6.

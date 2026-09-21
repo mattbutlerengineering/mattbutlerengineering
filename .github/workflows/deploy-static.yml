@@ -104,11 +104,15 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.marketing == 'true'
     runs-on: ubuntu-latest
-    # issues: read — the repo-stats collector queries the issues/PR search API;
-    # without it the job token 403s and the strip silently ships the stale fallback.
+    # `Collect repo stats` searches the issues/PR API for `is:pr is:merged`, so
+    # the job token needs read on both. A token missing pull-request access is
+    # not refused — the search answers 200 with `total_count: 0`, because results
+    # it cannot see are filtered out rather than 403'd. The step then logs success
+    # and writes a snapshot claiming zero merged PRs, which is what shipped.
     permissions:
       contents: read
       issues: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 

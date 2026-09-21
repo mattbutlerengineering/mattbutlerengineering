@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "./fixtures.js";
+import { atLocal, localDay } from "./local-day.js";
+import { SERVER_ERROR_BODY } from "./problem-details.js";
 
 /**
  * Tonight's Service (Briefing) — ux.md Screen 1 / audit A2 + A10.
@@ -8,21 +10,23 @@ import { test, expect, type Page } from "./fixtures.js";
  * 17:30 local sits past the UTC rollover west of Greenwich — the exact case A2 measured.
  */
 
-const localToday = new Date().toLocaleDateString("en-CA");
-const atLocal = (hhmm: string) => new Date(`${localToday}T${hhmm}:00`).toISOString();
-
+// `day` is threaded in rather than read from a module-scope const: a const here is evaluated
+// when Playwright collects the file, so a run straddling local midnight builds the fixtures on
+// one day and requests them on the next (#5279 item 3).
 function briefingEntry(
+  day: string,
   id: string,
   startLocal: string,
   guestName: string,
   guest: Record<string, unknown>,
   extra: Record<string, unknown> = {}
 ) {
+  const at = (hhmm: string) => atLocal(hhmm, day);
   return {
     id,
-    date: localToday,
-    startTime: atLocal(startLocal),
-    endTime: atLocal(startLocal.replace(/^(\d{2})/, (h) => String(Number(h) + 1).padStart(2, "0"))),
+    date: day,
+    startTime: at(startLocal),
+    endTime: at(startLocal.replace(/^(\d{2})/, (h) => String(Number(h) + 1).padStart(2, "0"))),
     partySize: 2,
     status: "CONFIRMED",
     notes: null,
@@ -36,8 +40,8 @@ function briefingEntry(
     tableId: "tbl_e2e_001",
     table: { id: "tbl_e2e_001", name: "Table 1", tableNumber: "1" },
     venueId: "ven_e2e_001",
-    createdAt: atLocal("00:00"),
-    updatedAt: atLocal("00:00"),
+    createdAt: at("00:00"),
+    updatedAt: at("00:00"),
     guest: {
       id: `gst_${id}`,
       name: guestName,
@@ -51,39 +55,43 @@ function briefingEntry(
   };
 }
 
-const tonight = [
-  briefingEntry("early", "17:30", "Early Guest", {
-    visitCount: 1,
-    dietaryRestrictions: null,
-    tags: null,
-  }),
-  briefingEntry(
-    "dinner",
-    "18:30",
-    "Priya Shah",
-    {
-      visitCount: 12,
-      dietaryRestrictions: ["shellfish allergy", "vegetarian"],
-      tags: ["VIP", "wine-club"],
-    },
-    { occasion: "anniversary", partySize: 4 }
-  ),
-  briefingEntry("late", "21:00", "Jordan Lee", {
-    visitCount: 1,
-    dietaryRestrictions: null,
-    tags: [],
-  }),
-];
+function tonight(day: string): unknown[] {
+  return [
+    briefingEntry(day, "early", "17:30", "Early Guest", {
+      visitCount: 1,
+      dietaryRestrictions: null,
+      tags: null,
+    }),
+    briefingEntry(
+      day,
+      "dinner",
+      "18:30",
+      "Priya Shah",
+      {
+        visitCount: 12,
+        dietaryRestrictions: ["shellfish allergy", "vegetarian"],
+        tags: ["VIP", "wine-club"],
+      },
+      { occasion: "anniversary", partySize: 4 }
+    ),
+    briefingEntry(day, "late", "21:00", "Jordan Lee", {
+      visitCount: 1,
+      dietaryRestrictions: null,
+      tags: [],
+    }),
+  ];
+}
 
-async function openBriefing(page: Page, entries: unknown[] = tonight): Promise<void> {
+async function openBriefing(page: Page, entries?: unknown[]): Promise<void> {
+  const day = localDay();
   await page.route("**/api/v1/briefing?*", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: entries }),
+      body: JSON.stringify({ data: entries ?? tonight(day) }),
     })
   );
-  await page.clock.setFixedTime(new Date(`${localToday}T20:00:00`));
+  await page.clock.setFixedTime(new Date(`${day}T20:00:00`));
   await page.goto("briefing");
   await expect(page.getByRole("heading", { name: "Tonight's Service", level: 1 })).toBeVisible();
 }
@@ -94,21 +102,27 @@ test.describe("Briefing: Tonight's Service", () => {
   }) => {
     await openBriefing(mockedPage);
 
+    // Segments match on the leading word only. Early/Dinner/Late is the stable
+    // vocabulary; the parenthesised hours beside it are copy that has already
+    // drifted from the bucketing once (#5276), so an exact-text locator turns
+    // any future copy edit into a red E2E. BriefingPage.test.tsx owns the exact
+    // wording (against a mocked SegmentedControl); this spec owns the filtering
+    // behaviour against the real one, which renders role=radio and no test id.
     // All: three parties, no leading zeros.
     await expect(mockedPage.getByText("5:30 PM")).toBeVisible();
     await expect(mockedPage.getByText("6:30 PM")).toBeVisible();
     await expect(mockedPage.getByText("9:00 PM")).toBeVisible();
 
-    await mockedPage.getByRole("radio", { name: "Early (before 6 PM)", exact: true }).click();
+    await mockedPage.getByRole("radio", { name: /^Early/ }).click();
     await expect(mockedPage.getByText("Early Guest")).toBeVisible();
     await expect(mockedPage.getByText("Priya Shah")).toHaveCount(0);
     await expect(mockedPage.getByText("Jordan Lee")).toHaveCount(0);
 
-    await mockedPage.getByRole("radio", { name: "Dinner (6–8 PM)", exact: true }).click();
+    await mockedPage.getByRole("radio", { name: /^Dinner/ }).click();
     await expect(mockedPage.getByText("Priya Shah")).toBeVisible();
     await expect(mockedPage.getByText("Early Guest")).toHaveCount(0);
 
-    await mockedPage.getByRole("radio", { name: "Late (after 8 PM)", exact: true }).click();
+    await mockedPage.getByRole("radio", { name: /^Late/ }).click();
     await expect(mockedPage.getByText("Jordan Lee")).toBeVisible();
     await expect(mockedPage.getByText("Priya Shah")).toHaveCount(0);
     await mockedPage.screenshot({ path: "e2e/screenshots/briefing-late.png", fullPage: true });
@@ -135,21 +149,22 @@ test.describe("Briefing: Tonight's Service", () => {
   test("500 → titled alert with the house sentence, Retry recovers without a reload (B1)", async ({
     mockedPage,
   }) => {
+    const day = localDay();
     let failing = true;
     await mockedPage.route("**/api/v1/briefing?*", (route) =>
       failing
         ? route.fulfill({
             status: 500,
             contentType: "application/json",
-            body: '{"error":"server error"}',
+            body: SERVER_ERROR_BODY,
           })
         : route.fulfill({
             status: 200,
             contentType: "application/json",
-            body: JSON.stringify({ data: tonight }),
+            body: JSON.stringify({ data: tonight(day) }),
           })
     );
-    await mockedPage.clock.setFixedTime(new Date(`${localToday}T20:00:00`));
+    await mockedPage.clock.setFixedTime(new Date(`${day}T20:00:00`));
     await mockedPage.goto("briefing");
 
     // Filtered by title: DashboardLayout's session Banner is also role=alert when a real Auth0

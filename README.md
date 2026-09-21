@@ -109,7 +109,8 @@ The loop:
    artifact determinism, dependency bumps, Rialto prop drift — plus a universal
    reviewer that checks the diff against the issue's acceptance criteria.
 4. **Green PRs auto-merge.** `CI Gate` is the single required check; auto-merge
-   completes once it passes and the branch is up to date.
+   completes as soon as it passes. Branch protection is not `strict`, so a PR that
+   has fallen behind `main` still merges — no rebase round-trip per sibling merge.
 5. **Failures feed back.** Reverts trigger root-cause sessions, gotchas are harvested
    into [`.claude/rules/gotchas.md`](./.claude/rules/gotchas.md), and metrics drive a
    self-tuning circuit breaker.

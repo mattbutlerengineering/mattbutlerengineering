@@ -175,6 +175,33 @@ describe("collectRepoStats", () => {
     expect(AGENT_MERGED_QUERY).toContain("label:agent-authored");
   });
 
+  it("reports unavailable when the search reports zero merged pull requests", async () => {
+    // A token without pull-request read access does not get a 403 from
+    // `GET /search/issues` — it gets HTTP 200 and `total_count: 0`, because
+    // results it cannot read are filtered out rather than refused. Shipped
+    // exactly that way: the deploy log read "wrote .../repo-stats.json" while
+    // the live proof strip claimed 0 pull requests merged. A repo whose proof
+    // strip exists has merged PRs, so a zero total is the search not seeing
+    // them, and the snapshot degrades as a unit rather than asserting it.
+    const result = await collectRepoStats(fakeDeps({ searchPrCount: async () => 0 }));
+
+    expect(result.available).toBe(false);
+    expect(result.stats).toBeUndefined();
+    expect(result.reason).toMatch(/merged pull request/i);
+  });
+
+  it("keeps a zero agent-authored count, which a repo can legitimately have", async () => {
+    const result = await collectRepoStats(
+      fakeDeps({
+        searchPrCount: async (query) => (query === AGENT_MERGED_QUERY ? 0 : 1426),
+      })
+    );
+
+    expect(result.available).toBe(true);
+    expect(result.stats.agentPrsMerged).toBe(0);
+    expect(result.stats.totalPrsMerged).toBe(1426);
+  });
+
   it("reports unavailable instead of throwing when the GitHub call fails", async () => {
     const result = await collectRepoStats(
       fakeDeps({

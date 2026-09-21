@@ -6,6 +6,8 @@ import {
   findOrphanedDnsRecords,
   buildReport,
   findPriorResourceAuditIssue,
+  decideOrphanCountRefresh,
+  refreshTrackedCount,
   extractZoneId,
 } from "../resource-audit.mjs";
 
@@ -119,6 +121,9 @@ describe("buildReport", () => {
   test("includes only the sections for categories with orphans", () => {
     const report = buildReport(["orphan-worker"], [], []);
     expect(report.title).toBe("Orphaned resources found (1)");
+    // The count is returned as a field, not only interpolated into the title —
+    // the refresh path compares numbers and must not re-parse its own prose.
+    expect(report.totalOrphaned).toBe(1);
     expect(report.body).toContain("### Cloudflare Workers (1)");
     expect(report.body).not.toContain("### DigitalOcean Apps");
     expect(report.body).not.toContain("### Cloudflare DNS Records");
@@ -185,5 +190,112 @@ describe("extractZoneId", () => {
   test("boundary: empty or nullish zones list returns null", () => {
     expect(extractZoneId([], "example.com")).toBeNull();
     expect(extractZoneId(null, "example.com")).toBeNull();
+  });
+});
+
+/**
+ * The dedupe added in #3775 stopped the weekly audit filing a fresh issue
+ * every run — and, unintentionally, stopped it saying anything at all. The
+ * open tracker (#4670) was filed on 2026-08-29 reading `Orphaned resources
+ * found (165)`; on 2026-09-19 the audit measured 199 and logged
+ * `Skipping — issue #4670 already tracks this`, leaving the title, the body
+ * and every number a triager reads three weeks and 34 resources stale.
+ *
+ * A count that only moves in the run log is not tracked. These cases pin the
+ * decision, including the deliberate silence when nothing changed — the audit
+ * writes to the issue it measures, so a weekly no-op comment would bump
+ * `updatedAt` and destroy it as a staleness signal (gotchas § Metrics /
+ * staleness detection).
+ */
+describe("decideOrphanCountRefresh", () => {
+  test("refreshes when the tracked count has grown — the real #4670 case", () => {
+    expect(
+      decideOrphanCountRefresh({
+        priorTitle: "Orphaned resources found (165)",
+        currentCount: 199,
+      })
+    ).toEqual({ action: "refresh", from: 165, to: 199 });
+  });
+
+  test("refreshes when the count has shrunk, so cleanup progress is visible too", () => {
+    expect(
+      decideOrphanCountRefresh({ priorTitle: "Orphaned resources found (199)", currentCount: 12 })
+    ).toEqual({ action: "refresh", from: 199, to: 12 });
+  });
+
+  test("stays silent when the count is unchanged, leaving updatedAt honest", () => {
+    expect(
+      decideOrphanCountRefresh({ priorTitle: "Orphaned resources found (199)", currentCount: 199 })
+    ).toEqual({ action: "none" });
+  });
+
+  test("refreshes when the prior title carries no parsable count", () => {
+    expect(
+      decideOrphanCountRefresh({ priorTitle: "Orphaned resources found", currentCount: 7 })
+    ).toEqual({ action: "refresh", from: null, to: 7 });
+  });
+
+  test("refreshes on a missing prior title rather than assuming it matches", () => {
+    expect(decideOrphanCountRefresh({ priorTitle: undefined, currentCount: 0 })).toEqual({
+      action: "refresh",
+      from: null,
+      to: 0,
+    });
+  });
+});
+
+/**
+ * The decision above is only worth having if something acts on it. This is the
+ * seam where a correct decision could still reach nobody — the exact shape of
+ * the defect being fixed, where `fileIssue()` returned `skip` and the branch
+ * that received it did nothing but `console.log`.
+ */
+describe("refreshTrackedCount", () => {
+  function fakeGhClient() {
+    const calls = { edit: [], comment: [] };
+    return {
+      calls,
+      issue: {
+        edit: (number, args) => calls.edit.push([number, args]),
+        comment: (number, body) => calls.comment.push([number, body]),
+      },
+    };
+  }
+
+  test("edits the issue and comments the delta when the count moved", () => {
+    const gh = fakeGhClient();
+    refreshTrackedCount(
+      gh,
+      4670,
+      "Orphaned resources found (165)",
+      "Orphaned resources found (199)",
+      "body",
+      199
+    );
+
+    expect(gh.calls.edit).toEqual([
+      [4670, ["--title", "Orphaned resources found (199)", "--body", "body"]],
+    ]);
+    expect(gh.calls.comment).toHaveLength(1);
+    expect(gh.calls.comment[0][0]).toBe(4670);
+    expect(gh.calls.comment[0][1]).toContain("**199**");
+    expect(gh.calls.comment[0][1]).toContain("was 165");
+  });
+
+  test("writes nothing at all when the count is unchanged", () => {
+    const gh = fakeGhClient();
+    refreshTrackedCount(gh, 4670, "Orphaned resources found (199)", "x", "y", 199);
+    expect(gh.calls.edit).toEqual([]);
+    expect(gh.calls.comment).toEqual([]);
+  });
+
+  test("still comments when the edit throws, so the finding is never lost", () => {
+    const gh = fakeGhClient();
+    gh.issue.edit = () => {
+      throw new Error("gh issue edit: GraphQL error on a Projects-classic field");
+    };
+    refreshTrackedCount(gh, 4670, "Orphaned resources found (165)", "t", "b", 12);
+    expect(gh.calls.comment).toHaveLength(1);
+    expect(gh.calls.comment[0][1]).toContain("**12**");
   });
 });

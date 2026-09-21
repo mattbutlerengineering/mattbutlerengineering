@@ -9,6 +9,8 @@ import type {
   PaginatedResponse,
 } from "@mbe/types";
 import {
+  createProblemDetails,
+  titleForStatus,
   listTablesQueryJsonSchema,
   createTableBodyJsonSchema,
   updateTableBodyJsonSchema,
@@ -23,7 +25,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
   // Resolve domain services from the buildApp seam (issue #3357) rather than
   // importing the sibling singleton directly — tests inject fakes via
   // buildApp({ services }).
-  const { tableService } = fastify.services;
+  const { tableService, floorPlanService } = fastify.services;
 
   /**
    * Resolves the venue owning a table addressed by `:id`, scoping by-id actions
@@ -225,6 +227,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
             description: "Authentication required",
             $ref: "Error#",
           },
+          403: {
+            description: "Requested floor plan belongs to a different venue",
+            $ref: "Error#",
+          },
           404: {
             description: "Table not found",
             $ref: "Error#",
@@ -236,7 +242,36 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
+      const { floorPlanId } = request.body;
+      if (floorPlanId) {
+        // The guard above only proves the caller belongs to the TABLE's own
+        // venue. `floorPlanId` is a client-supplied id that the update connects
+        // with no venue awareness of its own, so a member of the table's venue
+        // could otherwise re-point it onto ANOTHER venue's floor plan. Same bug
+        // class as #5008 (/tables/:tableId/assign) and #5042
+        // (/tables/positions) in floor-plans.ts. Checked here rather than in
+        // the DB layer because `Table` has no compound floorPlanId/venueId
+        // constraint, and ADR-026's RLS does not apply to the app's own role.
+        const [current, floorPlan] = await Promise.all([
+          tableService.getById(request.params.id),
+          floorPlanService.getById(floorPlanId),
+        ]);
+        // A missing table or floor plan is not a cross-venue reassignment —
+        // fall through so the update below surfaces the existing 404.
+        if (current && floorPlan && floorPlan.venueId !== current.venueId) {
+          return reply
+            .code(403)
+            .send(
+              createProblemDetails(
+                403,
+                titleForStatus(403),
+                "The requested floor plan does not belong to this table's venue"
+              )
+            );
+        }
+      }
+
       const table = await tableService.update(request.params.id, request.body);
       if (!table) {
         const error = new Error("Table not found") as Error & { statusCode?: number };

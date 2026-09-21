@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import type { PublicVenue, PublicVenueConfig } from "@mbe/types";
 import { PublicVenueSchema, PublicVenueConfigSchema } from "@mbe/types/schemas";
+import { atLocal, localDay } from "./local-day.js";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
@@ -318,11 +319,22 @@ export async function mockApi(page: Page): Promise<void> {
 
   // Re-date fixtures to today — the timeline discards r.date !== selectedDate (today) client-side.
   // Fixture JSON uses a static past date; this transform makes reservations visible in E2E tests.
-  // "Today" is the browser-local calendar day (en-CA formats as YYYY-MM-DD) — the twin of
-  // `src/utils/local-clock.ts` `localDateString`, the clock the app filters on. A UTC slice rolls
-  // to tomorrow at 17:00 Pacific and emptied the grid for the whole evening service (A1 / P01).
+  // "Today" is the local calendar day (`localDay()`) — the twin of `src/utils/local-clock.ts`
+  // `localDateString`, the clock the app filters on. A UTC slice rolls to tomorrow at 17:00
+  // Pacific and emptied the grid for the whole evening service (A1 / P01).
+  //
+  // The clock is re-dated along with the day (#5275). Rewriting only the date *prefix* left the
+  // fixture's `Z` suffix in place, while the grid positions blocks by browser-local hours
+  // (`reservationLayout.ts` `start.getHours()`, window 11:00–23:00) — so an 18:00Z block landed
+  // at left = −120 px in PST and −1200 px at UTC+5, off the grid in both. It failed as a pass:
+  // a negatively positioned block still has a bounding box, so `toBeVisible()` stayed green.
+  // Reading each fixture time as the *intended local wall clock* keeps both halves in one zone.
+  function localizeFixtureTime(iso: unknown, day: string): string {
+    return atLocal(String(iso).slice(11, 23), day); // "18:00:00.000" — the fixture's wall clock
+  }
+
   function todayReservations(): string {
-    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local day
+    const today = localDay();
     const fixture = JSON.parse(loadFixture("reservations-list")) as {
       data: Array<Record<string, unknown>>;
       pagination: unknown;
@@ -332,8 +344,8 @@ export async function mockApi(page: Page): Promise<void> {
       data: fixture.data.map((r) => ({
         ...r,
         date: today,
-        startTime: String(r.startTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
-        endTime: String(r.endTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
+        startTime: localizeFixtureTime(r.startTime, today),
+        endTime: localizeFixtureTime(r.endTime, today),
       })),
     });
   }
@@ -366,12 +378,24 @@ export async function mockApi(page: Page): Promise<void> {
   // Individual reservation — generic handler.
   // Negative lookahead excludes "walk-in" from this regex as a safety net.
   // Registered BEFORE the walk-in glob so walk-in wins LIFO (later = higher priority).
+  //
+  // Reads through `todayReservations()`, never the raw fixture (#5279 item 4): the list handler
+  // re-dates every row, so a raw read made the detail disagree with the list it was opened from —
+  // a 2026-05-17 date and an 18:00Z clock behind a block the grid had drawn on today. An
+  // unrecognised id answers with the first row *carrying the requested id*, the way the
+  // tables-by-id handler does, so the detail never claims to be a different reservation.
   await page.route(/\/api\/v1\/reservations\/(?!walk-in)[^/?]+$/, (route) => {
     const method = route.request().method();
     const id = route.request().url().replace(/\?.*$/, "").split("/").pop() ?? "";
-    const reservations = JSON.parse(loadFixture("reservations-list"));
+    const reservations = JSON.parse(todayReservations()) as {
+      data: Array<Record<string, unknown>>;
+    };
+    const baseItem = reservations.data.find((r) => r.id === id) ?? {
+      ...reservations.data[0],
+      id,
+    };
     if (method === "DELETE") {
-      return jsonOk(route, { ...reservations.data[0], status: "CANCELLED" });
+      return jsonOk(route, { ...baseItem, status: "CANCELLED" });
     }
     if (method === "PATCH") {
       let body: Record<string, unknown> = {};
@@ -386,14 +410,8 @@ export async function mockApi(page: Page): Promise<void> {
       const existing = reservationUpdates.get(id) ?? {};
       const merged = { ...existing, ...body };
       reservationUpdates.set(id, merged);
-      const baseItem =
-        (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
-        reservations.data[0];
       return jsonOk(route, { ...baseItem, ...merged, updatedAt: new Date().toISOString() });
     }
-    const baseItem =
-      (reservations.data as Array<Record<string, unknown>>).find((r) => r.id === id) ??
-      reservations.data[0];
     return jsonOk(route, { ...baseItem, ...(reservationUpdates.get(id) ?? {}) });
   });
 
@@ -414,6 +432,13 @@ export async function mockApi(page: Page): Promise<void> {
     }
     const first = fixture.data[0] ?? {};
     const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
+    // A picked returning guest arrives as `guestId`; the service answers with the linked guest's
+    // summary, which the timeline block turns into its visit ordinal ("12th visit").
+    const guests = JSON.parse(loadFixture("guests-list")) as {
+      data: Array<Record<string, unknown>>;
+    };
+    const linked =
+      typeof body.guestId === "string" ? guests.data.find((g) => g.id === body.guestId) : undefined;
     const newRes: Record<string, unknown> = {
       ...first,
       ...body,
@@ -422,6 +447,9 @@ export async function mockApi(page: Page): Promise<void> {
       notes: "Walk-in",
       tableId,
       table: allTables().find((t) => t.id === tableId) ?? first.table,
+      guest: linked
+        ? { visitCount: linked.visitCount, communicationPreference: linked.communicationPreference }
+        : null,
     };
     extraReservations.push(newRes);
     return jsonOk(route, newRes);
@@ -531,10 +559,18 @@ export async function mockApi(page: Page): Promise<void> {
       pagination: Record<string, unknown>;
     };
     const lower = query.toLowerCase();
+    // A query that carries digits also matches on the phone's digits ("555123" finds +15551234567),
+    // mirroring the service's name-or-phone lookup behind the guest-name combobox.
+    const digits = query.replace(/\D/g, "");
     const filtered = fixture.data.filter((g) => {
       const name = String(g.name ?? "").toLowerCase();
       const email = String(g.email ?? "").toLowerCase();
-      return name.includes(lower) || email.includes(lower);
+      const phoneDigits = String(g.phone ?? "").replace(/\D/g, "");
+      return (
+        name.includes(lower) ||
+        email.includes(lower) ||
+        (digits.length > 0 && phoneDigits.includes(digits))
+      );
     });
     return route.fulfill({
       status: 200,

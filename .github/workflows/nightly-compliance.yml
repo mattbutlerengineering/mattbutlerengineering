@@ -64,7 +64,7 @@ jobs:
             echo '## Lint, typecheck, test'
             echo
             for cmd in lint typecheck test; do
-              # `pnpm "$cmd"` must be the condition of an `if`, never a bare
+              # The command must be the condition of an `if`, never a bare
               # statement followed by `cmd_status=$?` — the default GH Actions
               # shell is `bash -e {0}` (no pipefail), so a bare non-zero exit
               # aborts the whole step right there and `cmd_status=$?` never
@@ -72,18 +72,51 @@ jobs:
               # loop always died mid-`test`, so no `✗` was ever written and
               # drift detection below never fired. See the `if`-guarded form
               # already used correctly in "Run gating scripts" below.
-              if pnpm "$cmd" > "/tmp/$cmd.out" 2>&1; then
+              #
+              # `test` goes through turbo directly so it can carry
+              # `--concurrency=2`, the cap ci.yml's Test job has had since
+              # #4519 (added there after that job timed out). Bare `pnpm test`
+              # takes turbo's default of 10, so the nightly was running the
+              # same suite at 5x the parallelism of the gate that stays green
+              # — on a 2-core runner that is heavy oversubscription, and the
+              # symptom matched: ten consecutive red nights (#5203 … #5517)
+              # with the timeout landing on whichever package lost the CPU
+              # race, `packages/rialto` on 09-10/09-11, `apps/rialto-web` for
+              # the eight nights after, `packages/rialto` again on 09-20.
+              case "$cmd" in
+                test) argv=(pnpm exec turbo run test --concurrency=2) ;;
+                *) argv=(pnpm "$cmd") ;;
+              esac
+              if "${argv[@]}" > "/tmp/$cmd.out" 2>&1; then
                 echo "- ✓ \`pnpm $cmd\` passed"
               else
                 echo "- ✗ \`pnpm $cmd\` FAILED"
                 echo
                 echo '  ```'
-                tail -10 "/tmp/$cmd.out" | sed 's/^/  /'
+                # Not `tail`: turbo streams each package's failure detail as it
+                # runs and prints its own summary last, so the final lines are
+                # always `Tasks:`/`Failed:` and never the failing test. Every
+                # nightly issue from #5203 to #5517 reported `pnpm test` FAILED
+                # without naming one, and each was then triaged from the
+                # package name alone (#5517).
+                node scripts/summarize-task-failure.mjs "/tmp/$cmd.out" | sed 's/^/  /'
                 echo '  ```'
               fi
               echo
             done
           } >> /tmp/report.md
+
+      # The summary above is capped by design. The full transcripts stay
+      # retrievable for 14 days so a nightly failure can be diagnosed from the
+      # run itself rather than reproduced by hand.
+      - name: Upload captured command output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-compliance-output
+          path: /tmp/*.out
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Run gating scripts
         id: gates

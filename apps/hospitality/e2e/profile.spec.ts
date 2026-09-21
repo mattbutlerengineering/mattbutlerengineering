@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { test, expect } from "./fixtures.js";
 import { ERROR_COPY } from "../src/lib/describe-api-error.js";
+import { SERVER_ERROR_BODY } from "./problem-details.js";
 
 // mockApi serves /users/me but has no handler for /users/<id>, so a GET here must not fall
 // through to the real network — answer it with the same seeded user the page loaded.
@@ -20,7 +21,7 @@ test.describe("Profile — save failure (B1 / R4)", () => {
         ? route.fulfill({
             status: 500,
             contentType: "application/json",
-            body: '{"error":"server error"}',
+            body: SERVER_ERROR_BODY,
           })
         : route.fulfill({ status: 200, contentType: "application/json", body: USER_ME })
     );

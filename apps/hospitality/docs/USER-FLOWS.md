@@ -81,10 +81,11 @@ Host sees accurate data for today, SSE is connected, tables match physical layou
 
 1. Host opens the "Seat walk-in" dialog — the Timeline's "Walk-in" button, ⌘K → "Walk-in guest", or the Dashboard's "Walk-in" (both navigate to `/timeline?walkin=true`, which opens it)
 2. Walk-In dialog opens → enters party size, guest name (optional), table selection
-3. Submits → reservation created with status CONFIRMED
-4. Table status changes to OCCUPIED
-5. Timeline updates in real-time (SSE broadcast)
-6. Other connected clients see the update immediately
+3. Optional — as the host types a name or phone, `GuestLookup` lists returning guests; picking one fills the name, shows the `GuestHistoryStrip` (visits, no-shows, allergies) and links the walk-in to that profile, so the seated block reads e.g. "12th visit". No pick, no link — the walk-in is today's walk-in
+4. Submits → reservation created with status CONFIRMED
+5. Table status changes to OCCUPIED
+6. Timeline updates in real-time (SSE broadcast)
+7. Other connected clients see the update immediately
 
 ### Acceptance Criteria
 
@@ -94,6 +95,8 @@ Host sees accurate data for today, SSE is connected, tables match physical layou
 - [ ] SSE broadcasts the new reservation to all connected clients
 - [ ] If API call fails, shows error and does NOT mark table as occupied
 - [ ] Guest name is optional (defaults to "Walk-in")
+- [x] Typing a name or phone lists returning guests; a pick links the walk-in and the seated block shows the visit ordinal (`GuestLookup` → `guestId` → `ReservationBlock`; E2E `e2e/walkin.spec.ts` "12th visit")
+- [x] A picked guest can be cleared before seating and the walk-in proceeds unlinked (`GuestHistoryStrip` Clear; `WalkInDialog.test.tsx`)
 
 ### Done Definition
 
@@ -133,7 +136,7 @@ Reservation can be viewed, edited, seated, cancelled, and completed. All state c
 
 ## Flow 5: Guest Lookup & Recognition (Host)
 
-**Entry:** Guest arrives, host wants to check history
+**Entry:** Guest arrives, host wants to check history — or the host is already typing a guest name into the New Reservation dialog, the walk-in dialog or the waitlist
 
 ### Steps
 
@@ -142,6 +145,7 @@ Reservation can be viewed, edited, seated, cancelled, and completed. All state c
 3. Click guest → Detail drawer shows visit history, tags, notes, lifetime value
 4. Host greets guest by name, notes preferences (e.g., "prefers booth, allergic to shellfish")
 5. If new guest, clicks "Add Guest" → enters name, email, phone, tags
+6. Typeahead entry — in the New Reservation dialog, the walk-in dialog and the waitlist the guest-name field is `GuestLookup`: from two characters of a name or phone, returning guests appear as the host types; a pick fills the name and shows the `GuestHistoryStrip`. On the reservation dialog the strip carries one caption — edits to email or phone below change this booking only; the profile isn't edited
 
 ### Acceptance Criteria
 
@@ -150,6 +154,7 @@ Reservation can be viewed, edited, seated, cancelled, and completed. All state c
 - [ ] Tags are visible and meaningful (VIP, Regular, etc.)
 - [ ] Add Guest validates email format if provided
 - [ ] Guest created via find-or-create (no duplicates)
+- [x] Returning guests are recognised while typing in the reservation dialog, walk-in and waitlist, and a pick shows their history without leaving the form (`GuestLookup` + `GuestHistoryStrip`; `NewReservationDialog.test.tsx`, `WalkInDialog.test.tsx`, `WaitlistPage.test.tsx`)
 
 ### Done Definition
 

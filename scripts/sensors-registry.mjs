@@ -37,6 +37,7 @@ import {
   QUEUE_EFFICIENCY_FPS_DROP,
 } from "./collect-queue-efficiency.mjs";
 import { read } from "./metrics-store.mjs";
+import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
 import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
 import { extractZipEntries } from "./extract-zip-entries.mjs";
 import { parseJUnitXml } from "./parse-junit-xml.mjs";
@@ -461,6 +462,78 @@ export const SENSORS = [
       `${name}: ${data.reservations_created} created, ${data.reservations_cancelled} cancelled, ` +
       `${data.reservations_completed} completed, ${data.reservations_no_show} no-show, ` +
       `deposits held/applied/refunded/forfeited ${data.deposits_held}/${data.deposits_applied}/${data.deposits_refunded}/${data.deposits_forfeited} (${data.date ?? "unknown date"})`,
+  },
+  {
+    // The watchdog on the two collectors above and below (#5529). Both were
+    // silently dead for months — domain-metrics.jsonl at 0 bytes, review-burden
+    // at one entry from 2026-06-14 — and nothing noticed, because the only
+    // sensor reading either (`domainActivity`) reports `available: false` for
+    // "empty file" and "sensor not wired up" alike. `available: false` is a
+    // shrug; a regression is an alarm. This entry turns the former into the
+    // latter by reading the same files through the freshness policy.
+    id: "metricsFreshness",
+    category: "quality",
+    collect: ({ root, now = new Date() }) => {
+      const results = assessFreshness({ readMetric: (metric) => read(metric, { root }), now });
+      return {
+        // Always available: the check can always answer, even (especially)
+        // when every file it watches is missing.
+        available: true,
+        stale_count: freshnessFindings(results).length,
+        metrics: results.map((result) => ({
+          metric: result.metric,
+          state: result.state,
+          age_days: result.ageDays,
+          latest: result.latest ?? null,
+          max_age_days: result.maxAgeDays,
+        })),
+      };
+    },
+    format: (data, name) => {
+      const summary = (data.metrics ?? [])
+        .map((m) => `${m.metric}=${m.state}${m.age_days == null ? "" : ` (${m.age_days}d)`}`)
+        .join(", ");
+      return `${name}: ${data.stale_count} unhealthy — ${summary || "nothing assessed"}`;
+    },
+    // No `previous` guard, unlike most sensors here: staleness is an absolute
+    // condition, not a delta. Requiring a previous report would keep this
+    // silent on exactly the first run after a pipeline dies.
+    detectRegression: (current) =>
+      freshnessRegressions(
+        (current?.metrics ?? []).map((m) => ({
+          metric: m.metric,
+          state: m.state,
+          ageDays: m.age_days,
+          latest: m.latest,
+        }))
+      ),
+  },
+  {
+    // Surfaced on the public AI-health page (#5530) — see
+    // apps/marketing/src/data/ai-health.ts's `normalizeReviewBurden`.
+    id: "reviewBurden",
+    category: "quality",
+    collect: ({ root }) => {
+      const entries = safe(() => read("review-burden", { root }));
+      if (!Array.isArray(entries) || entries.length === 0) return { available: false };
+
+      const latest = entries[entries.length - 1];
+      const summary = latest.summary ?? {};
+      return {
+        available: true,
+        collected_at: latest.timestamp ?? null,
+        window_days: latest.window_days ?? null,
+        total_closed_prs: latest.total_closed_prs ?? 0,
+        total_reviewers: summary.total_reviewers ?? 0,
+        total_reviews: summary.total_reviews ?? 0,
+        overall_rubber_stamp_ratio: summary.overall_rubber_stamp_ratio ?? 0,
+        overall_approvals: summary.overall_approvals ?? 0,
+        overall_rubber_stamps: summary.overall_rubber_stamps ?? 0,
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.total_reviewers} reviewers, ${data.total_reviews} reviews, ` +
+      `${Math.round((data.overall_rubber_stamp_ratio ?? 0) * 100)}% rubber-stamped`,
   },
   {
     id: "prCategoryMetrics",

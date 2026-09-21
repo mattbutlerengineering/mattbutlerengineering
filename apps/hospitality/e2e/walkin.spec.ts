@@ -1,9 +1,9 @@
 import { test, expect } from "./fixtures.js";
+import { SERVER_ERROR_BODY } from "./problem-details.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 /** ux.md Screen 3: after a failure the dialog is back at rest — Seat now enabled — within a second. */
 const RESTING_DEADLINE_MS = 1_000;
-const SERVER_ERROR_BODY = '{"error":"server error"}';
 
 test.describe("CF-3: Walk-in creation", () => {
   test("opens walk-in dialog and lists available tables", async ({ mockedPage }) => {
@@ -140,5 +140,49 @@ test.describe("Walk-in outcomes: failure stays in the dialog, success lands on t
     await expect(
       mockedPage.getByRole("status").filter({ hasText: "Seated Ada Lovelace" })
     ).toHaveText(/^Seated Ada Lovelace, party of 2, at (Table \d|Bar \d)\.$/);
+  });
+});
+
+// booking-guest-reuse M6.2: a pick on the guest-name combobox links the walk-in to the returning
+// guest, and the seated block carries the visit ordinal the linked `guest` supplies.
+test.describe("Walk-in with a returning guest: pick from the combobox, seat, block reads the visit ordinal", () => {
+  test("phone digits list Alice Johnson; the pick shows her strip and the new block reads '12th visit'", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.goto("timeline");
+    const reservationBlocks = mockedPage.getByTestId(/^reservation-block-/);
+    await expect(reservationBlocks.first()).toBeVisible();
+    const initialCount = await reservationBlocks.count();
+
+    await mockedPage.getByRole("button", { name: "Walk-in", exact: true }).click();
+    const dialog = mockedPage.getByRole("dialog", { name: "Seat walk-in" });
+    await expect(dialog).toBeVisible();
+
+    // Phone digits, not the name — the lookup matches either (ux.md: "Name or phone").
+    const guestName = dialog.getByLabel(/guest name/i);
+    await guestName.fill("555123");
+    // Options are portaled to document.body: locate them at page level, never through `dialog`.
+    await mockedPage.getByRole("option", { name: /Alice Johnson/ }).click();
+
+    await expect(
+      dialog.getByRole("group", { name: "Using Alice Johnson's profile" })
+    ).toBeVisible();
+    await expect(guestName).toHaveValue("Alice Johnson");
+    await mockedPage.screenshot({ path: "e2e/screenshots/walkin-returning-guest.png" });
+
+    await dialog.getByRole("button", { name: "Seat now" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(reservationBlocks).toHaveCount(initialCount + 1);
+
+    // The mock ids walk-ins `res_e2e_walkin_<ts>`. The fixture's own Alice block (res_e2e_001)
+    // carries no linked guest, so scoping to the new block is what proves the ordinal came from
+    // the pick and not from the name.
+    const created = mockedPage.getByTestId(/^reservation-block-res_e2e_walkin_/);
+    await expect(created).toHaveCount(1);
+    await expect(created).toContainText("Alice Johnson");
+    await expect(created).toContainText("12th visit");
+    await expect(mockedPage.getByTestId("reservation-block-res_e2e_001")).not.toContainText(
+      "12th visit"
+    );
   });
 });

@@ -163,6 +163,7 @@ export class ReservationsClient {
     partySize: number;
     tableId: string;
     venueId: string;
+    guestId?: string;
     guestName?: string;
     durationMinutes?: number;
   }): Promise<Reservation> {

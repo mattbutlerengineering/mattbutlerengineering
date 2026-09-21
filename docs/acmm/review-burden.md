@@ -100,6 +100,18 @@ node scripts/acmm/review-burden-metrics.js --threshold 10 # custom rubber-stamp 
 node scripts/acmm/review-burden-metrics.js --dry-run      # print only, no file write
 ```
 
+### Schedule
+
+`.github/workflows/metrics-collectors.yml` runs the collector daily at 11:29
+UTC with `--days 7` and opens a PR with the updated `metrics/review-burden.json`
+(#5528). Before that workflow existed, nothing scheduled this collector at all:
+the file held exactly one entry, from a one-off manual run on 2026-06-14, and
+stayed that way for three months. `/learning-loop` could not have filled the gap
+— it runs as a Claude Code Remote session, which has no `gh` CLI, and this
+collector shells out to `gh` (`.claude/rules/gotchas.md` § Claude Code Remote).
+GitHub Actions runners have `gh` preinstalled and authenticate with the job's
+`GITHUB_TOKEN`, so no extra secret is needed.
+
 ### Where results live
 
 Each run appends one timestamped entry to **`metrics/review-burden.json`**
@@ -147,6 +159,30 @@ Each entry's shape:
 
 The metric math is unit-tested in
 [`scripts/__tests__/review-burden-metrics.test.mjs`](../../scripts/__tests__/review-burden-metrics.test.mjs).
+
+### Staleness self-check
+
+A collector that stops producing looks exactly like one that has nothing to
+report, which is how the three-month gap went unnoticed. `scripts/metrics-freshness.mjs`
+(#5529) now grades the file itself: `empty` when it has no entries, `stale` when
+the newest `timestamp` is older than the threshold in `FRESHNESS_POLICY` (3 days
+for a daily collector). Run it by hand with `node scripts/metrics-freshness.mjs`
+— it exits 1 on any non-fresh metric, and on an empty result set, so it can
+never report a vacuous pass.
+
+Two consumers, one decision function: the `metricsFreshness` sensor in
+`scripts/sensors-registry.mjs` puts the verdict into `/learning-loop`'s normal
+regression triage, and the workflow step above files a deduped `ci-fix` issue
+directly (deliberately without `ready` — the most likely fix for the sibling
+`domain-metrics` collector is a human-supplied secret, not an agent task).
+
+### On the AI-health page
+
+The latest entry's headline numbers — reviewers, reviews, rubber-stamp ratio,
+and closed PRs in the window — render in the **Review Burden** panel on
+`/ai-health` (#5530), sourced from the `reviewBurden` sensor. When the sensor is
+unavailable the panel says so explicitly rather than rendering nothing, so an
+empty collector is visible on the page instead of looking like a quiet week.
 
 ## Integration with /progress-tracker
 

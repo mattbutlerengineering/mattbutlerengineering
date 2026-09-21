@@ -165,6 +165,61 @@
   </file>
   </section>
   <section priority="medium" role="crm">
+  <file path="src/components/crm/guest-lookup-rows.ts">
+    <item priority="low">
+      type GuestLookupMode = "linked" | "recognised";
+    </item>
+    <item priority="medium">
+      function plural(count: number, noun: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visitsSentence(visitCount: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function noShowsSentence(noShowCount: number): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatGuestRowDetail(guest: Guest): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stripTitle(mode: GuestLookupMode, name: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pickAnnouncement(mode: GuestLookupMode, guest: Guest): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/crm/guest-prefill.ts">
+    <item priority="low">
+      interface PrefillFields {
+        guestEmail?: string;
+        guestPhone?: string;
+      }
+    </item>
+    <item priority="low">
+      interface PrefillProfile {
+        email: string | null;
+        phone: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface PrefillEntry {
+        before: string;
+        filled: string;
+      }
+    </item>
+    <item priority="low">
+      type PrefillSnapshot = Partial<Record<keyof PrefillFields, PrefillEntry>>;
+    </item>
+    <item priority="high">
+      export function applyPick<T extends PrefillFields>(
+        current: T,
+        profile: PrefillProfile
+      ): { next: T; snapshot: PrefillSnapshot } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyClear<T extends PrefillFields>(current: T, snapshot: PrefillSnapshot): T { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/crm/guest-signals.ts">
     <item priority="high">
       export const ALLERGY_KEYWORDS: readonly string[];
@@ -175,6 +230,9 @@
     <item priority="low">
       type GuestSegmentVariant = "accent" | "success" | "neutral";
     </item>
+    <item priority="low">
+      type GuestRiskVariant = "error" | "warning" | "neutral";
+    </item>
     <item priority="high">
       export function isAllergyTag(tag: string): boolean { /* ... */ }
     </item>
@@ -183,6 +241,12 @@
     </item>
     <item priority="high">
       export function getSegmentVariant(label: string): GuestSegmentVariant { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getRiskVariant(score: GuestRiskScore): GuestRiskVariant { /* ... */ }
+    </item>
+    <item priority="high">
+      export function getRiskLabel(score: GuestRiskScore): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -278,6 +342,19 @@
   <file path="e2e/fixtures.ts">
     <item priority="high">
       export const test: unknown;
+    </item>
+  </file>
+  <file path="e2e/local-day.ts">
+    <item priority="high">
+      export function localDay(offsetDays = 0): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function atLocal(time: string, day: string = localDay()): string { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/problem-details.ts">
+    <item priority="high">
+      export const SERVER_ERROR_BODY: unknown;
     </item>
   </file>
   </section>
@@ -695,6 +772,26 @@
     </item>
     <item priority="high">
       export function useGuestDirectory({ venueId }: UseGuestDirectoryParams): UseGuestDirectoryResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useGuestLookup.ts">
+    <item priority="low">
+      interface UseGuestLookupParams {
+        venueId: string | null | undefined;
+        text: string;
+      }
+    </item>
+    <item priority="low">
+      interface UseGuestLookupResult {
+        rows: Guest[];
+        hasMore: boolean;
+        isLoading: boolean;
+        failed: boolean;
+        query: string;
+      }
+    </item>
+    <item priority="high">
+      export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGuestLookupResult { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useGuestRecognition.ts">

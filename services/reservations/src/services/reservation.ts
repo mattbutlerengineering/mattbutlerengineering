@@ -560,12 +560,17 @@ export const reservationService = {
             guestName: data.guestName ?? "Walk-in",
             guestEmail: null,
             guestPhone: null,
-            guestId: null,
+            guestId: data.guestId ?? null,
             userId: userId ?? null,
             venueId: data.venueId ?? null,
             notes: null,
           },
-          include: { table: true },
+          include: {
+            table: true,
+            guest: {
+              select: { visitCount: true, communicationPreference: true, unsubscribed: true },
+            },
+          },
         });
 
         const occupiedTable = await tx.table.update({

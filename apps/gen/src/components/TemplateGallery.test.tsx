@@ -87,10 +87,10 @@ describe("TemplateGallery", () => {
   it("renders per-category sidebar counts matching the template catalog", () => {
     render(<TemplateGallery {...defaultProps} />);
     expect(screen.getByRole("button", { name: /^Dashboards/ }).textContent).toContain("3");
-    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("9");
-    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("8");
+    expect(screen.getByRole("button", { name: /^Forms/ }).textContent).toContain("10");
+    expect(screen.getByRole("button", { name: /^Data Display/ }).textContent).toContain("9");
     expect(screen.getByRole("button", { name: /^Marketing/ }).textContent).toContain("6");
-    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("6");
+    expect(screen.getByRole("button", { name: /^Feedback/ }).textContent).toContain("7");
   });
 
   it("renders template cards with titles", () => {
@@ -228,6 +228,52 @@ describe("TemplateGallery", () => {
     fireEvent.click(card);
     expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/GlobalNav/));
     expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Accordion/));
+  });
+
+  it("includes a Record Detail Panel template that elicits DataList usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "record detail" } });
+
+    const card = screen.getByRole("button", { name: /use record detail panel template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Data Display");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DataList/));
+  });
+
+  it("includes an Integration Handshake template that elicits Handshake usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "handshake" } });
+
+    const card = screen.getByRole("button", { name: /use integration handshake template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Feedback");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Handshake/));
+  });
+
+  it("includes a Modal Form Dialog template that elicits non-confirmation Dialog usage", () => {
+    const onSelect = vi.fn();
+    render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
+    const searchInput = screen.getByRole("textbox", { name: /search templates/i });
+    fireEvent.change(searchInput, { target: { value: "modal form" } });
+
+    const card = screen.getByRole("button", { name: /use modal form dialog template/i });
+    expect(card).toBeDefined();
+    expect(card.textContent).toContain("Forms");
+
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Dialog/));
+    // The audit credits every existing "confirmation dialog" mention to
+    // ConfirmDialog, which is why Dialog still reads uncovered. This prompt only
+    // counts if it steers somewhere a confirmation prompt would not.
+    expect(onSelect).not.toHaveBeenCalledWith(expect.stringMatching(/confirmation dialog/i));
   });
 
   it("resets to All category and clears search when reopened", () => {
